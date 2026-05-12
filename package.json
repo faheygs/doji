@@ -73,5 +73,11 @@
       "react-native-toast-message@2.3.3": "patches/react-native-toast-message@2.3.3.patch"
     }
   },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@supabase/.*|zustand)"
+    ]
+  },
   "private": true
 }

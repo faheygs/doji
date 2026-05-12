@@ -114,9 +114,11 @@ function RootLayoutInner() {
   }, []);
 
   // Auto-register push token when user is authenticated
+  const session = useAuthStore((s) => s.session);
+  const userId = session?.user?.id;
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    const userId = useAuthStore.getState().session?.user?.id;
     if (!userId) return;
 
     let cancelled = false;
@@ -137,7 +139,7 @@ function RootLayoutInner() {
       } catch { /* token refresh is best-effort */ }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;

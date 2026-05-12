@@ -21,7 +21,8 @@
         "NSMicrophoneUsageDescription": "Doji needs microphone access for video challenges.",
         "NSPhotoLibraryUsageDescription": "Doji uses your photo library for challenge proof and your profile picture.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
