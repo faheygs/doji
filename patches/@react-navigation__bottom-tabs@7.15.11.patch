@@ -1,0 +1,59 @@
+diff --git a/lib/module/views/BottomTabBar.js b/lib/module/views/BottomTabBar.js
+index bb2d9c7a4d36ab3d1ee5af26bd952ae7aa26959d..bf084bdec3726becebc628675cee9d8c6c3b7a79 100644
+--- a/lib/module/views/BottomTabBar.js
++++ b/lib/module/views/BottomTabBar.js
+@@ -251,12 +251,14 @@ export function BottomTabBar({
+       paddingBottom: tabBarPosition === 'bottom' ? insets.bottom : 0,
+       paddingTop: tabBarPosition === 'top' ? insets.top : 0,
+       paddingHorizontal: Math.max(insets.left, insets.right)
++    }, {
++      pointerEvents: isTabBarHidden ? 'none' : 'auto'
+     }], tabBarStyle],
+-    pointerEvents: isTabBarHidden ? 'none' : 'auto',
+     onLayout: sidebar ? undefined : handleLayout,
+     children: [/*#__PURE__*/_jsx(View, {
+-      pointerEvents: "none",
+-      style: StyleSheet.absoluteFill,
++      style: [StyleSheet.absoluteFill, {
++        pointerEvents: 'none'
++      }],
+       children: tabBarBackgroundElement
+     }), /*#__PURE__*/_jsx(View, {
+       role: "tablist",
+@@ -349,7 +351,15 @@ const styles = StyleSheet.create({
+     start: 0,
+     end: 0,
+     bottom: 0,
+-    elevation: 8
++    ...Platform.select({
++      web: {
++        boxShadow: '0px -2px 16px rgba(0, 0, 0, 0.08)'
++      },
++      android: {
++        elevation: 8
++      },
++      default: {}
++    })
+   },
+   bottomContent: {
+     flex: 1,
+diff --git a/lib/module/views/BottomTabView.js b/lib/module/views/BottomTabView.js
+index 7f3b7bd5b2a998221fbcc6e12e34e01a075ad6b9..9854f277e0e8237a9acb44c215d968d002b84e09 100644
+--- a/lib/module/views/BottomTabView.js
++++ b/lib/module/views/BottomTabView.js
+@@ -216,13 +216,13 @@ export function BottomTabView(props) {
+         }) : STATE_INACTIVE;
+         return /*#__PURE__*/_jsx(MaybeScreen, {
+           style: [StyleSheet.absoluteFill, {
+-            zIndex: isFocused ? 0 : -1
++            zIndex: isFocused ? 0 : -1,
++            pointerEvents: isFocused ? 'box-none' : 'none'
+           }],
+           active: activityState,
+           enabled: detachInactiveScreens,
+           freezeOnBlur: freezeOnBlur,
+           shouldFreeze: activityState === STATE_INACTIVE && !isPreloaded,
+-          pointerEvents: isFocused ? 'box-none' : 'none',
+           children: /*#__PURE__*/_jsx(BottomTabBarHeightContext.Provider, {
+             value: tabBarPosition === 'bottom' ? tabBarHeight : 0,
+             children: /*#__PURE__*/_jsx(Screen, {

@@ -1,0 +1,50 @@
+diff --git a/lib/src/components/AnimatedContainer.js b/lib/src/components/AnimatedContainer.js
+index f9f2a108c5a2a8a64e1b77a0ad786f9cae8a0ba2..ee50fc927d06d73c1f5f88a1770182dde16019b5 100644
+--- a/lib/src/components/AnimatedContainer.js
++++ b/lib/src/components/AnimatedContainer.js
+@@ -86,10 +86,10 @@ export function AnimatedContainer({ children, isVisible, position, topOffset, bo
+         const newAnimationValue = isVisible ? 1 : 0;
+         animate(newAnimationValue);
+     }, [animate, isVisible]);
+-    return (<Animated.View testID={getTestId('AnimatedContainer')} onLayout={computeViewDimensions} style={[styles.base, styles[position], animationStyles]} 
++    return (<Animated.View testID={getTestId('AnimatedContainer')} onLayout={computeViewDimensions} style={[styles.base, styles[position], animationStyles, { pointerEvents: 'box-none' }]} 
+     // This container View is never the target of touch events but its subviews can be.
+     // By doing this, tapping buttons behind the Toast is allowed
+-    pointerEvents='box-none' {...panResponder.panHandlers}>
++    {...panResponder.panHandlers}>
+       {children}
+     </Animated.View>);
+ }
+diff --git a/lib/src/components/BaseToast.styles.js b/lib/src/components/BaseToast.styles.js
+index 105748bc5b96d0c1d2e4ccebad6f924da49c1d2c..59d9664e5dae0524613b745ff89eabdd46adbd2b 100644
+--- a/lib/src/components/BaseToast.styles.js
++++ b/lib/src/components/BaseToast.styles.js
+@@ -1,4 +1,4 @@
+-import { StyleSheet } from 'react-native';
++import { StyleSheet, Platform } from 'react-native';
+ export const HEIGHT = 60;
+ export const WIDTH = 340;
+ export const BORDER_RADIUS = 6;
+@@ -8,10 +8,18 @@ export const styles = StyleSheet.create({
+         height: HEIGHT,
+         width: WIDTH,
+         borderRadius: BORDER_RADIUS,
+-        shadowOffset: { width: 0, height: 0 },
+-        shadowOpacity: 0.1,
+-        shadowRadius: BORDER_RADIUS,
+-        elevation: 2,
++        ...Platform.select({
++            web: {
++                boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.12)',
++            },
++            default: {
++                shadowColor: '#000',
++                shadowOffset: { width: 0, height: 2 },
++                shadowOpacity: 0.12,
++                shadowRadius: BORDER_RADIUS,
++                elevation: 2,
++            },
++        }),
+         backgroundColor: '#FFF'
+     },
+     leadingBorder: {

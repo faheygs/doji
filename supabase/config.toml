@@ -1,0 +1,19 @@
+# `supabase/config.toml` — Edge Function JWT verification
+
+# For this project, auth is enforced inside each function (`CRON_SECRET` or user JWT).
+# See CRON_AND_SECRETS.md.
+
+[functions.schedule-daily-challenge]
+verify_jwt = false
+
+[functions.dispatch-challenge-pushes]
+verify_jwt = false
+
+[functions.expire-events]
+verify_jwt = false
+
+[functions.send-push-notifications]
+verify_jwt = false
+
+[functions.recalculate-streak]
+verify_jwt = false

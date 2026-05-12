@@ -1,0 +1,115 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../stores/useAuthStore';
+import type { UserEvent, Post, Challenge, DailyEvent } from '../types/database';
+import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
+
+export function useUserEvent() {
+  const session = useAuthStore((s) => s.session);
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: ['userEvent', 'today', userId],
+    queryFn: async (): Promise<UserEvent | null> => {
+      if (!userId) return null;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Fetch all today's events, prefer pending ones
+      const { data: allEvents, error } = await supabase
+        .from('user_events')
+        .select(
+          `*, daily_event:daily_events(*, challenge:challenges(*))`,
+        )
+        .eq('user_id', userId)
+        .gte('expires_at', today.toISOString())
+        .order('expires_at', { ascending: false });
+
+      if (error) throw error;
+      if (!allEvents || allEvents.length === 0) return null;
+
+      // Prefer first pending event; fall back to latest
+      const pending = allEvents.find((e: any) => e.status === 'pending');
+      const data = pending ?? allEvents[0];
+      if (!data) return null;
+
+      type UserEventQueryRow = UserEvent & {
+        daily_event?: DailyEvent & { challenge?: Challenge };
+      };
+      const row = data as UserEventQueryRow;
+      const challenge = row.daily_event?.challenge;
+      return { ...row, challenge } as UserEvent;
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 30,
+  });
+}
+
+type CreatePostPayload = {
+  userEventId: string;
+  photoUri: string | null;
+  frontPhotoUri: string | null;
+  videoUri: string | null;
+  caption: string;
+  isLate: boolean;
+};
+
+export function useCreatePost() {
+  const queryClient = useQueryClient();
+  const session = useAuthStore((s) => s.session);
+
+  return useMutation({
+    mutationFn: async (payload: CreatePostPayload) => {
+      const userId = session?.user.id;
+      if (!userId) throw new Error('Not authenticated');
+
+      let photoUrl: string | null = null;
+      let frontPhotoUrl: string | null = null;
+      let videoUrl: string | null = null;
+
+      if (payload.photoUri) {
+        photoUrl = await uploadPostMedia(userId, payload.photoUri, 'photo');
+      }
+      if (payload.frontPhotoUri) {
+        frontPhotoUrl = await uploadPostMedia(userId, payload.frontPhotoUri, 'front');
+      }
+      if (payload.videoUri) {
+        videoUrl = await uploadPostVideo(userId, payload.videoUri);
+      }
+
+      const { data: post, error: postError } = await supabase
+        .from('posts')
+        .insert({
+          user_event_id: payload.userEventId,
+          user_id: userId,
+          caption: payload.caption || null,
+          photo_url: photoUrl,
+          front_photo_url: frontPhotoUrl,
+          video_url: videoUrl,
+          is_late: payload.isLate,
+          visibility: 'friends',
+        })
+        .select()
+        .single();
+
+      if (postError) throw postError;
+
+      await supabase
+        .from('user_events')
+        .update({
+          status: payload.isLate ? 'late' : 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', payload.userEventId);
+
+      return post;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+  });
+}
