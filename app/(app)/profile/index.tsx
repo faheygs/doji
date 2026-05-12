@@ -127,7 +127,7 @@ export default function MyProfileScreen() {
         },
         section: {
           paddingHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
+          marginBottom: Spacing.xs,
         },
         sectionHeader: {
           flexDirection: 'row',

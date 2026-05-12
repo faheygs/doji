@@ -22,7 +22,7 @@
         "NSPhotoLibraryUsageDescription": "Doji uses your photo library for challenge proof and your profile picture.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {

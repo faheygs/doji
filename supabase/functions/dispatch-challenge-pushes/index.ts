@@ -121,10 +121,11 @@ Deno.serve(async (req) => {
         new Date(ev.fires_at).getTime() + ev.window_minutes * 60 * 1000,
       ).toISOString();
 
+      const emoji = categoryEmojis[challenge.category] ?? '⚡';
       const messages: ExpoMessage[] = pushRows.map((r) => ({
         to: r.profiles!.notification_token!.trim(),
-        title: '⚡ Time to Doji!',
-        body: "Something new just dropped — open the app to find out.",
+        title: `${emoji} It's time to Doji!`,
+        body: `${challenge.title} — you have ${ev.window_minutes} minutes. Go!`,
         data: {
           type: 'CHALLENGE',
           daily_event_id: ev.id,

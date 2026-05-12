@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { Spacing, Radius, webScrollParentStyle, type ThemeName } from '../../constants/theme';
@@ -19,6 +20,7 @@ const THEME_OPTIONS: { key: ThemeName; label: string; color: string }[] = [
 ];
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { profile, updateProfile, signOut } = useAuthStore();
   const { colors, setPreference, preference } = useTheme();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         scrollContent: { paddingBottom: Spacing.xxl },
-        header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+        header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center' },
         section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
         sectionTitle: { marginBottom: Spacing.sm, paddingHorizontal: Spacing.xs },
         card: { gap: Spacing.md },
@@ -155,7 +157,10 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text variant="headingLarge">Settings</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={{ marginRight: Spacing.sm }}>
+            <Text variant="body" color={colors.primary}>← Back</Text>
+          </TouchableOpacity>
+          <Text variant="headingLarge" style={{ flex: 1 }}>Settings</Text>
         </View>
 
         {/* Theme Picker — pill row */}

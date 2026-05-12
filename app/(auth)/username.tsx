@@ -39,6 +39,7 @@ export default function UsernameScreen() {
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.xxl,
           gap: Spacing.lg,
+          paddingBottom: Spacing.xl,
         },
         inputs: {
           gap: Spacing.md,
@@ -46,6 +47,9 @@ export default function UsernameScreen() {
         },
         footer: {
           padding: Spacing.lg,
+          paddingTop: Spacing.md,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.background,
         },
       }),
     [colors.background],

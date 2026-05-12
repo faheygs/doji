@@ -209,10 +209,9 @@ function PostCardImpl({ post, blurred }: Props) {
           <View style={styles.nameContainer}>
             <Text variant="headingMedium" numberOfLines={1}>
               @{post.profile?.username}
-              <Text variant="headingMedium" color={colors.textTertiary}>
-                {' · '}
-                {formatRelativeTime(post.created_at)}
-              </Text>
+            </Text>
+            <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+              {formatRelativeTime(post.created_at)}
             </Text>
           </View>
         </TouchableOpacity>

@@ -106,14 +106,9 @@ export default function CameraScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     try {
-      const back = await cameraRef.current.takePictureAsync({ quality: 0.85 });
-      setCapturedPhoto(back?.uri ?? null);
-
-      setFacing('front');
-      await new Promise((r) => setTimeout(r, 300));
-      const front = await cameraRef.current.takePictureAsync({ quality: 0.85 });
-      setCapturedFrontPhoto(front?.uri ?? null);
-      setFacing('back');
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
+      setCapturedPhoto(photo?.uri ?? null);
+      setCapturedFrontPhoto(null);
 
       afterPhotoCapture();
     } catch {
@@ -503,7 +498,7 @@ export default function CameraScreen() {
           <>
             <View style={styles.captureHint}>
               <Text variant="bodySmall" color="rgba(255,255,255,0.7)" style={{ textAlign: 'center' }}>
-                Tap to capture back camera, then front camera
+                Tap to capture your photo
               </Text>
             </View>
             <View style={styles.cameraFooter}>

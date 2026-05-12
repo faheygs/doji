@@ -60,6 +60,7 @@ type CreatePostPayload = {
 export function useCreatePost() {
   const queryClient = useQueryClient();
   const session = useAuthStore((s) => s.session);
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
     mutationFn: async (payload: CreatePostPayload) => {
@@ -110,6 +111,11 @@ export function useCreatePost() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
+      const uid = session?.user?.id;
+      if (uid) fetchProfile(uid);
     },
   });
 }
