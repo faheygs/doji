@@ -30,7 +30,7 @@ import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { getTimeRemaining, isExpired } from '../../utils/time';
 
-const WINDOW_SECONDS = 15 * 60;
+const DEFAULT_WINDOW_SECONDS = 15 * 60;
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -148,6 +148,15 @@ export default function ChallengeScreen() {
   const { data: userEvent, isLoading } = useUserEvent();
   const [timeLeft, setTimeLeft] = useState(0);
 
+  // Derive total window from the actual event data rather than hardcoding
+  const windowSeconds = useMemo(() => {
+    if (!userEvent?.expires_at || !userEvent?.created_at) return DEFAULT_WINDOW_SECONDS;
+    const created = new Date(userEvent.created_at).getTime();
+    const expires = new Date(userEvent.expires_at).getTime();
+    const diff = Math.floor((expires - created) / 1000);
+    return diff > 0 ? diff : DEFAULT_WINDOW_SECONDS;
+  }, [userEvent?.expires_at, userEvent?.created_at]);
+
   const heroScale = useSharedValue(0.92);
   const heroStyle = useAnimatedStyle(() => ({
     transform: [{ scale: heroScale.value }],
@@ -171,9 +180,15 @@ export default function ChallengeScreen() {
     return () => clearInterval(interval);
   }, [userEvent]);
 
+  const challengeType = challenge?.type ?? 'photo';
+
   const handleStartChallenge = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    router.push('/camera');
+    if (challengeType === 'poll') {
+      router.push('/(app)/poll');
+    } else {
+      router.push('/camera');
+    }
   };
 
   const handleClose = () => {
@@ -289,7 +304,7 @@ export default function ChallengeScreen() {
             </View>
           ) : (
             <CountdownRing
-              totalSeconds={WINDOW_SECONDS}
+              totalSeconds={windowSeconds}
               remainingSeconds={timeLeft}
               size={184}
               strokeWidth={6}
@@ -301,7 +316,7 @@ export default function ChallengeScreen() {
       <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.footer}>
         {!isMissed && !isCompleted ? (
           <Button onPress={handleStartChallenge} fullWidth size="lg">
-            Capture proof
+            {challengeType === 'poll' ? 'Vote Now' : challengeType === 'task' ? "Let's Do It" : 'Capture proof'}
           </Button>
         ) : (
           <Button onPress={handleClose} variant="secondary" fullWidth size="lg">

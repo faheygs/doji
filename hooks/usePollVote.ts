@@ -12,6 +12,7 @@ type VoteArgs = {
 export function usePollVote() {
   const qc = useQueryClient();
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
     mutationFn: async ({ challengeId, optionId, optionIndex, userEventId }: VoteArgs) => {
@@ -44,6 +45,8 @@ export function usePollVote() {
       qc.invalidateQueries({ queryKey: ['pollResults'] });
       qc.invalidateQueries({ queryKey: ['profile'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
+      qc.invalidateQueries({ queryKey: ['profilePosts'] });
+      if (userId) fetchProfile(userId);
     },
   });
 }
