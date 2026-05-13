@@ -4,6 +4,7 @@ import {
   StyleSheet,
   SafeAreaView,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -35,21 +36,19 @@ export default function UsernameScreen() {
           flex: 1,
         },
         content: {
-          flex: 1,
+          flexGrow: 1,
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.xxl,
           gap: Spacing.lg,
-          paddingBottom: Spacing.xl,
+          paddingBottom: Spacing.lg,
         },
         inputs: {
           gap: Spacing.md,
           marginTop: Spacing.md,
         },
         footer: {
-          padding: Spacing.lg,
-          paddingTop: Spacing.md,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.background,
+          marginTop: 'auto' as any,
+          paddingTop: Spacing.xl,
         },
       }),
     [colors.background],
@@ -122,7 +121,12 @@ export default function UsernameScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <IconProfile size={48} color={colors.textSecondary} />
           <Text variant="displayMedium">Set up your profile</Text>
           <Text variant="body" color={colors.textSecondary}>
@@ -150,19 +154,19 @@ export default function UsernameScreen() {
               onChangeText={setDisplayName}
             />
           </View>
-        </View>
 
-        <View style={styles.footer}>
-          <Button
-            onPress={handleCreate}
-            loading={loading}
-            fullWidth
-            size="lg"
-            disabled={username.length < 3 || !displayName.trim()}
-          >
-            Continue
-          </Button>
-        </View>
+          <View style={styles.footer}>
+            <Button
+              onPress={handleCreate}
+              loading={loading}
+              fullWidth
+              size="lg"
+              disabled={username.length < 3 || !displayName.trim()}
+            >
+              Continue
+            </Button>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

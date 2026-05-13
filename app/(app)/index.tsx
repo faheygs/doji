@@ -16,6 +16,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Avatar } from '../../components/ui/Avatar';
 import { PostCard } from '../../components/feed/PostCard';
+import { ErrorState } from '../../components/ui/ErrorState';
 import { DojiHeaderBrand } from '../../components/branding/DojiHeaderBrand';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
 import { ChallengeBanner } from '../../components/challenge/ChallengeBanner';
@@ -35,12 +36,13 @@ export default function FeedScreen() {
   const {
     data: feedPages,
     isLoading: feedLoading,
+    isError: feedError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     refetch,
   } = useFeed(feedFilter);
-  const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
+  const { data: userEvent, isLoading: userEventLoading, isError: userEventError } = useUserEvent();
   const profile = useAuthStore((s) => s.profile);
   const {
     unreadCount: notificationUnread,
@@ -272,6 +274,19 @@ export default function FeedScreen() {
     ),
     [styles.empty, styles.emptyText, colors.textSecondary, feedFilter],
   );
+
+  if (feedError || userEventError) {
+    return (
+      <SafeAreaView style={outerStyle}>
+        {ListHeader}
+        <ErrorState
+          title="Couldn't load your feed"
+          message="Check your connection and try again."
+          onRetry={() => void refetch()}
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (feedLoading && posts.length === 0) {
     return (

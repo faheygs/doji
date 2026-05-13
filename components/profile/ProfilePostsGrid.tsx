@@ -33,7 +33,7 @@ export function ProfilePostsGrid({ posts, emptyHint, onPostPress }: Props) {
       StyleSheet.create({
         sectionHeader: {
           paddingHorizontal: Spacing.lg,
-          marginBottom: Spacing.sm,
+          marginBottom: Spacing.xs,
         },
         grid: {
           flexDirection: 'row',
@@ -57,7 +57,7 @@ export function ProfilePostsGrid({ posts, emptyHint, onPostPress }: Props) {
           justifyContent: 'center',
         },
         empty: {
-          paddingVertical: Spacing.xl,
+          paddingVertical: Spacing.md,
           paddingHorizontal: Spacing.lg,
           alignItems: 'center',
         },
@@ -66,7 +66,7 @@ export function ProfilePostsGrid({ posts, emptyHint, onPostPress }: Props) {
   );
 
   return (
-    <View style={{ marginBottom: Spacing.xl }}>
+    <View style={{ marginBottom: Spacing.md }}>
       <View style={styles.sectionHeader}>
         <Text variant="headingMedium">Posts</Text>
       </View>

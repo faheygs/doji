@@ -13,6 +13,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { useLeaderboard, type LeaderboardMode } from '../../../hooks/useLeaderboard';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { ErrorState } from '../../../components/ui/ErrorState';
 import { LevelBadge } from '../../../components/gamification/LevelBadge';
 import type { LeaderboardEntry } from '../../../types/database';
 
@@ -81,7 +82,7 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const [mode, setMode] = useState<LeaderboardMode>('weekly');
-  const { data: entries, isLoading, refetch, isRefetching } = useLeaderboard(mode);
+  const { data: entries, isLoading, isError, refetch, isRefetching } = useLeaderboard(mode);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -114,7 +115,13 @@ export default function LeaderboardScreen() {
         {mode === 'weekly' ? 'Resets every Monday' : 'Total XP earned'}
       </Text>
 
-      {isLoading ? (
+      {isError ? (
+        <ErrorState
+          title="Couldn't load rankings"
+          message="Pull down to refresh or try again later."
+          onRetry={() => void refetch()}
+        />
+      ) : isLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
       ) : (
         <FlatList
