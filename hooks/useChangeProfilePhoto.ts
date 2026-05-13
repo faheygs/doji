@@ -18,7 +18,7 @@ export function useChangeProfilePhoto() {
 
   const uploadFromUri = useCallback(
     async (uri: string) => {
-      const uid = session?.user.id;
+      const uid = session?.user?.id;
       if (!uid) return;
       setUploading(true);
       try {
@@ -28,7 +28,7 @@ export function useChangeProfilePhoto() {
         await queryClient.invalidateQueries({ queryKey: ['feed'] });
         await queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'profilePosts' });
         await queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'post' });
-        if (session?.user.id) {
+        if (session?.user?.id) {
           await queryClient.invalidateQueries({ queryKey: ['friends', session.user.id] });
         }
         Toast.show({ type: 'success', text1: 'Profile photo updated!' });
@@ -39,7 +39,7 @@ export function useChangeProfilePhoto() {
         setUploading(false);
       }
     },
-    [session?.user.id, updateProfile, queryClient],
+    [session?.user?.id, updateProfile, queryClient],
   );
 
   const pickFromCamera = useCallback(async () => {

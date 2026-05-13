@@ -6,7 +6,7 @@ import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 
 export function useUserEvent() {
   const session = useAuthStore((s) => s.session);
-  const userId = session?.user.id;
+  const userId = session?.user?.id;
 
   return useQuery({
     queryKey: ['userEvent', 'today', userId],
@@ -16,40 +16,28 @@ export function useUserEvent() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { data: allEvents, error } = await supabase
+      // One challenge per day — get the most recent event for today
+      const { data, error } = await supabase
         .from('user_events')
         .select(
           `*, daily_event:daily_events(*, challenge:challenges(*))`,
         )
         .eq('user_id', userId)
         .gte('expires_at', today.toISOString())
-        .order('expires_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
-      if (!allEvents || allEvents.length === 0) return null;
+      if (!data) return null;
 
       type UserEventQueryRow = UserEvent & {
         daily_event?: DailyEvent & { challenge?: Challenge };
       };
 
-      const rows = allEvents as UserEventQueryRow[];
-
-      // If any event today is completed/late, return that one so feed unlocks
-      const completed = rows.find(
-        (e) => e.status === 'completed' || e.status === 'late',
-      );
-      if (completed) {
-        const challenge = completed.daily_event?.challenge;
-        return { ...completed, challenge } as UserEvent;
-      }
-
-      // Otherwise return the first pending event
-      const pending = rows.find((e) => e.status === 'pending');
-      const data = pending ?? rows[0];
-      if (!data) return null;
-
-      const challenge = data.daily_event?.challenge;
-      return { ...data, challenge } as UserEvent;
+      const row = data as UserEventQueryRow;
+      const challenge = row.daily_event?.challenge;
+      return { ...row, challenge } as UserEvent;
     },
     enabled: !!userId,
     staleTime: 1000 * 30,
@@ -72,7 +60,7 @@ export function useCreatePost() {
 
   return useMutation({
     mutationFn: async (payload: CreatePostPayload) => {
-      const userId = session?.user.id;
+      const userId = session?.user?.id;
       if (!userId) throw new Error('Not authenticated');
 
       let photoUrl: string | null = null;

@@ -24,7 +24,7 @@ function todayRange() {
 
 export function useFeed(filter: FeedFilterType = 'friends') {
   const session = useAuthStore((s) => s.session);
-  const userId = session?.user.id;
+  const userId = session?.user?.id;
 
   return useInfiniteQuery({
     queryKey: ['feed', userId, filter],
@@ -118,7 +118,7 @@ export function usePostReactions(postId: string) {
     getNextPageParam: (lastPage, allPages) =>
       lastPage.length === 50 ? allPages.length : undefined,
     initialPageParam: 0,
-    enabled: !!session?.user.id,
+    enabled: !!session?.user?.id,
   });
 }
 
@@ -179,7 +179,7 @@ export function useToggleReaction() {
 
   return useMutation({
     mutationFn: async ({ postId, emoji, active }: ToggleReactionVars) => {
-      const uid = session?.user.id;
+      const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
 
       if (active) {
@@ -200,7 +200,7 @@ export function useToggleReaction() {
       }
     },
     onMutate: async (vars) => {
-      const uid = session?.user.id;
+      const uid = session?.user?.id;
       if (!uid) return;
 
       await queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] === 'feed' });

@@ -26,7 +26,7 @@ export function useProfile(username?: string) {
 /** Single post — same shape as feed (for profile grid → detail). */
 export function usePost(postId?: string) {
   const session = useAuthStore((s) => s.session);
-  const me = session?.user.id;
+  const me = session?.user?.id;
 
   return useQuery({
     queryKey: ['post', postId, me],
@@ -59,7 +59,7 @@ export function usePost(postId?: string) {
 
 export function useProfilePosts(userId?: string) {
   const session = useAuthStore((s) => s.session);
-  const me = session?.user.id;
+  const me = session?.user?.id;
 
   return useQuery({
     queryKey: ['profilePosts', userId, me],
@@ -86,7 +86,7 @@ export function useProfilePosts(userId?: string) {
 
 export function useFriendship(targetUserId?: string) {
   const session = useAuthStore((s) => s.session);
-  const userId = session?.user.id;
+  const userId = session?.user?.id;
 
   return useQuery({
     queryKey: ['friendship', userId, targetUserId],
@@ -113,7 +113,7 @@ export function useSendFriendRequest() {
 
   return useMutation({
     mutationFn: async (addresseeId: string) => {
-      const requesterId = session?.user.id;
+      const requesterId = session?.user?.id;
       if (!requesterId) throw new Error('Not authenticated');
 
       const { error } = await supabase.from('friendships').insert({
@@ -125,7 +125,7 @@ export function useSendFriendRequest() {
       if (error) throw error;
     },
     onSuccess: (_data, addresseeId) => {
-      queryClient.invalidateQueries({ queryKey: ['friendship', session?.user.id, addresseeId] });
+      queryClient.invalidateQueries({ queryKey: ['friendship', session?.user?.id, addresseeId] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
     },
   });
@@ -169,7 +169,7 @@ export function useRespondToFriendRequest() {
 
 export function useFriends() {
   const session = useAuthStore((s) => s.session);
-  const userId = session?.user.id;
+  const userId = session?.user?.id;
 
   return useQuery({
     queryKey: ['friends', userId],
@@ -194,7 +194,7 @@ export function useFriends() {
 
 export function useFriendRequests() {
   const session = useAuthStore((s) => s.session);
-  const userId = session?.user.id;
+  const userId = session?.user?.id;
 
   return useQuery({
     queryKey: ['friendRequests', userId],

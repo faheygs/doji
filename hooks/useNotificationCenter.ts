@@ -65,7 +65,7 @@ function challengeSortAt(ev: UserEvent): string {
 }
 
 export function useNotificationCenter() {
-  const userId = useAuthStore((s) => s.session?.user.id);
+  const userId = useAuthStore((s) => s.session?.user?.id);
   const { watermark, markAllSeenUpToNow, watermarkReady } = useNotificationWatermark();
   const { data: friendRequests = [], isLoading: requestsLoading } = useFriendRequests();
 

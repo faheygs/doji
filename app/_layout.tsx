@@ -80,7 +80,7 @@ function RootLayoutInner() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session?.user.id) {
+      if (session?.user?.id) {
         fetchProfile(session.user.id);
       }
       setLoading(false);
@@ -90,7 +90,7 @@ function RootLayoutInner() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user.id) {
+      if (session?.user?.id) {
         fetchProfile(session.user.id);
       }
     });
