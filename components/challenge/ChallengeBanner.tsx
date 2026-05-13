@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -9,7 +9,7 @@ import { Text } from '../ui/Text';
 import { IconCheck, IconCamera } from '../icons/Icons';
 import { IcnBarChart } from '../icons/BadgeIcons';
 import { UserEvent } from '../../types/database';
-import { formatCountdown, getTimeRemaining, isExpired } from '../../utils/time';
+import { isExpired } from '../../utils/time';
 
 type Props = {
   userEvent: UserEvent | null;
@@ -114,20 +114,6 @@ export function ChallengeBanner({ userEvent }: Props) {
     [colors],
   );
 
-  const [timeLeft, setTimeLeft] = useState(
-    userEvent ? getTimeRemaining(userEvent.expires_at) : 0,
-  );
-
-  useEffect(() => {
-    if (!userEvent || userEvent.status !== 'pending') return;
-    const interval = setInterval(() => {
-      const remaining = getTimeRemaining(userEvent.expires_at);
-      setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [userEvent]);
-
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/(app)/challenge');
@@ -206,10 +192,9 @@ export function ChallengeBanner({ userEvent }: Props) {
           </View>
         </View>
         <View style={styles.timer}>
-          <Text variant="subhead" style={{ color: timeLeft < 60 ? '#FEE2E2' : '#FFFFFF' }}>
-            {formatCountdown(timeLeft)}
+          <Text variant="subhead" style={{ color: '#FFFFFF' }}>
+            GO →
           </Text>
-          <Text variant="nano" style={{ color: 'rgba(255,255,255,0.7)' }}>LEFT</Text>
         </View>
       </LinearGradient>
     </TouchableOpacity>

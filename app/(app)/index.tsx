@@ -16,6 +16,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Avatar } from '../../components/ui/Avatar';
 import { PostCard } from '../../components/feed/PostCard';
+import { PollResultCard } from '../../components/feed/PollResultCard';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { DojiHeaderBrand } from '../../components/branding/DojiHeaderBrand';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
@@ -244,6 +245,10 @@ export default function FeedScreen() {
         ) : (
           <ChallengeBanner userEvent={userEvent ?? null} />
         )}
+
+        {userEvent?.challenge?.type === 'poll' && userEvent.challenge ? (
+          <PollResultCard challenge={userEvent.challenge} />
+        ) : null}
       </View>
     ),
     [
