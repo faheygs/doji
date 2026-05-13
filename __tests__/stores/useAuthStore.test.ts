@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../stores/useAuthStore';
 import { supabase } from '../../lib/supabase';
+import { mergeNotificationPreferences } from '../../lib/notificationPreferences';
 
 jest.mock('../../lib/supabase');
 
@@ -72,7 +73,11 @@ describe('useAuthStore', () => {
       await useAuthStore.getState().fetchProfile('user-1');
 
       expect(mockFrom).toHaveBeenCalledWith('profiles');
-      expect(useAuthStore.getState().profile).toEqual(mockProfile);
+      expect(useAuthStore.getState().profile).toEqual({
+        ...mockProfile,
+        app_theme: 'midnight',
+        notification_preferences: mergeNotificationPreferences(undefined),
+      });
     });
 
     it('sets profile to null when not found', async () => {
@@ -119,7 +124,11 @@ describe('useAuthStore', () => {
       });
 
       await useAuthStore.getState().updateProfile({ display_name: 'New Name' });
-      expect(useAuthStore.getState().profile).toEqual(updated);
+      expect(useAuthStore.getState().profile).toEqual({
+        ...updated,
+        app_theme: 'midnight',
+        notification_preferences: mergeNotificationPreferences(undefined),
+      });
     });
 
     it('throws when not authenticated', async () => {

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types/database';
+import { mergeNotificationPreferences } from '../lib/notificationPreferences';
+import { normalizeAppTheme } from '../constants/theme';
 
 type AuthState = {
   session: Session | null;
@@ -41,7 +43,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    set({ profile: data ?? null });
+    set({
+      profile: data
+        ? {
+            ...data,
+            notification_preferences: mergeNotificationPreferences(
+              (data as Profile).notification_preferences,
+            ),
+          }
+        : null,
+    });
   },
 
   updateProfile: async (updates) => {
@@ -58,6 +69,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) throw error;
     if (!data) throw new Error('Profile update returned no row');
 
-    set({ profile: data });
+    set({
+      profile: {
+        ...data,
+        app_theme: normalizeAppTheme((data as Profile).app_theme),
+        notification_preferences: mergeNotificationPreferences(data.notification_preferences),
+      },
+    });
   },
 }));

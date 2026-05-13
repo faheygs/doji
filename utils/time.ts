@@ -7,6 +7,28 @@ export function getTimeRemaining(expiresAt: string): number {
   return Math.max(0, diff);
 }
 
+const BANNER_MAX_SECONDS = 10 * 60;
+
+/** Feed banner: seconds until window ends (fires_at + min(window_minutes, 10)), never shows more than 10: worth of countdown. */
+export function getBannerChallengeSecondsRemaining(
+  dailyEvent: { fires_at: string; window_minutes: number } | null | undefined,
+): number {
+  if (!dailyEvent?.fires_at) return 0;
+  const rawMins = dailyEvent.window_minutes;
+  const minutes = Math.min(rawMins > 0 ? rawMins : 10, 10);
+  const windowEndMs = new Date(dailyEvent.fires_at).getTime() + minutes * 60 * 1000;
+  const rawSec = Math.floor((windowEndMs - Date.now()) / 1000);
+  return Math.max(0, Math.min(rawSec, BANNER_MAX_SECONDS));
+}
+
+/** Countdown as m:ss only (never hours). */
+export function formatMinutesSecondsCountdown(totalSeconds: number): string {
+  if (totalSeconds <= 0) return '0:00';
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export function formatCountdown(seconds: number): string {
   if (seconds <= 0) return '0:00';
   const hrs = Math.floor(seconds / 3600);

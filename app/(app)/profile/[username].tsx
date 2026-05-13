@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
@@ -18,17 +18,14 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
 import { IconChevronLeft } from '../../../components/icons/Icons';
 import { ProfileStats } from '../../../components/profile/ProfileStats';
-import { ProfilePostsGrid } from '../../../components/profile/ProfilePostsGrid';
 import {
   useProfile,
-  useProfilePosts,
   useFriendship,
   useSendFriendRequest,
   useRespondToFriendRequest,
 } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { getCompletionRate } from '../../../utils/time';
-import type { Post } from '../../../types/database';
 
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
@@ -39,7 +36,6 @@ export default function UserProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: profile, isLoading } = useProfile(username);
-  const { data: posts = [] } = useProfilePosts(profile?.id);
   const { data: friendship } = useFriendship(profile?.id);
   const sendRequest = useSendFriendRequest();
   const respondRequest = useRespondToFriendRequest();
@@ -56,7 +52,6 @@ export default function UserProfileScreen() {
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['profile', username] }),
-        queryClient.invalidateQueries({ queryKey: ['profilePosts', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['friendship', currentProfile?.id, profile.id] }),
       ]);
     } finally {
@@ -68,14 +63,6 @@ export default function UserProfileScreen() {
     queryClient,
     currentProfile?.id,
   ]);
-
-  const openPost = useCallback(
-    (post: Post) => {
-      Haptics.selectionAsync();
-      router.push(`/(app)/post/${post.id}` as Href);
-    },
-    [router],
-  );
 
   const styles = useMemo(
     () =>
@@ -248,12 +235,6 @@ export default function UserProfileScreen() {
         </View>
 
         <ProfileStats profile={profile} completionRate={completionRate} />
-
-        <ProfilePostsGrid
-          posts={posts}
-          emptyHint="No posts yet."
-          onPostPress={openPost}
-        />
       </ScrollView>
     </SafeAreaView>
   );

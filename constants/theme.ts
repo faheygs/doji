@@ -300,6 +300,9 @@ export const forestColors: AppColors = {
 
 export type ThemeName = 'coral' | 'ocean' | 'midnight' | 'forest';
 
+/** Used for new installs and before the user picks a theme in Settings. */
+export const DEFAULT_APP_THEME: ThemeName = 'midnight';
+
 export const themeMap: Record<ThemeName, AppColors> = {
   coral: coralColors,
   ocean: oceanColors,
@@ -309,6 +312,16 @@ export const themeMap: Record<ThemeName, AppColors> = {
 
 export function isDarkTheme(name: ThemeName): boolean {
   return name === 'midnight';
+}
+
+export const THEME_NAME_LIST = Object.keys(themeMap) as ThemeName[];
+
+/** Coerce stored profile value to a valid client theme. */
+export function normalizeAppTheme(raw: unknown): ThemeName {
+  if (typeof raw === 'string' && (THEME_NAME_LIST as readonly string[]).includes(raw)) {
+    return raw as ThemeName;
+  }
+  return DEFAULT_APP_THEME;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +369,7 @@ export const XP_REWARDS = {
 // ---------------------------------------------------------------------------
 // Reaction config
 // ---------------------------------------------------------------------------
-export const REACTION_EMOJIS = ['fire', 'laugh', 'wow', 'love'] as const;
+export const REACTION_EMOJIS = ['fire', 'like', 'laugh', 'wow', 'love'] as const;
 export const REACTION_DISPLAY: Record<string, string> = {
   fire: '🔥',
   laugh: '😂',

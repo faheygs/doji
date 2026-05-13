@@ -21,20 +21,20 @@ import { IconCamera, IconSettings, IconFriends } from '@/components/icons/Icons'
 import { XPBar } from '@/components/gamification/XPBar';
 import { LevelBadge } from '@/components/gamification/LevelBadge';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
-import { ProfilePostsGrid } from '@/components/profile/ProfilePostsGrid';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useProfilePosts } from '@/hooks/useProfile';
 import { useBadgeDefinitions, useUserBadges } from '@/hooks/useBadges';
+import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
-import type { Post, Profile } from '@/types/database';
+import type { Profile } from '@/types/database';
 
 export default function MyProfileScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const profile = useAuthStore((s) => s.profile) as Profile | null;
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
   const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
-  const { data: posts = [] } = useProfilePosts(profile?.id);
+  const { data: reactionsSent = 0 } = useReactionsGivenCount(profile?.id);
   const { data: allBadges = [] } = useBadgeDefinitions();
   const { data: earnedBadges = [] } = useUserBadges(profile?.id);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,22 +44,15 @@ export default function MyProfileScreen() {
     setRefreshing(true);
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['profilePosts', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['userBadges', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['profile'] }),
+        queryClient.invalidateQueries({ queryKey: ['reactionsGiven', profile.id] }),
+        fetchProfile(profile.id),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [profile?.id, queryClient]);
-
-  const openPost = useCallback(
-    (post: Post) => {
-      Haptics.selectionAsync();
-      router.push(`/(app)/post/${post.id}` as Href);
-    },
-    [router],
-  );
+  }, [profile?.id, queryClient, fetchProfile]);
 
   const heroAvatarSize = 90;
 
@@ -89,7 +82,12 @@ export default function MyProfileScreen() {
           marginTop: Spacing.xs,
         },
         avatarShadowWrap: Platform.select({
-          ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: 10 } },
+          ios: {
+            shadowColor: '#000',
+            shadowOpacity: 0.1,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: 10 },
+          },
           android: { elevation: 8 },
           default: {},
         }) as object,
@@ -133,7 +131,10 @@ export default function MyProfileScreen() {
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: Spacing.xs,
+          marginBottom: Spacing.md,
+        },
+        badgesSection: {
+          paddingTop: Spacing.sm,
         },
         friendsLink: {
           flexDirection: 'row',
@@ -145,7 +146,7 @@ export default function MyProfileScreen() {
           borderColor: colors.border,
           padding: Spacing.md,
           marginHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
+          marginBottom: Spacing.lg,
           ...Shadows.card,
         },
       }),
@@ -162,7 +163,9 @@ export default function MyProfileScreen() {
         style={webScrollParentStyle}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
+        }
       >
         <View style={styles.topBar}>
           <View style={{ width: 26 }} />
@@ -241,19 +244,25 @@ export default function MyProfileScreen() {
             <Text variant="displayMedium" color={colors.primary}>
               🔥 {profile.current_streak ?? 0}
             </Text>
-            <Text variant="micro" color={colors.textSecondary}>Streak</Text>
+            <Text variant="micro" color={colors.textSecondary}>
+              Streak
+            </Text>
           </View>
           <View style={styles.statCard}>
             <Text variant="displayMedium" color={colors.text}>
               {profile.total_completions ?? 0}
             </Text>
-            <Text variant="micro" color={colors.textSecondary}>Done</Text>
+            <Text variant="micro" color={colors.textSecondary}>
+              Done
+            </Text>
           </View>
           <View style={styles.statCard}>
             <Text variant="displayMedium" color={colors.accent}>
-              {profile.reactions_received ?? 0}
+              {reactionsSent}
             </Text>
-            <Text variant="micro" color={colors.textSecondary}>Reactions</Text>
+            <Text variant="micro" color={colors.textSecondary}>
+              Reactions
+            </Text>
           </View>
         </View>
 
@@ -264,13 +273,17 @@ export default function MyProfileScreen() {
           activeOpacity={0.8}
         >
           <IconFriends size={22} color={colors.primary} />
-          <Text variant="body" color={colors.text} style={{ flex: 1 }}>Friends</Text>
-          <Text variant="caption" color={colors.textTertiary}>→</Text>
+          <Text variant="body" color={colors.text} style={{ flex: 1 }}>
+            Friends
+          </Text>
+          <Text variant="caption" color={colors.textTertiary}>
+            →
+          </Text>
         </TouchableOpacity>
 
         {/* Badges */}
         {allBadges.length > 0 && (
-          <View style={styles.section}>
+          <View style={[styles.section, styles.badgesSection]}>
             <View style={styles.sectionHeader}>
               <Text variant="headingMedium">Badges</Text>
               <Text variant="caption" color={colors.textTertiary}>
@@ -280,13 +293,6 @@ export default function MyProfileScreen() {
             <BadgesGrid badges={allBadges} earned={earnedBadges} />
           </View>
         )}
-
-        {/* Posts Grid */}
-        <ProfilePostsGrid
-          posts={posts}
-          emptyHint="No posts yet. Complete today's challenge to share!"
-          onPostPress={openPost}
-        />
       </ScrollView>
     </SafeAreaView>
   );

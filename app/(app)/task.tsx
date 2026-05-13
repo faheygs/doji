@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -29,6 +29,15 @@ export default function TaskScreen() {
 
   const challenge = userEvent?.challenge;
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (!userEvent) return;
+    const t = userEvent.challenge?.type;
+    if (t && t !== 'task') {
+      router.replace('/(app)/challenge');
+    }
+  }, [isLoading, userEvent, router]);
+
   const handleSubmit = useCallback(async () => {
     if (!userEvent || !answer.trim()) return;
 
@@ -42,19 +51,19 @@ export default function TaskScreen() {
         videoUri: null,
         caption: answer.trim(),
         isLate: isExpired(userEvent.expires_at),
+        postType: 'task_complete',
       },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           router.replace('/(app)');
-          Toast.show({ type: 'success', text1: 'Answer submitted!' });
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
         },
       },
     );
-  }, [userEvent, answer, createPost, router]);
+  }, [userEvent, answer, createPost, router, challenge?.xp_reward]);
 
   const styles = useMemo(
     () =>

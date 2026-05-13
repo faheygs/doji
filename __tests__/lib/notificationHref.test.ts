@@ -11,6 +11,14 @@ function notificationHrefFromData(data: unknown): Href | null {
   const url = rec.url;
   if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) return url as Href;
   if (rec.type === 'CHALLENGE') return '/(app)/challenge';
+  const postId = rec.postId;
+  if (
+    (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
+    typeof postId === 'string' &&
+    postId.length > 0
+  ) {
+    return `/(app)/post/${postId}` as Href;
+  }
   return null;
 }
 
@@ -50,6 +58,20 @@ describe('notificationHrefFromData', () => {
 
   it('returns challenge href for type CHALLENGE', () => {
     expect(notificationHrefFromData({ type: 'CHALLENGE' })).toBe('/(app)/challenge');
+  });
+
+  it('returns post href for REACTION with postId', () => {
+    expect(notificationHrefFromData({ type: 'REACTION', postId: 'abc-123' })).toBe(
+      '/(app)/post/abc-123',
+    );
+  });
+
+  it('returns post href for FRIEND_POST with postId', () => {
+    expect(notificationHrefFromData({ type: 'FRIEND_POST', postId: 'xyz' })).toBe('/(app)/post/xyz');
+  });
+
+  it('returns null for REACTION without postId', () => {
+    expect(notificationHrefFromData({ type: 'REACTION' })).toBeNull();
   });
 
   it('prefers url over type', () => {

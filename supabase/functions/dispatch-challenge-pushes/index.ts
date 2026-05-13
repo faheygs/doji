@@ -29,8 +29,18 @@ type UeRow = {
   id: string;
   user_id: string;
   notified_at: string | null;
-  profiles: { notification_token: string | null } | null;
+  profiles: {
+    notification_token: string | null;
+    notification_preferences?: Record<string, unknown> | null;
+  } | null;
 };
+
+function wantsDojiPush(prefs: Record<string, unknown> | null | undefined): boolean {
+  if (!prefs || typeof prefs !== 'object') return true;
+  if (prefs.push_enabled === false) return false;
+  if (prefs.doji_start === false) return false;
+  return true;
+}
 
 function needsPush(row: UeRow): boolean {
   return !row.notified_at && Boolean(row.profiles?.notification_token?.trim());
@@ -39,7 +49,7 @@ function needsPush(row: UeRow): boolean {
 async function markDispatchedIfComplete(dailyEventId: string) {
   const { data: allUE, error } = await supabase
     .from('user_events')
-    .select('id, notified_at, profiles(notification_token)')
+    .select('id, notified_at, profiles(notification_token, notification_preferences)')
     .eq('daily_event_id', dailyEventId);
 
   if (error) throw error;
@@ -99,13 +109,25 @@ Deno.serve(async (req) => {
 
       const { data: userEvents, error: ueErr } = await supabase
         .from('user_events')
-        .select('id, user_id, notified_at, profiles(notification_token)')
+        .select('id, user_id, notified_at, profiles(notification_token, notification_preferences)')
         .eq('daily_event_id', ev.id);
 
       if (ueErr) throw ueErr;
 
       const rows = (userEvents ?? []) as UeRow[];
-      const pushRows = rows.filter(needsPush);
+      const candidates = rows.filter(needsPush);
+      const pushRows = candidates.filter((r) => wantsDojiPush(r.profiles?.notification_preferences ?? null));
+      const skippedOptOut = candidates.filter(
+        (r) => !wantsDojiPush(r.profiles?.notification_preferences ?? null),
+      );
+
+      const skippedIds = skippedOptOut.map((r) => r.id);
+      if (skippedIds.length > 0) {
+        await supabase
+          .from('user_events')
+          .update({ notified_at: new Date().toISOString() })
+          .in('id', skippedIds);
+      }
 
       if (pushRows.length === 0) {
         const done = await markDispatchedIfComplete(ev.id);

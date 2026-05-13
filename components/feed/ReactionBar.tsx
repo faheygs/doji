@@ -8,7 +8,7 @@ import { REACTION_CONTROLS, REACTION_ICON_TINT } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
 import type { Post, ReactionEmoji } from '../../types/database';
 
-const ICON_SZ = 24;
+const ICON_SZ = 22;
 
 type Props = {
   post: Post;

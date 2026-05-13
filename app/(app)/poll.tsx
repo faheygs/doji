@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,13 +13,11 @@ import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
-import { CountdownRing } from '../../components/challenge/CountdownRing';
 import { IconClose } from '../../components/icons/Icons';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { usePollVote } from '../../hooks/usePollVote';
 import { supabase } from '../../lib/supabase';
-import { getTimeRemaining } from '../../utils/time';
 import type { PollOption } from '../../types/database';
 
 export default function PollScreen() {
@@ -28,6 +26,15 @@ export default function PollScreen() {
   const { data: userEvent, isLoading: eventLoading } = useUserEvent();
   const pollVote = usePollVote();
   const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventLoading) return;
+    if (!userEvent) return;
+    const t = userEvent.challenge?.type;
+    if (t && t !== 'poll') {
+      router.replace('/(app)/challenge');
+    }
+  }, [eventLoading, userEvent, router]);
 
   const challenge = userEvent?.challenge;
   const challengeId = challenge?.id;
@@ -52,27 +59,6 @@ export default function PollScreen() {
     enabled: !!challengeId,
   });
 
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  useEffect(() => {
-    if (!userEvent) return;
-    setTimeLeft(getTimeRemaining(userEvent.expires_at));
-    const interval = setInterval(() => {
-      const remaining = getTimeRemaining(userEvent.expires_at);
-      setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [userEvent]);
-
-  const windowSeconds = useMemo(() => {
-    if (!userEvent?.expires_at || !userEvent?.created_at) return 15 * 60;
-    const created = new Date(userEvent.created_at).getTime();
-    const expires = new Date(userEvent.expires_at).getTime();
-    const diff = Math.floor((expires - created) / 1000);
-    return diff > 0 ? diff : 15 * 60;
-  }, [userEvent?.expires_at, userEvent?.created_at]);
-
   const handleVote = useCallback(async () => {
     if (!selected || !challengeId || !userEvent) return;
     const optionIndex = options.findIndex((o) => o.id === selected);
@@ -90,14 +76,13 @@ export default function PollScreen() {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           router.replace('/(app)');
-          Toast.show({ type: 'success', text1: 'Vote submitted!' });
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to vote' });
         },
       },
     );
-  }, [selected, challengeId, userEvent, options, pollVote, router]);
+  }, [selected, challengeId, userEvent, options, pollVote, router, challenge?.xp_reward]);
 
   const styles = useMemo(
     () =>
@@ -174,13 +159,6 @@ export default function PollScreen() {
       </View>
 
       <View style={styles.content}>
-        <CountdownRing
-          totalSeconds={windowSeconds}
-          remainingSeconds={timeLeft}
-          size={120}
-          strokeWidth={5}
-        />
-
         <Text variant="displayMedium" style={styles.title}>
           {challenge?.title ?? 'Poll'}
         </Text>

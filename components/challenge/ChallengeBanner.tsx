@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -6,30 +6,36 @@ import { useRouter } from 'expo-router';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { IconCheck, IconCamera } from '../icons/Icons';
-import { IcnBarChart } from '../icons/BadgeIcons';
-import { UserEvent } from '../../types/database';
-import { isExpired } from '../../utils/time';
+import { UserEvent, type ChallengeType } from '../../types/database';
+import {
+  isExpired,
+  getBannerChallengeSecondsRemaining,
+  formatMinutesSecondsCountdown,
+} from '../../utils/time';
+import { challengeKindLabel } from '../../lib/challengeDisplay';
+import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
 
 type Props = {
   userEvent: UserEvent | null;
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  photo: 'Photo',
-  poll: 'Poll',
-  task: 'Task',
-};
-
-function TypeIcon({ type, size, color }: { type: string; size: number; color: string }) {
-  if (type === 'poll') return <IcnBarChart size={size} color={color} />;
-  if (type === 'task') return <IconCheck size={size} color={color} />;
-  return <IconCamera size={size} color={color} />;
-}
-
 export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
+
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (!userEvent?.daily_event?.fires_at) {
+      setSecondsLeft(0);
+      return;
+    }
+    const de = userEvent.daily_event;
+    const tick = () => setSecondsLeft(getBannerChallengeSecondsRemaining(de));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [userEvent?.daily_event?.fires_at, userEvent?.daily_event?.window_minutes]);
 
   const styles = useMemo(
     () =>
@@ -57,18 +63,6 @@ export function ChallengeBanner({ userEvent }: Props) {
           marginBottom: Spacing.sm,
           padding: Spacing.md,
         },
-        completedBanner: {
-          backgroundColor: `${colors.success}14`,
-          borderWidth: 1,
-          borderColor: `${colors.success}59`,
-          borderRadius: Radius.lg,
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: Spacing.md,
-          gap: Spacing.sm,
-        },
         missedBanner: {
           backgroundColor: colors.surfaceMuted,
           borderWidth: 1,
@@ -80,15 +74,6 @@ export function ChallengeBanner({ userEvent }: Props) {
           alignItems: 'center',
           padding: Spacing.md,
           gap: Spacing.sm,
-        },
-        checkCircle: {
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          borderWidth: 2,
-          borderColor: colors.success,
-          alignItems: 'center',
-          justifyContent: 'center',
         },
         iconCircle: {
           width: 44,
@@ -109,7 +94,14 @@ export function ChallengeBanner({ userEvent }: Props) {
           borderRadius: Radius.full,
           backgroundColor: 'rgba(255,255,255,0.2)',
         },
-        timer: { alignItems: 'flex-end' },
+        timer: { alignItems: 'flex-end', gap: 4 },
+        timerDigits: {
+          color: '#FFFFFF',
+          fontVariant: ['tabular-nums'],
+        },
+        timerUrgent: {
+          color: '#FFEB3B',
+        },
       }),
     [colors],
   );
@@ -131,24 +123,12 @@ export function ChallengeBanner({ userEvent }: Props) {
   }
 
   const challenge = userEvent.challenge;
-  const challengeType = challenge?.type ?? 'photo';
+  const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
   const xpReward = challenge?.xp_reward ?? 50;
   const participants = challenge?.participant_count ?? 0;
 
   if (userEvent.status === 'completed' || userEvent.status === 'late') {
-    return (
-      <View style={styles.completedBanner}>
-        <View style={styles.checkCircle}>
-          <IconCheck size={18} color={colors.success} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text variant="micro" color={colors.success}>COMPLETE</Text>
-          <Text variant="body" color={colors.textSecondary}>
-            +{xpReward} XP earned
-          </Text>
-        </View>
-      </View>
-    );
+    return null;
   }
 
   if (userEvent.status === 'missed' || isExpired(userEvent.expires_at)) {
@@ -171,11 +151,11 @@ export function ChallengeBanner({ userEvent }: Props) {
         style={styles.banner}
       >
         <View style={styles.iconCircle}>
-          <TypeIcon type={challengeType} size={24} color="#FFFFFF" />
+          <ChallengeTypeGlyph type={challengeType} size={24} color="#FFFFFF" />
         </View>
         <View style={styles.bannerBody}>
           <Text variant="micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
-            {TYPE_LABEL[challengeType] ?? 'Challenge'}
+            {challengeKindLabel(challenge ?? null, challengeType)}
           </Text>
           <Text variant="subhead" style={{ color: '#FFFFFF' }} numberOfLines={1}>
             {challenge?.title ?? 'Challenge'}
@@ -192,6 +172,12 @@ export function ChallengeBanner({ userEvent }: Props) {
           </View>
         </View>
         <View style={styles.timer}>
+          <Text
+            variant="label"
+            style={[styles.timerDigits, secondsLeft > 0 && secondsLeft <= 60 ? styles.timerUrgent : null]}
+          >
+            {formatMinutesSecondsCountdown(secondsLeft)}
+          </Text>
           <Text variant="subhead" style={{ color: '#FFFFFF' }}>
             GO →
           </Text>

@@ -158,7 +158,7 @@ BEGIN
 
   IF deid IS NULL THEN
     INSERT INTO public.daily_events (challenge_id, fires_at, window_minutes)
-    VALUES (cid, now() + interval '1 hour', 720)
+    VALUES (cid, now() + interval '1 hour', 10)
     RETURNING id INTO deid;
   END IF;
 

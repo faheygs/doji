@@ -1,40 +1,44 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppColors, ThemeName } from '../constants/theme';
-import { themeMap, isDarkTheme } from '../constants/theme';
-
-const STORAGE_KEY = '@doit/theme-preference';
+import {
+  themeMap,
+  isDarkTheme,
+  DEFAULT_APP_THEME,
+  normalizeAppTheme,
+} from '../constants/theme';
+import { useAuthStore } from '../stores/useAuthStore';
 
 export type ThemePreference = ThemeName;
 
 type ThemeContextValue = {
   colors: AppColors;
   preference: ThemePreference;
-  setPreference: (p: ThemePreference) => void;
+  /** Persists to `profiles.app_theme` when logged in. */
+  setPreference: (p: ThemePreference) => Promise<void>;
   isDark: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const VALID_THEMES: ThemeName[] = ['coral', 'ocean', 'midnight', 'forest'];
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>('midnight');
+  const profile = useAuthStore((s) => s.profile);
+  const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_APP_THEME);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
-      if (stored && VALID_THEMES.includes(stored as ThemeName)) {
-        setPreferenceState(stored as ThemeName);
-        return;
-      }
-      setPreferenceState('midnight');
-      AsyncStorage.setItem(STORAGE_KEY, 'midnight').catch(() => {});
-    });
-  }, []);
+    if (!profile) {
+      setPreferenceState(DEFAULT_APP_THEME);
+      return;
+    }
+    setPreferenceState(normalizeAppTheme(profile.app_theme));
+  }, [profile?.id, profile?.app_theme]);
 
-  const setPreference = useCallback((p: ThemePreference) => {
-    setPreferenceState(p);
-    AsyncStorage.setItem(STORAGE_KEY, p).catch(() => {});
+  const setPreference = useCallback(async (p: ThemePreference) => {
+    const { session, updateProfile } = useAuthStore.getState();
+    if (!session?.user?.id) {
+      setPreferenceState(p);
+      return;
+    }
+    await updateProfile({ app_theme: p });
   }, []);
 
   const colors = themeMap[preference];

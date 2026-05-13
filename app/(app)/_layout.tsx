@@ -107,8 +107,11 @@ export default function AppLayout() {
       {/* Hidden screens (no tab bar icon) */}
       <Tabs.Screen name="friends" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="challenge" options={{ href: null }} />
       <Tabs.Screen name="camera" options={{ href: null }} />
+      <Tabs.Screen name="poll" options={{ href: null }} />
+      <Tabs.Screen name="task" options={{ href: null }} />
       <Tabs.Screen name="post" options={{ href: null }} />
     </Tabs>
   );

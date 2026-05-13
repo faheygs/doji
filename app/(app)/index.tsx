@@ -11,17 +11,16 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
+import { useQueryClient } from '@tanstack/react-query';
+import { Spacing, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Avatar } from '../../components/ui/Avatar';
 import { PostCard } from '../../components/feed/PostCard';
-import { PollResultCard } from '../../components/feed/PollResultCard';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { DojiHeaderBrand } from '../../components/branding/DojiHeaderBrand';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
 import { ChallengeBanner } from '../../components/challenge/ChallengeBanner';
-import { FeedToggle, type FeedFilter } from '../../components/feed/FeedToggle';
 import { IconBell } from '../../components/icons/Icons';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { useUserEvent } from '../../hooks/useUserEvent';
@@ -32,8 +31,6 @@ import type { Post } from '../../types/database';
 export default function FeedScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>('friends');
-
   const {
     data: feedPages,
     isLoading: feedLoading,
@@ -42,8 +39,14 @@ export default function FeedScreen() {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useFeed(feedFilter);
-  const { data: userEvent, isLoading: userEventLoading, isError: userEventError } = useUserEvent();
+  } = useFeed();
+  const queryClient = useQueryClient();
+  const {
+    data: userEvent,
+    isLoading: userEventLoading,
+    isError: userEventError,
+    refetch: refetchUserEvent,
+  } = useUserEvent();
   const profile = useAuthStore((s) => s.profile);
   const {
     unreadCount: notificationUnread,
@@ -105,18 +108,14 @@ export default function FeedScreen() {
           fontSize: 11,
           fontWeight: '700',
         },
-        streakPill: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-          backgroundColor: colors.primaryPale,
-          paddingHorizontal: Spacing.sm,
-          paddingVertical: 4,
-          borderRadius: Radius.full,
-        },
-        toggleWrapper: {
+        feedHeading: {
           paddingHorizontal: Spacing.md,
-          paddingTop: Spacing.xs,
+          paddingTop: Spacing.sm,
+          paddingBottom: Spacing.xs,
+          alignItems: 'center',
+        },
+        feedTitle: {
+          textAlign: 'center',
         },
         list: {
           paddingBottom: Spacing.xxl,
@@ -155,9 +154,15 @@ export default function FeedScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }, [refetch]);
+    try {
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ['userEvent'] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch, queryClient]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
@@ -180,8 +185,6 @@ export default function FeedScreen() {
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
-  const streak = profile?.current_streak ?? 0;
-
   const ListHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
@@ -189,13 +192,6 @@ export default function FeedScreen() {
           <View style={styles.feedTopInner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
               <DojiHeaderBrand />
-              {streak > 0 && (
-                <View style={styles.streakPill}>
-                  <Text variant="micro" color={colors.primary}>
-                    🔥 {streak}
-                  </Text>
-                </View>
-              )}
             </View>
             <View style={styles.topActions}>
               <TouchableOpacity
@@ -231,8 +227,10 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        <View style={styles.toggleWrapper}>
-          <FeedToggle value={feedFilter} onChange={setFeedFilter} />
+        <View style={styles.feedHeading} accessibilityRole="header">
+          <Text variant="headingLarge" style={styles.feedTitle}>
+            {"Today's feed"}
+          </Text>
         </View>
 
         {userEventLoading ? (
@@ -245,17 +243,11 @@ export default function FeedScreen() {
         ) : (
           <ChallengeBanner userEvent={userEvent ?? null} />
         )}
-
-        {userEvent?.challenge?.type === 'poll' && userEvent.challenge ? (
-          <PollResultCard challenge={userEvent.challenge} />
-        ) : null}
       </View>
     ),
     [
       styles,
       colors,
-      streak,
-      feedFilter,
       notificationUnread,
       profile?.avatar_url,
       profile?.username,
@@ -271,13 +263,11 @@ export default function FeedScreen() {
       <View style={styles.empty}>
         <Text variant="headingLarge">Nothing yet</Text>
         <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-          {feedFilter === 'friends'
-            ? "No friends have posted yet.\nBe the first!"
-            : 'No one has posted yet.\nBe the first to respond!'}
+          No posts yet today.\nBe the first to respond!
         </Text>
       </View>
     ),
-    [styles.empty, styles.emptyText, colors.textSecondary, feedFilter],
+    [styles.empty, styles.emptyText, colors.textSecondary],
   );
 
   if (feedError || userEventError) {
@@ -287,7 +277,10 @@ export default function FeedScreen() {
         <ErrorState
           title="Couldn't load your feed"
           message="Check your connection and try again."
-          onRetry={() => void refetch()}
+          onRetry={() => {
+            void refetch();
+            void refetchUserEvent();
+          }}
         />
       </SafeAreaView>
     );

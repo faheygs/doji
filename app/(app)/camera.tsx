@@ -10,7 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,12 +26,10 @@ import {
   IconCamera,
   IconChevronLeft,
   IconClose,
-  IconFlipCamera,
-  IconTimer,
 } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { getTimeRemaining, formatCountdown, isExpired } from '../../utils/time';
+import { isExpired } from '../../utils/time';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,7 +41,7 @@ export default function CameraScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
+  const facing = 'back' as const;
   const [capturing, setCapturing] = useState(false);
   const [flowStep, setFlowStep] = useState<FlowStep>('chooseSource');
   const [caption, setCaption] = useState('');
@@ -67,18 +65,6 @@ export default function CameraScreen() {
   const needPhoto = challenge?.requires_photo ?? true;
   const needVideo = challenge?.requires_video ?? false;
 
-  const [timeLeft, setTimeLeft] = useState(
-    userEvent ? getTimeRemaining(userEvent.expires_at) : 0,
-  );
-
-  useEffect(() => {
-    if (!userEvent) return;
-    const interval = setInterval(() => {
-      setTimeLeft(getTimeRemaining(userEvent.expires_at));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [userEvent]);
-
   useEffect(() => {
     clearCaptures();
   }, [clearCaptures]);
@@ -88,12 +74,16 @@ export default function CameraScreen() {
     if (!userEvent) {
       Toast.show({ type: 'error', text1: 'No active challenge' });
       router.back();
+      return;
+    }
+    const t = userEvent.challenge?.type;
+    if (t && t !== 'photo') {
+      router.replace('/(app)/challenge');
     }
   }, [userEvent, userEventLoading, router]);
 
   const afterPhotoCapture = useCallback(() => {
     if (needVideo) {
-      setFacing('back');
       setFlowStep('captureVideo');
     } else {
       setFlowStep('preview');
@@ -215,7 +205,6 @@ export default function CameraScreen() {
       }
     }
     if (!needPhoto && needVideo) {
-      setFacing('back');
       setFlowStep('captureVideo');
       return;
     }
@@ -260,7 +249,6 @@ export default function CameraScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
           router.replace('/(app)');
-          Toast.show({ type: 'success', text1: 'Posted. Streak kept.' });
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
@@ -306,7 +294,7 @@ export default function CameraScreen() {
               ? 'You need a photo and a video for this challenge.'
               : needVideo
                 ? 'This challenge needs a video.'
-                : 'Capture with both cameras or pick an existing photo.'}
+                : 'Take a photo or pick one from your library.'}
             {webHint ? `\n${webHint}` : ''}
           </Text>
           <View style={styles.chooseButtons}>
@@ -391,12 +379,6 @@ export default function CameraScreen() {
                   Retake
                 </Text>
               </TouchableOpacity>
-              <View style={styles.timerBadgeLight}>
-                <IconTimer size={14} color={timeLeft < 60 ? colors.error : colors.textSecondary} />
-                <Text variant="label" color={timeLeft < 60 ? colors.error : colors.textSecondary}>
-                  {formatCountdown(timeLeft)}
-                </Text>
-              </View>
             </View>
           </SafeAreaView>
 
@@ -475,23 +457,7 @@ export default function CameraScreen() {
           >
             <IconClose size={26} color="#fff" />
           </TouchableOpacity>
-          <View style={styles.timerBadge}>
-            <IconTimer size={14} color={timeLeft < 60 ? colors.error : '#fff'} />
-            <Text variant="label" color={timeLeft < 60 ? colors.error : '#fff'}>
-              {formatCountdown(timeLeft)}
-            </Text>
-          </View>
-          {showPhotoControls ? (
-            <TouchableOpacity
-              onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
-              style={styles.headerButton}
-              hitSlop={16}
-            >
-              <IconFlipCamera size={24} color="#fff" />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
+          <View style={styles.headerSpacer} />
         </View>
 
         {showPhotoControls ? (
@@ -599,30 +565,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerSpacer: {
-    width: 44,
-    height: 44,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  timerBadgeLight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    flex: 1,
   },
   captureHint: {
     paddingHorizontal: Spacing.xl,
@@ -687,7 +630,7 @@ const styles = StyleSheet.create({
   },
   previewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,

@@ -4,32 +4,57 @@ import { useQuery } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { CategoryBadge } from '../ui/CategoryBadge';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
-import type { PollOption, Challenge } from '../../types/database';
+import type { Challenge, PollOption } from '../../types/database';
+
+type PollRow = PollOption & { liveCount: number };
 
 type Props = {
   challenge: Challenge;
+  /** full = feed header card margins; embedded = inside another card (e.g. generic Poll post) */
+  variant?: 'full' | 'embedded';
+  /** When false, skips fetching (e.g. user has not unlocked the feed yet). */
+  fetchEnabled?: boolean;
 };
 
-function PollResultCardImpl({ challenge }: Props) {
+function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }: Props) {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
 
-  const { data: options = [] } = useQuery<PollOption[]>({
-    queryKey: ['pollOptions', challenge.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('poll_options')
-        .select('*')
-        .eq('challenge_id', challenge.id)
-        .order('position', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+  const { data } = useQuery({
+    queryKey: ['pollResults', challenge.id],
+    queryFn: async (): Promise<{ rows: PollRow[]; totalVotes: number }> => {
+      const [{ data: options, error: optErr }, { data: votes, error: voteErr }] = await Promise.all([
+        supabase
+          .from('poll_options')
+          .select('*')
+          .eq('challenge_id', challenge.id)
+          .order('position', { ascending: true }),
+        supabase.from('poll_votes').select('option_id').eq('challenge_id', challenge.id),
+      ]);
+      if (optErr) throw optErr;
+      if (voteErr) throw voteErr;
+
+      const counts = new Map<string, number>();
+      for (const row of votes ?? []) {
+        const id = row.option_id as string;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+
+      const rows: PollRow[] = (options ?? []).map((o) => ({
+        ...(o as PollOption),
+        liveCount: counts.get(o.id) ?? 0,
+      }));
+      const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
+      return { rows, totalVotes };
     },
-    refetchInterval: 10_000,
+    refetchInterval: fetchEnabled ? 10_000 : false,
+    enabled: fetchEnabled,
   });
+
+  const rows = data?.rows ?? [];
+  const totalVotes = data?.totalVotes ?? 0;
 
   const { data: myVoteOptionId } = useQuery<string | null>({
     queryKey: ['myPollVote', challenge.id, userId],
@@ -44,10 +69,8 @@ function PollResultCardImpl({ challenge }: Props) {
       if (error) throw error;
       return data?.option_id ?? null;
     },
-    enabled: !!userId,
+    enabled: !!userId && fetchEnabled,
   });
-
-  const totalVotes = options.reduce((sum, o) => sum + (o.vote_count ?? 0), 0);
 
   const styles = useMemo(
     () =>
@@ -57,15 +80,15 @@ function PollResultCardImpl({ challenge }: Props) {
           borderRadius: Radius.lg,
           borderWidth: 1,
           borderColor: colors.border,
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.md,
+          marginHorizontal: variant === 'full' ? Spacing.md : 0,
+          marginBottom: variant === 'full' ? Spacing.md : Spacing.sm,
           padding: Spacing.md,
           gap: Spacing.sm,
         },
         header: {
           flexDirection: 'row',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: 'flex-start',
         },
         optionRow: {
           borderRadius: Radius.md,
@@ -94,8 +117,23 @@ function PollResultCardImpl({ challenge }: Props) {
           marginTop: Spacing.xs,
         },
       }),
-    [colors],
+    [colors, variant],
   );
+
+  if (!fetchEnabled) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Text variant="headingMedium" numberOfLines={2} style={{ flex: 1, marginRight: Spacing.sm }}>
+            {challenge.title}
+          </Text>
+        </View>
+        <Text variant="bodySmall" color={colors.textTertiary}>
+          Results unlock after you vote.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.card}>
@@ -103,11 +141,10 @@ function PollResultCardImpl({ challenge }: Props) {
         <Text variant="headingMedium" numberOfLines={2} style={{ flex: 1, marginRight: Spacing.sm }}>
           {challenge.title}
         </Text>
-        <CategoryBadge category={challenge.category} size="sm" />
       </View>
 
-      {options.map((opt) => {
-        const count = opt.vote_count ?? 0;
+      {rows.map((opt) => {
+        const count = opt.liveCount;
         const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
         const isMyVote = myVoteOptionId === opt.id;
         const barColor = isMyVote ? colors.primary : colors.textTertiary;
@@ -129,7 +166,8 @@ function PollResultCardImpl({ challenge }: Props) {
                 color={isMyVote ? colors.primary : colors.text}
                 style={{ fontWeight: isMyVote ? '700' : '400', flex: 1 }}
               >
-                {opt.text}{isMyVote ? ' ✓' : ''}
+                {opt.text}
+                {isMyVote ? ' ✓' : ''}
               </Text>
               <Text variant="label" color={colors.textSecondary}>
                 {pct}%

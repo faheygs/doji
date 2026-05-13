@@ -23,26 +23,17 @@ export function usePollVote() {
         .insert({ user_id: userId, challenge_id: challengeId, option_id: optionId });
       if (voteErr) throw voteErr;
 
-      const { error: postErr } = await supabase.from('posts').insert({
-        user_event_id: userEventId,
-        user_id: userId,
-        type: 'poll_vote',
-        selected_option_index: optionIndex,
-        is_late: false,
-        visibility: 'public',
-      });
-      if (postErr) throw postErr;
-
       const { error: ueErr } = await supabase
         .from('user_events')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', userEventId);
       if (ueErr) throw ueErr;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['feed'] });
       qc.invalidateQueries({ queryKey: ['userEvent'] });
-      qc.invalidateQueries({ queryKey: ['pollResults'] });
+      qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
+      qc.invalidateQueries({ queryKey: ['myPollVote', variables.challengeId] });
       qc.invalidateQueries({ queryKey: ['profile'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['profilePosts'] });

@@ -1,4 +1,17 @@
-export type ReactionEmoji = 'fire' | 'laugh' | 'wow' | 'love';
+import type { ThemeName } from '../constants/theme';
+
+export type ReactionEmoji = 'fire' | 'like' | 'laugh' | 'wow' | 'love';
+
+/** Stored on profiles.notification_preferences (jsonb). */
+export type NotificationPreferences = {
+  push_enabled: boolean;
+  doji_start: boolean;
+  friend_post: boolean;
+  reactions_on_my_post: boolean;
+  friend_request: boolean;
+  friend_accepted: boolean;
+  badges: boolean;
+};
 
 export type Profile = {
   id: string;
@@ -15,6 +28,9 @@ export type Profile = {
   level: number;
   reactions_received: number;
   notification_token: string | null;
+  notification_preferences?: NotificationPreferences;
+  /** Color theme (`ThemeName`); stored in DB, default `midnight`. */
+  app_theme: ThemeName;
   timezone: string;
   created_at: string;
   updated_at: string;
@@ -85,9 +101,11 @@ export type PostType = 'photo' | 'poll_vote' | 'task_complete';
 
 export type Post = {
   id: string;
-  user_event_id: string;
-  user_id: string;
+  user_event_id: string | null;
+  user_id: string | null;
   type: PostType;
+  is_community_poll?: boolean;
+  daily_event_id?: string | null;
   caption: string | null;
   photo_url: string | null;
   front_photo_url: string | null;
@@ -207,9 +225,11 @@ export type Database = {
       posts: {
         Row: Post;
         Insert: {
-          user_event_id: string;
-          user_id: string;
+          user_event_id?: string | null;
+          user_id?: string | null;
           type?: PostType;
+          is_community_poll?: boolean;
+          daily_event_id?: string | null;
           caption?: string | null;
           photo_url?: string | null;
           front_photo_url?: string | null;

@@ -11,6 +11,7 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { IconChevronLeft } from '../../components/icons/Icons';
 
 const THEME_OPTIONS: { key: ThemeName; label: string; color: string }[] = [
   { key: 'coral', label: 'Coral', color: '#F97316' },
@@ -34,7 +35,13 @@ export default function SettingsScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         scrollContent: { paddingBottom: Spacing.xxl },
-        header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center' },
+        header: {
+          paddingHorizontal: Spacing.lg,
+          paddingVertical: Spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.sm,
+        },
         section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
         sectionTitle: { marginBottom: Spacing.sm, paddingHorizontal: Spacing.xs },
         card: { gap: Spacing.md },
@@ -103,22 +110,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleEnableNotifications = async () => {
-    const Notifications = await import('expo-notifications');
-    const Constants = (await import('expo-constants')).default;
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status === 'granted') {
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      const token = await Notifications.getExpoPushTokenAsync(
-        projectId ? { projectId } : undefined,
-      );
-      await updateProfile({ notification_token: token.data });
-      Toast.show({ type: 'success', text1: 'Notifications enabled!' });
-    } else {
-      Toast.show({ type: 'error', text1: 'Permission denied for notifications' });
-    }
-  };
-
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete account',
@@ -157,10 +148,20 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={{ marginRight: Spacing.sm }}>
-            <Text variant="body" color={colors.primary}>← Back</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.navigate('/(app)/profile');
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back to profile"
+          >
+            <IconChevronLeft size={26} color={colors.text} />
           </TouchableOpacity>
-          <Text variant="headingLarge" style={{ flex: 1 }}>Settings</Text>
+          <Text variant="headingLarge" style={{ flex: 1 }}>
+            Settings
+          </Text>
         </View>
 
         {/* Theme Picker — pill row */}
@@ -172,10 +173,14 @@ export default function SettingsScreen() {
               return (
                 <TouchableOpacity
                   key={opt.key}
-                  onPress={() => {
+                  onPress={async () => {
                     if (active) return;
                     Haptics.selectionAsync();
-                    setPreference(opt.key);
+                    try {
+                      await setPreference(opt.key);
+                    } catch {
+                      Toast.show({ type: 'error', text1: 'Failed to save theme' });
+                    }
                   }}
                   style={[
                     styles.themeBtn,
@@ -253,12 +258,26 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text variant="headingMedium" style={styles.sectionTitle}>Notifications</Text>
           <Card style={styles.card}>
-            <Text variant="body" color={colors.textSecondary}>
-              Enable push for your daily challenge reminder.
-            </Text>
-            <Button onPress={handleEnableNotifications} variant="secondary" size="md">
-              Enable notifications
-            </Button>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push('/(app)/notifications');
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityHint="Opens notification types and permission"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text variant="body">Notification settings</Text>
+                <Text variant="micro" color={colors.textTertiary}>
+                  Turn alerts on or off, choose Doji, friends, reactions, and more.
+                </Text>
+              </View>
+              <Text variant="body" color={colors.textTertiary}>
+                →
+              </Text>
+            </TouchableOpacity>
           </Card>
         </View>
 

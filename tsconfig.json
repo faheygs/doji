@@ -10,7 +10,8 @@
   },
   "exclude": [
     "node_modules",
-    "supabase/functions"
+    "supabase/functions",
+    "__tests__"
   ],
   "include": [
     "**/*.ts",

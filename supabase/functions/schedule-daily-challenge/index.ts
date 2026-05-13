@@ -7,13 +7,18 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const WINDOW_MINUTES = 15;
+const WINDOW_MINUTES = 10;
 
 Deno.serve(async (req) => {
   const denied = assertCronAuthorized(req);
   if (denied) return denied;
 
   try {
+    const { error: purgeErr } = await supabase.rpc('purge_posts_older_than_24h');
+    if (purgeErr) {
+      console.error('purge_posts_older_than_24h:', purgeErr);
+    }
+
     const { data: recentEvents } = await supabase
       .from('daily_events')
       .select('challenge_id')

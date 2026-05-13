@@ -8,6 +8,7 @@ export type IconProps = {
 
 export const REACTION_ICON_TINT: Record<string, string> = {
   fire: '#F97316',
+  like: '#2563EB',
   laugh: '#CA8A04',
   wow: '#3B82F6',
   love: '#DC2626',
@@ -278,6 +279,28 @@ function IconReactionFire({ size = 20, color }: IconProps) {
   );
 }
 
+function IconReactionLike({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M7 10v12"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"
+        stroke={color}
+        fill="none"
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function IconReactionLaugh({ size = 20, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -330,6 +353,7 @@ export const REACTION_CONTROLS: {
   Icon: React.ComponentType<IconProps>;
 }[] = [
   { emoji: 'fire', label: 'Fire', Icon: IconReactionFire },
+  { emoji: 'like', label: 'Like', Icon: IconReactionLike },
   { emoji: 'laugh', label: 'Funny', Icon: IconReactionLaugh },
   { emoji: 'wow', label: 'Wow', Icon: IconReactionWow },
   { emoji: 'love', label: 'Love', Icon: IconReactionHeart },

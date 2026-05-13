@@ -17,12 +17,27 @@ async function clearNotificationTokensForUsers(userIds: string[]) {
   }
 }
 
+function wantsDojiPush(prefs: Record<string, unknown> | null | undefined): boolean {
+  if (!prefs || typeof prefs !== 'object') return true;
+  if (prefs.push_enabled === false) return false;
+  if (prefs.doji_start === false) return false;
+  return true;
+}
+
+function wantsAnyPush(prefs: Record<string, unknown> | null | undefined): boolean {
+  if (!prefs || typeof prefs !== 'object') return true;
+  return prefs.push_enabled !== false;
+}
+
 Deno.serve(async (req) => {
   const denied = assertCronAuthorized(req);
   if (denied) return denied;
 
   try {
     const { user_event_ids, title, body, data } = await req.json();
+
+    const isChallenge =
+      data && typeof data === 'object' && (data as Record<string, unknown>).type === 'CHALLENGE';
 
     if (!user_event_ids || !Array.isArray(user_event_ids)) {
       return new Response(JSON.stringify({ error: 'user_event_ids array is required' }), {
@@ -33,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: userEvents, error } = await supabase
       .from('user_events')
-      .select('id, user_id, profiles(notification_token)')
+      .select('id, user_id, profiles(notification_token, notification_preferences)')
       .in('id', user_event_ids);
 
     if (error) throw error;
@@ -41,11 +56,18 @@ Deno.serve(async (req) => {
     type Row = {
       id: string;
       user_id: string;
-      profiles: { notification_token: string | null } | null;
+      profiles: {
+        notification_token: string | null;
+        notification_preferences?: Record<string, unknown> | null;
+      } | null;
     };
 
     const rows = (userEvents ?? []) as Row[];
-    const pushRows = rows.filter((e) => Boolean(e.profiles?.notification_token?.trim()));
+    const withToken = rows.filter((e) => Boolean(e.profiles?.notification_token?.trim()));
+    const pushRows = withToken.filter((e) => {
+      const prefs = e.profiles?.notification_preferences ?? null;
+      return isChallenge ? wantsDojiPush(prefs) : wantsAnyPush(prefs);
+    });
 
     const notifications: ExpoMessage[] = pushRows.map((e) => ({
       to: e.profiles!.notification_token!.trim(),

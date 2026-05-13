@@ -44,6 +44,14 @@ function notificationHrefFromData(data: unknown): Href | null {
   const url = rec.url;
   if (typeof url === 'string' && url.startsWith('/')) return url as Href;
   if (rec.type === 'CHALLENGE') return '/(app)/challenge';
+  const postId = rec.postId;
+  if (
+    (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
+    typeof postId === 'string' &&
+    postId.length > 0
+  ) {
+    return `/(app)/post/${postId}` as Href;
+  }
   return null;
 }
 

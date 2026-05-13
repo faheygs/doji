@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
 import * as Haptics from 'expo-haptics';
@@ -8,13 +8,13 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
-import { CategoryBadge } from '../ui/CategoryBadge';
 import { ReactionBar } from './ReactionBar';
-import { IconDoc, IconLock } from '../icons/Icons';
+import { PollResultCard } from './PollResultCard';
+import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
+import { challengeKindLabel } from '../../lib/challengeDisplay';
+import { IconLock } from '../icons/Icons';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = {
   post: Post;
@@ -31,6 +31,8 @@ function reactionBreakdownSig(p: Post): string {
 function postsVisuallyEqual(a: Post, b: Post): boolean {
   if (
     a.id !== b.id ||
+    a.type !== b.type ||
+    a.selected_option_index !== b.selected_option_index ||
     a.reaction_count !== b.reaction_count ||
     (a.my_reactions ?? []).join() !== (b.my_reactions ?? []).join() ||
     reactionBreakdownSig(a) !== reactionBreakdownSig(b) ||
@@ -39,7 +41,8 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
     a.video_url !== b.video_url ||
     a.caption !== b.caption ||
     a.created_at !== b.created_at ||
-    a.is_late !== b.is_late
+    a.is_late !== b.is_late ||
+    Boolean(a.is_community_poll) !== Boolean(b.is_community_poll)
   ) {
     return false;
   }
@@ -50,7 +53,8 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
   }
   const ac = a.challenge;
   const bc = b.challenge;
-  if (ac?.id !== bc?.id || ac?.title !== bc?.title || ac?.category !== bc?.category) return false;
+  if (ac?.id !== bc?.id || ac?.title !== bc?.title || ac?.category !== bc?.category || ac?.type !== bc?.type)
+    return false;
   return true;
 }
 
@@ -64,11 +68,13 @@ function PostCardImpl({ post, blurred }: Props) {
     () =>
       StyleSheet.create({
         card: {
-          backgroundColor: colors.background,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-          paddingBottom: 0,
-          marginBottom: Spacing.sm,
+          backgroundColor: colors.surface,
+          borderRadius: Radius.lg,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.hairline,
+          marginBottom: Spacing.lg,
+          marginHorizontal: Spacing.md,
+          overflow: 'hidden',
         },
         header: {
           flexDirection: 'row',
@@ -87,21 +93,30 @@ function PostCardImpl({ post, blurred }: Props) {
           flex: 1,
           justifyContent: 'center',
         },
+        challengeGlyphCircle: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.surfaceMuted,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.hairline,
+        },
         imageTap: {
           position: 'relative',
         },
         media: {
-          width: SCREEN_WIDTH,
+          width: '100%' as const,
+          alignSelf: 'stretch',
           aspectRatio: 1,
           backgroundColor: colors.surfaceElevated,
         },
         videoMedia: {
-          width: SCREEN_WIDTH,
+          width: '100%' as const,
+          alignSelf: 'stretch',
           aspectRatio: 16 / 9,
           backgroundColor: '#000',
-        },
-        blurredImage: {
-          opacity: 0.55,
         },
         frontThumbnailContainer: {
           position: 'absolute',
@@ -116,14 +131,7 @@ function PostCardImpl({ post, blurred }: Props) {
           width: 72,
           height: 72,
         },
-        blurOverlay: {
-          ...StyleSheet.absoluteFillObject,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Spacing.sm,
-          backgroundColor: 'rgba(0,0,0,0.35)',
-        },
-        blurText: {
+        lockMessage: {
           textAlign: 'center',
           lineHeight: 20,
         },
@@ -158,10 +166,17 @@ function PostCardImpl({ post, blurred }: Props) {
         captionAfterMedia: {
           marginTop: Spacing.sm,
         },
-        noImagePlaceholder: {
+        lockedBody: {
+          width: '100%' as const,
+          alignSelf: 'stretch',
+          aspectRatio: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: colors.surfaceMuted,
+          gap: Spacing.xs,
+        },
+        pollBodyWrap: {
+          position: 'relative',
         },
       }),
     [colors],
@@ -185,6 +200,57 @@ function PostCardImpl({ post, blurred }: Props) {
     showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
 
   const hasPhotoLayer = Boolean(displayUri);
+
+  const isPollVotePost = post.type === 'poll_vote' && post.challenge;
+
+  const lockedBody = (
+    <View
+      style={styles.lockedBody}
+      accessibilityRole="text"
+      accessibilityLabel="Complete today's challenge to see this post"
+    >
+      <IconLock size={32} color={colors.textSecondary} />
+      <Text variant="bodySmall" color={colors.textSecondary} style={styles.lockMessage}>
+        Do it and see
+      </Text>
+      <Text variant="micro" color={colors.textTertiary} style={styles.lockMessage}>
+        {"Finish today's challenge first."}
+      </Text>
+    </View>
+  );
+
+  if (isPollVotePost) {
+    const c = post.challenge!;
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <View style={styles.userInfo} accessibilityRole="text">
+            <View style={styles.challengeGlyphCircle}>
+              <ChallengeTypeGlyph type={c.type} size={22} color={colors.primary} />
+            </View>
+            <View style={styles.nameContainer}>
+              <Text variant="headingMedium" numberOfLines={1}>
+                {challengeKindLabel(c)}
+              </Text>
+              <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+                {formatRelativeTime(post.created_at)}
+              </Text>
+            </View>
+          </View>
+        </View>
+        {blurred ? (
+          lockedBody
+        ) : (
+          <>
+            <View style={styles.pollBodyWrap}>
+              <PollResultCard challenge={c} variant="embedded" fetchEnabled />
+            </View>
+            <ReactionBar post={post} blurred={false} showTopBorder={false} />
+          </>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.card}>
@@ -215,106 +281,88 @@ function PostCardImpl({ post, blurred }: Props) {
             </Text>
           </View>
         </TouchableOpacity>
-        {post.challenge && (
-          <CategoryBadge category={post.challenge.category} size="sm" />
-        )}
       </View>
 
-      <View style={styles.imageTap}>
-        {hasPhotoLayer ? (
-          <TouchableOpacity
-            onPress={handleImageToggle}
-            activeOpacity={post.front_photo_url && !hasVideo ? 0.95 : 1}
-            disabled={!post.front_photo_url || hasVideo}
-            style={{ position: 'relative' }}
-          >
-            <Image
-              source={{ uri: displayUri ?? '' }}
-              style={[styles.media, blurred && styles.blurredImage]}
-              contentFit="cover"
-              blurRadius={blurred ? 28 : 0}
-              cachePolicy="memory-disk"
-              recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
-            />
-            {post.front_photo_url && !blurred && !hasVideo ? (
-              <View style={styles.frontThumbnailContainer}>
-                <Image
-                  source={{
-                    uri: showFront ? post.photo_url ?? '' : post.front_photo_url,
-                  }}
-                  style={styles.frontThumbnail}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  recyclingKey={showFront ? 'back' : 'front-thumb'}
+      {blurred ? (
+        lockedBody
+      ) : (
+        <>
+          {hasPhotoLayer || hasVideo ? (
+            <View style={styles.imageTap}>
+              {hasPhotoLayer ? (
+                <TouchableOpacity
+                  onPress={handleImageToggle}
+                  activeOpacity={post.front_photo_url && !hasVideo ? 0.95 : 1}
+                  disabled={!post.front_photo_url || hasVideo}
+                  style={{ position: 'relative' }}
+                >
+                  <Image
+                    source={{ uri: displayUri ?? '' }}
+                    style={styles.media}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
+                  />
+                  {post.front_photo_url && !hasVideo ? (
+                    <View style={styles.frontThumbnailContainer}>
+                      <Image
+                        source={{
+                          uri: showFront ? post.photo_url ?? '' : post.front_photo_url,
+                        }}
+                        style={styles.frontThumbnail}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        recyclingKey={showFront ? 'back' : 'front-thumb'}
+                      />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ) : null}
+
+              {hasVideo ? (
+                <Video
+                  source={{ uri: post.video_url! }}
+                  style={styles.videoMedia}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={false}
                 />
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        ) : null}
+              ) : null}
 
-        {hasVideo ? (
-          <Video
-            source={{ uri: post.video_url! }}
-            style={[styles.videoMedia, blurred && styles.blurredImage]}
-            useNativeControls={!blurred}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={false}
-          />
-        ) : null}
+              {post.is_late ? (
+                <View style={styles.lateBadge}>
+                  <Text variant="label" color={colors.warning}>
+                    LATE
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
-        {!hasPhotoLayer && !hasVideo ? (
-          <View style={[styles.media, styles.noImagePlaceholder]}>
-            <IconDoc size={44} color={colors.textTertiary} />
-            <Text variant="bodySmall" color={colors.textTertiary} style={{ marginTop: Spacing.sm }}>
-              Text entry
-            </Text>
-          </View>
-        ) : null}
+          {post.challenge ? (
+            <View style={styles.challengeRow}>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {post.challenge.title}
+              </Text>
+            </View>
+          ) : null}
 
-        {blurred ? (
-          <View style={styles.blurOverlay}>
-            <IconLock size={32} color={colors.textSecondary} />
-            <Text variant="bodySmall" color={colors.textSecondary} style={styles.blurText}>
-              {"Finish today's challenge\nto unlock the feed"}
-            </Text>
-          </View>
-        ) : null}
+          {post.caption ? (
+            <View
+              style={[
+                styles.captionWrapper,
+                post.challenge ? styles.captionAfterChallenge : styles.captionAfterMedia,
+              ]}
+            >
+              <Text variant="body" color={colors.text} style={{ lineHeight: 20 }}>
+                {post.caption}
+              </Text>
+            </View>
+          ) : null}
 
-        {post.is_late && !blurred ? (
-          <View style={styles.lateBadge}>
-            <Text variant="label" color={colors.warning}>
-              LATE
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {post.challenge && !blurred && (
-        <View style={styles.challengeRow}>
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            {post.challenge.title}
-          </Text>
-        </View>
+          <ReactionBar post={post} blurred={false} showTopBorder={!post.caption} />
+        </>
       )}
-
-      {post.caption && !blurred && (
-        <View
-          style={[
-            styles.captionWrapper,
-            post.challenge ? styles.captionAfterChallenge : styles.captionAfterMedia,
-          ]}
-        >
-          <Text variant="body" color={colors.text} style={{ lineHeight: 20 }}>
-            {post.caption}
-          </Text>
-        </View>
-      )}
-
-      <ReactionBar
-        post={post}
-        blurred={blurred}
-        showTopBorder={!(post.caption && !blurred)}
-      />
     </View>
   );
 }

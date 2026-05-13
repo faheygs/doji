@@ -8,9 +8,10 @@ import {
   Platform,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { Spacing } from '../../constants/theme';
+import { Spacing, DEFAULT_APP_THEME } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
@@ -19,6 +20,7 @@ import { IconProfile } from '../../components/icons/Icons';
 
 export default function UsernameScreen() {
   const { session, fetchProfile } = useAuthStore();
+  const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -87,6 +89,7 @@ export default function UsernameScreen() {
         avatar_gradient: ['#F97316', '#8B5CF6'],
         bio: null,
         notification_token: null,
+        app_theme: DEFAULT_APP_THEME,
         current_streak: 0,
         longest_streak: 0,
         total_completions: 0,
@@ -107,6 +110,7 @@ export default function UsernameScreen() {
       }
 
       await fetchProfile(userId);
+      await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create profile';
       Toast.show({ type: 'error', text1: msg });

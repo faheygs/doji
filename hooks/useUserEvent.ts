@@ -1,7 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { UserEvent, Post, Challenge, DailyEvent } from '../types/database';
+import type {
+  UserEvent,
+  Challenge,
+  DailyEvent,
+  UserEventStatus,
+} from '../types/database';
+import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 
 export function useUserEvent() {
@@ -13,17 +19,24 @@ export function useUserEvent() {
     queryFn: async (): Promise<UserEvent | null> => {
       if (!userId) return null;
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const { start, end } = todayFiresAtWindow();
 
-      // One challenge per day — get the most recent event for today
+      const { data: dailyEvents, error: deErr } = await supabase
+        .from('daily_events')
+        .select('id')
+        .gte('fires_at', start)
+        .lt('fires_at', end);
+
+      if (deErr) throw deErr;
+      const dailyIds = (dailyEvents ?? []).map((e: { id: string }) => e.id);
+      if (dailyIds.length === 0) return null;
+
+      // One row per user per daily_event — latest if duplicates
       const { data, error } = await supabase
         .from('user_events')
-        .select(
-          `*, daily_event:daily_events(*, challenge:challenges(*))`,
-        )
+        .select(`*, daily_event:daily_events(*, challenge:challenges(*))`)
         .eq('user_id', userId)
-        .gte('expires_at', today.toISOString())
+        .in('daily_event_id', dailyIds)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -51,6 +64,7 @@ type CreatePostPayload = {
   videoUri: string | null;
   caption: string;
   isLate: boolean;
+  postType?: 'photo' | 'poll_vote' | 'task_complete';
 };
 
 export function useCreatePost() {
@@ -82,6 +96,7 @@ export function useCreatePost() {
         .insert({
           user_event_id: payload.userEventId,
           user_id: userId,
+          type: payload.postType ?? 'photo',
           caption: payload.caption || null,
           photo_url: photoUrl,
           front_photo_url: frontPhotoUrl,
@@ -94,7 +109,7 @@ export function useCreatePost() {
 
       if (postError) throw postError;
 
-      const statusUpdate = {
+      const statusUpdate: { status: UserEventStatus; completed_at: string } = {
         status: payload.isLate ? 'late' : 'completed',
         completed_at: new Date().toISOString(),
       };
@@ -112,6 +127,9 @@ export function useCreatePost() {
           .eq('id', payload.userEventId);
         if (retryError) {
           console.error('user_event status retry also failed:', retryError);
+          throw new Error(
+            'Your post was saved, but the app could not mark the challenge complete. Pull down to refresh.',
+          );
         }
       }
 
