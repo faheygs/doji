@@ -50,7 +50,8 @@ export default function FeedScreen() {
   const profile = useAuthStore((s) => s.profile);
   const {
     unreadCount: notificationUnread,
-    markAllSeenUpToNow,
+    markBellOpened,
+    clearNotificationHistory,
     items: notificationItems,
     isLoading: notificationsLoading,
   } = useNotificationCenter();
@@ -263,7 +264,10 @@ export default function FeedScreen() {
       <View style={styles.empty}>
         <Text variant="headingLarge">Nothing yet</Text>
         <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-          No posts yet today.\nBe the first to respond!
+          No posts yet today.
+        </Text>
+        <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
+          Be the first to respond!
         </Text>
       </View>
     ),
@@ -328,8 +332,9 @@ export default function FeedScreen() {
         visible={notificationsOpen}
         items={notificationItems}
         isLoading={notificationsLoading}
+        onClearHistory={clearNotificationHistory}
         onClose={() => {
-          void markAllSeenUpToNow();
+          void markBellOpened();
           setNotificationsOpen(false);
         }}
       />

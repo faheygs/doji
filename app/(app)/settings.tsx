@@ -151,11 +151,12 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
-              router.navigate('/(app)/profile');
+              if (router.canGoBack()) router.back();
+              else router.replace('/(app)/profile');
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Back to profile"
+            accessibilityLabel="Back"
           >
             <IconChevronLeft size={26} color={colors.text} />
           </TouchableOpacity>

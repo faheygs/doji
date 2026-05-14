@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -26,9 +27,16 @@ type Props = {
   onClose: () => void;
   items: NotificationCenterItem[];
   isLoading: boolean;
+  onClearHistory?: () => void | Promise<void>;
 };
 
-export function NotificationSheet({ visible, onClose, items, isLoading }: Props) {
+export function NotificationSheet({
+  visible,
+  onClose,
+  items,
+  isLoading,
+  onClearHistory,
+}: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -216,23 +224,34 @@ export function NotificationSheet({ visible, onClose, items, isLoading }: Props)
             </Card>
           );
         }
-        case 'reaction': {
-          const { reaction, actor } = item;
+        case 'reactions_group': {
+          const shown = item.actors.slice(0, 3);
+          const names = shown
+            .map((a) => a.display_name ?? a.username ?? 'Someone')
+            .join(', ');
+          const extraUsers = Math.max(0, item.actors.length - shown.length);
+          const userSuffix =
+            extraUsers > 0 ? ` and ${extraUsers} other${extraUsers === 1 ? '' : 's'}` : '';
+          const emojiStr = item.emojis.slice(0, 5).join(' ');
           return (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity
-                onPress={() => openPost(reaction.post_id)}
+                onPress={() => openPost(item.post_id)}
                 style={styles.userRow}
                 activeOpacity={0.85}
               >
-                <Avatar uri={actor.avatar_url} username={actor.username} size={44} />
-                <View style={styles.userMeta}>
+                <View style={[styles.userMeta, { flex: 1 }]}>
                   <Text variant="headingMedium" style={styles.rowTitle}>
-                    New reaction
+                    Reactions on your post
                   </Text>
                   <Text variant="bodySmall" color={colors.textSecondary}>
-                    @{actor.username ?? '…'} reacted {reaction.emoji} to your post ·{' '}
-                    {formatRelativeTime(reaction.created_at)}
+                    {names}
+                    {userSuffix}
+                    {emojiStr ? ` · ${emojiStr}` : ''}
+                    {item.emojis.length > 5 ? '…' : ''} · {formatRelativeTime(item.sortAt)}
+                  </Text>
+                  <Text variant="micro" color={colors.textTertiary}>
+                    {item.count} reaction{item.count === 1 ? '' : 's'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -318,6 +337,33 @@ export function NotificationSheet({ visible, onClose, items, isLoading }: Props)
         )}
 
         <View style={styles.footer}>
+          {onClearHistory ? (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Clear notification history',
+                  'Remove older items from this list? Pending friend requests stay visible.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear',
+                      style: 'destructive',
+                      onPress: () => {
+                        void onClearHistory();
+                      },
+                    },
+                  ],
+                );
+              }}
+              style={styles.footerBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Clear notification history"
+            >
+              <Text variant="bodySmall" color={colors.textTertiary}>
+                Clear history
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             onPress={openFriends}
             style={styles.footerBtn}

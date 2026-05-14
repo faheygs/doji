@@ -34,12 +34,19 @@ export function mergeNotificationPreferences(
   };
 }
 
-/** For local notifications: master + category must be on. */
-export function wantsPushForKind(
+/** Category toggles only (OS permission is checked in the client before scheduling). */
+export function wantsCategoryEnabled(
   prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
   kind: NotificationPreferenceKind,
 ): boolean {
   const p = mergeNotificationPreferences(prefs);
-  if (!p.push_enabled) return false;
   return p[kind] !== false;
+}
+
+/** @deprecated Use wantsCategoryEnabled; push_enabled is no longer used for gating. */
+export function wantsPushForKind(
+  prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
+  kind: NotificationPreferenceKind,
+): boolean {
+  return wantsCategoryEnabled(prefs, kind);
 }

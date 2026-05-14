@@ -9,6 +9,94 @@ const supabase = createClient(
 
 const WINDOW_MINUTES = 10;
 
+/** IANA zone for the shared challenge drop window (matches `profiles.timezone` default). */
+const SCHEDULE_TZ = 'America/Denver';
+const WINDOW_START_HOUR = 8;
+const WINDOW_END_HOUR = 20;
+
+function zonedParts(d: Date, timeZone: string) {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const p = f.formatToParts(d);
+  const g = (t: string) => Number(p.find((x) => x.type === t)?.value ?? '0');
+  return { y: g('year'), mo: g('month'), day: g('day'), h: g('hour'), mi: g('minute') };
+}
+
+/** Wall time in `timeZone` → UTC `Date` (handles DST). */
+function zonedWallTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string,
+): Date {
+  const target =
+    year * 1e8 +
+    month * 1e6 +
+    day * 1e4 +
+    hour * 100 +
+    minute;
+  let lo = Date.UTC(year, month - 1, day - 1, 10, 0, 0, 0);
+  let hi = Date.UTC(year, month - 1, day + 1, 14, 0, 0, 0);
+  for (let i = 0; i < 60; i++) {
+    const mid = Math.floor((lo + hi) / 2);
+    const q = zonedParts(new Date(mid), timeZone);
+    const key = q.y * 1e8 + q.mo * 1e6 + q.day * 1e4 + q.h * 100 + q.mi;
+    if (key < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return new Date(hi);
+}
+
+/** Random instant in [08:00, 20:00) on the current calendar day in `SCHEDULE_TZ`, or tomorrow if none left. */
+function randomFiresAt(now: Date): Date {
+  const parts = zonedParts(now, SCHEDULE_TZ);
+  let windowStart = zonedWallTimeToUtc(
+    parts.y,
+    parts.mo,
+    parts.day,
+    WINDOW_START_HOUR,
+    0,
+    SCHEDULE_TZ,
+  );
+  let windowEnd = zonedWallTimeToUtc(
+    parts.y,
+    parts.mo,
+    parts.day,
+    WINDOW_END_HOUR,
+    0,
+    SCHEDULE_TZ,
+  );
+  let spanMs = windowEnd.getTime() - windowStart.getTime();
+  if (spanMs <= 0) spanMs = 12 * 60 * 60 * 1000;
+
+  let firesAt = new Date(
+    windowStart.getTime() + Math.floor(Math.random() * spanMs),
+  );
+
+  if (firesAt.getTime() <= now.getTime()) {
+    const nextProbe = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const nx = zonedParts(nextProbe, SCHEDULE_TZ);
+    windowStart = zonedWallTimeToUtc(nx.y, nx.mo, nx.day, WINDOW_START_HOUR, 0, SCHEDULE_TZ);
+    windowEnd = zonedWallTimeToUtc(nx.y, nx.mo, nx.day, WINDOW_END_HOUR, 0, SCHEDULE_TZ);
+    spanMs = windowEnd.getTime() - windowStart.getTime();
+    if (spanMs <= 0) spanMs = 12 * 60 * 60 * 1000;
+    firesAt = new Date(
+      windowStart.getTime() + Math.floor(Math.random() * spanMs),
+    );
+  }
+
+  return firesAt;
+}
+
 Deno.serve(async (req) => {
   const denied = assertCronAuthorized(req);
   if (denied) return denied;
@@ -17,6 +105,34 @@ Deno.serve(async (req) => {
     const { error: purgeErr } = await supabase.rpc('purge_posts_older_than_24h');
     if (purgeErr) {
       console.error('purge_posts_older_than_24h:', purgeErr);
+    }
+
+    const utcNow = new Date();
+    const y = utcNow.getUTCFullYear();
+    const mo = utcNow.getUTCMonth();
+    const da = utcNow.getUTCDate();
+    const utcDayStart = new Date(Date.UTC(y, mo, da, 0, 0, 0, 0));
+    const utcDayEnd = new Date(Date.UTC(y, mo, da + 1, 0, 0, 0, 0));
+
+    const { data: alreadyToday } = await supabase
+      .from('daily_events')
+      .select('id, fires_at')
+      .gte('created_at', utcDayStart.toISOString())
+      .lt('created_at', utcDayEnd.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (alreadyToday && alreadyToday.length > 0) {
+      const row = alreadyToday[0] as { id: string; fires_at: string };
+      return new Response(
+        JSON.stringify({
+          message: 'Daily event already scheduled for this UTC day',
+          skipped: true,
+          daily_event_id: row.id,
+          fires_at: row.fires_at,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
     }
 
     const { data: recentEvents } = await supabase
@@ -61,14 +177,9 @@ Deno.serve(async (req) => {
       xp_reward: number;
     };
 
-    // Random fire slot between 2 PM – 10 PM US Central (UTC-6).
-    // 2 PM CT = 20:00 UTC, 10 PM CT = 04:00 UTC next day → 8-hour window.
+    // Random fire slot 8 AM – 8 PM (America/Denver), one instant for all users / same daily_event.
     const now = new Date();
-    const firesAt = new Date(now);
-    firesAt.setUTCHours(20, 0, 0, 0);
-    const offsetMs = Math.floor(Math.random() * 8 * 60) * 60 * 1000;
-    firesAt.setTime(firesAt.getTime() + offsetMs);
-    if (firesAt <= now) firesAt.setUTCDate(firesAt.getUTCDate() + 1);
+    const firesAt = randomFiresAt(now);
 
     const expiresAt = new Date(firesAt.getTime() + WINDOW_MINUTES * 60 * 1000);
 

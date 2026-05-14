@@ -7,10 +7,11 @@ import {
   Switch,
   TouchableOpacity,
   Platform,
+  Linking,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -74,11 +75,7 @@ export default function NotificationSettingsScreen() {
   const [permStatus, setPermStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    setPrefs(mergeNotificationPreferences(profile?.notification_preferences));
-  }, [profile?.notification_preferences]);
-
-  useEffect(() => {
+  const refreshPermStatus = useCallback(() => {
     if (Platform.OS === 'web') return;
     void import('expo-notifications').then((N) => {
       void N.getPermissionsAsync().then(({ status }) => {
@@ -86,6 +83,16 @@ export default function NotificationSettingsScreen() {
       });
     });
   }, []);
+
+  useEffect(() => {
+    setPrefs(mergeNotificationPreferences(profile?.notification_preferences));
+  }, [profile?.notification_preferences]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPermStatus();
+    }, [refreshPermStatus]),
+  );
 
   const styles = useMemo(
     () =>
@@ -125,10 +132,12 @@ export default function NotificationSettingsScreen() {
     [colors],
   );
 
-  const persist = useCallback(
-    async (next: NotificationPreferences, changedKey: string) => {
+  const persistCategories = useCallback(
+    async (patch: Partial<NotificationPreferences>, changedKey: string) => {
       if (!profile?.id) return;
       setSavingKey(changedKey);
+      const base = mergeNotificationPreferences(profile.notification_preferences);
+      const next: NotificationPreferences = { ...base, ...patch, push_enabled: true };
       try {
         await updateProfile({ notification_preferences: next });
         setPrefs(next);
@@ -142,25 +151,24 @@ export default function NotificationSettingsScreen() {
     [profile?.id, profile?.notification_preferences, updateProfile],
   );
 
-  const onMasterToggle = useCallback(
-    (value: boolean) => {
-      Haptics.selectionAsync();
-      const next = { ...prefs, push_enabled: value };
-      void persist(next, 'push_enabled');
-    },
-    [persist, prefs],
-  );
-
   const onCategoryToggle = useCallback(
     (key: NotificationPreferenceKind, value: boolean) => {
       Haptics.selectionAsync();
-      const next = { ...prefs, [key]: value };
-      void persist(next, key);
+      void persistCategories({ [key]: value }, key);
     },
-    [persist, prefs],
+    [persistCategories],
   );
 
-  const requestSystemPermission = useCallback(async () => {
+  const registerTokenIfGranted = useCallback(async () => {
+    const Notifications = await import('expo-notifications');
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const token = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    await updateProfile({ notification_token: token.data });
+  }, [updateProfile]);
+
+  const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
       Toast.show({ type: 'info', text1: 'Notifications are not available on web.' });
       return;
@@ -170,21 +178,42 @@ export default function NotificationSettingsScreen() {
       const { status } = await Notifications.requestPermissionsAsync();
       setPermStatus(status === 'granted' ? 'granted' : 'denied');
       if (status === 'granted') {
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        const token = await Notifications.getExpoPushTokenAsync(
-          projectId ? { projectId } : undefined,
-        );
-        await updateProfile({ notification_token: token.data });
-        Toast.show({ type: 'success', text1: 'Notifications enabled for this device' });
+        await registerTokenIfGranted();
+        Toast.show({ type: 'success', text1: 'Alerts enabled for this device' });
       } else {
-        Toast.show({ type: 'error', text1: 'Permission denied — enable in system settings' });
+        Toast.show({ type: 'error', text1: 'Permission denied — enable in Settings' });
       }
     } catch {
-      Toast.show({ type: 'error', text1: 'Could not enable notifications' });
+      Toast.show({ type: 'error', text1: 'Could not enable alerts' });
     }
-  }, [updateProfile]);
+  }, [registerTokenIfGranted]);
 
-  const categoriesDisabled = !prefs.push_enabled || savingKey === 'push_enabled';
+  const onMasterSystemSwitch = useCallback(
+    async (value: boolean) => {
+      Haptics.selectionAsync();
+      if (Platform.OS === 'web') {
+        Toast.show({ type: 'info', text1: 'Use the mobile app for system alerts.' });
+        return;
+      }
+      if (value) {
+        await enableSystemAlerts();
+        return;
+      }
+      try {
+        await Linking.openSettings();
+        Toast.show({
+          type: 'info',
+          text1: 'Turn off notifications for Doji in Settings if you want them fully off.',
+        });
+      } catch {
+        Toast.show({ type: 'error', text1: 'Could not open Settings' });
+      }
+    },
+    [enableSystemAlerts],
+  );
+
+  const categoriesDisabled =
+    Platform.OS === 'web' ? true : permStatus !== 'granted' || Boolean(savingKey);
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
@@ -197,11 +226,12 @@ export default function NotificationSettingsScreen() {
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
-              router.navigate('/(app)/settings');
+              if (router.canGoBack()) router.back();
+              else router.replace('/(app)/settings');
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Back to settings"
+            accessibilityLabel="Back"
           >
             <IconChevronLeft size={26} color={colors.text} />
           </TouchableOpacity>
@@ -212,19 +242,35 @@ export default function NotificationSettingsScreen() {
 
         <View style={styles.section}>
           {Platform.OS !== 'web' ? (
-            <Card style={{ gap: Spacing.md }}>
-              <Text variant="bodySmall" color={colors.textSecondary} style={styles.permissionHint}>
-                Allow Doji to show alerts on this device. You can still choose which kinds of updates
-                you want below.
-              </Text>
-              <Text variant="micro" color={colors.textTertiary}>
-                System status:{' '}
-                {permStatus === 'granted' ? 'Allowed' : permStatus === 'denied' ? 'Not allowed' : '…'}
-              </Text>
+            <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
+              <View style={[styles.row, styles.rowLast]}>
+                <View style={styles.rowText}>
+                  <Text variant="body">Alerts on this phone</Text>
+                  <Text variant="micro" color={colors.textTertiary}>
+                    iOS / Android permission — controls banners, sounds, and lock-screen alerts from
+                    Doji.
+                  </Text>
+                  <Text variant="micro" color={colors.textTertiary}>
+                    Status:{' '}
+                    {permStatus === 'granted'
+                      ? 'Allowed'
+                      : permStatus === 'denied'
+                        ? 'Not allowed'
+                        : '…'}
+                  </Text>
+                </View>
+                <Switch
+                  value={permStatus === 'granted'}
+                  onValueChange={onMasterSystemSwitch}
+                  trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+                  thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
+                />
+              </View>
               {permStatus !== 'granted' ? (
                 <TouchableOpacity
-                  onPress={requestSystemPermission}
+                  onPress={enableSystemAlerts}
                   style={{
+                    marginTop: Spacing.sm,
                     paddingVertical: Spacing.sm,
                     paddingHorizontal: Spacing.md,
                     backgroundColor: colors.primary,
@@ -232,19 +278,19 @@ export default function NotificationSettingsScreen() {
                     alignItems: 'center',
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Open system permission for notifications"
+                  accessibilityLabel="Request notification permission"
                 >
                   <Text variant="label" style={{ color: colors.onAccent }}>
-                    Allow notifications on this device
+                    Request permission
                   </Text>
                 </TouchableOpacity>
               ) : null}
             </Card>
           ) : (
             <Card>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                Use the iOS or Android app to manage push notifications. On web, only in-app alerts
-                apply where available.
+              <Text variant="bodySmall" color={colors.textSecondary} style={styles.permissionHint}>
+                On web, system push alerts are not available. Use the iOS or Android app for full
+                notification settings.
               </Text>
             </Card>
           )}
@@ -252,25 +298,12 @@ export default function NotificationSettingsScreen() {
 
         <View style={styles.section}>
           <Text variant="headingMedium" style={styles.sectionTitle}>
-            In Doji
+            What we notify you about
+          </Text>
+          <Text variant="micro" color={colors.textTertiary} style={{ paddingHorizontal: Spacing.xs }}>
+            These apply to real device alerts and in-app scheduling when the permission above is on.
           </Text>
           <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
-            <View style={[styles.row, { borderBottomWidth: StyleSheet.hairlineWidth }]}>
-              <View style={styles.rowText}>
-                <Text variant="body">All notifications</Text>
-                <Text variant="micro" color={colors.textTertiary}>
-                  Master switch — turn off to silence every alert below (and remote Doji pushes).
-                </Text>
-              </View>
-              <Switch
-                value={prefs.push_enabled}
-                onValueChange={onMasterToggle}
-                disabled={savingKey === 'push_enabled'}
-                trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-                thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
-              />
-            </View>
-
             {CATEGORY_ROWS.map((row, i) => (
               <View
                 key={row.key}
@@ -290,7 +323,7 @@ export default function NotificationSettingsScreen() {
                 <Switch
                   value={prefs[row.key]}
                   onValueChange={(v) => onCategoryToggle(row.key, v)}
-                  disabled={categoriesDisabled || Boolean(savingKey)}
+                  disabled={categoriesDisabled}
                   trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
                   thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
                 />

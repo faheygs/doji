@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/useAuthStore';
 import {
   mergeNotificationPreferences,
-  wantsPushForKind,
+  wantsCategoryEnabled,
   type NotificationPreferenceKind,
 } from './notificationPreferences';
 
@@ -19,8 +19,7 @@ export function scheduleLocalNotificationIfAllowed(
     try {
       const profile = useAuthStore.getState().profile;
       const prefs = mergeNotificationPreferences(profile?.notification_preferences);
-      if (!prefs.push_enabled) return;
-      if (preferenceKind && !wantsPushForKind(prefs, preferenceKind)) return;
+      if (preferenceKind && !wantsCategoryEnabled(prefs, preferenceKind)) return;
 
       const Notifications = await import('expo-notifications');
       const { status } = await Notifications.getPermissionsAsync();

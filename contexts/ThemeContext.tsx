@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppColors, ThemeName } from '../constants/theme';
 import {
   themeMap,
@@ -20,22 +21,42 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const LAST_THEME_STORAGE_KEY = '@doit/last-app-theme';
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const profile = useAuthStore((s) => s.profile);
+  const session = useAuthStore((s) => s.session);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_APP_THEME);
 
   useEffect(() => {
-    if (!profile) {
+    void AsyncStorage.getItem(LAST_THEME_STORAGE_KEY).then((raw) => {
+      if (useAuthStore.getState().profile) return;
+      setPreferenceState(normalizeAppTheme(raw === null ? undefined : raw));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!session) {
       setPreferenceState(DEFAULT_APP_THEME);
+    }
+  }, [session, isLoading]);
+
+  useEffect(() => {
+    if (!profile) {
       return;
     }
-    setPreferenceState(normalizeAppTheme(profile.app_theme));
+    const t = normalizeAppTheme(profile.app_theme);
+    setPreferenceState(t);
+    void AsyncStorage.setItem(LAST_THEME_STORAGE_KEY, t).catch(() => {});
   }, [profile?.id, profile?.app_theme]);
 
   const setPreference = useCallback(async (p: ThemePreference) => {
     const { session, updateProfile } = useAuthStore.getState();
+    setPreferenceState(p);
+    void AsyncStorage.setItem(LAST_THEME_STORAGE_KEY, p).catch(() => {});
     if (!session?.user?.id) {
-      setPreferenceState(p);
       return;
     }
     await updateProfile({ app_theme: p });

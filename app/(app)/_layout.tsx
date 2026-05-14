@@ -40,8 +40,12 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session || !profile) {
+    if (!session) {
       router.replace('/(auth)/welcome');
+      return;
+    }
+    if (!profile) {
+      router.replace('/(auth)/username');
     }
   }, [session, profile, isLoading, router]);
 
@@ -102,6 +106,14 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <IconProfile size={26} color={focused ? colors.text : colors.textTertiary} />
           ),
+        }}
+        listeners={{
+          tabPress: () => {
+            const parts = pathname.split('/').filter(Boolean);
+            if (parts[0] === 'profile' && parts.length > 1) {
+              router.replace('/(app)/profile');
+            }
+          },
         }}
       />
       {/* Hidden screens (no tab bar icon) */}

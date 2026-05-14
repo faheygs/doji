@@ -65,11 +65,13 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
     PlusJakartaSans_800ExtraBold,
   });
 
+  const isLoading = useAuthStore((s) => s.isLoading);
+
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontError]);
+    if (!fontsLoaded && !fontError) return;
+    if (isLoading) return;
+    SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError, isLoading]);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -86,24 +88,35 @@ function RootLayoutInner() {
   const toastConfig = useMemo(() => buildToastConfig(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
       setSession(session);
       if (session?.user?.id) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
+      } else {
+        useAuthStore.getState().setProfile(null);
       }
-      setLoading(false);
-    });
+      if (!cancelled) setLoading(false);
+    })();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user?.id) {
-        fetchProfile(session.user.id);
+        void fetchProfile(session.user.id);
+      } else {
+        useAuthStore.getState().setProfile(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile, setLoading, setSession]);
 
   useEffect(() => {

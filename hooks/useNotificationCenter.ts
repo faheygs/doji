@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile, UserEvent } from '../types/database';
 import { useFriendRequests } from './useProfile';
 
-const WATERMARK_KEY = '@doit/notification-watermark';
+const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
+const BELL_LAST_OPENED_KEY = '@doit/bell-last-opened';
+const HISTORY_DAYS = 30;
+
+function bellClearedKey(uid: string | undefined) {
+  return uid ? `${BELL_CLEARED_AT_KEY}:${uid}` : BELL_CLEARED_AT_KEY;
+}
+
+function bellOpenedKey(uid: string | undefined) {
+  return uid ? `${BELL_LAST_OPENED_KEY}:${uid}` : BELL_LAST_OPENED_KEY;
+}
 
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
 
@@ -20,35 +30,14 @@ export type NotificationCenterItem =
     }
   | {
       key: string;
-      kind: 'reaction';
-      reaction: { id: string; emoji: string; created_at: string; post_id: string; user_id: string };
-      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>;
+      kind: 'reactions_group';
+      post_id: string;
+      count: number;
+      emojis: string[];
+      actors: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[];
       sortAt: string;
     }
   | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string };
-
-function useNotificationWatermark() {
-  const [watermark, setWatermark] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void AsyncStorage.getItem(WATERMARK_KEY).then((s) => {
-      if (cancelled) return;
-      setWatermark(s ?? new Date().toISOString());
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const markAllSeenUpToNow = useCallback(async () => {
-    const iso = new Date().toISOString();
-    await AsyncStorage.setItem(WATERMARK_KEY, iso);
-    setWatermark(iso);
-  }, []);
-
-  return { watermark, markAllSeenUpToNow, watermarkReady: watermark !== null };
-}
 
 function mapUserEventRow(row: unknown): UserEvent {
   const r = row as UserEvent & {
@@ -64,17 +53,60 @@ function challengeSortAt(ev: UserEvent): string {
   return new Date(n) > new Date(ev.created_at) ? n : ev.created_at;
 }
 
+function lowerSinceIso(clearedAt: string | null): string {
+  const clearedMs = clearedAt ? new Date(clearedAt).getTime() : 0;
+  const horizon = Date.now() - HISTORY_DAYS * 86_400_000;
+  return new Date(Math.max(clearedMs, horizon)).toISOString();
+}
+
+type ReactionRow = {
+  id: string;
+  emoji: string;
+  created_at: string;
+  post_id: string;
+  user_id: string;
+  actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+};
+
 export function useNotificationCenter() {
   const userId = useAuthStore((s) => s.session?.user?.id);
-  const { watermark, markAllSeenUpToNow, watermarkReady } = useNotificationWatermark();
+  const queryClient = useQueryClient();
+  const [clearedAt, setClearedAt] = useState<string | null>(null);
+  const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setClearedAt(null);
+      setLastOpenedAt(null);
+      setPrefsHydrated(false);
+      return;
+    }
+    let cancelled = false;
+    setPrefsHydrated(false);
+    void AsyncStorage.multiGet([bellClearedKey(userId), bellOpenedKey(userId)]).then((entries) => {
+      if (cancelled) return;
+      const [, cleared] = entries[0];
+      const [, opened] = entries[1];
+      setClearedAt(cleared ?? null);
+      setLastOpenedAt(opened ?? null);
+      setPrefsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const sinceIso = useMemo(() => lowerSinceIso(clearedAt), [clearedAt]);
+
   const { data: friendRequests = [], isLoading: requestsLoading } = useFriendRequests();
 
   const acceptQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'accepts', userId, watermark],
-    enabled: !!userId && !!watermark,
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'accepts', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
     queryFn: async (): Promise<(Friendship & { addressee?: Profile | null })[]> => {
-      if (!userId || !watermark) return [];
+      if (!userId) return [];
 
       const { data, error } = await supabase
         .from('friendships')
@@ -82,7 +114,7 @@ export function useNotificationCenter() {
         .eq('requester_id', userId)
         .eq('status', 'accepted')
         .not('accepted_at', 'is', null)
-        .gt('accepted_at', watermark)
+        .gt('accepted_at', sinceIso)
         .order('accepted_at', { ascending: false })
         .limit(50);
 
@@ -92,11 +124,11 @@ export function useNotificationCenter() {
   });
 
   const reactionsQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'reactions', userId, watermark],
-    enabled: !!userId && !!watermark,
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'reactions', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
     queryFn: async () => {
-      if (!userId || !watermark) return [];
+      if (!userId) return [];
 
       const { data: myPosts, error: pe } = await supabase.from('posts').select('id').eq('user_id', userId);
       if (pe) throw pe;
@@ -110,9 +142,9 @@ export function useNotificationCenter() {
         )
         .in('post_id', ids)
         .neq('user_id', userId)
-        .gt('created_at', watermark)
+        .gt('created_at', sinceIso)
         .order('created_at', { ascending: false })
-        .limit(80);
+        .limit(200);
 
       if (error) throw error;
       return data ?? [];
@@ -120,11 +152,11 @@ export function useNotificationCenter() {
   });
 
   const challengesQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'challenges', userId, watermark],
-    enabled: !!userId && !!watermark,
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'challenges', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
     queryFn: async (): Promise<UserEvent[]> => {
-      if (!userId || !watermark) return [];
+      if (!userId) return [];
 
       const { data, error } = await supabase
         .from('user_events')
@@ -136,17 +168,29 @@ export function useNotificationCenter() {
         .limit(25);
 
       if (error) throw error;
-      const wm = new Date(watermark).getTime();
+      const sinceMs = new Date(sinceIso).getTime();
       return (data ?? [])
         .map(mapUserEventRow)
-        .filter((ev) => {
-          const byCreate = new Date(ev.created_at).getTime() > wm;
-          const byNotify =
-            ev.notified_at != null && new Date(ev.notified_at).getTime() > wm;
-          return byCreate || byNotify;
-        });
+        .filter((ev) => new Date(challengeSortAt(ev)).getTime() > sinceMs);
     },
   });
+
+  const markBellOpened = useCallback(async () => {
+    if (!userId) return;
+    const iso = new Date().toISOString();
+    await AsyncStorage.setItem(bellOpenedKey(userId), iso);
+    setLastOpenedAt(iso);
+  }, [userId]);
+
+  const clearNotificationHistory = useCallback(async () => {
+    if (!userId) return;
+    const iso = new Date().toISOString();
+    await AsyncStorage.setItem(bellClearedKey(userId), iso);
+    setClearedAt(iso);
+    await queryClient.invalidateQueries({
+      predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === NOTIFICATION_CENTER_PREFIX,
+    });
+  }, [queryClient, userId]);
 
   const items = useMemo((): NotificationCenterItem[] => {
     const reqItems: NotificationCenterItem[] = [...friendRequests]
@@ -166,29 +210,39 @@ export function useNotificationCenter() {
         sortAt: f.accepted_at ?? f.created_at,
       })) ?? [];
 
-    type ReactionRow = {
-      id: string;
-      emoji: string;
-      created_at: string;
-      post_id: string;
-      user_id: string;
-      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
-    };
+      const rawReactions = (reactionsQuery.data ?? []) as unknown as ReactionRow[];
+    const byPost = new Map<string, ReactionRow[]>();
+    for (const r of rawReactions) {
+      const list = byPost.get(r.post_id) ?? [];
+      list.push(r);
+      byPost.set(r.post_id, list);
+    }
 
-    const reactItems: NotificationCenterItem[] =
-      (reactionsQuery.data as ReactionRow[] | undefined)?.map((r) => ({
-        key: `reaction:${r.id}`,
-        kind: 'reaction' as const,
-        reaction: {
-          id: r.id,
-          emoji: r.emoji,
-          created_at: r.created_at,
-          post_id: r.post_id,
-          user_id: r.user_id,
-        },
-        actor: r.actor ?? { username: 'someone', display_name: 'Someone', avatar_url: null },
-        sortAt: r.created_at,
-      })) ?? [];
+    const reactionGroups: NotificationCenterItem[] = [];
+    for (const [postId, rows] of byPost) {
+      rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const seenUser = new Set<string>();
+      const actors: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[] = [];
+      const emojis: string[] = [];
+      for (const r of rows) {
+        if (!seenUser.has(r.user_id)) {
+          seenUser.add(r.user_id);
+          actors.push(
+            r.actor ?? { username: 'someone', display_name: 'Someone', avatar_url: null },
+          );
+        }
+        if (!emojis.includes(r.emoji)) emojis.push(r.emoji);
+      }
+      reactionGroups.push({
+        key: `reactions_post:${postId}`,
+        kind: 'reactions_group',
+        post_id: postId,
+        count: rows.length,
+        emojis,
+        actors: actors.slice(0, 8),
+        sortAt: rows[0].created_at,
+      });
+    }
 
     const chItems: NotificationCenterItem[] =
       challengesQuery.data?.map((ev) => ({
@@ -198,7 +252,7 @@ export function useNotificationCenter() {
         sortAt: challengeSortAt(ev),
       })) ?? [];
 
-    const merged = [...reqItems, ...accItems, ...reactItems, ...chItems];
+    const merged = [...reqItems, ...accItems, ...reactionGroups, ...chItems];
 
     merged.sort((a, b) => {
       const priority = (k: NotificationCenterItem['kind']) => (k === 'friend_request' ? 0 : 1);
@@ -208,14 +262,15 @@ export function useNotificationCenter() {
     });
 
     return merged;
-  }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data]);
+  }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso]);
 
   const unreadCount = useMemo(() => {
-    return items.length;
-  }, [items]);
+    const openedMs = lastOpenedAt ? new Date(lastOpenedAt).getTime() : 0;
+    return items.filter((i) => new Date(i.sortAt).getTime() > openedMs).length;
+  }, [items, lastOpenedAt]);
 
   const isLoading =
-    !watermarkReady ||
+    !prefsHydrated ||
     requestsLoading ||
     acceptQuery.isLoading ||
     reactionsQuery.isLoading ||
@@ -225,7 +280,8 @@ export function useNotificationCenter() {
     items,
     unreadCount,
     isLoading,
-    markAllSeenUpToNow,
-    watermarkReady,
+    markBellOpened,
+    clearNotificationHistory,
+    prefsHydrated,
   };
 }

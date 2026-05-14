@@ -19,14 +19,24 @@ async function clearNotificationTokensForUsers(userIds: string[]) {
 
 function wantsDojiPush(prefs: Record<string, unknown> | null | undefined): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
-  if (prefs.push_enabled === false) return false;
-  if (prefs.doji_start === false) return false;
-  return true;
+  return prefs.doji_start !== false;
+}
+
+function wantsAnyCategoryForOperational(prefs: Record<string, unknown> | null | undefined): boolean {
+  if (!prefs || typeof prefs !== 'object') return true;
+  const keys = [
+    'doji_start',
+    'friend_post',
+    'reactions_on_my_post',
+    'friend_request',
+    'friend_accepted',
+    'badges',
+  ] as const;
+  return keys.some((k) => prefs[k] !== false);
 }
 
 function wantsAnyPush(prefs: Record<string, unknown> | null | undefined): boolean {
-  if (!prefs || typeof prefs !== 'object') return true;
-  return prefs.push_enabled !== false;
+  return wantsAnyCategoryForOperational(prefs);
 }
 
 Deno.serve(async (req) => {

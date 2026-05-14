@@ -39,20 +39,22 @@ Notable migrations:
 
 Deployed functions live under `supabase/functions/`.
 
-**`schedule-daily-challenge`** creates the daily assignment, inserts **`user_events` for every profile**, and sends Expo pushes only where `profiles.notification_token` is set. Set Supabase secrets and deploy:
+**Daily challenge + pushes (no external cron):** Migration [`20260516143000_pg_cron_doji_automation.sql`](supabase/migrations/20260516143000_pg_cron_doji_automation.sql) registers pg_cron jobs that invoke your Edge Functions automatically. **`schedule-daily-challenge`** creates the daily assignment, inserts **`user_events` for every profile**, and picks a random **`fires_at`** in the evening UTC window. **`dispatch-challenge-pushes`** (invoked every minute from the DB) sends Expo pushes when `fires_at` is due. **`expire-events`** runs every five minutes.
 
-```bash
-npx supabase secrets set SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=…
-npx supabase functions deploy schedule-daily-challenge
-```
+1. Enable extensions if needed: **Dashboard → Database → Extensions** — **`pg_cron`**, **`pg_net`** (Vault is used for secrets).
+2. `npx supabase db push` (applies the migration above).
+3. **One-time Vault setup:** run the templated SQL in [`supabase/scripts/vault_pg_cron_secrets.sql`](supabase/scripts/vault_pg_cron_secrets.sql) in the **SQL Editor** — you must store **`doji_project_url`** (your `https://<ref>.supabase.co`) and **`doji_cron_secret`** (exactly the same string as Edge secret **`CRON_SECRET`**).
+4. Deploy functions: at minimum `schedule-daily-challenge`, `dispatch-challenge-pushes`, `expire-events`.
 
-Attach a cron or external scheduler that **POSTs** the function URL once per window you want challenges to drop (often daily). Push payloads include `data.url: '/(app)/challenge'` and `type: 'CHALLENGE'` for routing.
+Push payloads include `data.url: '/(app)/challenge'` and `type: 'CHALLENGE'` for routing.
 
-Related helpers: **`expire-events`**, **`recalculate-streak`** — deploy similarly if your production cron uses them.
+**Optional:** You can still trigger the same URLs manually with `curl` + `CRON_SECRET` (see `supabase/CRON_AND_SECRETS.md`). External cron is not required once Vault + pg_cron are set up.
+
+Related helpers: **`recalculate-streak`**, **`send-push-notifications`** — deploy if you use them.
 
 ## Scheduling and time zones
 
-Scheduling and **`fires_at` / `expires_at`** are **UTC-relative** unless you extend the schema/functions for per-user time zones.
+Scheduling: daily **`fires_at`** is a random time **8 AM–8 PM in `America/Denver`** (see `schedule-daily-challenge`). DB timestamps remain UTC; adjust the function if you want another zone.
 
 ## Notifications
 

@@ -50,7 +50,8 @@ Call the Edge Function with the **user’s JWT**, not `CRON_SECRET`:
 
 ## 7. Operations after deploy
 
-1. Apply migration `supabase/migrations/20260508120000_app_store_readiness.sql`
+1. Apply migrations (including `20260508120000_app_store_readiness.sql` and `20260516143000_pg_cron_doji_automation.sql` for automated cron)
 2. Set Edge secret `CRON_SECRET`
-3. Deploy all functions (including `dispatch-challenge-pushes`)
-4. Schedule: daily `schedule-daily-challenge`; frequent `dispatch-challenge-pushes`; periodic `expire-events`
+3. **Vault (one-time):** add `doji_project_url` and `doji_cron_secret` per [`supabase/scripts/vault_pg_cron_secrets.sql`](../supabase/scripts/vault_pg_cron_secrets.sql) (copy of `CRON_SECRET`)
+4. Deploy all functions (at minimum `schedule-daily-challenge`, `dispatch-challenge-pushes`, `expire-events`)
+5. Confirm **Database → Extensions**: `pg_cron`, `pg_net` enabled; verify **`cron.job`** contains the `doji_*` schedules (or see [`CRON_AND_SECRETS.md`](../supabase/CRON_AND_SECRETS.md))

@@ -47,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       profile: data
         ? {
             ...data,
+            app_theme: normalizeAppTheme((data as Profile).app_theme),
             notification_preferences: mergeNotificationPreferences(
               (data as Profile).notification_preferences,
             ),

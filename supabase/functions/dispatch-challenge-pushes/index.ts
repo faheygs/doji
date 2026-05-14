@@ -37,9 +37,7 @@ type UeRow = {
 
 function wantsDojiPush(prefs: Record<string, unknown> | null | undefined): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
-  if (prefs.push_enabled === false) return false;
-  if (prefs.doji_start === false) return false;
-  return true;
+  return prefs.doji_start !== false;
 }
 
 function needsPush(row: UeRow): boolean {
