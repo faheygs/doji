@@ -11,9 +11,11 @@ import {
   isExpired,
   getBannerChallengeSecondsRemaining,
   formatMinutesSecondsCountdown,
+  secondsUntilFiresAt,
 } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
+import { IconCamera } from '../icons/Icons';
 
 type Props = {
   userEvent: UserEvent | null;
@@ -23,15 +25,26 @@ export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
 
+  // Tracks seconds until fires_at (positive = future, negative = past)
+  const [secondsUntil, setSecondsUntil] = useState<number>(() => {
+    if (!userEvent?.daily_event?.fires_at) return 0;
+    return secondsUntilFiresAt(userEvent.daily_event.fires_at);
+  });
+
+  // Tracks window-expiry countdown for the live banner
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   useEffect(() => {
     if (!userEvent?.daily_event?.fires_at) {
+      setSecondsUntil(0);
       setSecondsLeft(0);
       return;
     }
     const de = userEvent.daily_event;
-    const tick = () => setSecondsLeft(getBannerChallengeSecondsRemaining(de));
+    const tick = () => {
+      setSecondsUntil(secondsUntilFiresAt(de.fires_at));
+      setSecondsLeft(getBannerChallengeSecondsRemaining(de));
+    };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -62,6 +75,61 @@ export function ChallengeBanner({ userEvent }: Props) {
           marginHorizontal: Spacing.md,
           marginBottom: Spacing.sm,
           padding: Spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.sm,
+        },
+        lockedBanner: {
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: Radius.lg,
+          marginHorizontal: Spacing.md,
+          marginBottom: Spacing.sm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: Spacing.md,
+          paddingHorizontal: Spacing.md,
+          gap: Spacing.sm,
+        },
+        lockedIconCircle: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.chipBackground,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        lockedTitleBar: {
+          height: 14,
+          width: 120,
+          borderRadius: Radius.sm,
+          backgroundColor: colors.border,
+          marginTop: 4,
+        },
+        countdownWrapper: {
+          marginHorizontal: Spacing.md,
+          marginBottom: Spacing.sm,
+          borderRadius: Radius.lg,
+          overflow: 'hidden',
+        },
+        countdownInner: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: Spacing.lg,
+          paddingHorizontal: Spacing.md,
+          gap: Spacing.xs,
+        },
+        countdownDigit: {
+          color: '#FFFFFF',
+          fontSize: 64,
+          fontWeight: '800',
+          lineHeight: 72,
+          letterSpacing: -2,
+          fontVariant: ['tabular-nums'],
+        },
+        countdownLabel: {
+          color: 'rgba(255,255,255,0.8)',
         },
         missedBanner: {
           backgroundColor: colors.surfaceMuted,
@@ -111,13 +179,19 @@ export function ChallengeBanner({ userEvent }: Props) {
     router.push('/(app)/challenge');
   };
 
+  // No event row at all
   if (!userEvent) {
     return (
       <View style={styles.noChallenge}>
-        <Text variant="micro" color={colors.textTertiary}>NEXT CHALLENGE</Text>
-        <Text variant="body" color={colors.textSecondary} style={{ marginTop: 4 }}>
-          Check back soon
-        </Text>
+        <View style={[styles.lockedIconCircle, { opacity: 0.4 }]}>
+          <IconCamera size={22} color={colors.textTertiary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="micro" color={colors.textTertiary}>TODAY'S CHALLENGE</Text>
+          <Text variant="body" color={colors.textSecondary} style={{ marginTop: 2 }}>
+            Coming soon...
+          </Text>
+        </View>
       </View>
     );
   }
@@ -142,6 +216,39 @@ export function ChallengeBanner({ userEvent }: Props) {
     );
   }
 
+  // Locked — fires_at is more than 10 seconds away
+  if (secondsUntil > 10) {
+    return (
+      <View style={styles.lockedBanner}>
+        <View style={styles.lockedIconCircle}>
+          <ChallengeTypeGlyph type={challengeType} size={22} color={colors.textTertiary} />
+        </View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text variant="micro" color={colors.textTertiary}>CHALLENGE INCOMING</Text>
+          <View style={styles.lockedTitleBar} />
+        </View>
+      </View>
+    );
+  }
+
+  // Countdown — fires_at is 0–10 seconds away
+  if (secondsUntil > 0) {
+    return (
+      <View style={styles.countdownWrapper}>
+        <LinearGradient
+          colors={[colors.xpGradientStart, colors.xpGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.countdownInner}
+        >
+          <Text style={styles.countdownDigit}>{secondsUntil}</Text>
+          <Text variant="micro" style={styles.countdownLabel}>Challenge unlocking…</Text>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // Live — fires_at has passed, challenge is active
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
       <LinearGradient

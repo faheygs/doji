@@ -8,6 +8,7 @@ import { useFriendRequests } from './useProfile';
 
 const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
 const BELL_LAST_OPENED_KEY = '@doit/bell-last-opened';
+const DISMISSED_KEYS_KEY = '@doit/dismissed-notif-keys';
 const HISTORY_DAYS = 30;
 
 function bellClearedKey(uid: string | undefined) {
@@ -16,6 +17,10 @@ function bellClearedKey(uid: string | undefined) {
 
 function bellOpenedKey(uid: string | undefined) {
   return uid ? `${BELL_LAST_OPENED_KEY}:${uid}` : BELL_LAST_OPENED_KEY;
+}
+
+function dismissedKey(uid: string | undefined) {
+  return uid ? `${DISMISSED_KEYS_KEY}:${uid}` : DISMISSED_KEYS_KEY;
 }
 
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
@@ -73,6 +78,7 @@ export function useNotificationCenter() {
   const queryClient = useQueryClient();
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
   useEffect(() => {
@@ -84,12 +90,23 @@ export function useNotificationCenter() {
     }
     let cancelled = false;
     setPrefsHydrated(false);
-    void AsyncStorage.multiGet([bellClearedKey(userId), bellOpenedKey(userId)]).then((entries) => {
+    void AsyncStorage.multiGet([
+      bellClearedKey(userId),
+      bellOpenedKey(userId),
+      dismissedKey(userId),
+    ]).then((entries) => {
       if (cancelled) return;
       const [, cleared] = entries[0];
       const [, opened] = entries[1];
+      const [, dismissedRaw] = entries[2];
       setClearedAt(cleared ?? null);
       setLastOpenedAt(opened ?? null);
+      try {
+        const parsed: string[] = dismissedRaw ? JSON.parse(dismissedRaw) : [];
+        setDismissedKeys(new Set(parsed));
+      } catch {
+        setDismissedKeys(new Set());
+      }
       setPrefsHydrated(true);
     });
     return () => {
@@ -182,11 +199,25 @@ export function useNotificationCenter() {
     setLastOpenedAt(iso);
   }, [userId]);
 
+  const dismissItem = useCallback(async (key: string) => {
+    if (!userId) return;
+    setDismissedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      void AsyncStorage.setItem(dismissedKey(userId), JSON.stringify([...next]));
+      return next;
+    });
+  }, [userId]);
+
   const clearNotificationHistory = useCallback(async () => {
     if (!userId) return;
     const iso = new Date().toISOString();
-    await AsyncStorage.setItem(bellClearedKey(userId), iso);
+    await AsyncStorage.multiSet([
+      [bellClearedKey(userId), iso],
+      [dismissedKey(userId), JSON.stringify([])],
+    ]);
     setClearedAt(iso);
+    setDismissedKeys(new Set());
     await queryClient.invalidateQueries({
       predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === NOTIFICATION_CENTER_PREFIX,
     });
@@ -252,7 +283,8 @@ export function useNotificationCenter() {
         sortAt: challengeSortAt(ev),
       })) ?? [];
 
-    const merged = [...reqItems, ...accItems, ...reactionGroups, ...chItems];
+    const merged = [...reqItems, ...accItems, ...reactionGroups, ...chItems]
+      .filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
       const priority = (k: NotificationCenterItem['kind']) => (k === 'friend_request' ? 0 : 1);
@@ -262,7 +294,7 @@ export function useNotificationCenter() {
     });
 
     return merged;
-  }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso]);
+  }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
 
   const unreadCount = useMemo(() => {
     const openedMs = lastOpenedAt ? new Date(lastOpenedAt).getTime() : 0;
@@ -281,6 +313,7 @@ export function useNotificationCenter() {
     unreadCount,
     isLoading,
     markBellOpened,
+    dismissItem,
     clearNotificationHistory,
     prefsHydrated,
   };

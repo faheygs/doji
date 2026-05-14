@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, type LayoutChangeEvent, useWindowDimensions } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  type LayoutChangeEvent,
+  useWindowDimensions,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Pressable,
+  Platform,
+} from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Spacing, Radius, Shadows } from '../../constants/theme';
 import { BadgeIcon } from '../icons/BadgeIcons';
@@ -9,6 +19,29 @@ import type { Badge, UserBadge } from '../../types/database';
 const COLUMN_GAP = Spacing.md;
 const ROW_GAP = Spacing.md;
 
+function criteriaLabel(type: string, value: number): string {
+  switch (type) {
+    case 'streak_days':
+      return `Reach a ${value}-day streak`;
+    case 'completions':
+      return `Complete ${value} challenge${value === 1 ? '' : 's'}`;
+    case 'total_xp':
+      return `Earn ${value.toLocaleString()} total XP`;
+    case 'reactions_given':
+      return `Give ${value} reaction${value === 1 ? '' : 's'}`;
+    case 'reactions_received':
+      return `Receive ${value} reaction${value === 1 ? '' : 's'}`;
+    case 'poll_votes':
+      return `Vote in ${value} poll${value === 1 ? '' : 's'}`;
+    case 'friends_count':
+      return `Have ${value} friend${value === 1 ? '' : 's'}`;
+    case 'level_reached':
+      return `Reach level ${value}`;
+    default:
+      return `Reach ${value}`;
+  }
+}
+
 type Props = {
   badges: Badge[];
   earned: UserBadge[];
@@ -17,8 +50,9 @@ type Props = {
 export function BadgesGrid({ badges, earned }: Props) {
   const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
-  const earnedIds = new Set(earned.map((ub) => ub.badge_id));
+  const earnedMap = new Map(earned.map((ub) => [ub.badge_id, ub]));
   const [gridWidth, setGridWidth] = useState(0);
+  const [selected, setSelected] = useState<Badge | null>(null);
 
   const onGridLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -28,45 +62,144 @@ export function BadgesGrid({ badges, earned }: Props) {
   const basisW = gridWidth > 0 ? gridWidth : Math.max(0, windowWidth - Spacing.md * 2);
   const cellSize = Math.max(0, Math.floor((basisW - 2 * COLUMN_GAP) / 3));
 
+  const selectedEarned = selected ? earnedMap.get(selected.id) : undefined;
+  const selectedIsEarned = !!selectedEarned;
+
   return (
-    <View style={styles.gridMeasure} onLayout={onGridLayout}>
-      <View style={[styles.grid, { rowGap: ROW_GAP, columnGap: COLUMN_GAP }]}>
-        {badges.map((badge) => {
-          const isEarned = earnedIds.has(badge.id);
-          return (
-            <View
-              key={badge.id}
-              style={[
-                styles.cell,
-                { width: cellSize, height: cellSize },
-                {
-                  backgroundColor: isEarned ? colors.surface : colors.surfaceMuted,
-                  borderColor: isEarned ? colors.primary : colors.border,
-                  opacity: isEarned ? 1 : 0.45,
-                  ...Shadows.card,
-                },
-              ]}
-            >
-              <View style={styles.iconWell}>
-                <BadgeIcon
-                  badgeId={badge.id}
-                  size={28}
-                  color={isEarned ? colors.primary : colors.textTertiary}
-                />
-              </View>
-              <Text
-                variant="micro"
-                color={isEarned ? colors.text : colors.textTertiary}
-                style={styles.badgeName}
-                numberOfLines={2}
+    <>
+      <View style={styles.gridMeasure} onLayout={onGridLayout}>
+        <View style={[styles.grid, { rowGap: ROW_GAP, columnGap: COLUMN_GAP }]}>
+          {badges.map((badge) => {
+            const isEarned = earnedMap.has(badge.id);
+            return (
+              <TouchableOpacity
+                key={badge.id}
+                onPress={() => setSelected(badge)}
+                activeOpacity={0.75}
+                style={[
+                  styles.cell,
+                  { width: cellSize, height: cellSize },
+                  {
+                    backgroundColor: isEarned ? colors.surface : colors.surfaceMuted,
+                    borderColor: isEarned ? colors.primary : colors.border,
+                    opacity: isEarned ? 1 : 0.45,
+                    ...Shadows.card,
+                  },
+                ]}
               >
-                {badge.name}
-              </Text>
-            </View>
-          );
-        })}
+                <View style={styles.iconWell}>
+                  <BadgeIcon
+                    badgeId={badge.id}
+                    size={28}
+                    color={isEarned ? colors.primary : colors.textTertiary}
+                  />
+                </View>
+                <Text
+                  variant="micro"
+                  color={isEarned ? colors.text : colors.textTertiary}
+                  style={styles.badgeName}
+                  numberOfLines={2}
+                >
+                  {badge.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
-    </View>
+
+      <Modal
+        visible={!!selected}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSelected(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
+          <Pressable
+            style={[styles.sheet, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {selected ? (
+              <ScrollView
+                contentContainerStyle={styles.sheetContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Icon */}
+                <View
+                  style={[
+                    styles.sheetIconCircle,
+                    {
+                      backgroundColor: selectedIsEarned ? colors.primaryPale : colors.surfaceMuted,
+                      borderColor: selectedIsEarned ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <BadgeIcon
+                    badgeId={selected.id}
+                    size={44}
+                    color={selectedIsEarned ? colors.primary : colors.textTertiary}
+                  />
+                </View>
+
+                {/* Name */}
+                <Text variant="headingLarge" style={styles.sheetTitle}>
+                  {selected.name}
+                </Text>
+
+                {/* Earned / locked pill */}
+                <View
+                  style={[
+                    styles.statusPill,
+                    {
+                      backgroundColor: selectedIsEarned ? colors.success + '22' : colors.surfaceMuted,
+                      borderColor: selectedIsEarned ? colors.success : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    variant="micro"
+                    color={selectedIsEarned ? colors.success : colors.textTertiary}
+                  >
+                    {selectedIsEarned
+                      ? `EARNED ${new Date(selectedEarned!.earned_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                      : 'LOCKED'}
+                  </Text>
+                </View>
+
+                {/* Description */}
+                <Text
+                  variant="body"
+                  color={colors.textSecondary}
+                  style={styles.sheetDescription}
+                >
+                  {selected.description}
+                </Text>
+
+                {/* Criteria */}
+                <View style={[styles.criteriaBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
+                    HOW TO EARN
+                  </Text>
+                  <Text variant="body" color={colors.text}>
+                    {criteriaLabel(selected.criteria_type, selected.criteria_value)}
+                  </Text>
+                </View>
+
+                {/* Dismiss */}
+                <TouchableOpacity
+                  onPress={() => setSelected(null)}
+                  style={[styles.dismissBtn, { borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                >
+                  <Text variant="label" color={colors.textSecondary}>Close</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -97,5 +230,65 @@ const styles = StyleSheet.create({
   badgeName: {
     textAlign: 'center',
     marginTop: Spacing.xs,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    maxHeight: '75%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 16 },
+    }),
+  },
+  sheetContent: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  sheetIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  sheetTitle: {
+    textAlign: 'center',
+  },
+  statusPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  sheetDescription: {
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  criteriaBox: {
+    width: '100%',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
+  dismissBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.full,
+    borderWidth: 1,
   },
 });

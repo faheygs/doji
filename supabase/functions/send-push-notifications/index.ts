@@ -44,7 +44,13 @@ Deno.serve(async (req) => {
   if (denied) return denied;
 
   try {
-    const { user_event_ids, title, body, data } = await req.json();
+    const payload = (await req.json()) as {
+      user_event_ids?: unknown;
+      title?: string;
+      body?: string;
+      data?: unknown;
+    };
+    const { user_event_ids, title, body, data } = payload;
 
     const isChallenge =
       data && typeof data === 'object' && (data as Record<string, unknown>).type === 'CHALLENGE';
@@ -72,18 +78,23 @@ Deno.serve(async (req) => {
       } | null;
     };
 
-    const rows = (userEvents ?? []) as Row[];
+    const rows = (userEvents ?? []) as unknown as Row[];
     const withToken = rows.filter((e) => Boolean(e.profiles?.notification_token?.trim()));
     const pushRows = withToken.filter((e) => {
       const prefs = e.profiles?.notification_preferences ?? null;
       return isChallenge ? wantsDojiPush(prefs) : wantsAnyPush(prefs);
     });
 
+    const dataObj =
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+
     const notifications: ExpoMessage[] = pushRows.map((e) => ({
       to: e.profiles!.notification_token!.trim(),
       title: title ?? '⚡ Doji! Challenge Time',
       body: body ?? 'Your challenge is waiting!',
-      data: { ...data, user_event_id: e.id },
+      data: { ...dataObj, user_event_id: e.id },
       sound: 'default' as const,
       badge: 1,
     }));

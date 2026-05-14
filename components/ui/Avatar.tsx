@@ -12,9 +12,11 @@ type Props = {
   /** Initials fallback: `brand` uses accent tint (e.g. profile hero). */
   fallbackTone?: 'default' | 'brand';
   style?: StyleProp<ViewStyle>;
+  /** Optional rank-tier border color. Renders a colored ring around the avatar. */
+  rankBorderColor?: string;
 };
 
-export function Avatar({ uri, username, size = 40, fallbackTone = 'default', style }: Props) {
+export function Avatar({ uri, username, size = 40, fallbackTone = 'default', style, rankBorderColor }: Props) {
   const { colors } = useTheme();
   const initials = username?.slice(0, 2).toUpperCase() ?? '??';
 
@@ -36,8 +38,10 @@ export function Avatar({ uri, username, size = 40, fallbackTone = 'default', sty
   const initialsColor = fallbackTone === 'brand' ? colors.accent : colors.textSecondary;
   const initialsFontSize = fallbackTone === 'brand' ? size * 0.36 : size * 0.32;
 
-  return (
-    <View style={[{ width: size, height: size }, styles.container, style]}>
+  const ringSize = size + 6;
+
+  const inner = (
+    <View style={[{ width: size, height: size }, styles.container, !rankBorderColor ? style : undefined]}>
       {uri ? (
         <Image
           source={{ uri }}
@@ -64,6 +68,29 @@ export function Avatar({ uri, username, size = 40, fallbackTone = 'default', sty
       )}
     </View>
   );
+
+  if (rankBorderColor) {
+    return (
+      <View
+        style={[
+          {
+            width: ringSize,
+            height: ringSize,
+            borderRadius: ringSize / 2,
+            borderWidth: 2.5,
+            borderColor: rankBorderColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          style,
+        ]}
+      >
+        {inner}
+      </View>
+    );
+  }
+
+  return inner;
 }
 
 const styles = StyleSheet.create({

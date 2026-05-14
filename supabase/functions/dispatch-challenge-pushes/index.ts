@@ -52,7 +52,7 @@ async function markDispatchedIfComplete(dailyEventId: string) {
 
   if (error) throw error;
 
-  const rows = (allUE ?? []) as UeRow[];
+  const rows = (allUE ?? []) as unknown as UeRow[];
   const pending = rows.filter(needsPush);
   if (pending.length === 0) {
     await supabase
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
 
       if (ueErr) throw ueErr;
 
-      const rows = (userEvents ?? []) as UeRow[];
+      const rows = (userEvents ?? []) as unknown as UeRow[];
       const candidates = rows.filter(needsPush);
       const pushRows = candidates.filter((r) => wantsDojiPush(r.profiles?.notification_preferences ?? null));
       const skippedOptOut = candidates.filter(

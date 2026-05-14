@@ -9,22 +9,39 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { useLeaderboard, type LeaderboardMode } from '../../../hooks/useLeaderboard';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { LevelBadge } from '../../../components/gamification/LevelBadge';
+import { Avatar } from '../../../components/ui/Avatar';
+import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import type { LeaderboardEntry } from '../../../types/database';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
+  const router = useRouter();
   const medal = item.rank <= 3 ? MEDALS[item.rank - 1] : null;
+  const level = item.profile.level ?? 1;
+  const rankTitle = getRankTitle(level);
+  const rankBorderColor = getRankBorderColor(level, colors);
+
+  const handlePress = () => {
+    if (isMe) {
+      router.push('/(app)/profile');
+    } else if (item.profile.username) {
+      router.push(`/profile/${item.profile.username}`);
+    }
+  };
 
   return (
-    <View
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.8}
       style={[
         styles.row,
         {
@@ -44,26 +61,19 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
         )}
       </View>
 
-      <View
-        style={[
-          styles.avatar,
-          {
-            borderColor: item.profile.avatar_gradient?.[0] ?? colors.primary,
-            backgroundColor: colors.surfaceMuted,
-          },
-        ]}
-      >
-        <Text style={[styles.avatarText, { color: colors.text }]}>
-          {(item.profile.display_name || item.profile.username || '?')[0].toUpperCase()}
-        </Text>
-      </View>
+      <Avatar
+        uri={item.profile.avatar_url}
+        username={item.profile.display_name ?? item.profile.username}
+        size={40}
+        rankBorderColor={rankBorderColor}
+      />
 
       <View style={styles.nameCol}>
         <Text style={[Typography.body, { color: colors.text }]} numberOfLines={1}>
           {item.profile.display_name || item.profile.username}
         </Text>
-        <Text style={[Typography.micro, { color: colors.textTertiary }]}>
-          @{item.profile.username}
+        <Text style={[Typography.micro, { color: rankBorderColor }]}>
+          {rankTitle}
         </Text>
       </View>
 
@@ -71,9 +81,9 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
         <Text style={[Typography.subhead, { color: colors.primary }]}>
           {item.xp.toLocaleString()} XP
         </Text>
-        <LevelBadge level={item.profile.level} small />
+        <LevelBadge level={level} small />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -171,17 +181,7 @@ const styles = StyleSheet.create({
   rankCell: { width: 36, alignItems: 'center' },
   medal: { fontSize: 22 },
   rankNum: { ...Typography.subhead },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.sm,
-  },
-  avatarText: { fontSize: 16, fontWeight: '700' },
-  nameCol: { flex: 1 },
+  nameCol: { flex: 1, marginLeft: Spacing.sm },
   rightCol: { alignItems: 'flex-end', gap: 4 },
   empty: { marginTop: 80, paddingHorizontal: Spacing.lg },
 });

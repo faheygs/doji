@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
-import { Spacing } from '../../constants/theme';
+import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
@@ -27,6 +28,7 @@ type Props = {
   onClose: () => void;
   items: NotificationCenterItem[];
   isLoading: boolean;
+  onDismissItem?: (key: string) => void | Promise<void>;
   onClearHistory?: () => void | Promise<void>;
 };
 
@@ -35,6 +37,7 @@ export function NotificationSheet({
   onClose,
   items,
   isLoading,
+  onDismissItem,
   onClearHistory,
 }: Props) {
   const router = useRouter();
@@ -120,6 +123,19 @@ export function NotificationSheet({
         rowTitle: {
           marginBottom: Spacing.xs,
         },
+        dismissAction: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: 80,
+          marginBottom: Spacing.sm,
+          borderRadius: Radius.md,
+          backgroundColor: colors.error,
+        },
+        dismissActionText: {
+          color: '#FFFFFF',
+          fontWeight: '600',
+          fontSize: 13,
+        },
       }),
     [colors],
   );
@@ -153,13 +169,33 @@ export function NotificationSheet({
     router.push('/(app)/challenge');
   }, [onClose, router]);
 
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  const renderRightActions = useCallback(
+    (key: string) => (
+      <TouchableOpacity
+        style={styles.dismissAction}
+        onPress={() => {
+          swipeableRefs.current.get(key)?.close();
+          void onDismissItem?.(key);
+        }}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.dismissActionText}>Dismiss</Text>
+      </TouchableOpacity>
+    ),
+    [onDismissItem, styles.dismissAction, styles.dismissActionText],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: NotificationCenterItem }) => {
+      let card: React.ReactNode;
+
       switch (item.kind) {
         case 'friend_request': {
           const fr = item.friendship;
           const requester = fr.requester;
-          return (
+          card = (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity
                 onPress={() => openProfile(requester?.username)}
@@ -199,11 +235,12 @@ export function NotificationSheet({
               </View>
             </Card>
           );
+          break;
         }
         case 'friend_accepted': {
           const f = item.friendship;
           const addressee = f.addressee;
-          return (
+          card = (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity
                 onPress={() => openProfile(addressee?.username)}
@@ -223,17 +260,16 @@ export function NotificationSheet({
               </TouchableOpacity>
             </Card>
           );
+          break;
         }
         case 'reactions_group': {
           const shown = item.actors.slice(0, 3);
-          const names = shown
-            .map((a) => a.display_name ?? a.username ?? 'Someone')
-            .join(', ');
+          const names = shown.map((a) => a.display_name ?? a.username ?? 'Someone').join(', ');
           const extraUsers = Math.max(0, item.actors.length - shown.length);
           const userSuffix =
             extraUsers > 0 ? ` and ${extraUsers} other${extraUsers === 1 ? '' : 's'}` : '';
           const emojiStr = item.emojis.slice(0, 5).join(' ');
-          return (
+          card = (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity
                 onPress={() => openPost(item.post_id)}
@@ -257,11 +293,12 @@ export function NotificationSheet({
               </TouchableOpacity>
             </Card>
           );
+          break;
         }
         case 'challenge': {
           const ue = item.userEvent;
           const title = ue.challenge?.title ?? 'Challenge';
-          return (
+          card = (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity onPress={openChallenge} style={styles.userMeta} activeOpacity={0.85}>
                 <Text variant="headingMedium" style={styles.rowTitle}>
@@ -273,16 +310,31 @@ export function NotificationSheet({
               </TouchableOpacity>
             </Card>
           );
+          break;
         }
         default:
           return null;
       }
+
+      return (
+        <Swipeable
+          ref={(ref) => { swipeableRefs.current.set(item.key, ref); }}
+          renderRightActions={() => renderRightActions(item.key)}
+          friction={2}
+          rightThreshold={40}
+          overshootRight={false}
+        >
+          {card}
+        </Swipeable>
+      );
     },
     [
       colors.textSecondary,
+      colors.textTertiary,
       openChallenge,
       openPost,
       openProfile,
+      renderRightActions,
       respond,
       styles.actions,
       styles.card,
@@ -357,10 +409,10 @@ export function NotificationSheet({
               }}
               style={styles.footerBtn}
               accessibilityRole="button"
-              accessibilityLabel="Clear notification history"
+              accessibilityLabel="Clear notifications"
             >
               <Text variant="bodySmall" color={colors.textTertiary}>
-                Clear history
+                Clear notifications
               </Text>
             </TouchableOpacity>
           ) : null}

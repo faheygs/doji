@@ -6,7 +6,7 @@ Migration [`migrations/20260516143000_pg_cron_doji_automation.sql`](./migrations
 
 | Job name | Schedule | Edge Function |
 |----------|----------|----------------|
-| `doji_schedule_daily_challenge` | `0 6 * * *` (06:00 UTC daily) | `schedule-daily-challenge` |
+| `doji_schedule_daily_challenge` | `0 15 * * *` (15:00 UTC = 9:00 AM **MDT** / Utah summer; `0 16 * * *` = 9:00 AM **MST** winter). pg_cron is UTC-only — update at DST transitions for fixed local time. | `schedule-daily-challenge` |
 | `doji_dispatch_challenge_pushes` | `* * * * *` (every minute) | `dispatch-challenge-pushes` |
 | `doji_expire_events` | `*/5 * * * *` (every 5 minutes) | `expire-events` |
 

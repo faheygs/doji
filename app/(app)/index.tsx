@@ -51,6 +51,7 @@ export default function FeedScreen() {
   const {
     unreadCount: notificationUnread,
     markBellOpened,
+    dismissItem: dismissNotificationItem,
     clearNotificationHistory,
     items: notificationItems,
     isLoading: notificationsLoading,
@@ -152,6 +153,9 @@ export default function FeedScreen() {
 
   const hasPosted = userEvent?.status === 'completed' || userEvent?.status === 'late';
   const shouldBlur = !hasPosted && !userEventLoading;
+
+  const firesAt = userEvent?.daily_event?.fires_at;
+  const challengeIsLive = firesAt ? firesAt <= new Date().toISOString() : false;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -259,19 +263,28 @@ export default function FeedScreen() {
     ],
   );
 
+  const emptyHeading = !userEvent
+    ? "Challenge incoming"
+    : challengeIsLive
+      ? "Nothing yet"
+      : "Challenge incoming";
+
+  const emptyBody = !userEvent
+    ? "Today's challenge hasn't dropped yet.\nCheck back soon."
+    : challengeIsLive
+      ? "Be the first to respond!"
+      : "The challenge drops soon.\nBe ready to go first.";
+
   const ListEmptyComponent = useMemo(
     () => (
       <View style={styles.empty}>
-        <Text variant="headingLarge">Nothing yet</Text>
+        <Text variant="headingLarge">{emptyHeading}</Text>
         <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-          No posts yet today.
-        </Text>
-        <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-          Be the first to respond!
+          {emptyBody}
         </Text>
       </View>
     ),
-    [styles.empty, styles.emptyText, colors.textSecondary],
+    [styles.empty, styles.emptyText, colors.textSecondary, emptyHeading, emptyBody],
   );
 
   if (feedError || userEventError) {
@@ -332,6 +345,7 @@ export default function FeedScreen() {
         visible={notificationsOpen}
         items={notificationItems}
         isLoading={notificationsLoading}
+        onDismissItem={dismissNotificationItem}
         onClearHistory={clearNotificationHistory}
         onClose={() => {
           void markBellOpened();

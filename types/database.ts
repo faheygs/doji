@@ -27,6 +27,7 @@ export type Profile = {
   xp: number;
   level: number;
   reactions_received: number;
+  streak_shields: number;
   notification_token: string | null;
   notification_preferences?: NotificationPreferences;
   /** Color theme (`ThemeName`); stored in DB, default `midnight`. */

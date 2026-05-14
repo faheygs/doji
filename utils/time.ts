@@ -7,6 +7,11 @@ export function getTimeRemaining(expiresAt: string): number {
   return Math.max(0, diff);
 }
 
+/** Positive = fires_at is in the future. Negative = fires_at has already passed. */
+export function secondsUntilFiresAt(fires_at: string): number {
+  return Math.floor((new Date(fires_at).getTime() - Date.now()) / 1000);
+}
+
 const BANNER_MAX_SECONDS = 10 * 60;
 
 /** Feed banner: seconds until window ends (fires_at + min(window_minutes, 10)), never shows more than 10: worth of countdown. */

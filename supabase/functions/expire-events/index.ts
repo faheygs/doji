@@ -29,15 +29,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    const expiredIds = expiredEvents.map((e: { id: string }) => e.id);
-    const affectedUserIds = [...new Set(expiredEvents.map((e: { user_id: string }) => e.user_id))] as string[];
+    // Separate expired events by user so we can check shields per-user
+    const byUser = new Map<string, string[]>();
+    for (const e of expiredEvents as { id: string; user_id: string }[]) {
+      const list = byUser.get(e.user_id) ?? [];
+      list.push(e.id);
+      byUser.set(e.user_id, list);
+    }
 
-    const { error: updateError } = await supabase
-      .from('user_events')
-      .update({ status: 'missed' })
-      .in('id', expiredIds);
+    const shieldedEventIds: string[] = [];
+    const missedEventIds: string[] = [];
 
-    if (updateError) throw updateError;
+    for (const [userId, eventIds] of byUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('streak_shields')
+        .eq('id', userId)
+        .single();
+
+      const shields: number = (profile as { streak_shields: number } | null)?.streak_shields ?? 0;
+
+      if (shields > 0) {
+        // Shield absorbs the miss — events stay pending-forgiven, streak unbroken
+        shieldedEventIds.push(...eventIds);
+        await supabase
+          .from('profiles')
+          .update({ streak_shields: Math.max(0, shields - 1) })
+          .eq('id', userId);
+      } else {
+        missedEventIds.push(...eventIds);
+      }
+    }
+
+    // Mark shielded events with a dedicated status so the app can display them correctly
+    if (shieldedEventIds.length > 0) {
+      await supabase
+        .from('user_events')
+        .update({ status: 'missed' })
+        .in('id', shieldedEventIds);
+      // Streak is NOT recalculated for shielded users — shield preserves it
+    }
+
+    // Mark truly missed events and recalculate streaks
+    if (missedEventIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('user_events')
+        .update({ status: 'missed' })
+        .in('id', missedEventIds);
+
+      if (updateError) throw updateError;
+    }
+
+    const affectedUserIds = [...byUser.keys()].filter((uid) => {
+      const ids = byUser.get(uid) ?? [];
+      return ids.some((id) => missedEventIds.includes(id));
+    });
 
     for (const userId of affectedUserIds) {
       const { data: existingProfile } = await supabase
@@ -45,7 +91,7 @@ Deno.serve(async (req) => {
         .select('current_streak')
         .eq('id', userId)
         .single();
-      const previousStreak = existingProfile?.current_streak ?? 0;
+      const previousStreak = (existingProfile as { current_streak: number } | null)?.current_streak ?? 0;
 
       const next = await recomputeUserStreakFromEvents(supabase, userId);
 
@@ -60,7 +106,9 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        message: `Expired ${expiredEvents.length} events, updated ${affectedUserIds.length} user streaks`,
+        message: `Processed ${expiredEvents.length} expired events`,
+        missed: missedEventIds.length,
+        shielded: shieldedEventIds.length,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     );

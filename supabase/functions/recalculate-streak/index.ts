@@ -42,8 +42,8 @@ async function assertAuthorizedForUser(req: Request, userId: string): Promise<Re
 
 Deno.serve(async (req) => {
   try {
-    const body = await req.json().catch(() => ({}));
-    const user_id = body.user_id as string | undefined;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const user_id = typeof body.user_id === 'string' ? body.user_id : undefined;
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: 'user_id is required' }), {

@@ -28,7 +28,7 @@ export default function AppLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const pathname = usePathname();
+  const pathname = usePathname(); // still used for web aria-hidden blur effect
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -109,10 +109,7 @@ export default function AppLayout() {
         }}
         listeners={{
           tabPress: () => {
-            const parts = pathname.split('/').filter(Boolean);
-            if (parts[0] === 'profile' && parts.length > 1) {
-              router.replace('/(app)/profile');
-            }
+            router.replace('/(app)/profile');
           },
         }}
       />

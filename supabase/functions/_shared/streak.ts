@@ -17,7 +17,7 @@ export async function recomputeUserStreakFromEvents(
   longest_streak: number;
   total_completions: number;
   total_missed: number;
-} | null> {
+}> {
   const { data: events, error: fetchError } = await supabase
     .from('user_events')
     .select('status, expires_at, completed_at')

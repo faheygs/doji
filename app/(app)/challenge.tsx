@@ -27,7 +27,7 @@ import { Button } from '../../components/ui/Button';
 import { CategoryBadge } from '../../components/ui/CategoryBadge';
 import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
-import { isExpired } from '../../utils/time';
+import { isExpired, secondsUntilFiresAt } from '../../utils/time';
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -41,6 +41,9 @@ export default function ChallengeScreen() {
   const category = challenge?.category ?? 'wild';
   const letter = CategoryLetters[category] ?? '?';
   const color = catColors[category] ?? colors.text;
+
+  const firesAt = userEvent?.daily_event?.fires_at;
+  const notYetLive = firesAt ? secondsUntilFiresAt(firesAt) > 0 : false;
 
   const isMissed =
     userEvent?.status === 'missed' || (userEvent && isExpired(userEvent.expires_at));
@@ -153,6 +156,24 @@ export default function ChallengeScreen() {
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary}>
             Loading…
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (notYetLive) {
+    return (
+      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
+            <IconClose size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.centered}>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>Not yet</Text>
+          <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+            This challenge hasn't dropped yet.{'\n'}Check back when the timer hits zero.
           </Text>
         </View>
       </SafeAreaView>

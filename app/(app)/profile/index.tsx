@@ -25,6 +25,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeDefinitions, useUserBadges } from '@/hooks/useBadges';
 import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
+import { getRankTitle, getRankBorderColor } from '@/lib/rankTitle';
 import type { Profile } from '@/types/database';
 
 export default function MyProfileScreen() {
@@ -156,6 +157,8 @@ export default function MyProfileScreen() {
   if (!profile) return null;
 
   const gradient = profile.avatar_gradient ?? [colors.xpGradientStart, colors.xpGradientEnd];
+  const rankTitle = getRankTitle(profile.level ?? 1);
+  const rankBorderColor = getRankBorderColor(profile.level ?? 1, colors);
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
@@ -182,31 +185,39 @@ export default function MyProfileScreen() {
         <View style={styles.hero}>
           <View style={styles.avatarBlock}>
             <View style={styles.avatarShadowWrap}>
-              <LinearGradient
-                colors={gradient as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarGradientRing}
-              >
-                <View
-                  style={[
-                    styles.avatarInnerWell,
-                    {
-                      width: heroAvatarSize,
-                      height: heroAvatarSize,
-                      borderRadius: heroAvatarSize / 2,
-                      backgroundColor: colors.surfaceElevated,
-                    },
-                  ]}
+              {/* Outer rank-tier border ring */}
+              <View style={{
+                padding: 3,
+                borderRadius: Radius.full,
+                borderWidth: 2.5,
+                borderColor: rankBorderColor,
+              }}>
+                <LinearGradient
+                  colors={gradient as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarGradientRing}
                 >
-                  <Avatar
-                    uri={profile.avatar_url}
-                    username={profile.username}
-                    size={heroAvatarSize}
-                    fallbackTone={profile.avatar_url ? 'default' : 'brand'}
-                  />
-                </View>
-              </LinearGradient>
+                  <View
+                    style={[
+                      styles.avatarInnerWell,
+                      {
+                        width: heroAvatarSize,
+                        height: heroAvatarSize,
+                        borderRadius: heroAvatarSize / 2,
+                        backgroundColor: colors.surfaceElevated,
+                      },
+                    ]}
+                  >
+                    <Avatar
+                      uri={profile.avatar_url}
+                      username={profile.username}
+                      size={heroAvatarSize}
+                      fallbackTone={profile.avatar_url ? 'default' : 'brand'}
+                    />
+                  </View>
+                </LinearGradient>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.editFab}
@@ -230,6 +241,9 @@ export default function MyProfileScreen() {
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             @{profile.username}
           </Text>
+          <Text variant="micro" color={rankBorderColor} style={{ textAlign: 'center', letterSpacing: 1 }}>
+            {rankTitle.toUpperCase()}
+          </Text>
 
           <LevelBadge level={profile.level ?? 1} />
 
@@ -247,6 +261,14 @@ export default function MyProfileScreen() {
             <Text variant="micro" color={colors.textSecondary}>
               Streak
             </Text>
+            {(profile.streak_shields ?? 0) > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                <Text variant="nano" color={colors.textTertiary}>🛡️</Text>
+                <Text variant="nano" color={colors.textTertiary}>
+                  {profile.streak_shields} shield{profile.streak_shields === 1 ? '' : 's'}
+                </Text>
+              </View>
+            )}
           </View>
           <View style={styles.statCard}>
             <Text variant="displayMedium" color={colors.text}>
