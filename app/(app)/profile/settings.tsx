@@ -92,7 +92,6 @@ export default function SettingsScreen() {
           paddingVertical: 9,
           paddingHorizontal: 12,
           borderRadius: Radius.full,
-          borderWidth: StyleSheet.hairlineWidth,
         },
         themeSwatch: {
           width: 3,
@@ -249,8 +248,9 @@ export default function SettingsScreen() {
                   style={[
                     styles.themeChip,
                     {
-                      borderColor: active ? colors.primary : colors.hairline,
-                      backgroundColor: active ? colors.primaryLight : colors.surface,
+                      borderWidth: active ? 2 : StyleSheet.hairlineWidth,
+                      borderColor: active ? colors.primary : colors.border,
+                      backgroundColor: active ? colors.primaryLight : colors.chipBackground,
                     },
                   ]}
                   activeOpacity={0.88}
@@ -269,9 +269,9 @@ export default function SettingsScreen() {
                   <Text
                     variant="caption"
                     numberOfLines={1}
+                    color={active ? colors.primary : colors.textSecondary}
                     style={{
                       fontWeight: '700',
-                      color: active ? colors.text : colors.textSecondary,
                       letterSpacing: -0.2,
                     }}
                   >

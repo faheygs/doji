@@ -75,7 +75,7 @@ Migration [`migrations/20260520180000_instant_social_push_triggers.sql`](./migra
 
 | Job | Suggested frequency |
 |-----|---------------------|
-| `schedule-daily-challenge` | Once per day (challenge `fires_at` random 8 AM–8 PM **America/Denver**) |
+| `schedule-daily-challenge` | Once per day (challenge `fires_at` random **10 AM Pacific – 10 PM Eastern**, anchored to the **America/New_York** calendar day) |
 | `dispatch-challenge-pushes` | Every 1–5 minutes |
 | `expire-events` | Every 1–15 minutes |
 

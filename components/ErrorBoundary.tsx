@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Spacing, Radius } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   children: React.ReactNode;
@@ -7,6 +9,27 @@ interface Props {
 
 interface State {
   hasError: boolean;
+}
+
+function ErrorFallback({ onRetry }: { onRetry: () => void }) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={styles.emoji}>😵</Text>
+      <Text style={[styles.title, { color: colors.text }]}>Something went wrong</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        The app ran into an unexpected error. Tap below to try again.
+      </Text>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: colors.primary }]}
+        onPress={onRetry}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.buttonText, { color: colors.onPrimary }]}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
@@ -28,18 +51,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.emoji}>😵</Text>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.subtitle}>
-            The app ran into an unexpected error. Tap below to try again.
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={this.handleRetry}>
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      return <ErrorFallback onRetry={this.handleRetry} />;
     }
 
     return this.props.children;
@@ -51,35 +63,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#0A0A0A',
+    padding: Spacing.xl,
   },
   emoji: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 15,
-    color: '#999999',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
     lineHeight: 22,
   },
   button: {
-    backgroundColor: '#F97316',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 4,
+    borderRadius: Radius.md,
   },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },

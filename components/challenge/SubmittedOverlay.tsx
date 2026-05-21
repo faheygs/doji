@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, Modal } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -13,6 +13,46 @@ type Props = {
 
 export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
   const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        backdrop: {
+          flex: 1,
+          backgroundColor: colors.overlayBackdrop,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: Spacing.lg,
+        },
+        card: {
+          width: '100%',
+          borderRadius: Radius.xl,
+          padding: Spacing.xl,
+          alignItems: 'center',
+          gap: Spacing.md,
+        },
+        iconCircle: {
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        xpBadge: {
+          paddingHorizontal: Spacing.lg,
+          paddingVertical: Spacing.sm,
+          borderRadius: Radius.full,
+        },
+        doneBtn: {
+          width: '100%',
+          height: 52,
+          borderRadius: Radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: Spacing.sm,
+        },
+      }),
+    [colors],
+  );
   const scale = useRef(new Animated.Value(0.5)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -65,39 +105,3 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.lg,
-  },
-  card: {
-    width: '100%',
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  xpBadge: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-  },
-  doneBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.sm,
-  },
-});

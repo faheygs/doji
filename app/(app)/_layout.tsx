@@ -89,6 +89,7 @@ export default function AppLayout() {
 
   return (
     <Tabs detachInactiveScreens={false} screenOptions={tabScreenOptions}>
+      {/* Home feed — href `/(app)/index` must match `FEED_TAB_HREF` in lib/navigationReturn.ts */}
       <Tabs.Screen
         name="index"
         options={{

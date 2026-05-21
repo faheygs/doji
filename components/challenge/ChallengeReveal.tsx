@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { Typography, Spacing, Radius } from '../../constants/theme';
+import { Spacing, Radius } from '../../constants/theme';
 import { IconCamera, IconCheck } from '../icons/Icons';
 import { IcnBarChart, IcnTarget } from '../icons/BadgeIcons';
 import type { Challenge, DailyEvent } from '../../types/database';
@@ -46,6 +46,63 @@ export function ChallengeReveal({
   onDismiss,
 }: Props) {
   const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        backdrop: {
+          flex: 1,
+          backgroundColor: colors.overlayBackdrop,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: Spacing.lg,
+        },
+        card: {
+          width: '100%',
+          borderRadius: Radius.xl,
+          borderWidth: 1,
+          padding: Spacing.xl,
+          alignItems: 'center',
+        },
+        iconCircle: {
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: Spacing.sm,
+        },
+        typeBadge: {
+          paddingHorizontal: Spacing.md,
+          paddingVertical: 4,
+          borderRadius: Radius.full,
+        },
+        metaRow: {
+          flexDirection: 'row',
+          gap: Spacing.sm,
+          marginTop: Spacing.lg,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        },
+        metaPill: {
+          paddingHorizontal: Spacing.sm,
+          paddingVertical: 4,
+          borderRadius: Radius.full,
+        },
+        ctaBtn: {
+          width: '100%',
+          height: 52,
+          borderRadius: Radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: Spacing.lg,
+        },
+        dismissBtn: {
+          marginTop: Spacing.md,
+          paddingVertical: Spacing.sm,
+        },
+      }),
+    [colors],
+  );
   const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -144,57 +201,3 @@ export function ChallengeReveal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.lg,
-  },
-  card: {
-    width: '100%',
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    padding: Spacing.xl,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.sm,
-  },
-  typeBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  metaPill: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-  },
-  ctaBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.lg,
-  },
-  dismissBtn: {
-    marginTop: Spacing.md,
-    padding: Spacing.sm,
-  },
-});

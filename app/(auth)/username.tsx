@@ -81,7 +81,7 @@ export default function UsernameScreen() {
         username: handle,
         display_name: displayName.trim(),
         avatar_url: null,
-        avatar_gradient: ['#F97316', '#8B5CF6'],
+        avatar_gradient: [colors.xpGradientStart, colors.xpGradientEnd],
         bio: null,
         notification_token: null,
         app_theme: DEFAULT_APP_THEME,

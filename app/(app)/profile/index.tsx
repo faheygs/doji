@@ -17,17 +17,21 @@ import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/them
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Avatar } from '@/components/ui/Avatar';
-import { IconCamera, IconSettings, IconReactionFire, IconFriends } from '@/components/icons/Icons';
+import { IconCamera, IconSettings, IconReactionFire } from '@/components/icons/Icons';
 import { XPBar } from '@/components/gamification/XPBar';
 import { LevelBadge } from '@/components/gamification/LevelBadge';
+import { RankBadge } from '@/components/gamification/RankBadge';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeDefinitions, useUserBadges } from '@/hooks/useBadges';
-import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
+import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
+import { usePollVotesCount } from '@/hooks/usePollVotesCount';
+import { useChallengeSuggestionCounts } from '@/hooks/useChallengeSuggestionCounts';
 import { useFriendCount } from '@/hooks/useProfile';
-import { getRankTitle, getRankBorderColor } from '@/lib/rankTitle';
+import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
+import { getRankBorderColor } from '@/lib/rankTitle';
 import { hrefWithReturnTo } from '@/lib/navigationReturn';
-import { formatCompactCount } from '@/utils/formatCount';
+import type { BadgeProgressStats } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 
 export default function MyProfileScreen() {
@@ -40,8 +44,28 @@ export default function MyProfileScreen() {
   const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
   const { data: allBadges = [] } = useBadgeDefinitions();
   const { data: earnedBadges = [] } = useUserBadges(profile?.id);
+  const { data: reactionsGiven = 0 } = useReactionsGivenCount(profile?.id);
+  const { data: pollVotes = 0 } = usePollVotesCount(profile?.id);
+  const { data: friendsCount = 0 } = useFriendCount(profile?.id);
+  const { data: ideaCounts } = useChallengeSuggestionCounts(profile?.id);
   const [refreshing, setRefreshing] = useState(false);
-  const { data: friendCount = 0 } = useFriendCount(profile?.id);
+
+  const badgeProgressStats = useMemo((): BadgeProgressStats | null => {
+    if (!profile) return null;
+    return {
+      currentStreak: profile.current_streak ?? 0,
+      longestStreak: profile.longest_streak ?? 0,
+      totalCompletions: profile.total_completions ?? 0,
+      xp: profile.xp ?? 0,
+      level: profile.level ?? 0,
+      reactionsReceived: profile.reactions_received ?? 0,
+      reactionsGiven,
+      pollVotes,
+      friendsCount,
+      challengeIdeasSubmitted: ideaCounts?.submitted ?? 0,
+      challengeIdeasPicked: ideaCounts?.picked ?? 0,
+    };
+  }, [profile, reactionsGiven, pollVotes, friendsCount, ideaCounts?.submitted, ideaCounts?.picked]);
 
   const onRefresh = useCallback(async () => {
     if (!profile?.id) return;
@@ -50,7 +74,10 @@ export default function MyProfileScreen() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['userBadges', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['profile'] }),
+        queryClient.invalidateQueries({ queryKey: ['reactionsGiven', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['pollVotesCount', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['challengeSuggestionCounts', profile.id] }),
         fetchProfile(profile.id),
       ]);
     } finally {
@@ -87,7 +114,7 @@ export default function MyProfileScreen() {
         },
         avatarShadowWrap: Platform.select({
           ios: {
-            shadowColor: '#000',
+            shadowColor: colors.shadowBase,
             shadowOpacity: 0.1,
             shadowRadius: 20,
             shadowOffset: { width: 0, height: 10 },
@@ -104,7 +131,7 @@ export default function MyProfileScreen() {
           width: 34,
           height: 34,
           borderRadius: 17,
-          backgroundColor: colors.accent,
+          backgroundColor: colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 3,
@@ -137,6 +164,12 @@ export default function MyProfileScreen() {
           alignItems: 'center',
           marginBottom: Spacing.md,
         },
+        bio: {
+          marginTop: Spacing.sm,
+          paddingHorizontal: Spacing.lg,
+          textAlign: 'center',
+          lineHeight: 22,
+        },
         badgesSection: {
           paddingTop: Spacing.sm,
         },
@@ -147,7 +180,6 @@ export default function MyProfileScreen() {
   if (!profile) return null;
 
   const gradient = profile.avatar_gradient ?? [colors.xpGradientStart, colors.xpGradientEnd];
-  const rankTitle = getRankTitle(profile.level ?? 1);
   const rankBorderColor = getRankBorderColor(profile.level ?? 1, colors);
 
   return (
@@ -233,27 +265,27 @@ export default function MyProfileScreen() {
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             @{profile.username}
           </Text>
+          {profile.bio?.trim() ? (
+            <Text variant="body" color={colors.textSecondary} style={styles.bio}>
+              {profile.bio.trim()}
+            </Text>
+          ) : null}
+
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              marginTop: 2,
+              gap: Spacing.sm,
+              flexWrap: 'wrap',
+              marginTop: Spacing.xs,
             }}
           >
-            <IconFriends size={16} color={colors.textTertiary} />
-            <Text variant="micro" color={colors.textTertiary}>
-              {formatCompactCount(friendCount)} {friendCount === 1 ? 'friend' : 'friends'}
-            </Text>
+            <RankBadge level={profile.level ?? 1} />
+            <LevelBadge level={profile.level ?? 1} />
           </View>
-          <Text variant="micro" color={rankBorderColor} style={{ textAlign: 'center', letterSpacing: 1 }}>
-            {rankTitle.toUpperCase()}
-          </Text>
 
-          <LevelBadge level={profile.level ?? 1} />
-
-          <View style={{ width: '100%', paddingHorizontal: Spacing.md, marginTop: Spacing.xs }}>
+          <View style={{ width: '100%', paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
             <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
           </View>
         </View>
@@ -306,7 +338,7 @@ export default function MyProfileScreen() {
                 {earnedBadges.length}/{allBadges.length}
               </Text>
             </View>
-            <BadgesGrid badges={allBadges} earned={earnedBadges} />
+            <BadgesGrid badges={allBadges} earned={earnedBadges} progressStats={badgeProgressStats} />
           </View>
         )}
       </ScrollView>

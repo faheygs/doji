@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
+import { Text } from '../../../components/ui/Text';
 import { useLeaderboard, type LeaderboardMode } from '../../../hooks/useLeaderboard';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -21,16 +22,135 @@ import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+/** Podium-style rank (no emoji) — #1 gradient burst, #2–3 rings, rest soft pill. */
+function RankPosition({ rank }: { rank: number }) {
+  const { colors } = useTheme();
+
+  const size = 44;
+  const common = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  if (rank === 1) {
+    return (
+      <LinearGradient
+        colors={[colors.xpGradientStart, colors.xpGradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={common}
+      >
+        <Text variant="headingMedium" style={{ color: colors.onPrimary, fontSize: 17 }}>
+          1
+        </Text>
+      </LinearGradient>
+    );
+  }
+
+  if (rank === 2) {
+    return (
+      <View
+        style={[
+          common,
+          {
+            backgroundColor: colors.surface,
+            borderWidth: 2.5,
+            borderColor: colors.primary,
+          },
+        ]}
+      >
+        <Text variant="headingMedium" style={{ color: colors.primary, fontSize: 17 }}>
+          2
+        </Text>
+      </View>
+    );
+  }
+
+  if (rank === 3) {
+    return (
+      <View
+        style={[
+          common,
+          {
+            backgroundColor: colors.surface,
+            borderWidth: 2.5,
+            borderColor: colors.accent,
+          },
+        ]}
+      >
+        <Text variant="headingMedium" style={{ color: colors.accent, fontSize: 17 }}>
+          3
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        common,
+        {
+          backgroundColor: colors.chipBackground,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      <Text
+        variant="headingMedium"
+        color={colors.textSecondary}
+        style={{ fontSize: 15, fontVariant: ['tabular-nums'] }}
+      >
+        {rank}
+      </Text>
+    </View>
+  );
+}
 
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const medal = item.rank <= 3 ? MEDALS[item.rank - 1] : null;
   const level = item.profile.level ?? 1;
   const rankTitle = getRankTitle(level);
   const rankBorderColor = getRankBorderColor(level, colors);
+  const topThree = item.rank <= 3;
+
+  const styles = useMemo(() => {
+    const podiumBorder =
+      item.rank === 1
+        ? colors.primary
+        : item.rank === 2
+          ? colors.primary
+          : item.rank === 3
+            ? colors.accent
+            : colors.border;
+    const rowBorder = isMe ? colors.primary : topThree ? podiumBorder : colors.border;
+    const rowBorderW = isMe ? 2 : topThree ? 1.5 : 1;
+    const rowBg = isMe ? colors.primaryLight : topThree ? colors.surfaceElevated : colors.surface;
+    return {
+      rowBorder,
+      rowBorderW,
+      rowBg,
+      sheet: StyleSheet.create({
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: Radius.lg,
+          paddingVertical: Spacing.md,
+          paddingHorizontal: Spacing.md,
+          gap: Spacing.md,
+        },
+        rankWrap: { width: 44, alignItems: 'center', justifyContent: 'center' },
+        nameBlock: { flex: 1, minWidth: 0, gap: 3 },
+        rightBlock: { alignItems: 'flex-end', gap: 6 },
+        xpLine: { ...Typography.subhead },
+      }),
+    };
+  }, [colors, topThree, isMe, item.rank]);
 
   const handlePress = () => {
     if (isMe) {
@@ -43,46 +163,55 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   return (
     <TouchableOpacity
       onPress={handlePress}
-      activeOpacity={0.8}
+      activeOpacity={0.75}
       style={[
-        styles.row,
+        styles.sheet.row,
         {
-          backgroundColor: isMe ? colors.primaryLight : colors.surface,
-          borderColor: isMe ? colors.primary : colors.border,
+          backgroundColor: styles.rowBg,
+          borderColor: styles.rowBorder,
+          borderWidth: styles.rowBorderW,
           ...Shadows.card,
         },
       ]}
     >
-      <View style={styles.rankCell}>
-        {medal ? (
-          <Text style={styles.medal}>{medal}</Text>
-        ) : (
-          <Text style={[styles.rankNum, { color: colors.textSecondary }]}>
-            {item.rank}
-          </Text>
-        )}
+      <View style={styles.sheet.rankWrap}>
+        <RankPosition rank={item.rank} />
       </View>
 
       <Avatar
         uri={item.profile.avatar_url}
         username={item.profile.display_name ?? item.profile.username}
-        size={40}
+        size={topThree ? 48 : 44}
         rankBorderColor={rankBorderColor}
       />
 
-      <View style={styles.nameCol}>
-        <Text style={[Typography.body, { color: colors.text }]} numberOfLines={1}>
-          {item.profile.display_name || item.profile.username}
-        </Text>
-        <Text style={[Typography.micro, { color: rankBorderColor }]}>
+      <View style={styles.sheet.nameBlock}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Text variant="body" numberOfLines={1} style={{ flexShrink: 1, fontWeight: '700' }}>
+            {item.profile.display_name || item.profile.username}
+          </Text>
+          {isMe ? (
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: Radius.full,
+                backgroundColor: colors.primaryPale,
+              }}
+            >
+              <Text variant="nano" color={colors.primary} style={{ letterSpacing: 0.5 }}>
+                YOU
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text variant="micro" color={rankBorderColor} numberOfLines={1}>
           {rankTitle}
         </Text>
       </View>
 
-      <View style={styles.rightCol}>
-        <Text style={[Typography.subhead, { color: colors.primary }]}>
-          {item.xp.toLocaleString()} XP
-        </Text>
+      <View style={styles.sheet.rightBlock}>
+        <Text style={[styles.sheet.xpLine, { color: colors.primary }]}>{item.xp.toLocaleString()} XP</Text>
         <LevelBadge level={level} small />
       </View>
     </TouchableOpacity>
@@ -96,35 +225,81 @@ export default function LeaderboardScreen() {
   const [mode, setMode] = useState<LeaderboardMode>('weekly');
   const { data: entries, isLoading, isError, refetch, isRefetching } = useLeaderboard(mode);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <Text style={[Typography.display, { color: colors.text, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm }]}>
-        Rankings
-      </Text>
+  const layout = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1 },
+        headerBlock: {
+          paddingHorizontal: Spacing.lg,
+          paddingTop: Spacing.md,
+          paddingBottom: Spacing.sm,
+        },
+        subtitle: { marginTop: 6, lineHeight: 20 },
+        toggleWrap: {
+          flexDirection: 'row',
+          marginHorizontal: Spacing.lg,
+          marginBottom: Spacing.md,
+          padding: 3,
+          borderRadius: Radius.full,
+          backgroundColor: colors.chipBackground,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+        },
+        toggleSeg: {
+          flex: 1,
+          paddingVertical: Spacing.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: Radius.full,
+        },
+        toggleSegActive: {
+          backgroundColor: colors.primary,
+        },
+        hint: {
+          paddingHorizontal: Spacing.lg,
+          marginBottom: Spacing.md,
+        },
+        empty: { marginTop: 72, paddingHorizontal: Spacing.xl },
+      }),
+    [colors],
+  );
 
-      {/* Mode Toggle */}
-      <View style={[styles.toggleContainer, { backgroundColor: colors.surfaceMuted, borderRadius: Radius.full, marginHorizontal: Spacing.lg, marginBottom: Spacing.md }]}>
+  return (
+    <View style={[layout.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={layout.headerBlock}>
+        <Text variant="displayLarge" style={{ letterSpacing: -0.5 }}>
+          Leaderboard
+        </Text>
+        <Text variant="body" color={colors.textSecondary} style={layout.subtitle}>
+          {"The community's top performers."}
+        </Text>
+      </View>
+
+      <View style={layout.toggleWrap}>
         {(['weekly', 'alltime'] as LeaderboardMode[]).map((opt) => {
           const active = mode === opt;
           return (
             <TouchableOpacity
               key={opt}
               onPress={() => setMode(opt)}
-              style={[
-                styles.toggleSegment,
-                active && { backgroundColor: colors.surface, borderRadius: Radius.full },
-              ]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              style={[layout.toggleSeg, active && layout.toggleSegActive]}
             >
-              <Text style={[Typography.body, { color: active ? colors.text : colors.textTertiary }]}>
-                {opt === 'weekly' ? 'This Week' : 'All Time'}
+              <Text
+                variant="label"
+                style={{ letterSpacing: 0.4 }}
+                color={active ? colors.onPrimary : colors.textSecondary}
+              >
+                {opt === 'weekly' ? 'This week' : 'All time'}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <Text style={[Typography.caption, { color: colors.textTertiary, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm }]}>
-        {mode === 'weekly' ? 'Resets every Monday' : 'Total XP earned'}
+      <Text variant="caption" color={colors.textTertiary} style={layout.hint}>
+        {mode === 'weekly' ? 'Board resets every Monday morning.' : 'Ranked by total XP ever earned.'}
       </Text>
 
       {isError ? (
@@ -144,16 +319,23 @@ export default function LeaderboardScreen() {
           ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={[Typography.heading, { color: colors.textSecondary, textAlign: 'center' }]}>
-                No rankings yet
+            <View style={layout.empty}>
+              <Text variant="headingLarge" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+                {"You're early"}
               </Text>
-              <Text style={[Typography.caption, { color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.xs }]}>
-                Complete challenges to earn XP!
+              <Text
+                variant="body"
+                color={colors.textTertiary}
+                style={{ textAlign: 'center', marginTop: Spacing.sm, lineHeight: 22 }}
+              >
+                {
+                  'Complete daily Dojis to earn XP — when others join in, their names will show up here.'
+                }
               </Text>
             </View>
           }
@@ -162,30 +344,3 @@ export default function LeaderboardScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  toggleContainer: {
-    flexDirection: 'row',
-    padding: 3,
-  },
-  toggleSegment: {
-    flex: 1,
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    padding: Spacing.md,
-  },
-  rankCell: { width: 36, alignItems: 'center' },
-  medal: { fontSize: 22 },
-  rankNum: { ...Typography.subhead },
-  nameCol: { flex: 1, marginLeft: Spacing.sm },
-  rightCol: { alignItems: 'flex-end', gap: 4 },
-  empty: { marginTop: 80, paddingHorizontal: Spacing.lg },
-});

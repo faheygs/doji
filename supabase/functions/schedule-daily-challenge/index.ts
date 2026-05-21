@@ -9,10 +9,14 @@ const supabase = createClient(
 
 const WINDOW_MINUTES = Number(Deno.env.get('CHALLENGE_WINDOW_MINUTES') ?? '1440');
 
-/** IANA zone for the shared challenge drop window (matches `profiles.timezone` default). */
-const SCHEDULE_TZ = 'America/Denver';
-const WINDOW_START_HOUR = 8;
-const WINDOW_END_HOUR = 20;
+/** Continental US drop window: 10:00 Pacific → 22:00 Eastern (same Eastern calendar day). */
+const TZ_PACIFIC = 'America/Los_Angeles';
+const TZ_EASTERN = 'America/New_York';
+const WINDOW_ANCHOR_TZ = TZ_EASTERN; // which zone’s calendar date defines “today” for the slot
+const WINDOW_START_HOUR_PACIFIC = 10;
+const WINDOW_START_MINUTE_PACIFIC = 0;
+const WINDOW_END_HOUR_EASTERN = 22;
+const WINDOW_END_MINUTE_EASTERN = 0;
 
 function zonedParts(d: Date, timeZone: string) {
   const f = new Intl.DateTimeFormat('en-US', {
@@ -56,24 +60,24 @@ function zonedWallTimeToUtc(
   return new Date(hi);
 }
 
-/** Random instant in [08:00, 20:00) on the current calendar day in `SCHEDULE_TZ`, or tomorrow if none left. */
+/** Random instant inside [10:00 Pacific, 22:00 Eastern] on the anchor calendar day, or next day if none left. */
 function randomFiresAt(now: Date): Date {
-  const parts = zonedParts(now, SCHEDULE_TZ);
+  const parts = zonedParts(now, WINDOW_ANCHOR_TZ);
   let windowStart = zonedWallTimeToUtc(
     parts.y,
     parts.mo,
     parts.day,
-    WINDOW_START_HOUR,
-    0,
-    SCHEDULE_TZ,
+    WINDOW_START_HOUR_PACIFIC,
+    WINDOW_START_MINUTE_PACIFIC,
+    TZ_PACIFIC,
   );
   let windowEnd = zonedWallTimeToUtc(
     parts.y,
     parts.mo,
     parts.day,
-    WINDOW_END_HOUR,
-    0,
-    SCHEDULE_TZ,
+    WINDOW_END_HOUR_EASTERN,
+    WINDOW_END_MINUTE_EASTERN,
+    TZ_EASTERN,
   );
   let spanMs = windowEnd.getTime() - windowStart.getTime();
   if (spanMs <= 0) spanMs = 12 * 60 * 60 * 1000;
@@ -84,9 +88,23 @@ function randomFiresAt(now: Date): Date {
 
   if (firesAt.getTime() <= now.getTime()) {
     const nextProbe = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const nx = zonedParts(nextProbe, SCHEDULE_TZ);
-    windowStart = zonedWallTimeToUtc(nx.y, nx.mo, nx.day, WINDOW_START_HOUR, 0, SCHEDULE_TZ);
-    windowEnd = zonedWallTimeToUtc(nx.y, nx.mo, nx.day, WINDOW_END_HOUR, 0, SCHEDULE_TZ);
+    const nx = zonedParts(nextProbe, WINDOW_ANCHOR_TZ);
+    windowStart = zonedWallTimeToUtc(
+      nx.y,
+      nx.mo,
+      nx.day,
+      WINDOW_START_HOUR_PACIFIC,
+      WINDOW_START_MINUTE_PACIFIC,
+      TZ_PACIFIC,
+    );
+    windowEnd = zonedWallTimeToUtc(
+      nx.y,
+      nx.mo,
+      nx.day,
+      WINDOW_END_HOUR_EASTERN,
+      WINDOW_END_MINUTE_EASTERN,
+      TZ_EASTERN,
+    );
     spanMs = windowEnd.getTime() - windowStart.getTime();
     if (spanMs <= 0) spanMs = 12 * 60 * 60 * 1000;
     firesAt = new Date(
@@ -194,7 +212,7 @@ Deno.serve(async (req) => {
       schedule_count: number;
     };
 
-    // Random fire slot 8 AM – 8 PM (America/Denver), one instant for all users / same daily_event.
+    // Random fire slot 10:00 Pacific – 10:00 Eastern (conUS), one instant for all users / same daily_event.
     const now = new Date();
     const firesAt = randomFiresAt(now);
 

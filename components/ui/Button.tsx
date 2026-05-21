@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, type ReactNode } from 'react';
 import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  View,
   ViewStyle,
   StyleProp,
 } from 'react-native';
@@ -23,6 +24,8 @@ type Props = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   fullWidth?: boolean;
+  /** Shown to the left of the label (hidden while loading). */
+  leftIcon?: ReactNode;
 };
 
 export function Button({
@@ -34,6 +37,7 @@ export function Button({
   disabled = false,
   style,
   fullWidth = false,
+  leftIcon,
 }: Props) {
   const { colors } = useTheme();
 
@@ -44,11 +48,11 @@ export function Button({
   };
 
   const spinnerColor =
-    variant === 'primary' ? colors.onAccent : variant === 'danger' ? colors.error : colors.text;
+    variant === 'primary' ? colors.onPrimary : variant === 'danger' ? colors.error : colors.text;
 
   const labelColor =
     variant === 'primary'
-      ? colors.onAccent
+      ? colors.onPrimary
       : variant === 'danger'
         ? colors.error
         : variant === 'ghost'
@@ -58,7 +62,7 @@ export function Button({
   const variantStyle = useMemo(() => {
     switch (variant) {
       case 'primary':
-        return { backgroundColor: colors.accent };
+        return { backgroundColor: colors.primary };
       case 'secondary':
         return {
           backgroundColor: 'transparent',
@@ -95,9 +99,12 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
-        <Text variant={size === 'sm' ? 'label' : 'headingMedium'} color={labelColor} style={styles.label}>
-          {children}
-        </Text>
+        <View style={styles.labelRow}>
+          {leftIcon ? <View style={styles.leadingIcon}>{leftIcon}</View> : null}
+          <Text variant={size === 'sm' ? 'label' : 'headingMedium'} color={labelColor} style={styles.label}>
+            {children}
+          </Text>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -109,6 +116,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  leadingIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sm: {
     paddingHorizontal: Spacing.md,
@@ -133,5 +144,10 @@ const styles = StyleSheet.create({
   },
   label: {
     textAlign: 'center',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
 });

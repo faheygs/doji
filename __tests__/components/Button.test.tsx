@@ -6,8 +6,8 @@
 jest.mock('../../contexts/ThemeContext', () => ({
   useTheme: () => ({
     colors: {
-      accent: '#F97316',
-      onAccent: '#FFFFFF',
+      primary: '#F97316',
+      onPrimary: '#FFFFFF',
       text: '#FAFAFA',
       link: '#3B82F6',
       border: '#333',
@@ -70,10 +70,10 @@ describe('Button', () => {
   });
 
   describe('variant styling', () => {
-    it('primary variant uses accent color', () => {
-      const colors = { accent: '#F97316', border: '#333', error: '#EF4444' };
+    it('primary variant uses primary color', () => {
+      const colors = { primary: '#F97316', border: '#333', error: '#EF4444' };
       const variant = 'primary';
-      const style = variant === 'primary' ? { backgroundColor: colors.accent } : {};
+      const style = variant === 'primary' ? { backgroundColor: colors.primary } : {};
       expect(style).toEqual({ backgroundColor: '#F97316' });
     });
 
@@ -88,10 +88,10 @@ describe('Button', () => {
   });
 
   describe('label color logic', () => {
-    it('primary shows onAccent color', () => {
-      const colors = { onAccent: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
+    it('primary shows onPrimary color', () => {
+      const colors = { onPrimary: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
       const variant = 'primary';
-      const labelColor = variant === 'primary' ? colors.onAccent
+      const labelColor = variant === 'primary' ? colors.onPrimary
         : variant === 'danger' ? colors.error
         : variant === 'ghost' ? colors.link
         : colors.text;
@@ -99,9 +99,9 @@ describe('Button', () => {
     });
 
     it('ghost shows link color', () => {
-      const colors = { onAccent: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
+      const colors = { onPrimary: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
       const variant = 'ghost';
-      const labelColor = variant === 'primary' ? colors.onAccent
+      const labelColor = variant === 'primary' ? colors.onPrimary
         : variant === 'danger' ? colors.error
         : variant === 'ghost' ? colors.link
         : colors.text;

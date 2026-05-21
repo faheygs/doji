@@ -3,13 +3,13 @@ import { View, Text as RNText, StyleSheet, Platform } from 'react-native';
 import type { ToastConfigParams } from 'react-native-toast-message';
 import type { AppColors } from '../../constants/theme';
 
-function shellShadow(isDark: boolean) {
+function shellShadow(colors: AppColors, isDark: boolean) {
   if (Platform.OS === 'web') {
     const alpha = isDark ? 0.35 : 0.15;
     return { boxShadow: `0px 4px 12px rgba(0,0,0,${alpha})` };
   }
   return {
-    shadowColor: '#000',
+    shadowColor: colors.shadowBase,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: isDark ? 0.35 : 0.15,
     shadowRadius: 12,
@@ -38,7 +38,7 @@ export function buildToastConfig(colors: AppColors, isDark: boolean): Record<
           borderLeftColor,
           borderColor: colors.hairline,
         },
-        shellShadow(isDark),
+        shellShadow(colors, isDark),
       ]}
     >
       {!!text1 && (

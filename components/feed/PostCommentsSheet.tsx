@@ -172,7 +172,7 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
         },
         backdrop: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: '#000',
+          backgroundColor: colors.overlayBackdrop,
         },
         sheet: {
           width: '100%',

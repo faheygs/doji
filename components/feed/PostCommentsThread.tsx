@@ -387,9 +387,9 @@ export function PostCommentsThread({ postId, fetchEnabled = true, embedInSheet =
             accessibilityLabel="Send comment"
           >
             {addComment.isPending ? (
-              <ActivityIndicator color={colors.onPrimary ?? '#fff'} size="small" />
+              <ActivityIndicator color={colors.onPrimary} size="small" />
             ) : (
-              <Text variant="label" style={{ color: colors.onPrimary ?? '#fff' }}>
+              <Text variant="label" style={{ color: colors.onPrimary }}>
                 Post
               </Text>
             )}

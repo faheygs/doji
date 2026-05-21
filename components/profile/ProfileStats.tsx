@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Spacing, Radius } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
@@ -8,6 +8,8 @@ import type { Profile } from '@/types/database';
 type Props = {
   profile: Profile;
   completionRate: number;
+  /** Merged with the stats card container (e.g. adjust horizontal margins to match a parent section). */
+  style?: StyleProp<ViewStyle>;
 };
 
 function StatCell({
@@ -49,7 +51,7 @@ const statStyles = StyleSheet.create({
 });
 
 /** Two-by-two stats card — readable on narrow screens vs a single cramped row of four. */
-export function ProfileStats({ profile, completionRate }: Props) {
+export function ProfileStats({ profile, completionRate, style }: Props) {
   const { colors } = useTheme();
 
   const styles = useMemo(
@@ -82,7 +84,7 @@ export function ProfileStats({ profile, completionRate }: Props) {
   const rateColor = completionRate > 70 ? colors.success : completionRate > 40 ? colors.warning : colors.textSecondary;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       <View style={styles.row}>
         <StatCell value={profile.current_streak} label="Current streak" />
         <View style={styles.dividerV} />

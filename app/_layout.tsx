@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { webRootViewStyle, webScrollParentStyle } from '../constants/theme';
 import { useFonts } from 'expo-font';
 import { Sora_800ExtraBold } from '@expo-google-fonts/sora';
@@ -36,6 +36,7 @@ import { queryClient } from '../lib/queryClient';
 import { useAuthStore } from '../stores/useAuthStore';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { buildToastConfig } from '../components/ui/toastTheme';
+import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
 
 /** Push payloads may include `url` from the scheduler, or legacy `type: CHALLENGE`. */
 function notificationHrefFromData(data: unknown): Href | null {
@@ -129,29 +130,13 @@ function RootLayoutInner() {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldPlaySound: true,
-          // Pushes no longer send a badge count; avoid OS icon badge sticking at 1.
+          // OS icon badge is driven by AppIconBadgeSync + in-app bell unread count, not push payload.
           shouldSetBadge: false,
           shouldShowBanner: true,
           shouldShowList: true,
         }),
       });
     });
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    const clearOsBadge = () => {
-      void import('expo-notifications').then((Notifications) => {
-        void Notifications.setBadgeCountAsync(0);
-      });
-    };
-
-    clearOsBadge();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') clearOsBadge();
-    });
-    return () => sub.remove();
   }, []);
 
   // Auto-register push token when user is authenticated
@@ -223,6 +208,7 @@ function RootLayoutInner() {
     >
       <SafeAreaProvider style={styles.flex}>
         <View style={styles.flex}>
+          <AppIconBadgeSync />
           <StatusBar style={isDark ? 'light' : 'dark'} />
           <Stack
             screenOptions={{

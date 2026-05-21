@@ -15,7 +15,6 @@ import {
 } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
-import { IconCamera } from '../icons/Icons';
 
 type Props = {
   userEvent: UserEvent | null;
@@ -67,18 +66,6 @@ export function ChallengeBanner({ userEvent }: Props) {
           gap: Spacing.sm,
         },
         bannerBody: { flex: 1, gap: 2 },
-        noChallenge: {
-          backgroundColor: colors.surfaceElevated,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: Radius.lg,
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
-          padding: Spacing.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-        },
         lockedBanner: {
           backgroundColor: colors.surfaceElevated,
           borderWidth: 1,
@@ -121,7 +108,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           gap: Spacing.xs,
         },
         countdownDigit: {
-          color: '#FFFFFF',
+          color: colors.onPrimary,
           fontSize: 64,
           fontWeight: '800',
           lineHeight: 72,
@@ -129,7 +116,8 @@ export function ChallengeBanner({ userEvent }: Props) {
           fontVariant: ['tabular-nums'],
         },
         countdownLabel: {
-          color: 'rgba(255,255,255,0.8)',
+          color: colors.onPrimary,
+          opacity: 0.85,
         },
         missedBanner: {
           backgroundColor: colors.surfaceMuted,
@@ -147,7 +135,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: 'rgba(255,255,255,0.15)',
+          backgroundColor: colors.onGradientPill,
           alignItems: 'center',
           justifyContent: 'center',
         },
@@ -160,15 +148,15 @@ export function ChallengeBanner({ userEvent }: Props) {
           paddingHorizontal: 8,
           paddingVertical: 2,
           borderRadius: Radius.full,
-          backgroundColor: 'rgba(255,255,255,0.2)',
+          backgroundColor: colors.onGradientPillStrong,
         },
         timer: { alignItems: 'flex-end', gap: 4 },
         timerDigits: {
-          color: '#FFFFFF',
+          color: colors.onPrimary,
           fontVariant: ['tabular-nums'],
         },
         timerUrgent: {
-          color: '#FFEB3B',
+          color: colors.warning,
         },
       }),
     [colors],
@@ -179,21 +167,9 @@ export function ChallengeBanner({ userEvent }: Props) {
     router.push('/(app)/challenge');
   };
 
-  // No event row at all
+  // No enrolled today’s event yet — don’t show a placeholder until one exists.
   if (!userEvent) {
-    return (
-      <View style={styles.noChallenge}>
-        <View style={[styles.lockedIconCircle, { opacity: 0.4 }]}>
-          <IconCamera size={22} color={colors.textTertiary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text variant="micro" color={colors.textTertiary}>TODAY'S CHALLENGE</Text>
-          <Text variant="body" color={colors.textSecondary} style={{ marginTop: 2 }}>
-            Coming soon...
-          </Text>
-        </View>
-      </View>
-    );
+    return null;
   }
 
   const challenge = userEvent.challenge;
@@ -267,23 +243,23 @@ export function ChallengeBanner({ userEvent }: Props) {
             type={challengeType}
             title={challenge?.title}
             size={24}
-            color="#FFFFFF"
+            color={colors.onPrimary}
           />
         </View>
         <View style={styles.bannerBody}>
-          <Text variant="micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
+          <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
             {challengeKindLabel(challenge ?? null, challengeType)}
           </Text>
-          <Text variant="subhead" style={{ color: '#FFFFFF' }} numberOfLines={1}>
+          <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={1}>
             {challenge?.title ?? 'Challenge'}
           </Text>
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
-              <Text variant="nano" style={{ color: '#FFFFFF' }}>+{xpReward} XP</Text>
+              <Text variant="nano" style={{ color: colors.onPrimary }}>+{xpReward} XP</Text>
             </View>
             {participants > 0 && (
               <View style={styles.metaPill}>
-                <Text variant="nano" style={{ color: '#FFFFFF' }}>{participants} joined</Text>
+                <Text variant="nano" style={{ color: colors.onPrimary }}>{participants} joined</Text>
               </View>
             )}
           </View>
@@ -295,7 +271,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           >
             {formatMinutesSecondsCountdown(secondsLeft)}
           </Text>
-          <Text variant="subhead" style={{ color: '#FFFFFF' }}>
+          <Text variant="subhead" style={{ color: colors.onPrimary }}>
             GO →
           </Text>
         </View>

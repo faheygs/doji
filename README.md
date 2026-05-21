@@ -54,7 +54,7 @@ Related helpers: **`recalculate-streak`**, **`send-push-notifications`** — dep
 
 ## Scheduling and time zones
 
-Scheduling: daily **`fires_at`** is a random time **8 AM–8 PM in `America/Denver`** (see `schedule-daily-challenge`). DB timestamps remain UTC; adjust the function if you want another zone.
+Scheduling: daily **`fires_at`** is a random time between **10:00 `America/Los_Angeles`** and **22:00 `America/New_York`** on the same Eastern calendar day (see `schedule-daily-challenge`). DB timestamps stay UTC; DST is handled by those IANA zones.
 
 ## Notifications
 

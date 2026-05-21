@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
@@ -19,6 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { isExpired } from '../../utils/time';
+import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 
 export default function TaskScreen() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function TaskScreen() {
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          router.replace('/(app)/index' as Href);
+          navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
@@ -113,7 +114,7 @@ export default function TaskScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -161,9 +162,9 @@ export default function TaskScreen() {
             ]}
           >
             {createPost.isPending ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text variant="label" color={answer.trim() ? '#FFFFFF' : colors.textTertiary}>
+              <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text variant="label" color={answer.trim() ? colors.onPrimary : colors.textTertiary}>
                 Submit Answer
               </Text>
             )}

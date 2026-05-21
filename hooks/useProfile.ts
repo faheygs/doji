@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
+import { FALLBACK_AVATAR_GRADIENT } from '../constants/theme';
 import type { Profile, Post, Friendship, FriendshipWithRequester } from '../types/database';
 
 export function useProfile(username?: string) {
@@ -240,7 +241,7 @@ export function useProfileFriendsList(profileUserId?: string, enabled = true) {
         avatar_gradient:
           Array.isArray(row.avatar_gradient) && row.avatar_gradient.length >= 2
             ? row.avatar_gradient
-            : ['#F97316', '#8B5CF6'],
+            : [...FALLBACK_AVATAR_GRADIENT],
       }));
     },
     enabled: !!profileUserId && enabled,

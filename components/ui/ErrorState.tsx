@@ -52,7 +52,7 @@ export function ErrorState({
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           activeOpacity={0.85}
         >
-          <Text variant="label" color="#FFFFFF">
+          <Text variant="label" color={colors.onPrimary}>
             Try Again
           </Text>
         </TouchableOpacity>

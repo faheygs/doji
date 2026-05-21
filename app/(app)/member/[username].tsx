@@ -8,18 +8,33 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { Text } from '../../../components/ui/Text';
-import { Avatar } from '../../../components/ui/Avatar';
-import { Button } from '../../../components/ui/Button';
-import { IconChevronLeft, IconFriends, IconChevronRight } from '../../../components/icons/Icons';
-import { ProfileFriendsSheet } from '../../../components/profile/ProfileFriendsSheet';
-import { ProfileStats } from '../../../components/profile/ProfileStats';
+import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Text } from '@/components/ui/Text';
+import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { LevelBadge } from '@/components/gamification/LevelBadge';
+import { RankBadge } from '@/components/gamification/RankBadge';
+import { XPBar } from '@/components/gamification/XPBar';
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconCheck,
+  IconClose,
+  IconFriends,
+  IconReactionFire,
+  IconSend,
+  IconUsers,
+} from '@/components/icons/Icons';
+import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
+import { ProfileStats } from '@/components/profile/ProfileStats';
 import {
   useProfile,
   useFriendship,
@@ -27,11 +42,14 @@ import {
   useRespondToFriendRequest,
   useRemoveFriend,
   useFriendCount,
-} from '../../../hooks/useProfile';
-import { useAuthStore } from '../../../stores/useAuthStore';
-import { getCompletionRate } from '../../../utils/time';
-import { goBackWithOptionalReturn } from '../../../lib/navigationReturn';
-import { formatCompactCount } from '../../../utils/formatCount';
+} from '@/hooks/useProfile';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getCompletionRate } from '@/utils/time';
+import { goBackWithOptionalReturn, FEED_TAB_HREF } from '@/lib/navigationReturn';
+import { formatCompactCount } from '@/utils/formatCount';
+import { getRankBorderColor } from '@/lib/rankTitle';
+
+const HERO_AVATAR = 90;
 
 export default function UserProfileScreen() {
   const { username, returnTo } = useLocalSearchParams<{ username: string; returnTo?: string }>();
@@ -50,7 +68,7 @@ export default function UserProfileScreen() {
   const removeFriend = useRemoveFriend();
 
   const handleBack = () => {
-    goBackWithOptionalReturn(router, returnTo, '/(app)/' as Href);
+    goBackWithOptionalReturn(router, returnTo, FEED_TAB_HREF);
   };
 
   useEffect(() => {
@@ -84,57 +102,107 @@ export default function UserProfileScreen() {
         scrollContent: {
           paddingBottom: Spacing.xxl,
         },
-        header: {
+        topBar: {
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
+          paddingHorizontal: Spacing.lg,
+          paddingTop: Spacing.xs,
+          paddingBottom: Spacing.sm,
+          gap: Spacing.sm,
         },
-        headerSide: {
-          width: 44,
-          alignItems: 'flex-start',
-        },
-        headerTitle: {
+        topBarActions: {
           flex: 1,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'flex-end',
           alignItems: 'center',
+          gap: Spacing.xs,
         },
         hero: {
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          paddingHorizontal: Spacing.lg,
-          paddingBottom: Spacing.lg,
-          gap: Spacing.md,
+          alignItems: 'center',
+          paddingHorizontal: Spacing.xl,
+          paddingBottom: Spacing.md,
+          gap: Spacing.sm,
         },
-        profileInfo: {
-          flex: 1,
-          minWidth: 0,
-          gap: 4,
-        },
-        bio: {
+        avatarBlock: {
+          alignSelf: 'center',
+          position: 'relative',
+          marginBottom: Spacing.sm,
           marginTop: Spacing.xs,
         },
-        friendButton: {
-          marginTop: Spacing.md,
-          alignSelf: 'stretch',
+        avatarShadowWrap: Platform.select({
+          ios: {
+            shadowColor: colors.shadowBase,
+            shadowOpacity: 0.1,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: 10 },
+          },
+          android: { elevation: 8 },
+          default: {},
+        }) as object,
+        avatarGradientRing: { padding: 3, borderRadius: Radius.full },
+        avatarInnerWell: {
+          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bio: {
+          marginTop: Spacing.sm,
+          paddingHorizontal: Spacing.lg,
+          textAlign: 'center',
+          lineHeight: 22,
+        },
+        statsRow: {
+          flexDirection: 'row',
+          gap: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+          marginBottom: Spacing.sm,
+        },
+        statCard: {
+          flex: 1,
+          backgroundColor: colors.surface,
+          borderRadius: Radius.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: Spacing.md,
+          alignItems: 'center',
+          gap: 4,
+          ...Shadows.card,
+        },
+        section: {
+          paddingHorizontal: Spacing.md,
+          marginTop: Spacing.sm,
+        },
+        sectionHeader: {
+          marginBottom: Spacing.md,
+        },
+        friendsRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.md,
+        },
+        friendsIconWrap: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.surfaceMuted,
+        },
+        friendsChev: { marginLeft: 'auto' },
+        friendsCardWrap: {
+          paddingHorizontal: Spacing.md,
+          marginBottom: Spacing.md,
         },
         centered: {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
         },
-        friendBadge: {
-          marginTop: 6,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          alignSelf: 'center',
-          paddingVertical: Spacing.sm,
+        friendActionButton: {
+          minWidth: 120,
           paddingHorizontal: Spacing.md,
-          borderRadius: Radius.sm,
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.hairline,
+          borderRadius: Radius.md,
         },
       }),
     [colors],
@@ -144,9 +212,25 @@ export default function UserProfileScreen() {
     return null;
   }
 
+  const headerBack = (
+    <TouchableOpacity
+      onPress={handleBack}
+      hitSlop={16}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      onPressIn={() => Haptics.selectionAsync()}
+    >
+      <IconChevronLeft size={26} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+        <View style={styles.topBar}>
+          {headerBack}
+          <View style={{ flex: 1 }} />
+        </View>
         <View style={styles.centered}>
           <ActivityIndicator color={colors.text} />
         </View>
@@ -157,12 +241,9 @@ export default function UserProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView style={[styles.container, webScrollParentStyle]}>
-        <View style={styles.header}>
-          <View style={styles.headerSide}>
-            <TouchableOpacity onPress={handleBack} hitSlop={16} accessibilityRole="button">
-              <IconChevronLeft size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.topBar}>
+          {headerBack}
+          <View style={{ flex: 1 }} />
         </View>
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary}>
@@ -183,17 +264,8 @@ export default function UserProfileScreen() {
   const pendingOutgoing =
     friendship?.status === 'pending' && friendship.requester_id === currentProfile?.id;
 
-  const getFriendButtonLabel = () => {
-    if (!friendship) return 'Add friend';
-    if (friendship.status === 'accepted') return 'Friends';
-    if (pendingOutgoing) return 'Request sent';
-    if (pendingIncoming) return 'Accept request';
-    return 'Add friend';
-  };
-
   const handleFriendAction = () => {
     if (friendship?.status === 'accepted') return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (pendingIncoming && friendship?.id) {
       respondRequest.mutate({ friendshipId: friendship.id, accept: true });
       return;
@@ -203,11 +275,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  const friendDisabled =
-    friendship?.status === 'accepted' ||
-    pendingOutgoing ||
-    sendRequest.isPending ||
-    respondRequest.isPending;
+  const friendDisabled = pendingOutgoing || sendRequest.isPending || respondRequest.isPending;
 
   const handleUnfriend = () => {
     if (!friendship?.id || friendship.status !== 'accepted' || !profile) return;
@@ -225,6 +293,11 @@ export default function UserProfileScreen() {
     );
   };
 
+  const gradient = (profile.avatar_gradient?.length === 2
+    ? profile.avatar_gradient
+    : [colors.xpGradientStart, colors.xpGradientEnd]) as [string, string];
+  const rankBorderColor = getRankBorderColor(profile.level ?? 1, colors);
+
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
       <ScrollView
@@ -237,73 +310,207 @@ export default function UserProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
-        <View style={styles.header}>
-          <View style={styles.headerSide}>
-            <TouchableOpacity onPress={handleBack} hitSlop={16} accessibilityRole="button">
-              <IconChevronLeft size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.headerTitle}>
-            <Text variant="headingMedium" numberOfLines={1}>
-              {profile.display_name}
-            </Text>
-            <Text variant="label" color={colors.textTertiary} numberOfLines={1}>
-              @{profile.username}
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityHint="Opens friend list"
-              activeOpacity={0.85}
-              style={styles.friendBadge}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setFriendsSheetVisible(true);
-              }}
-            >
-              <IconFriends size={16} color={colors.primary} />
-              <Text variant="micro" color={colors.text} style={{ fontWeight: '700' }}>
-                {formatCompactCount(theirFriendCount)} {theirFriendCount === 1 ? 'friend' : 'friends'}
-              </Text>
-              <IconChevronRight size={18} color={colors.textTertiary} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.headerSide} />
-        </View>
-
-        <View style={styles.hero}>
-          <Avatar uri={profile.avatar_url} username={profile.username} size={88} />
-          <View style={styles.profileInfo}>
-            {profile.bio ? (
-              <Text variant="body" color={colors.textSecondary} style={styles.bio}>
-                {profile.bio}
-              </Text>
-            ) : null}
-            <Button
-              onPress={handleFriendAction}
-              variant={friendship?.status === 'accepted' ? 'secondary' : 'primary'}
-              size="sm"
-              loading={sendRequest.isPending || respondRequest.isPending}
-              disabled={friendDisabled}
-              style={styles.friendButton}
-            >
-              {getFriendButtonLabel()}
-            </Button>
+        <View style={styles.topBar}>
+          {headerBack}
+          <View style={styles.topBarActions}>
             {friendship?.status === 'accepted' ? (
               <Button
                 onPress={handleUnfriend}
-                variant="ghost"
-                size="sm"
+                variant="danger"
+                size="md"
                 loading={removeFriend.isPending}
                 disabled={removeFriend.isPending}
-                style={{ marginTop: Spacing.sm }}
+                leftIcon={<IconClose size={17} color={colors.error} />}
+                style={styles.friendActionButton}
               >
                 Unfriend
               </Button>
-            ) : null}
+            ) : pendingOutgoing ? (
+              <Button
+                onPress={() => {}}
+                variant="secondary"
+                size="md"
+                disabled
+                leftIcon={<IconSend size={16} color={colors.textTertiary} />}
+                style={styles.friendActionButton}
+              >
+                Request sent
+              </Button>
+            ) : (
+              <Button
+                onPress={handleFriendAction}
+                variant="primary"
+                size="md"
+                loading={sendRequest.isPending || respondRequest.isPending}
+                disabled={friendDisabled}
+                leftIcon={
+                  pendingIncoming ? (
+                    <IconCheck size={17} color={colors.onPrimary} />
+                  ) : (
+                    <IconUsers size={17} color={colors.onPrimary} />
+                  )
+                }
+                style={[styles.friendActionButton, Shadows.card]}
+              >
+                {pendingIncoming ? 'Accept request' : 'Add friend'}
+              </Button>
+            )}
           </View>
         </View>
 
-        <ProfileStats profile={profile} completionRate={completionRate} />
+        {/* Hero — matches (app)/profile/index layout */}
+        <View style={styles.hero}>
+          <View style={styles.avatarBlock}>
+            <View style={styles.avatarShadowWrap}>
+              <View
+                style={{
+                  padding: 3,
+                  borderRadius: Radius.full,
+                  borderWidth: 2.5,
+                  borderColor: rankBorderColor,
+                }}
+              >
+                <LinearGradient
+                  colors={gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarGradientRing}
+                >
+                  <View
+                    style={[
+                      styles.avatarInnerWell,
+                      {
+                        width: HERO_AVATAR,
+                        height: HERO_AVATAR,
+                        borderRadius: HERO_AVATAR / 2,
+                        backgroundColor: colors.surfaceElevated,
+                      },
+                    ]}
+                  >
+                    <Avatar
+                      uri={profile.avatar_url}
+                      username={profile.username}
+                      size={HERO_AVATAR}
+                      fallbackTone={profile.avatar_url ? 'default' : 'brand'}
+                    />
+                  </View>
+                </LinearGradient>
+              </View>
+            </View>
+          </View>
+
+          <Text variant="headingLarge" style={{ textAlign: 'center' }} numberOfLines={2}>
+            {profile.display_name}
+          </Text>
+          <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }} numberOfLines={1}>
+            @{profile.username}
+          </Text>
+          {profile.bio?.trim() ? (
+            <Text variant="body" color={colors.textSecondary} style={styles.bio} numberOfLines={6}>
+              {profile.bio.trim()}
+            </Text>
+          ) : null}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: Spacing.sm,
+              flexWrap: 'wrap',
+              marginTop: Spacing.xs,
+            }}
+          >
+            <RankBadge level={profile.level ?? 1} />
+            <LevelBadge level={profile.level ?? 1} />
+          </View>
+
+          <View style={{ width: '100%', paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
+            <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <IconReactionFire size={28} color={colors.primary} />
+              <Text variant="displayMedium" color={colors.primary}>
+                {profile.current_streak ?? 0}
+              </Text>
+            </View>
+            <Text variant="micro" color={colors.textSecondary}>
+              Streak
+            </Text>
+            {(profile.streak_shields ?? 0) > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                <Text variant="nano" color={colors.textTertiary}>
+                  🛡️
+                </Text>
+                <Text variant="nano" color={colors.textTertiary}>
+                  {profile.streak_shields} shield{profile.streak_shields === 1 ? '' : 's'}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.statCard}>
+            <Text variant="displayMedium" color={colors.text}>
+              {profile.total_completions ?? 0}
+            </Text>
+            <Text variant="micro" color={colors.textSecondary}>
+              Done
+            </Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text variant="displayMedium" color={colors.accent}>
+              {profile.reactions_received ?? 0}
+            </Text>
+            <Text variant="micro" color={colors.textSecondary}>
+              Reactions
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.friendsCardWrap}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityHint="Opens friend list"
+            activeOpacity={0.88}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setFriendsSheetVisible(true);
+            }}
+          >
+            <Card padded>
+              <View style={styles.friendsRow}>
+                <View style={styles.friendsIconWrap}>
+                  <IconFriends size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                  <Text variant="headingMedium" numberOfLines={1}>
+                    Friends
+                  </Text>
+                  <Text variant="headingMedium" color={colors.primary} numberOfLines={1}>
+                    {formatCompactCount(theirFriendCount)}
+                  </Text>
+                </View>
+                <View style={styles.friendsChev}>
+                  <IconChevronRight size={22} color={colors.textTertiary} />
+                </View>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text variant="headingMedium">Challenge stats</Text>
+          </View>
+          <ProfileStats
+            profile={profile}
+            completionRate={completionRate}
+            style={{ marginHorizontal: 0, marginBottom: Spacing.sm }}
+          />
+        </View>
       </ScrollView>
       <ProfileFriendsSheet
         visible={friendsSheetVisible}

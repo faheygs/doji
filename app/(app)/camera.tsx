@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -30,6 +30,7 @@ import {
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { isExpired } from '../../utils/time';
+import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -49,7 +50,11 @@ export default function CameraScreen() {
   const [libraryBusy, setLibraryBusy] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
+  const {
+    data: userEvent,
+    isLoading: userEventLoading,
+    isFetching: userEventFetching,
+  } = useUserEvent();
   const {
     capturedPhoto,
     capturedFrontPhoto,
@@ -71,16 +76,18 @@ export default function CameraScreen() {
 
   useEffect(() => {
     if (userEventLoading) return;
-    if (!userEvent) {
+    /** Avoid `router.back()` during TanStack refetch (invalidate after submit) when data can flicker. */
+    if (!userEvent && !userEventFetching) {
       Toast.show({ type: 'error', text1: 'No active challenge' });
-      router.back();
+      backOrHome(router);
       return;
     }
+    if (!userEvent) return;
     const t = userEvent.challenge?.type;
     if (t && t !== 'photo') {
       router.replace('/(app)/challenge');
     }
-  }, [userEvent, userEventLoading, router]);
+  }, [userEvent, userEventLoading, userEventFetching, router]);
 
   const afterPhotoCapture = useCallback(() => {
     if (needVideo) {
@@ -248,7 +255,7 @@ export default function CameraScreen() {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
-          router.replace('/(app)/index' as Href);
+          navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
@@ -261,7 +268,12 @@ export default function CameraScreen() {
 
   if (userEventLoading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator color={colors.text} />
       </View>
     );
@@ -269,7 +281,12 @@ export default function CameraScreen() {
 
   if (!userEvent) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator color={colors.text} />
       </View>
     );
@@ -280,7 +297,7 @@ export default function CameraScreen() {
     return (
       <SafeAreaView style={[styles.chooseRoot, { backgroundColor: colors.background }]}>
         <View style={styles.chooseHeader}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={styles.headerButtonDark}>
+          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={styles.headerButtonDark}>
             <IconClose size={26} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -324,8 +341,17 @@ export default function CameraScreen() {
     permission === null
   ) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color="#fff" />
+      <View
+        style={[
+          styles.container,
+          {
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: colors.mediaLetterbox,
+          },
+        ]}
+      >
+        <ActivityIndicator color={colors.onPrimary} />
       </View>
     );
   }
@@ -364,7 +390,7 @@ export default function CameraScreen() {
   if (flowStep === 'preview' && canPreview) {
     return (
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
@@ -404,7 +430,7 @@ export default function CameraScreen() {
           ) : null}
 
           {capturedVideoUri ? (
-            <View style={styles.videoPreviewWrap}>
+            <View style={[styles.videoPreviewWrap, { backgroundColor: colors.mediaLetterbox }]}>
               <Video
                 source={{ uri: capturedVideoUri }}
                 style={styles.videoPreview}
@@ -441,7 +467,7 @@ export default function CameraScreen() {
   const showVideoControls = flowStep === 'captureVideo' && needVideo;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.mediaLetterbox }]}>
       <CameraView
         ref={cameraRef}
         style={styles.camera}
@@ -457,7 +483,7 @@ export default function CameraScreen() {
             hitSlop={16}
             style={styles.headerButton}
           >
-            <IconClose size={26} color="#fff" />
+            <IconClose size={26} color={colors.onPrimary} />
           </TouchableOpacity>
           <View style={styles.headerSpacer} />
         </View>
@@ -465,7 +491,7 @@ export default function CameraScreen() {
         {showPhotoControls ? (
           <>
             <View style={styles.captureHint}>
-              <Text variant="bodySmall" color="rgba(255,255,255,0.7)" style={{ textAlign: 'center' }}>
+              <Text variant="bodySmall" color={colors.onPrimary} style={{ textAlign: 'center', opacity: 0.7 }}>
                 Tap to capture your photo
               </Text>
             </View>
@@ -473,10 +499,17 @@ export default function CameraScreen() {
               <TouchableOpacity
                 onPress={handleCapture}
                 disabled={capturing}
-                style={[styles.captureButton, capturing && styles.captureButtonCapturing]}
+                style={[
+                  styles.captureButton,
+                  {
+                    borderColor: colors.onPrimary,
+                    backgroundColor: `${colors.onPrimary}4D`,
+                  },
+                  capturing && styles.captureButtonCapturing,
+                ]}
                 activeOpacity={0.8}
               >
-                <View style={styles.captureButtonInner} />
+                <View style={[styles.captureButtonInner, { backgroundColor: colors.onPrimary }]} />
               </TouchableOpacity>
             </View>
           </>
@@ -485,7 +518,7 @@ export default function CameraScreen() {
         {showVideoControls ? (
           <>
             <View style={styles.captureHint}>
-              <Text variant="bodySmall" color="rgba(255,255,255,0.7)" style={{ textAlign: 'center' }}>
+              <Text variant="bodySmall" color={colors.onPrimary} style={{ textAlign: 'center', opacity: 0.7 }}>
                 {videoRecording
                   ? 'Tap stop when you are done.'
                   : 'Tap record to capture your clip (up to 2 min).'}
@@ -494,10 +527,22 @@ export default function CameraScreen() {
             <View style={styles.cameraFooter}>
               <TouchableOpacity
                 onPress={videoRecording ? stopVideoRecording : startVideoRecording}
-                style={[styles.recordOuter, videoRecording && styles.recordOuterActive]}
+                style={[
+                  styles.recordOuter,
+                  {
+                    borderColor: videoRecording ? colors.danger : colors.onPrimary,
+                    backgroundColor: videoRecording ? `${colors.danger}40` : `${colors.onPrimary}40`,
+                  },
+                ]}
                 activeOpacity={0.85}
               >
-                <View style={[styles.recordInner, videoRecording && styles.recordInnerSquare]} />
+                <View
+                  style={[
+                    styles.recordInner,
+                    { backgroundColor: colors.danger },
+                    videoRecording && styles.recordInnerSquare,
+                  ]}
+                />
               </TouchableOpacity>
             </View>
           </>
@@ -510,7 +555,6 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
   },
   chooseRoot: {
     flex: 1,
@@ -580,9 +624,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.3)',
     borderWidth: 4,
-    borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -594,26 +636,19 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#fff',
   },
   recordOuter: {
     width: 84,
     height: 84,
     borderRadius: 42,
     borderWidth: 4,
-    borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  recordOuterActive: {
-    borderColor: '#ff4444',
   },
   recordInner: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#ff4444',
   },
   recordInnerSquare: {
     width: 32,
@@ -665,7 +700,6 @@ const styles = StyleSheet.create({
   },
   videoPreviewWrap: {
     width: SCREEN_WIDTH,
-    backgroundColor: '#000',
     marginTop: Spacing.sm,
   },
   videoPreview: {

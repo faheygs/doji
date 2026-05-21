@@ -109,7 +109,7 @@ export default function SuggestChallengeScreen() {
           paddingVertical: Spacing.md,
           paddingHorizontal: Spacing.md,
           borderRadius: Radius.md,
-          borderWidth: 1,
+          borderWidth: 2,
           width: '100%',
         },
         radioOuter: {
@@ -313,7 +313,12 @@ export default function SuggestChallengeScreen() {
                     styles.kindOption,
                     {
                       borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? `${colors.primary}14` : colors.surface,
+                      backgroundColor: active ? colors.primaryLight : colors.surface,
+                      shadowColor: active ? colors.primary : 'transparent',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: active ? 0.2 : 0,
+                      shadowRadius: active ? 4 : 0,
+                      elevation: active ? 2 : 0,
                     },
                   ]}
                   accessibilityRole="radio"
@@ -332,7 +337,7 @@ export default function SuggestChallengeScreen() {
                     ) : null}
                   </View>
                   <View style={styles.kindTextBlock}>
-                    <Text variant="body" style={{ fontWeight: active ? '700' : '500' }}>
+                    <Text variant="body" color={active ? colors.primary : colors.text} style={{ fontWeight: active ? '800' : '600' }}>
                       {k.label}
                     </Text>
                     <Text variant="micro" color={colors.textTertiary}>

@@ -134,7 +134,7 @@ export function NotificationSheet({
           backgroundColor: colors.error,
         },
         dismissActionText: {
-          color: '#FFFFFF',
+          color: colors.onPrimary,
           fontWeight: '600',
           fontSize: 13,
         },

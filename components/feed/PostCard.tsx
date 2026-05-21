@@ -124,7 +124,7 @@ function PostCardImpl({ post, blurred }: Props) {
           width: '100%' as const,
           alignSelf: 'stretch',
           aspectRatio: 16 / 9,
-          backgroundColor: '#000',
+          backgroundColor: colors.mediaLetterbox,
         },
         frontThumbnailContainer: {
           position: 'absolute',

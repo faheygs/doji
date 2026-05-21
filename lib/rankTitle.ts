@@ -1,20 +1,16 @@
-type Colors = {
-  border: string;
-  primary: string;
-  xpGradientStart: string;
-};
+import type { AppColors } from '../constants/theme';
 
 export type RankTier = {
   title: string;
-  borderColor: (colors: Colors) => string;
+  borderColor: (colors: AppColors) => string;
 };
 
 const TIERS: Array<{ minLevel: number } & RankTier> = [
-  { minLevel: 15, title: 'Legend',     borderColor: (c) => c.xpGradientStart },
-  { minLevel: 10, title: 'Veteran',    borderColor: () => '#F4A700' },
-  { minLevel: 6,  title: 'Competitor', borderColor: () => '#9B59B6' },
-  { minLevel: 3,  title: 'Challenger', borderColor: (c) => c.primary },
-  { minLevel: 1,  title: 'Rookie',     borderColor: (c) => c.border },
+  { minLevel: 15, title: 'Legend', borderColor: (c) => c.xpGradientStart },
+  { minLevel: 10, title: 'Veteran', borderColor: (c) => c.warning },
+  { minLevel: 6, title: 'Competitor', borderColor: (c) => c.accent },
+  { minLevel: 3, title: 'Challenger', borderColor: (c) => c.primary },
+  { minLevel: 1, title: 'Rookie', borderColor: (c) => c.border },
 ];
 
 export function getRankTier(level: number): RankTier {
@@ -25,6 +21,6 @@ export function getRankTitle(level: number): string {
   return getRankTier(level).title;
 }
 
-export function getRankBorderColor(level: number, colors: Colors): string {
+export function getRankBorderColor(level: number, colors: AppColors): string {
   return getRankTier(level).borderColor(colors);
 }

@@ -184,6 +184,16 @@ export type AppColors = {
   fillMuted: string;
   accentGlow: string;
   surfaceRaised: string;
+
+  /** Modal/sheet dimming */
+  overlayBackdrop: string;
+  /** Frosted pill on XP / brand gradients */
+  onGradientPill: string;
+  onGradientPillStrong: string;
+  /** Full-screen video / camera letterboxing */
+  mediaLetterbox: string;
+  /** RN shadow color (opacity set in Stylesheet) */
+  shadowBase: string;
 };
 
 // ---- Coral (default light) ----
@@ -223,6 +233,12 @@ export const coralColors: AppColors = {
   fillMuted: '#F5F5F4',
   accentGlow: 'rgba(249,115,22,0.15)',
   surfaceRaised: '#FFFFFF',
+
+  overlayBackdrop: 'rgba(0,0,0,0.55)',
+  onGradientPill: 'rgba(255,255,255,0.15)',
+  onGradientPillStrong: 'rgba(255,255,255,0.2)',
+  mediaLetterbox: '#000000',
+  shadowBase: '#000000',
 };
 
 // ---- Ocean ----
@@ -279,6 +295,12 @@ export const midnightColors: AppColors = {
   fillMuted: '#27272A',
   accentGlow: 'rgba(249,115,22,0.22)',
   surfaceRaised: '#1A1A1C',
+
+  overlayBackdrop: 'rgba(0,0,0,0.6)',
+  onGradientPill: 'rgba(255,255,255,0.15)',
+  onGradientPillStrong: 'rgba(255,255,255,0.2)',
+  mediaLetterbox: '#000000',
+  shadowBase: '#000000',
 };
 
 // ---- Forest ----
@@ -335,6 +357,12 @@ export const auroraColors: AppColors = {
   fillMuted: '#251D35',
   accentGlow: 'rgba(232,121,249,0.28)',
   surfaceRaised: '#1C1528',
+
+  overlayBackdrop: 'rgba(0,0,0,0.6)',
+  onGradientPill: 'rgba(255,255,255,0.15)',
+  onGradientPillStrong: 'rgba(255,255,255,0.2)',
+  mediaLetterbox: '#000000',
+  shadowBase: '#000000',
 };
 
 // ---- Blossom (light) — rose × violet on warm blush ----
@@ -374,6 +402,12 @@ export const blossomColors: AppColors = {
   fillMuted: '#FCE7F0',
   accentGlow: 'rgba(225,29,72,0.14)',
   surfaceRaised: '#FFFFFF',
+
+  overlayBackdrop: 'rgba(0,0,0,0.55)',
+  onGradientPill: 'rgba(255,255,255,0.15)',
+  onGradientPillStrong: 'rgba(255,255,255,0.2)',
+  mediaLetterbox: '#000000',
+  shadowBase: '#000000',
 };
 
 export type ThemeName = 'coral' | 'ocean' | 'midnight' | 'forest' | 'aurora' | 'blossom';
@@ -389,6 +423,12 @@ export const themeMap: Record<ThemeName, AppColors> = {
   aurora: auroraColors,
   blossom: blossomColors,
 };
+
+/** Default avatar gradient when the DB has no custom pair (matches default app theme’s XP gradient). */
+export const FALLBACK_AVATAR_GRADIENT: readonly [string, string] = [
+  themeMap[DEFAULT_APP_THEME].xpGradientStart,
+  themeMap[DEFAULT_APP_THEME].xpGradientEnd,
+];
 
 export function isDarkTheme(name: ThemeName): boolean {
   return name === 'midnight' || name === 'aurora';
@@ -481,12 +521,12 @@ export const darkColors = midnightColors;
 export const lightColors = coralColors;
 export const Colors = midnightColors;
 
-export function getCategoryColors(_colors: AppColors): Record<string, string> {
+export function getCategoryColors(colors: AppColors): Record<string, string> {
   return {
-    physical: '#FF7A45',
-    creative: '#A78BFA',
-    social: '#38BDF8',
-    mental: '#34D399',
-    wild: '#FBBF24',
+    physical: colors.primary,
+    creative: colors.accent,
+    social: colors.link,
+    mental: colors.success,
+    wild: colors.warning,
   };
 }

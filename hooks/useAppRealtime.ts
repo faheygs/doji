@@ -281,8 +281,9 @@ export function useAppRealtime(userId: string | undefined) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'poll_votes' },
         () => {
+          queryClient.invalidateQueries({ queryKey: ['pollVotesCount'] });
           queryClient.invalidateQueries({ queryKey: ['pollResults'] });
-          queryClient.invalidateQueries({ queryKey: ['pollVoters'] });
+          queryClient.invalidateQueries({ queryKey: ['pollVotersDetail'] });
           queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
           scheduleFeedInvalidate();
         },
@@ -292,6 +293,7 @@ export function useAppRealtime(userId: string | undefined) {
         { event: '*', schema: 'public', table: 'poll_options' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['pollResults'] });
+          queryClient.invalidateQueries({ queryKey: ['pollVotersDetail'] });
         },
       )
       .on(
@@ -299,6 +301,14 @@ export function useAppRealtime(userId: string | undefined) {
         { event: '*', schema: 'public', table: 'weekly_xp' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'challenge_suggestions' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['challengeSuggestionCounts'] });
+          queryClient.invalidateQueries({ queryKey: ['userBadges'] });
         },
       )
       .on(

@@ -6,15 +6,6 @@ export type IconProps = {
   color: string;
 };
 
-export const REACTION_ICON_TINT: Record<string, string> = {
-  fire: '#F97316',
-  like: '#2563EB',
-  laugh: '#CA8A04',
-  wow: '#3B82F6',
-  love: '#DC2626',
-  dislike: '#64748B',
-};
-
 export function IconLightbulb({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

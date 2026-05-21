@@ -71,7 +71,7 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
         },
         scrim: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'rgba(0,0,0,0.42)',
+          backgroundColor: colors.overlayBackdrop,
         },
         sheet: {
           maxHeight: winH * 0.92,

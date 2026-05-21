@@ -2,12 +2,14 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   FlatList,
+  SectionList,
   StyleSheet,
   RefreshControl,
   SafeAreaView,
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -24,15 +26,22 @@ import { ChallengeBanner } from '../../components/challenge/ChallengeBanner';
 import { IconBell } from '../../components/icons/Icons';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { useUserEvent } from '../../hooks/useUserEvent';
-import { useFeed } from '../../hooks/useFeed';
+import {
+  useFeed,
+  groupPostsByDayForWeek,
+  type FeedHistoryRange,
+  type WeekSection,
+} from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
 import type { Post } from '../../types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isChallengeLive } from '../../lib/challengeDay';
 import Constants from 'expo-constants';
 
 export default function FeedScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const [feedRange, setFeedRange] = useState<FeedHistoryRange>('today');
   const {
     data: feedPages,
     isLoading: feedLoading,
@@ -41,7 +50,7 @@ export default function FeedScreen() {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useFeed();
+  } = useFeed(feedRange);
   const queryClient = useQueryClient();
   const {
     data: userEvent,
@@ -108,7 +117,7 @@ export default function FeedScreen() {
           pointerEvents: 'none',
         },
         badgeText: {
-          color: '#FFFFFF',
+          color: colors.onPrimary,
           fontSize: 11,
           fontWeight: '700',
         },
@@ -138,6 +147,37 @@ export default function FeedScreen() {
         emptyText: {
           textAlign: 'center',
           lineHeight: 22,
+        },
+        chipRow: {
+          width: '100%',
+          paddingBottom: Spacing.xs,
+        },
+        chipScroll: {
+          flexGrow: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'row',
+          gap: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+          minWidth: '100%',
+        },
+        chip: {
+          paddingVertical: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.chipBackground,
+        },
+        chipActive: {
+          backgroundColor: colors.primary,
+          borderColor: colors.primary,
+        },
+        sectionHeader: {
+          paddingHorizontal: Spacing.md,
+          paddingTop: Spacing.md,
+          paddingBottom: Spacing.xs,
+          backgroundColor: colors.background,
         },
       }),
     [colors],
@@ -188,11 +228,24 @@ export default function FeedScreen() {
 
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
 
+  const weekSections = useMemo(() => {
+    if (feedRange !== 'week') return [];
+    return groupPostsByDayForWeek(posts);
+  }, [feedRange, posts]);
+
+  const feedTitle =
+    feedRange === 'today'
+      ? "Today's feed"
+      : feedRange === 'yesterday'
+        ? 'Yesterday'
+        : 'Past 7 days';
+
   const hasPosted = userEvent?.status === 'completed' || userEvent?.status === 'late';
-  const shouldBlur = !hasPosted && !userEventLoading;
+  const shouldBlur =
+    feedRange === 'today' && !hasPosted && !userEventLoading;
 
   const firesAt = userEvent?.daily_event?.fires_at;
-  const challengeIsLive = firesAt ? firesAt <= new Date().toISOString() : false;
+  const challengeIsLive = isChallengeLive(firesAt ?? null);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -226,6 +279,17 @@ export default function FeedScreen() {
   );
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
+
+  const renderWeekSectionHeader = useCallback(
+    ({ section }: { section: WeekSection }) => (
+      <View style={styles.sectionHeader}>
+        <Text variant="label" color={colors.textSecondary}>
+          {section.title}
+        </Text>
+      </View>
+    ),
+    [styles.sectionHeader, colors.textSecondary],
+  );
 
   const ListHeader = useMemo(
     () => (
@@ -269,22 +333,55 @@ export default function FeedScreen() {
           </View>
         </View>
 
+        {feedRange === 'today' ? (
+          userEventLoading ? (
+            <View
+              style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
+              accessibilityLabel="Loading today's challenge"
+            >
+              <ActivityIndicator color={colors.text} />
+            </View>
+          ) : (
+            <ChallengeBanner userEvent={userEvent ?? null} />
+          )
+        ) : null}
+
         <View style={styles.feedHeading} accessibilityRole="header">
           <Text variant="headingLarge" style={styles.feedTitle}>
-            {"Today's feed"}
+            {feedTitle}
           </Text>
         </View>
 
-        {userEventLoading ? (
-          <View
-            style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
-            accessibilityLabel="Loading today's challenge"
+        <View style={styles.chipRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipScroll}
           >
-            <ActivityIndicator color={colors.text} />
-          </View>
-        ) : (
-          <ChallengeBanner userEvent={userEvent ?? null} />
-        )}
+            {(['today', 'yesterday', 'week'] as const).map((key) => {
+              const active = feedRange === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setFeedRange(key);
+                  }}
+                  style={[styles.chip, active && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={
+                    key === 'today' ? 'Today' : key === 'yesterday' ? 'Yesterday' : 'Past 7 days'
+                  }
+                >
+                  <Text variant="label" color={active ? colors.onPrimary : colors.text}>
+                    {key === 'today' ? 'Today' : key === 'yesterday' ? 'Yesterday' : 'Past 7 days'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       </View>
     ),
     [
@@ -297,28 +394,54 @@ export default function FeedScreen() {
       handleOpenNotifications,
       userEvent,
       userEventLoading,
+      feedRange,
+      feedTitle,
     ],
   );
 
-  const emptyHeading = !userEvent
-    ? "Challenge incoming"
-    : challengeIsLive
-      ? "Nothing yet"
-      : "Challenge incoming";
+  const emptyCopy = useMemo(() => {
+    if (feedRange === 'week') {
+      return {
+        emptyHeading: 'Nothing here yet',
+        emptyBody: '',
+      };
+    }
+    if (feedRange === 'yesterday') {
+      return {
+        emptyHeading: 'Nothing yesterday',
+        emptyBody: '',
+      };
+    }
+    if (!userEvent) {
+      return {
+        emptyHeading: 'Challenge incoming',
+        emptyBody: "Today's challenge hasn't dropped yet.",
+      };
+    }
+    if (challengeIsLive) {
+      return {
+        emptyHeading: 'Nothing yet',
+        emptyBody: 'Be the first to respond.',
+      };
+    }
+    return {
+      emptyHeading: 'Challenge incoming',
+      emptyBody: 'The challenge drops soon.',
+    };
+  }, [feedRange, userEvent, challengeIsLive]);
 
-  const emptyBody = !userEvent
-    ? "Today's challenge hasn't dropped yet.\nCheck back soon."
-    : challengeIsLive
-      ? "Be the first to respond!"
-      : "The challenge drops soon.\nBe ready to go first.";
+  const emptyHeading = emptyCopy.emptyHeading;
+  const emptyBody = emptyCopy.emptyBody;
 
   const ListEmptyComponent = useMemo(
     () => (
       <View style={styles.empty}>
         <Text variant="headingLarge">{emptyHeading}</Text>
-        <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-          {emptyBody}
-        </Text>
+        {emptyBody ? (
+          <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
+            {emptyBody}
+          </Text>
+        ) : null}
       </View>
     ),
     [styles.empty, styles.emptyText, colors.textSecondary, emptyHeading, emptyBody],
@@ -351,34 +474,59 @@ export default function FeedScreen() {
     );
   }
 
+  const refreshControlEl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      tintColor={colors.text}
+      colors={[colors.text]}
+    />
+  );
+
   return (
     <SafeAreaView style={outerStyle}>
-      <FlatList
-        style={webScrollParentStyle}
-        data={posts}
-        keyExtractor={keyExtractorPost}
-        renderItem={renderPost}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmptyComponent}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.35}
-        initialNumToRender={6}
-        maxToRenderPerBatch={4}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === 'android'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.text}
-            colors={[colors.text]}
-          />
-        }
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-      />
+      {feedRange === 'week' ? (
+        <SectionList
+          style={webScrollParentStyle}
+          sections={weekSections}
+          keyExtractor={keyExtractorPost}
+          renderItem={renderPost}
+          renderSectionHeader={renderWeekSectionHeader}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmptyComponent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.35}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={refreshControlEl}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        />
+      ) : (
+        <FlatList
+          style={webScrollParentStyle}
+          data={posts}
+          keyExtractor={keyExtractorPost}
+          renderItem={renderPost}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmptyComponent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.35}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={refreshControlEl}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
 
       <NotificationSheet
         visible={notificationsOpen}

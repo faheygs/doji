@@ -149,6 +149,8 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
       return m;
     },
     enabled: fetchEnabled,
+    /** Keep avatar stacks in sync with bar % (`pollResults` uses the same interval). */
+    refetchInterval: fetchEnabled ? 10_000 : false,
     staleTime: 5000,
   });
 
@@ -233,7 +235,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
         modalBackdropTap: {
           ...StyleSheet.absoluteFillObject,
           /** Same weight as ProfileFriendsSheet — avoids `slide`-Modal black bleed on transparent modals */
-          backgroundColor: 'rgba(0,0,0,0.42)',
+          backgroundColor: colors.overlayBackdrop,
         },
         modalSheet: {
           backgroundColor: colors.surface,

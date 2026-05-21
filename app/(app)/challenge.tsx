@@ -28,6 +28,7 @@ import { CategoryBadge } from '../../components/ui/CategoryBadge';
 import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { isExpired, secondsUntilFiresAt } from '../../utils/time';
+import { backOrHome } from '../../lib/navigationReturn';
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -67,12 +68,12 @@ export default function ChallengeScreen() {
     } else if (challengeType === 'task') {
       router.push('/(app)/task');
     } else {
-      router.push('/camera');
+      router.push('/(app)/camera');
     }
   };
 
   const handleClose = () => {
-    router.back();
+    backOrHome(router);
   };
 
   const ctaLabel =

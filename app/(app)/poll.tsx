@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
@@ -19,6 +19,7 @@ import { useUserEvent } from '../../hooks/useUserEvent';
 import { usePollVote } from '../../hooks/usePollVote';
 import { supabase } from '../../lib/supabase';
 import type { PollOption } from '../../types/database';
+import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 
 export default function PollScreen() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function PollScreen() {
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          router.replace('/(app)/index' as Href);
+          navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to vote' });
@@ -137,7 +138,7 @@ export default function PollScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -153,7 +154,7 @@ export default function PollScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={16} style={{ padding: Spacing.sm }}>
+        <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
           <IconClose size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -214,9 +215,9 @@ export default function PollScreen() {
           ]}
         >
           {pollVote.isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text variant="label" color={selected ? '#FFFFFF' : colors.textTertiary}>
+            <Text variant="label" color={selected ? colors.onPrimary : colors.textTertiary}>
               {selected ? 'Submit Vote' : 'Pick an option'}
             </Text>
           )}

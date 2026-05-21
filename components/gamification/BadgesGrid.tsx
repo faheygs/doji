@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,10 @@ import { Spacing, Radius, Shadows } from '../../constants/theme';
 import { BadgeIcon } from '../icons/BadgeIcons';
 import { Text } from '../ui/Text';
 import type { Badge, UserBadge } from '../../types/database';
+import {
+  computeBadgeProgress,
+  type BadgeProgressStats,
+} from '../../lib/badgeProgress';
 
 const COLUMN_GAP = Spacing.md;
 const ROW_GAP = Spacing.md;
@@ -49,9 +53,13 @@ function criteriaLabel(type: string, value: number): string {
 type Props = {
   badges: Badge[];
   earned: UserBadge[];
+  /**
+   * Live profile-derived stats for progress in the detail sheet only.
+   */
+  progressStats?: BadgeProgressStats | null;
 };
 
-export function BadgesGrid({ badges, earned }: Props) {
+export function BadgesGrid({ badges, earned, progressStats }: Props) {
   const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const earnedMap = new Map(earned.map((ub) => [ub.badge_id, ub]));
@@ -68,6 +76,36 @@ export function BadgesGrid({ badges, earned }: Props) {
 
   const selectedEarned = selected ? earnedMap.get(selected.id) : undefined;
   const selectedIsEarned = !!selectedEarned;
+  const selectedProgress =
+    selected && progressStats && !selectedIsEarned
+      ? computeBadgeProgress(selected, progressStats)
+      : null;
+
+  const modalStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        backdrop: {
+          flex: 1,
+          backgroundColor: colors.overlayBackdrop,
+          justifyContent: 'flex-end',
+        },
+        sheet: {
+          borderTopLeftRadius: Radius.xl,
+          borderTopRightRadius: Radius.xl,
+          maxHeight: '75%',
+          ...Platform.select({
+            ios: {
+              shadowColor: colors.shadowBase,
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+            },
+            android: { elevation: 16 },
+          }),
+        },
+      }),
+    [colors],
+  );
 
   return (
     <>
@@ -119,9 +157,9 @@ export function BadgesGrid({ badges, earned }: Props) {
         statusBarTranslucent
         onRequestClose={() => setSelected(null)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
+        <Pressable style={modalStyles.backdrop} onPress={() => setSelected(null)}>
           <Pressable
-            style={[styles.sheet, { backgroundColor: colors.surface }]}
+            style={[modalStyles.sheet, { backgroundColor: colors.surface }]}
             onPress={(e) => e.stopPropagation()}
           >
             {selected ? (
@@ -190,6 +228,28 @@ export function BadgesGrid({ badges, earned }: Props) {
                   </Text>
                 </View>
 
+                {!selectedIsEarned && selectedProgress ? (
+                  <View style={[styles.progressSection, { borderColor: colors.border }]}>
+                    <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
+                      YOUR PROGRESS
+                    </Text>
+                    <Text variant="subhead" color={colors.text}>
+                      {selectedProgress.label}
+                    </Text>
+                    <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${selectedProgress.percent}%`,
+                            backgroundColor: colors.primary,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                ) : null}
+
                 {/* Dismiss */}
                 <TouchableOpacity
                   onPress={() => setSelected(null)}
@@ -235,25 +295,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: Spacing.xs,
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    maxHeight: '75%',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-      },
-      android: { elevation: 16 },
-    }),
-  },
   sheetContent: {
     alignItems: 'center',
     padding: Spacing.xl,
@@ -287,6 +328,24 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     padding: Spacing.md,
+  },
+  progressSection: {
+    width: '100%',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    marginTop: Spacing.xs,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: Radius.full,
   },
   dismissBtn: {
     marginTop: Spacing.sm,

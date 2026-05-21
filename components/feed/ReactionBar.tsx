@@ -4,8 +4,9 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { REACTION_CONTROLS, REACTION_ICON_TINT, IconComment } from '../icons/Icons';
+import { REACTION_CONTROLS, IconComment } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
+import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { formatCompactCount } from '../../utils/formatCount';
 import type { Post, ReactionEmoji } from '../../types/database';
 
@@ -33,6 +34,7 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
   const myReactions = post.my_reactions ?? [];
+  const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
 
   const styles = useMemo(
     () =>
@@ -136,7 +138,7 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
         {REACTION_CONTROLS.map(({ emoji, Icon, label }) => {
           const selected = myReactions.includes(emoji as ReactionEmoji);
           const muted = blurred ? colors.textTertiary : colors.textSecondary;
-          const iconColor = blurred ? muted : selected ? (REACTION_ICON_TINT[emoji] ?? colors.primary) : muted;
+          const iconColor = blurred ? muted : selected ? (emojiTints[emoji] ?? colors.primary) : muted;
           const count = (post.reaction_breakdown as Record<string, number> | undefined)?.[emoji] ?? 0;
           return (
             <View key={emoji} style={styles.emojiCol}>
