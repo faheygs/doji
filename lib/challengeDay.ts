@@ -9,3 +9,9 @@ export function todayFiresAtWindow(): { start: string; end: string } {
   end.setDate(end.getDate() + 1);
   return { start: start.toISOString(), end: end.toISOString() };
 }
+
+/** Challenge drop is live for the viewer (feed + poll posts allowed). */
+export function isChallengeLive(firesAt: string | null | undefined): boolean {
+  if (!firesAt) return false;
+  return new Date(firesAt).getTime() <= Date.now();
+}

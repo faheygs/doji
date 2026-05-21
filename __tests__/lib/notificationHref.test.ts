@@ -11,6 +11,9 @@ function notificationHrefFromData(data: unknown): Href | null {
   const url = rec.url;
   if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) return url as Href;
   if (rec.type === 'CHALLENGE') return '/(app)/challenge';
+  if (rec.type === 'BADGE') return '/(app)/profile';
+  if (rec.type === 'FRIEND_REQUEST') return '/(app)/friends/requests';
+  if (rec.type === 'FRIEND_ACCEPTED') return '/(app)/friends';
   const postId = rec.postId;
   if (
     (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
@@ -58,6 +61,18 @@ describe('notificationHrefFromData', () => {
 
   it('returns challenge href for type CHALLENGE', () => {
     expect(notificationHrefFromData({ type: 'CHALLENGE' })).toBe('/(app)/challenge');
+  });
+
+  it('returns profile for BADGE', () => {
+    expect(notificationHrefFromData({ type: 'BADGE' })).toBe('/(app)/profile');
+  });
+
+  it('returns friends requests for FRIEND_REQUEST', () => {
+    expect(notificationHrefFromData({ type: 'FRIEND_REQUEST' })).toBe('/(app)/friends/requests');
+  });
+
+  it('returns friends for FRIEND_ACCEPTED', () => {
+    expect(notificationHrefFromData({ type: 'FRIEND_ACCEPTED' })).toBe('/(app)/friends');
   });
 
   it('returns post href for REACTION with postId', () => {

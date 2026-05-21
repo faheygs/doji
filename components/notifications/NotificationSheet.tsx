@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
@@ -22,6 +22,7 @@ import { IconBell, IconClose, IconFriends } from '../icons/Icons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
 import { useRespondToFriendRequest } from '../../hooks/useProfile';
 import { formatRelativeTime } from '../../utils/time';
+import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
 type Props = {
   visible: boolean;
@@ -41,6 +42,7 @@ export function NotificationSheet({
   onClearHistory,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const respond = useRespondToFriendRequest();
@@ -150,24 +152,10 @@ export function NotificationSheet({
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
-      router.push(`/profile/${username}`);
+      router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
     },
-    [router],
+    [router, pathname],
   );
-
-  const openPost = useCallback(
-    (postId: string) => {
-      Haptics.selectionAsync();
-      router.push(`/(app)/post/${postId}`);
-    },
-    [router],
-  );
-
-  const openChallenge = useCallback(() => {
-    Haptics.selectionAsync();
-    onClose();
-    router.push('/(app)/challenge');
-  }, [onClose, router]);
 
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
@@ -242,11 +230,7 @@ export function NotificationSheet({
           const addressee = f.addressee;
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <TouchableOpacity
-                onPress={() => openProfile(addressee?.username)}
-                style={styles.userRow}
-                activeOpacity={0.85}
-              >
+              <View style={styles.userRow}>
                 <Avatar uri={addressee?.avatar_url} username={addressee?.username} size={44} />
                 <View style={styles.userMeta}>
                   <Text variant="headingMedium" style={styles.rowTitle}>
@@ -257,7 +241,7 @@ export function NotificationSheet({
                     {formatRelativeTime(item.sortAt)}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </View>
             </Card>
           );
           break;
@@ -271,11 +255,7 @@ export function NotificationSheet({
           const emojiStr = item.emojis.slice(0, 5).join(' ');
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <TouchableOpacity
-                onPress={() => openPost(item.post_id)}
-                style={styles.userRow}
-                activeOpacity={0.85}
-              >
+              <View style={styles.userRow}>
                 <View style={[styles.userMeta, { flex: 1 }]}>
                   <Text variant="headingMedium" style={styles.rowTitle}>
                     Reactions on your post
@@ -290,7 +270,7 @@ export function NotificationSheet({
                     {item.count} reaction{item.count === 1 ? '' : 's'}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </View>
             </Card>
           );
           break;
@@ -300,14 +280,17 @@ export function NotificationSheet({
           const title = ue.challenge?.title ?? 'Challenge';
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <TouchableOpacity onPress={openChallenge} style={styles.userMeta} activeOpacity={0.85}>
+              <View style={styles.userMeta}>
                 <Text variant="headingMedium" style={styles.rowTitle}>
                   Challenge ready
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>
                   {title} · {formatRelativeTime(item.sortAt)}
                 </Text>
-              </TouchableOpacity>
+                <Text variant="micro" color={colors.textTertiary}>
+                  Open the Home tab to start today&apos;s challenge.
+                </Text>
+              </View>
             </Card>
           );
           break;
@@ -331,8 +314,6 @@ export function NotificationSheet({
     [
       colors.textSecondary,
       colors.textTertiary,
-      openChallenge,
-      openPost,
       openProfile,
       renderRightActions,
       respond,
@@ -374,6 +355,8 @@ export function NotificationSheet({
             keyExtractor={(i) => i.key}
             contentContainerStyle={styles.list}
             renderItem={renderItem}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.empty}>
                 <IconBell size={44} color={colors.textTertiary} />

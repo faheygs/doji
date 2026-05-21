@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile, UserEvent } from '../types/database';
 import { useFriendRequests } from './useProfile';
+import { isChallengeLive } from '../lib/challengeDay';
+import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 
 const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
 const BELL_LAST_OPENED_KEY = '@doit/bell-last-opened';
@@ -75,6 +77,7 @@ type ReactionRow = {
 
 export function useNotificationCenter() {
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const profile = useAuthStore((s) => s.profile);
   const queryClient = useQueryClient();
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
@@ -276,12 +279,14 @@ export function useNotificationCenter() {
     }
 
     const chItems: NotificationCenterItem[] =
-      challengesQuery.data?.map((ev) => ({
-        key: `challenge:${ev.id}`,
-        kind: 'challenge' as const,
-        userEvent: ev,
-        sortAt: challengeSortAt(ev),
-      })) ?? [];
+      challengesQuery.data
+        ?.filter((ev) => isChallengeLive(ev.daily_event?.fires_at))
+        .map((ev) => ({
+          key: `challenge:${ev.id}`,
+          kind: 'challenge' as const,
+          userEvent: ev,
+          sortAt: challengeSortAt(ev),
+        })) ?? [];
 
     const merged = [...reqItems, ...accItems, ...reactionGroups, ...chItems]
       .filter((item) => !dismissedKeys.has(item.key));
@@ -297,9 +302,11 @@ export function useNotificationCenter() {
   }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
 
   const unreadCount = useMemo(() => {
+    const prefs = mergeNotificationPreferences(profile?.notification_preferences);
+    if (prefs.show_bell_badge === false) return 0;
     const openedMs = lastOpenedAt ? new Date(lastOpenedAt).getTime() : 0;
     return items.filter((i) => new Date(i.sortAt).getTime() > openedMs).length;
-  }, [items, lastOpenedAt]);
+  }, [items, lastOpenedAt, profile?.notification_preferences]);
 
   const isLoading =
     !prefsHydrated ||

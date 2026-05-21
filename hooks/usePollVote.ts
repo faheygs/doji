@@ -33,7 +33,7 @@ export function usePollVote() {
       qc.invalidateQueries({ queryKey: ['feed'] });
       qc.invalidateQueries({ queryKey: ['userEvent'] });
       qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
-      qc.invalidateQueries({ queryKey: ['myPollVote', variables.challengeId] });
+      qc.invalidateQueries({ queryKey: ['pollVotersDetail', variables.challengeId] });
       qc.invalidateQueries({ queryKey: ['profile'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['profilePosts'] });

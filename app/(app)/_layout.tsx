@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo } from 'react';
-import { Tabs, usePathname, useRouter } from 'expo-router';
+import { Tabs, usePathname, useRouter, type Href } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useAppRealtime } from '../../hooks/useAppRealtime';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
-import { IconHome, IconTrophy, IconProfile } from '../../components/icons/Icons';
+import {
+  IconHome,
+  IconTrophy,
+  IconFriends,
+  IconProfile,
+  IconLightbulb,
+} from '../../components/icons/Icons';
 
 function blurFocusedElementIfAriaHiddenAncestor(): void {
   if (typeof document === 'undefined') return;
@@ -28,15 +34,7 @@ export default function AppLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const pathname = usePathname(); // still used for web aria-hidden blur effect
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const t = window.setTimeout(() => {
-      blurFocusedElementIfAriaHiddenAncestor();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [pathname]);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isLoading) return;
@@ -48,6 +46,14 @@ export default function AppLayout() {
       router.replace('/(auth)/username');
     }
   }, [session, profile, isLoading, router]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const t = window.setTimeout(() => {
+      blurFocusedElementIfAriaHiddenAncestor();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [pathname]);
 
   const tabBarHeight = 52 + (Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : insets.bottom + 8);
 
@@ -100,6 +106,31 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="friends"
+        options={{
+          title: 'Friends',
+          tabBarAccessibilityLabel: 'Friends',
+          tabBarIcon: ({ focused }) => (
+            <IconFriends size={26} color={focused ? colors.text : colors.textTertiary} />
+          ),
+        }}
+        listeners={{
+          tabPress: () => {
+            router.replace('/(app)/friends' as Href);
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="suggest-challenge"
+        options={{
+          title: 'Suggest',
+          tabBarAccessibilityLabel: 'Suggest a challenge',
+          tabBarIcon: ({ focused }) => (
+            <IconLightbulb size={26} color={focused ? colors.text : colors.textTertiary} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           tabBarAccessibilityLabel: 'Your profile',
@@ -109,13 +140,11 @@ export default function AppLayout() {
         }}
         listeners={{
           tabPress: () => {
-            router.replace('/(app)/profile');
+            router.replace('/(app)/profile' as Href);
           },
         }}
       />
-      {/* Hidden screens (no tab bar icon) */}
-      <Tabs.Screen name="friends" options={{ href: null }} />
-      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="member" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="challenge" options={{ href: null }} />
       <Tabs.Screen name="camera" options={{ href: null }} />

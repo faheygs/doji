@@ -10,35 +10,38 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Avatar } from '@/components/ui/Avatar';
-import { IconCamera, IconSettings, IconFriends } from '@/components/icons/Icons';
+import { IconCamera, IconSettings, IconReactionFire, IconFriends } from '@/components/icons/Icons';
 import { XPBar } from '@/components/gamification/XPBar';
 import { LevelBadge } from '@/components/gamification/LevelBadge';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeDefinitions, useUserBadges } from '@/hooks/useBadges';
-import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
+import { useFriendCount } from '@/hooks/useProfile';
 import { getRankTitle, getRankBorderColor } from '@/lib/rankTitle';
+import { hrefWithReturnTo } from '@/lib/navigationReturn';
+import { formatCompactCount } from '@/utils/formatCount';
 import type { Profile } from '@/types/database';
 
 export default function MyProfileScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const profile = useAuthStore((s) => s.profile) as Profile | null;
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
   const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
-  const { data: reactionsSent = 0 } = useReactionsGivenCount(profile?.id);
   const { data: allBadges = [] } = useBadgeDefinitions();
   const { data: earnedBadges = [] } = useUserBadges(profile?.id);
   const [refreshing, setRefreshing] = useState(false);
+  const { data: friendCount = 0 } = useFriendCount(profile?.id);
 
   const onRefresh = useCallback(async () => {
     if (!profile?.id) return;
@@ -47,7 +50,7 @@ export default function MyProfileScreen() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['userBadges', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['profile'] }),
-        queryClient.invalidateQueries({ queryKey: ['reactionsGiven', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
         fetchProfile(profile.id),
       ]);
     } finally {
@@ -137,19 +140,6 @@ export default function MyProfileScreen() {
         badgesSection: {
           paddingTop: Spacing.sm,
         },
-        friendsLink: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          backgroundColor: colors.surface,
-          borderRadius: Radius.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: Spacing.md,
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.lg,
-          ...Shadows.card,
-        },
       }),
     [colors],
   );
@@ -166,6 +156,8 @@ export default function MyProfileScreen() {
         style={webScrollParentStyle}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
@@ -173,7 +165,7 @@ export default function MyProfileScreen() {
         <View style={styles.topBar}>
           <View style={{ width: 26 }} />
           <TouchableOpacity
-            onPress={() => router.push('/(app)/settings')}
+            onPress={() => router.push(hrefWithReturnTo('/(app)/profile/settings', pathname))}
             hitSlop={16}
             accessibilityLabel="Settings"
             onPressIn={() => Haptics.selectionAsync()}
@@ -241,6 +233,20 @@ export default function MyProfileScreen() {
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             @{profile.username}
           </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              marginTop: 2,
+            }}
+          >
+            <IconFriends size={16} color={colors.textTertiary} />
+            <Text variant="micro" color={colors.textTertiary}>
+              {formatCompactCount(friendCount)} {friendCount === 1 ? 'friend' : 'friends'}
+            </Text>
+          </View>
           <Text variant="micro" color={rankBorderColor} style={{ textAlign: 'center', letterSpacing: 1 }}>
             {rankTitle.toUpperCase()}
           </Text>
@@ -255,9 +261,12 @@ export default function MyProfileScreen() {
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text variant="displayMedium" color={colors.primary}>
-              🔥 {profile.current_streak ?? 0}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <IconReactionFire size={28} color={colors.primary} />
+              <Text variant="displayMedium" color={colors.primary}>
+                {profile.current_streak ?? 0}
+              </Text>
+            </View>
             <Text variant="micro" color={colors.textSecondary}>
               Streak
             </Text>
@@ -280,28 +289,13 @@ export default function MyProfileScreen() {
           </View>
           <View style={styles.statCard}>
             <Text variant="displayMedium" color={colors.accent}>
-              {reactionsSent}
+              {profile.reactions_received ?? 0}
             </Text>
             <Text variant="micro" color={colors.textSecondary}>
               Reactions
             </Text>
           </View>
         </View>
-
-        {/* Friends link */}
-        <TouchableOpacity
-          style={styles.friendsLink}
-          onPress={() => router.push('/(app)/friends' as Href)}
-          activeOpacity={0.8}
-        >
-          <IconFriends size={22} color={colors.primary} />
-          <Text variant="body" color={colors.text} style={{ flex: 1 }}>
-            Friends
-          </Text>
-          <Text variant="caption" color={colors.textTertiary}>
-            →
-          </Text>
-        </TouchableOpacity>
 
         {/* Badges */}
         {allBadges.length > 0 && (

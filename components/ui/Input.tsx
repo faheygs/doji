@@ -6,6 +6,7 @@ import {
   View,
   ViewStyle,
   StyleProp,
+  Keyboard,
 } from 'react-native';
 import { Radius, Spacing, Typography } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,7 +19,20 @@ type Props = TextInputProps & {
 };
 
 export const Input = forwardRef<TextInput, Props>(
-  ({ label, error, containerStyle, style, ...props }, ref) => {
+  (
+    {
+      label,
+      error,
+      containerStyle,
+      style,
+      multiline,
+      returnKeyType,
+      blurOnSubmit,
+      onSubmitEditing,
+      ...rest
+    },
+    ref,
+  ) => {
     const { colors, isDark } = useTheme();
 
     const styles = useMemo(
@@ -66,7 +80,14 @@ export const Input = forwardRef<TextInput, Props>(
             placeholderTextColor={colors.textTertiary}
             selectionColor={colors.link}
             keyboardAppearance={isDark ? 'dark' : 'light'}
-            {...props}
+            multiline={multiline}
+            returnKeyType={multiline ? returnKeyType : (returnKeyType ?? 'done')}
+            blurOnSubmit={multiline ? blurOnSubmit : (blurOnSubmit ?? true)}
+            onSubmitEditing={(e) => {
+              if (!multiline) Keyboard.dismiss();
+              onSubmitEditing?.(e);
+            }}
+            {...rest}
           />,
           error ? (
             <Text key="error" variant="bodySmall" color={colors.error} style={styles.errorText}>

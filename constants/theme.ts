@@ -120,21 +120,21 @@ export const Shadows = {
   card: Platform.select({
     ios: {
       shadowColor: '#000000',
-      shadowOpacity: 0.04,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.07,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 5 },
     },
-    android: { elevation: 3 },
+    android: { elevation: 4 },
     default: {},
   }),
   cardDark: Platform.select({
     ios: {
       shadowColor: '#000000',
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 5 },
     },
-    android: { elevation: 4 },
+    android: { elevation: 5 },
     default: {},
   }),
 } as const;
@@ -298,7 +298,85 @@ export const forestColors: AppColors = {
   accentGlow: 'rgba(5,150,105,0.15)',
 };
 
-export type ThemeName = 'coral' | 'ocean' | 'midnight' | 'forest';
+// ---- Aurora (dark) — fuchsia × cyan on deep violet ----
+export const auroraColors: AppColors = {
+  primary: '#E879F9',
+  primaryHover: '#D946EF',
+  primaryLight: 'rgba(232,121,249,0.14)',
+  primaryPale: 'rgba(232,121,249,0.09)',
+  accent: '#22D3EE',
+  accentLight: 'rgba(34,211,238,0.14)',
+  success: '#34D399',
+  successLight: 'rgba(52,211,153,0.12)',
+  danger: '#FB7185',
+  warning: '#FBBF24',
+
+  background: '#0C0A12',
+  surface: '#161022',
+  surfaceElevated: '#1C1528',
+  surfaceMuted: '#251D35',
+
+  text: '#F8FAFC',
+  textSecondary: '#C4B5FD',
+  textTertiary: '#8B7AA8',
+  onPrimary: '#FFFFFF',
+  onAccent: '#FFFFFF',
+
+  border: '#2D2640',
+  borderLight: '#1E1830',
+  hairline: '#332A48',
+
+  xpGradientStart: '#E879F9',
+  xpGradientEnd: '#22D3EE',
+
+  link: '#E879F9',
+  error: '#FB7185',
+  chipBackground: 'rgba(255,255,255,0.06)',
+  fillMuted: '#251D35',
+  accentGlow: 'rgba(232,121,249,0.28)',
+  surfaceRaised: '#1C1528',
+};
+
+// ---- Blossom (light) — rose × violet on warm blush ----
+export const blossomColors: AppColors = {
+  primary: '#E11D48',
+  primaryHover: '#BE123C',
+  primaryLight: '#FFF1F2',
+  primaryPale: '#FFE4E6',
+  accent: '#7C3AED',
+  accentLight: '#EDE9FE',
+  success: '#059669',
+  successLight: '#D1FAE5',
+  danger: '#DC2626',
+  warning: '#D97706',
+
+  background: '#FFF5F7',
+  surface: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+  surfaceMuted: '#FCE7F0',
+
+  text: '#1A1520',
+  textSecondary: '#57534E',
+  textTertiary: '#A8A29E',
+  onPrimary: '#FFFFFF',
+  onAccent: '#FFFFFF',
+
+  border: '#FBCFE0',
+  borderLight: '#FDF2F8',
+  hairline: '#FBCFE0',
+
+  xpGradientStart: '#E11D48',
+  xpGradientEnd: '#7C3AED',
+
+  link: '#E11D48',
+  error: '#DC2626',
+  chipBackground: 'rgba(225,29,72,0.07)',
+  fillMuted: '#FCE7F0',
+  accentGlow: 'rgba(225,29,72,0.14)',
+  surfaceRaised: '#FFFFFF',
+};
+
+export type ThemeName = 'coral' | 'ocean' | 'midnight' | 'forest' | 'aurora' | 'blossom';
 
 /** Used for new installs and before the user picks a theme in Settings. */
 export const DEFAULT_APP_THEME: ThemeName = 'midnight';
@@ -308,10 +386,12 @@ export const themeMap: Record<ThemeName, AppColors> = {
   ocean: oceanColors,
   midnight: midnightColors,
   forest: forestColors,
+  aurora: auroraColors,
+  blossom: blossomColors,
 };
 
 export function isDarkTheme(name: ThemeName): boolean {
-  return name === 'midnight';
+  return name === 'midnight' || name === 'aurora';
 }
 
 export const THEME_NAME_LIST = Object.keys(themeMap) as ThemeName[];

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { useLeaderboard, type LeaderboardMode } from '../../../hooks/useLeaderboard';
@@ -18,6 +18,7 @@ import { ErrorState } from '../../../components/ui/ErrorState';
 import { LevelBadge } from '../../../components/gamification/LevelBadge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
+import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -25,6 +26,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
+  const pathname = usePathname();
   const medal = item.rank <= 3 ? MEDALS[item.rank - 1] : null;
   const level = item.profile.level ?? 1;
   const rankTitle = getRankTitle(level);
@@ -32,9 +34,9 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
 
   const handlePress = () => {
     if (isMe) {
-      router.push('/(app)/profile');
+      router.push('/(app)/profile' as Href);
     } else if (item.profile.username) {
-      router.push(`/profile/${item.profile.username}`);
+      router.push(hrefWithReturnTo(`/(app)/member/${item.profile.username}`, pathname));
     }
   };
 
@@ -140,6 +142,8 @@ export default function LeaderboardScreen() {
           renderItem={({ item }) => <RankItem item={item} isMe={item.user_id === userId} />}
           contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.xxl }}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }

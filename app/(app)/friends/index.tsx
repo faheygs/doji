@@ -6,8 +6,9 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -15,14 +16,23 @@ import { Text } from '../../../components/ui/Text';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronRight, IconFriends } from '../../../components/icons/Icons';
-import { useFriends, useFriendRequests } from '../../../hooks/useProfile';
+import { useFriends, useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
 import type { Profile } from '../../../types/database';
+import { hrefWithReturnTo } from '../../../lib/navigationReturn';
+import { formatCompactCount } from '../../../utils/formatCount';
+import { useAuthStore } from '../../../stores/useAuthStore';
+
+type FriendRow = Profile & { friendship_id: string };
 
 export default function FriendsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { colors } = useTheme();
+  const meId = useAuthStore((s) => s.session?.user?.id);
   const { data: friends = [], isLoading } = useFriends();
   const { data: requests = [] } = useFriendRequests();
+  const { data: friendCount = 0 } = useFriendCount(meId);
+  const removeFriend = useRemoveFriend();
 
   const styles = useMemo(
     () =>
@@ -61,6 +71,7 @@ export default function FriendsScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           gap: Spacing.md,
+          padding: Spacing.md,
         },
         friendInfo: {
           flex: 1,
@@ -90,9 +101,14 @@ export default function FriendsScreen() {
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
       <View style={styles.header}>
-        <Text variant="headingLarge">Friends</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text variant="headingLarge">Friends</Text>
+          <Text variant="micro" color={colors.textTertiary} style={{ marginTop: 3 }}>
+            {formatCompactCount(friendCount)} {friendCount === 1 ? 'friend' : 'friends'}
+          </Text>
+        </View>
         <TouchableOpacity
-          onPress={() => router.push('/(app)/friends/add')}
+          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/add', pathname))}
           style={styles.addButton}
           onPressIn={() => Haptics.selectionAsync()}
         >
@@ -104,7 +120,7 @@ export default function FriendsScreen() {
 
       {requests.length > 0 && (
         <TouchableOpacity
-          onPress={() => router.push('/(app)/friends/requests')}
+          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/requests', pathname))}
           style={styles.requestsBanner}
           activeOpacity={0.8}
         >
@@ -126,6 +142,8 @@ export default function FriendsScreen() {
           data={friends}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <FriendCard
               friend={item}
@@ -134,7 +152,21 @@ export default function FriendsScreen() {
               statsStyle={styles.friendStats}
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push(`/profile/${item.username}`);
+                router.push(hrefWithReturnTo(`/(app)/member/${item.username}`, pathname));
+              }}
+              onRemove={() => {
+                Alert.alert(
+                  'Unfriend',
+                  `Remove ${item.display_name ?? item.username} from your friends? You can add them again later.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Unfriend',
+                      style: 'destructive',
+                      onPress: () => removeFriend.mutate(item.friendship_id),
+                    },
+                  ],
+                );
               }}
             />
           )}
@@ -161,20 +193,26 @@ export default function FriendsScreen() {
 function FriendCard({
   friend,
   onPress,
+  onRemove,
   cardStyle,
   infoStyle,
   statsStyle,
 }: {
-  friend: Profile;
+  friend: FriendRow;
   onPress: () => void;
+  onRemove: () => void;
   cardStyle: object;
   infoStyle: object;
   statsStyle: object;
 }) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Card style={cardStyle} elevated>
+    <Card style={cardStyle} elevated>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
+      >
         <Avatar uri={friend.avatar_url} username={friend.username} size={48} />
         <View style={infoStyle}>
           <Text variant="headingMedium">{friend.display_name}</Text>
@@ -190,7 +228,17 @@ function FriendCard({
             STREAK
           </Text>
         </View>
-      </Card>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={onRemove}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Unfriend"
+      >
+        <Text variant="label" color={colors.error}>
+          Unfriend
+        </Text>
+      </TouchableOpacity>
+    </Card>
   );
 }

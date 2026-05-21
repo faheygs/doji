@@ -17,6 +17,7 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { IconProfile } from '../../components/icons/Icons';
+import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 
 export default function UsernameScreen() {
   const { session, fetchProfile } = useAuthStore();
@@ -25,7 +26,12 @@ export default function UsernameScreen() {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [usernameError, setUsernameError] = useState('');
+
+  const {
+    errorMessage: usernameAvailabilityError,
+    isOkForSubmit: usernameOk,
+    status: usernameAvailabilityStatus,
+  } = useUsernameAvailability(username, { ownUserId: session?.user?.id });
 
   const styles = useMemo(
     () =>
@@ -56,21 +62,8 @@ export default function UsernameScreen() {
     [colors.background],
   );
 
-  const validateUsername = (val: string): boolean => {
-    if (val.length < 3) {
-      setUsernameError('Username must be at least 3 characters');
-      return false;
-    }
-    if (!/^[a-z0-9_]+$/.test(val)) {
-      setUsernameError('Only lowercase letters, numbers, and underscores');
-      return false;
-    }
-    setUsernameError('');
-    return true;
-  };
-
   const handleCreate = async () => {
-    if (!validateUsername(username)) return;
+    if (!usernameOk || usernameAvailabilityStatus === 'checking') return;
     if (!displayName.trim()) {
       Toast.show({ type: 'error', text1: 'Enter your display name' });
       return;
@@ -79,11 +72,13 @@ export default function UsernameScreen() {
     const userId = session?.user?.id;
     if (!userId) return;
 
+    const handle = normalizeUsernameInput(username);
+
     setLoading(true);
     try {
       const { error } = await supabase.from('profiles').insert({
         id: userId,
-        username: username.toLowerCase().trim(),
+        username: handle,
         display_name: displayName.trim(),
         avatar_url: null,
         avatar_gradient: ['#F97316', '#8B5CF6'],
@@ -97,12 +92,14 @@ export default function UsernameScreen() {
         xp: 0,
         level: 1,
         reactions_received: 0,
+        streak_shields: 0,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       if (error) {
         if (error.code === '23505') {
-          setUsernameError('Username is taken');
+          // Race: hook may have missed a concurrent signup
+          Toast.show({ type: 'error', text1: 'That username was just taken. Pick another.' });
         } else {
           throw error;
         }
@@ -128,6 +125,7 @@ export default function UsernameScreen() {
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
@@ -142,13 +140,16 @@ export default function UsernameScreen() {
               label="Username"
               placeholder="e.g. john_doe"
               value={username}
-              onChangeText={(v) => {
-                setUsername(v.toLowerCase());
-                if (v.length >= 3) validateUsername(v.toLowerCase());
-              }}
+              onChangeText={(v) => setUsername(normalizeUsernameInput(v))}
               autoCapitalize="none"
               autoCorrect={false}
-              error={usernameError}
+              error={
+                usernameAvailabilityStatus === 'invalid' ||
+                usernameAvailabilityStatus === 'taken' ||
+                usernameAvailabilityStatus === 'error'
+                  ? usernameAvailabilityError
+                  : undefined
+              }
               autoFocus
             />
             <Input
@@ -165,7 +166,12 @@ export default function UsernameScreen() {
               loading={loading}
               fullWidth
               size="lg"
-              disabled={username.length < 3 || !displayName.trim()}
+              disabled={
+                !displayName.trim() ||
+                !username.trim() ||
+                !usernameOk ||
+                usernameAvailabilityStatus === 'checking'
+              }
             >
               Continue
             </Button>

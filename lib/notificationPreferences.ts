@@ -7,6 +7,7 @@ export type NotificationPreferenceKind = Exclude<
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   push_enabled: true,
+  show_bell_badge: true,
   doji_start: true,
   friend_post: true,
   reactions_on_my_post: true,
@@ -25,6 +26,7 @@ export function mergeNotificationPreferences(
   const d = DEFAULT_NOTIFICATION_PREFERENCES;
   return {
     push_enabled: o.push_enabled !== false,
+    show_bell_badge: o.show_bell_badge !== false,
     doji_start: o.doji_start !== false,
     friend_post: o.friend_post !== false,
     reactions_on_my_post: o.reactions_on_my_post !== false,

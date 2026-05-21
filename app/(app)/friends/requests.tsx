@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -18,9 +18,12 @@ import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
 import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useProfile';
 import { formatRelativeTime } from '../../../utils/time';
+import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const { data: requests = [], isLoading } = useFriendRequests();
   const respond = useRespondToFriendRequest();
@@ -78,7 +81,10 @@ export default function FriendRequestsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={16}>
+        <TouchableOpacity
+          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}
+          hitSlop={16}
+        >
           <IconChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         <Text variant="headingLarge">Requests</Text>
@@ -95,6 +101,8 @@ export default function FriendRequestsScreen() {
           data={requests}
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const requester = item.requester;
             return (
@@ -102,7 +110,7 @@ export default function FriendRequestsScreen() {
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.selectionAsync();
-                    if (requester?.username) router.push(`/profile/${requester.username}`);
+                    if (requester?.username) router.push(hrefWithReturnTo(`/(app)/member/${requester.username}`, pathname));
                   }}
                   style={styles.userInfo}
                   activeOpacity={0.8}

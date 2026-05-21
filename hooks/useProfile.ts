@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -127,6 +127,7 @@ export function useSendFriendRequest() {
     onSuccess: (_data, addresseeId) => {
       queryClient.invalidateQueries({ queryKey: ['friendship', session?.user?.id, addresseeId] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      invalidateFriendCountQueries(queryClient);
     },
   });
 }
@@ -163,6 +164,7 @@ export function useRespondToFriendRequest() {
       queryClient.invalidateQueries({
         predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
       });
+      invalidateFriendCountQueries(queryClient);
     },
   });
 }
@@ -173,22 +175,129 @@ export function useFriends() {
 
   return useQuery({
     queryKey: ['friends', userId],
-    queryFn: async (): Promise<Profile[]> => {
+    queryFn: async (): Promise<(Profile & { friendship_id: string })[]> => {
       if (!userId) return [];
 
       const { data, error } = await supabase
         .from('friendships')
-        .select('*, requester:profiles!friendships_requester_id_fkey(*), addressee:profiles!friendships_addressee_id_fkey(*)')
+        .select('id, requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(*), addressee:profiles!friendships_addressee_id_fkey(*)')
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
         .eq('status', 'accepted');
 
       if (error) throw error;
 
-      return (data ?? []).map((f: any) => {
-        return f.requester_id === userId ? f.addressee : f.requester;
-      }) as Profile[];
+      return ((data as any[]) ?? []).map((f: { id: string; requester_id: string; addressee_id: string; requester: Profile; addressee: Profile }) => {
+        const friend = f.requester_id === userId ? f.addressee : f.requester;
+        return { ...friend, friendship_id: f.id };
+      });
     },
     enabled: !!userId,
+  });
+}
+
+/** Accepted friendships count for any user (uses `friend_count` RPC; works for other peoples profiles under RLS). */
+export function useFriendCount(targetUserId?: string) {
+  return useQuery({
+    queryKey: ['friendCount', targetUserId],
+    queryFn: async (): Promise<number> => {
+      if (!targetUserId) return 0;
+
+      const { data, error } = await supabase.rpc('friend_count', { p_user_id: targetUserId });
+      if (error) throw error;
+      if (typeof data === 'number' && Number.isFinite(data)) return Math.max(0, Math.floor(data));
+      const n = Number(data);
+      return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    },
+    enabled: !!targetUserId,
+    staleTime: 30_000,
+  });
+}
+
+export type ProfileFriendListRow = {
+  friend_id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  avatar_gradient: string[];
+};
+
+/** Friend list shown on someone's profile sheet (SECURITY DEFINER RPC). */
+export function useProfileFriendsList(profileUserId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['profileFriends', profileUserId],
+    queryFn: async (): Promise<ProfileFriendListRow[]> => {
+      if (!profileUserId) return [];
+      const { data, error } = await supabase.rpc('list_profile_friends', {
+        p_profile_user_id: profileUserId,
+      });
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+      return rows.map((row) => ({
+        friend_id: row.friend_id,
+        username: row.username,
+        display_name: row.display_name,
+        avatar_url: row.avatar_url ?? null,
+        avatar_gradient:
+          Array.isArray(row.avatar_gradient) && row.avatar_gradient.length >= 2
+            ? row.avatar_gradient
+            : ['#F97316', '#8B5CF6'],
+      }));
+    },
+    enabled: !!profileUserId && enabled,
+    staleTime: 25_000,
+  });
+}
+
+/**
+ * Friendship rows between the current user and a set of others (accepted + pending, etc.).
+ * Used for bulk action labels in profile friend sheets.
+ */
+export function useFriendshipsBulkWithTargets(targetUserIds: readonly string[]) {
+  const session = useAuthStore((s) => s.session);
+  const me = session?.user?.id;
+  const sortedKey = [...new Set(targetUserIds)].slice().sort().join(',');
+
+  return useQuery({
+    queryKey: ['friendshipsBulk', me, sortedKey],
+    queryFn: async (): Promise<Record<string, Friendship>> => {
+      if (!me || targetUserIds.length === 0) return {};
+      const uniq = [...new Set(targetUserIds)];
+
+      const { data: outgoing, error: eo } = await supabase
+        .from('friendships')
+        .select('*')
+        .eq('requester_id', me)
+        .in('addressee_id', uniq);
+
+      const { data: incoming, error: ei } = await supabase
+        .from('friendships')
+        .select('*')
+        .eq('addressee_id', me)
+        .in('requester_id', uniq);
+
+      if (eo) throw eo;
+      if (ei) throw ei;
+
+      const out: Record<string, Friendship> = {};
+      const combined = [...(outgoing ?? []), ...(incoming ?? [])] as Friendship[];
+      for (const f of combined) {
+        const other = f.requester_id === me ? f.addressee_id : f.requester_id;
+        out[other] = f;
+      }
+      return out;
+    },
+    enabled: !!me && targetUserIds.length > 0,
+    staleTime: 15_000,
+  });
+}
+
+export function invalidateFriendCountQueries(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({
+    predicate: (q) =>
+      Array.isArray(q.queryKey) &&
+      (q.queryKey[0] === 'friendCount' ||
+        q.queryKey[0] === 'profileFriends' ||
+        q.queryKey[0] === 'friendshipsBulk'),
   });
 }
 
@@ -211,6 +320,28 @@ export function useFriendRequests() {
       return (data ?? []) as FriendshipWithRequester[];
     },
     enabled: !!userId,
+  });
+}
+
+export function useRemoveFriend() {
+  const queryClient = useQueryClient();
+  const session = useAuthStore((s) => s.session);
+
+  return useMutation({
+    mutationFn: async (friendshipId: string) => {
+      const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friends', session?.user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'friendship' });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({
+        predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
+      });
+      invalidateFriendCountQueries(queryClient);
+    },
   });
 }
 

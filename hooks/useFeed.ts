@@ -5,31 +5,29 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { todayFiresAtWindow } from '../lib/challengeDay';
+import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
 
 const PAGE_SIZE = 20;
 
-/** Pagination: friend posts first (self + accepted friends), then everyone else. Community polls only on first chunk. */
-type FeedPageParam = { t: 'f'; o: number } | { t: 'e'; o: number };
+async function liveDailyEventIdsForToday(): Promise<string[]> {
+  const { start, end } = todayFiresAtWindow();
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('daily_events')
+    .select('id, fires_at')
+    .gte('fires_at', start)
+    .lt('fires_at', end);
 
-async function resolveFriendIds(userId: string): Promise<string[]> {
-  const ids = new Set<string>([userId]);
-  const { data: friendships, error } = await supabase
-    .from('friendships')
-    .select('requester_id, addressee_id')
-    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
-    .eq('status', 'accepted');
   if (error) throw error;
-  for (const f of friendships ?? []) {
-    const other = f.requester_id === userId ? f.addressee_id : f.requester_id;
-    ids.add(other);
-  }
-  return [...ids];
+  return (data ?? [])
+    .filter((e: { fires_at: string }) => isChallengeLive(e.fires_at))
+    .map((e: { id: string }) => e.id);
 }
 
+/** Global feed: everyone’s posts for today’s live challenge only (no friend-only slice). */
 export function useFeed() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
@@ -37,31 +35,21 @@ export function useFeed() {
   return useInfiniteQuery<
     Post[],
     Error,
-    InfiniteData<Post[], FeedPageParam>,
+    InfiniteData<Post[], number>,
     ['feed', string | undefined],
-    FeedPageParam
+    number
   >({
     queryKey: ['feed', userId],
     queryFn: async ({ pageParam }): Promise<Post[]> => {
       if (!userId) return [];
 
-      const param: FeedPageParam = pageParam ?? { t: 'f', o: 0 };
-
-      const { start, end } = todayFiresAtWindow();
-
-      const { data: dailyEvents } = await supabase
-        .from('daily_events')
-        .select('id')
-        .gte('fires_at', start)
-        .lt('fires_at', end);
-
-      const dailyEventIds = (dailyEvents ?? []).map((e: { id: string }) => e.id);
+      const dailyEventIds = await liveDailyEventIdsForToday();
       if (dailyEventIds.length === 0) return [];
 
-      const friendIds = await resolveFriendIds(userId);
+      const offset = pageParam ?? 0;
 
       let communityMapped: Post[] = [];
-      if (param.t === 'f' && param.o === 0) {
+      if (offset === 0) {
         const { data: comm, error: commErr } = await supabase
           .from('posts')
           .select(`*, daily_event:daily_events!inner(*, challenge:challenges(*))`)
@@ -76,23 +64,15 @@ export function useFeed() {
         })) as Post[];
       }
 
-      let userQuery = supabase
+      const { data, error } = await supabase
         .from('posts')
         .select(
           `*, profile:profiles(*), user_event:user_events!inner(*, daily_event:daily_events(*, challenge:challenges(*)))`,
         )
         .eq('is_community_poll', false)
-        .in('user_event.daily_event_id', dailyEventIds);
-
-      if (param.t === 'f') {
-        userQuery = userQuery.in('user_id', friendIds);
-      } else {
-        userQuery = userQuery.not('user_id', 'in', `(${friendIds.join(',')})`);
-      }
-
-      const { data, error } = await userQuery
+        .in('user_event.daily_event_id', dailyEventIds)
         .order('created_at', { ascending: false })
-        .range(param.o, param.o + PAGE_SIZE - 1);
+        .range(offset, offset + PAGE_SIZE - 1);
 
       if (error) throw error;
 
@@ -104,27 +84,21 @@ export function useFeed() {
       })) as Post[];
 
       const merged =
-        param.t === 'f' && param.o === 0 ? [...communityMapped, ...userMapped] : userMapped;
+        offset === 0
+          ? [...communityMapped, ...userMapped].sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+            )
+          : userMapped;
 
       return attachReactionFields(merged, userId);
     },
-    getNextPageParam: (lastPage, _allPages, lastPageParam): FeedPageParam | undefined => {
-      const param: FeedPageParam = lastPageParam ?? { t: 'f', o: 0 };
-
-      if (param.t === 'f') {
-        const userPostsOnPage = lastPage.filter((p) => !p.is_community_poll).length;
-        if (userPostsOnPage < PAGE_SIZE) return { t: 'e', o: 0 };
-        return { t: 'f', o: param.o + PAGE_SIZE };
-      }
-
-      if (param.t === 'e') {
-        if (lastPage.length < PAGE_SIZE) return undefined;
-        return { t: 'e', o: param.o + PAGE_SIZE };
-      }
-
-      return undefined;
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      const offset = lastPageParam ?? 0;
+      const userPostsOnPage = lastPage.filter((p) => !p.is_community_poll).length;
+      if (userPostsOnPage < PAGE_SIZE) return undefined;
+      return offset + PAGE_SIZE;
     },
-    initialPageParam: { t: 'f', o: 0 } satisfies FeedPageParam,
+    initialPageParam: 0,
     enabled: !!userId,
     staleTime: 10_000,
   });
@@ -165,27 +139,33 @@ function patchReactionToggle(
   active: boolean,
 ): Post {
   const bd: Record<string, number> = { ...(post.reaction_breakdown ?? {}) };
-  const myReactions = [...(post.my_reactions ?? [])];
+  const prevMy = (post.my_reactions ?? [])[0] as ReactionEmoji | undefined;
 
   if (active) {
     bd[emoji] = Math.max(0, (bd[emoji] ?? 0) - 1);
     if (bd[emoji] <= 0) delete bd[emoji];
-    const idx = myReactions.indexOf(emoji);
-    if (idx >= 0) myReactions.splice(idx, 1);
     return {
       ...post,
       reaction_count: Math.max(0, post.reaction_count - 1),
       reaction_breakdown: bd,
-      my_reactions: myReactions,
+      my_reactions: [],
     };
   }
+
+  for (const k of Object.keys(bd)) {
+    const key = k as ReactionEmoji;
+    if (prevMy && key === prevMy && key !== emoji) {
+      bd[key] = Math.max(0, (bd[key] ?? 0) - 1);
+      if (bd[key] <= 0) delete bd[key];
+    }
+  }
   bd[emoji] = (bd[emoji] ?? 0) + 1;
-  myReactions.push(emoji);
+  const replacing = Boolean(prevMy && prevMy !== emoji);
   return {
     ...post,
-    reaction_count: post.reaction_count + 1,
+    reaction_count: replacing ? post.reaction_count : post.reaction_count + 1,
     reaction_breakdown: bd,
-    my_reactions: myReactions,
+    my_reactions: [emoji],
   };
 }
 
@@ -215,10 +195,10 @@ export function useToggleReaction() {
           .from('reactions')
           .delete()
           .eq('post_id', postId)
-          .eq('user_id', uid)
-          .eq('emoji', emoji);
+          .eq('user_id', uid);
         if (error) throw error;
       } else {
+        await supabase.from('reactions').delete().eq('post_id', postId).eq('user_id', uid);
         const { error } = await supabase.from('reactions').insert({
           post_id: postId,
           user_id: uid,
@@ -255,8 +235,10 @@ export function useToggleReaction() {
       if (uid) {
         void queryClient.invalidateQueries({ queryKey: ['reactionsGiven', uid] });
       }
-      if (error && vars?.postId) {
-        queryClient.invalidateQueries({ queryKey: ['reactions', vars.postId] });
+      if (vars?.postId) {
+        void queryClient.invalidateQueries({ queryKey: ['reactions', vars.postId] });
+        void queryClient.invalidateQueries({ queryKey: ['feed'] });
+        void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
       }
     },
   });

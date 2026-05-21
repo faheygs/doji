@@ -140,6 +140,7 @@ export default function LoginScreen() {
 
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >

@@ -37,6 +37,10 @@ function criteriaLabel(type: string, value: number): string {
       return `Have ${value} friend${value === 1 ? '' : 's'}`;
     case 'level_reached':
       return `Reach level ${value}`;
+    case 'challenge_idea':
+      return 'Submit an idea to the challenge pool';
+    case 'challenge_idea_picked':
+      return 'Have your idea selected for a daily challenge';
     default:
       return `Reach ${value}`;
   }

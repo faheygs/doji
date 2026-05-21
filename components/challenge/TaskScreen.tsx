@@ -46,6 +46,7 @@ export function TaskScreen({ challenge, onComplete, onTakeProofPhoto, onBack, is
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.xl }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={16}>
           <IconChevronLeft size={24} color={colors.textSecondary} />

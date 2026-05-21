@@ -7,7 +7,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const WINDOW_MINUTES = 10;
+const WINDOW_MINUTES = Number(Deno.env.get('CHALLENGE_WINDOW_MINUTES') ?? '1440');
 
 /** IANA zone for the shared challenge drop window (matches `profiles.timezone` default). */
 const SCHEDULE_TZ = 'America/Denver';
@@ -143,7 +143,12 @@ Deno.serve(async (req) => {
 
     const recentIds = (recentEvents ?? []).map((e: { challenge_id: string }) => e.challenge_id);
 
-    let query = supabase.from('challenges').select('*').eq('is_active', true);
+    let query = supabase
+      .from('challenges')
+      .select('*')
+      .eq('is_active', true)
+      .order('schedule_count', { ascending: true })
+      .order('created_at', { ascending: true });
     if (recentIds.length > 0) {
       query = query.not('id', 'in', `(${recentIds.join(',')})`);
     }
@@ -153,11 +158,17 @@ Deno.serve(async (req) => {
     let pool: Record<string, unknown>[] = [...(challenges ?? [])];
 
     if (challengeError || pool.length === 0) {
-      const { data: fallback } = await supabase
+      let fb = supabase
         .from('challenges')
         .select('*')
         .eq('is_active', true)
-        .limit(20);
+        .order('schedule_count', { ascending: true })
+        .order('created_at', { ascending: true })
+        .limit(80);
+      if (recentIds.length > 0) {
+        fb = fb.not('id', 'in', `(${recentIds.join(',')})`);
+      }
+      const { data: fallback } = await fb;
       pool = [...(fallback ?? [])];
     }
 
@@ -168,13 +179,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const challenge = pool[Math.floor(Math.random() * pool.length)] as {
+    const scheduleCounts = pool.map((c) => Number((c as { schedule_count?: number }).schedule_count ?? 0));
+    const minCount = Math.min(...scheduleCounts);
+    const tier = pool.filter(
+      (c) => Number((c as { schedule_count?: number }).schedule_count ?? 0) === minCount,
+    );
+    const challenge = tier[Math.floor(Math.random() * tier.length)] as {
       id: string;
       title: string;
       category: string;
       type: string;
       emoji: string | null;
       xp_reward: number;
+      schedule_count: number;
     };
 
     // Random fire slot 8 AM – 8 PM (America/Denver), one instant for all users / same daily_event.
@@ -194,6 +211,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (eventError) throw eventError;
+
+    const nextCount = Number(challenge.schedule_count ?? 0) + 1;
+    const { error: countErr } = await supabase
+      .from('challenges')
+      .update({ schedule_count: nextCount })
+      .eq('id', challenge.id);
+    if (countErr) console.error('schedule_count update:', countErr);
 
     const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id');
 

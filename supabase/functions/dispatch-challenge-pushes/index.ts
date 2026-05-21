@@ -153,7 +153,6 @@ Deno.serve(async (req) => {
           url: '/(app)/challenge',
         },
         sound: 'default',
-        badge: 1,
       }));
 
       let httpOkOverall = true;

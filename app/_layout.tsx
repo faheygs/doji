@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, StyleSheet } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { webRootViewStyle, webScrollParentStyle } from '../constants/theme';
 import { useFonts } from 'expo-font';
 import { Sora_800ExtraBold } from '@expo-google-fonts/sora';
@@ -42,8 +42,11 @@ function notificationHrefFromData(data: unknown): Href | null {
   if (!data || typeof data !== 'object') return null;
   const rec = data as Record<string, unknown>;
   const url = rec.url;
-  if (typeof url === 'string' && url.startsWith('/')) return url as Href;
+  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) return url as Href;
   if (rec.type === 'CHALLENGE') return '/(app)/challenge';
+  if (rec.type === 'BADGE') return '/(app)/profile' as Href;
+  if (rec.type === 'FRIEND_REQUEST') return '/(app)/friends/requests';
+  if (rec.type === 'FRIEND_ACCEPTED') return '/(app)/friends';
   const postId = rec.postId;
   if (
     (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
@@ -126,12 +129,29 @@ function RootLayoutInner() {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldPlaySound: true,
-          shouldSetBadge: true,
+          // Pushes no longer send a badge count; avoid OS icon badge sticking at 1.
+          shouldSetBadge: false,
           shouldShowBanner: true,
           shouldShowList: true,
         }),
       });
     });
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const clearOsBadge = () => {
+      void import('expo-notifications').then((Notifications) => {
+        void Notifications.setBadgeCountAsync(0);
+      });
+    };
+
+    clearOsBadge();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') clearOsBadge();
+    });
+    return () => sub.remove();
   }, []);
 
   // Auto-register push token when user is authenticated
@@ -202,20 +222,22 @@ function RootLayoutInner() {
       style={[styles.flex, { backgroundColor: colors.background }, webRootViewStyle]}
     >
       <SafeAreaProvider style={styles.flex}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: [
-              { backgroundColor: colors.background, flex: 1 },
-              webScrollParentStyle,
-            ],
-          }}
-        >
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
-        <Toast config={toastConfig} />
+        <View style={styles.flex}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: [
+                { backgroundColor: colors.background, flex: 1 },
+                webScrollParentStyle,
+              ],
+            }}
+          >
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          </Stack>
+          <Toast config={toastConfig} />
+        </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

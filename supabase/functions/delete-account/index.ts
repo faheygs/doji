@@ -47,6 +47,7 @@ Deno.serve(async (req: Request) => {
 
   await adminClient.from('poll_votes').delete().eq('user_id', userId);
   await adminClient.from('reactions').delete().eq('user_id', userId);
+  await adminClient.from('comment_likes').delete().eq('user_id', userId);
   await adminClient.from('comments').delete().eq('user_id', userId);
   await adminClient.from('posts').delete().eq('user_id', userId);
   await adminClient.from('user_events').delete().eq('user_id', userId);

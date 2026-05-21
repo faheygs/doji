@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, type Href } from 'expo-router';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -20,7 +20,7 @@ export default function AuthLayout() {
     if (isLoading) return;
 
     if (session && profile) {
-      router.replace('/(app)');
+      router.replace('/(app)/index' as Href);
     } else if (session && !profile) {
       router.replace('/(auth)/username');
     }

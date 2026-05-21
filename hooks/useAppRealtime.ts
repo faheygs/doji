@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 import { supabase } from '../lib/supabase';
 import { scheduleLocalNotificationIfAllowed } from '../lib/localPush';
 import { useAuthStore } from '../stores/useAuthStore';
+import { invalidateFriendCountQueries } from './useProfile';
 
 /**
  * Subscribes while authenticated so UI stays in sync with Supabase.
@@ -43,6 +44,7 @@ export function useAppRealtime(userId: string | undefined) {
       queryClient.invalidateQueries({
         predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
       });
+      invalidateFriendCountQueries(queryClient);
     };
 
     const invalidateNotificationCenter = () => {
@@ -215,20 +217,31 @@ export function useAppRealtime(userId: string | undefined) {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'comment_likes' },
+        (payload: RealtimePostgresChangesPayload<{ comment_id?: string }>) => {
+          const row = (payload.new ?? payload.old) as { comment_id?: string } | undefined;
+          const cid = row?.comment_id;
+          if (!cid) return;
+          void (async () => {
+            const { data: c } = await supabase
+              .from('comments')
+              .select('post_id')
+              .eq('id', cid)
+              .maybeSingle();
+            const postId = c?.post_id as string | undefined;
+            if (postId) {
+              queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+            }
+          })();
+        },
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'user_events' },
         (payload: RealtimePostgresChangesPayload<{ user_id?: string }>) => {
           queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
           scheduleFeedInvalidate();
           invalidateNotificationCenter();
-          const row = payload.new as { user_id?: string } | undefined;
-          if (payload.eventType === 'INSERT' && row?.user_id === userId) {
-            scheduleLocalNotificationIfAllowed(
-              'Challenge ready',
-              "Today's challenge is waiting — open Doji to jump in.",
-              { type: 'CHALLENGE' },
-              'doji_start',
-            );
-          }
         },
       )
       .on(
@@ -269,6 +282,7 @@ export function useAppRealtime(userId: string | undefined) {
         { event: '*', schema: 'public', table: 'poll_votes' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['pollResults'] });
+          queryClient.invalidateQueries({ queryKey: ['pollVoters'] });
           queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
           scheduleFeedInvalidate();
         },
@@ -291,9 +305,14 @@ export function useAppRealtime(userId: string | undefined) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_badges' },
         (payload: RealtimePostgresChangesPayload<{ user_id?: string; badge_id?: string }>) => {
-          queryClient.invalidateQueries({ queryKey: ['userBadges'] });
-          queryClient.invalidateQueries({ queryKey: ['profile'] });
           const row = payload.new as { user_id?: string; badge_id?: string } | undefined;
+          const uid = row?.user_id;
+          if (uid) {
+            queryClient.invalidateQueries({ queryKey: ['userBadges', uid] });
+          } else {
+            queryClient.invalidateQueries({ queryKey: ['userBadges'] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
           if (payload.eventType === 'INSERT' && row?.user_id === userId) {
             scheduleLocalNotificationIfAllowed(
               '🏆 Badge Earned!',

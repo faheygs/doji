@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   FlatList,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, webScrollParentStyle } from '../../constants/theme';
@@ -27,6 +27,8 @@ import { useUserEvent } from '../../hooks/useUserEvent';
 import { useFeed } from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
 import type { Post } from '../../types/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -149,6 +151,41 @@ export default function FeedScreen() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const key = '@doit/first-home-push-prompt';
+    void (async () => {
+      try {
+        const done = await AsyncStorage.getItem(key);
+        if (done) return;
+        const Notifications = await import('expo-notifications');
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status === 'undetermined') {
+          await Notifications.requestPermissionsAsync();
+        }
+        const { status: after } = await Notifications.getPermissionsAsync();
+        if (after === 'granted') {
+          const uid = useAuthStore.getState().session?.user?.id;
+          if (uid) {
+            const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+            const tokenRes = await Notifications.getExpoPushTokenAsync(
+              projectId ? { projectId } : undefined,
+            );
+            const tokenStr =
+              tokenRes && typeof tokenRes === 'object' && 'data' in tokenRes
+                ? (tokenRes as { data: string }).data
+                : String(tokenRes);
+            await useAuthStore.getState().updateProfile({ notification_token: tokenStr });
+          }
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        await AsyncStorage.setItem(key, '1');
+      }
+    })();
+  }, []);
+
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
 
   const hasPosted = userEvent?.status === 'completed' || userEvent?.status === 'late';
@@ -175,7 +212,7 @@ export default function FeedScreen() {
 
   const handleOpenProfile = useCallback(() => {
     Haptics.selectionAsync();
-    router.push('/(app)/profile');
+    router.push('/(app)/profile' as Href);
   }, [router]);
 
   const handleOpenNotifications = useCallback(() => {
@@ -339,6 +376,8 @@ export default function FeedScreen() {
         }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       />
 
       <NotificationSheet

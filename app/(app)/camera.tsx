@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -248,7 +248,7 @@ export default function CameraScreen() {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
-          router.replace('/(app)');
+          router.replace('/(app)/index' as Href);
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
@@ -370,6 +370,8 @@ export default function CameraScreen() {
         <ScrollView
           contentContainerStyle={[styles.previewContent, { backgroundColor: colors.background }]}
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
         >
           <SafeAreaView>
             <View style={styles.previewHeader}>

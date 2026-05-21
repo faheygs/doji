@@ -3,18 +3,20 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { ReactionBar } from './ReactionBar';
+import { PostCommentsSheet } from './PostCommentsSheet';
 import { PollResultCard } from './PollResultCard';
 import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { IconLock } from '../icons/Icons';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
+import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
 type Props = {
   post: Post;
@@ -34,6 +36,7 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
     a.type !== b.type ||
     a.selected_option_index !== b.selected_option_index ||
     a.reaction_count !== b.reaction_count ||
+    a.comment_count !== b.comment_count ||
     (a.my_reactions ?? []).join() !== (b.my_reactions ?? []).join() ||
     reactionBreakdownSig(a) !== reactionBreakdownSig(b) ||
     a.photo_url !== b.photo_url ||
@@ -60,9 +63,14 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
 
 function PostCardImpl({ post, blurred }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const { colors } = useTheme();
   const [showFront, setShowFront] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
+
+  const openComments = useCallback(() => setCommentsOpen(true), []);
+  const closeComments = useCallback(() => setCommentsOpen(false), []);
 
   const styles = useMemo(
     () =>
@@ -185,7 +193,7 @@ function PostCardImpl({ post, blurred }: Props) {
   const handleProfilePress = useCallback(() => {
     Haptics.selectionAsync();
     if (post.profile?.username) {
-      router.push(`/profile/${post.profile.username}`);
+      router.push(hrefWithReturnTo(`/(app)/member/${post.profile.username}`, pathname));
     }
   }, [router, post.profile?.username]);
 
@@ -226,7 +234,12 @@ function PostCardImpl({ post, blurred }: Props) {
         <View style={styles.header}>
           <View style={styles.userInfo} accessibilityRole="text">
             <View style={styles.challengeGlyphCircle}>
-              <ChallengeTypeGlyph type={c.type} size={22} color={colors.primary} />
+              <ChallengeTypeGlyph
+                type={c.type}
+                title={c.title}
+                size={22}
+                color={colors.primary}
+              />
             </View>
             <View style={styles.nameContainer}>
               <Text variant="headingMedium" numberOfLines={1}>
@@ -245,7 +258,13 @@ function PostCardImpl({ post, blurred }: Props) {
             <View style={styles.pollBodyWrap}>
               <PollResultCard challenge={c} variant="embedded" fetchEnabled />
             </View>
-            <ReactionBar post={post} blurred={false} showTopBorder={false} />
+            <ReactionBar
+              post={post}
+              blurred={false}
+              showTopBorder={false}
+              onOpenComments={openComments}
+            />
+            <PostCommentsSheet visible={commentsOpen} postId={post.id} onClose={closeComments} />
           </>
         )}
       </View>
@@ -360,7 +379,13 @@ function PostCardImpl({ post, blurred }: Props) {
             </View>
           ) : null}
 
-          <ReactionBar post={post} blurred={false} showTopBorder={!post.caption} />
+          <ReactionBar
+            post={post}
+            blurred={false}
+            showTopBorder={!post.caption}
+            onOpenComments={openComments}
+          />
+          <PostCommentsSheet visible={commentsOpen} postId={post.id} onClose={closeComments} />
         </>
       )}
     </View>

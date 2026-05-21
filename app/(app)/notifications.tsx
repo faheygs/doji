@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import Constants from 'expo-constants';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,6 +25,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
+import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 
 type RowDef = {
   key: NotificationPreferenceKind;
@@ -67,6 +68,7 @@ const CATEGORY_ROWS: RowDef[] = [
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const { profile, updateProfile } = useAuthStore();
   const [prefs, setPrefs] = useState<NotificationPreferences>(() =>
@@ -83,6 +85,36 @@ export default function NotificationSettingsScreen() {
       });
     });
   }, []);
+
+  /** Track + knob colors — match primary `<Button>` (accent fill + onAccent), not `primary` token. */
+  const themedSwitchProps = useCallback(
+    (value: boolean, opts?: { disabled?: boolean }) => {
+      const disabled = opts?.disabled ?? false;
+      const inactiveTrack = disabled ? colors.hairline : colors.surfaceMuted;
+      const activeTrack = disabled ? colors.fillMuted : colors.accent;
+      const thumbOn = colors.onAccent;
+      const thumbOff = Platform.OS === 'ios' ? colors.surface : colors.surfaceElevated ?? colors.surface;
+
+      return {
+        trackColor: {
+          false: inactiveTrack,
+          true: activeTrack,
+        },
+        ios_backgroundColor: inactiveTrack,
+        thumbColor:
+          Platform.OS === 'web'
+            ? undefined
+            : Platform.OS === 'ios'
+              ? value
+                ? thumbOn
+                : thumbOff
+              : value
+                ? thumbOn
+                : thumbOff,
+      };
+    },
+    [colors],
+  );
 
   useEffect(() => {
     setPrefs(mergeNotificationPreferences(profile?.notification_preferences));
@@ -221,13 +253,14 @@ export default function NotificationSettingsScreen() {
         style={webScrollParentStyle}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
-              if (router.canGoBack()) router.back();
-              else router.replace('/(app)/settings');
+              goBackWithOptionalReturn(router, returnTo, '/(app)/profile' as Href);
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
@@ -262,8 +295,7 @@ export default function NotificationSettingsScreen() {
                 <Switch
                   value={permStatus === 'granted'}
                   onValueChange={onMasterSystemSwitch}
-                  trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-                  thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
+                  {...themedSwitchProps(permStatus === 'granted')}
                 />
               </View>
               {permStatus !== 'granted' ? (
@@ -273,7 +305,7 @@ export default function NotificationSettingsScreen() {
                     marginTop: Spacing.sm,
                     paddingVertical: Spacing.sm,
                     paddingHorizontal: Spacing.md,
-                    backgroundColor: colors.primary,
+                    backgroundColor: colors.accent,
                     borderRadius: Radius.md,
                     alignItems: 'center',
                   }}
@@ -294,6 +326,28 @@ export default function NotificationSettingsScreen() {
               </Text>
             </Card>
           )}
+        </View>
+
+        <View style={styles.section}>
+          <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
+            <View style={[styles.row, styles.rowLast]}>
+              <View style={styles.rowText}>
+                <Text variant="body">Show unread count on home</Text>
+                <Text variant="micro" color={colors.textTertiary}>
+                  Red badge on the bell reflects new items since you last opened notifications.
+                </Text>
+              </View>
+              <Switch
+                value={prefs.show_bell_badge}
+                onValueChange={(v) => {
+                  Haptics.selectionAsync();
+                  void persistCategories({ show_bell_badge: v }, 'show_bell_badge');
+                }}
+                disabled={Boolean(savingKey)}
+                {...themedSwitchProps(prefs.show_bell_badge, { disabled: Boolean(savingKey) })}
+              />
+            </View>
+          </Card>
         </View>
 
         <View style={styles.section}>
@@ -324,8 +378,7 @@ export default function NotificationSettingsScreen() {
                   value={prefs[row.key]}
                   onValueChange={(v) => onCategoryToggle(row.key, v)}
                   disabled={categoriesDisabled}
-                  trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-                  thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
+                  {...themedSwitchProps(prefs[row.key], { disabled: categoriesDisabled })}
                 />
               </View>
             ))}

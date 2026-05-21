@@ -25,6 +25,7 @@ $functions = @(
   "dispatch-challenge-pushes",
   "expire-events",
   "send-push-notifications",
+  "notify-user",
   "recalculate-streak"
 )
 
@@ -34,4 +35,4 @@ foreach ($fn in $functions) {
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-Write-Host "`nDone. Verify in Dashboard -> Edge Functions (all five names above)." -ForegroundColor Green
+Write-Host "`nDone. Verify in Dashboard -> Edge Functions (all names above)." -ForegroundColor Green

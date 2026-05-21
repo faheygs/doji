@@ -192,6 +192,8 @@ export default function ChallengeScreen() {
         style={webScrollParentStyle}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         <Animated.View entering={FadeInDown.springify()} style={styles.categoryRow}>
           <CategoryBadge category={category} />

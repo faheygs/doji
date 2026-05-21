@@ -1,10 +1,12 @@
 import type { ThemeName } from '../constants/theme';
 
-export type ReactionEmoji = 'fire' | 'like' | 'laugh' | 'wow' | 'love';
+export type ReactionEmoji = 'fire' | 'like' | 'dislike' | 'laugh' | 'wow' | 'love';
 
 /** Stored on profiles.notification_preferences (jsonb). */
 export type NotificationPreferences = {
   push_enabled: boolean;
+  /** Show numeric unread badge on the home bell icon. */
+  show_bell_badge: boolean;
   doji_start: boolean;
   friend_post: boolean;
   reactions_on_my_post: boolean;
@@ -53,6 +55,8 @@ export type Challenge = {
   requires_video: boolean;
   requires_text: boolean;
   is_active: boolean;
+  /** Times this challenge has been assigned to a daily_event; scheduler prefers lower values. */
+  schedule_count: number;
   created_at: string;
 };
 
@@ -154,9 +158,20 @@ export type Comment = {
   id: string;
   post_id: string;
   user_id: string;
+  parent_id: string | null;
   body: string;
+  like_count: number;
   created_at: string;
   profile?: Profile;
+  /** Filled client-side for the signed-in user. */
+  my_like?: boolean;
+};
+
+export type CommentLike = {
+  id: string;
+  comment_id: string;
+  user_id: string;
+  created_at: string;
 };
 
 export type StreakEvent = {
@@ -211,6 +226,31 @@ export type Database = {
         Update: Partial<Challenge>;
         Relationships: [];
       };
+      challenge_suggestions: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: string;
+          body: string;
+          body_hash: string;
+          options: unknown;
+          admin_note: string | null;
+          selected_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          kind: string;
+          body: string;
+          body_hash: string;
+          options?: unknown;
+        };
+        Update: Partial<{
+          admin_note: string | null;
+          selected_at: string | null;
+        }>;
+        Relationships: [];
+      };
       daily_events: {
         Row: DailyEvent;
         Insert: Omit<DailyEvent, 'id' | 'created_at'>;
@@ -256,8 +296,14 @@ export type Database = {
       };
       comments: {
         Row: Comment;
-        Insert: Omit<Comment, 'id' | 'created_at'>;
+        Insert: Omit<Comment, 'id' | 'created_at' | 'like_count' | 'my_like'>;
         Update: Partial<Comment>;
+        Relationships: [];
+      };
+      comment_likes: {
+        Row: CommentLike;
+        Insert: Omit<CommentLike, 'id' | 'created_at'>;
+        Update: Partial<CommentLike>;
         Relationships: [];
       };
       streak_events: {
@@ -299,6 +345,20 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      friend_count: {
+        Args: { p_user_id: string };
+        Returns: number;
+      };
+      list_profile_friends: {
+        Args: { p_profile_user_id: string };
+        Returns: {
+          friend_id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          avatar_gradient: string[];
+        }[];
+      };
       level_from_xp: {
         Args: { p_xp: number };
         Returns: number;

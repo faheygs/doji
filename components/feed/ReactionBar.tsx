@@ -4,8 +4,9 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { REACTION_CONTROLS, REACTION_ICON_TINT } from '../icons/Icons';
+import { REACTION_CONTROLS, REACTION_ICON_TINT, IconComment } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
+import { formatCompactCount } from '../../utils/formatCount';
 import type { Post, ReactionEmoji } from '../../types/database';
 
 const ICON_SZ = 22;
@@ -14,6 +15,7 @@ type Props = {
   post: Post;
   blurred: boolean;
   showTopBorder?: boolean;
+  onOpenComments: () => void;
 };
 
 function breakdownSig(post: Post): string {
@@ -27,7 +29,7 @@ function myReactionsSig(post: Post): string {
   return (post.my_reactions ?? []).sort().join(',');
 }
 
-function ReactionBarImpl({ post, blurred, showTopBorder = true }: Props) {
+function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }: Props) {
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
   const myReactions = post.my_reactions ?? [];
@@ -40,23 +42,45 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true }: Props) {
           paddingBottom: Spacing.sm + 2,
           paddingTop: showTopBorder ? Spacing.sm : Spacing.xs,
           flexDirection: 'row',
-          alignItems: 'stretch',
+          alignItems: 'center',
           borderTopWidth: showTopBorder ? StyleSheet.hairlineWidth : 0,
           borderTopColor: colors.hairline,
         },
         reactions: {
           flex: 1,
           flexDirection: 'row',
-          flexWrap: 'nowrap',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
+          alignItems: 'center',
+          minWidth: 0,
+        },
+        commentCol: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingLeft: Spacing.xs,
+          marginLeft: Spacing.xs,
+          borderLeftWidth: StyleSheet.hairlineWidth,
+          borderLeftColor: colors.hairline,
+          gap: 4,
+          minWidth: 44,
+        },
+        commentHit: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 4,
+          paddingVertical: 4,
+          borderRadius: Radius.full,
+        },
+        commentCount: {
+          fontSize: 12,
+          fontWeight: '600',
+          fontVariant: ['tabular-nums'],
+          textAlign: 'center',
+          lineHeight: 14,
         },
         emojiCol: {
           flex: 1,
           minWidth: 0,
           alignItems: 'center',
-          justifyContent: 'flex-end',
-          paddingHorizontal: 2,
+          justifyContent: 'center',
           gap: 6,
         },
         iconButton: {
@@ -80,7 +104,6 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true }: Props) {
           fontVariant: ['tabular-nums'],
           textAlign: 'center',
           lineHeight: 14,
-          marginBottom: 2,
         },
         disabled: {
           opacity: 0.35,
@@ -98,6 +121,14 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true }: Props) {
     },
     [blurred, myReactions, post.id, toggleReaction],
   );
+
+  const openComments = useCallback(() => {
+    if (blurred) return;
+    Haptics.selectionAsync();
+    onOpenComments();
+  }, [blurred, onOpenComments]);
+
+  const commentMuted = blurred ? colors.textTertiary : colors.textSecondary;
 
   return (
     <View style={styles.container}>
@@ -133,14 +164,35 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true }: Props) {
           );
         })}
       </View>
+      <TouchableOpacity
+        onPress={openComments}
+        activeOpacity={blurred ? 1 : 0.72}
+        disabled={blurred}
+        style={[styles.commentCol, blurred && styles.disabled]}
+        accessibilityRole="button"
+        accessibilityLabel={`Comments, ${post.comment_count}. Open comments.`}
+      >
+        <View style={styles.commentHit}>
+          <IconComment size={ICON_SZ} color={commentMuted} />
+        </View>
+        <Text
+          variant="bodySmall"
+          color={post.comment_count > 0 ? colors.textSecondary : colors.textTertiary}
+          style={styles.commentCount}
+        >
+          {formatCompactCount(post.comment_count)}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 export const ReactionBar = React.memo(ReactionBarImpl, (prev, next) => {
+  if (prev.onOpenComments !== next.onOpenComments) return false;
   if (prev.blurred !== next.blurred || prev.post.id !== next.post.id) return false;
   if (prev.showTopBorder !== next.showTopBorder) return false;
   if (prev.post.reaction_count !== next.post.reaction_count) return false;
+  if (prev.post.comment_count !== next.post.comment_count) return false;
   if (myReactionsSig(prev.post) !== myReactionsSig(next.post)) return false;
   if (breakdownSig(prev.post) !== breakdownSig(next.post)) return false;
   return true;

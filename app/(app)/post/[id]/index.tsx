@@ -9,12 +9,12 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Spacing, webScrollParentStyle } from '../../../constants/theme';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { Text } from '../../../components/ui/Text';
-import { PostCard } from '../../../components/feed/PostCard';
-import { IconChevronLeft } from '../../../components/icons/Icons';
-import { usePost } from '../../../hooks/useProfile';
+import { Spacing, webScrollParentStyle } from '../../../../constants/theme';
+import { useTheme } from '../../../../contexts/ThemeContext';
+import { Text } from '../../../../components/ui/Text';
+import { PostCard } from '../../../../components/feed/PostCard';
+import { IconChevronLeft } from '../../../../components/icons/Icons';
+import { usePost } from '../../../../hooks/useProfile';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,6 +74,7 @@ export default function PostDetailScreen() {
           style={[styles.scroll, webScrollParentStyle]}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
         >
           <PostCard post={post} blurred={false} />

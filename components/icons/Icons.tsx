@@ -12,7 +12,22 @@ export const REACTION_ICON_TINT: Record<string, string> = {
   laugh: '#CA8A04',
   wow: '#3B82F6',
   love: '#DC2626',
+  dislike: '#64748B',
 };
+
+export function IconLightbulb({ size = 24, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 18h6M10 22h4M12 3a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.26A7 7 0 0 0 12 3Z"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export function IconHome({ size = 24, color }: IconProps) {
   return (
@@ -203,6 +218,14 @@ export function IconClose({ size = 22, color }: IconProps) {
   );
 }
 
+export function IconPlus({ size = 22, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconLock({ size = 28, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -228,10 +251,43 @@ export function IconBell({ size = 24, color }: IconProps) {
   );
 }
 
+/** Outline speech bubble (Instagram-style comment glyph). */
 export function IconComment({ size = 18, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12a8 8 0 0 1-8 8H8l-5 3v-3a8 8 0 1 1 18-8Z" stroke={color} strokeWidth={1.65} strokeLinejoin="round" />
+      <Path
+        d="M12 21a8.96 8.96 0 0 1-3.59-.75L4.5 21.5l.9-3.35A8.94 8.94 0 0 1 3 12c0-4.97 4.03-9 9-9s9 4.03 9 9-4.03 9-9 9Z"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8.5 12h.01M12 12h.01M15.5 12h.01"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/** Outline or filled heart (e.g. comment likes). */
+export function IconHeartSmall({
+  size = 18,
+  color,
+  filled = false,
+}: IconProps & { filled?: boolean }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+        stroke={color}
+        fill={filled ? color : 'none'}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -264,16 +320,40 @@ export function IconDoc({ size = 40, color }: IconProps) {
   );
 }
 
-function IconReactionFire({ size = 20, color }: IconProps) {
+/** Lucide “flame” (ISC) — single-stroke flame reads clearly at small sizes. */
+export function IconReactionFire({ size = 20, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
         stroke={color}
-        fill="none"
         strokeWidth={1.65}
         strokeLinecap="round"
         strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+/** Lucide “thumbs-down” (ISC) — matches thumbs-up geometry, mirrored for downvote. */
+function IconReactionThumbsDown({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 14V2"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
     </Svg>
   );
@@ -354,6 +434,7 @@ export const REACTION_CONTROLS: {
 }[] = [
   { emoji: 'fire', label: 'Fire', Icon: IconReactionFire },
   { emoji: 'like', label: 'Like', Icon: IconReactionLike },
+  { emoji: 'dislike', label: 'Downvote', Icon: IconReactionThumbsDown },
   { emoji: 'laugh', label: 'Funny', Icon: IconReactionLaugh },
   { emoji: 'wow', label: 'Wow', Icon: IconReactionWow },
   { emoji: 'love', label: 'Love', Icon: IconReactionHeart },

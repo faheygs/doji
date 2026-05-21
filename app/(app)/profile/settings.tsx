@@ -1,34 +1,64 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import {
+  Alert,
+  View,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import { supabase } from '../../lib/supabase';
-import { useAuthStore } from '../../stores/useAuthStore';
-import { Spacing, Radius, webScrollParentStyle, type ThemeName } from '../../constants/theme';
-import { useTheme } from '../../contexts/ThemeContext';
-import { Text } from '../../components/ui/Text';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { IconChevronLeft } from '../../components/icons/Icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { Spacing, Radius, webScrollParentStyle, themeMap, type ThemeName } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Text } from '@/components/ui/Text';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { IconChevronLeft } from '@/components/icons/Icons';
+import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { useUsernameAvailability, normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 
-const THEME_OPTIONS: { key: ThemeName; label: string; color: string }[] = [
-  { key: 'coral', label: 'Coral', color: '#F97316' },
-  { key: 'ocean', label: 'Ocean', color: '#3B82F6' },
-  { key: 'midnight', label: 'Midnight', color: '#A78BFA' },
-  { key: 'forest', label: 'Forest', color: '#059669' },
-];
+const THEME_GRID_META = [
+  { key: 'coral' as const, label: 'Coral', mode: 'Light' as const },
+  { key: 'ocean' as const, label: 'Ocean', mode: 'Light' as const },
+  { key: 'forest' as const, label: 'Forest', mode: 'Light' as const },
+  { key: 'blossom' as const, label: 'Blossom', mode: 'Light' as const },
+  { key: 'midnight' as const, label: 'Midnight', mode: 'Dark' as const },
+  { key: 'aurora' as const, label: 'Aurora', mode: 'Dark' as const },
+] satisfies readonly { key: ThemeName; label: string; mode: 'Light' | 'Dark' }[];
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { profile, updateProfile, signOut } = useAuthStore();
   const { colors, setPreference, preference } = useTheme();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
+  const [usernameEdit, setUsernameEdit] = useState(profile?.username ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const {
+    errorMessage: usernameAvailabilityError,
+    isOkForSubmit: usernameSaveOk,
+    status: usernameAvailabilityStatus,
+  } = useUsernameAvailability(usernameEdit, {
+    treatAsUnchangedIfMatches: profile?.username,
+    ownUserId: profile?.id,
+  });
+
+  useEffect(() => {
+    setDisplayName(profile?.display_name ?? '');
+    setUsernameEdit(profile?.username ?? '');
+    setBio(profile?.bio ?? '');
+  }, [profile?.display_name, profile?.username, profile?.bio]);
 
   const styles = useMemo(
     () =>
@@ -43,41 +73,61 @@ export default function SettingsScreen() {
           gap: Spacing.sm,
         },
         section: { paddingHorizontal: Spacing.md, marginBottom: Spacing.lg },
-        sectionTitle: { marginBottom: Spacing.sm, paddingHorizontal: Spacing.xs },
+        sectionTitle: { marginBottom: Spacing.xs, paddingHorizontal: Spacing.xs },
+        themeHint: {
+          marginBottom: Spacing.sm,
+          paddingHorizontal: Spacing.xs,
+        },
+        themeScrollContent: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.xs,
+          paddingHorizontal: Spacing.xs,
+          paddingBottom: 2,
+        },
+        themeChip: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingVertical: 9,
+          paddingHorizontal: 12,
+          borderRadius: Radius.full,
+          borderWidth: StyleSheet.hairlineWidth,
+        },
+        themeSwatch: {
+          width: 3,
+          height: 18,
+          borderRadius: 2,
+          overflow: 'hidden',
+        },
         card: { gap: Spacing.md },
         fieldGroup: { gap: Spacing.md },
-        themeRow: {
-          flexDirection: 'row',
-          gap: Spacing.sm,
-        },
-        themeBtn: {
-          flex: 1,
-          height: 48,
-          borderRadius: Radius.md,
-          borderWidth: 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        themeDot: {
-          width: 10,
-          height: 10,
-          borderRadius: 5,
-          position: 'absolute',
-          top: 6,
-          right: 6,
-        },
         version: { textAlign: 'center', marginTop: Spacing.md },
       }),
     [colors],
   );
 
   const handleSaveProfile = async () => {
+    const handle = normalizeUsernameInput(usernameEdit);
+    if (!usernameSaveOk || usernameAvailabilityStatus === 'checking') {
+      if (usernameAvailabilityError) {
+        Toast.show({ type: 'error', text1: usernameAvailabilityError });
+      }
+      return;
+    }
     setSaving(true);
     try {
-      await updateProfile({ display_name: displayName.trim(), bio: bio.trim() || null });
+      await updateProfile({
+        username: handle,
+        display_name: displayName.trim(),
+        bio: bio.trim() || null,
+      });
       Toast.show({ type: 'success', text1: 'Profile updated!' });
     } catch {
-      Toast.show({ type: 'error', text1: 'Failed to save changes' });
+      Toast.show({
+        type: 'error',
+        text1: 'Could not save — username may already be taken',
+      });
     } finally {
       setSaving(false);
     }
@@ -146,13 +196,14 @@ export default function SettingsScreen() {
         style={webScrollParentStyle}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
-              if (router.canGoBack()) router.back();
-              else router.replace('/(app)/profile');
+              goBackWithOptionalReturn(router, returnTo, '/(app)/profile' as Href);
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
@@ -165,41 +216,71 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Theme Picker — pill row */}
+        {/* Theme — compact horizontal chips */}
         <View style={styles.section}>
-          <Text variant="headingMedium" style={styles.sectionTitle}>Theme</Text>
-          <View style={styles.themeRow}>
-            {THEME_OPTIONS.map((opt) => {
-              const active = preference === opt.key;
+          <Text variant="headingMedium" style={styles.sectionTitle}>
+            Theme
+          </Text>
+          <Text variant="micro" color={colors.textTertiary} style={styles.themeHint}>
+            Saved to your profile.
+          </Text>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.themeScrollContent}
+          >
+            {THEME_GRID_META.map((meta) => {
+              const active = preference === meta.key;
+              const tc = themeMap[meta.key];
               return (
                 <TouchableOpacity
-                  key={opt.key}
+                  key={meta.key}
                   onPress={async () => {
                     if (active) return;
                     Haptics.selectionAsync();
                     try {
-                      await setPreference(opt.key);
+                      await setPreference(meta.key);
                     } catch {
                       Toast.show({ type: 'error', text1: 'Failed to save theme' });
                     }
                   }}
                   style={[
-                    styles.themeBtn,
+                    styles.themeChip,
                     {
-                      borderColor: active ? opt.color : colors.border,
-                      backgroundColor: active ? `${opt.color}18` : colors.surface,
+                      borderColor: active ? colors.primary : colors.hairline,
+                      backgroundColor: active ? colors.primaryLight : colors.surface,
                     },
                   ]}
-                  activeOpacity={0.85}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${meta.label} theme, ${meta.mode}`}
                 >
-                  {active && <View style={[styles.themeDot, { backgroundColor: opt.color }]} />}
-                  <Text variant="micro" color={active ? opt.color : colors.textSecondary}>
-                    {opt.label}
+                  <View style={styles.themeSwatch}>
+                    <LinearGradient
+                      colors={[tc.xpGradientStart, tc.xpGradientEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                  </View>
+                  <Text
+                    variant="caption"
+                    numberOfLines={1}
+                    style={{
+                      fontWeight: '700',
+                      color: active ? colors.text : colors.textSecondary,
+                      letterSpacing: -0.2,
+                    }}
+                  >
+                    {meta.label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Profile Edit */}
@@ -208,9 +289,19 @@ export default function SettingsScreen() {
           <Card style={styles.card}>
             <View style={styles.fieldGroup}>
               <Input
-                label="User ID"
-                value={`@${profile?.username ?? ''}`}
-                editable={false}
+                label="Username"
+                value={usernameEdit}
+                onChangeText={(v) => setUsernameEdit(normalizeUsernameInput(v))}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="your_handle"
+                error={
+                  usernameAvailabilityStatus === 'invalid' ||
+                  usernameAvailabilityStatus === 'taken' ||
+                  usernameAvailabilityStatus === 'error'
+                    ? usernameAvailabilityError
+                    : undefined
+                }
               />
               <Input label="Display name" value={displayName} onChangeText={setDisplayName} />
               <Input
@@ -222,7 +313,17 @@ export default function SettingsScreen() {
                 numberOfLines={3}
               />
             </View>
-            <Button onPress={handleSaveProfile} loading={saving} disabled={!displayName.trim()} size="md">
+            <Button
+              onPress={handleSaveProfile}
+              loading={saving}
+              disabled={
+                !displayName.trim() ||
+                !usernameEdit.trim() ||
+                !usernameSaveOk ||
+                usernameAvailabilityStatus === 'checking'
+              }
+              size="md"
+            >
               Save changes
             </Button>
           </Card>
@@ -262,7 +363,7 @@ export default function SettingsScreen() {
             <TouchableOpacity
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push('/(app)/notifications');
+                router.push(hrefWithReturnTo('/(app)/notifications', pathname));
               }}
               activeOpacity={0.85}
               accessibilityRole="button"

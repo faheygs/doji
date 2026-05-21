@@ -32,6 +32,10 @@ Configure in the Supabase Dashboard (**Project Settings → Edge Functions → S
 | `SUPABASE_SERVICE_ROLE_KEY` | Auto-injected; never use in the mobile app |
 | `SUPABASE_ANON_KEY` | Auto-injected; required for `recalculate-streak` when validating user JWTs |
 
+### Optional: challenge submission window length
+
+`schedule-daily-challenge` reads **`CHALLENGE_WINDOW_MINUTES`** (Edge Function secret). If unset, it defaults to **1440** (24 hours) so players can complete anytime until the next daily reset. Set **`CHALLENGE_WINDOW_MINUTES=10`** in production if you want the short window again.
+
 ## Invoke from cron or GitHub Actions
 
 You normally **do not need** this section if `pg_cron` + Vault are configured (see above). For debugging or backups, send the shared secret on every request:
@@ -56,6 +60,11 @@ curl -X POST "$SUPABASE_URL/functions/v1/schedule-daily-challenge" \
 - `dispatch-challenge-pushes` — Sends Expo pushes for rows where `fires_at <= now()` and `push_sent_at` is null. Run every **1–5 minutes**.
 - `expire-events` — Marks overdue `pending` events as `missed` and recomputes streaks.
 - `send-push-notifications` — Targeted push by `user_event_ids` (optional operational tool).
+- `notify-user` — Immediate social/badge push to one user (called from DB triggers via `pg_net`; same `CRON_SECRET`).
+
+### Instant social / badge pushes (no cron delay)
+
+Migration [`migrations/20260520180000_instant_social_push_triggers.sql`](./migrations/20260520180000_instant_social_push_triggers.sql) adds Postgres triggers on `reactions`, `friendships`, `user_badges`, and `posts` that call **`notify-user`** through **`net.http_post`**, using the same Vault secrets as pg_cron (`doji_project_url`, `doji_cron_secret`). Apply the migration and deploy **`notify-user`**. Preferences in `profiles.notification_preferences` are enforced inside the Edge Function (master `push_enabled` and per-category keys).
 
 ### `recalculate-streak`
 
@@ -91,10 +100,11 @@ supabase functions deploy schedule-daily-challenge
 supabase functions deploy dispatch-challenge-pushes
 supabase functions deploy expire-events
 supabase functions deploy send-push-notifications
+supabase functions deploy notify-user
 supabase functions deploy recalculate-streak
 ```
 
-**Windows (all five in one go):** from the `DoIt` directory run:
+**Windows (all in one go):** from the `DoIt` directory run:
 
 ```powershell
 pwsh -File supabase/deploy-all-functions.ps1
@@ -107,9 +117,10 @@ npx supabase@latest functions deploy schedule-daily-challenge
 npx supabase@latest functions deploy dispatch-challenge-pushes
 npx supabase@latest functions deploy expire-events
 npx supabase@latest functions deploy send-push-notifications
+npx supabase@latest functions deploy notify-user
 npx supabase@latest functions deploy recalculate-streak
 ```
 
-Then confirm under **Dashboard → Edge Functions** that all five names appear.
+Then confirm under **Dashboard → Edge Functions** that all function names above appear.
 
 Shared code under `supabase/functions/_shared` is imported relative to each function; use recent Supabase CLI so bundling resolves `../_shared` correctly.

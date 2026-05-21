@@ -15,5 +15,8 @@ verify_jwt = false
 [functions.send-push-notifications]
 verify_jwt = false
 
+[functions.notify-user]
+verify_jwt = false
+
 [functions.recalculate-streak]
 verify_jwt = false

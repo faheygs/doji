@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -20,9 +20,12 @@ import { IconChevronLeft, IconSearch, IconCheck } from '../../../components/icon
 import { useSearchUsers, useSendFriendRequest, useFriendship } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
+import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const { data: results = [], isLoading } = useSearchUsers(query);
@@ -72,7 +75,10 @@ export default function AddFriendsScreen() {
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={16}>
+        <TouchableOpacity
+          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}
+          hitSlop={16}
+        >
           <IconChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         <Text variant="headingLarge">Find Friends</Text>
@@ -100,7 +106,9 @@ export default function AddFriendsScreen() {
           data={filteredResults}
           keyExtractor={(u) => u.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => <UserResult user={item} />}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => <UserResult user={item} returnPath={pathname} />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text variant="body" color={colors.textSecondary}>
@@ -114,7 +122,7 @@ export default function AddFriendsScreen() {
   );
 }
 
-function UserResult({ user }: { user: Profile }) {
+function UserResult({ user, returnPath }: { user: Profile; returnPath: string }) {
   const router = useRouter();
   const { colors } = useTheme();
   const { data: friendship } = useFriendship(user.id);
@@ -154,7 +162,7 @@ function UserResult({ user }: { user: Profile }) {
       <TouchableOpacity
         onPress={() => {
           Haptics.selectionAsync();
-          router.push(`/profile/${user.username}`);
+          router.push(hrefWithReturnTo(`/(app)/member/${user.username}`, returnPath));
         }}
         style={rowStyles.userInfo}
         activeOpacity={0.8}

@@ -221,7 +221,12 @@ export function ChallengeBanner({ userEvent }: Props) {
     return (
       <View style={styles.lockedBanner}>
         <View style={styles.lockedIconCircle}>
-          <ChallengeTypeGlyph type={challengeType} size={22} color={colors.textTertiary} />
+          <ChallengeTypeGlyph
+            type={challengeType}
+            title={challenge?.title}
+            size={22}
+            color={colors.textTertiary}
+          />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Text variant="micro" color={colors.textTertiary}>CHALLENGE INCOMING</Text>
@@ -258,7 +263,12 @@ export function ChallengeBanner({ userEvent }: Props) {
         style={styles.banner}
       >
         <View style={styles.iconCircle}>
-          <ChallengeTypeGlyph type={challengeType} size={24} color="#FFFFFF" />
+          <ChallengeTypeGlyph
+            type={challengeType}
+            title={challenge?.title}
+            size={24}
+            color="#FFFFFF"
+          />
         </View>
         <View style={styles.bannerBody}>
           <Text variant="micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
