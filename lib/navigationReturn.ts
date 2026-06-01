@@ -28,6 +28,7 @@ export function backOrHome(router: RouterBackOrHome): void {
 }
 
 export function navigateToFeedAfterChallengeComplete(router: Router): void {
+  // Leave challenge stacks/modals first so hidden tab screens cannot keep a full-screen Modal mounted.
   navigateToFeed(router);
 }
 

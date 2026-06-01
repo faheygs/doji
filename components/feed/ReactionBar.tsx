@@ -9,6 +9,7 @@ import { useToggleReaction } from '../../hooks/useFeed';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { formatCompactCount } from '../../utils/formatCount';
 import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
+import type { FeedAudience } from '../../lib/feedAudience';
 import type { Post, ReactionEmoji } from '../../types/database';
 
 const ICON_SZ = 22;
@@ -18,6 +19,7 @@ type Props = {
   blurred: boolean;
   showTopBorder?: boolean;
   onOpenComments: () => void;
+  feedAudience?: FeedAudience;
 };
 
 function breakdownSig(post: Post): string {
@@ -31,7 +33,13 @@ function myReactionsSig(post: Post): string {
   return (post.my_reactions ?? []).sort().join(',');
 }
 
-function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }: Props) {
+function ReactionBarImpl({
+  post,
+  blurred,
+  showTopBorder = true,
+  onOpenComments,
+  feedAudience = 'everyone',
+}: Props) {
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
   const myReactions = post.my_reactions ?? [];
@@ -219,6 +227,7 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
         visible={votersOpen}
         postId={post.id}
         emojiFilter={votersEmoji}
+        feedAudience={feedAudience}
         onClose={closeVoters}
       />
     </View>
@@ -229,6 +238,7 @@ export const ReactionBar = React.memo(ReactionBarImpl, (prev, next) => {
   if (prev.onOpenComments !== next.onOpenComments) return false;
   if (prev.blurred !== next.blurred || prev.post.id !== next.post.id) return false;
   if (prev.showTopBorder !== next.showTopBorder) return false;
+  if (prev.feedAudience !== next.feedAudience) return false;
   if (prev.post.reaction_count !== next.post.reaction_count) return false;
   if (prev.post.comment_count !== next.post.comment_count) return false;
   if (myReactionsSig(prev.post) !== myReactionsSig(next.post)) return false;

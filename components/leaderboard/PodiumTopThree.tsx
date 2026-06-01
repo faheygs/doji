@@ -7,6 +7,7 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { IcnCrown } from '../icons/BadgeIcons';
 import { getRankBorderColor } from '../../lib/rankTitle';
+import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../types/database';
 
@@ -121,7 +122,8 @@ function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
           uri={entry.profile.avatar_url}
           username={displayName}
           size={AVATAR_SIZES[rank]}
-          rankBorderColor={rankBorderColor}
+          borderColor={resolveAvatarBorderColor(entry.profile, rankBorderColor)}
+          borderWidth={resolveAvatarBorderWidth(entry.profile)}
         />
         <View style={styles.rankBadge}>
           <Text variant="nano" style={styles.rankBadgeText}>

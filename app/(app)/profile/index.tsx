@@ -30,8 +30,10 @@ import { useFollowCounts } from '@/hooks/useProfile';
 import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { usePollVotesCount } from '@/hooks/usePollVotesCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
+import { useSparksBalance } from '@/hooks/useSparks';
 import { hrefWithReturnTo } from '@/lib/navigationReturn';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
+import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 
 export default function MyProfileScreen() {
@@ -40,6 +42,7 @@ export default function MyProfileScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const profile = useAuthStore((s) => s.profile) as Profile | null;
+  const sparks = useSparksBalance();
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
   const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
   const { data: categories = [] } = useBadgeCategories();
@@ -76,6 +79,11 @@ export default function MyProfileScreen() {
     };
   }, [profile, followCounts?.followers, reactionsGiven, pollVotes, mySuggestions]);
 
+  const badgeEarnedSummary = useMemo(
+    () => countEarnedBadgeTiers(tiers, badgeProgress, badgeProgressStats),
+    [tiers, badgeProgress, badgeProgressStats],
+  );
+
   const onRefresh = useCallback(async () => {
     if (!profile?.id) return;
     setRefreshing(true);
@@ -102,9 +110,10 @@ export default function MyProfileScreen() {
         topBar: {
           flexDirection: 'row',
           justifyContent: 'flex-end',
+          alignItems: 'center',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.xs,
-          paddingBottom: Spacing.sm,
+          paddingBottom: Spacing.xs,
         },
         heroRow: {
           flexDirection: 'row',
@@ -172,6 +181,11 @@ export default function MyProfileScreen() {
         <ProfileStreakPair
           currentStreak={profile.current_streak ?? 0}
           bestStreak={profile.longest_streak ?? 0}
+          sparks={sparks}
+          onPressShop={() => {
+            Haptics.selectionAsync();
+            router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
+          }}
           style={{ marginTop: Spacing.md }}
         />
 
@@ -180,7 +194,7 @@ export default function MyProfileScreen() {
             <View style={styles.sectionHeader}>
               <Text variant="headingMedium">Badges</Text>
               <Text variant="caption" color={colors.textTertiary}>
-                {badgeProgress.length}/{categories.length}
+                {badgeEarnedSummary.earned}/{badgeEarnedSummary.total}
               </Text>
             </View>
             <BadgesGrid

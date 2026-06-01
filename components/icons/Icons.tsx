@@ -12,6 +12,7 @@ export {
   IconReactionHeart,
 } from './ReactionIcons';
 export type { ReactionIconProps } from './ReactionIcons';
+export { IconSpark } from './IconSpark';
 
 export type IconProps = {
   size?: number;

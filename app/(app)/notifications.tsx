@@ -62,7 +62,12 @@ const CATEGORY_ROWS: RowDef[] = [
   {
     key: 'follow_request',
     title: 'Follow Requests',
-    description: 'When someone requests to follow you.',
+    description: 'When someone requests to follow your private account.',
+  },
+  {
+    key: 'new_follower',
+    title: 'New Followers',
+    description: 'When someone starts following your public account.',
   },
   {
     key: 'friend_accepted',
@@ -106,8 +111,8 @@ export default function NotificationSettingsScreen() {
     (value: boolean, opts?: { disabled?: boolean }) => {
       const disabled = opts?.disabled ?? false;
       const inactiveTrack = disabled ? colors.hairline : colors.surfaceMuted;
-      const activeTrack = disabled ? colors.fillMuted : colors.accent;
-      const thumbOn = colors.onAccent;
+      const activeTrack = disabled ? colors.fillMuted : colors.primary;
+      const thumbOn = colors.onPrimary;
       const thumbOff = Platform.OS === 'ios' ? colors.surface : colors.surfaceElevated ?? colors.surface;
 
       return {

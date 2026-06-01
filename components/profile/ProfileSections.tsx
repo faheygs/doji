@@ -8,6 +8,8 @@ import { LevelBadge } from '@/components/gamification/LevelBadge';
 import { IconCamera, IconChevronRight, IconReactionFire } from '@/components/icons/Icons';
 import { formatCompactCount } from '@/utils/formatCount';
 import type { Profile } from '@/types/database';
+import { getEquippedBorder, getEquippedTitleLabel } from '@/lib/cosmetics';
+import { ProfileShopEntry } from '@/components/economy/ProfileShopEntry';
 
 export function ProfileStatChip({
   label,
@@ -55,12 +57,23 @@ export function ProfileStatChip({
 }
 
 type ProfileHeroRowProps = {
-  profile: Pick<Profile, 'avatar_url' | 'username' | 'display_name' | 'bio' | 'level'>;
+  profile: Pick<
+    Profile,
+    | 'avatar_url'
+    | 'username'
+    | 'display_name'
+    | 'bio'
+    | 'level'
+    | 'equipped_border_key'
+    | 'equipped_title_key'
+  >;
   avatarSize?: number;
   onChangePhoto?: () => void;
   photoUploading?: boolean;
   trailing?: React.ReactNode;
   style?: ViewStyle;
+  /** Hide level badge (e.g. private profile before follow is approved). */
+  showLevel?: boolean;
 };
 
 export function ProfileHeroRow({
@@ -70,8 +83,11 @@ export function ProfileHeroRow({
   photoUploading,
   trailing,
   style,
+  showLevel = true,
 }: ProfileHeroRowProps) {
   const { colors } = useTheme();
+  const border = getEquippedBorder(profile);
+  const titleLabel = getEquippedTitleLabel(profile);
 
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingHorizontal: Spacing.lg }, style]}>
@@ -81,6 +97,8 @@ export function ProfileHeroRow({
           username={profile.username}
           size={avatarSize}
           fallbackTone={profile.avatar_url ? 'default' : 'brand'}
+          borderColor={border?.color}
+          borderWidth={border?.width}
         />
         {onChangePhoto ? (
           <TouchableOpacity
@@ -112,12 +130,30 @@ export function ProfileHeroRow({
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
           <Text variant="headingLarge">{profile.display_name}</Text>
-          <LevelBadge level={profile.level ?? 1} />
+          {showLevel ? <LevelBadge level={profile.level ?? 1} /> : null}
           {trailing}
         </View>
         <Text variant="body" color={colors.textTertiary}>
           @{profile.username}
         </Text>
+        {titleLabel ? (
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              marginTop: 4,
+              paddingHorizontal: Spacing.sm,
+              paddingVertical: 3,
+              borderRadius: Radius.full,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              backgroundColor: colors.surfaceElevated,
+            }}
+          >
+            <Text variant="micro" color={colors.primary} style={{ fontWeight: '700' }}>
+              {titleLabel}
+            </Text>
+          </View>
+        ) : null}
         {profile.bio?.trim() ? (
           <Text variant="body" color={colors.textSecondary} style={{ lineHeight: 20, marginTop: 4 }}>
             {profile.bio.trim()}
@@ -179,9 +215,17 @@ type ProfileStreakPairProps = {
   currentStreak: number;
   bestStreak: number;
   style?: ViewStyle;
+  sparks?: number;
+  onPressShop?: () => void;
 };
 
-export function ProfileStreakPair({ currentStreak, bestStreak, style }: ProfileStreakPairProps) {
+export function ProfileStreakPair({
+  currentStreak,
+  bestStreak,
+  style,
+  sparks,
+  onPressShop,
+}: ProfileStreakPairProps) {
   const { colors } = useTheme();
   const styles = useMemo(
     () =>
@@ -237,6 +281,9 @@ export function ProfileStreakPair({ currentStreak, bestStreak, style }: ProfileS
           {bestStreak}
         </Text>
       </View>
+      {onPressShop != null && sparks != null ? (
+        <ProfileShopEntry amount={sparks} onPress={onPressShop} />
+      ) : null}
     </View>
   );
 }

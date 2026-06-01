@@ -7,12 +7,15 @@ export type ReactionBreakdown = Record<string, number>;
 export async function attachReactionFields<T extends { id: string }>(
   rows: T[],
   userId: string | undefined,
+  scopeUserIds?: string[],
 ): Promise<
   (T & { my_reactions: ReactionEmoji[]; reaction_breakdown: ReactionBreakdown })[]
 > {
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.id);
+  const scope =
+    scopeUserIds && scopeUserIds.length > 0 ? new Set(scopeUserIds) : null;
 
   const { data, error } = await supabase
     .from('reactions')
@@ -34,9 +37,14 @@ export async function attachReactionFields<T extends { id: string }>(
     const emoji = normalizeReactionEmoji(row.emoji as string);
     if (!emoji) continue;
     const uid = row.user_id as string;
-    const b = { ...(breakdown.get(pid) ?? {}) };
-    b[emoji] = (b[emoji] ?? 0) + 1;
-    breakdown.set(pid, b);
+    const inScope = !scope || scope.has(uid);
+
+    if (inScope) {
+      const b = { ...(breakdown.get(pid) ?? {}) };
+      b[emoji] = (b[emoji] ?? 0) + 1;
+      breakdown.set(pid, b);
+    }
+
     if (userId && uid === userId) {
       const arr = myMap.get(pid) ?? [];
       if (!arr.includes(emoji)) arr.push(emoji);

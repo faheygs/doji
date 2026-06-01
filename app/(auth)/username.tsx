@@ -99,6 +99,11 @@ export default function UsernameScreen() {
         is_admin: false,
         onboarding_completed_at: null,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        sparks: 0,
+        accent_theme: 'doji_orange',
+        appearance_mode: DEFAULT_APP_THEME,
+        equipped_border_key: null,
+        equipped_title_key: null,
       });
 
       if (error) {

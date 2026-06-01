@@ -11,7 +11,7 @@ import {
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -22,12 +22,11 @@ import {
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
+import { PrivateProfileGate } from '@/components/profile/PrivateProfileGate';
 import {
   IconChevronLeft,
   IconCheck,
-  IconClose,
-  IconSend,
-  IconUsers,
+  IconPlus,
 } from '@/components/icons/Icons';
 import { ProfileFriendsSheet, type FollowListTab } from '@/components/profile/ProfileFriendsSheet';
 import { useProfile } from '@/hooks/useProfile';
@@ -41,15 +40,23 @@ import {
 } from '@/hooks/useFollows';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { goBackWithOptionalReturn, FEED_TAB_HREF } from '@/lib/navigationReturn';
+import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import {
   useBadgeCategories,
   useBadgeTiers,
   useUserBadgeProgress,
 } from '@/hooks/useBadges';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
+import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 
 export default function UserProfileScreen() {
-  const { username, returnTo } = useLocalSearchParams<{ username: string; returnTo?: string }>();
+  const params = useLocalSearchParams<{ username: string | string[]; returnTo?: string }>();
+  const username = useMemo(() => {
+    const raw = params.username;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return value ? normalizeUsernameInput(value) : undefined;
+  }, [params.username]);
+  const { returnTo } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -92,6 +99,11 @@ export default function UserProfileScreen() {
       challengeIdeasPicked: 0,
     };
   }, [profile, followerCount]);
+
+  const badgeEarnedSummary = useMemo(
+    () => countEarnedBadgeTiers(tiers, badgeProgress, badgeProgressStats),
+    [tiers, badgeProgress, badgeProgressStats],
+  );
 
   const handleBack = () => {
     goBackWithOptionalReturn(router, returnTo, FEED_TAB_HREF);
@@ -148,29 +160,13 @@ export default function UserProfileScreen() {
           alignItems: 'center',
           gap: Spacing.xs,
         },
-        privateNotice: {
-          marginHorizontal: Spacing.md,
-          marginTop: Spacing.md,
-          padding: Spacing.lg,
-          borderRadius: Radius.lg,
-          backgroundColor: colors.surfaceMuted,
-          alignItems: 'center',
-          gap: Spacing.sm,
-        },
-        privateLabel: {
-          marginHorizontal: Spacing.lg,
-          marginTop: -Spacing.xs,
-          marginBottom: Spacing.xs,
-        },
         centered: {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
         },
         friendActionButton: {
-          minWidth: 120,
-          paddingHorizontal: Spacing.md,
-          borderRadius: Radius.md,
+          minWidth: 0,
         },
         section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
         sectionHeader: {
@@ -282,10 +278,10 @@ export default function UserProfileScreen() {
               <Button
                 onPress={handleUnfollow}
                 variant="secondary"
-                size="md"
+                size="sm"
                 loading={unfollow.isPending}
                 disabled={unfollow.isPending}
-                leftIcon={<IconCheck size={17} color={colors.textSecondary} />}
+                leftIcon={<IconCheck size={15} color={colors.textSecondary} />}
                 style={styles.friendActionButton}
               >
                 Following
@@ -294,9 +290,8 @@ export default function UserProfileScreen() {
               <Button
                 onPress={() => {}}
                 variant="secondary"
-                size="md"
+                size="sm"
                 disabled
-                leftIcon={<IconSend size={16} color={colors.textTertiary} />}
                 style={styles.friendActionButton}
               >
                 Requested
@@ -305,7 +300,7 @@ export default function UserProfileScreen() {
               <Button
                 onPress={() => {}}
                 variant="secondary"
-                size="md"
+                size="sm"
                 disabled
                 style={styles.friendActionButton}
               >
@@ -315,17 +310,17 @@ export default function UserProfileScreen() {
               <Button
                 onPress={handleFollowAction}
                 variant="primary"
-                size="md"
+                size="sm"
                 loading={follow.isPending || respondRequest.isPending}
                 disabled={followDisabled}
                 leftIcon={
                   pendingIncoming ? (
-                    <IconCheck size={17} color={colors.onPrimary} />
+                    <IconCheck size={14} color={colors.onPrimary} />
                   ) : (
-                    <IconUsers size={17} color={colors.onPrimary} />
+                    <IconPlus size={14} color={colors.onPrimary} />
                   )
                 }
-                style={[styles.friendActionButton, Shadows.card]}
+                style={styles.friendActionButton}
               >
                 {pendingIncoming ? 'Accept' : 'Follow'}
               </Button>
@@ -333,12 +328,7 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
-        <ProfileHeroRow profile={profile} />
-        {isPrivate ? (
-          <Text variant="micro" color={colors.textTertiary} style={styles.privateLabel}>
-            Private account
-          </Text>
-        ) : null}
+        <ProfileHeroRow profile={profile} showLevel={canViewContent} />
 
         {canViewContent ? (
           <>
@@ -367,7 +357,7 @@ export default function UserProfileScreen() {
                 <View style={styles.sectionHeader}>
                   <Text variant="headingMedium">Badges</Text>
                   <Text variant="caption" color={colors.textTertiary}>
-                    {badgeProgress.length}/{categories.length}
+                    {badgeEarnedSummary.earned}/{badgeEarnedSummary.total}
                   </Text>
                 </View>
                 <BadgesGrid
@@ -381,12 +371,7 @@ export default function UserProfileScreen() {
             ) : null}
           </>
         ) : (
-          <View style={styles.privateNotice}>
-            <IconClose size={28} color={colors.textTertiary} />
-            <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-              Follow this account to see their stats and activity.
-            </Text>
-          </View>
+          <PrivateProfileGate followStatus={followStatus} />
         )}
       </ScrollView>
       {canViewContent && (

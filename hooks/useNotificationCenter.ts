@@ -7,6 +7,8 @@ import type { Profile, UserEvent, Follow } from '../types/database';
 import { useFollowRequests } from './useFollows';
 import { isChallengeLive } from '../lib/challengeDay';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
+import { isFollowAcceptNotification } from '../lib/followNotifications';
+import { normalizeEmbeddedProfile } from '../lib/notificationCopy';
 
 const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
 const BELL_LAST_OPENED_KEY = '@doit/bell-last-opened';
@@ -33,6 +35,12 @@ export type NotificationCenterItem =
       key: string;
       kind: 'follow_accepted';
       follow: Follow & { following?: Profile | null };
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'new_follower';
+      follow: Follow & { follower?: Profile | null };
       sortAt: string;
     }
   | {
@@ -72,8 +80,18 @@ type ReactionRow = {
   created_at: string;
   post_id: string;
   user_id: string;
-  actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+  actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[] | null;
 };
+
+function mapFollowWithFollower(row: unknown): Follow & { follower?: Profile | null } {
+  const r = row as Follow & { follower?: Profile | Profile[] | null };
+  return { ...r, follower: normalizeEmbeddedProfile(r.follower) };
+}
+
+function mapFollowWithFollowing(row: unknown): Follow & { following?: Profile | null } {
+  const r = row as Follow & { following?: Profile | Profile[] | null };
+  return { ...r, following: normalizeEmbeddedProfile(r.following) };
+}
 
 export function useNotificationCenter() {
   const userId = useAuthStore((s) => s.session?.user?.id);
@@ -139,7 +157,31 @@ export function useNotificationCenter() {
         .limit(50);
 
       if (error) throw error;
-      return (data ?? []) as (Follow & { following?: Profile | null })[];
+      return ((data ?? []) as unknown[])
+        .map(mapFollowWithFollowing)
+        .filter(isFollowAcceptNotification);
+    },
+  });
+
+  const newFollowersQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'new_followers', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async (): Promise<(Follow & { follower?: Profile | null })[]> => {
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('follows')
+        .select('*, follower:profiles!follows_follower_id_fkey(*)')
+        .eq('following_id', userId)
+        .eq('status', 'accepted')
+        .is('accepted_at', null)
+        .gt('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return ((data ?? []) as unknown[]).map(mapFollowWithFollower);
     },
   });
 
@@ -244,6 +286,14 @@ export function useNotificationCenter() {
         sortAt: f.accepted_at ?? f.created_at,
       })) ?? [];
 
+    const newFollowerItems: NotificationCenterItem[] =
+      newFollowersQuery.data?.map((f) => ({
+        key: `new_follower:${f.id}`,
+        kind: 'new_follower' as const,
+        follow: f,
+        sortAt: f.created_at,
+      })) ?? [];
+
       const rawReactions = (reactionsQuery.data ?? []) as unknown as ReactionRow[];
     const byPost = new Map<string, ReactionRow[]>();
     for (const r of rawReactions) {
@@ -262,7 +312,11 @@ export function useNotificationCenter() {
         if (!seenUser.has(r.user_id)) {
           seenUser.add(r.user_id);
           actors.push(
-            r.actor ?? { username: 'someone', display_name: 'Someone', avatar_url: null },
+            normalizeEmbeddedProfile(r.actor) ?? {
+              username: 'someone',
+              display_name: 'Someone',
+              avatar_url: null,
+            },
           );
         }
         if (!emojis.includes(r.emoji)) emojis.push(r.emoji);
@@ -288,7 +342,7 @@ export function useNotificationCenter() {
           sortAt: challengeSortAt(ev),
         })) ?? [];
 
-    const merged = [...reqItems, ...accItems, ...reactionGroups, ...chItems]
+    const merged = [...reqItems, ...accItems, ...newFollowerItems, ...reactionGroups, ...chItems]
       .filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
@@ -299,7 +353,7 @@ export function useNotificationCenter() {
     });
 
     return merged;
-  }, [followRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
+  }, [followRequests, acceptQuery.data, newFollowersQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
 
   const unreadCount = useMemo(() => {
     const prefs = mergeNotificationPreferences(profile?.notification_preferences);
@@ -312,6 +366,7 @@ export function useNotificationCenter() {
     !prefsHydrated ||
     requestsLoading ||
     acceptQuery.isLoading ||
+    newFollowersQuery.isLoading ||
     reactionsQuery.isLoading ||
     challengesQuery.isLoading;
 

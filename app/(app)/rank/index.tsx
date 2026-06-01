@@ -23,6 +23,7 @@ import { LevelBadge } from '../../../components/gamification/LevelBadge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PodiumTopThree } from '../../../components/leaderboard/PodiumTopThree';
 import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
+import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
 
@@ -89,7 +90,8 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
         uri={item.profile.avatar_url}
         username={item.profile.display_name ?? item.profile.username}
         size={44}
-        rankBorderColor={rankBorderColor}
+        borderColor={resolveAvatarBorderColor(item.profile, rankBorderColor)}
+        borderWidth={resolveAvatarBorderWidth(item.profile)}
       />
 
       <View style={styles.nameBlock}>

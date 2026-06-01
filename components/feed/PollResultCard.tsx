@@ -27,6 +27,8 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { getAcceptedFollowingIds } from '../../lib/followGraph';
+import type { FeedAudience } from '../../lib/feedAudience';
 import type { Challenge, PollOption } from '../../types/database';
 
 type PollRow = PollOption & { liveCount: number };
@@ -43,21 +45,39 @@ type Props = {
   challenge: Challenge;
   variant?: 'full' | 'embedded';
   fetchEnabled?: boolean;
+  feedAudience?: FeedAudience;
 };
 
 const AVATAR_OVERLAP = 14;
 
 const SPRING = { damping: 28, stiffness: 320, mass: 0.88 };
 
-function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }: Props) {
+function PollResultCardImpl({
+  challenge,
+  variant = 'full',
+  fetchEnabled = true,
+  feedAudience = 'everyone',
+}: Props) {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const [voterModal, setVoterModal] = useState<{ optionId: string; label: string } | null>(null);
+  const isFriendsScope = feedAudience === 'friends';
+
+  const { data: followingIds = [], isFetched: followingIdsReady } = useQuery({
+    queryKey: ['followingIds', userId],
+    queryFn: () => getAcceptedFollowingIds(userId!),
+    enabled: isFriendsScope && !!userId && fetchEnabled,
+    staleTime: 30_000,
+  });
+
+  const scopeUserIds = isFriendsScope ? followingIds : undefined;
+  const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
+  const scopeReady = !isFriendsScope || followingIdsReady;
 
   const { data } = useQuery({
-    queryKey: ['pollResults', challenge.id],
+    queryKey: ['pollResults', challenge.id, feedAudience, scopeKey],
     queryFn: async (): Promise<{ rows: PollRow[]; totalVotes: number }> => {
       const [{ data: options, error: optErr }, { data: votes, error: voteErr }] = await Promise.all([
         supabase
@@ -65,7 +85,13 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
           .select('*')
           .eq('challenge_id', challenge.id)
           .order('position', { ascending: true }),
-        supabase.from('poll_votes').select('option_id').eq('challenge_id', challenge.id),
+        scopeUserIds
+          ? supabase
+              .from('poll_votes')
+              .select('option_id')
+              .eq('challenge_id', challenge.id)
+              .in('user_id', scopeUserIds)
+          : supabase.from('poll_votes').select('option_id').eq('challenge_id', challenge.id),
       ]);
       if (optErr) throw optErr;
       if (voteErr) throw voteErr;
@@ -84,7 +110,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
       return { rows, totalVotes };
     },
     refetchInterval: fetchEnabled ? 10_000 : false,
-    enabled: fetchEnabled,
+    enabled: fetchEnabled && scopeReady,
   });
 
   const rows = data?.rows ?? [];
@@ -107,12 +133,16 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
   });
 
   const { data: votersByOption } = useQuery({
-    queryKey: ['pollVotersDetail', challenge.id],
+    queryKey: ['pollVotersDetail', challenge.id, feedAudience, scopeKey],
     queryFn: async () => {
-      const { data: voteRows, error } = await supabase
+      let voteQuery = supabase
         .from('poll_votes')
         .select('option_id, user_id, custom_text')
         .eq('challenge_id', challenge.id);
+      if (scopeUserIds) {
+        voteQuery = voteQuery.in('user_id', scopeUserIds);
+      }
+      const { data: voteRows, error } = await voteQuery;
       if (error) throw error;
       const userIds = [...new Set((voteRows ?? []).map((r) => r.user_id as string))];
       let profileById = new Map<
@@ -150,7 +180,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
       }
       return m;
     },
-    enabled: fetchEnabled,
+    enabled: fetchEnabled && scopeReady,
     /** Keep avatar stacks in sync with bar % (`pollResults` uses the same interval). */
     refetchInterval: fetchEnabled ? 10_000 : false,
     staleTime: 5000,
@@ -456,6 +486,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
       <View style={styles.footer}>
         <Text variant="micro" color={colors.textTertiary}>
           {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
+          {isFriendsScope ? ' from people you follow' : ''}
         </Text>
         <Text variant="micro" color={colors.textTertiary}>
           +{challenge.xp_reward} XP

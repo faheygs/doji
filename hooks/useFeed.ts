@@ -1,19 +1,21 @@
 import {
   type InfiniteData,
-  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
+import { fetchCommunityPollPostsForFeed } from '../lib/feedCommunityPoll';
+import { filterPostsForAudience, type FeedAudience } from '../lib/feedAudience';
+import { getAcceptedFollowingIds } from '../lib/followGraph';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
 
-const PAGE_SIZE = 20;
+export type { FeedAudience };
 
-export type FeedAudience = 'friends' | 'everyone';
+const PAGE_SIZE = 20;
 
 /** Today: only daily_events in the current calendar day that have already fired. */
 async function liveDailyEventIdsForToday(): Promise<string[]> {
@@ -30,46 +32,39 @@ async function liveDailyEventIdsForToday(): Promise<string[]> {
     .map((e: { id: string }) => e.id);
 }
 
-/** Accepted follows + self (viewer always sees own posts in friends feed). */
-async function acceptedFollowingIds(viewerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', viewerId)
-    .eq('status', 'accepted');
-
-  if (error) throw error;
-  const ids = (data ?? []).map((r: { following_id: string }) => r.following_id);
-  return [...new Set([viewerId, ...ids])];
-}
-
 type FetchContext = {
   userId: string;
   dailyEventIds: string[];
-  authorIds?: string[];
+  audience: FeedAudience;
+  followingIds?: string[];
 };
 
 async function fetchFeedPostsPage(
   ctx: FetchContext,
   offset: number,
 ): Promise<Post[]> {
-  const { userId, dailyEventIds, authorIds } = ctx;
+  const { userId, dailyEventIds, audience, followingIds } = ctx;
   if (dailyEventIds.length === 0) return [];
 
-  let communityMapped: Post[] = [];
-  if (offset === 0) {
-    const { data: comm, error: commErr } = await supabase
-      .from('posts')
-      .select(`*, daily_event:daily_events!inner(*, challenge:challenges(*))`)
-      .eq('is_community_poll', true)
-      .in('daily_event_id', dailyEventIds)
-      .order('created_at', { ascending: false });
+  const communityMapped =
+    offset === 0
+      ? await fetchCommunityPollPostsForFeed(dailyEventIds, audience, followingIds)
+      : [];
 
-    if (commErr) throw commErr;
-    communityMapped = (comm ?? []).map((p: Record<string, unknown>) => ({
-      ...p,
-      challenge: (p.daily_event as { challenge?: unknown } | undefined)?.challenge ?? null,
-    })) as Post[];
+  let userEventIds: string[] | undefined;
+  if (audience === 'friends' && followingIds) {
+    const { data: userEvents, error: userEventsErr } = await supabase
+      .from('user_events')
+      .select('id')
+      .in('daily_event_id', dailyEventIds)
+      .in('user_id', followingIds);
+
+    if (userEventsErr) throw userEventsErr;
+    userEventIds = (userEvents ?? []).map((row: { id: string }) => row.id);
+
+    if (userEventIds.length === 0) {
+      return attachReactionFields(communityMapped, userId, followingIds);
+    }
   }
 
   let query = supabase
@@ -78,12 +73,13 @@ async function fetchFeedPostsPage(
       `*, profile:profiles(*), user_event:user_events!inner(*, daily_event:daily_events(*, challenge:challenges(*)))`,
     )
     .eq('is_community_poll', false)
-    .in('user_event.daily_event_id', dailyEventIds)
     .order('created_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
-  if (authorIds && authorIds.length > 0) {
-    query = query.in('user_id', authorIds);
+  if (userEventIds) {
+    query = query.in('user_event_id', userEventIds);
+  } else {
+    query = query.in('user_event.daily_event_id', dailyEventIds);
   }
 
   const { data, error } = await query;
@@ -104,12 +100,20 @@ async function fetchFeedPostsPage(
         )
       : userMapped;
 
-  return attachReactionFields(merged, userId);
+  const filtered =
+    audience === 'friends' && followingIds
+      ? filterPostsForAudience(merged, audience, followingIds)
+      : merged;
+
+  const reactionScope = audience === 'friends' ? followingIds : undefined;
+
+  return attachReactionFields(filtered, userId, reactionScope);
 }
 
 /**
  * Today's live feed for the selected audience.
- * Friends: posts from accepted follows (+ self). Everyone: all eligible posts (RLS + privacy).
+ * Friends: posts from accepted follows (+ self), poll results scoped to that network.
+ * Everyone: all eligible posts (RLS + privacy) and full poll results.
  */
 export function useFeed(audience: FeedAudience = 'friends') {
   const session = useAuthStore((s) => s.session);
@@ -127,10 +131,10 @@ export function useFeed(audience: FeedAudience = 'friends') {
       if (!userId) return [];
 
       const dailyEventIds = await liveDailyEventIdsForToday();
-      const authorIds =
-        audience === 'friends' ? await acceptedFollowingIds(userId) : undefined;
+      const followingIds =
+        audience === 'friends' ? await getAcceptedFollowingIds(userId) : undefined;
       const offset = pageParam ?? 0;
-      return fetchFeedPostsPage({ userId, dailyEventIds, authorIds }, offset);
+      return fetchFeedPostsPage({ userId, dailyEventIds, audience, followingIds }, offset);
     },
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       const offset = lastPageParam ?? 0;
@@ -141,22 +145,28 @@ export function useFeed(audience: FeedAudience = 'friends') {
     initialPageParam: 0,
     enabled: !!userId,
     staleTime: 10_000,
-    placeholderData: keepPreviousData,
   });
 }
 
-export function usePostReactions(postId: string) {
+export function usePostReactions(postId: string, scopeUserIds?: string[]) {
   const session = useAuthStore((s) => s.session);
+  const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
 
   return useInfiniteQuery({
-    queryKey: ['reactions', postId],
+    queryKey: ['reactions', postId, scopeKey],
     queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('reactions')
         .select('*, profile:profiles(username, avatar_url)')
         .eq('post_id', postId)
         .order('created_at', { ascending: false })
         .range(pageParam * 50, (pageParam + 1) * 50 - 1);
+
+      if (scopeUserIds && scopeUserIds.length > 0) {
+        query = query.in('user_id', scopeUserIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Reaction[];

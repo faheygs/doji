@@ -541,26 +541,14 @@ export default function SuggestChallengeScreen() {
                 </Text>
                 {optionRows.map((row, i) => (
                   <View key={`opt-${i}`} style={styles.optionRow}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <TextInput
-                        style={[
-                          styles.optionInput,
-                          !row.trim() && filledOptions.length > 0
-                            ? { borderColor: colors.warning }
-                            : null,
-                        ]}
-                        value={row}
-                        onChangeText={(t) => setOptionAt(i, t)}
-                        placeholder={`Option ${i + 1}`}
-                        placeholderTextColor={colors.textTertiary}
-                        editable={!saving}
-                      />
-                      {!row.trim() ? (
-                        <Text variant="micro" color={colors.textTertiary}>
-                          Required if you add choices
-                        </Text>
-                      ) : null}
-                    </View>
+                    <TextInput
+                      style={[styles.optionInput, { flex: 1 }]}
+                      value={row}
+                      onChangeText={(t) => setOptionAt(i, t)}
+                      placeholder={`Option ${i + 1}`}
+                      placeholderTextColor={colors.textTertiary}
+                      editable={!saving}
+                    />
                     {optionRows.length > 2 ? (
                       <TouchableOpacity
                         onPress={() => removeOption(i)}
@@ -574,11 +562,6 @@ export default function SuggestChallengeScreen() {
                     )}
                   </View>
                 ))}
-                {!optionsValidation.ok && filledOptions.length > 0 ? (
-                  <Text variant="bodySmall" color={colors.error} style={{ textAlign: 'center' }}>
-                    {optionsValidation.message}
-                  </Text>
-                ) : null}
                 <TouchableOpacity onPress={addOption} style={styles.addOptionBtn} activeOpacity={0.85}>
                   <IconPlus size={20} color={colors.primary} />
                   <Text variant="label" color={colors.primary}>

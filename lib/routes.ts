@@ -86,6 +86,15 @@ export function navigateToFeed(router: RouterLike): void {
   } catch {
     /* ignore */
   }
+  try {
+    const dismissTo = (router as RouterLike & { dismissTo?: (href: Href) => void }).dismissTo;
+    if (typeof dismissTo === 'function') {
+      dismissTo(ROUTES.feed);
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
   safeReplace(router, ROUTES.feed);
 }
 

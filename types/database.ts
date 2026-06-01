@@ -16,6 +16,7 @@ export type NotificationPreferences = {
   comment: boolean;
   mention: boolean;
   follow_request: boolean;
+  new_follower: boolean;
   suggestion: boolean;
 };
 
@@ -36,8 +37,13 @@ export type Profile = {
   streak_shields: number;
   notification_token: string | null;
   notification_preferences?: NotificationPreferences;
-  /** Color theme (`ThemeName`); stored in DB, default `dark`. */
+  /** Color theme (`ThemeName`); stored in DB, default `dark`. Legacy — prefer appearance_mode. */
   app_theme: ThemeName;
+  sparks: number;
+  accent_theme: string;
+  appearance_mode: ThemeName;
+  equipped_border_key: string | null;
+  equipped_title_key: string | null;
   timezone: string;
   is_private: boolean;
   is_admin: boolean;
@@ -103,7 +109,7 @@ export type DailyEvent = {
   challenge?: Challenge;
 };
 
-export type UserEventStatus = 'pending' | 'completed' | 'missed' | 'late';
+export type UserEventStatus = 'pending' | 'completed' | 'missed' | 'late' | 'buy_in_open';
 
 export type UserEvent = {
   id: string;
@@ -113,9 +119,48 @@ export type UserEvent = {
   notified_at: string | null;
   completed_at: string | null;
   expires_at: string;
+  buy_in_at: string | null;
+  streak_before_miss: number | null;
   created_at: string;
   daily_event?: DailyEvent;
   challenge?: Challenge;
+};
+
+export type ShopItemKind = 'theme' | 'border' | 'title';
+
+export type ShopItem = {
+  key: string;
+  kind: ShopItemKind;
+  name: string;
+  price: number;
+  sort_order: number;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type UserShopItem = {
+  user_id: string;
+  item_key: string;
+  purchased_at: string;
+};
+
+export type SparkLedgerReason =
+  | 'challenge_complete'
+  | 'level_up'
+  | 'badge_unlock'
+  | 'buy_in'
+  | 'purchase'
+  | 'welcome_bonus';
+
+export type SparkLedgerEntry = {
+  id: string;
+  user_id: string;
+  delta: number;
+  balance_after: number;
+  reason: SparkLedgerReason;
+  ref_id: string | null;
+  created_at: string;
 };
 
 export type PostType = 'photo' | 'poll_vote' | 'task_complete';
@@ -451,6 +496,24 @@ export type Database = {
         Update: Partial<WeeklyXp>;
         Relationships: [];
       };
+      shop_items: {
+        Row: ShopItem;
+        Insert: Omit<ShopItem, 'created_at'>;
+        Update: Partial<ShopItem>;
+        Relationships: [];
+      };
+      user_shop_items: {
+        Row: UserShopItem;
+        Insert: UserShopItem;
+        Update: Partial<UserShopItem>;
+        Relationships: [];
+      };
+      spark_ledger: {
+        Row: SparkLedgerEntry;
+        Insert: Omit<SparkLedgerEntry, 'id' | 'created_at'>;
+        Update: Partial<SparkLedgerEntry>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -487,6 +550,22 @@ export type Database = {
       level_from_xp: {
         Args: { p_xp: number };
         Returns: number;
+      };
+      purchase_shop_item: {
+        Args: { p_item_key: string };
+        Returns: { item_key: string; sparks: number };
+      };
+      equip_shop_item: {
+        Args: { p_item_key: string };
+        Returns: { item_key: string };
+      };
+      buy_in_today: {
+        Args: Record<string, never>;
+        Returns: { user_event_id: string; sparks: number; expires_at: string };
+      };
+      get_profile_by_username: {
+        Args: { p_username: string };
+        Returns: Profile | null;
       };
     };
   };

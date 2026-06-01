@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
+import { sparksForBadgeTier } from '../../constants/sparks';
 import { BADGE_TIER_COLORS, Spacing, type BadgeTierName } from '../../constants/theme';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
@@ -85,6 +86,9 @@ export function BadgeUnlockModal({
       </Text>
       <Text variant="subhead" color={tierColor} style={{ textTransform: 'capitalize' }}>
         {tier} Tier
+      </Text>
+      <Text variant="body" color={colors.accent} style={{ marginTop: Spacing.xs, fontWeight: '700' }}>
+        +{sparksForBadgeTier(tier)} Sparks
       </Text>
       <View style={styles.tierRow}>
         {TIER_ORDER.map((t) => {

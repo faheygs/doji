@@ -262,6 +262,113 @@ export const darkColors: AppColors = {
 
 export type ThemeName = 'light' | 'dark';
 
+export type AccentThemeKey =
+  | 'doji_orange'
+  | 'neon_blue'
+  | 'forest'
+  | 'orchid'
+  | 'cherry'
+  | 'ocean'
+  | 'sunset'
+  | 'diamond';
+
+export const ACCENT_THEME_CATALOG: Record<
+  AccentThemeKey,
+  { key: AccentThemeKey; name: string; color: string; /** Omitted for the built-in default (not sold in shop). */ price?: number }
+> = {
+  doji_orange: { key: 'doji_orange', name: 'Doji Orange', color: '#FF6B35' },
+  neon_blue: { key: 'neon_blue', name: 'Neon Blue', color: '#2196F3', price: 160 },
+  forest: { key: 'forest', name: 'Forest', color: '#4CAF50', price: 260 },
+  orchid: { key: 'orchid', name: 'Orchid', color: '#9C27B0', price: 320 },
+  cherry: { key: 'cherry', name: 'Cherry', color: '#F44336', price: 420 },
+  ocean: { key: 'ocean', name: 'Ocean', color: '#00BCD4', price: 420 },
+  sunset: { key: 'sunset', name: 'Sunset', color: '#FF9800', price: 520 },
+  diamond: { key: 'diamond', name: 'Diamond', color: '#00D4FF', price: 680 },
+};
+
+export const DEFAULT_ACCENT_THEME: AccentThemeKey = 'doji_orange';
+
+/** Shop-only accent themes (excludes the built-in default). */
+export function isShopAccentTheme(key: AccentThemeKey): boolean {
+  return key !== DEFAULT_ACCENT_THEME;
+}
+
+export function listShopAccentThemes() {
+  return Object.values(ACCENT_THEME_CATALOG).filter((t) => isShopAccentTheme(t.key));
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+function darkenHex(hex: string, factor: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const d = (v: number) => Math.max(0, Math.min(255, Math.round(v * factor)));
+  return `#${d(r).toString(16).padStart(2, '0')}${d(g).toString(16).padStart(2, '0')}${d(b).toString(16).padStart(2, '0')}`;
+}
+
+function lightenHex(hex: string, mix: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const blend = (v: number) => Math.round(v + (255 - v) * mix);
+  return `#${blend(r).toString(16).padStart(2, '0')}${blend(g).toString(16).padStart(2, '0')}${blend(b).toString(16).padStart(2, '0')}`;
+}
+
+/** Apply shop accent color onto light or dark base palette. */
+export function buildThemedColors(mode: ThemeName, accentHex: string): AppColors {
+  const base = mode === 'light' ? lightColors : darkColors;
+  const primaryHover = darkenHex(accentHex, 0.88);
+  const primaryLight = mode === 'light' ? lightenHex(accentHex, 0.92) : `${accentHex}22`;
+  const primaryPale = mode === 'light' ? lightenHex(accentHex, 0.85) : `${accentHex}18`;
+  const accentGlow =
+    mode === 'light'
+      ? `rgba(${hexToRgb(accentHex).r},${hexToRgb(accentHex).g},${hexToRgb(accentHex).b},0.15)`
+      : `rgba(${hexToRgb(accentHex).r},${hexToRgb(accentHex).g},${hexToRgb(accentHex).b},0.22)`;
+
+  return {
+    ...base,
+    primary: accentHex,
+    primaryHover,
+    primaryLight,
+    primaryPale,
+    xpGradientStart: accentHex,
+    xpGradientEnd: base.accent,
+    link: accentHex,
+    accentGlow,
+  };
+}
+
+export function normalizeAccentTheme(raw: unknown): AccentThemeKey {
+  if (typeof raw === 'string' && raw in ACCENT_THEME_CATALOG) {
+    return raw as AccentThemeKey;
+  }
+  return DEFAULT_ACCENT_THEME;
+}
+
+/** Built-in accent — always available without owning the shop item. */
+export function isDefaultAccentTheme(key: string): boolean {
+  return key === DEFAULT_ACCENT_THEME;
+}
+
+/** Use profile accent only when owned; otherwise fall back to the built-in default. */
+export function resolveAccentTheme(
+  profileAccent: string | undefined | null,
+  ownedThemeKeys: Iterable<string>,
+): AccentThemeKey {
+  const accent = normalizeAccentTheme(profileAccent);
+  if (isDefaultAccentTheme(accent)) return DEFAULT_ACCENT_THEME;
+  const owned = new Set(ownedThemeKeys);
+  return owned.has(accent) ? accent : DEFAULT_ACCENT_THEME;
+}
+
+export function isAccentThemeKey(key: string): key is AccentThemeKey {
+  return key in ACCENT_THEME_CATALOG;
+}
+
 /** Used for new installs and before the user picks a theme in Settings. */
 export const DEFAULT_APP_THEME: ThemeName = 'dark';
 

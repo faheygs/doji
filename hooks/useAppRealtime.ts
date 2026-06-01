@@ -131,6 +131,10 @@ export function useAppRealtime(userId: string | undefined) {
           const n = payload.new as
             | { follower_id?: string; following_id?: string; status?: string }
             | undefined;
+          const o = payload.old as
+            | { follower_id?: string; following_id?: string; status?: string }
+            | undefined;
+
           if (payload.eventType === 'INSERT' && n?.following_id === userId && n.status === 'pending') {
             Toast.show({
               type: 'info',
@@ -141,19 +145,35 @@ export function useAppRealtime(userId: string | undefined) {
               'Follow request',
               'Someone wants to follow you on Doji.',
               { type: 'FOLLOW_REQUEST' },
-              'friend_request',
+              'follow_request',
             );
           }
-          if (payload.eventType === 'UPDATE' && n?.follower_id === userId) {
-            if (n.status === 'accepted') {
-              Toast.show({ type: 'success', text1: 'Follow request accepted' });
-              scheduleLocalNotificationIfAllowed(
-                'Follow accepted',
-                'Your follow request was accepted.',
-                { type: 'FOLLOW_ACCEPTED' },
-                'friend_accepted',
-              );
-            }
+          if (payload.eventType === 'INSERT' && n?.following_id === userId && n.status === 'accepted') {
+            Toast.show({
+              type: 'info',
+              text1: 'New follower',
+              text2: 'Someone started following you.',
+            });
+            scheduleLocalNotificationIfAllowed(
+              'New follower',
+              'Someone is now following you on Doji.',
+              { type: 'FOLLOW_NEW' },
+              'new_follower',
+            );
+          }
+          if (
+            payload.eventType === 'UPDATE' &&
+            n?.follower_id === userId &&
+            o?.status === 'pending' &&
+            n.status === 'accepted'
+          ) {
+            Toast.show({ type: 'success', text1: 'Follow request accepted' });
+            scheduleLocalNotificationIfAllowed(
+              'Follow accepted',
+              'Your follow request was accepted.',
+              { type: 'FOLLOW_ACCEPTED' },
+              'follow_accepted',
+            );
           }
         },
       )
@@ -292,18 +312,60 @@ export function useAppRealtime(userId: string | undefined) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
         (
-          payload: RealtimePostgresChangesPayload<{ id?: string } | Record<string, never>>,
+          payload: RealtimePostgresChangesPayload<
+            | {
+                id?: string;
+                equipped_border_key?: string | null;
+                equipped_title_key?: string | null;
+                accent_theme?: string;
+              }
+            | Record<string, never>
+          >,
         ) => {
-          const row = payload.new ?? payload.old;
-          const touchedId =
-            row && typeof row === 'object' && 'id' in row ? (row as { id?: string }).id : undefined;
+          const row = (payload.new ?? payload.old) as
+            | {
+                id?: string;
+                equipped_border_key?: string | null;
+                equipped_title_key?: string | null;
+                accent_theme?: string;
+              }
+            | undefined;
+          const touchedId = row?.id;
           if (touchedId === userId) {
             void useAuthStore.getState().fetchProfile(userId);
           }
-          queryClient.invalidateQueries({ queryKey: ['profile'] });
+          queryClient.invalidateQueries({
+            predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'profile',
+          });
           queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
           queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-          scheduleFeedInvalidate();
+
+          const cosmeticChanged =
+            payload.eventType === 'UPDATE' &&
+            row &&
+            ('equipped_border_key' in (payload.new ?? {}) ||
+              'equipped_title_key' in (payload.new ?? {}) ||
+              'accent_theme' in (payload.new ?? {}));
+
+          if (cosmeticChanged) {
+            void queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
+          } else {
+            scheduleFeedInvalidate();
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_shop_items' },
+        (payload: RealtimePostgresChangesPayload<{ user_id?: string }>) => {
+          const uid = (payload.new as { user_id?: string } | undefined)?.user_id ??
+            (payload.old as { user_id?: string } | undefined)?.user_id;
+          if (uid) {
+            void queryClient.invalidateQueries({ queryKey: ['ownedShopItems', uid] });
+          }
+          if (uid === userId) {
+            void useAuthStore.getState().fetchProfile(userId);
+          }
         },
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_events' }, () => {

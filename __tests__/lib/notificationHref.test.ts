@@ -59,6 +59,14 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_ACCEPTED' })).toBe('/(app)/friends');
   });
 
+  it('returns friends for FOLLOW_ACCEPTED', () => {
+    expect(notificationHrefFromData({ type: 'FOLLOW_ACCEPTED' })).toBe('/(app)/friends');
+  });
+
+  it('returns friends for FOLLOW_NEW', () => {
+    expect(notificationHrefFromData({ type: 'FOLLOW_NEW' })).toBe('/(app)/friends');
+  });
+
   it('returns post href for REACTION with postId', () => {
     expect(notificationHrefFromData({ type: 'REACTION', postId: 'abc-123' })).toBe(
       '/(app)/post/abc-123',

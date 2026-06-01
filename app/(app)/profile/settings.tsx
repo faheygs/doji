@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { Spacing, Radius, webScrollParentStyle, type ThemeName } from '@/constants/theme';
+import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Input } from '@/components/ui/Input';
@@ -90,7 +90,7 @@ export default function SettingsScreen() {
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { profile, updateProfile, signOut } = useAuthStore();
-  const { colors, setPreference, preference, isDark } = useTheme();
+  const { colors } = useTheme();
   const [editOpen, setEditOpen] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [usernameEdit, setUsernameEdit] = useState(profile?.username ?? '');
@@ -183,20 +183,6 @@ export default function SettingsScreen() {
       setSaving(false);
     }
   };
-
-  const handleThemeToggle = useCallback(
-    async (dark: boolean) => {
-      const next: ThemeName = dark ? 'dark' : 'light';
-      if (next === preference) return;
-      Haptics.selectionAsync();
-      try {
-        await setPreference(next);
-      } catch {
-        Toast.show({ type: 'error', text1: 'Failed to save theme' });
-      }
-    },
-    [preference, setPreference],
-  );
 
   const handlePrivacyToggle = useCallback(
     async (next: boolean) => {
@@ -352,16 +338,20 @@ export default function SettingsScreen() {
         </Text>
         <View style={styles.group}>
           <SettingsRow
-            label="Dark mode"
-            subtitle="Use dark background"
-            showChevron={false}
-            right={
-              <Switch
-                value={isDark}
-                onValueChange={handleThemeToggle}
-                trackColor={{ false: colors.border, true: colors.primary }}
-              />
-            }
+            label="Themes & colors"
+            subtitle="Accent colors and appearance"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/profile/appearance', pathname));
+            }}
+          />
+          <SettingsRow
+            label="Shop"
+            subtitle="Spend Sparks on themes, frames, and titles"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
+            }}
             isLast
           />
         </View>

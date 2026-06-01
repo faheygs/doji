@@ -94,12 +94,18 @@ export function FullScreenCelebrationShell({
         },
         content: {
           width: '100%',
+          maxWidth: 400,
           alignItems: 'center',
           gap: Spacing.md,
+          paddingVertical: Spacing.lg,
         },
       }),
     [backgroundColor],
   );
+
+  if (!visible) {
+    return null;
+  }
 
   return (
     <Modal

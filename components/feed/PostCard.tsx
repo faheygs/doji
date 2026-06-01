@@ -19,10 +19,13 @@ import { IconLock } from '../icons/Icons';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { getEquippedBorder } from '../../lib/cosmetics';
+import type { FeedAudience } from '../../lib/feedAudience';
 
 type Props = {
   post: Post;
   blurred: boolean;
+  feedAudience?: FeedAudience;
 };
 
 function reactionBreakdownSig(p: Post): string {
@@ -63,7 +66,7 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
   return true;
 }
 
-function PostCardImpl({ post, blurred }: Props) {
+function PostCardImpl({ post, blurred, feedAudience = 'everyone' }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
@@ -260,13 +263,19 @@ function PostCardImpl({ post, blurred }: Props) {
         ) : (
           <>
             <View style={styles.pollBodyWrap}>
-              <PollResultCard challenge={c} variant="embedded" fetchEnabled />
+              <PollResultCard
+                challenge={c}
+                variant="embedded"
+                fetchEnabled
+                feedAudience={feedAudience}
+              />
             </View>
             <ReactionBar
               post={post}
               blurred={false}
               showTopBorder={false}
               onOpenComments={openComments}
+              feedAudience={feedAudience}
             />
             <PostCommentsSheet
               visible={commentsOpen}
@@ -301,6 +310,8 @@ function PostCardImpl({ post, blurred }: Props) {
             uri={post.profile?.avatar_url}
             username={post.profile?.username}
             size={36}
+            borderColor={getEquippedBorder(post.profile)?.color}
+            borderWidth={getEquippedBorder(post.profile)?.width}
           />
           <View style={styles.nameContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
@@ -400,6 +411,7 @@ function PostCardImpl({ post, blurred }: Props) {
             post={post}
             blurred={false}
             onOpenComments={openComments}
+            feedAudience={feedAudience}
           />
           <PostCommentsSheet
             visible={commentsOpen}
@@ -417,5 +429,6 @@ function PostCardImpl({ post, blurred }: Props) {
 
 export const PostCard = React.memo(PostCardImpl, (prev, next) => {
   if (prev.blurred !== next.blurred) return false;
+  if (prev.feedAudience !== next.feedAudience) return false;
   return postsVisuallyEqual(prev.post, next.post);
 });

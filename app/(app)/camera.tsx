@@ -33,7 +33,8 @@ import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
 import { XpGainOverlay } from '../../components/gamification/XpGainOverlay';
-import { buildXpOverlayPayload, type XpOverlayPayload } from '../../lib/challengeComplete';
+import { useChallengeCompleteOverlay } from '../../hooks/useChallengeCompleteOverlay';
+import { buildXpOverlayPayload } from '../../lib/challengeComplete';
 import { required, validationMessage } from '../../lib/formValidation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -69,7 +70,7 @@ export default function CameraScreen() {
     clearCaptures,
   } = useChallengeStore();
   const createPost = useCreatePost();
-  const [xpOverlay, setXpOverlay] = useState<XpOverlayPayload | null>(null);
+  const { xpOverlay, setXpOverlay, dismissToFeed } = useChallengeCompleteOverlay();
 
   const challenge = userEvent?.challenge;
   const needPhoto = challenge?.requires_photo ?? true;
@@ -263,7 +264,11 @@ export default function CameraScreen() {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
-          setXpOverlay(buildXpOverlayPayload('photo', challenge?.xp_reward));
+          setXpOverlay(
+            buildXpOverlayPayload('photo', challenge?.xp_reward, {
+              fromBuyIn: userEvent?.status === 'buy_in_open',
+            }),
+          );
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
@@ -405,16 +410,16 @@ export default function CameraScreen() {
   if (flowStep === 'preview' && canPreview) {
     return (
       <>
-        <XpGainOverlay
-          visible={!!xpOverlay}
-          amount={xpOverlay?.amount ?? 0}
-          xp={xpOverlay?.xp ?? 0}
-          level={xpOverlay?.level ?? 1}
-          onComplete={() => {
-            setXpOverlay(null);
-            navigateToFeedAfterChallengeComplete(router);
-          }}
-        />
+        {xpOverlay ? (
+          <XpGainOverlay
+            visible
+            amount={xpOverlay.amount}
+            sparks={xpOverlay.sparks}
+            xp={xpOverlay.xp}
+            level={xpOverlay.level}
+            onComplete={dismissToFeed}
+          />
+        ) : null}
         <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

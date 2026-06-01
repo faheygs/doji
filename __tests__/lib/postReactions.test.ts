@@ -49,6 +49,19 @@ describe('attachReactionFields', () => {
     expect(result[0].my_reactions).toEqual([]);
   });
 
+  it('scopes reaction_breakdown to followed users on friends feed', async () => {
+    setupReactionsMock([
+      { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
+      { post_id: 'p1', emoji: 'fire', user_id: 'user-2' },
+      { post_id: 'p1', emoji: 'heart', user_id: 'user-3' },
+    ]);
+
+    const result = await attachReactionFields([{ id: 'p1' }], 'user-1', ['user-1', 'user-2']);
+
+    expect(result[0].reaction_breakdown).toEqual({ fire: 2 });
+    expect(result[0].my_reactions).toEqual(['fire']);
+  });
+
   it('throws when supabase returns an error', async () => {
     const chain = {
       select: jest.fn().mockReturnThis(),

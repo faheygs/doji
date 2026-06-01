@@ -21,6 +21,9 @@ export function notificationHrefFromData(data: unknown): Href | null {
   if (type === 'FRIEND_ACCEPTED' || type === 'FOLLOW_ACCEPTED') {
     return '/(app)/friends';
   }
+  if (type === 'FOLLOW_NEW') {
+    return '/(app)/friends';
+  }
   if (type === 'FRIEND_POST') return FEED_TAB_HREF;
   if (type === 'SUGGESTION_APPROVED' || type === 'SUGGESTION_REJECTED') {
     return '/(app)/profile' as Href;

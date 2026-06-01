@@ -3,6 +3,7 @@ import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -15,6 +16,12 @@ import {
 } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
+import { canBuyIn, canAffordBuyIn } from '../../lib/participationGate';
+import { useSparksBalance } from '../../hooks/useSparks';
+import { useBuyInToday } from '../../hooks/useBuyIn';
+import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
+import { SparksPill } from '../economy/SparksPill';
+import { BuyInSheet } from '../economy/BuyInSheet';
 
 type Props = {
   userEvent: UserEvent | null;
@@ -23,14 +30,15 @@ type Props = {
 export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
+  const sparks = useSparksBalance();
+  const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
+  const [buyInVisible, setBuyInVisible] = useState(false);
 
-  // Tracks seconds until fires_at (positive = future, negative = past)
   const [secondsUntil, setSecondsUntil] = useState<number>(() => {
     if (!userEvent?.daily_event?.fires_at) return 0;
     return secondsUntilFiresAt(userEvent.daily_event.fires_at);
   });
 
-  // Tracks window-expiry countdown for the live banner
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   useEffect(() => {
@@ -131,6 +139,12 @@ export function ChallengeBanner({ userEvent }: Props) {
           padding: Spacing.md,
           gap: Spacing.sm,
         },
+        buyInBtn: {
+          backgroundColor: colors.primary,
+          borderRadius: Radius.sm,
+          paddingVertical: Spacing.sm,
+          paddingHorizontal: Spacing.md,
+        },
         iconCircle: {
           width: 44,
           height: 44,
@@ -167,7 +181,21 @@ export function ChallengeBanner({ userEvent }: Props) {
     router.push('/(app)/challenge');
   };
 
-  // No enrolled today’s event yet — don’t show a placeholder until one exists.
+  const handleBuyIn = async () => {
+    try {
+      await buyIn();
+      setBuyInVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push('/(app)/challenge');
+    } catch (e) {
+      Toast.show({
+        type: 'error',
+        text1: 'Buy-in failed',
+        text2: e instanceof Error ? e.message : 'Try again',
+      });
+    }
+  };
+
   if (!userEvent) {
     return null;
   }
@@ -181,18 +209,81 @@ export function ChallengeBanner({ userEvent }: Props) {
     return null;
   }
 
-  if (userEvent.status === 'missed' || isExpired(userEvent.expires_at)) {
+  if (userEvent.status === 'buy_in_open' && !isExpired(userEvent.expires_at)) {
+    const buyInSecondsLeft = Math.max(
+      0,
+      Math.floor((new Date(userEvent.expires_at).getTime() - Date.now()) / 1000),
+    );
     return (
-      <View style={styles.missedBanner}>
-        <View style={{ flex: 1 }}>
-          <Text variant="micro" color={colors.textSecondary}>MISSED</Text>
-          <Text variant="body" color={colors.textSecondary}>Next drop coming soon</Text>
-        </View>
-      </View>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+        <LinearGradient
+          colors={[colors.xpGradientStart, colors.xpGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.banner}
+        >
+          <View style={styles.bannerBody}>
+            <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+              BUY-IN OPEN
+            </Text>
+            <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={1}>
+              Complete today&apos;s Doji
+            </Text>
+          </View>
+          <View style={styles.timer}>
+            <Text variant="label" style={styles.timerDigits}>
+              {formatMinutesSecondsCountdown(buyInSecondsLeft)}
+            </Text>
+            <Text variant="subhead" style={{ color: colors.onPrimary }}>
+              GO →
+            </Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     );
   }
 
-  // Locked — fires_at is more than 10 seconds away
+  if (userEvent.status === 'missed' || (userEvent.status === 'pending' && isExpired(userEvent.expires_at))) {
+    const showBuyIn = canBuyIn(userEvent) && eligible;
+    const canPay = canAffordBuyIn(sparks);
+
+    return (
+      <>
+        <View style={styles.missedBanner}>
+          <Text variant="body" color={colors.textSecondary} style={{ flex: 1 }}>
+            Missed today&apos;s Doji
+          </Text>
+          {showBuyIn && canPay ? (
+            <TouchableOpacity
+              style={styles.buyInBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setBuyInVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
+            >
+              <Text variant="label" color={colors.onPrimary}>
+                Buy in · {SPARKS_BUY_IN_COST} Sparks
+              </Text>
+            </TouchableOpacity>
+          ) : showBuyIn ? (
+            <SparksPill amount={sparks} compact />
+          ) : null}
+        </View>
+        <BuyInSheet
+          visible={buyInVisible}
+          userEvent={userEvent}
+          challenge={challenge}
+          sparksBalance={sparks}
+          onConfirm={handleBuyIn}
+          onClose={() => setBuyInVisible(false)}
+          loading={isPending}
+        />
+      </>
+    );
+  }
+
   if (secondsUntil > 10) {
     return (
       <View style={styles.lockedBanner}>
@@ -212,7 +303,6 @@ export function ChallengeBanner({ userEvent }: Props) {
     );
   }
 
-  // Countdown — fires_at is 0–10 seconds away
   if (secondsUntil > 0) {
     return (
       <View style={styles.countdownWrapper}>
@@ -229,7 +319,6 @@ export function ChallengeBanner({ userEvent }: Props) {
     );
   }
 
-  // Live — fires_at has passed, challenge is active
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
       <LinearGradient

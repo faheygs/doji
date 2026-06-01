@@ -1,4 +1,4 @@
-import type { Badge, BadgeTier, BadgeTierName } from '@/types/database';
+import type { Badge, BadgeTier, BadgeTierName, UserBadgeProgress } from '@/types/database';
 
 const TIER_ORDER: BadgeTierName[] = ['bronze', 'silver', 'gold', 'diamond'];
 
@@ -201,4 +201,30 @@ export function displayTierForCategory(
   if (!unlockedTier) return statsTier;
   if (!statsTier) return unlockedTier;
   return tierRank(statsTier) >= tierRank(unlockedTier) ? statsTier : unlockedTier;
+}
+
+/** Individual tier milestones earned (bronze/silver/gold/diamond each count), vs all tier slots. */
+export function countEarnedBadgeTiers(
+  tiers: BadgeTier[],
+  progress: UserBadgeProgress[],
+  stats: BadgeProgressStats | null | undefined,
+): { earned: number; total: number } {
+  const total = tiers.length;
+  if (total === 0) return { earned: 0, total: 0 };
+
+  const progressMap = new Map(progress.map((p) => [p.category_id, p]));
+  let earned = 0;
+
+  for (const tierDef of tiers) {
+    if (stats && isTierCriteriaMet(tierDef, stats)) {
+      earned += 1;
+      continue;
+    }
+    const dbTier = progressMap.get(tierDef.category_id)?.current_tier;
+    if (dbTier && tierRank(dbTier) >= tierRank(tierDef.tier)) {
+      earned += 1;
+    }
+  }
+
+  return { earned, total };
 }

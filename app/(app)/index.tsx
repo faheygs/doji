@@ -238,8 +238,10 @@ export default function FeedScreen() {
   }, []);
 
   const renderPost = useCallback(
-    ({ item }: { item: Post }) => <PostCard post={item} blurred={shouldBlur} />,
-    [shouldBlur],
+    ({ item }: { item: Post }) => (
+      <PostCard post={item} blurred={shouldBlur} feedAudience={audience} />
+    ),
+    [shouldBlur, audience],
   );
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
@@ -342,7 +344,7 @@ export default function FeedScreen() {
   const emptyCopy = useMemo(() => {
     if (audience === 'friends') {
       return {
-        emptyHeading: 'Nothing from friends yet',
+        emptyHeading: 'Nothing from people you follow yet',
         emptyBody: 'Follow people to see their responses here.',
       };
     }
@@ -410,6 +412,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={outerStyle}>
       <FlatList
+        key={audience}
         style={webScrollParentStyle}
         data={posts}
         keyExtractor={keyExtractorPost}

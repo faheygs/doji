@@ -7,17 +7,7 @@ import type { LeaderboardEntry, Profile } from '../types/database';
 export type LeaderboardMode = 'weekly' | 'alltime';
 export type LeaderboardAudience = 'friends' | 'everyone';
 
-async function acceptedFollowingIds(viewerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', viewerId)
-    .eq('status', 'accepted');
-
-  if (error) throw error;
-  const ids = (data ?? []).map((r: { following_id: string }) => r.following_id);
-  return [...new Set([viewerId, ...ids])];
-}
+import { getAcceptedFollowingIds } from '../lib/followGraph';
 
 function rankEntries(
   rows: { user_id: string; xp: number; profile: LeaderboardEntry['profile'] }[],
@@ -42,7 +32,7 @@ export function useLeaderboard(
     queryKey: ['leaderboard', mode, audience, userId, mode === 'weekly' ? currentWeek : 'all'],
     queryFn: async () => {
       const friendIds =
-        audience === 'friends' && userId ? await acceptedFollowingIds(userId) : null;
+        audience === 'friends' && userId ? await getAcceptedFollowingIds(userId) : null;
 
       let profileQuery = supabase.from('profiles').select('*').order('xp', { ascending: false });
 

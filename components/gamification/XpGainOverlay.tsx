@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,15 +8,17 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Spacing } from '../../constants/theme';
+import { Spacing, Radius } from '../../constants/theme';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
+import { IconSpark } from '../icons/IconSpark';
 import { XPBar } from './XPBar';
 import { FullScreenCelebrationShell } from './FullScreenCelebrationShell';
 
 type Props = {
   visible: boolean;
   amount: number;
+  sparks?: number;
   xp: number;
   level: number;
   subtitle?: string;
@@ -27,6 +29,7 @@ type Props = {
 export function XpGainOverlay({
   visible,
   amount,
+  sparks,
   xp,
   level,
   subtitle = 'Challenge complete!',
@@ -55,19 +58,57 @@ export function XpGainOverlay({
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        hero: {
+          alignItems: 'center',
+          gap: Spacing.sm,
+          paddingVertical: Spacing.md,
+          width: '100%',
+        },
         amount: {
-          fontSize: 52,
+          fontSize: 48,
+          lineHeight: 56,
           fontWeight: '900',
-          letterSpacing: -0.02,
+          letterSpacing: -1,
           color: colors.xpGold,
           textAlign: 'center',
+          ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
         },
-        xpBarWrap: {
+        sparksRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+        },
+        sparksText: {
+          fontSize: 18,
+          lineHeight: 24,
+          fontWeight: '700',
+          color: colors.accent,
+          textAlign: 'center',
+          ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+        },
+        subtitle: {
+          textAlign: 'center',
+          marginTop: Spacing.xs,
+        },
+        progressCard: {
           width: '100%',
-          marginTop: Spacing.sm,
+          maxWidth: 340,
+          marginTop: Spacing.lg,
+          padding: Spacing.md,
+          borderRadius: Radius.lg,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          gap: Spacing.md,
+        },
+        cta: {
+          marginTop: Spacing.lg,
+          minWidth: 200,
+          alignSelf: 'center',
         },
       }),
-    [colors.xpGold],
+    [colors],
   );
 
   return (
@@ -76,17 +117,27 @@ export function XpGainOverlay({
       onRequestClose={onComplete}
       backgroundColor={colors.background}
       showParticles={false}
+      contentStyle={{ gap: Spacing.lg, maxWidth: 360 }}
     >
-      <Animated.View style={amountAnimStyle}>
+      <Animated.View style={[styles.hero, amountAnimStyle]}>
         <Text style={styles.amount}>+{amount.toLocaleString()} XP</Text>
+        {sparks != null && sparks > 0 ? (
+          <View style={styles.sparksRow}>
+            <IconSpark size={18} />
+            <Text style={styles.sparksText}>+{sparks.toLocaleString()} Sparks</Text>
+          </View>
+        ) : null}
       </Animated.View>
-      <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+
+      <Text variant="body" color={colors.textSecondary} style={styles.subtitle}>
         {subtitle}
       </Text>
-      <View style={styles.xpBarWrap}>
+
+      <View style={styles.progressCard}>
         <XPBar xp={xp} level={level} />
       </View>
-      <Button onPress={onComplete} size="md" style={{ marginTop: Spacing.lg, minWidth: 200 }}>
+
+      <Button onPress={onComplete} size="md" style={styles.cta}>
         {dismissLabel}
       </Button>
     </FullScreenCelebrationShell>

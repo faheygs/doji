@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Follow, Profile } from '../types/database';
+import { normalizeEmbeddedProfile } from '../lib/notificationCopy';
 
 /** Viewer-relative follow state between the signed-in user and a target profile. */
 export type ViewerFollowStatus = 'none' | 'pending_out' | 'pending_in' | 'following' | 'blocked';
@@ -87,14 +88,12 @@ export function useFollow() {
       if (profileError) throw profileError;
 
       const isPrivate = !!(target as { is_private?: boolean } | null)?.is_private;
-      const now = new Date().toISOString();
       const status = isPrivate ? 'pending' : 'accepted';
 
       const { error } = await supabase.from('follows').insert({
         follower_id: me,
         following_id: targetUserId,
         status,
-        ...(status === 'accepted' ? { accepted_at: now } : {}),
       });
 
       if (error) throw error;
@@ -217,7 +216,10 @@ export function useFollowRequests() {
         .eq('status', 'pending');
 
       if (error) throw error;
-      return (data ?? []) as FollowRequest[];
+      return ((data ?? []) as (Follow & { follower?: Profile | Profile[] | null })[]).map((row) => ({
+        ...row,
+        follower: normalizeEmbeddedProfile(row.follower),
+      }));
     },
     enabled: !!me,
   });
@@ -315,7 +317,8 @@ export function invalidateFollowQueries(queryClient: QueryClient, me?: string) {
         q.queryKey[0] === 'followerCount' ||
         q.queryKey[0] === 'followingCount' ||
         q.queryKey[0] === 'followCounts' ||
-        q.queryKey[0] === 'followStatusesBulk'),
+        q.queryKey[0] === 'followStatusesBulk' ||
+        q.queryKey[0] === 'followingIds'),
   });
   if (me) {
     queryClient.invalidateQueries({ queryKey: ['following', me] });

@@ -15,15 +15,23 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
-import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { IconBell, IconClose } from '../icons/Icons';
 import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
+import { NotificationActorRow } from './NotificationActorRow';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
 import { useRespondToFollowRequest } from '../../hooks/useFollows';
-import { formatRelativeTime } from '../../utils/time';
+import {
+  followRequestCopy,
+  followAcceptedCopy,
+  newFollowerCopy,
+  reactionActorsLine,
+  challengeCopy,
+  notificationActorHandle,
+} from '../../lib/notificationCopy';
+import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
 type Props = {
@@ -79,20 +87,24 @@ export function NotificationSheet({
         },
         card: {
           padding: Spacing.md,
-          gap: Spacing.md,
-        },
-        userRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-        },
-        userMeta: {
-          flex: 1,
-          gap: 2,
         },
         actions: {
           flexDirection: 'row',
           gap: Spacing.sm,
+        },
+        reactionLeading: {
+          width: 44,
+          height: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        challengeLeading: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.primaryLight,
+          alignItems: 'center',
+          justifyContent: 'center',
         },
         empty: {
           alignItems: 'center',
@@ -124,18 +136,6 @@ export function NotificationSheet({
           alignItems: 'center',
           paddingTop: Spacing.xxl,
         },
-        rowTitle: {
-          marginBottom: Spacing.xs,
-        },
-        reactionMeta: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-          marginTop: 2,
-        },
-        reactionCount: {
-          marginTop: 2,
-        },
         dismissAction: {
           justifyContent: 'center',
           alignItems: 'center',
@@ -155,9 +155,10 @@ export function NotificationSheet({
 
   const openProfile = useCallback(
     (username: string | undefined) => {
-      if (!username) return;
+      const handle = username ? normalizeUsernameInput(username) : '';
+      if (!handle) return;
       Haptics.selectionAsync();
-      router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
+      router.push(hrefWithReturnTo(`/(app)/member/${handle}`, pathname));
     },
     [router, pathname],
   );
@@ -186,135 +187,124 @@ export function NotificationSheet({
 
       switch (item.kind) {
         case 'follow_request': {
-          const fr = item.follow;
-          const requester = fr.follower;
+          const requester = item.follow.follower;
+          const copy = followRequestCopy(requester);
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <TouchableOpacity
-                onPress={() => openProfile(requester?.username)}
-                style={styles.userRow}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`Follow request from ${requester?.username ?? 'user'}`}
-              >
-                <Avatar uri={requester?.avatar_url} username={requester?.username} size={44} />
-                <View style={styles.userMeta}>
-                  <Text variant="headingMedium">{requester?.display_name ?? 'Someone'}</Text>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    @{requester?.username ?? '…'} wants to follow you ·{' '}
-                    {formatRelativeTime(fr.created_at)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              <View style={styles.actions}>
-                <Button
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    respond.mutate({ followId: fr.id, accept: true });
-                  }}
-                  size="sm"
-                  loading={respond.isPending}
-                >
-                  Accept
-                </Button>
-                <Button
-                  onPress={() => respond.mutate({ followId: fr.id, accept: false })}
-                  size="sm"
-                  variant="ghost"
-                  loading={respond.isPending}
-                >
-                  Decline
-                </Button>
-              </View>
+              <NotificationActorRow
+                actor={requester}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openProfile(notificationActorHandle(requester))}
+                footer={
+                  <View style={styles.actions}>
+                    <Button
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        respond.mutate({ followId: item.follow.id, accept: true });
+                      }}
+                      size="sm"
+                      loading={respond.isPending}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      onPress={() => respond.mutate({ followId: item.follow.id, accept: false })}
+                      size="sm"
+                      variant="ghost"
+                      loading={respond.isPending}
+                    >
+                      Decline
+                    </Button>
+                  </View>
+                }
+              />
             </Card>
           );
           break;
         }
         case 'follow_accepted': {
-          const f = item.follow;
-          const following = f.following;
+          const following = item.follow.following;
+          const copy = followAcceptedCopy(following);
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <TouchableOpacity
-                onPress={() => openProfile(following?.username)}
-                style={styles.userRow}
-                activeOpacity={0.85}
-              >
-                <Avatar uri={following?.avatar_url} username={following?.username} size={44} />
-                <View style={styles.userMeta}>
-                  <Text variant="headingMedium" style={styles.rowTitle}>
-                    Follow accepted
-                  </Text>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    @{following?.username ?? '…'} accepted your follow ·{' '}
-                    {formatRelativeTime(item.sortAt)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <NotificationActorRow
+                actor={following}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openProfile(notificationActorHandle(following))}
+              />
+            </Card>
+          );
+          break;
+        }
+        case 'new_follower': {
+          const follower = item.follow.follower;
+          const copy = newFollowerCopy(follower);
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                actor={follower}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openProfile(notificationActorHandle(follower))}
+              />
             </Card>
           );
           break;
         }
         case 'reactions_group': {
           const shown = item.actors.slice(0, 3);
-          const primary = shown[0];
-          const extraUsers = Math.max(0, item.actors.length - 1);
-          const nameLine =
-            extraUsers === 0
-              ? `@${primary?.username ?? 'someone'}`
-              : extraUsers === 1
-                ? `@${primary?.username ?? 'someone'} and 1 other`
-                : `@${primary?.username ?? 'someone'} and ${extraUsers} others`;
+          const copy = reactionActorsLine(item.actors);
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <View style={styles.userRow}>
-                <AvatarStack
-                  users={shown.map((a) => ({
-                    avatar_url: a.avatar_url,
-                    username: a.username,
-                  }))}
-                  size={40}
-                  max={3}
-                  borderColor={colors.background}
-                />
-                <View style={[styles.userMeta, { flex: 1 }]}>
-                  <Text variant="headingMedium" style={styles.rowTitle}>
-                    Reactions on your post
-                  </Text>
-                  <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>
-                    {nameLine}
-                  </Text>
-                  <View style={styles.reactionMeta}>
+              <NotificationActorRow
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                leading={
+                  <View style={styles.reactionLeading}>
+                    <AvatarStack
+                      users={shown.map((a) => ({
+                        avatar_url: a.avatar_url,
+                        username: a.username ?? undefined,
+                      }))}
+                      size={40}
+                      max={3}
+                      borderColor={colors.background}
+                    />
+                  </View>
+                }
+                footer={
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
                     <ReactionIconRow emojis={item.emojis} colors={colors} size={15} />
                     <Text variant="micro" color={colors.textTertiary}>
-                      · {formatRelativeTime(item.sortAt)}
+                      {item.count} reaction{item.count === 1 ? '' : 's'}
                     </Text>
                   </View>
-                  <Text variant="micro" color={colors.textTertiary} style={styles.reactionCount}>
-                    {item.count} reaction{item.count === 1 ? '' : 's'}
-                  </Text>
-                </View>
-              </View>
+                }
+              />
             </Card>
           );
           break;
         }
         case 'challenge': {
-          const ue = item.userEvent;
-          const title = ue.challenge?.title ?? 'Challenge';
+          const copy = challengeCopy(item.userEvent.challenge?.title);
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <View style={styles.userMeta}>
-                <Text variant="headingMedium" style={styles.rowTitle}>
-                  Challenge ready
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>
-                  {title} · {formatRelativeTime(item.sortAt)}
-                </Text>
-                <Text variant="micro" color={colors.textTertiary}>
-                  Open the Home tab to start today&apos;s challenge.
-                </Text>
-              </View>
+              <NotificationActorRow
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                leading={
+                  <View style={styles.challengeLeading}>
+                    <IconBell size={22} color={colors.primary} />
+                  </View>
+                }
+              />
             </Card>
           );
           break;
@@ -325,7 +315,9 @@ export function NotificationSheet({
 
       return (
         <Swipeable
-          ref={(ref) => { swipeableRefs.current.set(item.key, ref); }}
+          ref={(ref) => {
+            swipeableRefs.current.set(item.key, ref);
+          }}
           renderRightActions={() => renderRightActions(item.key)}
           friction={2}
           rightThreshold={40}
@@ -336,19 +328,14 @@ export function NotificationSheet({
       );
     },
     [
-      colors.textSecondary,
-      colors.textTertiary,
-      colors.background,
+      colors,
       openProfile,
       renderRightActions,
       respond,
       styles.actions,
       styles.card,
-      styles.rowTitle,
-      styles.userMeta,
-      styles.userRow,
-      styles.reactionMeta,
-      styles.reactionCount,
+      styles.challengeLeading,
+      styles.reactionLeading,
     ],
   );
 
@@ -389,9 +376,7 @@ export function NotificationSheet({
                 <IconBell size={44} color={colors.textTertiary} />
                 <Text variant="headingMedium">{"You're all caught up"}</Text>
                 <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>
-                  {
-                    "Friend requests, acceptances, reactions on your posts, and new challenges appear here. We'll ping you when something lands."
-                  }
+                  Follow requests, new followers, reactions, and today&apos;s Doji show up here.
                 </Text>
               </View>
             }

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useQuery } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -21,12 +22,16 @@ import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { usePostReactions } from '../../hooks/useFeed';
+import { getAcceptedFollowingIds } from '../../lib/followGraph';
+import { useAuthStore } from '../../stores/useAuthStore';
+import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
 
 type Props = {
   visible: boolean;
   postId: string;
   emojiFilter?: ReactionEmoji | null;
+  feedAudience?: FeedAudience;
   onClose: () => void;
 };
 
@@ -35,13 +40,33 @@ function reactionLabel(emoji: ReactionEmoji): string {
   return REACTION_CONTROLS.find((r) => r.emoji === key)?.label ?? emoji;
 }
 
-export function ReactionVotersSheet({ visible, postId, emojiFilter, onClose }: Props) {
+export function ReactionVotersSheet({
+  visible,
+  postId,
+  emojiFilter,
+  feedAudience = 'everyone',
+  onClose,
+}: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const userId = useAuthStore((s) => s.session?.user?.id);
+  const isFriendsScope = feedAudience === 'friends';
+
+  const { data: followingIds = [], isFetched: followingIdsReady } = useQuery({
+    queryKey: ['followingIds', userId],
+    queryFn: () => getAcceptedFollowingIds(userId!),
+    enabled: visible && isFriendsScope && !!userId,
+    staleTime: 30_000,
+  });
+
+  const scopeUserIds = isFriendsScope ? followingIds : undefined;
+  const scopeReady = !isFriendsScope || followingIdsReady;
+
   const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = usePostReactions(
-    visible ? postId : '',
+    visible && scopeReady ? postId : '',
+    scopeUserIds,
   );
 
   const allReactions = useMemo(
@@ -147,6 +172,7 @@ export function ReactionVotersSheet({ visible, postId, emojiFilter, onClose }: P
   const title = emojiFilter
     ? `${reactionLabel(emojiFilter)} · ${reactions.length}${hasNextPage ? '+' : ''}`
     : `Reactions · ${reactions.length}${hasNextPage ? '+' : ''}`;
+  const scopedTitle = isFriendsScope ? `${title} · people you follow` : title;
 
   const renderItem = useCallback(
     ({ item }: { item: Reaction }) => {
@@ -190,7 +216,7 @@ export function ReactionVotersSheet({ visible, postId, emojiFilter, onClose }: P
           <View style={styles.grab} />
           <View style={styles.headRow}>
             <Text variant="headingMedium" numberOfLines={1} style={styles.title}>
-              {title}
+              {scopedTitle}
             </Text>
             <TouchableOpacity
               onPress={handleClose}
@@ -210,7 +236,7 @@ export function ReactionVotersSheet({ visible, postId, emojiFilter, onClose }: P
           ) : reactions.length === 0 ? (
             <View style={styles.centered}>
               <Text variant="body" color={colors.textSecondary}>
-                No reactions yet.
+                {isFriendsScope ? 'No reactions from people you follow yet.' : 'No reactions yet.'}
               </Text>
             </View>
           ) : (

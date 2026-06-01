@@ -3,24 +3,39 @@ import { supabase } from '../lib/supabase';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import { FALLBACK_AVATAR_GRADIENT } from '../constants/theme';
+import { normalizeUsernameInput } from './useUsernameAvailability';
 import type { Profile, Post, Friendship, FriendshipWithRequester } from '../types/database';
 
+function parseProfileRow(data: unknown): Profile | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Profile;
+  if (!row.id || !row.username) return null;
+  if (!Array.isArray(row.avatar_gradient) || row.avatar_gradient.length < 2) {
+    row.avatar_gradient = [...FALLBACK_AVATAR_GRADIENT];
+  }
+  return row;
+}
+
 export function useProfile(username?: string) {
+  const normalized = username ? normalizeUsernameInput(username) : '';
+
   return useQuery({
-    queryKey: ['profile', username],
+    queryKey: ['profile', normalized],
     queryFn: async (): Promise<Profile | null> => {
-      if (!username) return null;
+      if (!normalized) return null;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('username', username)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_profile_by_username', {
+        p_username: normalized,
+      });
 
-      if (error) return null;
-      return data;
+      if (error) {
+        if (__DEV__) console.warn('[useProfile]', error.message);
+        return null;
+      }
+
+      return parseProfileRow(data);
     },
-    enabled: !!username,
+    enabled: !!normalized,
     placeholderData: (prev) => prev,
   });
 }

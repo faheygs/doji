@@ -12,17 +12,34 @@ const PREF_KEYS = new Set<string>([
   'reactions_on_my_post',
   'friend_request',
   'friend_accepted',
+  'follow_request',
+  'follow_accepted',
+  'new_follower',
   'badges',
   'friend_post',
+  'comment',
+  'mention',
+  'suggestion',
+  'doji_start',
 ]);
 
-function shouldSend(
+function prefEnabled(
   prefs: Record<string, unknown> | null | undefined,
   preferenceKey: string,
 ): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
   if (prefs.push_enabled === false) return false;
-  return prefs[preferenceKey] !== false;
+
+  switch (preferenceKey) {
+    case 'follow_request':
+      return prefs.follow_request !== false && prefs.friend_request !== false;
+    case 'follow_accepted':
+      return prefs.follow_accepted !== false && prefs.friend_accepted !== false;
+    case 'new_follower':
+      return prefs.new_follower !== false;
+    default:
+      return prefs[preferenceKey] !== false;
+  }
 }
 
 async function clearNotificationToken(userId: string) {
@@ -88,7 +105,7 @@ Deno.serve(async (req) => {
     }
 
     const prefs = row.notification_preferences as Record<string, unknown> | null;
-    if (!shouldSend(prefs, preferenceKey)) {
+    if (!prefEnabled(prefs, preferenceKey)) {
       return new Response(JSON.stringify({ message: 'Skipped by notification preferences' }), {
         headers: { 'Content-Type': 'application/json' },
       });

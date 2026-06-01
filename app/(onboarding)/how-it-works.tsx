@@ -16,12 +16,12 @@ const SLIDES = [
   {
     Icon: IconTimer,
     title: 'You have 10 minutes',
-    desc: 'A 10-minute window opens. Miss it and your feed is locked until tomorrow.',
+    desc: 'A 10-minute window opens. Miss it and your feed locks — you can buy back in with Sparks to save your streak.',
   },
   {
     Icon: IconTrophy,
     title: 'Earn XP and level up',
-    desc: 'Every response earns XP. Build streaks, unlock badges, climb the board.',
+    desc: 'Every response earns XP and Sparks. Build streaks, unlock badges, and spend Sparks in the Shop.',
   },
 ] as const;
 

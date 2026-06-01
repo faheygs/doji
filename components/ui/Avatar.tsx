@@ -14,9 +14,21 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   /** Optional rank-tier border color. Renders a colored ring around the avatar. */
   rankBorderColor?: string;
+  /** Cosmetic border — takes precedence over rankBorderColor. */
+  borderColor?: string;
+  borderWidth?: number;
 };
 
-export function Avatar({ uri, username, size = 40, fallbackTone = 'default', style, rankBorderColor }: Props) {
+export function Avatar({
+  uri,
+  username,
+  size = 40,
+  fallbackTone = 'default',
+  style,
+  rankBorderColor,
+  borderColor,
+  borderWidth = 2.5,
+}: Props) {
   const { colors } = useTheme();
   const initials = username?.slice(0, 2).toUpperCase() ?? '??';
 
@@ -38,10 +50,11 @@ export function Avatar({ uri, username, size = 40, fallbackTone = 'default', sty
   const initialsColor = fallbackTone === 'brand' ? colors.accent : colors.textSecondary;
   const initialsFontSize = fallbackTone === 'brand' ? size * 0.36 : size * 0.32;
 
-  const ringSize = size + 6;
+  const ringColor = borderColor ?? rankBorderColor;
+  const ringW = borderColor ? (borderWidth ?? 3) : 2.5;
 
   const inner = (
-    <View style={[{ width: size, height: size }, styles.container, !rankBorderColor ? style : undefined]}>
+    <View style={[{ width: size, height: size }, styles.container, !ringColor ? style : undefined]}>
       {uri ? (
         <Image
           source={{ uri }}
@@ -69,7 +82,8 @@ export function Avatar({ uri, username, size = 40, fallbackTone = 'default', sty
     </View>
   );
 
-  if (rankBorderColor) {
+  if (ringColor) {
+    const ringSize = size + (ringW >= 3 ? 8 : 6);
     return (
       <View
         style={[
@@ -77,8 +91,8 @@ export function Avatar({ uri, username, size = 40, fallbackTone = 'default', sty
             width: ringSize,
             height: ringSize,
             borderRadius: ringSize / 2,
-            borderWidth: 2.5,
-            borderColor: rankBorderColor,
+            borderWidth: ringW,
+            borderColor: ringColor,
             alignItems: 'center',
             justifyContent: 'center',
           },

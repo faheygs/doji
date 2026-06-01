@@ -29,7 +29,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Separate expired events by user so we can check shields per-user
     const byUser = new Map<string, string[]>();
     for (const e of expiredEvents as { id: string; user_id: string }[]) {
       const list = byUser.get(e.user_id) ?? [];
@@ -43,34 +42,33 @@ Deno.serve(async (req) => {
     for (const [userId, eventIds] of byUser) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('streak_shields')
+        .select('streak_shields, current_streak')
         .eq('id', userId)
         .single();
 
-      const shields: number = (profile as { streak_shields: number } | null)?.streak_shields ?? 0;
+      const row = profile as { streak_shields: number; current_streak: number } | null;
+      const shields: number = row?.streak_shields ?? 0;
+      const currentStreak: number = row?.current_streak ?? 0;
 
       if (shields > 0) {
-        // Shield absorbs the miss — events stay pending-forgiven, streak unbroken
         shieldedEventIds.push(...eventIds);
         await supabase
           .from('profiles')
           .update({ streak_shields: Math.max(0, shields - 1) })
           .eq('id', userId);
+        await supabase
+          .from('user_events')
+          .update({ status: 'missed', streak_before_miss: currentStreak })
+          .in('id', eventIds);
       } else {
         missedEventIds.push(...eventIds);
+        await supabase
+          .from('user_events')
+          .update({ streak_before_miss: currentStreak })
+          .in('id', eventIds);
       }
     }
 
-    // Mark shielded events with a dedicated status so the app can display them correctly
-    if (shieldedEventIds.length > 0) {
-      await supabase
-        .from('user_events')
-        .update({ status: 'missed' })
-        .in('id', shieldedEventIds);
-      // Streak is NOT recalculated for shielded users — shield preserves it
-    }
-
-    // Mark truly missed events and recalculate streaks
     if (missedEventIds.length > 0) {
       const { error: updateError } = await supabase
         .from('user_events')

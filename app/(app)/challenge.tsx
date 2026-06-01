@@ -46,9 +46,11 @@ export default function ChallengeScreen() {
   const firesAt = userEvent?.daily_event?.fires_at;
   const notYetLive = firesAt ? secondsUntilFiresAt(firesAt) > 0 : false;
 
-  const isMissed =
-    userEvent?.status === 'missed' || (userEvent && isExpired(userEvent.expires_at));
+  const isMissed = userEvent?.status === 'missed';
+  const isBuyInOpen = userEvent?.status === 'buy_in_open' && userEvent && !isExpired(userEvent.expires_at);
   const isCompleted = userEvent?.status === 'completed';
+  const isExpiredPending =
+    userEvent?.status === 'pending' && userEvent && isExpired(userEvent.expires_at);
 
   const heroScale = useSharedValue(0.92);
   const heroStyle = useAnimatedStyle(() => ({
@@ -228,11 +230,18 @@ export default function ChallengeScreen() {
           </View>
         </Animated.View>
 
-        {isMissed ? (
+        {(isMissed || isExpiredPending) && !isBuyInOpen ? (
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
             <Text variant="headingLarge">Missed</Text>
             <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
-              Window closed. Next challenge drops soon.
+              Window closed. Buy in from the home feed if you have Sparks.
+            </Text>
+          </Animated.View>
+        ) : isBuyInOpen ? (
+          <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
+            <Text variant="headingLarge">Buy-in open</Text>
+            <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+              Complete today&apos;s Doji before the day ends to unlock the feed.
             </Text>
           </Animated.View>
         ) : isCompleted ? (
@@ -249,7 +258,7 @@ export default function ChallengeScreen() {
       </ScrollView>
 
       <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.footer}>
-        {!isMissed && !isCompleted ? (
+        {(!isCompleted && (isBuyInOpen || (!isMissed && !isExpiredPending))) ? (
           <Button onPress={handleStartChallenge} fullWidth size="lg">
             {ctaLabel}
           </Button>
