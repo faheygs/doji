@@ -229,3 +229,28 @@ export function BadgeIcon({ badgeId, size = 24, color }: { badgeId: string; size
   const Icon = BADGE_ICON_MAP[badgeId] ?? IcnStar;
   return <Icon size={size} color={color} />;
 }
+
+const CATEGORY_ICON_MAP: Record<string, React.ComponentType<P>> = {
+  streak: IcnFlame,
+  completions: IcnTarget,
+  xp: IcnRocket,
+  reactions_received: IcnHeart,
+  reactions_given: IcnMegaphone,
+  poll_votes: IcnBarChart,
+  social: IcnUsers,
+  level: IcnGamepad,
+  ideas: IcnBolt,
+};
+
+export function CategoryBadgeIcon({
+  categoryId,
+  size = 24,
+  color,
+}: {
+  categoryId: string;
+  size?: number;
+  color: string;
+}) {
+  const Icon = CATEGORY_ICON_MAP[categoryId] ?? IcnStar;
+  return <Icon size={size} color={color} />;
+}

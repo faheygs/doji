@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Stack, type Href, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -18,10 +18,6 @@ import {
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* debugger / web */
-});
-
 /** Web: native screens attach aria-hidden / pointer-events in ways that break scrolling + focus. */
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
   try {
@@ -37,27 +33,8 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { buildToastConfig } from '../components/ui/toastTheme';
 import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
-
-/** Push payloads may include `url` from the scheduler, or legacy `type: CHALLENGE`. */
-function notificationHrefFromData(data: unknown): Href | null {
-  if (!data || typeof data !== 'object') return null;
-  const rec = data as Record<string, unknown>;
-  const url = rec.url;
-  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) return url as Href;
-  if (rec.type === 'CHALLENGE') return '/(app)/challenge';
-  if (rec.type === 'BADGE') return '/(app)/profile' as Href;
-  if (rec.type === 'FRIEND_REQUEST') return '/(app)/friends/requests';
-  if (rec.type === 'FRIEND_ACCEPTED') return '/(app)/friends';
-  const postId = rec.postId;
-  if (
-    (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
-    typeof postId === 'string' &&
-    postId.length > 0
-  ) {
-    return `/(app)/post/${postId}` as Href;
-  }
-  return null;
-}
+import { notificationHrefFromData } from '../lib/notificationHref';
+import { safeReplace } from '../lib/routes';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -70,10 +47,25 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   });
 
   const isLoading = useAuthStore((s) => s.isLoading);
+  const splashReady = useRef(false);
+  const splashHidden = useRef(false);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+    SplashScreen.preventAutoHideAsync()
+      .then(() => {
+        splashReady.current = true;
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!splashReady.current) return;
     if (!fontsLoaded && !fontError) return;
     if (isLoading) return;
+    if (splashHidden.current) return;
+    splashHidden.current = true;
     SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError, isLoading]);
 
@@ -182,7 +174,7 @@ function RootLayoutInner() {
           if (cancelled) return;
           const href = notificationHrefFromData(last?.notification.request.content.data);
           if (href) {
-            router.push(href);
+            safeReplace(router, href);
             await Notifications.clearLastNotificationResponseAsync();
           }
         } catch {
@@ -192,7 +184,7 @@ function RootLayoutInner() {
 
       subscription = Notifications.addNotificationResponseReceivedListener((response) => {
         const href = notificationHrefFromData(response.notification.request.content.data);
-        if (href) router.push(href);
+        if (href) safeReplace(router, href);
       });
     });
 
@@ -219,7 +211,9 @@ function RootLayoutInner() {
               ],
             }}
           >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>
           <Toast config={toastConfig} />

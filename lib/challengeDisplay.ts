@@ -4,6 +4,7 @@ const BASE: Record<ChallengeType, string> = {
   photo: 'Photo',
   poll: 'Poll',
   task: 'Task',
+  format: 'Format',
 };
 
 /** Shown where a username would be on feed cards (e.g. "Poll", "Would you rather"). */

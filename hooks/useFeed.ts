@@ -1,25 +1,19 @@
 import {
   type InfiniteData,
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import {
-  todayFiresAtWindow,
-  isChallengeLive,
-  calendarDayWindow,
-  pastSevenDaysRange,
-  localDateKeyFromIso,
-  localDateKeyFromDate,
-} from '../lib/challengeDay';
+import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
 
 const PAGE_SIZE = 20;
 
-export type FeedHistoryRange = 'today' | 'yesterday' | 'week';
+export type FeedAudience = 'friends' | 'everyone';
 
 /** Today: only daily_events in the current calendar day that have already fired. */
 async function liveDailyEventIdsForToday(): Promise<string[]> {
@@ -36,44 +30,30 @@ async function liveDailyEventIdsForToday(): Promise<string[]> {
     .map((e: { id: string }) => e.id);
 }
 
-/** Any daily_events whose `fires_at` falls in [start, end). */
-async function dailyEventIdsInWindow(start: string, end: string): Promise<string[]> {
+/** Accepted follows + self (viewer always sees own posts in friends feed). */
+async function acceptedFollowingIds(viewerId: string): Promise<string[]> {
   const { data, error } = await supabase
-    .from('daily_events')
-    .select('id')
-    .gte('fires_at', start)
-    .lt('fires_at', end);
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', viewerId)
+    .eq('status', 'accepted');
 
   if (error) throw error;
-  return (data ?? []).map((e: { id: string }) => e.id);
-}
-
-/** Only `daily_event_id`s the user has a `user_events` row for (required to view that day's feed). */
-async function filterDailyEventsUserJoined(
-  userId: string,
-  candidateIds: string[],
-): Promise<string[]> {
-  if (candidateIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from('user_events')
-    .select('daily_event_id')
-    .eq('user_id', userId)
-    .in('daily_event_id', candidateIds);
-
-  if (error) throw error;
-  return [...new Set((data ?? []).map((r: { daily_event_id: string }) => r.daily_event_id))];
+  const ids = (data ?? []).map((r: { following_id: string }) => r.following_id);
+  return [...new Set([viewerId, ...ids])];
 }
 
 type FetchContext = {
   userId: string;
   dailyEventIds: string[];
+  authorIds?: string[];
 };
 
 async function fetchFeedPostsPage(
   ctx: FetchContext,
   offset: number,
 ): Promise<Post[]> {
-  const { userId, dailyEventIds } = ctx;
+  const { userId, dailyEventIds, authorIds } = ctx;
   if (dailyEventIds.length === 0) return [];
 
   let communityMapped: Post[] = [];
@@ -92,7 +72,7 @@ async function fetchFeedPostsPage(
     })) as Post[];
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('posts')
     .select(
       `*, profile:profiles(*), user_event:user_events!inner(*, daily_event:daily_events(*, challenge:challenges(*)))`,
@@ -101,6 +81,12 @@ async function fetchFeedPostsPage(
     .in('user_event.daily_event_id', dailyEventIds)
     .order('created_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
+
+  if (authorIds && authorIds.length > 0) {
+    query = query.in('user_id', authorIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -121,91 +107,11 @@ async function fetchFeedPostsPage(
   return attachReactionFields(merged, userId);
 }
 
-/** Resolve which daily_event ids to show for the selected history range (after participation filter). */
-async function resolveDailyEventIdsForRange(
-  userId: string,
-  range: FeedHistoryRange,
-): Promise<string[]> {
-  if (range === 'today') {
-    const raw = await liveDailyEventIdsForToday();
-    return filterDailyEventsUserJoined(userId, raw);
-  }
-  if (range === 'yesterday') {
-    const { start, end } = calendarDayWindow(1);
-    const raw = await dailyEventIdsInWindow(start, end);
-    return filterDailyEventsUserJoined(userId, raw);
-  }
-  const { start, end } = pastSevenDaysRange();
-  const { data: des, error } = await supabase
-    .from('daily_events')
-    .select('id, fires_at')
-    .gte('fires_at', start)
-    .lt('fires_at', end);
-
-  if (error) throw error;
-  const raw = (des ?? []).map((e: { id: string }) => e.id);
-  return filterDailyEventsUserJoined(userId, raw);
-}
-
-export type WeekSection = {
-  title: string;
-  dateKey: string;
-  data: Post[];
-};
-
-function firesAtFromPost(p: Post): string {
-  const ext = p as Post & {
-    user_event?: { daily_event?: { fires_at?: string } };
-    daily_event?: { fires_at?: string };
-  };
-  return (
-    ext.user_event?.daily_event?.fires_at ??
-    ext.daily_event?.fires_at ??
-    p.created_at
-  );
-}
-
-/** Group posts by local calendar day of the challenge drop (`fires_at`). Newest day first. */
-export function groupPostsByDayForWeek(posts: Post[]): WeekSection[] {
-  const byDay = new Map<string, Post[]>();
-  for (const p of posts) {
-    const key = localDateKeyFromIso(firesAtFromPost(p));
-    if (!byDay.has(key)) byDay.set(key, []);
-    byDay.get(key)!.push(p);
-  }
-  const keys = [...byDay.keys()].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-
-  const todayKey = localDateKeyFromDate(new Date());
-  const yesterdayD = new Date();
-  yesterdayD.setDate(yesterdayD.getDate() - 1);
-  const yesterdayKey = localDateKeyFromDate(yesterdayD);
-
-  const labelForKey = (dateKey: string): string => {
-    if (dateKey === todayKey) return 'Today';
-    if (dateKey === yesterdayKey) return 'Yesterday';
-    const [y, m, day] = dateKey.split('-').map(Number);
-    const d = new Date(y, (m ?? 1) - 1, day ?? 1);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  return keys.map((dateKey) => ({
-    title: labelForKey(dateKey),
-    dateKey,
-    data: (byDay.get(dateKey) ?? []).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    ),
-  }));
-}
-
 /**
- * Global feed for the current user’s selected window.
- * Participation: only `daily_event`s the user has a `user_events` row for can appear.
+ * Today's live feed for the selected audience.
+ * Friends: posts from accepted follows (+ self). Everyone: all eligible posts (RLS + privacy).
  */
-export function useFeed(range: FeedHistoryRange = 'today') {
+export function useFeed(audience: FeedAudience = 'friends') {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
 
@@ -213,16 +119,18 @@ export function useFeed(range: FeedHistoryRange = 'today') {
     Post[],
     Error,
     InfiniteData<Post[], number>,
-    ['feed', FeedHistoryRange, string | undefined],
+    ['feed', FeedAudience, string | undefined],
     number
   >({
-    queryKey: ['feed', range, userId],
+    queryKey: ['feed', audience, userId],
     queryFn: async ({ pageParam }): Promise<Post[]> => {
       if (!userId) return [];
 
-      const dailyEventIds = await resolveDailyEventIdsForRange(userId, range);
+      const dailyEventIds = await liveDailyEventIdsForToday();
+      const authorIds =
+        audience === 'friends' ? await acceptedFollowingIds(userId) : undefined;
       const offset = pageParam ?? 0;
-      return fetchFeedPostsPage({ userId, dailyEventIds }, offset);
+      return fetchFeedPostsPage({ userId, dailyEventIds, authorIds }, offset);
     },
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       const offset = lastPageParam ?? 0;
@@ -233,6 +141,7 @@ export function useFeed(range: FeedHistoryRange = 'today') {
     initialPageParam: 0,
     enabled: !!userId,
     staleTime: 10_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -255,7 +164,7 @@ export function usePostReactions(postId: string) {
     getNextPageParam: (lastPage, allPages) =>
       lastPage.length === 50 ? allPages.length : undefined,
     initialPageParam: 0,
-    enabled: !!session?.user?.id,
+    enabled: !!session?.user?.id && !!postId,
   });
 }
 

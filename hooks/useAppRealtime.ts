@@ -5,7 +5,11 @@ import Toast from 'react-native-toast-message';
 import { supabase } from '../lib/supabase';
 import { scheduleLocalNotificationIfAllowed } from '../lib/localPush';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useCelebrationStore } from '../stores/useCelebrationStore';
+import { isBadgeTierUpgrade, tiersUnlockedUpTo } from '../lib/badgeCelebration';
+import type { BadgeTierName } from '../constants/theme';
 import { invalidateFriendCountQueries } from './useProfile';
+import { invalidateFollowQueries } from './useFollows';
 
 /**
  * Subscribes while authenticated so UI stays in sync with Supabase.
@@ -93,24 +97,63 @@ export function useAppRealtime(userId: string | undefined) {
           ) {
             void (async () => {
               const posterId = row.user_id!;
-              const { data: friendship } = await supabase
-                .from('friendships')
+              const { data: followRow } = await supabase
+                .from('follows')
                 .select('id')
-                .or(
-                  `and(requester_id.eq.${userId},addressee_id.eq.${posterId}),and(requester_id.eq.${posterId},addressee_id.eq.${userId})`,
-                )
+                .eq('follower_id', userId)
+                .eq('following_id', posterId)
                 .eq('status', 'accepted')
                 .maybeSingle();
 
-              if (friendship) {
+              if (followRow) {
                 scheduleLocalNotificationIfAllowed(
                   'Friend posted',
-                  'A friend shared something new on Doji.',
+                  'Someone you follow shared something new on Doji.',
                   { type: 'FRIEND_POST', postId: row.id },
                   'friend_post',
                 );
               }
             })();
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'follows' },
+        (
+          payload: RealtimePostgresChangesPayload<{
+            follower_id?: string;
+            following_id?: string;
+            status?: string;
+          }>,
+        ) => {
+          invalidateFollowQueries(queryClient, userId);
+          const n = payload.new as
+            | { follower_id?: string; following_id?: string; status?: string }
+            | undefined;
+          if (payload.eventType === 'INSERT' && n?.following_id === userId && n.status === 'pending') {
+            Toast.show({
+              type: 'info',
+              text1: 'New follow request',
+              text2: 'Open notifications to respond.',
+            });
+            scheduleLocalNotificationIfAllowed(
+              'Follow request',
+              'Someone wants to follow you on Doji.',
+              { type: 'FOLLOW_REQUEST' },
+              'friend_request',
+            );
+          }
+          if (payload.eventType === 'UPDATE' && n?.follower_id === userId) {
+            if (n.status === 'accepted') {
+              Toast.show({ type: 'success', text1: 'Follow request accepted' });
+              scheduleLocalNotificationIfAllowed(
+                'Follow accepted',
+                'Your follow request was accepted.',
+                { type: 'FOLLOW_ACCEPTED' },
+                'friend_accepted',
+              );
+            }
           }
         },
       )
@@ -212,6 +255,7 @@ export function useAppRealtime(userId: string | undefined) {
           const row = (payload.new ?? payload.old) as { post_id?: string } | undefined;
           if (row?.post_id) {
             queryClient.invalidateQueries({ queryKey: ['comments', row.post_id] });
+            queryClient.invalidateQueries({ queryKey: ['post', row.post_id] });
           }
         },
       )
@@ -258,6 +302,7 @@ export function useAppRealtime(userId: string | undefined) {
           }
           queryClient.invalidateQueries({ queryKey: ['profile'] });
           queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
+          queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
           scheduleFeedInvalidate();
         },
       )
@@ -308,7 +353,52 @@ export function useAppRealtime(userId: string | undefined) {
         { event: '*', schema: 'public', table: 'challenge_suggestions' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['challengeSuggestionCounts'] });
+          queryClient.invalidateQueries({ queryKey: ['pendingSuggestions'] });
+          queryClient.invalidateQueries({ queryKey: ['mySuggestions'] });
           queryClient.invalidateQueries({ queryKey: ['userBadges'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_badge_progress' },
+        (payload: RealtimePostgresChangesPayload<{ user_id?: string; category_id?: string; current_tier?: string }>) => {
+          const row = payload.new as { user_id?: string; category_id?: string; current_tier?: string } | undefined;
+          const oldRow = payload.old as { current_tier?: string } | undefined;
+          const uid = row?.user_id;
+          if (uid) {
+            queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', uid] });
+            queryClient.invalidateQueries({ queryKey: ['userBadges', uid] });
+          } else {
+            queryClient.invalidateQueries({ queryKey: ['userBadgeProgress'] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
+          if (
+            (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') &&
+            row?.user_id === userId &&
+            row.category_id &&
+            row.current_tier &&
+            isBadgeTierUpgrade(oldRow?.current_tier, row.current_tier)
+          ) {
+            scheduleLocalNotificationIfAllowed(
+              'Badge Unlocked',
+              `${row.category_id ?? 'Badge'} — ${row.current_tier ?? ''} tier`,
+              { type: 'BADGE_EARNED', categoryId: row.category_id, tier: row.current_tier },
+              'badges',
+            );
+            void (async () => {
+              const { data: category } = await supabase
+                .from('badge_categories')
+                .select('name')
+                .eq('id', row.category_id!)
+                .maybeSingle();
+              useCelebrationStore.getState().showBadgeUnlock({
+                categoryId: row.category_id!,
+                name: category?.name ?? row.category_id!,
+                tier: row.current_tier as BadgeTierName,
+                unlockedTiers: tiersUnlockedUpTo(row.current_tier!),
+              });
+            })();
+          }
         },
       )
       .on(
@@ -325,16 +415,11 @@ export function useAppRealtime(userId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: ['profile'] });
           if (payload.eventType === 'INSERT' && row?.user_id === userId) {
             scheduleLocalNotificationIfAllowed(
-              '🏆 Badge Earned!',
+              'Badge Earned',
               `You just unlocked a new badge: ${row.badge_id}`,
               { type: 'BADGE_EARNED', badgeId: row.badge_id },
               'badges',
             );
-            Toast.show({
-              type: 'success',
-              text1: '🏆 Badge Earned!',
-              text2: `You unlocked: ${row.badge_id}`,
-            });
           }
         },
       )

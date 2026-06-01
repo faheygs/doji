@@ -36,6 +36,7 @@ type VoterRow = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  custom_text?: string | null;
 };
 
 type Props = {
@@ -110,7 +111,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
     queryFn: async () => {
       const { data: voteRows, error } = await supabase
         .from('poll_votes')
-        .select('option_id, user_id')
+        .select('option_id, user_id, custom_text')
         .eq('challenge_id', challenge.id);
       if (error) throw error;
       const userIds = [...new Set((voteRows ?? []).map((r) => r.user_id as string))];
@@ -143,6 +144,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
           username: p?.username ?? 'user',
           display_name: p?.display_name ?? null,
           avatar_url: p?.avatar_url ?? null,
+          custom_text: (row.custom_text as string | null) ?? null,
         });
         m.set(oid, list);
       }
@@ -355,6 +357,7 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
   );
 
   const modalVoters = voterModal ? (votersByOption?.get(voterModal.optionId) ?? []) : [];
+  const modalIsOther = rows.some((r) => r.id === voterModal?.optionId && r.is_other);
 
   if (!fetchEnabled) {
     return (
@@ -525,6 +528,11 @@ function PollResultCardImpl({ challenge, variant = 'full', fetchEnabled = true }
                       <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
                         @{item.username}
                       </Text>
+                      {modalIsOther && item.custom_text?.trim() ? (
+                        <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2} style={{ marginTop: 2 }}>
+                          "{item.custom_text.trim()}"
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 )}

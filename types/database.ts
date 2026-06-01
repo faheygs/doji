@@ -1,6 +1,6 @@
 import type { ThemeName } from '../constants/theme';
 
-export type ReactionEmoji = 'fire' | 'like' | 'dislike' | 'laugh' | 'wow' | 'love';
+export type ReactionEmoji = 'fire' | 'like' | 'dislike' | 'laugh' | 'wow' | 'heart';
 
 /** Stored on profiles.notification_preferences (jsonb). */
 export type NotificationPreferences = {
@@ -13,6 +13,10 @@ export type NotificationPreferences = {
   friend_request: boolean;
   friend_accepted: boolean;
   badges: boolean;
+  comment: boolean;
+  mention: boolean;
+  follow_request: boolean;
+  suggestion: boolean;
 };
 
 export type Profile = {
@@ -32,14 +36,23 @@ export type Profile = {
   streak_shields: number;
   notification_token: string | null;
   notification_preferences?: NotificationPreferences;
-  /** Color theme (`ThemeName`); stored in DB, default `midnight`. */
+  /** Color theme (`ThemeName`); stored in DB, default `dark`. */
   app_theme: ThemeName;
   timezone: string;
+  is_private: boolean;
+  is_admin: boolean;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type ChallengeType = 'photo' | 'poll' | 'task';
+export type ChallengeType = 'photo' | 'poll' | 'task' | 'format';
+
+export type AnswerRuleType = 'starts_with_letter' | 'exact_word_count';
+
+export type AnswerRule =
+  | { type: 'starts_with_letter'; letter: string }
+  | { type: 'exact_word_count'; count: number };
 
 export type Challenge = {
   id: string;
@@ -54,6 +67,7 @@ export type Challenge = {
   requires_photo: boolean;
   requires_video: boolean;
   requires_text: boolean;
+  answer_rule?: AnswerRule | null;
   is_active: boolean;
   /** Times this challenge has been assigned to a daily_event; scheduler prefers lower values. */
   schedule_count: number;
@@ -66,6 +80,7 @@ export type PollOption = {
   text: string;
   vote_count: number;
   position: number;
+  is_other?: boolean;
   created_at: string;
 };
 
@@ -74,6 +89,7 @@ export type PollVote = {
   user_id: string;
   challenge_id: string;
   option_id: string;
+  custom_text?: string | null;
   created_at: string;
 };
 
@@ -119,6 +135,7 @@ export type Post = {
   selected_option_index: number | null;
   reaction_count: number;
   comment_count: number;
+  comments_disabled: boolean;
   visibility: 'friends' | 'public';
   created_at: string;
   reaction_breakdown?: Record<ReactionEmoji, number>;
@@ -126,6 +143,19 @@ export type Post = {
   profile?: Profile;
   challenge?: Challenge;
   poll_option_text?: string;
+};
+
+export type FollowStatus = 'pending' | 'accepted' | 'blocked';
+
+export type Follow = {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  status: FollowStatus;
+  created_at: string;
+  accepted_at: string | null;
+  follower?: Profile;
+  following?: Profile;
 };
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
@@ -162,6 +192,8 @@ export type Comment = {
   body: string;
   like_count: number;
   created_at: string;
+  updated_at: string | null;
+  body_edited: boolean;
   profile?: Profile;
   /** Filled client-side for the signed-in user. */
   my_like?: boolean;
@@ -171,6 +203,13 @@ export type CommentLike = {
   id: string;
   comment_id: string;
   user_id: string;
+  created_at: string;
+};
+
+export type CommentMention = {
+  id: string;
+  comment_id: string;
+  mentioned_user_id: string;
   created_at: string;
 };
 
@@ -196,6 +235,51 @@ export type UserBadge = {
   badge_id: string;
   earned_at: string;
   badge?: Badge;
+};
+
+export type BadgeTierName = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+export type BadgeCategory = {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  sort_order: number;
+};
+
+export type BadgeTier = {
+  id: string;
+  category_id: string;
+  tier: BadgeTierName;
+  criteria_type: string;
+  criteria_value: number;
+  sort_order: number;
+};
+
+export type UserBadgeProgress = {
+  user_id: string;
+  category_id: string;
+  current_tier: BadgeTierName;
+  unlocked_at: string;
+};
+
+export type ChallengeSuggestionStatus = 'pending' | 'approved' | 'rejected';
+
+export type ChallengeSuggestion = {
+  id: string;
+  user_id: string;
+  kind: string;
+  body: string;
+  body_hash: string;
+  options: unknown;
+  status: ChallengeSuggestionStatus;
+  admin_note: string | null;
+  selected_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+  profile?: Profile;
+  reviewer?: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null;
 };
 
 export type WeeklyXp = {
@@ -227,17 +311,7 @@ export type Database = {
         Relationships: [];
       };
       challenge_suggestions: {
-        Row: {
-          id: string;
-          user_id: string;
-          kind: string;
-          body: string;
-          body_hash: string;
-          options: unknown;
-          admin_note: string | null;
-          selected_at: string | null;
-          created_at: string;
-        };
+        Row: ChallengeSuggestion;
         Insert: {
           user_id: string;
           kind: string;
@@ -245,10 +319,7 @@ export type Database = {
           body_hash: string;
           options?: unknown;
         };
-        Update: Partial<{
-          admin_note: string | null;
-          selected_at: string | null;
-        }>;
+        Update: Partial<ChallengeSuggestion>;
         Relationships: [];
       };
       daily_events: {
@@ -288,6 +359,17 @@ export type Database = {
         Update: Partial<Friendship>;
         Relationships: [];
       };
+      follows: {
+        Row: Follow;
+        Insert: {
+          follower_id: string;
+          following_id: string;
+          status: FollowStatus;
+          accepted_at?: string | null;
+        };
+        Update: Partial<Follow>;
+        Relationships: [];
+      };
       reactions: {
         Row: Reaction;
         Insert: Omit<Reaction, 'id' | 'created_at'>;
@@ -296,8 +378,17 @@ export type Database = {
       };
       comments: {
         Row: Comment;
-        Insert: Omit<Comment, 'id' | 'created_at' | 'like_count' | 'my_like'>;
+        Insert: Omit<
+          Comment,
+          'id' | 'created_at' | 'like_count' | 'my_like' | 'updated_at' | 'body_edited'
+        >;
         Update: Partial<Comment>;
+        Relationships: [];
+      };
+      comment_mentions: {
+        Row: CommentMention;
+        Insert: Omit<CommentMention, 'id' | 'created_at'>;
+        Update: Partial<CommentMention>;
         Relationships: [];
       };
       comment_likes: {
@@ -336,6 +427,24 @@ export type Database = {
         Update: Partial<UserBadge>;
         Relationships: [];
       };
+      badge_categories: {
+        Row: BadgeCategory;
+        Insert: BadgeCategory;
+        Update: Partial<BadgeCategory>;
+        Relationships: [];
+      };
+      badge_tiers: {
+        Row: BadgeTier;
+        Insert: BadgeTier;
+        Update: Partial<BadgeTier>;
+        Relationships: [];
+      };
+      user_badge_progress: {
+        Row: UserBadgeProgress;
+        Insert: Omit<UserBadgeProgress, 'unlocked_at'> & { unlocked_at?: string };
+        Update: Partial<UserBadgeProgress>;
+        Relationships: [];
+      };
       weekly_xp: {
         Row: WeeklyXp;
         Insert: WeeklyXp;
@@ -348,6 +457,22 @@ export type Database = {
       friend_count: {
         Args: { p_user_id: string };
         Returns: number;
+      };
+      follower_count: {
+        Args: { p_user_id: string };
+        Returns: number;
+      };
+      following_count: {
+        Args: { p_user_id: string };
+        Returns: number;
+      };
+      is_following: {
+        Args: { p_viewer: string; p_target: string };
+        Returns: boolean;
+      };
+      can_view_profile: {
+        Args: { p_viewer: string; p_target: string };
+        Returns: boolean;
       };
       list_profile_friends: {
         Args: { p_profile_user_id: string };

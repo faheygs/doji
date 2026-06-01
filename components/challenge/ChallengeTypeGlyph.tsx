@@ -36,6 +36,23 @@ export function ChallengeTypeGlyph({ type, title, size = 24, color }: Props) {
     );
   }
   if (type === 'poll') return <IcnBarChart size={size} color={color} />;
+  if (type === 'format') {
+    return (
+      <View
+        style={{
+          width: size + 8,
+          height: size + 8,
+          borderRadius: (size + 8) / 2,
+          borderWidth: 2,
+          borderColor: color,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: size * 0.42, fontWeight: '800', color }}>Aa</Text>
+      </View>
+    );
+  }
   if (type === 'task') return <IconCheck size={size} color={color} />;
   return <IconCamera size={size} color={color} />;
 }

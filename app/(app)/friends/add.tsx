@@ -16,8 +16,9 @@ import { Input } from '../../../components/ui/Input';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { IconChevronLeft, IconSearch, IconCheck } from '../../../components/icons/Icons';
-import { useSearchUsers, useSendFriendRequest, useFriendship } from '../../../hooks/useProfile';
+import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
+import { useSearchUsers } from '../../../hooks/useProfile';
+import { useFollow, useFollowStatus } from '../../../hooks/useFollows';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
@@ -81,7 +82,7 @@ export default function AddFriendsScreen() {
         >
           <IconChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
-        <Text variant="headingLarge">Find Friends</Text>
+        <Text variant="headingLarge">Find people</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -125,8 +126,8 @@ export default function AddFriendsScreen() {
 function UserResult({ user, returnPath }: { user: Profile; returnPath: string }) {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: friendship } = useFriendship(user.id);
-  const sendRequest = useSendFriendRequest();
+  const { data: followStatus = 'none' } = useFollowStatus(user.id);
+  const follow = useFollow();
 
   const rowStyles = useMemo(
     () =>
@@ -145,7 +146,7 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
         nameContainer: {
           gap: 2,
         },
-        friendsBadge: {
+        statusBadge: {
           flexDirection: 'row',
           alignItems: 'center',
           gap: 6,
@@ -154,8 +155,9 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
     [],
   );
 
-  const isAlreadyFriend = friendship?.status === 'accepted';
-  const isPending = friendship?.status === 'pending';
+  const isFollowing = followStatus === 'following';
+  const isRequested = followStatus === 'pending_out';
+  const isPendingIn = followStatus === 'pending_in';
 
   return (
     <Card style={rowStyles.userCard} elevated>
@@ -176,24 +178,28 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
         </View>
       </TouchableOpacity>
 
-      {isAlreadyFriend ? (
-        <View style={rowStyles.friendsBadge}>
+      {isFollowing ? (
+        <View style={rowStyles.statusBadge}>
           <IconCheck size={16} color={colors.success} />
           <Text variant="label" color={colors.success}>
-            Friends
+            Following
           </Text>
         </View>
-      ) : isPending ? (
+      ) : isRequested ? (
         <Text variant="label" color={colors.textSecondary}>
-          Pending
+          Requested
+        </Text>
+      ) : isPendingIn ? (
+        <Text variant="label" color={colors.textSecondary}>
+          Follows you
+        </Text>
+      ) : followStatus === 'blocked' ? (
+        <Text variant="label" color={colors.textTertiary}>
+          Unavailable
         </Text>
       ) : (
-        <Button
-          onPress={() => sendRequest.mutate(user.id)}
-          loading={sendRequest.isPending}
-          size="sm"
-        >
-          Add
+        <Button onPress={() => follow.mutate(user.id)} loading={follow.isPending} size="sm">
+          Follow
         </Button>
       )}
     </Card>

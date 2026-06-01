@@ -18,9 +18,11 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { IconBell, IconClose, IconFriends } from '../icons/Icons';
+import { IconBell, IconClose } from '../icons/Icons';
+import { AvatarStack } from '../ui/AvatarStack';
+import { ReactionIconRow } from '../ui/ReactionIconRow';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
-import { useRespondToFriendRequest } from '../../hooks/useProfile';
+import { useRespondToFollowRequest } from '../../hooks/useFollows';
 import { formatRelativeTime } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
@@ -45,11 +47,11 @@ export function NotificationSheet({
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const respond = useRespondToFriendRequest();
+  const respond = useRespondToFollowRequest();
 
   useEffect(() => {
     if (!visible) return;
-    queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['followRequests'] });
     queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'notificationCenter' });
   }, [visible, queryClient]);
 
@@ -125,6 +127,15 @@ export function NotificationSheet({
         rowTitle: {
           marginBottom: Spacing.xs,
         },
+        reactionMeta: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.sm,
+          marginTop: 2,
+        },
+        reactionCount: {
+          marginTop: 2,
+        },
         dismissAction: {
           justifyContent: 'center',
           alignItems: 'center',
@@ -141,12 +152,6 @@ export function NotificationSheet({
       }),
     [colors],
   );
-
-  const openFriends = useCallback(() => {
-    Haptics.selectionAsync();
-    onClose();
-    router.push('/(app)/friends');
-  }, [onClose, router]);
 
   const openProfile = useCallback(
     (username: string | undefined) => {
@@ -180,9 +185,9 @@ export function NotificationSheet({
       let card: React.ReactNode;
 
       switch (item.kind) {
-        case 'friend_request': {
-          const fr = item.friendship;
-          const requester = fr.requester;
+        case 'follow_request': {
+          const fr = item.follow;
+          const requester = fr.follower;
           card = (
             <Card style={styles.card} elevated padded={false}>
               <TouchableOpacity
@@ -190,13 +195,13 @@ export function NotificationSheet({
                 style={styles.userRow}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel={`Friend request from ${requester?.username ?? 'user'}`}
+                accessibilityLabel={`Follow request from ${requester?.username ?? 'user'}`}
               >
                 <Avatar uri={requester?.avatar_url} username={requester?.username} size={44} />
                 <View style={styles.userMeta}>
                   <Text variant="headingMedium">{requester?.display_name ?? 'Someone'}</Text>
                   <Text variant="bodySmall" color={colors.textSecondary}>
-                    @{requester?.username ?? '…'} wants to connect ·{' '}
+                    @{requester?.username ?? '…'} wants to follow you ·{' '}
                     {formatRelativeTime(fr.created_at)}
                   </Text>
                 </View>
@@ -205,7 +210,7 @@ export function NotificationSheet({
                 <Button
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    respond.mutate({ friendshipId: fr.id, accept: true });
+                    respond.mutate({ followId: fr.id, accept: true });
                   }}
                   size="sm"
                   loading={respond.isPending}
@@ -213,7 +218,7 @@ export function NotificationSheet({
                   Accept
                 </Button>
                 <Button
-                  onPress={() => respond.mutate({ friendshipId: fr.id, accept: false })}
+                  onPress={() => respond.mutate({ followId: fr.id, accept: false })}
                   size="sm"
                   variant="ghost"
                   loading={respond.isPending}
@@ -225,48 +230,67 @@ export function NotificationSheet({
           );
           break;
         }
-        case 'friend_accepted': {
-          const f = item.friendship;
-          const addressee = f.addressee;
+        case 'follow_accepted': {
+          const f = item.follow;
+          const following = f.following;
           card = (
             <Card style={styles.card} elevated padded={false}>
-              <View style={styles.userRow}>
-                <Avatar uri={addressee?.avatar_url} username={addressee?.username} size={44} />
+              <TouchableOpacity
+                onPress={() => openProfile(following?.username)}
+                style={styles.userRow}
+                activeOpacity={0.85}
+              >
+                <Avatar uri={following?.avatar_url} username={following?.username} size={44} />
                 <View style={styles.userMeta}>
                   <Text variant="headingMedium" style={styles.rowTitle}>
-                    {"You're friends"}
+                    Follow accepted
                   </Text>
                   <Text variant="bodySmall" color={colors.textSecondary}>
-                    @{addressee?.username ?? '…'} accepted your request ·{' '}
+                    @{following?.username ?? '…'} accepted your follow ·{' '}
                     {formatRelativeTime(item.sortAt)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             </Card>
           );
           break;
         }
         case 'reactions_group': {
           const shown = item.actors.slice(0, 3);
-          const names = shown.map((a) => a.display_name ?? a.username ?? 'Someone').join(', ');
-          const extraUsers = Math.max(0, item.actors.length - shown.length);
-          const userSuffix =
-            extraUsers > 0 ? ` and ${extraUsers} other${extraUsers === 1 ? '' : 's'}` : '';
-          const emojiStr = item.emojis.slice(0, 5).join(' ');
+          const primary = shown[0];
+          const extraUsers = Math.max(0, item.actors.length - 1);
+          const nameLine =
+            extraUsers === 0
+              ? `@${primary?.username ?? 'someone'}`
+              : extraUsers === 1
+                ? `@${primary?.username ?? 'someone'} and 1 other`
+                : `@${primary?.username ?? 'someone'} and ${extraUsers} others`;
           card = (
             <Card style={styles.card} elevated padded={false}>
               <View style={styles.userRow}>
+                <AvatarStack
+                  users={shown.map((a) => ({
+                    avatar_url: a.avatar_url,
+                    username: a.username,
+                  }))}
+                  size={40}
+                  max={3}
+                  borderColor={colors.background}
+                />
                 <View style={[styles.userMeta, { flex: 1 }]}>
                   <Text variant="headingMedium" style={styles.rowTitle}>
                     Reactions on your post
                   </Text>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    {names}
-                    {userSuffix}
-                    {emojiStr ? ` · ${emojiStr}` : ''}
-                    {item.emojis.length > 5 ? '…' : ''} · {formatRelativeTime(item.sortAt)}
+                  <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>
+                    {nameLine}
                   </Text>
-                  <Text variant="micro" color={colors.textTertiary}>
+                  <View style={styles.reactionMeta}>
+                    <ReactionIconRow emojis={item.emojis} colors={colors} size={15} />
+                    <Text variant="micro" color={colors.textTertiary}>
+                      · {formatRelativeTime(item.sortAt)}
+                    </Text>
+                  </View>
+                  <Text variant="micro" color={colors.textTertiary} style={styles.reactionCount}>
                     {item.count} reaction{item.count === 1 ? '' : 's'}
                   </Text>
                 </View>
@@ -314,6 +338,7 @@ export function NotificationSheet({
     [
       colors.textSecondary,
       colors.textTertiary,
+      colors.background,
       openProfile,
       renderRightActions,
       respond,
@@ -322,6 +347,8 @@ export function NotificationSheet({
       styles.rowTitle,
       styles.userMeta,
       styles.userRow,
+      styles.reactionMeta,
+      styles.reactionCount,
     ],
   );
 
@@ -377,7 +404,7 @@ export function NotificationSheet({
               onPress={() => {
                 Alert.alert(
                   'Clear notification history',
-                  'Remove older items from this list? Pending friend requests stay visible.',
+                  'Remove older items from this list? Pending follow requests stay visible.',
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -399,17 +426,6 @@ export function NotificationSheet({
               </Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity
-            onPress={openFriends}
-            style={styles.footerBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Open friends"
-          >
-            <IconFriends size={20} color={colors.link} />
-            <Text variant="body" color={colors.link}>
-              Friends & invites
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>

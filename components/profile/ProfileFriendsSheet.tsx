@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -23,44 +23,71 @@ import { IconClose } from '../icons/Icons';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { useAuthStore } from '../../stores/useAuthStore';
 import {
-  useFriendshipsBulkWithTargets,
-  useProfileFriendsList,
-  useRespondToFriendRequest,
-  useSendFriendRequest,
-  type ProfileFriendListRow,
-} from '../../hooks/useProfile';
-import type { Friendship } from '../../types/database';
+  useFollowStatusesBulkWithTargets,
+  useFollowers,
+  useFollowing,
+  useRespondToFollowRequest,
+  useFollow,
+  type FollowWithProfile,
+  type FollowRelation,
+} from '../../hooks/useFollows';
+
+export type FollowListTab = 'followers' | 'following';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Profile whose friends we list */
+  /** Profile whose follow graph we show */
   profileUserId: string;
   ownerDisplayName?: string | null;
+  initialTab?: FollowListTab;
 };
 
-export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisplayName }: Props) {
+const SHEET_HEIGHT_RATIO = 0.72;
+
+export function ProfileFriendsSheet({
+  visible,
+  onClose,
+  profileUserId,
+  ownerDisplayName,
+  initialTab = 'following',
+}: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const viewerId = useAuthStore((s) => s.session?.user?.id);
+  const [tab, setTab] = useState<FollowListTab>(initialTab);
 
-  const { data: rows = [], isPending: rowsPending } = useProfileFriendsList(profileUserId, visible);
+  useEffect(() => {
+    if (visible) setTab(initialTab);
+  }, [visible, initialTab]);
 
-  const targetIds = useMemo(() => rows.map((r) => r.friend_id), [rows]);
+  const { data: followers = [], isPending: followersPending } = useFollowers(
+    profileUserId,
+    visible && tab === 'followers',
+  );
+  const { data: following = [], isPending: followingPending } = useFollowing(
+    profileUserId,
+    visible && tab === 'following',
+  );
 
-  const { data: relationByOther = {}, isPending: relationPending } = useFriendshipsBulkWithTargets(
+  const rows = tab === 'followers' ? followers : following;
+  const rowsPending = tab === 'followers' ? followersPending : followingPending;
+
+  const targetIds = useMemo(() => rows.map((r) => r.id), [rows]);
+
+  const { data: relationByOther = {}, isPending: relationPending } = useFollowStatusesBulkWithTargets(
     visible ? targetIds : [],
   );
 
-  const sendFriendRequest = useSendFriendRequest();
-  const respondRequest = useRespondToFriendRequest();
+  const follow = useFollow();
+  const respondRequest = useRespondToFollowRequest();
 
-  const graphLoading =
-    !!(visible && targetIds.length > 0 && relationPending);
+  const graphLoading = !!(visible && targetIds.length > 0 && relationPending);
 
   const winH = Dimensions.get('window').height;
+  const sheetHeight = winH * SHEET_HEIGHT_RATIO;
 
   const styles = useMemo(
     () =>
@@ -74,8 +101,7 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
           backgroundColor: colors.overlayBackdrop,
         },
         sheet: {
-          maxHeight: winH * 0.92,
-          minHeight: 220,
+          height: sheetHeight,
           backgroundColor: colors.surface,
           borderTopLeftRadius: Radius.lg,
           borderTopRightRadius: Radius.lg,
@@ -100,15 +126,34 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
           paddingHorizontal: Spacing.md,
           paddingBottom: Spacing.sm,
         },
+        tabRow: {
+          flexDirection: 'row',
+          marginHorizontal: Spacing.md,
+          marginBottom: Spacing.sm,
+          padding: 3,
+          borderRadius: Radius.full,
+          backgroundColor: colors.fillMuted,
+          gap: 3,
+        },
+        tabBtn: {
+          flex: 1,
+          paddingVertical: 8,
+          borderRadius: Radius.full,
+          alignItems: 'center',
+        },
         divider: {
           height: StyleSheet.hairlineWidth,
           backgroundColor: colors.hairline,
           marginHorizontal: Spacing.md,
         },
         list: {
+          flex: 1,
           paddingHorizontal: Spacing.md,
+        },
+        listContent: {
           paddingTop: Spacing.xs,
           paddingBottom: Spacing.sm,
+          flexGrow: 1,
         },
         row: {
           flexDirection: 'row',
@@ -142,15 +187,17 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
           backgroundColor: colors.fillMuted,
         },
         centered: {
-          paddingVertical: Spacing.xl,
+          flex: 1,
+          minHeight: 120,
           alignItems: 'center',
           justifyContent: 'center',
+          paddingHorizontal: Spacing.lg,
         },
       }),
-    [colors, winH],
+    [colors, sheetHeight],
   );
 
-  const awaitingRows = rowsPending;
+  const awaitingRows = !!(visible && rowsPending && rows.length === 0);
 
   const openProfile = useCallback(
     (username: string) => {
@@ -160,23 +207,21 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
     [onClose, pathname, router],
   );
 
-  const mutationBusy = sendFriendRequest.isPending || respondRequest.isPending;
+  const mutationBusy = follow.isPending || respondRequest.isPending;
 
-  const renderRow: ListRenderItem<ProfileFriendListRow> = useCallback(
+  const renderRow: ListRenderItem<FollowWithProfile> = useCallback(
     ({ item }) => (
       <ProfileFriendsSheetRow
         item={item}
         viewerId={viewerId ?? ''}
-        rel={relationByOther[item.friend_id]}
+        rel={relationByOther[item.id]}
         colors={colors}
         styles={styles}
         graphLoading={graphLoading}
         mutationBusy={mutationBusy}
         onNavigate={() => openProfile(item.username)}
-        onAddFriend={() => sendFriendRequest.mutate(item.friend_id)}
-        onAcceptRequest={(friendshipId) =>
-          respondRequest.mutate({ friendshipId: friendshipId, accept: true })
-        }
+        onFollow={() => follow.mutate(item.id)}
+        onAcceptRequest={(followId) => respondRequest.mutate({ followId, accept: true })}
       />
     ),
     [
@@ -186,15 +231,32 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
       openProfile,
       relationByOther,
       respondRequest,
-      sendFriendRequest,
+      follow,
       viewerId,
       styles,
     ],
   );
 
-  const titleSuffix = ownerDisplayName?.trim()
-    ? `${ownerDisplayName.trim()}'s friends`
-    : 'Friends';
+  const ownerLabel = ownerDisplayName?.trim() || 'This user';
+  const emptyCopy =
+    tab === 'followers' ? `${ownerLabel} has no followers yet.` : `${ownerLabel} is not following anyone yet.`;
+
+  const listEmpty = useMemo(() => {
+    if (awaitingRows) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.text} />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.centered}>
+        <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+          {emptyCopy}
+        </Text>
+      </View>
+    );
+  }, [awaitingRows, colors.text, emptyCopy, styles.centered]);
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -205,10 +267,10 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
           <View style={styles.headRow}>
             <View style={{ flex: 1, minWidth: 0, paddingRight: Spacing.sm }}>
               <Text variant="headingMedium" numberOfLines={1}>
-                Friends
+                {ownerLabel}
               </Text>
-              <Text variant="micro" color={colors.textTertiary} numberOfLines={2}>
-                {titleSuffix}
+              <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+                Followers & following
               </Text>
             </View>
             <TouchableOpacity
@@ -223,28 +285,48 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
               <IconClose size={26} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.tabRow}>
+            {(['followers', 'following'] as const).map((key) => {
+              const active = tab === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setTab(key);
+                  }}
+                  style={[
+                    styles.tabBtn,
+                    active && { backgroundColor: colors.surfaceElevated },
+                  ]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text
+                    variant="label"
+                    color={active ? colors.text : colors.textTertiary}
+                    style={{ fontWeight: active ? '700' : '600' }}
+                  >
+                    {key === 'followers' ? 'Followers' : 'Following'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <View style={styles.divider} />
-          {awaitingRows && rows.length === 0 ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={colors.text} />
-            </View>
-          ) : rows.length === 0 ? (
-            <View style={styles.centered}>
-              <Text variant="body" color={colors.textSecondary}>
-                No friends to show yet.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={rows}
-              keyExtractor={(r) => r.friend_id}
-              renderItem={renderRow}
-              style={styles.list}
-              keyboardShouldPersistTaps="handled"
-              initialNumToRender={14}
-              windowSize={6}
-            />
-          )}
+          <FlatList
+            data={visible ? rows : []}
+            keyExtractor={(r) => r.id}
+            renderItem={renderRow}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={listEmpty}
+            keyboardShouldPersistTaps="handled"
+            initialNumToRender={14}
+            windowSize={6}
+          />
         </View>
       </View>
     </Modal>
@@ -268,21 +350,22 @@ function ProfileFriendsSheetRow({
   graphLoading,
   mutationBusy,
   onNavigate,
-  onAddFriend,
+  onFollow,
   onAcceptRequest,
 }: {
-  item: ProfileFriendListRow;
+  item: FollowWithProfile;
   viewerId: string;
-  rel: Friendship | undefined;
+  rel: FollowRelation | undefined;
   colors: AppColors;
   styles: RowStyles;
   graphLoading: boolean;
   mutationBusy: boolean;
   onNavigate: () => void;
-  onAddFriend: () => void;
-  onAcceptRequest: (friendshipId: string) => void;
+  onFollow: () => void;
+  onAcceptRequest: (followId: string) => void;
 }) {
-  const isSelf = viewerId !== '' && item.friend_id === viewerId;
+  const isSelf = viewerId !== '' && item.id === viewerId;
+  const status = rel?.status ?? 'none';
 
   let actionSlot: React.ReactNode;
   if (graphLoading) {
@@ -293,13 +376,7 @@ function ProfileFriendsSheetRow({
         You
       </Text>
     );
-  } else if (!rel) {
-    actionSlot = (
-      <Button variant="primary" size="sm" disabled={mutationBusy} onPress={onAddFriend}>
-        Add friend
-      </Button>
-    );
-  } else if (rel.status === 'blocked') {
+  } else if (status === 'blocked') {
     actionSlot = (
       <View style={styles.mutedPill}>
         <Text variant="label" color={colors.textTertiary}>
@@ -307,37 +384,37 @@ function ProfileFriendsSheetRow({
         </Text>
       </View>
     );
-  } else if (rel.status === 'accepted') {
+  } else if (status === 'following') {
     actionSlot = (
       <View style={styles.mutedPill}>
         <Text variant="label" color={colors.textSecondary}>
-          Friends
+          Following
         </Text>
       </View>
     );
-  } else if (rel.status === 'pending' && rel.requester_id === viewerId) {
+  } else if (status === 'pending_out') {
     actionSlot = (
       <View style={styles.mutedPill}>
         <Text variant="label" color={colors.textTertiary}>
-          Sent
+          Requested
         </Text>
       </View>
     );
-  } else if (rel.status === 'pending' && rel.addressee_id === viewerId) {
+  } else if (status === 'pending_in' && rel?.incoming?.id) {
     actionSlot = (
       <Button
         variant="secondary"
         size="sm"
         disabled={mutationBusy}
-        onPress={() => onAcceptRequest(rel.id)}
+        onPress={() => onAcceptRequest(rel.incoming!.id)}
       >
         Accept
       </Button>
     );
   } else {
     actionSlot = (
-      <Button variant="primary" size="sm" disabled={mutationBusy} onPress={onAddFriend}>
-        Add friend
+      <Button variant="primary" size="sm" disabled={mutationBusy} onPress={onFollow}>
+        Follow
       </Button>
     );
   }

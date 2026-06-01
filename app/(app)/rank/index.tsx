@@ -7,108 +7,24 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { Text } from '../../../components/ui/Text';
-import { useLeaderboard, type LeaderboardMode } from '../../../hooks/useLeaderboard';
+import {
+  useLeaderboard,
+  type LeaderboardMode,
+  type LeaderboardAudience,
+} from '../../../hooks/useLeaderboard';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { LevelBadge } from '../../../components/gamification/LevelBadge';
 import { Avatar } from '../../../components/ui/Avatar';
+import { PodiumTopThree } from '../../../components/leaderboard/PodiumTopThree';
 import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
-
-/** Podium-style rank (no emoji) — #1 gradient burst, #2–3 rings, rest soft pill. */
-function RankPosition({ rank }: { rank: number }) {
-  const { colors } = useTheme();
-
-  const size = 44;
-  const common = {
-    width: size,
-    height: size,
-    borderRadius: size / 2,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  };
-
-  if (rank === 1) {
-    return (
-      <LinearGradient
-        colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={common}
-      >
-        <Text variant="headingMedium" style={{ color: colors.onPrimary, fontSize: 17 }}>
-          1
-        </Text>
-      </LinearGradient>
-    );
-  }
-
-  if (rank === 2) {
-    return (
-      <View
-        style={[
-          common,
-          {
-            backgroundColor: colors.surface,
-            borderWidth: 2.5,
-            borderColor: colors.primary,
-          },
-        ]}
-      >
-        <Text variant="headingMedium" style={{ color: colors.primary, fontSize: 17 }}>
-          2
-        </Text>
-      </View>
-    );
-  }
-
-  if (rank === 3) {
-    return (
-      <View
-        style={[
-          common,
-          {
-            backgroundColor: colors.surface,
-            borderWidth: 2.5,
-            borderColor: colors.accent,
-          },
-        ]}
-      >
-        <Text variant="headingMedium" style={{ color: colors.accent, fontSize: 17 }}>
-          3
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View
-      style={[
-        common,
-        {
-          backgroundColor: colors.chipBackground,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <Text
-        variant="headingMedium"
-        color={colors.textSecondary}
-        style={{ fontSize: 15, fontVariant: ['tabular-nums'] }}
-      >
-        {rank}
-      </Text>
-    </View>
-  );
-}
 
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
@@ -117,25 +33,10 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const level = item.profile.level ?? 1;
   const rankTitle = getRankTitle(level);
   const rankBorderColor = getRankBorderColor(level, colors);
-  const topThree = item.rank <= 3;
 
-  const styles = useMemo(() => {
-    const podiumBorder =
-      item.rank === 1
-        ? colors.primary
-        : item.rank === 2
-          ? colors.primary
-          : item.rank === 3
-            ? colors.accent
-            : colors.border;
-    const rowBorder = isMe ? colors.primary : topThree ? podiumBorder : colors.border;
-    const rowBorderW = isMe ? 2 : topThree ? 1.5 : 1;
-    const rowBg = isMe ? colors.primaryLight : topThree ? colors.surfaceElevated : colors.surface;
-    return {
-      rowBorder,
-      rowBorderW,
-      rowBg,
-      sheet: StyleSheet.create({
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
         row: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -143,14 +44,28 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
           paddingVertical: Spacing.md,
           paddingHorizontal: Spacing.md,
           gap: Spacing.md,
+          backgroundColor: isMe ? colors.primaryLight : colors.surface,
+          borderColor: isMe ? colors.primary : colors.border,
+          borderWidth: isMe ? 2 : 1,
+          ...Shadows.card,
         },
-        rankWrap: { width: 44, alignItems: 'center', justifyContent: 'center' },
+        rankNum: {
+          width: 28,
+          textAlign: 'center',
+          fontVariant: ['tabular-nums'],
+        },
         nameBlock: { flex: 1, minWidth: 0, gap: 3 },
         rightBlock: { alignItems: 'flex-end', gap: 6 },
         xpLine: { ...Typography.subhead },
+        youPill: {
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          borderRadius: Radius.full,
+          backgroundColor: colors.primaryPale,
+        },
       }),
-    };
-  }, [colors, topThree, isMe, item.rank]);
+    [colors, isMe],
+  );
 
   const handlePress = () => {
     if (isMe) {
@@ -161,44 +76,29 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      activeOpacity={0.75}
-      style={[
-        styles.sheet.row,
-        {
-          backgroundColor: styles.rowBg,
-          borderColor: styles.rowBorder,
-          borderWidth: styles.rowBorderW,
-          ...Shadows.card,
-        },
-      ]}
-    >
-      <View style={styles.sheet.rankWrap}>
-        <RankPosition rank={item.rank} />
-      </View>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.75} style={styles.row}>
+      <Text
+        variant="body"
+        color={isMe ? colors.primary : colors.textTertiary}
+        style={[styles.rankNum, { fontWeight: '700' }]}
+      >
+        {item.rank}
+      </Text>
 
       <Avatar
         uri={item.profile.avatar_url}
         username={item.profile.display_name ?? item.profile.username}
-        size={topThree ? 48 : 44}
+        size={44}
         rankBorderColor={rankBorderColor}
       />
 
-      <View style={styles.sheet.nameBlock}>
+      <View style={styles.nameBlock}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <Text variant="body" numberOfLines={1} style={{ flexShrink: 1, fontWeight: '700' }}>
             {item.profile.display_name || item.profile.username}
           </Text>
           {isMe ? (
-            <View
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: Radius.full,
-                backgroundColor: colors.primaryPale,
-              }}
-            >
+            <View style={styles.youPill}>
               <Text variant="nano" color={colors.primary} style={{ letterSpacing: 0.5 }}>
                 YOU
               </Text>
@@ -210,11 +110,76 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
         </Text>
       </View>
 
-      <View style={styles.sheet.rightBlock}>
-        <Text style={[styles.sheet.xpLine, { color: colors.primary }]}>{item.xp.toLocaleString()} XP</Text>
+      <View style={styles.rightBlock}>
+        <Text style={[styles.xpLine, { color: colors.primary }]}>
+          {item.xp.toLocaleString()} XP
+        </Text>
         <LevelBadge level={level} small />
       </View>
     </TouchableOpacity>
+  );
+}
+
+function SegmentedToggle<T extends string>({
+  options,
+  value,
+  onChange,
+  labels,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+  labels: Record<T, string>;
+}) {
+  const { colors } = useTheme();
+  const layout = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: {
+          flexDirection: 'row',
+          padding: 3,
+          borderRadius: Radius.full,
+          backgroundColor: colors.chipBackground,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+        },
+        seg: {
+          flex: 1,
+          paddingVertical: Spacing.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: Radius.full,
+        },
+        segActive: {
+          backgroundColor: colors.primary,
+        },
+      }),
+    [colors],
+  );
+
+  return (
+    <View style={layout.wrap}>
+      {options.map((opt) => {
+        const active = value === opt;
+        return (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => onChange(opt)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            style={[layout.seg, active && layout.segActive]}
+          >
+            <Text
+              variant="label"
+              style={{ letterSpacing: 0.4 }}
+              color={active ? colors.onPrimary : colors.textSecondary}
+            >
+              {labels[opt]}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
 
@@ -223,7 +188,16 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const [mode, setMode] = useState<LeaderboardMode>('weekly');
-  const { data: entries, isLoading, isError, refetch, isRefetching } = useLeaderboard(mode);
+  const [audience, setAudience] = useState<LeaderboardAudience>('everyone');
+  const { data: entries, isLoading, isError, refetch, isRefetching, isFetching } = useLeaderboard(
+    mode,
+    audience,
+  );
+
+  const restEntries = useMemo(
+    () => (entries ?? []).filter((e) => e.rank > 3),
+    [entries],
+  );
 
   const layout = useMemo(
     () =>
@@ -235,87 +209,101 @@ export default function LeaderboardScreen() {
           paddingBottom: Spacing.sm,
         },
         subtitle: { marginTop: 6, lineHeight: 20 },
-        toggleWrap: {
-          flexDirection: 'row',
-          marginHorizontal: Spacing.lg,
+        toggleBlock: {
+          paddingHorizontal: Spacing.lg,
+          gap: Spacing.sm,
           marginBottom: Spacing.md,
-          padding: 3,
-          borderRadius: Radius.full,
-          backgroundColor: colors.chipBackground,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        toggleSeg: {
-          flex: 1,
-          paddingVertical: Spacing.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: Radius.full,
-        },
-        toggleSegActive: {
-          backgroundColor: colors.primary,
         },
         hint: {
           paddingHorizontal: Spacing.lg,
           marginBottom: Spacing.md,
         },
         empty: { marginTop: 72, paddingHorizontal: Spacing.xl },
+        listPad: {
+          paddingHorizontal: Spacing.md,
+          paddingBottom: Spacing.xxl,
+        },
+        fetchFooter: {
+          paddingVertical: Spacing.md,
+          alignItems: 'center',
+        },
       }),
-    [colors],
+    [],
+  );
+
+  const modeLabels: Record<LeaderboardMode, string> = {
+    weekly: 'This week',
+    alltime: 'All time',
+  };
+
+  const audienceLabels: Record<LeaderboardAudience, string> = {
+    friends: 'Friends',
+    everyone: 'Everyone',
+  };
+
+  const ListHeader = useMemo(
+    () => (
+      <>
+        <View style={layout.headerBlock}>
+          <Text variant="displayLarge" style={{ letterSpacing: -0.5 }}>
+            Leaderboard
+          </Text>
+          <Text variant="body" color={colors.textSecondary} style={layout.subtitle}>
+            {"The community's top performers."}
+          </Text>
+        </View>
+
+        <View style={layout.toggleBlock}>
+          <SegmentedToggle
+            options={['friends', 'everyone'] as const}
+            value={audience}
+            onChange={setAudience}
+            labels={audienceLabels}
+          />
+          <SegmentedToggle
+            options={['weekly', 'alltime'] as const}
+            value={mode}
+            onChange={setMode}
+            labels={modeLabels}
+          />
+        </View>
+
+        <Text variant="caption" color={colors.textTertiary} style={layout.hint}>
+          {mode === 'weekly'
+            ? 'Board resets every Monday morning.'
+            : 'Ranked by total XP ever earned.'}
+        </Text>
+
+        <PodiumTopThree entries={entries ?? []} currentUserId={userId} />
+
+        {isFetching && !entries?.length ? (
+          <View style={layout.fetchFooter}>
+            <ActivityIndicator color={colors.primary} size="small" />
+          </View>
+        ) : null}
+      </>
+    ),
+    [layout, colors, audience, mode, entries, userId, isFetching],
   );
 
   return (
     <View style={[layout.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={layout.headerBlock}>
-        <Text variant="displayLarge" style={{ letterSpacing: -0.5 }}>
-          Leaderboard
-        </Text>
-        <Text variant="body" color={colors.textSecondary} style={layout.subtitle}>
-          {"The community's top performers."}
-        </Text>
-      </View>
-
-      <View style={layout.toggleWrap}>
-        {(['weekly', 'alltime'] as LeaderboardMode[]).map((opt) => {
-          const active = mode === opt;
-          return (
-            <TouchableOpacity
-              key={opt}
-              onPress={() => setMode(opt)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              style={[layout.toggleSeg, active && layout.toggleSegActive]}
-            >
-              <Text
-                variant="label"
-                style={{ letterSpacing: 0.4 }}
-                color={active ? colors.onPrimary : colors.textSecondary}
-              >
-                {opt === 'weekly' ? 'This week' : 'All time'}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <Text variant="caption" color={colors.textTertiary} style={layout.hint}>
-        {mode === 'weekly' ? 'Board resets every Monday morning.' : 'Ranked by total XP ever earned.'}
-      </Text>
-
       {isError ? (
-        <ErrorState
-          title="Couldn't load rankings"
-          message="Pull down to refresh or try again later."
-          onRetry={() => void refetch()}
-        />
-      ) : isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: Spacing.xxl }} />
+        <>
+          {ListHeader}
+          <ErrorState
+            title="Couldn't load rankings"
+            message="Pull down to refresh or try again later."
+            onRetry={() => void refetch()}
+          />
+        </>
       ) : (
         <FlatList
-          data={entries}
+          data={restEntries}
           keyExtractor={(item) => item.user_id}
           renderItem={({ item }) => <RankItem item={item} isMe={item.user_id === userId} />}
-          contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.xxl }}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={layout.listPad}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -323,21 +311,32 @@ export default function LeaderboardScreen() {
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
+          ListFooterComponent={
+            isFetching && isLoading ? (
+              <View style={layout.fetchFooter}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            <View style={layout.empty}>
-              <Text variant="headingLarge" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-                {"You're early"}
-              </Text>
-              <Text
-                variant="body"
-                color={colors.textTertiary}
-                style={{ textAlign: 'center', marginTop: Spacing.sm, lineHeight: 22 }}
-              >
-                {
-                  'Complete daily Dojis to earn XP — when others join in, their names will show up here.'
-                }
-              </Text>
-            </View>
+            !isLoading && !entries?.length ? (
+              <View style={layout.empty}>
+                <Text variant="headingLarge" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+                  {audience === 'friends' ? 'No friends yet' : "You're early"}
+                </Text>
+                <Text
+                  variant="body"
+                  color={colors.textTertiary}
+                  style={{ textAlign: 'center', marginTop: Spacing.sm, lineHeight: 22 }}
+                >
+                  {audience === 'friends'
+                    ? 'Follow people to see them on your friends leaderboard.'
+                    : mode === 'weekly'
+                      ? 'Complete daily Dojis to earn XP this week.'
+                      : 'Complete daily Dojis to earn XP — when others join in, their names will show up here.'}
+                </Text>
+              </View>
+            ) : null
           }
         />
       )}

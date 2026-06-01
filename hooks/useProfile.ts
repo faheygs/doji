@@ -21,6 +21,7 @@ export function useProfile(username?: string) {
       return data;
     },
     enabled: !!username,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -208,6 +209,39 @@ export function useFriendCount(targetUserId?: string) {
       if (typeof data === 'number' && Number.isFinite(data)) return Math.max(0, Math.floor(data));
       const n = Number(data);
       return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    },
+    enabled: !!targetUserId,
+    staleTime: 30_000,
+  });
+}
+
+export type FollowCounts = { followers: number; following: number };
+
+/** Follower / following counts via remodel RPCs. */
+export function useFollowCounts(targetUserId?: string) {
+  return useQuery({
+    queryKey: ['followCounts', targetUserId],
+    queryFn: async (): Promise<FollowCounts> => {
+      if (!targetUserId) return { followers: 0, following: 0 };
+
+      const [followersRes, followingRes] = await Promise.all([
+        supabase.rpc('follower_count', { p_user_id: targetUserId }),
+        supabase.rpc('following_count', { p_user_id: targetUserId }),
+      ]);
+
+      if (followersRes.error) throw followersRes.error;
+      if (followingRes.error) throw followingRes.error;
+
+      const toInt = (v: unknown) => {
+        if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.floor(v));
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+      };
+
+      return {
+        followers: toInt(followersRes.data),
+        following: toInt(followingRes.data),
+      };
     },
     enabled: !!targetUserId,
     staleTime: 30_000,

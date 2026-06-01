@@ -5,8 +5,11 @@ import {
   Modal,
   Pressable,
   TouchableOpacity,
+  Switch,
   useWindowDimensions,
   Dimensions,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,10 +27,16 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { PostCommentsThread } from './PostCommentsThread';
+import { useToggleCommentsDisabled } from '../../hooks/useComments';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { formatCompactCount } from '../../utils/formatCount';
 
 type Props = {
   visible: boolean;
   postId: string;
+  postOwnerId?: string | null;
+  commentsDisabled?: boolean;
+  commentCount?: number;
   onClose: () => void;
 };
 
@@ -47,10 +56,44 @@ function nearestSnap(y: number, snaps: readonly number[]): number {
   return best;
 }
 
-export function PostCommentsSheet({ visible, postId, onClose }: Props) {
+export function PostCommentsSheet({
+  visible,
+  postId,
+  postOwnerId,
+  commentsDisabled = false,
+  commentCount = 0,
+  onClose,
+}: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const me = useAuthStore((s) => s.session?.user?.id);
+  const toggleCommentsDisabled = useToggleCommentsDisabled();
+  const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const { height: liveWinH } = useWindowDimensions();
+
+  useEffect(() => {
+    setLocalDisabled(commentsDisabled);
+  }, [commentsDisabled, postId]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardOpen(false);
+      return;
+    }
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = () => setKeyboardOpen(true);
+    const onHide = () => setKeyboardOpen(false);
+    const s = Keyboard.addListener(showEvt, onShow);
+    const h = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      s.remove();
+      h.remove();
+    };
+  }, [visible]);
+
   /**
    * Lock window height while the sheet is open. On Android, keyboard resize shrinks
    * `liveWinH`, which was changing snap math and re-triggering the open animation
@@ -104,6 +147,7 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .enabled(!keyboardOpen)
         .activeOffsetY([-12, 12])
         .failOffsetX([-28, 28])
         .onStart(() => {
@@ -141,7 +185,7 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
             }
           });
         }),
-    [closedOffset, fireClose, halfOffset, snapPoints],
+    [closedOffset, fireClose, halfOffset, keyboardOpen, snapPoints],
   );
 
   const sheetStyle = useAnimatedStyle(() => {
@@ -163,6 +207,24 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
   const handleClosePress = useCallback(() => {
     animateToClose();
   }, [animateToClose]);
+
+  const onToggleComments = useCallback(
+    (next: boolean) => {
+      Haptics.selectionAsync();
+      setLocalDisabled(next);
+      toggleCommentsDisabled.mutate({ postId, disabled: next });
+    },
+    [postId, toggleCommentsDisabled],
+  );
+
+  const themedSwitchProps = useMemo(
+    () => ({
+      trackColor: { false: colors.surfaceMuted, true: colors.accent },
+      thumbColor: colors.surface,
+      ios_backgroundColor: colors.surfaceMuted,
+    }),
+    [colors],
+  );
 
   const styles = useMemo(
     () =>
@@ -207,6 +269,19 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
           paddingBottom: Spacing.sm,
         },
         headerTitle: { flex: 1 },
+        headerMeta: {
+          fontVariant: ['tabular-nums'],
+          marginRight: Spacing.sm,
+        },
+        ownerRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: Spacing.md,
+          paddingBottom: Spacing.sm,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.hairline,
+        },
         closeHit: { padding: Spacing.xs },
         body: { flex: 1, minHeight: 0, minWidth: 0 },
       }),
@@ -244,6 +319,11 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
                   <Text variant="headingMedium" numberOfLines={1} style={styles.headerTitle}>
                     Comments
                   </Text>
+                  {commentCount > 0 ? (
+                    <Text variant="bodySmall" color={colors.textTertiary} style={styles.headerMeta}>
+                      {formatCompactCount(commentCount)}
+                    </Text>
+                  ) : null}
                   <TouchableOpacity
                     onPress={handleClosePress}
                     hitSlop={12}
@@ -256,8 +336,28 @@ export function PostCommentsSheet({ visible, postId, onClose }: Props) {
                 </View>
               </View>
             </GestureDetector>
+            {isPostOwner ? (
+              <View style={styles.ownerRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Turn off comments
+                </Text>
+                <Switch
+                  value={localDisabled}
+                  onValueChange={onToggleComments}
+                  disabled={toggleCommentsDisabled.isPending}
+                  accessibilityLabel="Turn off comments on this post"
+                  {...themedSwitchProps}
+                />
+              </View>
+            ) : null}
             <View style={styles.body}>
-              <PostCommentsThread postId={postId} fetchEnabled={visible} embedInSheet />
+              <PostCommentsThread
+                postId={postId}
+                postOwnerId={postOwnerId}
+                commentsDisabled={localDisabled}
+                fetchEnabled={visible}
+                embedInSheet
+              />
             </View>
           </Animated.View>
         </View>

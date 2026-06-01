@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,6 +31,10 @@ import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
+import { canSubmitChallenge } from '../../lib/participationGate';
+import { XpGainOverlay } from '../../components/gamification/XpGainOverlay';
+import { buildXpOverlayPayload, type XpOverlayPayload } from '../../lib/challengeComplete';
+import { required, validationMessage } from '../../lib/formValidation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -65,6 +69,7 @@ export default function CameraScreen() {
     clearCaptures,
   } = useChallengeStore();
   const createPost = useCreatePost();
+  const [xpOverlay, setXpOverlay] = useState<XpOverlayPayload | null>(null);
 
   const challenge = userEvent?.challenge;
   const needPhoto = challenge?.requires_photo ?? true;
@@ -226,6 +231,11 @@ export default function CameraScreen() {
 
   const handlePost = async () => {
     if (!userEvent) return;
+    if (!canSubmitChallenge(userEvent)) {
+      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
+      navigateToFeedAfterChallengeComplete(router);
+      return;
+    }
 
     if (challenge?.requires_photo && !capturedPhoto) {
       Toast.show({ type: 'error', text1: 'This challenge needs a photo.' });
@@ -240,8 +250,6 @@ export default function CameraScreen() {
       return;
     }
 
-    const isLate = isExpired(userEvent.expires_at);
-
     createPost.mutate(
       {
         userEventId: userEvent.id,
@@ -249,13 +257,13 @@ export default function CameraScreen() {
         frontPhotoUri: capturedFrontPhoto,
         videoUri: capturedVideoUri,
         caption,
-        isLate,
+        isLate: false,
       },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
-          navigateToFeedAfterChallengeComplete(router);
+          setXpOverlay(buildXpOverlayPayload('photo', challenge?.xp_reward));
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
@@ -265,6 +273,13 @@ export default function CameraScreen() {
   };
 
   const canPreview = Boolean(capturedPhoto || capturedVideoUri);
+  const captionRequired = Boolean(challenge?.requires_text);
+  const captionValidation = useMemo(() => {
+    if (!captionRequired) return { ok: true as const };
+    return required(caption, 'Add a caption for this challenge.');
+  }, [captionRequired, caption]);
+  const canPost =
+    canPreview && (!captionRequired || captionValidation.ok) && !createPost.isPending;
 
   if (userEventLoading) {
     return (
@@ -389,7 +404,18 @@ export default function CameraScreen() {
 
   if (flowStep === 'preview' && canPreview) {
     return (
-      <KeyboardAvoidingView
+      <>
+        <XpGainOverlay
+          visible={!!xpOverlay}
+          amount={xpOverlay?.amount ?? 0}
+          xp={xpOverlay?.xp ?? 0}
+          level={xpOverlay?.level ?? 1}
+          onComplete={() => {
+            setXpOverlay(null);
+            navigateToFeedAfterChallengeComplete(router);
+          }}
+        />
+        <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
@@ -443,23 +469,29 @@ export default function CameraScreen() {
 
           <View style={styles.previewFooter}>
             <Input
-              placeholder="Add a caption... (optional)"
+              placeholder={
+                captionRequired ? 'Add a caption (required)…' : 'Add a caption... (optional)'
+              }
               value={caption}
               onChangeText={setCaption}
               multiline
               containerStyle={styles.captionInput}
+              error={captionRequired ? validationMessage(captionValidation) : undefined}
+              hint={captionRequired ? 'Caption required for this challenge' : undefined}
             />
             <Button
               onPress={handlePost}
               loading={createPost.isPending}
               fullWidth
               size="lg"
+              disabled={!canPost}
             >
               Share
             </Button>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      </>
     );
   }
 

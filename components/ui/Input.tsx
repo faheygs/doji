@@ -15,6 +15,8 @@ import { Text } from './Text';
 type Props = TextInputProps & {
   label?: string;
   error?: string;
+  hint?: string;
+  success?: string;
   containerStyle?: StyleProp<ViewStyle>;
 };
 
@@ -23,6 +25,8 @@ export const Input = forwardRef<TextInput, Props>(
     {
       label,
       error,
+      hint,
+      success,
       containerStyle,
       style,
       multiline,
@@ -61,9 +65,19 @@ export const Input = forwardRef<TextInput, Props>(
           errorText: {
             marginTop: 2,
           },
+          hintText: {
+            marginTop: 2,
+          },
         }),
       [colors],
     );
+
+    const helperText = error ?? success ?? hint;
+    const helperColor = error
+      ? colors.error
+      : success
+        ? colors.success
+        : colors.textTertiary;
 
     return (
       <View style={[styles.container, containerStyle]}>
@@ -89,9 +103,9 @@ export const Input = forwardRef<TextInput, Props>(
             }}
             {...rest}
           />,
-          error ? (
-            <Text key="error" variant="bodySmall" color={colors.error} style={styles.errorText}>
-              {error}
+          helperText ? (
+            <Text key="helper" variant="bodySmall" color={helperColor} style={styles.hintText}>
+              {helperText}
             </Text>
           ) : null,
         ]}

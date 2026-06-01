@@ -36,33 +36,48 @@ type RowDef = {
 const CATEGORY_ROWS: RowDef[] = [
   {
     key: 'doji_start',
-    title: 'Doji starting',
-    description: "When today's challenge is ready and when your daily Doji push arrives.",
+    title: 'Daily Challenge Alert',
+    description: "When today's Doji goes live.",
   },
   {
     key: 'friend_post',
-    title: 'Friend posts',
-    description: 'When someone you are friends with shares to the feed.',
+    title: 'Friend Submitted',
+    description: 'When someone you follow completes the challenge.',
   },
   {
     key: 'reactions_on_my_post',
-    title: 'Reactions on my posts',
-    description: 'When someone reacts to something you posted.',
+    title: 'New Reaction',
+    description: 'When someone reacts to your post.',
   },
   {
-    key: 'friend_request',
-    title: 'Friend requests',
-    description: 'When someone sends you a friend request.',
+    key: 'comment',
+    title: 'New Comment',
+    description: 'When someone comments on your post.',
+  },
+  {
+    key: 'mention',
+    title: 'Mentions',
+    description: 'When someone @mentions you in a comment.',
+  },
+  {
+    key: 'follow_request',
+    title: 'Follow Requests',
+    description: 'When someone requests to follow you.',
   },
   {
     key: 'friend_accepted',
-    title: 'Friend requests accepted',
-    description: 'When someone accepts your friend request.',
+    title: 'Follow Accepted',
+    description: 'When someone accepts your follow request.',
   },
   {
     key: 'badges',
-    title: 'Badges',
-    description: 'When you earn a new badge.',
+    title: 'Badge Unlocked',
+    description: 'When you earn or upgrade a badge.',
+  },
+  {
+    key: 'suggestion',
+    title: 'Challenge Review',
+    description: 'When your submission is approved or declined.',
   },
 ];
 

@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { Friendship, FriendshipWithRequester, Profile, UserEvent } from '../types/database';
-import { useFriendRequests } from './useProfile';
+import type { Profile, UserEvent, Follow } from '../types/database';
+import { useFollowRequests } from './useFollows';
 import { isChallengeLive } from '../lib/challengeDay';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 
@@ -28,11 +28,11 @@ function dismissedKey(uid: string | undefined) {
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
 
 export type NotificationCenterItem =
-  | { key: string; kind: 'friend_request'; friendship: FriendshipWithRequester; sortAt: string }
+  | { key: string; kind: 'follow_request'; follow: Follow & { follower?: Profile | null }; sortAt: string }
   | {
       key: string;
-      kind: 'friend_accepted';
-      friendship: Friendship & { addressee?: Profile | null };
+      kind: 'follow_accepted';
+      follow: Follow & { following?: Profile | null };
       sortAt: string;
     }
   | {
@@ -119,19 +119,19 @@ export function useNotificationCenter() {
 
   const sinceIso = useMemo(() => lowerSinceIso(clearedAt), [clearedAt]);
 
-  const { data: friendRequests = [], isLoading: requestsLoading } = useFriendRequests();
+  const { data: followRequests = [], isLoading: requestsLoading } = useFollowRequests();
 
   const acceptQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'accepts', userId, sinceIso],
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'follow_accepts', userId, sinceIso],
     enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
-    queryFn: async (): Promise<(Friendship & { addressee?: Profile | null })[]> => {
+    queryFn: async (): Promise<(Follow & { following?: Profile | null })[]> => {
       if (!userId) return [];
 
       const { data, error } = await supabase
-        .from('friendships')
-        .select('*, addressee:profiles!friendships_addressee_id_fkey(*)')
-        .eq('requester_id', userId)
+        .from('follows')
+        .select('*, following:profiles!follows_following_id_fkey(*)')
+        .eq('follower_id', userId)
         .eq('status', 'accepted')
         .not('accepted_at', 'is', null)
         .gt('accepted_at', sinceIso)
@@ -139,7 +139,7 @@ export function useNotificationCenter() {
         .limit(50);
 
       if (error) throw error;
-      return (data ?? []) as (Friendship & { addressee?: Profile | null })[];
+      return (data ?? []) as (Follow & { following?: Profile | null })[];
     },
   });
 
@@ -227,20 +227,20 @@ export function useNotificationCenter() {
   }, [queryClient, userId]);
 
   const items = useMemo((): NotificationCenterItem[] => {
-    const reqItems: NotificationCenterItem[] = [...friendRequests]
+    const reqItems: NotificationCenterItem[] = [...followRequests]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .map((f) => ({
-        key: `friend_request:${f.id}`,
-        kind: 'friend_request' as const,
-        friendship: f,
+        key: `follow_request:${f.id}`,
+        kind: 'follow_request' as const,
+        follow: f,
         sortAt: f.created_at,
       }));
 
     const accItems: NotificationCenterItem[] =
       acceptQuery.data?.map((f) => ({
-        key: `friend_accepted:${f.id}`,
-        kind: 'friend_accepted' as const,
-        friendship: f,
+        key: `follow_accepted:${f.id}`,
+        kind: 'follow_accepted' as const,
+        follow: f,
         sortAt: f.accepted_at ?? f.created_at,
       })) ?? [];
 
@@ -292,14 +292,14 @@ export function useNotificationCenter() {
       .filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
-      const priority = (k: NotificationCenterItem['kind']) => (k === 'friend_request' ? 0 : 1);
+      const priority = (k: NotificationCenterItem['kind']) => (k === 'follow_request' ? 0 : 1);
       const p = priority(a.kind) - priority(b.kind);
       if (p !== 0) return p;
       return new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime();
     });
 
     return merged;
-  }, [friendRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
+  }, [followRequests, acceptQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
 
   const unreadCount = useMemo(() => {
     const prefs = mergeNotificationPreferences(profile?.notification_preferences);

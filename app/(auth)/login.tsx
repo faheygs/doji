@@ -11,7 +11,13 @@ import {
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
-import { formatAuthError, isValidEmail, normalizeEmail } from '../../lib/authErrors';
+import { formatAuthError, normalizeEmail } from '../../lib/authErrors';
+import {
+  validateEmailField,
+  validatePasswordField,
+  validatePasswordMatch,
+  validationMessage,
+} from '../../lib/formValidation';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -66,29 +72,34 @@ export default function LoginScreen() {
     [colors.background],
   );
 
-  const emailOk = isValidEmail(email);
-  const passwordOk = password.length >= MIN_PASSWORD_LENGTH;
+  const emailValidation = useMemo(() => validateEmailField(email), [email]);
+  const passwordValidation = useMemo(() => validatePasswordField(password, MIN_PASSWORD_LENGTH), [password]);
+  const confirmValidation = useMemo(
+    () => validatePasswordMatch(password, confirmPassword),
+    [password, confirmPassword],
+  );
+
+  const showEmailError = email.length > 0 && !emailValidation.ok;
+  const showPasswordError = password.length > 0 && !passwordValidation.ok;
+  const showConfirmError = mode === 'signUp' && confirmPassword.length > 0 && !confirmValidation.ok;
+
   const signUpOk =
-    emailOk &&
-    passwordOk &&
-    confirmPassword === password &&
-    confirmPassword.length >= MIN_PASSWORD_LENGTH;
-  const signInOk = emailOk && passwordOk;
+    emailValidation.ok &&
+    passwordValidation.ok &&
+    confirmValidation.ok;
+  const signInOk = emailValidation.ok && passwordValidation.ok;
 
   const handleSubmit = async () => {
-    if (!emailOk) {
-      Toast.show({ type: 'error', text1: 'Enter a valid email address' });
+    if (!emailValidation.ok) {
+      Toast.show({ type: 'error', text1: emailValidation.message });
       return;
     }
-    if (!passwordOk) {
-      Toast.show({
-        type: 'error',
-        text1: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-      });
+    if (!passwordValidation.ok) {
+      Toast.show({ type: 'error', text1: passwordValidation.message });
       return;
     }
-    if (mode === 'signUp' && confirmPassword !== password) {
-      Toast.show({ type: 'error', text1: 'Passwords do not match' });
+    if (mode === 'signUp' && !confirmValidation.ok) {
+      Toast.show({ type: 'error', text1: confirmValidation.message });
       return;
     }
 
@@ -165,6 +176,8 @@ export default function LoginScreen() {
               autoComplete="email"
               textContentType="emailAddress"
               autoFocus
+              error={showEmailError ? validationMessage(emailValidation) : undefined}
+              success={emailValidation.ok && email.length > 0 ? 'Looks good' : undefined}
             />
             <Input
               label="Password"
@@ -176,6 +189,8 @@ export default function LoginScreen() {
               autoCorrect={false}
               autoComplete={mode === 'signUp' ? 'password-new' : 'password'}
               textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
+              error={showPasswordError ? validationMessage(passwordValidation) : undefined}
+              hint={password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
             />
             {mode === 'signUp' ? (
               <Input
@@ -188,6 +203,10 @@ export default function LoginScreen() {
                 autoCorrect={false}
                 autoComplete="password-new"
                 textContentType="newPassword"
+                error={showConfirmError ? validationMessage(confirmValidation) : undefined}
+                success={
+                  confirmValidation.ok && confirmPassword.length > 0 ? 'Passwords match' : undefined
+                }
               />
             ) : null}
           </View>

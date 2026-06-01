@@ -3,6 +3,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FEED_TAB_HREF } from '../../lib/navigationReturn';
+import { safeReplace } from '../../lib/routes';
+import { needsOnboarding } from '../../lib/onboardingGate';
 
 export default function AuthLayout() {
   const { session, profile, isLoading } = useAuthStore();
@@ -21,9 +23,13 @@ export default function AuthLayout() {
     if (isLoading) return;
 
     if (session && profile) {
-      router.replace(FEED_TAB_HREF);
+      if (needsOnboarding(profile)) {
+        safeReplace(router, '/(onboarding)');
+      } else {
+        safeReplace(router, FEED_TAB_HREF);
+      }
     } else if (session && !profile) {
-      router.replace('/(auth)/username');
+      safeReplace(router, '/(auth)/username');
     }
   }, [session, profile, isLoading]);
 

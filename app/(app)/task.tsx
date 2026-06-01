@@ -18,8 +18,11 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
-import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
+import { canSubmitChallenge } from '../../lib/participationGate';
+import { XpGainOverlay } from '../../components/gamification/XpGainOverlay';
+import { buildXpOverlayPayload, type XpOverlayPayload } from '../../lib/challengeComplete';
+import { required, validationMessage } from '../../lib/formValidation';
 
 export default function TaskScreen() {
   const router = useRouter();
@@ -27,8 +30,11 @@ export default function TaskScreen() {
   const { data: userEvent, isLoading } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
+  const [xpOverlay, setXpOverlay] = useState<XpOverlayPayload | null>(null);
 
   const challenge = userEvent?.challenge;
+  const answerValidation = useMemo(() => required(answer, 'Enter an answer.'), [answer]);
+  const canSubmit = answerValidation.ok && !createPost.isPending;
 
   useEffect(() => {
     if (isLoading) return;
@@ -41,6 +47,11 @@ export default function TaskScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!userEvent || !answer.trim()) return;
+    if (!canSubmitChallenge(userEvent)) {
+      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
+      navigateToFeedAfterChallengeComplete(router);
+      return;
+    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -51,13 +62,13 @@ export default function TaskScreen() {
         frontPhotoUri: null,
         videoUri: null,
         caption: answer.trim(),
-        isLate: isExpired(userEvent.expires_at),
+        isLate: false,
         postType: 'task_complete',
       },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          navigateToFeedAfterChallengeComplete(router);
+          setXpOverlay(buildXpOverlayPayload('task', challenge?.xp_reward));
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
@@ -109,6 +120,16 @@ export default function TaskScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <XpGainOverlay
+        visible={!!xpOverlay}
+        amount={xpOverlay?.amount ?? 0}
+        xp={xpOverlay?.xp ?? 0}
+        level={xpOverlay?.level ?? 1}
+        onComplete={() => {
+          setXpOverlay(null);
+          navigateToFeedAfterChallengeComplete(router);
+        }}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -144,6 +165,8 @@ export default function TaskScreen() {
                 multiline
                 autoFocus
                 containerStyle={{ flex: 1 }}
+                hint={answer.trim().length === 0 ? 'Your answer is required' : undefined}
+                error={answer.length > 0 ? validationMessage(answerValidation) : undefined}
               />
             </View>
           </View>
@@ -152,19 +175,19 @@ export default function TaskScreen() {
         <View style={styles.footer}>
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={!answer.trim() || createPost.isPending}
+            disabled={!canSubmit}
             activeOpacity={0.85}
             style={[
               styles.submitButton,
               {
-                backgroundColor: answer.trim() ? colors.primary : colors.surfaceMuted,
+                backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
               },
             ]}
           >
             {createPost.isPending ? (
               <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text variant="label" color={answer.trim() ? colors.onPrimary : colors.textTertiary}>
+            <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
                 Submit Answer
               </Text>
             )}

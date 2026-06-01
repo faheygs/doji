@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { normalizeReactionEmoji } from './reactionEmoji';
 import type { ReactionEmoji } from '../types/database';
 
 export type ReactionBreakdown = Record<string, number>;
@@ -30,7 +31,8 @@ export async function attachReactionFields<T extends { id: string }>(
 
   for (const row of data ?? []) {
     const pid = row.post_id as string;
-    const emoji = row.emoji as ReactionEmoji;
+    const emoji = normalizeReactionEmoji(row.emoji as string);
+    if (!emoji) continue;
     const uid = row.user_id as string;
     const b = { ...(breakdown.get(pid) ?? {}) };
     b[emoji] = (b[emoji] ?? 0) + 1;

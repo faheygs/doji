@@ -4,8 +4,11 @@ import { StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useAppRealtime } from '../../hooks/useAppRealtime';
+import { needsOnboarding } from '../../lib/onboardingGate';
+import { safeReplace, ROUTES } from '../../lib/routes';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { CelebrationHost } from '../../components/gamification/CelebrationHost';
 import {
   IconHome,
   IconTrophy,
@@ -39,11 +42,15 @@ export default function AppLayout() {
   useEffect(() => {
     if (isLoading) return;
     if (!session) {
-      router.replace('/(auth)/welcome');
+      safeReplace(router, ROUTES.welcome);
       return;
     }
     if (!profile) {
-      router.replace('/(auth)/username');
+      safeReplace(router, ROUTES.username);
+      return;
+    }
+    if (needsOnboarding(profile)) {
+      safeReplace(router, ROUTES.onboarding);
     }
   }, [session, profile, isLoading, router]);
 
@@ -88,8 +95,9 @@ export default function AppLayout() {
   );
 
   return (
-    <Tabs detachInactiveScreens={false} screenOptions={tabScreenOptions}>
-      {/* Home feed — href `/(app)/index` must match `FEED_TAB_HREF` in lib/navigationReturn.ts */}
+    <>
+      <Tabs detachInactiveScreens={false} screenOptions={tabScreenOptions}>
+      {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
       <Tabs.Screen
         name="index"
         options={{
@@ -151,7 +159,11 @@ export default function AppLayout() {
       <Tabs.Screen name="camera" options={{ href: null }} />
       <Tabs.Screen name="poll" options={{ href: null }} />
       <Tabs.Screen name="task" options={{ href: null }} />
+      <Tabs.Screen name="format" options={{ href: null }} />
       <Tabs.Screen name="post" options={{ href: null }} />
-    </Tabs>
+      <Tabs.Screen name="admin" options={{ href: null }} />
+      </Tabs>
+      <CelebrationHost />
+    </>
   );
 }

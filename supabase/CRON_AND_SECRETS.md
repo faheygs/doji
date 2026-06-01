@@ -34,7 +34,7 @@ Configure in the Supabase Dashboard (**Project Settings → Edge Functions → S
 
 ### Optional: challenge submission window length
 
-`schedule-daily-challenge` reads **`CHALLENGE_WINDOW_MINUTES`** (Edge Function secret). If unset, it defaults to **1440** (24 hours) so players can complete anytime until the next daily reset. Set **`CHALLENGE_WINDOW_MINUTES=10`** in production if you want the short window again.
+`schedule-daily-challenge` reads **`CHALLENGE_WINDOW_MINUTES`** (Edge Function secret). Defaults to **10** minutes — players must complete within the window or miss out.
 
 ## Invoke from cron or GitHub Actions
 

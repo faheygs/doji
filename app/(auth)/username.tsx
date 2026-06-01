@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -20,6 +21,7 @@ import { IconProfile } from '../../components/icons/Icons';
 import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 
 export default function UsernameScreen() {
+  const router = useRouter();
   const { session, fetchProfile } = useAuthStore();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -93,6 +95,9 @@ export default function UsernameScreen() {
         level: 1,
         reactions_received: 0,
         streak_shields: 0,
+        is_private: false,
+        is_admin: false,
+        onboarding_completed_at: null,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
@@ -108,6 +113,7 @@ export default function UsernameScreen() {
 
       await fetchProfile(userId);
       await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
+      router.replace('/(onboarding)' as Href);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create profile';
       Toast.show({ type: 'error', text1: msg });

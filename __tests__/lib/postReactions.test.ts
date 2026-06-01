@@ -26,7 +26,7 @@ describe('attachReactionFields', () => {
     setupReactionsMock([
       { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
       { post_id: 'p1', emoji: 'fire', user_id: 'user-2' },
-      { post_id: 'p1', emoji: 'love', user_id: 'user-1' },
+      { post_id: 'p1', emoji: 'heart', user_id: 'user-1' },
       { post_id: 'p2', emoji: 'wow', user_id: 'user-3' },
     ]);
 
@@ -34,8 +34,8 @@ describe('attachReactionFields', () => {
     const result = await attachReactionFields(posts, 'user-1');
 
     expect(result).toHaveLength(2);
-    expect(result[0].reaction_breakdown).toEqual({ fire: 2, love: 1 });
-    expect(result[0].my_reactions).toEqual(['fire', 'love']);
+    expect(result[0].reaction_breakdown).toEqual({ fire: 2, heart: 1 });
+    expect(result[0].my_reactions).toEqual(['fire', 'heart']);
     expect(result[1].reaction_breakdown).toEqual({ wow: 1 });
     expect(result[1].my_reactions).toEqual([]);
   });

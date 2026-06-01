@@ -48,8 +48,7 @@ export default function ChallengeScreen() {
 
   const isMissed =
     userEvent?.status === 'missed' || (userEvent && isExpired(userEvent.expires_at));
-  const isCompleted =
-    userEvent?.status === 'completed' || userEvent?.status === 'late';
+  const isCompleted = userEvent?.status === 'completed';
 
   const heroScale = useSharedValue(0.92);
   const heroStyle = useAnimatedStyle(() => ({
@@ -67,6 +66,8 @@ export default function ChallengeScreen() {
       router.push('/(app)/poll');
     } else if (challengeType === 'task') {
       router.push('/(app)/task');
+    } else if (challengeType === 'format') {
+      router.push('/(app)/format');
     } else {
       router.push('/(app)/camera');
     }
@@ -81,7 +82,9 @@ export default function ChallengeScreen() {
       ? 'Vote Now'
       : challengeType === 'task'
         ? 'Answer'
-        : 'Open Camera';
+        : challengeType === 'format'
+          ? 'Answer'
+          : 'Open Camera';
 
   const styles = useMemo(
     () =>

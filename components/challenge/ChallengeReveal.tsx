@@ -28,11 +28,13 @@ const TYPE_LABEL: Record<string, string> = {
   photo: 'Photo Challenge',
   poll: 'Poll',
   task: 'Task',
+  format: 'Format',
 };
 
 function TypeIcon({ type, color }: { type: string; color: string }) {
   if (type === 'poll') return <IcnBarChart size={36} color={color} />;
   if (type === 'task') return <IconCheck size={36} color={color} />;
+  if (type === 'format') return <Text variant="displayMedium" color={color}>Aa</Text>;
   return <IconCamera size={36} color={color} />;
 }
 
@@ -120,14 +122,14 @@ export function ChallengeReveal({
 
   const onCTA = () => {
     if (challenge.type === 'poll') return onStartPoll();
-    if (challenge.type === 'task') return onStartTask();
+    if (challenge.type === 'task' || challenge.type === 'format') return onStartTask();
     return onStartPhoto();
   };
 
   const ctaLabel =
     challenge.type === 'poll'
       ? 'Vote Now'
-      : challenge.type === 'task'
+      : challenge.type === 'task' || challenge.type === 'format'
         ? "Let's Do It"
         : 'Open Camera';
 

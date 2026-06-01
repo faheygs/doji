@@ -4,14 +4,16 @@ import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { useRouter, usePathname } from 'expo-router';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing, Radius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { ReactionBar } from './ReactionBar';
 import { PostCommentsSheet } from './PostCommentsSheet';
 import { PollResultCard } from './PollResultCard';
 import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
+import { PostQuestionBlock, PostAnswerBlock, PostPhotoPrompt } from './PostContentBlocks';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { IconLock } from '../icons/Icons';
 import { Post } from '../../types/database';
@@ -65,6 +67,8 @@ function PostCardImpl({ post, blurred }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
+  const meId = useAuthStore((s) => s.session?.user?.id);
+  const isOwnPost = meId != null && post.user_id === meId;
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
@@ -76,13 +80,22 @@ function PostCardImpl({ post, blurred }: Props) {
     () =>
       StyleSheet.create({
         card: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceElevated,
           borderRadius: Radius.lg,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.hairline,
           marginBottom: Spacing.lg,
           marginHorizontal: Spacing.md,
           overflow: 'hidden',
+          ...Shadows.card,
+        },
+        youPill: {
+          paddingHorizontal: Spacing.sm,
+          paddingVertical: 3,
+          borderRadius: Radius.full,
+          backgroundColor: `${colors.primary}22`,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: `${colors.primary}55`,
         },
         header: {
           flexDirection: 'row',
@@ -154,25 +167,10 @@ function PostCardImpl({ post, blurred }: Props) {
           paddingVertical: 4,
           borderRadius: 6,
         },
-        challengeRow: {
-          paddingHorizontal: Spacing.md,
-          paddingTop: Spacing.sm,
-          paddingBottom: Spacing.xs,
-        },
-        captionWrapper: {
+        captionPlain: {
           marginHorizontal: Spacing.md,
-          paddingHorizontal: Spacing.sm + 4,
-          paddingVertical: Spacing.xs + 2,
-          borderRadius: Radius.md,
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.hairline,
-        },
-        captionAfterChallenge: {
-          marginTop: Spacing.xs,
-        },
-        captionAfterMedia: {
           marginTop: Spacing.sm,
+          marginBottom: Spacing.xs,
         },
         lockedBody: {
           width: '100%' as const,
@@ -180,7 +178,7 @@ function PostCardImpl({ post, blurred }: Props) {
           aspectRatio: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.surfaceMuted,
+          backgroundColor: colors.background,
           gap: Spacing.xs,
         },
         pollBodyWrap: {
@@ -208,6 +206,12 @@ function PostCardImpl({ post, blurred }: Props) {
     showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
 
   const hasPhotoLayer = Boolean(displayUri);
+  const isQuestionPost =
+    post.type === 'task_complete' ||
+    post.challenge?.type === 'task' ||
+    post.challenge?.type === 'format';
+  const isPhotoPost = post.type === 'photo';
+  const showMedia = hasPhotoLayer || hasVideo;
 
   const isPollVotePost = post.type === 'poll_vote' && post.challenge;
 
@@ -264,7 +268,14 @@ function PostCardImpl({ post, blurred }: Props) {
               showTopBorder={false}
               onOpenComments={openComments}
             />
-            <PostCommentsSheet visible={commentsOpen} postId={post.id} onClose={closeComments} />
+            <PostCommentsSheet
+              visible={commentsOpen}
+              postId={post.id}
+              postOwnerId={post.user_id}
+              commentsDisabled={post.comments_disabled}
+              commentCount={post.comment_count}
+              onClose={closeComments}
+            />
           </>
         )}
       </View>
@@ -292,9 +303,18 @@ function PostCardImpl({ post, blurred }: Props) {
             size={36}
           />
           <View style={styles.nameContainer}>
-            <Text variant="headingMedium" numberOfLines={1}>
-              @{post.profile?.username}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
+              <Text variant="headingMedium" numberOfLines={1}>
+                @{post.profile?.username}
+              </Text>
+              {isOwnPost ? (
+                <View style={styles.youPill}>
+                  <Text variant="micro" color={colors.primary} style={{ fontWeight: '700' }}>
+                    You
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
               {formatRelativeTime(post.created_at)}
             </Text>
@@ -306,7 +326,15 @@ function PostCardImpl({ post, blurred }: Props) {
         lockedBody
       ) : (
         <>
-          {hasPhotoLayer || hasVideo ? (
+          {isQuestionPost && post.challenge ? (
+            <PostQuestionBlock challenge={post.challenge} />
+          ) : null}
+
+          {isPhotoPost && post.challenge && showMedia ? (
+            <PostPhotoPrompt title={post.challenge.title} />
+          ) : null}
+
+          {showMedia ? (
             <View style={styles.imageTap}>
               {hasPhotoLayer ? (
                 <TouchableOpacity
@@ -358,21 +386,10 @@ function PostCardImpl({ post, blurred }: Props) {
             </View>
           ) : null}
 
-          {post.challenge ? (
-            <View style={styles.challengeRow}>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {post.challenge.title}
-              </Text>
-            </View>
-          ) : null}
+          {isQuestionPost && post.caption ? <PostAnswerBlock caption={post.caption} /> : null}
 
-          {post.caption ? (
-            <View
-              style={[
-                styles.captionWrapper,
-                post.challenge ? styles.captionAfterChallenge : styles.captionAfterMedia,
-              ]}
-            >
+          {isPhotoPost && post.caption ? (
+            <View style={styles.captionPlain}>
               <Text variant="body" color={colors.text} style={{ lineHeight: 20 }}>
                 {post.caption}
               </Text>
@@ -382,10 +399,16 @@ function PostCardImpl({ post, blurred }: Props) {
           <ReactionBar
             post={post}
             blurred={false}
-            showTopBorder={!post.caption}
             onOpenComments={openComments}
           />
-          <PostCommentsSheet visible={commentsOpen} postId={post.id} onClose={closeComments} />
+          <PostCommentsSheet
+            visible={commentsOpen}
+            postId={post.id}
+            postOwnerId={post.user_id}
+            commentsDisabled={post.comments_disabled}
+            commentCount={post.comment_count}
+            onClose={closeComments}
+          />
         </>
       )}
     </View>

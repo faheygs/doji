@@ -2,9 +2,7 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import { Platform } from 'react-native';
 
 export const webRootViewStyle: ViewStyle | undefined =
-  Platform.OS === 'web'
-    ? ({ flex: 1, minHeight: '100vh' } as unknown as ViewStyle)
-    : undefined;
+  Platform.OS === 'web' ? ({ flex: 1, minHeight: '100vh' } as unknown as ViewStyle) : undefined;
 
 export const webScrollParentStyle: ViewStyle | undefined =
   Platform.OS === 'web' ? { flex: 1, minHeight: 0 } : undefined;
@@ -13,7 +11,7 @@ export const webScrollParentStyle: ViewStyle | undefined =
 // Brand
 // ---------------------------------------------------------------------------
 export const Brand = {
-  orange: '#F97316',
+  orange: '#FF6B35',
   violet: '#8B5CF6',
   gradientMid: '#A78BFA',
 } as const;
@@ -143,7 +141,6 @@ export const Shadows = {
 // Color Tokens
 // ---------------------------------------------------------------------------
 export type AppColors = {
-  // Core
   primary: string;
   primaryHover: string;
   primaryLight: string;
@@ -154,311 +151,173 @@ export type AppColors = {
   successLight: string;
   danger: string;
   warning: string;
-
-  // Surfaces
   background: string;
   surface: string;
   surfaceElevated: string;
   surfaceMuted: string;
-
-  // Text
   text: string;
   textSecondary: string;
   textTertiary: string;
   onPrimary: string;
   onAccent: string;
-
-  // Borders
   border: string;
   borderLight: string;
   hairline: string;
-
-  // Gamification
   xpGradientStart: string;
   xpGradientEnd: string;
-
-  // Legacy compat
   link: string;
   error: string;
   chipBackground: string;
   fillMuted: string;
   accentGlow: string;
   surfaceRaised: string;
-
-  /** Modal/sheet dimming */
   overlayBackdrop: string;
-  /** Frosted pill on XP / brand gradients */
   onGradientPill: string;
   onGradientPillStrong: string;
-  /** Full-screen video / camera letterboxing */
   mediaLetterbox: string;
-  /** RN shadow color (opacity set in Stylesheet) */
   shadowBase: string;
+  xpGold: string;
+  level: string;
 };
 
-// ---- Coral (default light) ----
-export const coralColors: AppColors = {
-  primary: '#F97316',
+export const lightColors: AppColors = {
+  primary: '#FF6B35',
   primaryHover: '#EA580C',
   primaryLight: '#FFF7ED',
   primaryPale: '#FFEDD5',
   accent: '#8B5CF6',
   accentLight: '#EDE9FE',
-  success: '#10B981',
+  success: '#4CAF50',
   successLight: '#D1FAE5',
-  danger: '#EF4444',
+  danger: '#F44336',
   warning: '#F59E0B',
-
-  background: '#FAFAF9',
-  surface: '#FFFFFF',
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
   surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#F5F5F4',
-
-  text: '#1C1917',
-  textSecondary: '#57534E',
-  textTertiary: '#A8A29E',
+  surfaceMuted: '#F5F5F5',
+  text: '#0A0A0A',
+  textSecondary: '#6B6B6B',
+  textTertiary: '#9B9B9B',
   onPrimary: '#FFFFFF',
   onAccent: '#FFFFFF',
-
-  border: '#E7E5E4',
-  borderLight: '#F5F5F4',
-  hairline: '#E7E5E4',
-
-  xpGradientStart: '#F97316',
+  border: '#E5E5E5',
+  borderLight: '#F5F5F5',
+  hairline: '#E5E5E5',
+  xpGradientStart: '#FF6B35',
   xpGradientEnd: '#8B5CF6',
-
-  link: '#F97316',
-  error: '#EF4444',
+  link: '#FF6B35',
+  error: '#F44336',
   chipBackground: 'rgba(0,0,0,0.04)',
-  fillMuted: '#F5F5F4',
-  accentGlow: 'rgba(249,115,22,0.15)',
+  fillMuted: '#F5F5F5',
+  accentGlow: 'rgba(255,107,53,0.15)',
   surfaceRaised: '#FFFFFF',
-
   overlayBackdrop: 'rgba(0,0,0,0.55)',
   onGradientPill: 'rgba(255,255,255,0.15)',
   onGradientPillStrong: 'rgba(255,255,255,0.2)',
   mediaLetterbox: '#000000',
   shadowBase: '#000000',
+  xpGold: '#FFD700',
+  level: '#8B5CF6',
 };
 
-// ---- Ocean ----
-export const oceanColors: AppColors = {
-  ...coralColors,
-  primary: '#3B82F6',
-  primaryHover: '#2563EB',
-  primaryLight: '#EFF6FF',
-  primaryPale: '#DBEAFE',
-  accent: '#06B6D4',
-  accentLight: '#CFFAFE',
-
-  xpGradientStart: '#3B82F6',
-  xpGradientEnd: '#06B6D4',
-
-  link: '#3B82F6',
-  accentGlow: 'rgba(59,130,246,0.15)',
-};
-
-// ---- Midnight (dark) ----
-export const midnightColors: AppColors = {
-  primary: '#F97316',
+export const darkColors: AppColors = {
+  primary: '#FF6B35',
   primaryHover: '#EA580C',
-  primaryLight: 'rgba(249,115,22,0.12)',
-  primaryPale: 'rgba(249,115,22,0.08)',
+  primaryLight: 'rgba(255,107,53,0.12)',
+  primaryPale: 'rgba(255,107,53,0.08)',
   accent: '#A78BFA',
   accentLight: 'rgba(167,139,250,0.12)',
   success: '#34D399',
   successLight: 'rgba(52,211,153,0.12)',
-  danger: '#EF4444',
+  danger: '#F44336',
   warning: '#F59E0B',
-
-  background: '#0C0C0D',
-  surface: '#1A1A1C',
-  surfaceElevated: '#1A1A1C',
+  background: '#0A0A0A',
+  surface: '#141414',
+  surfaceElevated: '#1E1E1E',
   surfaceMuted: '#27272A',
-
-  text: '#FAFAFA',
-  textSecondary: '#A1A1AA',
-  textTertiary: '#71717A',
+  text: '#FFFFFF',
+  textSecondary: '#9B9B9B',
+  textTertiary: '#5A5A5A',
   onPrimary: '#FFFFFF',
   onAccent: '#FFFFFF',
-
-  border: '#27272A',
+  border: '#2A2A2A',
   borderLight: '#1F1F23',
-  hairline: '#27272A',
-
-  xpGradientStart: '#F97316',
+  hairline: '#2A2A2A',
+  xpGradientStart: '#FF6B35',
   xpGradientEnd: '#A78BFA',
-
-  link: '#F97316',
-  error: '#EF4444',
+  link: '#FF6B35',
+  error: '#F44336',
   chipBackground: 'rgba(255,255,255,0.06)',
   fillMuted: '#27272A',
-  accentGlow: 'rgba(249,115,22,0.22)',
-  surfaceRaised: '#1A1A1C',
-
+  accentGlow: 'rgba(255,107,53,0.22)',
+  surfaceRaised: '#1E1E1E',
   overlayBackdrop: 'rgba(0,0,0,0.6)',
   onGradientPill: 'rgba(255,255,255,0.15)',
   onGradientPillStrong: 'rgba(255,255,255,0.2)',
   mediaLetterbox: '#000000',
   shadowBase: '#000000',
+  xpGold: '#FFD700',
+  level: '#8B5CF6',
 };
 
-// ---- Forest ----
-export const forestColors: AppColors = {
-  ...coralColors,
-  primary: '#059669',
-  primaryHover: '#047857',
-  primaryLight: '#ECFDF5',
-  primaryPale: '#D1FAE5',
-  accent: '#D97706',
-  accentLight: '#FEF3C7',
-
-  xpGradientStart: '#059669',
-  xpGradientEnd: '#D97706',
-
-  link: '#059669',
-  accentGlow: 'rgba(5,150,105,0.15)',
-};
-
-// ---- Aurora (dark) — fuchsia × cyan on deep violet ----
-export const auroraColors: AppColors = {
-  primary: '#E879F9',
-  primaryHover: '#D946EF',
-  primaryLight: 'rgba(232,121,249,0.14)',
-  primaryPale: 'rgba(232,121,249,0.09)',
-  accent: '#22D3EE',
-  accentLight: 'rgba(34,211,238,0.14)',
-  success: '#34D399',
-  successLight: 'rgba(52,211,153,0.12)',
-  danger: '#FB7185',
-  warning: '#FBBF24',
-
-  background: '#0C0A12',
-  surface: '#161022',
-  surfaceElevated: '#1C1528',
-  surfaceMuted: '#251D35',
-
-  text: '#F8FAFC',
-  textSecondary: '#C4B5FD',
-  textTertiary: '#8B7AA8',
-  onPrimary: '#FFFFFF',
-  onAccent: '#FFFFFF',
-
-  border: '#2D2640',
-  borderLight: '#1E1830',
-  hairline: '#332A48',
-
-  xpGradientStart: '#E879F9',
-  xpGradientEnd: '#22D3EE',
-
-  link: '#E879F9',
-  error: '#FB7185',
-  chipBackground: 'rgba(255,255,255,0.06)',
-  fillMuted: '#251D35',
-  accentGlow: 'rgba(232,121,249,0.28)',
-  surfaceRaised: '#1C1528',
-
-  overlayBackdrop: 'rgba(0,0,0,0.6)',
-  onGradientPill: 'rgba(255,255,255,0.15)',
-  onGradientPillStrong: 'rgba(255,255,255,0.2)',
-  mediaLetterbox: '#000000',
-  shadowBase: '#000000',
-};
-
-// ---- Blossom (light) — rose × violet on warm blush ----
-export const blossomColors: AppColors = {
-  primary: '#E11D48',
-  primaryHover: '#BE123C',
-  primaryLight: '#FFF1F2',
-  primaryPale: '#FFE4E6',
-  accent: '#7C3AED',
-  accentLight: '#EDE9FE',
-  success: '#059669',
-  successLight: '#D1FAE5',
-  danger: '#DC2626',
-  warning: '#D97706',
-
-  background: '#FFF5F7',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
-  surfaceMuted: '#FCE7F0',
-
-  text: '#1A1520',
-  textSecondary: '#57534E',
-  textTertiary: '#A8A29E',
-  onPrimary: '#FFFFFF',
-  onAccent: '#FFFFFF',
-
-  border: '#FBCFE0',
-  borderLight: '#FDF2F8',
-  hairline: '#FBCFE0',
-
-  xpGradientStart: '#E11D48',
-  xpGradientEnd: '#7C3AED',
-
-  link: '#E11D48',
-  error: '#DC2626',
-  chipBackground: 'rgba(225,29,72,0.07)',
-  fillMuted: '#FCE7F0',
-  accentGlow: 'rgba(225,29,72,0.14)',
-  surfaceRaised: '#FFFFFF',
-
-  overlayBackdrop: 'rgba(0,0,0,0.55)',
-  onGradientPill: 'rgba(255,255,255,0.15)',
-  onGradientPillStrong: 'rgba(255,255,255,0.2)',
-  mediaLetterbox: '#000000',
-  shadowBase: '#000000',
-};
-
-export type ThemeName = 'coral' | 'ocean' | 'midnight' | 'forest' | 'aurora' | 'blossom';
+export type ThemeName = 'light' | 'dark';
 
 /** Used for new installs and before the user picks a theme in Settings. */
-export const DEFAULT_APP_THEME: ThemeName = 'midnight';
+export const DEFAULT_APP_THEME: ThemeName = 'dark';
 
 export const themeMap: Record<ThemeName, AppColors> = {
-  coral: coralColors,
-  ocean: oceanColors,
-  midnight: midnightColors,
-  forest: forestColors,
-  aurora: auroraColors,
-  blossom: blossomColors,
+  light: lightColors,
+  dark: darkColors,
 };
 
-/** Default avatar gradient when the DB has no custom pair (matches default app theme’s XP gradient). */
+const LEGACY_DARK_THEMES = new Set(['midnight', 'aurora', 'dark']);
+const LEGACY_LIGHT_THEMES = new Set(['coral', 'ocean', 'forest', 'blossom', 'light']);
+
+/** Coerce stored profile value to light or dark. Maps legacy 6-theme names on load. */
+export function normalizeAppTheme(raw: unknown): ThemeName {
+  if (raw === 'light' || raw === 'dark') return raw;
+  if (typeof raw === 'string') {
+    if (LEGACY_DARK_THEMES.has(raw)) return 'dark';
+    if (LEGACY_LIGHT_THEMES.has(raw)) return 'light';
+  }
+  return DEFAULT_APP_THEME;
+}
+
+export function isDarkTheme(name: ThemeName): boolean {
+  return name === 'dark';
+}
+
+/** Default avatar gradient when the DB has no custom pair. */
 export const FALLBACK_AVATAR_GRADIENT: readonly [string, string] = [
   themeMap[DEFAULT_APP_THEME].xpGradientStart,
   themeMap[DEFAULT_APP_THEME].xpGradientEnd,
 ];
 
-export function isDarkTheme(name: ThemeName): boolean {
-  return name === 'midnight' || name === 'aurora';
-}
+export type BadgeTierName = 'bronze' | 'silver' | 'gold' | 'diamond';
 
-export const THEME_NAME_LIST = Object.keys(themeMap) as ThemeName[];
+export const BADGE_TIER_COLORS: Record<BadgeTierName, string> = {
+  bronze: '#E8944A',
+  /** Medium neutral silver — darker gray, no blue cast. */
+  silver: '#A0A0A6',
+  gold: '#FFCA28',
+  diamond: '#22D3EE',
+};
 
-/** Coerce stored profile value to a valid client theme. */
-export function normalizeAppTheme(raw: unknown): ThemeName {
-  if (typeof raw === 'string' && (THEME_NAME_LIST as readonly string[]).includes(raw)) {
-    return raw as ThemeName;
-  }
-  return DEFAULT_APP_THEME;
-}
+// Legacy aliases
+export const coralColors = lightColors;
+export const oceanColors = lightColors;
+export const forestColors = lightColors;
+export const blossomColors = lightColors;
+export const midnightColors = darkColors;
+export const auroraColors = darkColors;
+export const darkColorsAlias = darkColors;
+export const Colors = darkColors;
+export const lightColorsAlias = lightColors;
 
 // ---------------------------------------------------------------------------
 // XP Level thresholds
 // ---------------------------------------------------------------------------
-export const XP_LEVELS: number[] = [
-  0,      // Level 1
-  500,    // Level 2
-  1200,   // Level 3
-  2000,   // Level 4
-  3000,   // Level 5
-  4500,   // Level 6
-  6500,   // Level 7
-  9000,   // Level 8
-  12000,  // Level 9
-  16000,  // Level 10
-];
+export const XP_LEVELS: number[] = [0, 500, 1200, 2000, 3000, 4500, 6500, 9000, 12000, 16000];
 
 export function xpForLevel(level: number): number {
   if (level <= 1) return 0;
@@ -466,7 +325,10 @@ export function xpForLevel(level: number): number {
   return XP_LEVELS[level - 1];
 }
 
-export function xpToNextLevel(currentXp: number, currentLevel: number): { current: number; max: number } {
+export function xpToNextLevel(
+  currentXp: number,
+  currentLevel: number,
+): { current: number; max: number } {
   const thisLevelXp = xpForLevel(currentLevel);
   const nextLevelXp = xpForLevel(currentLevel + 1);
   if (nextLevelXp <= thisLevelXp) return { current: currentXp - thisLevelXp, max: 1 };
@@ -483,6 +345,7 @@ export const XP_REWARDS = {
   photo: 50,
   poll: 25,
   task: 35,
+  format: 35,
   streak_bonus: 10,
 } as const;
 
@@ -515,11 +378,6 @@ export const CategoryEmojis: Record<string, string> = {
   mental: '🧠',
   wild: '🌪️',
 };
-
-// Legacy aliases
-export const darkColors = midnightColors;
-export const lightColors = coralColors;
-export const Colors = midnightColors;
 
 export function getCategoryColors(colors: AppColors): Record<string, string> {
   return {

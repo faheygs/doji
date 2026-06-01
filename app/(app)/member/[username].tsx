@@ -1,55 +1,52 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Alert,
-  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
-import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { LevelBadge } from '@/components/gamification/LevelBadge';
-import { RankBadge } from '@/components/gamification/RankBadge';
 import { XPBar } from '@/components/gamification/XPBar';
+import { BadgesGrid } from '@/components/gamification/BadgesGrid';
+import {
+  ProfileHeroRow,
+  ProfileStatsStrip,
+  ProfileStreakPair,
+} from '@/components/profile/ProfileSections';
 import {
   IconChevronLeft,
-  IconChevronRight,
   IconCheck,
   IconClose,
-  IconFriends,
-  IconReactionFire,
   IconSend,
   IconUsers,
 } from '@/components/icons/Icons';
-import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
-import { ProfileStats } from '@/components/profile/ProfileStats';
+import { ProfileFriendsSheet, type FollowListTab } from '@/components/profile/ProfileFriendsSheet';
+import { useProfile } from '@/hooks/useProfile';
 import {
-  useProfile,
-  useFriendship,
-  useSendFriendRequest,
-  useRespondToFriendRequest,
-  useRemoveFriend,
-  useFriendCount,
-} from '@/hooks/useProfile';
+  useFollowRelation,
+  useFollow,
+  useUnfollow,
+  useRespondToFollowRequest,
+  useFollowerCount,
+  useFollowingCount,
+} from '@/hooks/useFollows';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { getCompletionRate } from '@/utils/time';
 import { goBackWithOptionalReturn, FEED_TAB_HREF } from '@/lib/navigationReturn';
-import { formatCompactCount } from '@/utils/formatCount';
-import { getRankBorderColor } from '@/lib/rankTitle';
-
-const HERO_AVATAR = 90;
+import {
+  useBadgeCategories,
+  useBadgeTiers,
+  useUserBadgeProgress,
+} from '@/hooks/useBadges';
+import type { BadgeProgressStats } from '@/lib/badgeProgress';
 
 export default function UserProfileScreen() {
   const { username, returnTo } = useLocalSearchParams<{ username: string; returnTo?: string }>();
@@ -59,13 +56,42 @@ export default function UserProfileScreen() {
   const currentProfile = useAuthStore((s) => s.profile);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
+  const [friendsSheetTab, setFriendsSheetTab] = useState<FollowListTab>('following');
+
+  const openFollowList = useCallback((tab: FollowListTab) => {
+    Haptics.selectionAsync();
+    setFriendsSheetTab(tab);
+    setFriendsSheetVisible(true);
+  }, []);
 
   const { data: profile, isLoading } = useProfile(username);
-  const { data: friendship } = useFriendship(profile?.id);
-  const { data: theirFriendCount = 0 } = useFriendCount(profile?.id);
-  const sendRequest = useSendFriendRequest();
-  const respondRequest = useRespondToFriendRequest();
-  const removeFriend = useRemoveFriend();
+  const { data: followRelation } = useFollowRelation(profile?.id);
+  const followStatus = followRelation?.status ?? 'none';
+  const { data: followerCount = 0 } = useFollowerCount(profile?.id);
+  const { data: followingCount = 0 } = useFollowingCount(profile?.id);
+  const follow = useFollow();
+  const unfollow = useUnfollow();
+  const respondRequest = useRespondToFollowRequest();
+  const { data: categories = [] } = useBadgeCategories();
+  const { data: tiers = [] } = useBadgeTiers();
+  const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
+
+  const badgeProgressStats = useMemo((): BadgeProgressStats | null => {
+    if (!profile) return null;
+    return {
+      currentStreak: profile.current_streak ?? 0,
+      longestStreak: profile.longest_streak ?? 0,
+      totalCompletions: profile.total_completions ?? 0,
+      xp: profile.xp ?? 0,
+      level: profile.level ?? 0,
+      reactionsReceived: profile.reactions_received ?? 0,
+      reactionsGiven: 0,
+      pollVotes: 0,
+      friendsCount: followerCount,
+      challengeIdeasSubmitted: 0,
+      challengeIdeasPicked: 0,
+    };
+  }, [profile, followerCount]);
 
   const handleBack = () => {
     goBackWithOptionalReturn(router, returnTo, FEED_TAB_HREF);
@@ -83,9 +109,13 @@ export default function UserProfileScreen() {
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['profile', username] }),
-        queryClient.invalidateQueries({ queryKey: ['friendship', currentProfile?.id, profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['profileFriends', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['followRelation', currentProfile?.id, profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['followStatus', currentProfile?.id, profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['followerCount', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['followingCount', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['following', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['followers', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', profile.id] }),
       ]);
     } finally {
       setRefreshing(false);
@@ -118,81 +148,19 @@ export default function UserProfileScreen() {
           alignItems: 'center',
           gap: Spacing.xs,
         },
-        hero: {
-          alignItems: 'center',
-          paddingHorizontal: Spacing.xl,
-          paddingBottom: Spacing.md,
-          gap: Spacing.sm,
-        },
-        avatarBlock: {
-          alignSelf: 'center',
-          position: 'relative',
-          marginBottom: Spacing.sm,
-          marginTop: Spacing.xs,
-        },
-        avatarShadowWrap: Platform.select({
-          ios: {
-            shadowColor: colors.shadowBase,
-            shadowOpacity: 0.1,
-            shadowRadius: 20,
-            shadowOffset: { width: 0, height: 10 },
-          },
-          android: { elevation: 8 },
-          default: {},
-        }) as object,
-        avatarGradientRing: { padding: 3, borderRadius: Radius.full },
-        avatarInnerWell: {
-          overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        bio: {
-          marginTop: Spacing.sm,
-          paddingHorizontal: Spacing.lg,
-          textAlign: 'center',
-          lineHeight: 22,
-        },
-        statsRow: {
-          flexDirection: 'row',
-          gap: Spacing.sm,
-          paddingHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
-        },
-        statCard: {
-          flex: 1,
-          backgroundColor: colors.surface,
+        privateNotice: {
+          marginHorizontal: Spacing.md,
+          marginTop: Spacing.md,
+          padding: Spacing.lg,
           borderRadius: Radius.lg,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: Spacing.md,
-          alignItems: 'center',
-          gap: 4,
-          ...Shadows.card,
-        },
-        section: {
-          paddingHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
-        },
-        sectionHeader: {
-          marginBottom: Spacing.md,
-        },
-        friendsRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.md,
-        },
-        friendsIconWrap: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
           backgroundColor: colors.surfaceMuted,
+          alignItems: 'center',
+          gap: Spacing.sm,
         },
-        friendsChev: { marginLeft: 'auto' },
-        friendsCardWrap: {
-          paddingHorizontal: Spacing.md,
-          marginBottom: Spacing.md,
+        privateLabel: {
+          marginHorizontal: Spacing.lg,
+          marginTop: -Spacing.xs,
+          marginBottom: Spacing.xs,
         },
         centered: {
           flex: 1,
@@ -203,6 +171,13 @@ export default function UserProfileScreen() {
           minWidth: 120,
           paddingHorizontal: Spacing.md,
           borderRadius: Radius.md,
+        },
+        section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
+        sectionHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: Spacing.md,
         },
       }),
     [colors],
@@ -224,7 +199,7 @@ export default function UserProfileScreen() {
     </TouchableOpacity>
   );
 
-  if (isLoading) {
+  if (isLoading && !profile) {
     return (
       <SafeAreaView style={[styles.container, webScrollParentStyle]}>
         <View style={styles.topBar}>
@@ -232,7 +207,9 @@ export default function UserProfileScreen() {
           <View style={{ flex: 1 }} />
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.text} />
+          <Text variant="body" color={colors.textSecondary}>
+            Loading profile…
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -254,49 +231,37 @@ export default function UserProfileScreen() {
     );
   }
 
-  const completionRate = getCompletionRate(
-    profile.total_completions,
-    profile.total_completions + profile.total_missed,
-  );
+  const isPrivate = profile.is_private === true;
+  const canViewContent = !isPrivate || followStatus === 'following';
+  const pendingIncoming = followStatus === 'pending_in';
+  const pendingOutgoing = followStatus === 'pending_out';
+  const isFollowing = followStatus === 'following';
 
-  const pendingIncoming =
-    friendship?.status === 'pending' && friendship.addressee_id === currentProfile?.id;
-  const pendingOutgoing =
-    friendship?.status === 'pending' && friendship.requester_id === currentProfile?.id;
-
-  const handleFriendAction = () => {
-    if (friendship?.status === 'accepted') return;
-    if (pendingIncoming && friendship?.id) {
-      respondRequest.mutate({ friendshipId: friendship.id, accept: true });
+  const handleFollowAction = () => {
+    if (isFollowing) return;
+    if (pendingIncoming && followRelation?.incoming?.id) {
+      respondRequest.mutate({ followId: followRelation.incoming.id, accept: true });
       return;
     }
-    if (!friendship || friendship.status !== 'pending') {
-      sendRequest.mutate(profile.id);
+    if (followStatus === 'none') {
+      follow.mutate(profile.id);
     }
   };
 
-  const friendDisabled = pendingOutgoing || sendRequest.isPending || respondRequest.isPending;
+  const followDisabled =
+    pendingOutgoing || follow.isPending || respondRequest.isPending || followStatus === 'blocked';
 
-  const handleUnfriend = () => {
-    if (!friendship?.id || friendship.status !== 'accepted' || !profile) return;
-    Alert.alert(
-      'Unfriend',
-      `Remove ${profile.display_name} from your friends? You can send a new request later.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unfriend',
-          style: 'destructive',
-          onPress: () => removeFriend.mutate(friendship.id),
-        },
-      ],
-    );
+  const handleUnfollow = () => {
+    if (!profile) return;
+    Alert.alert('Unfollow', `Stop following ${profile.display_name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unfollow',
+        style: 'destructive',
+        onPress: () => unfollow.mutate(profile.id),
+      },
+    ]);
   };
-
-  const gradient = (profile.avatar_gradient?.length === 2
-    ? profile.avatar_gradient
-    : [colors.xpGradientStart, colors.xpGradientEnd]) as [string, string];
-  const rankBorderColor = getRankBorderColor(profile.level ?? 1, colors);
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
@@ -313,17 +278,17 @@ export default function UserProfileScreen() {
         <View style={styles.topBar}>
           {headerBack}
           <View style={styles.topBarActions}>
-            {friendship?.status === 'accepted' ? (
+            {isFollowing ? (
               <Button
-                onPress={handleUnfriend}
-                variant="danger"
+                onPress={handleUnfollow}
+                variant="secondary"
                 size="md"
-                loading={removeFriend.isPending}
-                disabled={removeFriend.isPending}
-                leftIcon={<IconClose size={17} color={colors.error} />}
+                loading={unfollow.isPending}
+                disabled={unfollow.isPending}
+                leftIcon={<IconCheck size={17} color={colors.textSecondary} />}
                 style={styles.friendActionButton}
               >
-                Unfriend
+                Following
               </Button>
             ) : pendingOutgoing ? (
               <Button
@@ -334,15 +299,25 @@ export default function UserProfileScreen() {
                 leftIcon={<IconSend size={16} color={colors.textTertiary} />}
                 style={styles.friendActionButton}
               >
-                Request sent
+                Requested
+              </Button>
+            ) : followStatus === 'blocked' ? (
+              <Button
+                onPress={() => {}}
+                variant="secondary"
+                size="md"
+                disabled
+                style={styles.friendActionButton}
+              >
+                Unavailable
               </Button>
             ) : (
               <Button
-                onPress={handleFriendAction}
+                onPress={handleFollowAction}
                 variant="primary"
                 size="md"
-                loading={sendRequest.isPending || respondRequest.isPending}
-                disabled={friendDisabled}
+                loading={follow.isPending || respondRequest.isPending}
+                disabled={followDisabled}
                 leftIcon={
                   pendingIncoming ? (
                     <IconCheck size={17} color={colors.onPrimary} />
@@ -352,172 +327,77 @@ export default function UserProfileScreen() {
                 }
                 style={[styles.friendActionButton, Shadows.card]}
               >
-                {pendingIncoming ? 'Accept request' : 'Add friend'}
+                {pendingIncoming ? 'Accept' : 'Follow'}
               </Button>
             )}
           </View>
         </View>
 
-        {/* Hero — matches (app)/profile/index layout */}
-        <View style={styles.hero}>
-          <View style={styles.avatarBlock}>
-            <View style={styles.avatarShadowWrap}>
-              <View
-                style={{
-                  padding: 3,
-                  borderRadius: Radius.full,
-                  borderWidth: 2.5,
-                  borderColor: rankBorderColor,
-                }}
-              >
-                <LinearGradient
-                  colors={gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarGradientRing}
-                >
-                  <View
-                    style={[
-                      styles.avatarInnerWell,
-                      {
-                        width: HERO_AVATAR,
-                        height: HERO_AVATAR,
-                        borderRadius: HERO_AVATAR / 2,
-                        backgroundColor: colors.surfaceElevated,
-                      },
-                    ]}
-                  >
-                    <Avatar
-                      uri={profile.avatar_url}
-                      username={profile.username}
-                      size={HERO_AVATAR}
-                      fallbackTone={profile.avatar_url ? 'default' : 'brand'}
-                    />
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
-          </View>
-
-          <Text variant="headingLarge" style={{ textAlign: 'center' }} numberOfLines={2}>
-            {profile.display_name}
+        <ProfileHeroRow profile={profile} />
+        {isPrivate ? (
+          <Text variant="micro" color={colors.textTertiary} style={styles.privateLabel}>
+            Private account
           </Text>
-          <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }} numberOfLines={1}>
-            @{profile.username}
-          </Text>
-          {profile.bio?.trim() ? (
-            <Text variant="body" color={colors.textSecondary} style={styles.bio} numberOfLines={6}>
-              {profile.bio.trim()}
-            </Text>
-          ) : null}
+        ) : null}
 
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: Spacing.sm,
-              flexWrap: 'wrap',
-              marginTop: Spacing.xs,
-            }}
-          >
-            <RankBadge level={profile.level ?? 1} />
-            <LevelBadge level={profile.level ?? 1} />
-          </View>
-
-          <View style={{ width: '100%', paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
-            <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <IconReactionFire size={28} color={colors.primary} />
-              <Text variant="displayMedium" color={colors.primary}>
-                {profile.current_streak ?? 0}
-              </Text>
+        {canViewContent ? (
+          <>
+            <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
+              <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
             </View>
-            <Text variant="micro" color={colors.textSecondary}>
-              Streak
-            </Text>
-            {(profile.streak_shields ?? 0) > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                <Text variant="nano" color={colors.textTertiary}>
-                  🛡️
-                </Text>
-                <Text variant="nano" color={colors.textTertiary}>
-                  {profile.streak_shields} shield{profile.streak_shields === 1 ? '' : 's'}
-                </Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.statCard}>
-            <Text variant="displayMedium" color={colors.text}>
-              {profile.total_completions ?? 0}
-            </Text>
-            <Text variant="micro" color={colors.textSecondary}>
-              Done
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text variant="displayMedium" color={colors.accent}>
-              {profile.reactions_received ?? 0}
-            </Text>
-            <Text variant="micro" color={colors.textSecondary}>
-              Reactions
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.friendsCardWrap}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityHint="Opens friend list"
-            activeOpacity={0.88}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setFriendsSheetVisible(true);
-            }}
-          >
-            <Card padded>
-              <View style={styles.friendsRow}>
-                <View style={styles.friendsIconWrap}>
-                  <IconFriends size={20} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-                  <Text variant="headingMedium" numberOfLines={1}>
-                    Friends
-                  </Text>
-                  <Text variant="headingMedium" color={colors.primary} numberOfLines={1}>
-                    {formatCompactCount(theirFriendCount)}
+            <ProfileStatsStrip
+              followers={followerCount}
+              following={followingCount}
+              responses={profile.total_completions ?? 0}
+              reactions={profile.reactions_received ?? 0}
+              style={{ marginTop: Spacing.lg }}
+              onPressFollowers={() => openFollowList('followers')}
+              onPressFollowing={() => openFollowList('following')}
+            />
+
+            <ProfileStreakPair
+              currentStreak={profile.current_streak ?? 0}
+              bestStreak={profile.longest_streak ?? 0}
+              style={{ marginTop: Spacing.md }}
+            />
+
+            {categories.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text variant="headingMedium">Badges</Text>
+                  <Text variant="caption" color={colors.textTertiary}>
+                    {badgeProgress.length}/{categories.length}
                   </Text>
                 </View>
-                <View style={styles.friendsChev}>
-                  <IconChevronRight size={22} color={colors.textTertiary} />
-                </View>
+                <BadgesGrid
+                  readOnly
+                  categories={categories}
+                  tiers={tiers}
+                  progress={badgeProgress}
+                  progressStats={badgeProgressStats}
+                />
               </View>
-            </Card>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text variant="headingMedium">Challenge stats</Text>
+            ) : null}
+          </>
+        ) : (
+          <View style={styles.privateNotice}>
+            <IconClose size={28} color={colors.textTertiary} />
+            <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+              Follow this account to see their stats and activity.
+            </Text>
           </View>
-          <ProfileStats
-            profile={profile}
-            completionRate={completionRate}
-            style={{ marginHorizontal: 0, marginBottom: Spacing.sm }}
-          />
-        </View>
+        )}
       </ScrollView>
-      <ProfileFriendsSheet
-        visible={friendsSheetVisible}
-        onClose={() => setFriendsSheetVisible(false)}
-        profileUserId={profile.id}
-        ownerDisplayName={profile.display_name}
-      />
+      {canViewContent && (
+        <ProfileFriendsSheet
+          visible={friendsSheetVisible}
+          onClose={() => setFriendsSheetVisible(false)}
+          profileUserId={profile.id}
+          ownerDisplayName={profile.display_name}
+          initialTab={friendsSheetTab}
+        />
+      )}
     </SafeAreaView>
   );
 }

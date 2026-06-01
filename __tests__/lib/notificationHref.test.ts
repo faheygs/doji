@@ -1,29 +1,5 @@
-/**
- * Test the notificationHrefFromData function logic.
- * Since it's defined inside _layout.tsx and not exported, we test the logic inline.
- */
-
-type Href = string;
-
-function notificationHrefFromData(data: unknown): Href | null {
-  if (!data || typeof data !== 'object') return null;
-  const rec = data as Record<string, unknown>;
-  const url = rec.url;
-  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) return url as Href;
-  if (rec.type === 'CHALLENGE') return '/(app)/challenge';
-  if (rec.type === 'BADGE') return '/(app)/profile';
-  if (rec.type === 'FRIEND_REQUEST') return '/(app)/friends/requests';
-  if (rec.type === 'FRIEND_ACCEPTED') return '/(app)/friends';
-  const postId = rec.postId;
-  if (
-    (rec.type === 'REACTION' || rec.type === 'FRIEND_POST') &&
-    typeof postId === 'string' &&
-    postId.length > 0
-  ) {
-    return `/(app)/post/${postId}` as Href;
-  }
-  return null;
-}
+import { notificationHrefFromData } from '../../lib/notificationHref';
+import { FEED_TAB_HREF } from '../../lib/navigationReturn';
 
 describe('notificationHrefFromData', () => {
   it('returns null for null data', () => {
@@ -47,8 +23,8 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ url: '/(app)/challenge' })).toBe('/(app)/challenge');
   });
 
-  it('returns url for root path', () => {
-    expect(notificationHrefFromData({ url: '/' })).toBe('/');
+  it('maps root url to feed tab href', () => {
+    expect(notificationHrefFromData({ url: '/' })).toBe('/(app)');
   });
 
   it('rejects protocol-relative URLs (//host)', () => {
@@ -67,8 +43,16 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'BADGE' })).toBe('/(app)/profile');
   });
 
+  it('returns profile for BADGE_EARNED', () => {
+    expect(notificationHrefFromData({ type: 'BADGE_EARNED' })).toBe('/(app)/profile');
+  });
+
   it('returns friends requests for FRIEND_REQUEST', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_REQUEST' })).toBe('/(app)/friends/requests');
+  });
+
+  it('returns friends requests for FOLLOW_REQUEST', () => {
+    expect(notificationHrefFromData({ type: 'FOLLOW_REQUEST' })).toBe('/(app)/friends/requests');
   });
 
   it('returns friends for FRIEND_ACCEPTED', () => {
@@ -81,8 +65,20 @@ describe('notificationHrefFromData', () => {
     );
   });
 
-  it('returns post href for FRIEND_POST with postId', () => {
-    expect(notificationHrefFromData({ type: 'FRIEND_POST', postId: 'xyz' })).toBe('/(app)/post/xyz');
+  it('returns feed for FRIEND_POST with postId', () => {
+    expect(notificationHrefFromData({ type: 'FRIEND_POST', postId: 'xyz' })).toBe(FEED_TAB_HREF);
+  });
+
+  it('returns feed for FRIEND_POST without postId', () => {
+    expect(notificationHrefFromData({ type: 'FRIEND_POST' })).toBe(FEED_TAB_HREF);
+  });
+
+  it('returns post href for COMMENT with postId', () => {
+    expect(notificationHrefFromData({ type: 'COMMENT', postId: 'abc' })).toBe('/(app)/post/abc');
+  });
+
+  it('returns profile for SUGGESTION_APPROVED', () => {
+    expect(notificationHrefFromData({ type: 'SUGGESTION_APPROVED' })).toBe('/(app)/profile');
   });
 
   it('returns null for REACTION without postId', () => {

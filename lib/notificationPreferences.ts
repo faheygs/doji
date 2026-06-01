@@ -14,6 +14,10 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   friend_request: true,
   friend_accepted: true,
   badges: true,
+  comment: true,
+  mention: true,
+  follow_request: true,
+  suggestion: true,
 };
 
 export function mergeNotificationPreferences(
@@ -33,6 +37,10 @@ export function mergeNotificationPreferences(
     friend_request: o.friend_request !== false,
     friend_accepted: o.friend_accepted !== false,
     badges: o.badges !== false,
+    comment: o.comment !== false,
+    mention: o.mention !== false,
+    follow_request: o.follow_request !== false && o.friend_request !== false,
+    suggestion: o.suggestion !== false,
   };
 }
 

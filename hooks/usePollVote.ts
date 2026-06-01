@@ -7,6 +7,7 @@ type VoteArgs = {
   optionId: string;
   optionIndex: number;
   userEventId: string;
+  customText?: string | null;
 };
 
 export function usePollVote() {
@@ -15,12 +16,15 @@ export function usePollVote() {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
-    mutationFn: async ({ challengeId, optionId, optionIndex, userEventId }: VoteArgs) => {
+    mutationFn: async ({ challengeId, optionId, optionIndex, userEventId, customText }: VoteArgs) => {
       if (!userId) throw new Error('Not authenticated');
 
-      const { error: voteErr } = await supabase
-        .from('poll_votes')
-        .insert({ user_id: userId, challenge_id: challengeId, option_id: optionId });
+      const { error: voteErr } = await supabase.from('poll_votes').insert({
+        user_id: userId,
+        challenge_id: challengeId,
+        option_id: optionId,
+        custom_text: customText?.trim() || null,
+      });
       if (voteErr) throw voteErr;
 
       const { error: ueErr } = await supabase

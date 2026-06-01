@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
@@ -8,6 +8,7 @@ import { REACTION_CONTROLS, IconComment } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { formatCompactCount } from '../../utils/formatCount';
+import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
 import type { Post, ReactionEmoji } from '../../types/database';
 
 const ICON_SZ = 22;
@@ -35,6 +36,8 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
   const toggleReaction = useToggleReaction();
   const myReactions = post.my_reactions ?? [];
   const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
+  const [votersOpen, setVotersOpen] = useState(false);
+  const [votersEmoji, setVotersEmoji] = useState<ReactionEmoji | null>(null);
 
   const styles = useMemo(
     () =>
@@ -42,11 +45,12 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
         container: {
           paddingHorizontal: Spacing.md,
           paddingBottom: Spacing.sm + 2,
-          paddingTop: showTopBorder ? Spacing.sm : Spacing.xs,
+          paddingTop: Spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
-          borderTopWidth: showTopBorder ? StyleSheet.hairlineWidth : 0,
+          borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.hairline,
+          backgroundColor: colors.surface,
         },
         reactions: {
           flex: 1,
@@ -88,17 +92,20 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
         iconButton: {
           paddingHorizontal: Spacing.xs,
           paddingVertical: 6,
-          borderRadius: Radius.full,
-          borderWidth: 1.5,
-          borderColor: 'transparent',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: ICON_SZ + 12,
           minWidth: ICON_SZ + 12,
         },
-        iconSelected: {
-          backgroundColor: colors.surfaceMuted,
-          borderColor: colors.primary,
+        countHit: {
+          paddingHorizontal: 2,
+          paddingVertical: 2,
+          minHeight: 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        disabled: {
+          opacity: 0.35,
         },
         count: {
           fontSize: 12,
@@ -106,9 +113,6 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
           fontVariant: ['tabular-nums'],
           textAlign: 'center',
           lineHeight: 14,
-        },
-        disabled: {
-          opacity: 0.35,
         },
       }),
     [colors, showTopBorder],
@@ -130,6 +134,23 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
     onOpenComments();
   }, [blurred, onOpenComments]);
 
+  const openVoters = useCallback(
+    (emoji: ReactionEmoji) => {
+      if (blurred) return;
+      const count = (post.reaction_breakdown as Record<string, number> | undefined)?.[emoji] ?? 0;
+      if (count <= 0) return;
+      Haptics.selectionAsync();
+      setVotersEmoji(emoji);
+      setVotersOpen(true);
+    },
+    [blurred, post.reaction_breakdown],
+  );
+
+  const closeVoters = useCallback(() => {
+    setVotersOpen(false);
+    setVotersEmoji(null);
+  }, []);
+
   const commentMuted = blurred ? colors.textTertiary : colors.textSecondary;
 
   return (
@@ -138,7 +159,11 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
         {REACTION_CONTROLS.map(({ emoji, Icon, label }) => {
           const selected = myReactions.includes(emoji as ReactionEmoji);
           const muted = blurred ? colors.textTertiary : colors.textSecondary;
-          const iconColor = blurred ? muted : selected ? (emojiTints[emoji] ?? colors.primary) : muted;
+          const iconColor = blurred
+            ? muted
+            : selected
+              ? (emojiTints[emoji] ?? colors.primary)
+              : muted;
           const count = (post.reaction_breakdown as Record<string, number> | undefined)?.[emoji] ?? 0;
           return (
             <View key={emoji} style={styles.emojiCol}>
@@ -147,21 +172,26 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
                 activeOpacity={blurred ? 1 : 0.72}
                 accessibilityRole="button"
                 accessibilityLabel={`${label} reaction, ${count}. ${selected ? 'Selected.' : ''}`}
-                style={[
-                  styles.iconButton,
-                  selected && styles.iconSelected,
-                  blurred && styles.disabled,
-                ]}
+                style={[styles.iconButton, blurred && styles.disabled]}
               >
-                <Icon size={ICON_SZ} color={iconColor} />
+                <Icon size={ICON_SZ} color={iconColor} filled={selected && !blurred} />
               </TouchableOpacity>
-              <Text
-                variant="bodySmall"
-                color={count > 0 ? colors.textSecondary : colors.textTertiary}
-                style={styles.count}
+              <TouchableOpacity
+                onPress={() => openVoters(emoji as ReactionEmoji)}
+                disabled={blurred || count <= 0}
+                activeOpacity={count > 0 && !blurred ? 0.72 : 1}
+                style={styles.countHit}
+                accessibilityRole="button"
+                accessibilityLabel={`View who reacted with ${label}`}
               >
-                {count}
-              </Text>
+                <Text
+                  variant="bodySmall"
+                  color={count > 0 ? colors.textSecondary : colors.textTertiary}
+                  style={styles.count}
+                >
+                  {count}
+                </Text>
+              </TouchableOpacity>
             </View>
           );
         })}
@@ -185,6 +215,12 @@ function ReactionBarImpl({ post, blurred, showTopBorder = true, onOpenComments }
           {formatCompactCount(post.comment_count)}
         </Text>
       </TouchableOpacity>
+      <ReactionVotersSheet
+        visible={votersOpen}
+        postId={post.id}
+        emojiFilter={votersEmoji}
+        onClose={closeVoters}
+      />
     </View>
   );
 }

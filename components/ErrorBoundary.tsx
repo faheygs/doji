@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { IconAlertTriangle } from '../components/icons/Icons';
 import { Spacing, Radius } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -16,7 +17,7 @@ function ErrorFallback({ onRetry }: { onRetry: () => void }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={styles.emoji}>😵</Text>
+      <IconAlertTriangle size={52} color={colors.warning} />
       <Text style={[styles.title, { color: colors.text }]}>Something went wrong</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         The app ran into an unexpected error. Tap below to try again.
@@ -64,10 +65,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
-  },
-  emoji: {
-    fontSize: 48,
-    marginBottom: Spacing.md,
+    gap: Spacing.md,
   },
   title: {
     fontSize: 20,

@@ -7,7 +7,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const WINDOW_MINUTES = Number(Deno.env.get('CHALLENGE_WINDOW_MINUTES') ?? '1440');
+const WINDOW_MINUTES = Number(Deno.env.get('CHALLENGE_WINDOW_MINUTES') ?? '10');
 
 /** Continental US drop window: 10:00 Pacific → 22:00 Eastern (same Eastern calendar day). */
 const TZ_PACIFIC = 'America/Los_Angeles';

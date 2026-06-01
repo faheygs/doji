@@ -1,4 +1,10 @@
-import type { Badge } from '@/types/database';
+import type { Badge, BadgeTier, BadgeTierName } from '@/types/database';
+
+const TIER_ORDER: BadgeTierName[] = ['bronze', 'silver', 'gold', 'diamond'];
+
+function tierRank(t: BadgeTierName): number {
+  return TIER_ORDER.indexOf(t);
+}
 
 /** Live inputs used to derive progress toward each badge criteria. */
 export type BadgeProgressStats = {
@@ -106,7 +112,8 @@ export function computeBadgeProgress(
         label: `${current} / ${target} poll${target === 1 ? '' : 's'}`,
       };
     }
-    case 'friends_count': {
+    case 'friends_count':
+    case 'followers_count': {
       const raw = stats.friendsCount ?? 0;
       const current = Math.min(raw, target);
       return {
@@ -126,7 +133,8 @@ export function computeBadgeProgress(
         label: `Level ${current} / ${target}`,
       };
     }
-    case 'challenge_idea': {
+    case 'challenge_idea':
+    case 'ideas_submitted': {
       const raw = stats.challengeIdeasSubmitted ?? 0;
       const current = Math.min(raw, target);
       return {
@@ -136,7 +144,8 @@ export function computeBadgeProgress(
         label: `${current} / ${target} idea${target === 1 ? '' : 's'} submitted`,
       };
     }
-    case 'challenge_idea_picked': {
+    case 'challenge_idea_picked':
+    case 'ideas_picked': {
       const raw = stats.challengeIdeasPicked ?? 0;
       const current = Math.min(raw, target);
       return {
@@ -155,4 +164,41 @@ export function computeBadgeProgress(
       };
     }
   }
+}
+
+/** True when live stats meet or exceed a tier's criteria threshold. */
+export function isTierCriteriaMet(
+  tierDef: Pick<BadgeTier, 'criteria_type' | 'criteria_value'>,
+  stats: BadgeProgressStats,
+): boolean {
+  const { current, target } = computeBadgeProgress(tierDef, stats);
+  return current >= target;
+}
+
+/** Highest tier whose criteria are met by live stats (null if none). */
+export function highestTierMetByStats(
+  categoryTiers: BadgeTier[],
+  stats: BadgeProgressStats,
+): BadgeTierName | null {
+  const sorted = [...categoryTiers].sort((a, b) => tierRank(a.tier) - tierRank(b.tier));
+  let highest: BadgeTierName | null = null;
+  for (const tierDef of sorted) {
+    if (isTierCriteriaMet(tierDef, stats)) {
+      highest = tierDef.tier;
+    }
+  }
+  return highest;
+}
+
+/** Best tier to display: max of DB-unlocked tier and stats-met tier. */
+export function displayTierForCategory(
+  unlockedTier: BadgeTierName | null | undefined,
+  categoryTiers: BadgeTier[],
+  stats: BadgeProgressStats | null | undefined,
+): BadgeTierName | null {
+  const statsTier = stats ? highestTierMetByStats(categoryTiers, stats) : null;
+  if (!unlockedTier && !statsTier) return null;
+  if (!unlockedTier) return statsTier;
+  if (!statsTier) return unlockedTier;
+  return tierRank(statsTier) >= tierRank(unlockedTier) ? statsTier : unlockedTier;
 }

@@ -1,6 +1,18 @@
 import React from 'react';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
 
+export {
+  REACTION_CONTROLS,
+  ReactionIcon,
+  IconReactionFire,
+  IconReactionLike,
+  IconReactionDislike,
+  IconReactionLaugh,
+  IconReactionWow,
+  IconReactionHeart,
+} from './ReactionIcons';
+export type { ReactionIconProps } from './ReactionIcons';
+
 export type IconProps = {
   size?: number;
   color: string;
@@ -193,6 +205,16 @@ export function IconSearch({ size = 40, color }: IconProps) {
   );
 }
 
+export function IconMoreVertical({ size = 20, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={5} r={1.5} fill={color} />
+      <Circle cx={12} cy={12} r={1.5} fill={color} />
+      <Circle cx={12} cy={19} r={1.5} fill={color} />
+    </Svg>
+  );
+}
+
 export function IconCheck({ size = 22, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -311,59 +333,25 @@ export function IconDoc({ size = 40, color }: IconProps) {
   );
 }
 
-/** Lucide “flame” (ISC) — single-stroke flame reads clearly at small sizes. */
-export function IconReactionFire({ size = 20, color }: IconProps) {
+/** App wordmark glyph — concentric ring, no emoji. */
+export function IconDojiMark({ size = 48, color }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 48 48">
       <Path
-        d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
-        stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
+        fill={color}
+        fillRule="evenodd"
+        d="M24 4a20 20 0 1 0 0 40 20 20 0 0 0 0-40Zm0 8a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"
       />
     </Svg>
   );
 }
 
-/** Lucide “thumbs-down” (ISC) — matches thumbs-up geometry, mirrored for downvote. */
-function IconReactionThumbsDown({ size = 20, color }: IconProps) {
+export function IconShield({ size = 18, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M17 14V2"
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
         stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"
-        stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
-function IconReactionLike({ size = 20, color }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 10v12"
-        stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"
-        stroke={color}
-        fill="none"
         strokeWidth={1.65}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -372,44 +360,28 @@ function IconReactionLike({ size = 20, color }: IconProps) {
   );
 }
 
-function IconReactionLaugh({ size = 20, color }: IconProps) {
+export function IconAlertTriangle({ size = 48, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+        stroke={color}
+        strokeWidth={1.65}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 9v4M12 17h.01" stroke={color} strokeWidth={1.65} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconGlobe({ size = 22, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={9.25} stroke={color} strokeWidth={1.65} />
       <Path
-        d="M18 13a6 6 0 0 1-6 5 6 6 0 0 1-6-5h12Z"
+        d="M2.5 12h19M12 2.75a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"
         stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Circle cx={9} cy={9} r={1.2} stroke={color} strokeWidth={1.5} fill="none" />
-      <Circle cx={15} cy={9} r={1.2} stroke={color} strokeWidth={1.5} fill="none" />
-      <Line x1={5} y1={11.5} x2={4} y2={13.8} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-      <Line x1={19} y1={11.5} x2={20} y2={13.8} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function IconReactionWow({ size = 20, color }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={9.25} stroke={color} strokeWidth={1.65} />
-      <Circle cx={9} cy={9} r={1.2} stroke={color} strokeWidth={1.5} fill="none" />
-      <Circle cx={15} cy={9} r={1.2} stroke={color} strokeWidth={1.5} fill="none" />
-      <Circle cx={12} cy={16} r={2} stroke={color} strokeWidth={1.65} fill="none" />
-    </Svg>
-  );
-}
-
-function IconReactionHeart({ size = 20, color }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
-        stroke={color}
-        fill="none"
         strokeWidth={1.65}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -417,16 +389,3 @@ function IconReactionHeart({ size = 20, color }: IconProps) {
     </Svg>
   );
 }
-
-export const REACTION_CONTROLS: {
-  emoji: string;
-  label: string;
-  Icon: React.ComponentType<IconProps>;
-}[] = [
-  { emoji: 'fire', label: 'Fire', Icon: IconReactionFire },
-  { emoji: 'like', label: 'Like', Icon: IconReactionLike },
-  { emoji: 'dislike', label: 'Downvote', Icon: IconReactionThumbsDown },
-  { emoji: 'laugh', label: 'Funny', Icon: IconReactionLaugh },
-  { emoji: 'wow', label: 'Wow', Icon: IconReactionWow },
-  { emoji: 'love', label: 'Love', Icon: IconReactionHeart },
-];

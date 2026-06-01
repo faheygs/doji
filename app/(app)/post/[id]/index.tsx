@@ -15,12 +15,16 @@ import { Text } from '../../../../components/ui/Text';
 import { PostCard } from '../../../../components/feed/PostCard';
 import { IconChevronLeft } from '../../../../components/icons/Icons';
 import { usePost } from '../../../../hooks/useProfile';
+import { useUserEvent } from '../../../../hooks/useUserEvent';
+import { hasUnlockedFeed } from '../../../../lib/participationGate';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
   const { data: post, isLoading, error } = usePost(id);
+  const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
+  const feedLocked = !hasUnlockedFeed(userEvent) && !userEventLoading;
 
   const styles = useMemo(
     () =>
@@ -77,7 +81,7 @@ export default function PostDetailScreen() {
           keyboardDismissMode="on-drag"
           scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
         >
-          <PostCard post={post} blurred={false} />
+          <PostCard post={post} blurred={feedLocked} />
         </ScrollView>
       )}
     </SafeAreaView>
