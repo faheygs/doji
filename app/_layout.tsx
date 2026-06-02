@@ -96,14 +96,6 @@ function RootLayoutInner() {
       setSession(session);
       if (session?.user?.id) {
         await fetchProfile(session.user.id);
-        // Ghost session: signed in but no profile row (abandoned partial signup).
-        // Sign out silently so the user lands on the welcome screen.
-        if (!cancelled && !useAuthStore.getState().profile) {
-          // scope: 'local' clears the stored session without a server round-trip,
-          // avoiding AuthApiError when the refresh token is already expired/revoked.
-          await supabase.auth.signOut({ scope: 'local' });
-          // onAuthStateChange fires with null and clears session state.
-        }
       } else {
         useAuthStore.getState().setProfile(null);
       }
