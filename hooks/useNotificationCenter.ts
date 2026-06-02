@@ -66,7 +66,24 @@ export type NotificationCenterItem =
       actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
       sortAt: string;
     }
-  | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string };
+  | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string }
+  | {
+      key: string;
+      kind: 'badge_earned';
+      categoryId: string;
+      categoryName: string;
+      categoryEmoji: string | null;
+      tier: string;
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'suggestion_result';
+      suggestionId: string;
+      body: string;
+      status: 'approved' | 'rejected';
+      sortAt: string;
+    };
 
 function mapUserEventRow(row: unknown): UserEvent {
   const r = row as UserEvent & {
@@ -276,6 +293,45 @@ export function useNotificationCenter() {
     },
   });
 
+  const badgesQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'badges', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('user_badge_progress')
+        .select('category_id, current_tier, unlocked_at, category:badge_categories(name, emoji)')
+        .eq('user_id', userId)
+        .not('unlocked_at', 'is', null)
+        .gt('unlocked_at', sinceIso)
+        .order('unlocked_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const suggestionsQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'suggestions', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('challenge_suggestions')
+        .select('id, body, status, reviewed_at')
+        .eq('user_id', userId)
+        .in('status', ['approved', 'rejected'])
+        .not('reviewed_at', 'is', null)
+        .gt('reviewed_at', sinceIso)
+        .order('reviewed_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const markBellOpened = useCallback(async () => {
     if (!userId) return;
     const iso = new Date().toISOString();
@@ -415,6 +471,42 @@ export function useNotificationCenter() {
           sortAt: challengeSortAt(ev),
         })) ?? [];
 
+    const badgeItems: NotificationCenterItem[] = (badgesQuery.data ?? []).map((row) => {
+      const r = row as {
+        category_id: string;
+        current_tier: string;
+        unlocked_at: string;
+        category?: { name?: string; emoji?: string } | { name?: string; emoji?: string }[] | null;
+      };
+      const cat = Array.isArray(r.category) ? r.category[0] : r.category;
+      return {
+        key: `badge_earned:${r.category_id}:${r.current_tier}`,
+        kind: 'badge_earned' as const,
+        categoryId: r.category_id,
+        categoryName: cat?.name ?? r.category_id,
+        categoryEmoji: cat?.emoji ?? null,
+        tier: r.current_tier,
+        sortAt: r.unlocked_at,
+      };
+    });
+
+    const suggestionItems: NotificationCenterItem[] = (suggestionsQuery.data ?? []).map((row) => {
+      const r = row as {
+        id: string;
+        body: string;
+        status: 'approved' | 'rejected';
+        reviewed_at: string;
+      };
+      return {
+        key: `suggestion_result:${r.id}`,
+        kind: 'suggestion_result' as const,
+        suggestionId: r.id,
+        body: r.body,
+        status: r.status,
+        sortAt: r.reviewed_at,
+      };
+    });
+
     const merged = [
       ...reqItems,
       ...accItems,
@@ -422,6 +514,8 @@ export function useNotificationCenter() {
       ...mentionItems,
       ...reactionGroups,
       ...chItems,
+      ...badgeItems,
+      ...suggestionItems,
     ].filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
@@ -440,6 +534,8 @@ export function useNotificationCenter() {
     mentionsQuery.data,
     reactionsQuery.data,
     challengesQuery.data,
+    badgesQuery.data,
+    suggestionsQuery.data,
     dismissedKeys,
   ]);
 
@@ -457,7 +553,9 @@ export function useNotificationCenter() {
     commentsQuery.isLoading ||
     mentionsQuery.isLoading ||
     reactionsQuery.isLoading ||
-    challengesQuery.isLoading;
+    challengesQuery.isLoading ||
+    badgesQuery.isLoading ||
+    suggestionsQuery.isLoading;
 
   return {
     items,

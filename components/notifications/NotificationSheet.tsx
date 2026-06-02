@@ -17,7 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { IconBell, IconClose } from '../icons/Icons';
+import { IconBell, IconClose, IconCheck } from '../icons/Icons';
 import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
@@ -113,6 +113,30 @@ export function NotificationSheet({
           height: 44,
           borderRadius: 22,
           backgroundColor: colors.primaryLight,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        badgeLeading: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.primaryPale,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        suggestionApprovedLeading: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.successLight,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        suggestionRejectedLeading: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.chipBackground,
           alignItems: 'center',
           justifyContent: 'center',
         },
@@ -342,6 +366,57 @@ export function NotificationSheet({
           );
           break;
         }
+        case 'badge_earned': {
+          const tierLabel = item.tier.charAt(0).toUpperCase() + item.tier.slice(1);
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                title="Badge unlocked!"
+                body={`${item.categoryName} — ${tierLabel}`}
+                sortAt={item.sortAt}
+                leading={
+                  <View style={styles.badgeLeading}>
+                    {item.categoryEmoji ? (
+                      <Text style={{ fontSize: 22 }}>{item.categoryEmoji}</Text>
+                    ) : (
+                      <IconBell size={22} color={colors.primary} />
+                    )}
+                  </View>
+                }
+              />
+            </Card>
+          );
+          break;
+        }
+        case 'suggestion_result': {
+          const approved = item.status === 'approved';
+          const truncated =
+            item.body.length > 60 ? `${item.body.slice(0, 60).trimEnd()}…` : item.body;
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                title={approved ? 'Challenge suggestion approved!' : 'Challenge suggestion reviewed'}
+                body={truncated}
+                sortAt={item.sortAt}
+                leading={
+                  <View
+                    style={
+                      approved
+                        ? styles.suggestionApprovedLeading
+                        : styles.suggestionRejectedLeading
+                    }
+                  >
+                    <IconCheck
+                      size={22}
+                      color={approved ? colors.success : colors.textSecondary}
+                    />
+                  </View>
+                }
+              />
+            </Card>
+          );
+          break;
+        }
         default:
           return null;
       }
@@ -370,6 +445,9 @@ export function NotificationSheet({
       styles.card,
       styles.challengeLeading,
       styles.reactionLeading,
+      styles.badgeLeading,
+      styles.suggestionApprovedLeading,
+      styles.suggestionRejectedLeading,
     ],
   );
 
@@ -410,7 +488,7 @@ export function NotificationSheet({
                 <IconBell size={44} color={colors.textTertiary} />
                 <Text variant="headingMedium">{"You're all caught up"}</Text>
                 <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>
-                  Friend requests, reactions, and today&apos;s Doji show up here.
+                  Friend requests, reactions, badge unlocks, and today&apos;s challenge show up here.
                 </Text>
               </View>
             }
