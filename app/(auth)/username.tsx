@@ -23,7 +23,7 @@ import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/use
 
 export default function UsernameScreen() {
   const router = useRouter();
-  const { session, fetchProfile, signOut } = useAuthStore();
+  const { session, fetchProfile } = useAuthStore();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [username, setUsername] = useState('');
@@ -185,16 +185,6 @@ export default function UsernameScreen() {
               }
             >
               Continue
-            </Button>
-            <Button
-              variant="ghost"
-              onPress={() => {
-                void signOut().then(() => router.replace(ROUTES.welcome));
-              }}
-              fullWidth
-              size="md"
-            >
-              Sign out
             </Button>
           </View>
         </ScrollView>
