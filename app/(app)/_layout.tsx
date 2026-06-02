@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Tabs, usePathname, useRouter, type Href } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -34,7 +34,6 @@ export default function AppLayout() {
   const { session } = useAuthStore();
   const { ready } = useAuthGate();
   useAppRealtime(session?.user?.id);
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pathname = usePathname();
@@ -110,11 +109,6 @@ export default function AppLayout() {
             <IconFriends size={26} color={focused ? colors.text : colors.textTertiary} />
           ),
         }}
-        listeners={{
-          tabPress: () => {
-            router.replace('/(app)/friends' as Href);
-          },
-        }}
       />
       <Tabs.Screen
         name="suggest-challenge"
@@ -133,11 +127,6 @@ export default function AppLayout() {
           tabBarIcon: ({ focused }) => (
             <IconProfile size={26} color={focused ? colors.text : colors.textTertiary} />
           ),
-        }}
-        listeners={{
-          tabPress: () => {
-            router.replace('/(app)/profile' as Href);
-          },
         }}
       />
       <Tabs.Screen name="member" options={{ href: null }} />

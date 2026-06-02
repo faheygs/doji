@@ -65,14 +65,14 @@ export function goBackWithOptionalReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
-  const explicit = sanitizeReturnTo(returnToRaw);
-  if (explicit) {
-    safeReplace(router, explicit);
-    return;
-  }
+  // Always prefer popping the stack — this keeps the history clean and
+  // prevents duplicate screens. Only fall back to an explicit returnTo or
+  // fallback route when there is genuinely no history to go back to (e.g.
+  // the screen was opened via a deep link or push notification).
   if (router.canGoBack()) {
     router.back();
     return;
   }
-  safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
+  const explicit = sanitizeReturnTo(returnToRaw);
+  safeReplace(router, explicit ?? normalizeHref(fallback) ?? FEED_TAB_HREF);
 }
