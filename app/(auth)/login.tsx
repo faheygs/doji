@@ -89,6 +89,24 @@ export default function LoginScreen() {
     confirmValidation.ok;
   const signInOk = emailValidation.ok && passwordValidation.ok;
 
+  const handleForgotPassword = async () => {
+    if (!emailValidation.ok) {
+      Toast.show({ type: 'error', text1: 'Enter your email above first' });
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email));
+      if (error) throw error;
+      Toast.show({
+        type: 'success',
+        text1: 'Reset email sent',
+        text2: 'Check your inbox for a password reset link.',
+      });
+    } catch (err: unknown) {
+      Toast.show({ type: 'error', text1: 'Could not send reset email', text2: formatAuthError(err) });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!emailValidation.ok) {
       Toast.show({ type: 'error', text1: emailValidation.message });
@@ -220,6 +238,14 @@ export default function LoginScreen() {
               />
             ) : null}
           </View>
+
+          {mode === 'signIn' ? (
+            <TouchableOpacity onPress={handleForgotPassword} style={styles.switchMode}>
+              <Text variant="body" color={colors.link}>
+                Forgot password?
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             onPress={() => {

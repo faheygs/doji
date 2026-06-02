@@ -59,12 +59,12 @@ export default function WelcomeScreen() {
           gap: Spacing.md,
         },
         tick: {
-          width: 6,
-          height: 6,
-          borderRadius: 3,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
           backgroundColor: colors.text,
-          opacity: 0.35,
-          marginTop: 7,
+          opacity: 0.6,
+          marginTop: 6,
         },
         featureText: {
           flex: 1,

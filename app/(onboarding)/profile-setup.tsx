@@ -52,14 +52,15 @@ export default function OnboardingProfileSetupScreen() {
           gap: Spacing.lg,
           paddingBottom: Spacing.lg,
         },
-        avatarWrap: { alignSelf: 'center', position: 'relative' },
+        avatarWrap: { alignSelf: 'center', alignItems: 'center', gap: Spacing.xs },
+        avatarTouchable: { position: 'relative' },
         editFab: {
           position: 'absolute',
-          right: 0,
-          bottom: 0,
-          width: 28,
-          height: 28,
-          borderRadius: 14,
+          right: -4,
+          bottom: -4,
+          width: 36,
+          height: 36,
+          borderRadius: 18,
           backgroundColor: colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
@@ -106,19 +107,30 @@ export default function OnboardingProfileSetupScreen() {
           </View>
 
           <View style={styles.avatarWrap}>
-            <Avatar
-              uri={profile?.avatar_url}
-              username={profile?.username ?? 'you'}
-              size={88}
-              fallbackTone="brand"
-            />
-            <TouchableOpacity style={styles.editFab} onPress={openChangePhotoDialog} disabled={uploading}>
-              {uploading ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <IconCamera size={14} color={colors.onPrimary} />
-              )}
+            <TouchableOpacity
+              style={styles.avatarTouchable}
+              onPress={openChangePhotoDialog}
+              disabled={uploading}
+              accessibilityRole="button"
+              accessibilityLabel="Add profile photo"
+            >
+              <Avatar
+                uri={profile?.avatar_url}
+                username={profile?.username ?? 'you'}
+                size={88}
+                fallbackTone="brand"
+              />
+              <View style={styles.editFab}>
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <IconCamera size={16} color={colors.onPrimary} />
+                )}
+              </View>
             </TouchableOpacity>
+            <Text variant="label" color={colors.textSecondary}>
+              {profile?.avatar_url ? 'Change photo' : 'Add photo'}
+            </Text>
           </View>
 
           <Input
@@ -131,13 +143,12 @@ export default function OnboardingProfileSetupScreen() {
             }
           />
           <Input
-            label="Bio (optional)"
+            label={`Bio (optional) — ${bio.length}/${BIO_MAX}`}
             value={bio}
             onChangeText={(v) => setBio(v.slice(0, BIO_MAX))}
             multiline
             numberOfLines={3}
             placeholder="Tell people who you are…"
-            hint={`${bio.length}/${BIO_MAX}`}
           />
 
           <View style={styles.footer}>
@@ -153,6 +164,9 @@ export default function OnboardingProfileSetupScreen() {
             <Button variant="ghost" onPress={() => void saveAndContinue(true)} fullWidth size="md">
               Skip for now
             </Button>
+            <Text variant="bodySmall" color={colors.textTertiary} style={{ textAlign: 'center' }}>
+              You can update your profile anytime from the Profile tab.
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
