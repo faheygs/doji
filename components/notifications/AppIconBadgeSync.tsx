@@ -11,7 +11,7 @@ import { useNotificationCenter, NOTIFICATION_CENTER_PREFIX } from '../../hooks/u
 export function AppIconBadgeSync() {
   const userId = useAuthStore((s) => s.session?.user?.id);
   const queryClient = useQueryClient();
-  const { unreadCount, prefsHydrated } = useNotificationCenter();
+  const { badgeCount, prefsHydrated } = useNotificationCenter();
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -45,7 +45,7 @@ export function AppIconBadgeSync() {
             return;
           }
           if (!prefsHydrated) return;
-          await Notifications.setBadgeCountAsync(Math.max(0, unreadCount));
+          await Notifications.setBadgeCountAsync(Math.max(0, badgeCount));
         } catch {
           /* simulator / unsupported */
         }
@@ -54,7 +54,7 @@ export function AppIconBadgeSync() {
     return () => {
       cancelled = true;
     };
-  }, [userId, prefsHydrated, unreadCount]);
+  }, [userId, prefsHydrated, badgeCount]);
 
   return null;
 }

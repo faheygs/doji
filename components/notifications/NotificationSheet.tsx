@@ -225,12 +225,15 @@ export function NotificationSheet({
           const copy = friendRequestCopy(requester);
           card = (
             <Card style={styles.card} elevated padded={false}>
+              {/* No onPress on the row — the footer buttons are the only actions.
+                  Having both an outer TouchableOpacity and inner buttons causes
+                  openProfile() to fire when Accept is tapped, which navigates
+                  away and closes the sheet. */}
               <NotificationActorRow
                 actor={requester}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
-                onPress={() => openProfile(notificationActorHandle(requester))}
                 footer={
                   <View style={styles.actions}>
                     <Button

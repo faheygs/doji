@@ -38,7 +38,8 @@ import {
   useFriendCount,
 } from '@/hooks/useProfile';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { goBackWithOptionalReturn, FEED_TAB_HREF } from '@/lib/navigationReturn';
+import { safeReplace, FEED_TAB_HREF } from '@/lib/navigationReturn';
+import { sanitizeReturnTo } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import {
   useBadgeCategories,
@@ -102,7 +103,12 @@ export default function UserProfileScreen() {
   );
 
   const handleBack = () => {
-    goBackWithOptionalReturn(router, returnTo, FEED_TAB_HREF);
+    // member/[username] is a Tabs.Screen, so its history accumulates across visits.
+    // router.back() would navigate within the member tab's stack (e.g. back to a
+    // previously visited profile). Always replace to the explicit returnTo or feed
+    // so the destination is always correct regardless of tab stack state.
+    const target = sanitizeReturnTo(returnTo);
+    safeReplace(router, target ?? FEED_TAB_HREF);
   };
 
   useEffect(() => {

@@ -547,12 +547,21 @@ export function useNotificationCenter() {
     dismissedKeys,
   ]);
 
+  // unreadCount: items the user hasn't seen yet (newer than when the bell was last opened).
+  // Always computed — drives the in-app bell dot regardless of settings.
   const unreadCount = useMemo(() => {
-    const prefs = mergeNotificationPreferences(profile?.notification_preferences);
-    if (prefs.show_bell_badge === false) return 0;
     const openedMs = lastOpenedAt ? new Date(lastOpenedAt).getTime() : 0;
     return items.filter((i) => new Date(i.sortAt).getTime() > openedMs).length;
-  }, [items, lastOpenedAt, profile?.notification_preferences]);
+  }, [items, lastOpenedAt]);
+
+  // badgeCount: same as unreadCount but gated by the show_bell_badge preference.
+  // This is what drives the OS app icon badge — users can turn it off in settings
+  // without affecting the in-app bell dot.
+  const badgeCount = useMemo(() => {
+    const prefs = mergeNotificationPreferences(profile?.notification_preferences);
+    if (prefs.show_bell_badge === false) return 0;
+    return unreadCount;
+  }, [unreadCount, profile?.notification_preferences]);
 
   const isLoading =
     !prefsHydrated ||
@@ -568,6 +577,7 @@ export function useNotificationCenter() {
   return {
     items,
     unreadCount,
+    badgeCount,
     isLoading,
     markBellOpened,
     dismissItem,
