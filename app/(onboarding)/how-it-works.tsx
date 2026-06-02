@@ -13,7 +13,7 @@ const SLIDES = [
     Icon: IconTrophy,
     title: 'Earn XP and Sparks',
     desc:
-      'Every challenge you complete earns XP (which builds your level and streak) and Sparks — Doji's currency you can spend in the Shop.',
+      "Every challenge you complete earns XP (which builds your level and streak) and Sparks — Doji's currency you can spend in the Shop.",
     showSparkHint: true,
   },
   {
