@@ -10,10 +10,11 @@ import {
 import { useRouter, usePathname } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Spacing, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { IconSettings } from '@/components/icons/Icons';
+import { IconSpark } from '@/components/icons/IconSpark';
 import { XPBar } from '@/components/gamification/XPBar';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
 import {
@@ -108,11 +109,22 @@ export default function MyProfileScreen() {
         scrollContent: { paddingBottom: Spacing.xxl },
         topBar: {
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           alignItems: 'center',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.xs,
           paddingBottom: Spacing.xs,
+        },
+        sparksPill: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+          paddingHorizontal: Spacing.md,
+          paddingVertical: 6,
+          borderRadius: Radius.full,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
         },
         heroRow: {
           flexDirection: 'row',
@@ -147,6 +159,21 @@ export default function MyProfileScreen() {
         }
       >
         <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
+            }}
+            accessibilityLabel={`${sparks ?? 0} Sparks — open Shop`}
+            accessibilityRole="button"
+            style={styles.sparksPill}
+          >
+            <IconSpark size={14} />
+            <Text variant="label" color={colors.text} style={{ fontWeight: '700' }}>
+              {(sparks ?? 0).toLocaleString()}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => router.push(hrefWithReturnTo('/(app)/profile/settings', pathname))}
             hitSlop={16}

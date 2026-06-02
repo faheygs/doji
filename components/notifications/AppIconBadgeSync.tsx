@@ -17,10 +17,16 @@ export function AppIconBadgeSync() {
     if (Platform.OS === 'web') return;
 
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && userId) {
+      if (state !== 'active') return;
+      if (userId) {
         void queryClient.invalidateQueries({
           predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === NOTIFICATION_CENTER_PREFIX,
         });
+      } else {
+        // Logged-out foreground: clear badge immediately without waiting for queries.
+        void import('expo-notifications').then((N) =>
+          N.setBadgeCountAsync(0).catch(() => {}),
+        );
       }
     });
     return () => sub.remove();

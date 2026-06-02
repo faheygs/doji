@@ -39,7 +39,6 @@ function ownedThemeKeysFromItems(items: { item_key: string }[]): AccentThemeKey[
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const profile = useAuthStore((s) => s.profile);
   const session = useAuthStore((s) => s.session);
-  const isLoading = useAuthStore((s) => s.isLoading);
   const userId = session?.user?.id;
   const { data: owned = [], isFetched: ownedFetched } = useOwnedShopItems(userId);
   const ownedThemeKeys = useMemo(() => ownedThemeKeysFromItems(owned), [owned]);
@@ -58,13 +57,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!session) {
-      setPreferenceState(DEFAULT_APP_THEME);
-      setAccentThemeState(DEFAULT_ACCENT_THEME);
-    }
-  }, [session, isLoading]);
+  // When a new session loads, the profile-sync effect below applies the
+  // correct theme from the profile. No reset is needed on logout — the
+  // user's last-used theme from AsyncStorage stays active on the auth
+  // screens, and a new user logging in gets their own profile theme.
 
   useEffect(() => {
     if (!profile) return;

@@ -157,7 +157,13 @@ export function useAddComment() {
         .single();
 
       if (error) throw error;
-      await insertCommentMentions(inserted.id, trimmed, uid);
+      // Mention insertion is best-effort — the comment is already saved.
+      // A failure here should not surface an error to the user.
+      try {
+        await insertCommentMentions(inserted.id, trimmed, uid);
+      } catch {
+        if (__DEV__) console.warn('[useAddComment] mention insertion failed');
+      }
     },
     onSettled: (_data, _err, vars) => {
       if (vars?.postId) {
@@ -198,8 +204,13 @@ export function useEditComment() {
 
       if (error) throw error;
 
-      await supabase.from('comment_mentions').delete().eq('comment_id', commentId);
-      await insertCommentMentions(commentId, trimmed, uid);
+      // Best-effort mention refresh — edit is already saved if this fails.
+      try {
+        await supabase.from('comment_mentions').delete().eq('comment_id', commentId);
+        await insertCommentMentions(commentId, trimmed, uid);
+      } catch {
+        if (__DEV__) console.warn('[useEditComment] mention refresh failed');
+      }
     },
     onSettled: (_data, _err, vars) => {
       if (vars?.postId) {

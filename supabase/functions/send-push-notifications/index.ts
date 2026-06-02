@@ -17,26 +17,33 @@ async function clearNotificationTokensForUsers(userIds: string[]) {
   }
 }
 
-function wantsDojiPush(prefs: Record<string, unknown> | null | undefined): boolean {
-  if (!prefs || typeof prefs !== 'object') return true;
-  return prefs.doji_start !== false;
-}
+// Maps notification type from push payload → user preference key.
+// Each type is gated by its own preference so users get granular control.
+const TYPE_TO_PREF: Record<string, string> = {
+  CHALLENGE: 'doji_start',
+  REACTION: 'reactions_on_my_post',
+  COMMENT: 'comment',
+  MENTION: 'mention',
+  FRIEND_REQUEST: 'friend_request',
+  FRIEND_ACCEPTED: 'friend_accepted',
+  FRIEND_POST: 'friend_post',
+  BADGE: 'badges',
+  BADGE_EARNED: 'badges',
+  SUGGESTION_APPROVED: 'suggestion',
+  SUGGESTION_REJECTED: 'suggestion',
+};
 
-function wantsAnyCategoryForOperational(prefs: Record<string, unknown> | null | undefined): boolean {
+function wantsPushForType(
+  prefs: Record<string, unknown> | null | undefined,
+  type: string | undefined,
+): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
-  const keys = [
-    'doji_start',
-    'friend_post',
-    'reactions_on_my_post',
-    'friend_request',
-    'friend_accepted',
-    'badges',
-  ] as const;
-  return keys.some((k) => prefs[k] !== false);
-}
-
-function wantsAnyPush(prefs: Record<string, unknown> | null | undefined): boolean {
-  return wantsAnyCategoryForOperational(prefs);
+  const prefKey = type ? TYPE_TO_PREF[type] : undefined;
+  if (!prefKey) {
+    // Unknown type — fall back to sending (safe default).
+    return true;
+  }
+  return prefs[prefKey] !== false;
 }
 
 Deno.serve(async (req) => {
@@ -52,8 +59,10 @@ Deno.serve(async (req) => {
     };
     const { user_event_ids, title, body, data } = payload;
 
-    const isChallenge =
-      data && typeof data === 'object' && (data as Record<string, unknown>).type === 'CHALLENGE';
+    const notifType =
+      data && typeof data === 'object'
+        ? ((data as Record<string, unknown>).type as string | undefined)
+        : undefined;
 
     if (!user_event_ids || !Array.isArray(user_event_ids)) {
       return new Response(JSON.stringify({ error: 'user_event_ids array is required' }), {
@@ -82,7 +91,7 @@ Deno.serve(async (req) => {
     const withToken = rows.filter((e) => Boolean(e.profiles?.notification_token?.trim()));
     const pushRows = withToken.filter((e) => {
       const prefs = e.profiles?.notification_preferences ?? null;
-      return isChallenge ? wantsDojiPush(prefs) : wantsAnyPush(prefs);
+      return wantsPushForType(prefs, notifType);
     });
 
     const dataObj =
