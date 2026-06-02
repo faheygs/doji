@@ -35,5 +35,12 @@ export const useChallengeStore = create<ChallengeState>((set) => ({
   setCapturedFrontPhoto: (capturedFrontPhoto) => set({ capturedFrontPhoto }),
   setCapturedVideoUri: (capturedVideoUri) => set({ capturedVideoUri }),
   clearCaptures: () =>
-    set({ capturedPhoto: null, capturedFrontPhoto: null, capturedVideoUri: null }),
+    set({
+      capturedPhoto: null,
+      capturedFrontPhoto: null,
+      capturedVideoUri: null,
+      currentUserEvent: null,
+      currentChallenge: null,
+      status: 'idle',
+    }),
 }));

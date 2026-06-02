@@ -119,21 +119,25 @@ export function useNotificationCenter() {
       bellClearedKey(userId),
       bellOpenedKey(userId),
       dismissedKey(userId),
-    ]).then((entries) => {
-      if (cancelled) return;
-      const [, cleared] = entries[0];
-      const [, opened] = entries[1];
-      const [, dismissedRaw] = entries[2];
-      setClearedAt(cleared ?? null);
-      setLastOpenedAt(opened ?? null);
-      try {
-        const parsed: string[] = dismissedRaw ? JSON.parse(dismissedRaw) : [];
-        setDismissedKeys(new Set(parsed));
-      } catch {
-        setDismissedKeys(new Set());
-      }
-      setPrefsHydrated(true);
-    });
+    ])
+      .then((entries) => {
+        if (cancelled) return;
+        const [, cleared] = entries[0];
+        const [, opened] = entries[1];
+        const [, dismissedRaw] = entries[2];
+        setClearedAt(cleared ?? null);
+        setLastOpenedAt(opened ?? null);
+        try {
+          const parsed: string[] = dismissedRaw ? JSON.parse(dismissedRaw) : [];
+          setDismissedKeys(new Set(parsed));
+        } catch {
+          setDismissedKeys(new Set());
+        }
+        setPrefsHydrated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPrefsHydrated(true);
+      });
     return () => {
       cancelled = true;
     };

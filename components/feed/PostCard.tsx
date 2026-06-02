@@ -376,7 +376,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
                         style={styles.frontThumbnail}
                         contentFit="cover"
                         cachePolicy="memory-disk"
-                        recyclingKey={showFront ? 'back' : 'front-thumb'}
+                        recyclingKey={`${post.id}-thumb-${showFront ? 'back' : 'front'}`}
                       />
                     </View>
                   ) : null}

@@ -6,6 +6,9 @@ import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { normalizeAppTheme } from '../constants/theme';
 import { shouldAutoCompleteOnboarding } from '../lib/onboardingGate';
 
+// Module-level controller so concurrent fetchProfile calls cancel the previous one.
+let profileAbortController: AbortController | null = null;
+
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
@@ -47,13 +50,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchProfile: async (userId: string) => {
+    profileAbortController?.abort();
+    profileAbortController = new AbortController();
+    const { signal } = profileAbortController;
+
     set({ isProfileLoading: true });
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
+        .abortSignal(signal)
         .maybeSingle();
+
+      if (signal.aborted) return;
 
       if (error) {
         if (__DEV__) console.warn('[fetchProfile]', error.message);
@@ -79,8 +89,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .from('profiles')
           .update({ onboarding_completed_at: completedAt, updated_at: new Date().toISOString() })
           .eq('id', userId)
+          .abortSignal(signal)
           .select()
           .maybeSingle();
+
+        if (signal.aborted) return;
 
         if (!patchErr && patched) {
           profile = {
@@ -97,7 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ profile });
     } finally {
-      set({ isProfileLoading: false });
+      if (!signal.aborted) set({ isProfileLoading: false });
     }
   },
 

@@ -243,10 +243,7 @@ export default function FeedScreen() {
       return;
     }
 
-    if (posts.length > 0 && audience === 'friends') {
-      setAudience('everyone');
-    }
-  }, [pendingPostId, pendingOpenComments, feedLoading, posts, audience, router]);
+  }, [pendingPostId, pendingOpenComments, feedLoading, posts, router]);
 
   const shouldBlur = !hasUnlockedFeed(userEvent) && !userEventLoading;
 

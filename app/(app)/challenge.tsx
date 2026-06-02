@@ -59,8 +59,10 @@ export default function ChallengeScreen() {
 
   useEffect(() => {
     heroScale.value = withSpring(1, { damping: 14, stiffness: 160 });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-  }, []);
+    if (!isCompleted && !isMissed && !isExpiredPending && !notYetLive) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  }, [isCompleted, isMissed, isExpiredPending, notYetLive]);
 
   const handleStartChallenge = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

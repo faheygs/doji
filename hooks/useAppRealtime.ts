@@ -24,6 +24,7 @@ export function useAppRealtime(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return;
 
+    let live = true;
     let feedInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleFeedInvalidate = () => {
       if (feedInvalidateTimer !== null) clearTimeout(feedInvalidateTimer);
@@ -95,6 +96,7 @@ export function useAppRealtime(userId: string | undefined) {
             !row.is_community_poll
           ) {
             void (async () => {
+              if (!live) return;
               const posterId = row.user_id!;
               const { data: friendshipRow } = await supabase
                 .from('friendships')
@@ -105,6 +107,7 @@ export function useAppRealtime(userId: string | undefined) {
                 )
                 .maybeSingle();
 
+              if (!live) return;
               if (friendshipRow) {
                 scheduleLocalNotificationIfAllowed(
                   'Friend posted',
@@ -181,12 +184,14 @@ export function useAppRealtime(userId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: ['post', row.post_id] });
 
           void (async () => {
+            if (!live) return;
             const { data: postRow } = await supabase
               .from('posts')
               .select('user_id')
               .eq('id', row.post_id!)
               .maybeSingle();
 
+            if (!live) return;
             if (postRow?.user_id === userId) {
               void useAuthStore.getState().fetchProfile(userId);
             }
@@ -227,11 +232,13 @@ export function useAppRealtime(userId: string | undefined) {
           const cid = row?.comment_id;
           if (!cid) return;
           void (async () => {
+            if (!live) return;
             const { data: c } = await supabase
               .from('comments')
               .select('post_id')
               .eq('id', cid)
               .maybeSingle();
+            if (!live) return;
             const postId = c?.post_id as string | undefined;
             if (postId) {
               queryClient.invalidateQueries({ queryKey: ['comments', postId] });
@@ -388,11 +395,13 @@ export function useAppRealtime(userId: string | undefined) {
               'badges',
             );
             void (async () => {
+              if (!live) return;
               const { data: category } = await supabase
                 .from('badge_categories')
                 .select('name')
                 .eq('id', row.category_id!)
                 .maybeSingle();
+              if (!live) return;
               useCelebrationStore.getState().showBadgeUnlock({
                 categoryId: row.category_id!,
                 name: category?.name ?? row.category_id!,
@@ -428,6 +437,7 @@ export function useAppRealtime(userId: string | undefined) {
       .subscribe();
 
     return () => {
+      live = false;
       if (feedInvalidateTimer !== null) clearTimeout(feedInvalidateTimer);
       supabase.removeChannel(channel);
     };

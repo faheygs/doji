@@ -1,6 +1,7 @@
 import type { Profile, UserEvent, UserEventStatus } from '../types/database';
 import { isExpired } from '../utils/time';
 import { SPARKS_BUY_IN_COST } from '../constants/sparks';
+import { localDateKeyFromIso, localDateKeyFromDate } from './challengeDay';
 
 /** User completed today's challenge within the window — feed and posts are unlocked. */
 export function hasUnlockedFeed(userEvent: UserEvent | null | undefined): boolean {
@@ -74,7 +75,7 @@ export function showSignupDayGraceBanner(
   if (!isSignupDayGrace(userEvent)) return false;
   if (userEvent.status !== 'pending' && userEvent.status !== 'buy_in_open') return false;
   if (isExpired(userEvent.expires_at)) return false;
-  const createdDay = new Date(profile.created_at).toDateString();
-  const today = new Date().toDateString();
+  const createdDay = localDateKeyFromIso(profile.created_at);
+  const today = localDateKeyFromDate(new Date());
   return createdDay === today;
 }
