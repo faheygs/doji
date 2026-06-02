@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -337,6 +338,13 @@ export function useNotificationCenter() {
     const iso = new Date().toISOString();
     await AsyncStorage.setItem(bellOpenedKey(userId), iso);
     setLastOpenedAt(iso);
+    // Clear the OS app icon badge immediately when the user opens the bell.
+    if (Platform.OS !== 'web') {
+      try {
+        const Notifications = await import('expo-notifications');
+        await Notifications.setBadgeCountAsync(0);
+      } catch { /* not supported on this device */ }
+    }
   }, [userId]);
 
   const dismissItem = useCallback(async (key: string) => {

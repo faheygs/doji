@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
       body,
       data: dataObj,
       sound: 'default' as const,
+      badge: 1,
     };
 
     const { httpOk, tickets, invalidTokenIndices } = await sendExpoPushMessages([message]);

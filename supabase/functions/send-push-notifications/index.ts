@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
       body: body ?? 'Your challenge is waiting!',
       data: { ...dataObj, user_event_id: e.id },
       sound: 'default' as const,
+      badge: 1,
     }));
 
     if (notifications.length === 0) {
