@@ -12,6 +12,7 @@ describe('useAuthStore', () => {
       session: null,
       profile: null,
       isLoading: true,
+      isProfileLoading: false,
     });
     jest.clearAllMocks();
   });

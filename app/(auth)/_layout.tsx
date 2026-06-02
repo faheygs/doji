@@ -1,15 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
-import { Stack, useRouter } from 'expo-router';
-import { useAuthStore } from '../../stores/useAuthStore';
+import React, { useMemo } from 'react';
+import { Stack } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
-import { FEED_TAB_HREF } from '../../lib/navigationReturn';
-import { safeReplace } from '../../lib/routes';
-import { needsOnboarding } from '../../lib/onboardingGate';
+import { useAuthGate } from '../../hooks/useAuthGate';
 
 export default function AuthLayout() {
-  const { session, profile, isLoading } = useAuthStore();
-  const router = useRouter();
   const { colors } = useTheme();
+  const { ready, signedIn, hasProfile } = useAuthGate();
 
   const screenOptions = useMemo(
     () => ({
@@ -19,25 +15,17 @@ export default function AuthLayout() {
     [colors.background],
   );
 
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (session && profile) {
-      if (needsOnboarding(profile)) {
-        safeReplace(router, '/(onboarding)');
-      } else {
-        safeReplace(router, FEED_TAB_HREF);
-      }
-    } else if (session && !profile) {
-      safeReplace(router, '/(auth)/username');
-    }
-  }, [session, profile, isLoading]);
+  if (!ready) return null;
 
   return (
     <Stack screenOptions={screenOptions}>
-      <Stack.Screen name="welcome" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="username" />
+      <Stack.Protected guard={!signedIn}>
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn && !hasProfile}>
+        <Stack.Screen name="username" />
+      </Stack.Protected>
     </Stack>
   );
 }

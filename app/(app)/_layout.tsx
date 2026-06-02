@@ -4,8 +4,7 @@ import { StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useAppRealtime } from '../../hooks/useAppRealtime';
-import { needsOnboarding } from '../../lib/onboardingGate';
-import { safeReplace, ROUTES } from '../../lib/routes';
+import { useAuthGate } from '../../hooks/useAuthGate';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
@@ -32,27 +31,13 @@ function blurFocusedElementIfAriaHiddenAncestor(): void {
 }
 
 export default function AppLayout() {
-  const { session, profile, isLoading } = useAuthStore();
+  const { session } = useAuthStore();
+  const { ready } = useAuthGate();
   useAppRealtime(session?.user?.id);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pathname = usePathname();
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!session) {
-      safeReplace(router, ROUTES.welcome);
-      return;
-    }
-    if (!profile) {
-      safeReplace(router, ROUTES.username);
-      return;
-    }
-    if (needsOnboarding(profile)) {
-      safeReplace(router, ROUTES.onboarding);
-    }
-  }, [session, profile, isLoading, router]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -93,6 +78,8 @@ export default function AppLayout() {
     }),
     [colors.text, colors.textTertiary, tabBarStyle],
   );
+
+  if (!ready) return null;
 
   return (
     <>

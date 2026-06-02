@@ -7,11 +7,12 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { ROUTES } from '../../lib/routes';
 import { Spacing, DEFAULT_APP_THEME } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -22,7 +23,7 @@ import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/use
 
 export default function UsernameScreen() {
   const router = useRouter();
-  const { session, fetchProfile } = useAuthStore();
+  const { session, fetchProfile, signOut } = useAuthStore();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [username, setUsername] = useState('');
@@ -117,7 +118,7 @@ export default function UsernameScreen() {
 
       await fetchProfile(userId);
       await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
-      router.replace('/(onboarding)' as Href);
+      router.replace(ROUTES.onboardingHowItWorks);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create profile';
       Toast.show({ type: 'error', text1: msg });
@@ -184,6 +185,16 @@ export default function UsernameScreen() {
               }
             >
               Continue
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => {
+                void signOut().then(() => router.replace(ROUTES.welcome));
+              }}
+              fullWidth
+              size="md"
+            >
+              Sign out
             </Button>
           </View>
         </ScrollView>

@@ -105,27 +105,37 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
+      const normalizedEmail = normalizeEmail(email);
+
       if (mode === 'signIn') {
         const { error } = await supabase.auth.signInWithPassword({
-          email: normalizeEmail(email),
+          email: normalizedEmail,
           password,
         });
         if (error) throw error;
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: normalizeEmail(email),
+          email: normalizedEmail,
           password,
         });
         if (error) throw error;
+
         if (!data.session) {
-          Toast.show({
-            type: 'info',
-            text1: 'Check your Supabase settings',
-            text2:
-              'If sign-up did not continue, disable “Confirm email” under Authentication → Providers → Email so users can sign in immediately.',
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
           });
+          if (signInError) {
+            Toast.show({
+              type: 'info',
+              text1: 'Check your email',
+              text2: 'Confirm your account, then sign in.',
+            });
+            return;
+          }
         }
       }
+      // Session + navigation are handled by onAuthStateChange and Stack.Protected guards.
     } catch (err: unknown) {
       Toast.show({
         type: 'error',

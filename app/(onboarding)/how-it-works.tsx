@@ -6,22 +6,29 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { IconBell, IconTimer, IconTrophy } from '@/components/icons/Icons';
+import { IconSpark } from '@/components/icons/IconSpark';
 
 const SLIDES = [
   {
     Icon: IconBell,
-    title: 'You get notified',
-    desc: 'Once a day, at the same moment worldwide, everyone gets the Doji challenge.',
+    title: 'Your daily challenge',
+    desc:
+      'Once a day, everyone gets the same Doji — a quick challenge like a photo, poll, or question. Your notification is your cue to jump in.',
+    showSparkHint: false,
   },
   {
     Icon: IconTimer,
     title: 'You have 10 minutes',
-    desc: 'A 10-minute window opens. Miss it and your feed locks — you can buy back in with Sparks to save your streak.',
+    desc:
+      'When the window opens, you have 10 minutes to respond. Miss it and your feed locks until tomorrow — or spend Sparks from your Profile in the Shop to buy back in and save your streak.',
+    showSparkHint: true,
   },
   {
     Icon: IconTrophy,
-    title: 'Earn XP and level up',
-    desc: 'Every response earns XP and Sparks. Build streaks, unlock badges, and spend Sparks in the Shop.',
+    title: 'Earn XP and Sparks',
+    desc:
+      'Completing challenges earns XP (levels and streaks) and Sparks — Doji’s currency for the Shop. Check your Sparks balance anytime on your Profile tab.',
+    showSparkHint: true,
   },
 ] as const;
 
@@ -57,6 +64,21 @@ export default function HowItWorksScreen() {
           backgroundColor: `${colors.primary}15`,
           alignItems: 'center',
           justifyContent: 'center',
+        },
+        sparkHint: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: Spacing.md,
+          paddingVertical: Spacing.sm,
+          borderRadius: Radius.full,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        sparkHintText: {
+          fontWeight: '600',
+          fontSize: 13,
         },
         footer: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl },
       }),
@@ -94,6 +116,14 @@ export default function HowItWorksScreen() {
         <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center', lineHeight: 24 }}>
           {slide.desc}
         </Text>
+        {slide.showSparkHint ? (
+          <View style={styles.sparkHint}>
+            <IconSpark size={14} />
+            <Text variant="label" color={colors.textSecondary} style={styles.sparkHintText}>
+              Profile → Sparks · Shop
+            </Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.footer}>
         <Button onPress={onNext} fullWidth size="lg">

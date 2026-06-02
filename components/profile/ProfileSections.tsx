@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Spacing, Radius, Shadows } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Avatar } from '@/components/ui/Avatar';
 import { LevelBadge } from '@/components/gamification/LevelBadge';
 import { IconCamera, IconChevronRight, IconReactionFire } from '@/components/icons/Icons';
+import { IconSpark } from '@/components/icons/IconSpark';
 import { formatCompactCount } from '@/utils/formatCount';
 import type { Profile } from '@/types/database';
 import { getEquippedBorder, getEquippedTitleLabel } from '@/lib/cosmetics';
-import { ProfileShopEntry } from '@/components/economy/ProfileShopEntry';
+import { useSparkGainPulse } from '@/hooks/useSparkGainPulse';
 
 export function ProfileStatChip({
   label,
@@ -213,6 +215,57 @@ type ProfileStreakPairProps = {
   onPressShop?: () => void;
 };
 
+function ProfileMetricCell({
+  label,
+  onPress,
+  accessibilityLabel,
+  children,
+}: {
+  label: string;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+  children: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  const body = (
+    <>
+      <View style={{ minHeight: 34, alignItems: 'center', justifyContent: 'center' }}>{children}</View>
+      {onPress ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+            {label}
+          </Text>
+          <IconChevronRight size={10} color={colors.textTertiary} />
+        </View>
+      ) : (
+        <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+          {label}
+        </Text>
+      )}
+    </>
+  );
+
+  if (!onPress) {
+    return (
+      <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm }}>
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.65}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm }}
+    >
+      {body}
+    </TouchableOpacity>
+  );
+}
+
 export function ProfileStreakPair({
   currentStreak,
   bestStreak,
@@ -221,71 +274,108 @@ export function ProfileStreakPair({
   onPressShop,
 }: ProfileStreakPairProps) {
   const { colors } = useTheme();
+  const showSparks = sparks != null && onPressShop != null;
+  const { containerStyle, iconStyle, highlightStyle, gainLabelStyle, gainLabel } = useSparkGainPulse(
+    sparks ?? 0,
+    showSparks,
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        streakRow: {
+        card: {
           marginHorizontal: Spacing.md,
           flexDirection: 'row',
-          gap: Spacing.sm,
-        },
-        card: {
-          flex: 1,
-          alignItems: 'center',
-          paddingVertical: 14,
-          paddingHorizontal: Spacing.md,
-          gap: 4,
+          alignItems: 'stretch',
           backgroundColor: colors.surface,
           borderRadius: Radius.lg,
           borderWidth: 1,
           borderColor: colors.border,
+          paddingVertical: Spacing.md,
           ...Shadows.card,
         },
-        sparksWrap: {
-          marginHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
+        divider: {
+          width: StyleSheet.hairlineWidth,
+          alignSelf: 'stretch',
+          backgroundColor: colors.border,
         },
-        label: {
-          textAlign: 'center',
+        sparksWrap: {
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+        },
+        sparksHighlight: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: colors.accent,
+        },
+        gainLabel: {
+          position: 'absolute',
+          top: 4,
+          alignSelf: 'center',
+          fontSize: 10,
+          fontWeight: '800',
+          color: colors.accent,
         },
         valueRow: {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 4,
+          gap: 5,
         },
       }),
     [colors],
   );
 
+  const sparksCell = showSparks ? (
+    <View style={styles.sparksWrap}>
+      <Animated.View pointerEvents="none" style={[styles.sparksHighlight, highlightStyle]} />
+      {gainLabel != null ? (
+        <Animated.Text style={[styles.gainLabel, gainLabelStyle]} pointerEvents="none">
+          +{gainLabel}
+        </Animated.Text>
+      ) : null}
+      <ProfileMetricCell
+        label="Sparks"
+        onPress={onPressShop}
+        accessibilityLabel={`Open Shop, ${sparks.toLocaleString()} Sparks`}
+      >
+        <Animated.View style={[styles.valueRow, containerStyle]}>
+          <Animated.View style={iconStyle}>
+            <IconSpark size={16} />
+          </Animated.View>
+          <Text variant="displayMedium">{formatCompactCount(sparks)}</Text>
+        </Animated.View>
+      </ProfileMetricCell>
+    </View>
+  ) : null;
+
   return (
-    <View style={[style]}>
-      <View style={styles.streakRow}>
-        <View style={styles.card}>
-          <Text variant="micro" color={colors.textSecondary} style={styles.label}>
-            Current Streak
-          </Text>
+    <View style={style}>
+      <View style={styles.card}>
+        <ProfileMetricCell label="Current">
           <View style={styles.valueRow}>
-            <Text variant="headingMedium" color={colors.primary}>
+            <Text variant="displayMedium" color={colors.primary}>
               {currentStreak}
             </Text>
             <IconReactionFire size={20} color={colors.primary} />
           </View>
-        </View>
-        <View style={styles.card}>
-          <Text variant="micro" color={colors.textSecondary} style={styles.label}>
-            Best Streak
-          </Text>
-          <Text variant="headingMedium" color={colors.xpGold} style={styles.label}>
+        </ProfileMetricCell>
+
+        <View style={styles.divider} />
+
+        <ProfileMetricCell label="Best">
+          <Text variant="displayMedium" color={colors.xpGold}>
             {bestStreak}
           </Text>
-        </View>
+        </ProfileMetricCell>
+
+        {showSparks ? (
+          <>
+            <View style={styles.divider} />
+            {sparksCell}
+          </>
+        ) : null}
       </View>
-      {onPressShop != null && sparks != null ? (
-        <View style={styles.sparksWrap}>
-          <ProfileShopEntry amount={sparks} onPress={onPressShop} />
-        </View>
-      ) : null}
     </View>
   );
 }

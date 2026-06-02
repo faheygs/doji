@@ -10,6 +10,7 @@ type AuthState = {
   session: Session | null;
   profile: Profile | null;
   isLoading: boolean;
+  isProfileLoading: boolean;
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setLoading: (loading: boolean) => void;
@@ -22,64 +23,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   profile: null,
   isLoading: true,
+  isProfileLoading: false,
 
-  setSession: (session) => set({ session }),
+  setSession: (session) => {
+    const prevId = get().session?.user?.id;
+    const nextId = session?.user?.id;
+    if (!session) {
+      set({ session: null, profile: null, isProfileLoading: false });
+      return;
+    }
+    if (nextId !== prevId) {
+      set({ session, profile: null, isProfileLoading: true });
+      return;
+    }
+    set({ session });
+  },
   setProfile: (profile) => set({ profile }),
   setLoading: (isLoading) => set({ isLoading }),
 
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ session: null, profile: null });
+    set({ session: null, profile: null, isProfileLoading: false });
   },
 
   fetchProfile: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) {
-      if (__DEV__) console.warn('[fetchProfile]', error.message);
-      return;
-    }
-
-    if (!data) {
-      set({ profile: null });
-      return;
-    }
-
-    let profile: Profile = {
-      ...data,
-      app_theme: normalizeAppTheme((data as Profile).app_theme),
-      notification_preferences: mergeNotificationPreferences(
-        (data as Profile).notification_preferences,
-      ),
-    };
-
-    if (shouldAutoCompleteOnboarding(profile)) {
-      const completedAt = profile.created_at ?? new Date().toISOString();
-      const { data: patched, error: patchErr } = await supabase
+    set({ isProfileLoading: true });
+    try {
+      const { data, error } = await supabase
         .from('profiles')
-        .update({ onboarding_completed_at: completedAt, updated_at: new Date().toISOString() })
+        .select('*')
         .eq('id', userId)
-        .select()
         .maybeSingle();
 
-      if (!patchErr && patched) {
-        profile = {
-          ...patched,
-          app_theme: normalizeAppTheme((patched as Profile).app_theme),
-          notification_preferences: mergeNotificationPreferences(
-            (patched as Profile).notification_preferences,
-          ),
-        };
-      } else {
-        profile = { ...profile, onboarding_completed_at: completedAt };
+      if (error) {
+        if (__DEV__) console.warn('[fetchProfile]', error.message);
+        return;
       }
-    }
 
-    set({ profile });
+      if (!data) {
+        set({ profile: null });
+        return;
+      }
+
+      let profile: Profile = {
+        ...data,
+        app_theme: normalizeAppTheme((data as Profile).app_theme),
+        notification_preferences: mergeNotificationPreferences(
+          (data as Profile).notification_preferences,
+        ),
+      };
+
+      if (shouldAutoCompleteOnboarding(profile)) {
+        const completedAt = profile.created_at ?? new Date().toISOString();
+        const { data: patched, error: patchErr } = await supabase
+          .from('profiles')
+          .update({ onboarding_completed_at: completedAt, updated_at: new Date().toISOString() })
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+
+        if (!patchErr && patched) {
+          profile = {
+            ...patched,
+            app_theme: normalizeAppTheme((patched as Profile).app_theme),
+            notification_preferences: mergeNotificationPreferences(
+              (patched as Profile).notification_preferences,
+            ),
+          };
+        } else {
+          profile = { ...profile, onboarding_completed_at: completedAt };
+        }
+      }
+
+      set({ profile });
+    } finally {
+      set({ isProfileLoading: false });
+    }
   },
 
   updateProfile: async (updates) => {

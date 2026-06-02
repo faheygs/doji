@@ -35,6 +35,8 @@ import { buildToastConfig } from '../components/ui/toastTheme';
 import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { safeReplace } from '../lib/routes';
+import { isAuthRoutingPending } from '../lib/authRoute';
+import { useAuthGate } from '../hooks/useAuthGate';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -47,6 +49,7 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   });
 
   const isLoading = useAuthStore((s) => s.isLoading);
+  const isProfileLoading = useAuthStore((s) => s.isProfileLoading);
   const splashReady = useRef(false);
   const splashHidden = useRef(false);
 
@@ -63,11 +66,11 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') return;
     if (!splashReady.current) return;
     if (!fontsLoaded && !fontError) return;
-    if (isLoading) return;
+    if (isAuthRoutingPending(isLoading, isProfileLoading)) return;
     if (splashHidden.current) return;
     splashHidden.current = true;
     SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError, isLoading]);
+  }, [fontsLoaded, fontError, isLoading, isProfileLoading]);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -80,6 +83,7 @@ function RootLayoutInner() {
   const { setSession, setLoading, fetchProfile } = useAuthStore();
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const gate = useAuthGate();
 
   const toastConfig = useMemo(() => buildToastConfig(colors, isDark), [colors, isDark]);
 
@@ -161,6 +165,7 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    if (!gate.ready) return;
 
     let cancelled = false;
     let subscription: { remove: () => void } | undefined;
@@ -192,7 +197,11 @@ function RootLayoutInner() {
       cancelled = true;
       subscription?.remove();
     };
-  }, [router]);
+  }, [router, gate.ready]);
+
+  if (!gate.ready) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView
@@ -212,9 +221,15 @@ function RootLayoutInner() {
             }}
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+            <Stack.Protected guard={gate.canUseApp}>
+              <Stack.Screen name="(app)" />
+            </Stack.Protected>
+            <Stack.Protected guard={gate.mustFinishOnboarding}>
+              <Stack.Screen name="(onboarding)" />
+            </Stack.Protected>
+            <Stack.Protected guard={gate.canUseAuthGroup}>
+              <Stack.Screen name="(auth)" />
+            </Stack.Protected>
           </Stack>
           <Toast config={toastConfig} />
         </View>

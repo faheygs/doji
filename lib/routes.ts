@@ -9,6 +9,7 @@ export const ROUTES = {
   login: '/(auth)/login' as Href,
   username: '/(auth)/username' as Href,
   onboarding: '/(onboarding)' as Href,
+  onboardingHowItWorks: '/(onboarding)/how-it-works' as Href,
   challenge: '/(app)/challenge' as Href,
   poll: '/(app)/poll' as Href,
   task: '/(app)/task' as Href,

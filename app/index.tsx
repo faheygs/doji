@@ -1,29 +1,16 @@
-import { Redirect, type Href } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '../stores/useAuthStore';
-import { needsOnboarding } from '../lib/onboardingGate';
-import { FEED_TAB_HREF, ROUTES } from '../lib/routes';
+import { resolveAuthenticatedRoute } from '../lib/authRoute';
+import { useAuthGate } from '../hooks/useAuthGate';
 
-/**
- * Root entry — always send authenticated users to the real feed href `/(app)`.
- * Never use `/(app)/index` (invalid in Expo Router).
- */
+/** Cold-start entry at `/` — send to the correct group once auth is ready. */
 export default function RootIndex() {
-  const { session, profile, isLoading } = useAuthStore();
+  const { session, profile } = useAuthStore();
+  const { ready } = useAuthGate();
 
-  if (isLoading) {
+  if (!ready) {
     return null;
   }
 
-  if (session && profile) {
-    if (needsOnboarding(profile)) {
-      return <Redirect href={ROUTES.onboarding} />;
-    }
-    return <Redirect href={FEED_TAB_HREF} />;
-  }
-
-  if (session && !profile) {
-    return <Redirect href={ROUTES.username} />;
-  }
-
-  return <Redirect href={ROUTES.welcome} />;
+  return <Redirect href={resolveAuthenticatedRoute(session, profile)} />;
 }
