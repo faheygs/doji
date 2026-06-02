@@ -7,8 +7,8 @@ export function useChallengeCompleteOverlay() {
   const router = useRouter();
   const [xpOverlay, setXpOverlay] = useState<XpOverlayPayload | null>(null);
 
+  /** Navigate away first; overlay unmounts when this screen blurs (see focus cleanup). */
   const dismissToFeed = useCallback(() => {
-    setXpOverlay(null);
     navigateToFeedAfterChallengeComplete(router);
   }, [router]);
 

@@ -21,7 +21,7 @@ describe('routes', () => {
   it('normalizeHref preserves valid routes', () => {
     expect(normalizeHref('/(app)/challenge')).toBe('/(app)/challenge');
     expect(normalizeHref('/(app)/post/abc')).toBe('/(app)/post/abc');
-    expect(normalizeHref('/(onboarding)/privacy')).toBe('/(onboarding)/privacy');
+    expect(normalizeHref('/(onboarding)/profile-setup')).toBe('/(onboarding)/profile-setup');
   });
 
   it('normalizeHref rejects bad paths', () => {

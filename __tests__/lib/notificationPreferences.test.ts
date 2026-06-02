@@ -5,26 +5,27 @@ import {
 } from '../../lib/notificationPreferences';
 
 describe('mergeNotificationPreferences', () => {
-  it('defaults new_follower to true', () => {
-    expect(mergeNotificationPreferences(null).new_follower).toBe(true);
+  it('defaults friend_request and friend_accepted to true', () => {
+    expect(mergeNotificationPreferences(null).friend_request).toBe(true);
+    expect(mergeNotificationPreferences(null).friend_accepted).toBe(true);
   });
 
-  it('respects explicit new_follower opt-out', () => {
-    expect(mergeNotificationPreferences({ new_follower: false }).new_follower).toBe(false);
+  it('respects explicit friend_request opt-out', () => {
+    expect(mergeNotificationPreferences({ friend_request: false }).friend_request).toBe(false);
+  });
+
+  it('respects explicit friend_accepted opt-out', () => {
+    expect(mergeNotificationPreferences({ friend_accepted: false }).friend_accepted).toBe(false);
   });
 });
 
 describe('wantsCategoryEnabled', () => {
-  it('maps follow_accepted to friend_accepted preference', () => {
+  it('honors friend_accepted preference', () => {
     expect(
       wantsCategoryEnabled(
         { ...DEFAULT_NOTIFICATION_PREFERENCES, friend_accepted: false },
-        'follow_accepted',
+        'friend_accepted',
       ),
     ).toBe(false);
-  });
-
-  it('allows new_follower when enabled', () => {
-    expect(wantsCategoryEnabled(DEFAULT_NOTIFICATION_PREFERENCES, 'new_follower')).toBe(true);
   });
 });

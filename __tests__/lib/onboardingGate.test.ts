@@ -25,7 +25,6 @@ function mockProfile(overrides: Partial<Profile> = {}): Profile {
     equipped_border_key: null,
     equipped_title_key: null,
     timezone: 'UTC',
-    is_private: false,
     is_admin: false,
     onboarding_completed_at: null,
     created_at: new Date().toISOString(),

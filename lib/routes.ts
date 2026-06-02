@@ -1,4 +1,6 @@
 import type { Href } from 'expo-router';
+import type { FeedPostDeepLinkOptions } from './notificationHref';
+import { feedPostHref } from './notificationHref';
 
 /** Canonical in-app routes — must match files under `app/`. */
 export const ROUTES = {
@@ -75,6 +77,15 @@ export function safeReplace(router: RouterLike, href: string | Href): void {
       router.replace(ROUTES.feed);
     }
   }
+}
+
+/** Land on the home feed tab, optionally focusing a post / comments sheet. */
+export function navigateToFeedPost(
+  router: RouterLike,
+  postId: string,
+  options?: FeedPostDeepLinkOptions,
+): void {
+  safeReplace(router, feedPostHref(postId, options));
 }
 
 /** Land on the home feed tab after challenge flows, notifications, onboarding, etc. */

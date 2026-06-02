@@ -16,8 +16,6 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   badges: true,
   comment: true,
   mention: true,
-  follow_request: true,
-  new_follower: true,
   suggestion: true,
 };
 
@@ -28,7 +26,6 @@ export function mergeNotificationPreferences(
     return { ...DEFAULT_NOTIFICATION_PREFERENCES };
   }
   const o = raw as Record<string, unknown>;
-  const d = DEFAULT_NOTIFICATION_PREFERENCES;
   return {
     push_enabled: o.push_enabled !== false,
     show_bell_badge: o.show_bell_badge !== false,
@@ -40,8 +37,6 @@ export function mergeNotificationPreferences(
     badges: o.badges !== false,
     comment: o.comment !== false,
     mention: o.mention !== false,
-    follow_request: o.follow_request !== false && o.friend_request !== false,
-    new_follower: o.new_follower !== false,
     suggestion: o.suggestion !== false,
   };
 }
@@ -49,14 +44,10 @@ export function mergeNotificationPreferences(
 /** Category toggles only (OS permission is checked in the client before scheduling). */
 export function wantsCategoryEnabled(
   prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
-  kind: NotificationPreferenceKind | 'follow_accepted',
+  kind: NotificationPreferenceKind,
 ): boolean {
   const p = mergeNotificationPreferences(prefs);
-  const key =
-    kind === 'follow_accepted'
-      ? 'friend_accepted'
-      : kind;
-  return p[key as NotificationPreferenceKind] !== false;
+  return p[kind] !== false;
 }
 
 /** @deprecated Use wantsCategoryEnabled; push_enabled is no longer used for gating. */

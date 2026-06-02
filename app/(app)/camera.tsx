@@ -412,7 +412,6 @@ export default function CameraScreen() {
       <>
         {xpOverlay ? (
           <XpGainOverlay
-            visible
             amount={xpOverlay.amount}
             sparks={xpOverlay.sparks}
             xp={xpOverlay.xp}

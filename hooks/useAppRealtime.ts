@@ -9,11 +9,10 @@ import { useCelebrationStore } from '../stores/useCelebrationStore';
 import { isBadgeTierUpgrade, tiersUnlockedUpTo } from '../lib/badgeCelebration';
 import type { BadgeTierName } from '../constants/theme';
 import { invalidateFriendCountQueries } from './useProfile';
-import { invalidateFollowQueries } from './useFollows';
 
 /**
  * Subscribes while authenticated so UI stays in sync with Supabase.
- * Which row events you receive follows SELECT policies (RLS) for each table.
+ * Which row events you receive depends on SELECT policies (RLS) for each table.
  */
 
 /** Coalesce many rapid Realtime events into a single feed refresh (reduces list jank). */
@@ -97,83 +96,24 @@ export function useAppRealtime(userId: string | undefined) {
           ) {
             void (async () => {
               const posterId = row.user_id!;
-              const { data: followRow } = await supabase
-                .from('follows')
+              const { data: friendshipRow } = await supabase
+                .from('friendships')
                 .select('id')
-                .eq('follower_id', userId)
-                .eq('following_id', posterId)
                 .eq('status', 'accepted')
+                .or(
+                  `and(requester_id.eq.${userId},addressee_id.eq.${posterId}),and(requester_id.eq.${posterId},addressee_id.eq.${userId})`,
+                )
                 .maybeSingle();
 
-              if (followRow) {
+              if (friendshipRow) {
                 scheduleLocalNotificationIfAllowed(
                   'Friend posted',
-                  'Someone you follow shared something new on Doji.',
+                  'A friend shared something new on Doji.',
                   { type: 'FRIEND_POST', postId: row.id },
                   'friend_post',
                 );
               }
             })();
-          }
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'follows' },
-        (
-          payload: RealtimePostgresChangesPayload<{
-            follower_id?: string;
-            following_id?: string;
-            status?: string;
-          }>,
-        ) => {
-          invalidateFollowQueries(queryClient, userId);
-          const n = payload.new as
-            | { follower_id?: string; following_id?: string; status?: string }
-            | undefined;
-          const o = payload.old as
-            | { follower_id?: string; following_id?: string; status?: string }
-            | undefined;
-
-          if (payload.eventType === 'INSERT' && n?.following_id === userId && n.status === 'pending') {
-            Toast.show({
-              type: 'info',
-              text1: 'New follow request',
-              text2: 'Open notifications to respond.',
-            });
-            scheduleLocalNotificationIfAllowed(
-              'Follow request',
-              'Someone wants to follow you on Doji.',
-              { type: 'FOLLOW_REQUEST' },
-              'follow_request',
-            );
-          }
-          if (payload.eventType === 'INSERT' && n?.following_id === userId && n.status === 'accepted') {
-            Toast.show({
-              type: 'info',
-              text1: 'New follower',
-              text2: 'Someone started following you.',
-            });
-            scheduleLocalNotificationIfAllowed(
-              'New follower',
-              'Someone is now following you on Doji.',
-              { type: 'FOLLOW_NEW' },
-              'new_follower',
-            );
-          }
-          if (
-            payload.eventType === 'UPDATE' &&
-            n?.follower_id === userId &&
-            o?.status === 'pending' &&
-            n.status === 'accepted'
-          ) {
-            Toast.show({ type: 'success', text1: 'Follow request accepted' });
-            scheduleLocalNotificationIfAllowed(
-              'Follow accepted',
-              'Your follow request was accepted.',
-              { type: 'FOLLOW_ACCEPTED' },
-              'follow_accepted',
-            );
           }
         },
       )

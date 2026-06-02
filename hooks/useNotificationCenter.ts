@@ -3,11 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { Profile, UserEvent, Follow } from '../types/database';
-import { useFollowRequests } from './useFollows';
+import type { Profile, UserEvent, Friendship, FriendshipWithRequester } from '../types/database';
+import { useFriendRequests } from './useProfile';
 import { isChallengeLive } from '../lib/challengeDay';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
-import { isFollowAcceptNotification } from '../lib/followNotifications';
 import { normalizeEmbeddedProfile } from '../lib/notificationCopy';
 
 const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
@@ -30,17 +29,16 @@ function dismissedKey(uid: string | undefined) {
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
 
 export type NotificationCenterItem =
-  | { key: string; kind: 'follow_request'; follow: Follow & { follower?: Profile | null }; sortAt: string }
   | {
       key: string;
-      kind: 'follow_accepted';
-      follow: Follow & { following?: Profile | null };
+      kind: 'friend_request';
+      friendship: FriendshipWithRequester;
       sortAt: string;
     }
   | {
       key: string;
-      kind: 'new_follower';
-      follow: Follow & { follower?: Profile | null };
+      kind: 'friend_accepted';
+      friendship: Friendship & { addressee?: Profile | null };
       sortAt: string;
     }
   | {
@@ -50,6 +48,22 @@ export type NotificationCenterItem =
       count: number;
       emojis: string[];
       actors: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[];
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'comment';
+      post_id: string;
+      comment_id: string;
+      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'mention';
+      post_id: string;
+      comment_id: string;
+      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
       sortAt: string;
     }
   | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string };
@@ -82,16 +96,6 @@ type ReactionRow = {
   user_id: string;
   actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[] | null;
 };
-
-function mapFollowWithFollower(row: unknown): Follow & { follower?: Profile | null } {
-  const r = row as Follow & { follower?: Profile | Profile[] | null };
-  return { ...r, follower: normalizeEmbeddedProfile(r.follower) };
-}
-
-function mapFollowWithFollowing(row: unknown): Follow & { following?: Profile | null } {
-  const r = row as Follow & { following?: Profile | Profile[] | null };
-  return { ...r, following: normalizeEmbeddedProfile(r.following) };
-}
 
 export function useNotificationCenter() {
   const userId = useAuthStore((s) => s.session?.user?.id);
@@ -137,19 +141,19 @@ export function useNotificationCenter() {
 
   const sinceIso = useMemo(() => lowerSinceIso(clearedAt), [clearedAt]);
 
-  const { data: followRequests = [], isLoading: requestsLoading } = useFollowRequests();
+  const { data: friendRequests = [], isLoading: requestsLoading } = useFriendRequests();
 
   const acceptQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'follow_accepts', userId, sinceIso],
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'friend_accepts', userId, sinceIso],
     enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
-    queryFn: async (): Promise<(Follow & { following?: Profile | null })[]> => {
+    queryFn: async (): Promise<(Friendship & { addressee?: Profile | null })[]> => {
       if (!userId) return [];
 
       const { data, error } = await supabase
-        .from('follows')
-        .select('*, following:profiles!follows_following_id_fkey(*)')
-        .eq('follower_id', userId)
+        .from('friendships')
+        .select('*, addressee:profiles!friendships_addressee_id_fkey(*)')
+        .eq('requester_id', userId)
         .eq('status', 'accepted')
         .not('accepted_at', 'is', null)
         .gt('accepted_at', sinceIso)
@@ -157,31 +161,12 @@ export function useNotificationCenter() {
         .limit(50);
 
       if (error) throw error;
-      return ((data ?? []) as unknown[])
-        .map(mapFollowWithFollowing)
-        .filter(isFollowAcceptNotification);
-    },
-  });
-
-  const newFollowersQuery = useQuery({
-    queryKey: [NOTIFICATION_CENTER_PREFIX, 'new_followers', userId, sinceIso],
-    enabled: !!userId && prefsHydrated,
-    staleTime: 15_000,
-    queryFn: async (): Promise<(Follow & { follower?: Profile | null })[]> => {
-      if (!userId) return [];
-
-      const { data, error } = await supabase
-        .from('follows')
-        .select('*, follower:profiles!follows_follower_id_fkey(*)')
-        .eq('following_id', userId)
-        .eq('status', 'accepted')
-        .is('accepted_at', null)
-        .gt('created_at', sinceIso)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      return ((data ?? []) as unknown[]).map(mapFollowWithFollower);
+      return ((data ?? []) as (Friendship & { addressee?: Profile | Profile[] | null })[]).map(
+        (row) => ({
+          ...row,
+          addressee: normalizeEmbeddedProfile(row.addressee),
+        }),
+      );
     },
   });
 
@@ -207,6 +192,56 @@ export function useNotificationCenter() {
         .gt('created_at', sinceIso)
         .order('created_at', { ascending: false })
         .limit(200);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const commentsQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'comments', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+
+      const { data: myPosts, error: pe } = await supabase.from('posts').select('id').eq('user_id', userId);
+      if (pe) throw pe;
+      const ids = (myPosts ?? []).map((p) => p.id);
+      if (ids.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('comments')
+        .select(
+          'id, post_id, created_at, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url)',
+        )
+        .in('post_id', ids)
+        .neq('user_id', userId)
+        .gt('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const mentionsQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'mentions', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('comment_mentions')
+        .select(
+          'id, comment_id, created_at, comment:comments(post_id, user_id, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url))',
+        )
+        .eq('mentioned_user_id', userId)
+        .gt('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
       return data ?? [];
@@ -269,32 +304,24 @@ export function useNotificationCenter() {
   }, [queryClient, userId]);
 
   const items = useMemo((): NotificationCenterItem[] => {
-    const reqItems: NotificationCenterItem[] = [...followRequests]
+    const reqItems: NotificationCenterItem[] = [...friendRequests]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .map((f) => ({
-        key: `follow_request:${f.id}`,
-        kind: 'follow_request' as const,
-        follow: f,
+        key: `friend_request:${f.id}`,
+        kind: 'friend_request' as const,
+        friendship: f,
         sortAt: f.created_at,
       }));
 
     const accItems: NotificationCenterItem[] =
       acceptQuery.data?.map((f) => ({
-        key: `follow_accepted:${f.id}`,
-        kind: 'follow_accepted' as const,
-        follow: f,
+        key: `friend_accepted:${f.id}`,
+        kind: 'friend_accepted' as const,
+        friendship: f,
         sortAt: f.accepted_at ?? f.created_at,
       })) ?? [];
 
-    const newFollowerItems: NotificationCenterItem[] =
-      newFollowersQuery.data?.map((f) => ({
-        key: `new_follower:${f.id}`,
-        kind: 'new_follower' as const,
-        follow: f,
-        sortAt: f.created_at,
-      })) ?? [];
-
-      const rawReactions = (reactionsQuery.data ?? []) as unknown as ReactionRow[];
+    const rawReactions = (reactionsQuery.data ?? []) as unknown as ReactionRow[];
     const byPost = new Map<string, ReactionRow[]>();
     for (const r of rawReactions) {
       const list = byPost.get(r.post_id) ?? [];
@@ -332,6 +359,48 @@ export function useNotificationCenter() {
       });
     }
 
+    const commentItems: NotificationCenterItem[] = (commentsQuery.data ?? []).map((row) => {
+      const r = row as {
+        id: string;
+        post_id: string;
+        created_at: string;
+        actor?: Profile | Profile[] | null;
+      };
+      return {
+        key: `comment:${r.id}`,
+        kind: 'comment' as const,
+        post_id: r.post_id,
+        comment_id: r.id,
+        actor: normalizeEmbeddedProfile(r.actor),
+        sortAt: r.created_at,
+      };
+    });
+
+    const mentionItems: NotificationCenterItem[] = (mentionsQuery.data ?? [])
+      .map((row) => {
+        const r = row as {
+          id: string;
+          comment_id: string;
+          created_at: string;
+          comment?: {
+            post_id?: string;
+            user_id?: string;
+            actor?: Profile | Profile[] | null;
+          } | null;
+        };
+        const postId = r.comment?.post_id;
+        if (!postId) return null;
+        return {
+          key: `mention:${r.id}`,
+          kind: 'mention' as const,
+          post_id: postId,
+          comment_id: r.comment_id,
+          actor: normalizeEmbeddedProfile(r.comment?.actor ?? null),
+          sortAt: r.created_at,
+        };
+      })
+      .filter((item): item is NotificationCenterItem => item != null);
+
     const chItems: NotificationCenterItem[] =
       challengesQuery.data
         ?.filter((ev) => isChallengeLive(ev.daily_event?.fires_at))
@@ -342,18 +411,33 @@ export function useNotificationCenter() {
           sortAt: challengeSortAt(ev),
         })) ?? [];
 
-    const merged = [...reqItems, ...accItems, ...newFollowerItems, ...reactionGroups, ...chItems]
-      .filter((item) => !dismissedKeys.has(item.key));
+    const merged = [
+      ...reqItems,
+      ...accItems,
+      ...commentItems,
+      ...mentionItems,
+      ...reactionGroups,
+      ...chItems,
+    ].filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
-      const priority = (k: NotificationCenterItem['kind']) => (k === 'follow_request' ? 0 : 1);
+      const priority = (k: NotificationCenterItem['kind']) =>
+        k === 'friend_request' ? 0 : 1;
       const p = priority(a.kind) - priority(b.kind);
       if (p !== 0) return p;
       return new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime();
     });
 
     return merged;
-  }, [followRequests, acceptQuery.data, newFollowersQuery.data, reactionsQuery.data, challengesQuery.data, sinceIso, dismissedKeys]);
+  }, [
+    friendRequests,
+    acceptQuery.data,
+    commentsQuery.data,
+    mentionsQuery.data,
+    reactionsQuery.data,
+    challengesQuery.data,
+    dismissedKeys,
+  ]);
 
   const unreadCount = useMemo(() => {
     const prefs = mergeNotificationPreferences(profile?.notification_preferences);
@@ -366,7 +450,8 @@ export function useNotificationCenter() {
     !prefsHydrated ||
     requestsLoading ||
     acceptQuery.isLoading ||
-    newFollowersQuery.isLoading ||
+    commentsQuery.isLoading ||
+    mentionsQuery.isLoading ||
     reactionsQuery.isLoading ||
     challengesQuery.isLoading;
 

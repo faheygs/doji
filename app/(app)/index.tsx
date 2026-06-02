@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
@@ -34,8 +34,26 @@ import Constants from 'expo-constants';
 
 export default function FeedScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    postId?: string | string[];
+    openComments?: string | string[];
+  }>();
+  const pendingPostId = useMemo(() => {
+    const raw = params.postId;
+    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  }, [params.postId]);
+  const pendingOpenComments = useMemo(() => {
+    const raw = params.openComments;
+    const val = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    return val === '1' || val === 'true';
+  }, [params.openComments]);
+
   const { colors } = useTheme();
   const [audience, setAudience] = useState<FeedAudience>('friends');
+  const [focusPostId, setFocusPostId] = useState<string | null>(null);
+  const [focusOpenComments, setFocusOpenComments] = useState(false);
+  const flatListRef = useRef<FlatList<Post>>(null);
+  const deepLinkHandledRef = useRef<string | null>(null);
   const {
     data: feedPages,
     isLoading: feedLoading,
@@ -209,6 +227,27 @@ export default function FeedScreen() {
 
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
 
+  useEffect(() => {
+    if (!pendingPostId || feedLoading) return;
+    if (deepLinkHandledRef.current === pendingPostId) return;
+
+    const idx = posts.findIndex((p) => p.id === pendingPostId);
+    if (idx >= 0) {
+      deepLinkHandledRef.current = pendingPostId;
+      setFocusPostId(pendingPostId);
+      setFocusOpenComments(pendingOpenComments);
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+      });
+      router.setParams({ postId: undefined, openComments: undefined, mentionCommentId: undefined });
+      return;
+    }
+
+    if (posts.length > 0 && audience === 'friends') {
+      setAudience('everyone');
+    }
+  }, [pendingPostId, pendingOpenComments, feedLoading, posts, audience, router]);
+
   const shouldBlur = !hasUnlockedFeed(userEvent) && !userEventLoading;
 
   const handleRefresh = useCallback(async () => {
@@ -239,9 +278,14 @@ export default function FeedScreen() {
 
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
-      <PostCard post={item} blurred={shouldBlur} feedAudience={audience} />
+      <PostCard
+        post={item}
+        blurred={shouldBlur}
+        feedAudience={audience}
+        initialCommentsOpen={focusPostId === item.id && focusOpenComments}
+      />
     ),
-    [shouldBlur, audience],
+    [shouldBlur, audience, focusPostId, focusOpenComments],
   );
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
@@ -344,8 +388,8 @@ export default function FeedScreen() {
   const emptyCopy = useMemo(() => {
     if (audience === 'friends') {
       return {
-        emptyHeading: 'Nothing from people you follow yet',
-        emptyBody: 'Follow people to see their responses here.',
+        emptyHeading: 'Nothing from friends yet',
+        emptyBody: 'Add friends to see their responses here.',
       };
     }
     if (!userEvent) {
@@ -412,11 +456,18 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={outerStyle}>
       <FlatList
+        ref={flatListRef}
         key={audience}
         style={webScrollParentStyle}
         data={posts}
         keyExtractor={keyExtractorPost}
         renderItem={renderPost}
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({
+            offset: Math.max(0, info.averageItemLength * info.index),
+            animated: true,
+          });
+        }}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={handleEndReached}

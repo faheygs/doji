@@ -17,8 +17,7 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
-import { useSearchUsers } from '../../../hooks/useProfile';
-import { useFollow, useFollowStatus } from '../../../hooks/useFollows';
+import { useSearchUsers, useSendFriendRequest, useFriendshipStatus } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
@@ -126,8 +125,8 @@ export default function AddFriendsScreen() {
 function UserResult({ user, returnPath }: { user: Profile; returnPath: string }) {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: followStatus = 'none' } = useFollowStatus(user.id);
-  const follow = useFollow();
+  const { data: friendshipStatus = 'none' } = useFriendshipStatus(user.id);
+  const sendRequest = useSendFriendRequest();
 
   const rowStyles = useMemo(
     () =>
@@ -155,9 +154,9 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
     [],
   );
 
-  const isFollowing = followStatus === 'following';
-  const isRequested = followStatus === 'pending_out';
-  const isPendingIn = followStatus === 'pending_in';
+  const isFriend = friendshipStatus === 'friends';
+  const isRequested = friendshipStatus === 'pending_out';
+  const isPendingIn = friendshipStatus === 'pending_in';
 
   return (
     <Card style={rowStyles.userCard} elevated>
@@ -178,11 +177,11 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
         </View>
       </TouchableOpacity>
 
-      {isFollowing ? (
+      {isFriend ? (
         <View style={rowStyles.statusBadge}>
           <IconCheck size={16} color={colors.success} />
           <Text variant="label" color={colors.success}>
-            Following
+            Friends
           </Text>
         </View>
       ) : isRequested ? (
@@ -191,15 +190,15 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
         </Text>
       ) : isPendingIn ? (
         <Text variant="label" color={colors.textSecondary}>
-          Follows you
+          Requested you
         </Text>
-      ) : followStatus === 'blocked' ? (
+      ) : friendshipStatus === 'blocked' ? (
         <Text variant="label" color={colors.textTertiary}>
           Unavailable
         </Text>
       ) : (
-        <Button onPress={() => follow.mutate(user.id)} loading={follow.isPending} size="sm">
-          Follow
+        <Button onPress={() => sendRequest.mutate(user.id)} loading={sendRequest.isPending} size="sm">
+          Add friend
         </Button>
       )}
     </Card>

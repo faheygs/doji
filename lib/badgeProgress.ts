@@ -112,8 +112,7 @@ export function computeBadgeProgress(
         label: `${current} / ${target} poll${target === 1 ? '' : 's'}`,
       };
     }
-    case 'friends_count':
-    case 'followers_count': {
+    case 'friends_count': {
       const raw = stats.friendsCount ?? 0;
       const current = Math.min(raw, target);
       return {

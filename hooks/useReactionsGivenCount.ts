@@ -1,18 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
-/** Rows you gave (RLS = posts you can see); matches in-app reaction activity. */
+/** Total reactions this user has given (all posts; not RLS-filtered). */
 export function useReactionsGivenCount(userId: string | undefined) {
   return useQuery({
     queryKey: ['reactionsGiven', userId],
     queryFn: async (): Promise<number> => {
       if (!userId) return 0;
-      const { count, error } = await supabase
-        .from('reactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+      const { data, error } = await supabase.rpc('get_reactions_given_count', {
+        p_user_id: userId,
+      });
       if (error) throw error;
-      return count ?? 0;
+      return typeof data === 'number' ? data : 0;
     },
     enabled: !!userId,
     staleTime: 15_000,

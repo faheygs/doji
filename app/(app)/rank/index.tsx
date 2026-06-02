@@ -332,7 +332,7 @@ export default function LeaderboardScreen() {
                   style={{ textAlign: 'center', marginTop: Spacing.sm, lineHeight: 22 }}
                 >
                   {audience === 'friends'
-                    ? 'Follow people to see them on your friends leaderboard.'
+                    ? 'Add friends to see them on your friends leaderboard.'
                     : mode === 'weekly'
                       ? 'Complete daily Dojis to earn XP this week.'
                       : 'Complete daily Dojis to earn XP — when others join in, their names will show up here.'}

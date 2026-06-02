@@ -12,9 +12,6 @@ const PREF_KEYS = new Set<string>([
   'reactions_on_my_post',
   'friend_request',
   'friend_accepted',
-  'follow_request',
-  'follow_accepted',
-  'new_follower',
   'badges',
   'friend_post',
   'comment',
@@ -29,17 +26,7 @@ function prefEnabled(
 ): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
   if (prefs.push_enabled === false) return false;
-
-  switch (preferenceKey) {
-    case 'follow_request':
-      return prefs.follow_request !== false && prefs.friend_request !== false;
-    case 'follow_accepted':
-      return prefs.follow_accepted !== false && prefs.friend_accepted !== false;
-    case 'new_follower':
-      return prefs.new_follower !== false;
-    default:
-      return prefs[preferenceKey] !== false;
-  }
+  return prefs[preferenceKey] !== false;
 }
 
 async function clearNotificationToken(userId: string) {

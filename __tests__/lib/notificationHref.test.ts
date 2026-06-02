@@ -51,25 +51,13 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_REQUEST' })).toBe('/(app)/friends/requests');
   });
 
-  it('returns friends requests for FOLLOW_REQUEST', () => {
-    expect(notificationHrefFromData({ type: 'FOLLOW_REQUEST' })).toBe('/(app)/friends/requests');
-  });
-
   it('returns friends for FRIEND_ACCEPTED', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_ACCEPTED' })).toBe('/(app)/friends');
   });
 
-  it('returns friends for FOLLOW_ACCEPTED', () => {
-    expect(notificationHrefFromData({ type: 'FOLLOW_ACCEPTED' })).toBe('/(app)/friends');
-  });
-
-  it('returns friends for FOLLOW_NEW', () => {
-    expect(notificationHrefFromData({ type: 'FOLLOW_NEW' })).toBe('/(app)/friends');
-  });
-
-  it('returns post href for REACTION with postId', () => {
+  it('returns feed with openComments for REACTION with postId', () => {
     expect(notificationHrefFromData({ type: 'REACTION', postId: 'abc-123' })).toBe(
-      '/(app)/post/abc-123',
+      '/(app)?postId=abc-123',
     );
   });
 
@@ -81,8 +69,16 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_POST' })).toBe(FEED_TAB_HREF);
   });
 
-  it('returns post href for COMMENT with postId', () => {
-    expect(notificationHrefFromData({ type: 'COMMENT', postId: 'abc' })).toBe('/(app)/post/abc');
+  it('returns feed with openComments for COMMENT with postId', () => {
+    expect(notificationHrefFromData({ type: 'COMMENT', postId: 'abc' })).toBe(
+      '/(app)?postId=abc&openComments=1',
+    );
+  });
+
+  it('returns feed with openComments for MENTION with postId', () => {
+    expect(notificationHrefFromData({ type: 'MENTION', postId: 'abc' })).toBe(
+      '/(app)?postId=abc&openComments=1',
+    );
   });
 
   it('returns profile for SUGGESTION_APPROVED', () => {

@@ -7,7 +7,7 @@ import type { LeaderboardEntry, Profile } from '../types/database';
 export type LeaderboardMode = 'weekly' | 'alltime';
 export type LeaderboardAudience = 'friends' | 'everyone';
 
-import { getAcceptedFollowingIds } from '../lib/followGraph';
+import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 
 function rankEntries(
   rows: { user_id: string; xp: number; profile: LeaderboardEntry['profile'] }[],
@@ -32,7 +32,7 @@ export function useLeaderboard(
     queryKey: ['leaderboard', mode, audience, userId, mode === 'weekly' ? currentWeek : 'all'],
     queryFn: async () => {
       const friendIds =
-        audience === 'friends' && userId ? await getAcceptedFollowingIds(userId) : null;
+        audience === 'friends' && userId ? await getFriendIdsIncludingSelf(userId) : null;
 
       let profileQuery = supabase.from('profiles').select('*').order('xp', { ascending: false });
 

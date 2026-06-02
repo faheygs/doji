@@ -22,7 +22,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconChevronLeft, IconCheck } from '@/components/icons/Icons';
-import { SparksPill } from '@/components/economy/SparksPill';
+import { LiveSparksPill } from '@/components/economy/SparksPill';
 import { SparkPriceTag } from '@/components/economy/SparkPriceTag';
 import { PurchaseConfirmSheet } from '@/components/economy/PurchaseConfirmSheet';
 import { useSparksBalance } from '@/hooks/useSparks';
@@ -152,7 +152,7 @@ export default function ShopScreen() {
           <IconChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <Text variant="heading">Shop</Text>
-        <SparksPill amount={sparks} />
+        <LiveSparksPill />
       </View>
 
       {isLoading ? (

@@ -16,7 +16,6 @@ import { XPBar } from './XPBar';
 import { FullScreenCelebrationShell } from './FullScreenCelebrationShell';
 
 type Props = {
-  visible: boolean;
   amount: number;
   sparks?: number;
   xp: number;
@@ -27,7 +26,6 @@ type Props = {
 };
 
 export function XpGainOverlay({
-  visible,
   amount,
   sparks,
   xp,
@@ -39,20 +37,35 @@ export function XpGainOverlay({
   const { colors } = useTheme();
   const amountScale = useSharedValue(0.85);
   const amountOpacity = useSharedValue(0);
+  const sparksScale = useSharedValue(0.94);
+  const sparksOpacity = useSharedValue(0);
 
   useEffect(() => {
-    if (!visible) {
-      amountScale.value = 0.85;
-      amountOpacity.value = 0;
-      return;
-    }
     amountOpacity.value = withTiming(1, { duration: 260 });
     amountScale.value = withDelay(100, withSpring(1, { damping: 12, stiffness: 130 }));
-  }, [visible, amount, amountOpacity, amountScale]);
+  }, [amount, amountOpacity, amountScale]);
+
+  useEffect(() => {
+    if (sparks == null || sparks <= 0) {
+      sparksOpacity.value = 0;
+      sparksScale.value = 0.94;
+      return;
+    }
+    sparksOpacity.value = withDelay(240, withTiming(1, { duration: 220 }));
+    sparksScale.value = withDelay(
+      240,
+      withSpring(1, { damping: 14, stiffness: 260 }),
+    );
+  }, [sparks, sparksOpacity, sparksScale]);
 
   const amountAnimStyle = useAnimatedStyle(() => ({
     opacity: amountOpacity.value,
     transform: [{ scale: amountScale.value }],
+  }));
+
+  const sparksAnimStyle = useAnimatedStyle(() => ({
+    opacity: sparksOpacity.value,
+    transform: [{ scale: sparksScale.value }],
   }));
 
   const styles = useMemo(
@@ -113,7 +126,6 @@ export function XpGainOverlay({
 
   return (
     <FullScreenCelebrationShell
-      visible={visible}
       onRequestClose={onComplete}
       backgroundColor={colors.background}
       showParticles={false}
@@ -121,13 +133,13 @@ export function XpGainOverlay({
     >
       <Animated.View style={[styles.hero, amountAnimStyle]}>
         <Text style={styles.amount}>+{amount.toLocaleString()} XP</Text>
-        {sparks != null && sparks > 0 ? (
-          <View style={styles.sparksRow}>
-            <IconSpark size={18} />
-            <Text style={styles.sparksText}>+{sparks.toLocaleString()} Sparks</Text>
-          </View>
-        ) : null}
       </Animated.View>
+      {sparks != null && sparks > 0 ? (
+        <Animated.View style={[styles.sparksRow, sparksAnimStyle]}>
+          <IconSpark size={18} />
+          <Text style={styles.sparksText}>+{sparks.toLocaleString()} Sparks</Text>
+        </Animated.View>
+      ) : null}
 
       <Text variant="body" color={colors.textSecondary} style={styles.subtitle}>
         {subtitle}

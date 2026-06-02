@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
@@ -26,6 +26,7 @@ type Props = {
   post: Post;
   blurred: boolean;
   feedAudience?: FeedAudience;
+  initialCommentsOpen?: boolean;
 };
 
 function reactionBreakdownSig(p: Post): string {
@@ -66,15 +67,19 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
   return true;
 }
 
-function PostCardImpl({ post, blurred, feedAudience = 'everyone' }: Props) {
+function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialCommentsOpen = false }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
   const meId = useAuthStore((s) => s.session?.user?.id);
   const isOwnPost = meId != null && post.user_id === meId;
   const [showFront, setShowFront] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const hasVideo = Boolean(post.video_url && !blurred);
+
+  useEffect(() => {
+    if (initialCommentsOpen) setCommentsOpen(true);
+  }, [initialCommentsOpen, post.id]);
 
   const openComments = useCallback(() => setCommentsOpen(true), []);
   const closeComments = useCallback(() => setCommentsOpen(false), []);
@@ -283,6 +288,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone' }: Props) {
               postOwnerId={post.user_id}
               commentsDisabled={post.comments_disabled}
               commentCount={post.comment_count}
+              feedAudience={feedAudience}
               onClose={closeComments}
             />
           </>
@@ -419,6 +425,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone' }: Props) {
             postOwnerId={post.user_id}
             commentsDisabled={post.comments_disabled}
             commentCount={post.comment_count}
+            feedAudience={feedAudience}
             onClose={closeComments}
           />
         </>
@@ -430,5 +437,6 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone' }: Props) {
 export const PostCard = React.memo(PostCardImpl, (prev, next) => {
   if (prev.blurred !== next.blurred) return false;
   if (prev.feedAudience !== next.feedAudience) return false;
+  if (prev.initialCommentsOpen !== next.initialCommentsOpen) return false;
   return postsVisuallyEqual(prev.post, next.post);
 });

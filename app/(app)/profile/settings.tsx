@@ -96,7 +96,6 @@ export default function SettingsScreen() {
   const [usernameEdit, setUsernameEdit] = useState(profile?.username ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [saving, setSaving] = useState(false);
-  const [privateAccount, setPrivateAccount] = useState(profile?.is_private ?? false);
   const { data: pendingSuggestions = [], isError: pendingSuggestionsError } = usePendingSuggestions(
     !!profile?.is_admin,
   );
@@ -117,8 +116,7 @@ export default function SettingsScreen() {
     setDisplayName(profile?.display_name ?? '');
     setUsernameEdit(profile?.username ?? '');
     setBio(profile?.bio ?? '');
-    setPrivateAccount(profile?.is_private ?? false);
-  }, [profile?.display_name, profile?.username, profile?.bio, profile?.is_private]);
+  }, [profile?.display_name, profile?.username, profile?.bio]);
 
   const styles = useMemo(
     () =>
@@ -183,20 +181,6 @@ export default function SettingsScreen() {
       setSaving(false);
     }
   };
-
-  const handlePrivacyToggle = useCallback(
-    async (next: boolean) => {
-      setPrivateAccount(next);
-      Haptics.selectionAsync();
-      try {
-        await updateProfile({ is_private: next });
-      } catch {
-        setPrivateAccount(!next);
-        Toast.show({ type: 'error', text1: 'Failed to update privacy' });
-      }
-    },
-    [updateProfile],
-  );
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -352,29 +336,6 @@ export default function SettingsScreen() {
               Haptics.selectionAsync();
               router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
             }}
-            isLast
-          />
-        </View>
-
-        <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
-          PRIVACY
-        </Text>
-        <View style={styles.group}>
-          <SettingsRow
-            label="Private account"
-            subtitle={
-              privateAccount
-                ? 'Only approved followers see your responses'
-                : 'Anyone on Doji can see your responses'
-            }
-            showChevron={false}
-            right={
-              <Switch
-                value={privateAccount}
-                onValueChange={handlePrivacyToggle}
-                trackColor={{ false: colors.border, true: colors.primary }}
-              />
-            }
             isLast
           />
         </View>

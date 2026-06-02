@@ -49,7 +49,7 @@ describe('attachReactionFields', () => {
     expect(result[0].my_reactions).toEqual([]);
   });
 
-  it('scopes reaction_breakdown to followed users on friends feed', async () => {
+  it('scopes reaction_breakdown to friends on friends feed', async () => {
     setupReactionsMock([
       { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
       { post_id: 'p1', emoji: 'fire', user_id: 'user-2' },

@@ -22,22 +22,21 @@ import {
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
-import { PrivateProfileGate } from '@/components/profile/PrivateProfileGate';
 import {
   IconChevronLeft,
   IconCheck,
   IconPlus,
 } from '@/components/icons/Icons';
-import { ProfileFriendsSheet, type FollowListTab } from '@/components/profile/ProfileFriendsSheet';
-import { useProfile } from '@/hooks/useProfile';
+import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
 import {
-  useFollowRelation,
-  useFollow,
-  useUnfollow,
-  useRespondToFollowRequest,
-  useFollowerCount,
-  useFollowingCount,
-} from '@/hooks/useFollows';
+  useProfile,
+  useFriendship,
+  useFriendshipStatus,
+  useSendFriendRequest,
+  useRespondToFriendRequest,
+  useRemoveFriend,
+  useFriendCount,
+} from '@/hooks/useProfile';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { goBackWithOptionalReturn, FEED_TAB_HREF } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
@@ -63,22 +62,19 @@ export default function UserProfileScreen() {
   const currentProfile = useAuthStore((s) => s.profile);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
-  const [friendsSheetTab, setFriendsSheetTab] = useState<FollowListTab>('following');
 
-  const openFollowList = useCallback((tab: FollowListTab) => {
+  const openFriendsList = useCallback(() => {
     Haptics.selectionAsync();
-    setFriendsSheetTab(tab);
     setFriendsSheetVisible(true);
   }, []);
 
   const { data: profile, isLoading } = useProfile(username);
-  const { data: followRelation } = useFollowRelation(profile?.id);
-  const followStatus = followRelation?.status ?? 'none';
-  const { data: followerCount = 0 } = useFollowerCount(profile?.id);
-  const { data: followingCount = 0 } = useFollowingCount(profile?.id);
-  const follow = useFollow();
-  const unfollow = useUnfollow();
-  const respondRequest = useRespondToFollowRequest();
+  const { data: friendship } = useFriendship(profile?.id);
+  const { data: friendshipStatus = 'none' } = useFriendshipStatus(profile?.id);
+  const { data: friendCount = 0 } = useFriendCount(profile?.id);
+  const sendRequest = useSendFriendRequest();
+  const respondRequest = useRespondToFriendRequest();
+  const removeFriend = useRemoveFriend();
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
@@ -94,11 +90,11 @@ export default function UserProfileScreen() {
       reactionsReceived: profile.reactions_received ?? 0,
       reactionsGiven: 0,
       pollVotes: 0,
-      friendsCount: followerCount,
+      friendsCount: friendCount,
       challengeIdeasSubmitted: 0,
       challengeIdeasPicked: 0,
     };
-  }, [profile, followerCount]);
+  }, [profile, friendCount]);
 
   const badgeEarnedSummary = useMemo(
     () => countEarnedBadgeTiers(tiers, badgeProgress, badgeProgressStats),
@@ -121,12 +117,9 @@ export default function UserProfileScreen() {
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['profile', username] }),
-        queryClient.invalidateQueries({ queryKey: ['followRelation', currentProfile?.id, profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followStatus', currentProfile?.id, profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followerCount', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followingCount', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['following', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followers', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friendship', currentProfile?.id, profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friends', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', profile.id] }),
       ]);
     } finally {
@@ -227,34 +220,35 @@ export default function UserProfileScreen() {
     );
   }
 
-  const isPrivate = profile.is_private === true;
-  const canViewContent = !isPrivate || followStatus === 'following';
-  const pendingIncoming = followStatus === 'pending_in';
-  const pendingOutgoing = followStatus === 'pending_out';
-  const isFollowing = followStatus === 'following';
+  const isFriend = friendshipStatus === 'friends';
+  const pendingIncoming = friendshipStatus === 'pending_in';
+  const pendingOutgoing = friendshipStatus === 'pending_out';
 
-  const handleFollowAction = () => {
-    if (isFollowing) return;
-    if (pendingIncoming && followRelation?.incoming?.id) {
-      respondRequest.mutate({ followId: followRelation.incoming.id, accept: true });
+  const handleFriendAction = () => {
+    if (isFriend) return;
+    if (pendingIncoming && friendship?.id) {
+      respondRequest.mutate({ friendshipId: friendship.id, accept: true });
       return;
     }
-    if (followStatus === 'none') {
-      follow.mutate(profile.id);
+    if (friendshipStatus === 'none' && profile) {
+      sendRequest.mutate(profile.id);
     }
   };
 
-  const followDisabled =
-    pendingOutgoing || follow.isPending || respondRequest.isPending || followStatus === 'blocked';
+  const friendDisabled =
+    pendingOutgoing ||
+    sendRequest.isPending ||
+    respondRequest.isPending ||
+    friendshipStatus === 'blocked';
 
-  const handleUnfollow = () => {
-    if (!profile) return;
-    Alert.alert('Unfollow', `Stop following ${profile.display_name}?`, [
+  const handleRemoveFriend = () => {
+    if (!profile || !friendship?.id) return;
+    Alert.alert('Remove friend', `Remove ${profile.display_name} from your friends?`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Unfollow',
+        text: 'Remove',
         style: 'destructive',
-        onPress: () => unfollow.mutate(profile.id),
+        onPress: () => removeFriend.mutate(friendship.id),
       },
     ]);
   };
@@ -274,17 +268,17 @@ export default function UserProfileScreen() {
         <View style={styles.topBar}>
           {headerBack}
           <View style={styles.topBarActions}>
-            {isFollowing ? (
+            {isFriend ? (
               <Button
-                onPress={handleUnfollow}
+                onPress={handleRemoveFriend}
                 variant="secondary"
                 size="sm"
-                loading={unfollow.isPending}
-                disabled={unfollow.isPending}
+                loading={removeFriend.isPending}
+                disabled={removeFriend.isPending}
                 leftIcon={<IconCheck size={15} color={colors.textSecondary} />}
                 style={styles.friendActionButton}
               >
-                Following
+                Friends
               </Button>
             ) : pendingOutgoing ? (
               <Button
@@ -296,7 +290,7 @@ export default function UserProfileScreen() {
               >
                 Requested
               </Button>
-            ) : followStatus === 'blocked' ? (
+            ) : friendshipStatus === 'blocked' ? (
               <Button
                 onPress={() => {}}
                 variant="secondary"
@@ -308,11 +302,11 @@ export default function UserProfileScreen() {
               </Button>
             ) : (
               <Button
-                onPress={handleFollowAction}
+                onPress={handleFriendAction}
                 variant="primary"
                 size="sm"
-                loading={follow.isPending || respondRequest.isPending}
-                disabled={followDisabled}
+                loading={sendRequest.isPending || respondRequest.isPending}
+                disabled={friendDisabled}
                 leftIcon={
                   pendingIncoming ? (
                     <IconCheck size={14} color={colors.onPrimary} />
@@ -322,67 +316,56 @@ export default function UserProfileScreen() {
                 }
                 style={styles.friendActionButton}
               >
-                {pendingIncoming ? 'Accept' : 'Follow'}
+                {pendingIncoming ? 'Accept' : 'Add friend'}
               </Button>
             )}
           </View>
         </View>
 
-        <ProfileHeroRow profile={profile} showLevel={canViewContent} />
+        <ProfileHeroRow profile={profile} showLevel />
 
-        {canViewContent ? (
-          <>
-            <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
-              <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
-            </View>
+        <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
+          <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />
+        </View>
 
-            <ProfileStatsStrip
-              followers={followerCount}
-              following={followingCount}
-              responses={profile.total_completions ?? 0}
-              reactions={profile.reactions_received ?? 0}
-              style={{ marginTop: Spacing.lg }}
-              onPressFollowers={() => openFollowList('followers')}
-              onPressFollowing={() => openFollowList('following')}
-            />
-
-            <ProfileStreakPair
-              currentStreak={profile.current_streak ?? 0}
-              bestStreak={profile.longest_streak ?? 0}
-              style={{ marginTop: Spacing.md }}
-            />
-
-            {categories.length > 0 ? (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text variant="headingMedium">Badges</Text>
-                  <Text variant="caption" color={colors.textTertiary}>
-                    {badgeEarnedSummary.earned}/{badgeEarnedSummary.total}
-                  </Text>
-                </View>
-                <BadgesGrid
-                  readOnly
-                  categories={categories}
-                  tiers={tiers}
-                  progress={badgeProgress}
-                  progressStats={badgeProgressStats}
-                />
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <PrivateProfileGate followStatus={followStatus} />
-        )}
-      </ScrollView>
-      {canViewContent && (
-        <ProfileFriendsSheet
-          visible={friendsSheetVisible}
-          onClose={() => setFriendsSheetVisible(false)}
-          profileUserId={profile.id}
-          ownerDisplayName={profile.display_name}
-          initialTab={friendsSheetTab}
+        <ProfileStatsStrip
+          friendCount={friendCount}
+          responses={profile.total_completions ?? 0}
+          reactions={profile.reactions_received ?? 0}
+          style={{ marginTop: Spacing.lg }}
+          onPressFriends={openFriendsList}
         />
-      )}
+
+        <ProfileStreakPair
+          currentStreak={profile.current_streak ?? 0}
+          bestStreak={profile.longest_streak ?? 0}
+          style={{ marginTop: Spacing.md }}
+        />
+
+        {categories.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text variant="headingMedium">Badges</Text>
+              <Text variant="caption" color={colors.textTertiary}>
+                {badgeEarnedSummary.earned}/{badgeEarnedSummary.total}
+              </Text>
+            </View>
+            <BadgesGrid
+              readOnly
+              categories={categories}
+              tiers={tiers}
+              progress={badgeProgress}
+              progressStats={badgeProgressStats}
+            />
+          </View>
+        ) : null}
+      </ScrollView>
+      <ProfileFriendsSheet
+        visible={friendsSheetVisible}
+        onClose={() => setFriendsSheetVisible(false)}
+        profileUserId={profile.id}
+        ownerDisplayName={profile.display_name}
+      />
     </SafeAreaView>
   );
 }

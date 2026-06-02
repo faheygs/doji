@@ -45,8 +45,6 @@ function criteriaLabel(type: string, value: number): string {
       return `Receive ${value} reaction${value === 1 ? '' : 's'}`;
     case 'poll_votes':
       return `Vote in ${value} poll${value === 1 ? '' : 's'}`;
-    case 'followers_count':
-      return `Get ${value} follower${value === 1 ? '' : 's'}`;
     case 'friends_count':
       return `Have ${value} friend${value === 1 ? '' : 's'}`;
     case 'level_reached':

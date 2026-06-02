@@ -16,26 +16,23 @@ import { Text } from '../../../components/ui/Text';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronRight, IconFriends, IconSearch } from '../../../components/icons/Icons';
-import {
-  useFollowing,
-  useFollowRequests,
-  useUnfollow,
-  useFollowingCount,
-  type FollowWithProfile,
-} from '../../../hooks/useFollows';
+import { useFriends, useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import type { Profile } from '../../../types/database';
+
+type FriendRow = Profile & { friendship_id: string };
 
 export default function FriendsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
   const meId = useAuthStore((s) => s.session?.user?.id);
-  const { data: following = [], isLoading } = useFollowing(meId);
-  const { data: requests = [] } = useFollowRequests();
-  const { data: followingCount = 0 } = useFollowingCount(meId);
-  const unfollow = useUnfollow();
+  const { data: friends = [], isLoading } = useFriends();
+  const { data: requests = [] } = useFriendRequests();
+  const { data: friendCount = 0 } = useFriendCount(meId);
+  const removeFriend = useRemoveFriend();
 
   const styles = useMemo(
     () =>
@@ -107,7 +104,7 @@ export default function FriendsScreen() {
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text variant="headingLarge">Friends</Text>
           <Text variant="micro" color={colors.textTertiary} style={{ marginTop: 3 }}>
-            {formatCompactCount(followingCount)} following
+            {formatCompactCount(friendCount)} friends
           </Text>
         </View>
         <TouchableOpacity
@@ -129,26 +126,26 @@ export default function FriendsScreen() {
         >
           <IconFriends size={22} color={colors.textSecondary} />
           <Text variant="body" style={{ flex: 1, color: colors.text }}>
-            {requests.length} follow request{requests.length > 1 ? 's' : ''}
+            {requests.length} friend request{requests.length > 1 ? 's' : ''}
           </Text>
           <IconChevronRight size={20} color={colors.textTertiary} />
         </TouchableOpacity>
       )}
 
-      {isLoading && following.length === 0 ? (
+      {isLoading && friends.length === 0 ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.text} />
         </View>
       ) : (
         <FlatList
           style={webScrollParentStyle}
-          data={following}
+          data={friends as FriendRow[]}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
-            <FollowingCard
+            <FriendCard
               profile={item}
               cardStyle={styles.friendCard}
               infoStyle={styles.friendInfo}
@@ -157,16 +154,16 @@ export default function FriendsScreen() {
                 Haptics.selectionAsync();
                 router.push(hrefWithReturnTo(`/(app)/member/${item.username}`, pathname));
               }}
-              onUnfollow={() => {
+              onRemove={() => {
                 Alert.alert(
-                  'Unfollow',
-                  `Stop following ${item.display_name ?? item.username}?`,
+                  'Remove friend',
+                  `Remove ${item.display_name ?? item.username} from your friends?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
-                      text: 'Unfollow',
+                      text: 'Remove',
                       style: 'destructive',
-                      onPress: () => unfollow.mutate(item.id),
+                      onPress: () => removeFriend.mutate(item.friendship_id),
                     },
                   ],
                 );
@@ -176,9 +173,9 @@ export default function FriendsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <IconFriends size={48} color={colors.textTertiary} />
-              <Text variant="headingLarge">Not following anyone yet</Text>
+              <Text variant="headingLarge">No friends yet</Text>
               <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>
-                Follow people to see their challenges and compete on streaks.
+                Add friends to see their challenges on the Friends feed and compete on streaks.
               </Text>
               <TouchableOpacity onPress={() => router.push('/(app)/friends/add')}>
                 <Text variant="body" color={colors.link}>
@@ -193,17 +190,17 @@ export default function FriendsScreen() {
   );
 }
 
-function FollowingCard({
+function FriendCard({
   profile,
   onPress,
-  onUnfollow,
+  onRemove,
   cardStyle,
   infoStyle,
   statsStyle,
 }: {
-  profile: FollowWithProfile;
+  profile: FriendRow;
   onPress: () => void;
-  onUnfollow: () => void;
+  onRemove: () => void;
   cardStyle: object;
   infoStyle: object;
   statsStyle: object;
@@ -233,13 +230,13 @@ function FollowingCard({
         </View>
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={onUnfollow}
+        onPress={onRemove}
         hitSlop={12}
         accessibilityRole="button"
-        accessibilityLabel="Unfollow"
+        accessibilityLabel="Remove friend"
       >
         <Text variant="label" color={colors.error}>
-          Unfollow
+          Remove
         </Text>
       </TouchableOpacity>
     </Card>

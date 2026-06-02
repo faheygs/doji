@@ -16,11 +16,12 @@ import {
 } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
-import { canBuyIn, canAffordBuyIn } from '../../lib/participationGate';
+import { canBuyIn, canAffordBuyIn, isMissedOrExpiredPending, showSignupDayGraceBanner } from '../../lib/participationGate';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useSparksBalance } from '../../hooks/useSparks';
 import { useBuyInToday } from '../../hooks/useBuyIn';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
-import { SparksPill } from '../economy/SparksPill';
+import { LiveSparksPill } from '../economy/SparksPill';
 import { BuyInSheet } from '../economy/BuyInSheet';
 
 type Props = {
@@ -31,6 +32,7 @@ export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
   const sparks = useSparksBalance();
+  const profile = useAuthStore((s) => s.profile);
   const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
 
@@ -209,6 +211,31 @@ export function ChallengeBanner({ userEvent }: Props) {
     return null;
   }
 
+  if (showSignupDayGraceBanner(userEvent, profile)) {
+    return (
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+        <LinearGradient
+          colors={[colors.xpGradientStart, colors.xpGradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.banner}
+        >
+          <View style={styles.bannerBody}>
+            <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+              WELCOME TO DOJI
+            </Text>
+            <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={2}>
+              Complete today&apos;s Doji — free on your first day
+            </Text>
+          </View>
+          <Text variant="subhead" style={{ color: colors.onPrimary }}>
+            GO →
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   if (userEvent.status === 'buy_in_open' && !isExpired(userEvent.expires_at)) {
     const buyInSecondsLeft = Math.max(
       0,
@@ -243,7 +270,7 @@ export function ChallengeBanner({ userEvent }: Props) {
     );
   }
 
-  if (userEvent.status === 'missed' || (userEvent.status === 'pending' && isExpired(userEvent.expires_at))) {
+  if (userEvent.status === 'missed' || isMissedOrExpiredPending(userEvent)) {
     const showBuyIn = canBuyIn(userEvent) && eligible;
     const canPay = canAffordBuyIn(sparks);
 
@@ -253,22 +280,29 @@ export function ChallengeBanner({ userEvent }: Props) {
           <Text variant="body" color={colors.textSecondary} style={{ flex: 1 }}>
             Missed today&apos;s Doji
           </Text>
-          {showBuyIn && canPay ? (
-            <TouchableOpacity
-              style={styles.buyInBtn}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setBuyInVisible(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
-            >
-              <Text variant="label" color={colors.onPrimary}>
-                Buy in · {SPARKS_BUY_IN_COST} Sparks
-              </Text>
-            </TouchableOpacity>
-          ) : showBuyIn ? (
-            <SparksPill amount={sparks} compact />
+          {showBuyIn ? (
+            canPay ? (
+              <TouchableOpacity
+                style={styles.buyInBtn}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setBuyInVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
+              >
+                <Text variant="label" color={colors.onPrimary}>
+                  Buy in · {SPARKS_BUY_IN_COST} Sparks
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <Text variant="micro" color={colors.textTertiary}>
+                  Need {SPARKS_BUY_IN_COST} Sparks
+                </Text>
+                <LiveSparksPill compact />
+              </View>
+            )
           ) : null}
         </View>
         <BuyInSheet

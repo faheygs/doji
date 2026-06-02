@@ -21,12 +21,12 @@ import {
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
-import { ProfileFriendsSheet, type FollowListTab } from '@/components/profile/ProfileFriendsSheet';
+import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
 import { SubmissionCard } from '@/components/profile/SubmissionCard';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import { useMySuggestions } from '@/hooks/useSuggestions';
-import { useFollowCounts } from '@/hooks/useProfile';
+import { useFriendCount } from '@/hooks/useProfile';
 import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { usePollVotesCount } from '@/hooks/usePollVotesCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
@@ -48,18 +48,16 @@ export default function MyProfileScreen() {
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
-  const { data: followCounts } = useFollowCounts(profile?.id);
+  const { data: friendCount = 0 } = useFriendCount(profile?.id);
   const { data: reactionsGiven = 0 } = useReactionsGivenCount(profile?.id);
   const { data: pollVotes = 0 } = usePollVotesCount(profile?.id);
   const { data: mySuggestions = [] } = useMySuggestions(profile?.id);
   const [refreshing, setRefreshing] = useState(false);
-  const [followSheetVisible, setFollowSheetVisible] = useState(false);
-  const [followSheetTab, setFollowSheetTab] = useState<FollowListTab>('following');
+  const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
 
-  const openFollowList = useCallback((tab: FollowListTab) => {
+  const openFriendsList = useCallback(() => {
     Haptics.selectionAsync();
-    setFollowSheetTab(tab);
-    setFollowSheetVisible(true);
+    setFriendsSheetVisible(true);
   }, []);
 
   const badgeProgressStats = useMemo((): BadgeProgressStats | null => {
@@ -73,11 +71,11 @@ export default function MyProfileScreen() {
       reactionsReceived: profile.reactions_received ?? 0,
       reactionsGiven,
       pollVotes,
-      friendsCount: followCounts?.followers ?? 0,
+      friendsCount: friendCount,
       challengeIdeasSubmitted: mySuggestions.length,
       challengeIdeasPicked: mySuggestions.filter((s) => s.status === 'approved').length,
     };
-  }, [profile, followCounts?.followers, reactionsGiven, pollVotes, mySuggestions]);
+  }, [profile, friendCount, reactionsGiven, pollVotes, mySuggestions]);
 
   const badgeEarnedSummary = useMemo(
     () => countEarnedBadgeTiers(tiers, badgeProgress, badgeProgressStats),
@@ -90,10 +88,11 @@ export default function MyProfileScreen() {
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followCounts', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['followers', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['following', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['friends', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['profileFriends', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['mySuggestions', profile.id] }),
+        queryClient.invalidateQueries({ queryKey: ['reactionsGiven', profile.id] }),
         queryClient.invalidateQueries({ queryKey: ['profile'] }),
         fetchProfile(profile.id),
       ]);
@@ -169,13 +168,11 @@ export default function MyProfileScreen() {
         </View>
 
         <ProfileStatsStrip
-          followers={followCounts?.followers ?? 0}
-          following={followCounts?.following ?? 0}
+          friendCount={friendCount}
           responses={profile.total_completions ?? 0}
-          reactions={profile.reactions_received ?? 0}
+          reactions={reactionsGiven}
           style={{ marginTop: Spacing.lg }}
-          onPressFollowers={() => openFollowList('followers')}
-          onPressFollowing={() => openFollowList('following')}
+          onPressFriends={openFriendsList}
         />
 
         <ProfileStreakPair
@@ -220,11 +217,10 @@ export default function MyProfileScreen() {
         ) : null}
       </ScrollView>
       <ProfileFriendsSheet
-        visible={followSheetVisible}
-        onClose={() => setFollowSheetVisible(false)}
+        visible={friendsSheetVisible}
+        onClose={() => setFriendsSheetVisible(false)}
         profileUserId={profile.id}
         ownerDisplayName={profile.display_name}
-        initialTab={followSheetTab}
       />
     </SafeAreaView>
   );

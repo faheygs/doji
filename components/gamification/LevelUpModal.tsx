@@ -7,14 +7,12 @@ import { Button } from '../ui/Button';
 import { FullScreenCelebrationShell } from './FullScreenCelebrationShell';
 
 type Props = {
-  visible: boolean;
   level: number;
   subtitle?: string;
   onDismiss: () => void;
 };
 
 export function LevelUpModal({
-  visible,
   level,
   subtitle = "You're leveling up!",
   onDismiss,
@@ -42,7 +40,7 @@ export function LevelUpModal({
   );
 
   return (
-    <FullScreenCelebrationShell visible={visible} onRequestClose={onDismiss}>
+    <FullScreenCelebrationShell onRequestClose={onDismiss}>
       <Text variant="label" color={colors.level} style={{ letterSpacing: 1.2 }}>
         LEVEL UP!
       </Text>

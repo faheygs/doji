@@ -22,15 +22,16 @@ import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
-import { useRespondToFollowRequest } from '../../hooks/useFollows';
+import { useRespondToFriendRequest } from '../../hooks/useProfile';
 import {
-  followRequestCopy,
-  followAcceptedCopy,
-  newFollowerCopy,
+  friendRequestCopy,
+  friendAcceptedCopy,
   reactionActorsLine,
   challengeCopy,
+  notificationActorName,
   notificationActorHandle,
 } from '../../lib/notificationCopy';
+import { navigateToFeedPost } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
@@ -55,13 +56,22 @@ export function NotificationSheet({
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const respond = useRespondToFollowRequest();
+  const respond = useRespondToFriendRequest();
 
   useEffect(() => {
     if (!visible) return;
-    queryClient.invalidateQueries({ queryKey: ['followRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
     queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'notificationCenter' });
   }, [visible, queryClient]);
+
+  const openFeedPost = useCallback(
+    (postId: string, openComments = false, mentionCommentId?: string) => {
+      Haptics.selectionAsync();
+      onClose();
+      navigateToFeedPost(router, postId, { openComments, mentionCommentId });
+    },
+    [onClose, router],
+  );
 
   const styles = useMemo(
     () =>
@@ -186,9 +196,9 @@ export function NotificationSheet({
       let card: React.ReactNode;
 
       switch (item.kind) {
-        case 'follow_request': {
-          const requester = item.follow.follower;
-          const copy = followRequestCopy(requester);
+        case 'friend_request': {
+          const requester = item.friendship.requester;
+          const copy = friendRequestCopy(requester);
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
@@ -202,7 +212,7 @@ export function NotificationSheet({
                     <Button
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        respond.mutate({ followId: item.follow.id, accept: true });
+                        respond.mutate({ friendshipId: item.friendship.id, accept: true });
                       }}
                       size="sm"
                       loading={respond.isPending}
@@ -210,7 +220,9 @@ export function NotificationSheet({
                       Accept
                     </Button>
                     <Button
-                      onPress={() => respond.mutate({ followId: item.follow.id, accept: false })}
+                      onPress={() =>
+                        respond.mutate({ friendshipId: item.friendship.id, accept: false })
+                      }
                       size="sm"
                       variant="ghost"
                       loading={respond.isPending}
@@ -224,33 +236,53 @@ export function NotificationSheet({
           );
           break;
         }
-        case 'follow_accepted': {
-          const following = item.follow.following;
-          const copy = followAcceptedCopy(following);
+        case 'friend_accepted': {
+          const addressee = item.friendship.addressee;
+          const copy = friendAcceptedCopy(addressee);
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
-                actor={following}
+                actor={addressee}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
-                onPress={() => openProfile(notificationActorHandle(following))}
+                onPress={() => openProfile(notificationActorHandle(addressee))}
               />
             </Card>
           );
           break;
         }
-        case 'new_follower': {
-          const follower = item.follow.follower;
-          const copy = newFollowerCopy(follower);
+        case 'comment': {
+          const copy = {
+            title: notificationActorName(item.actor),
+            body: 'Commented on your post',
+          };
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
-                actor={follower}
+                actor={item.actor ?? undefined}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
-                onPress={() => openProfile(notificationActorHandle(follower))}
+                onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
+              />
+            </Card>
+          );
+          break;
+        }
+        case 'mention': {
+          const copy = {
+            title: notificationActorName(item.actor),
+            body: 'Mentioned you in a comment',
+          };
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                actor={item.actor ?? undefined}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
               />
             </Card>
           );
@@ -265,6 +297,7 @@ export function NotificationSheet({
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
+                onPress={() => openFeedPost(item.post_id)}
                 leading={
                   <View style={styles.reactionLeading}>
                     <AvatarStack
@@ -330,6 +363,7 @@ export function NotificationSheet({
     [
       colors,
       openProfile,
+      openFeedPost,
       renderRightActions,
       respond,
       styles.actions,
@@ -376,7 +410,7 @@ export function NotificationSheet({
                 <IconBell size={44} color={colors.textTertiary} />
                 <Text variant="headingMedium">{"You're all caught up"}</Text>
                 <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>
-                  Follow requests, new followers, reactions, and today&apos;s Doji show up here.
+                  Friend requests, reactions, and today&apos;s Doji show up here.
                 </Text>
               </View>
             }
@@ -389,7 +423,7 @@ export function NotificationSheet({
               onPress={() => {
                 Alert.alert(
                   'Clear notification history',
-                  'Remove older items from this list? Pending follow requests stay visible.',
+                  'Remove older items from this list? Pending friend requests stay visible.',
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {

@@ -124,6 +124,32 @@ export function useFriendship(targetUserId?: string) {
   });
 }
 
+/** Viewer-relative friendship state between the signed-in user and a target profile. */
+export type ViewerFriendshipStatus = 'none' | 'pending_out' | 'pending_in' | 'friends' | 'blocked';
+
+export function deriveFriendshipStatus(
+  friendship: Friendship | null | undefined,
+  me?: string,
+): ViewerFriendshipStatus {
+  if (!friendship || !me) return 'none';
+  if (friendship.status === 'blocked') return 'blocked';
+  if (friendship.status === 'accepted') return 'friends';
+  if (friendship.status === 'pending') {
+    return friendship.requester_id === me ? 'pending_out' : 'pending_in';
+  }
+  return 'none';
+}
+
+export function useFriendshipStatus(targetUserId?: string) {
+  const session = useAuthStore((s) => s.session);
+  const me = session?.user?.id;
+  const query = useFriendship(targetUserId);
+  return {
+    ...query,
+    data: deriveFriendshipStatus(query.data, me),
+  };
+}
+
 export function useSendFriendRequest() {
   const queryClient = useQueryClient();
   const session = useAuthStore((s) => s.session);
@@ -144,6 +170,11 @@ export function useSendFriendRequest() {
     onSuccess: (_data, addresseeId) => {
       queryClient.invalidateQueries({ queryKey: ['friendship', session?.user?.id, addresseeId] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({
+        predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
+      });
       invalidateFriendCountQueries(queryClient);
     },
   });
@@ -186,6 +217,28 @@ export function useRespondToFriendRequest() {
   });
 }
 
+function dedupeById<T extends { id: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
+}
+
+function dedupeProfileFriends(rows: ProfileFriendListRow[]): ProfileFriendListRow[] {
+  const seen = new Set<string>();
+  const out: ProfileFriendListRow[] = [];
+  for (const row of rows) {
+    if (seen.has(row.friend_id)) continue;
+    seen.add(row.friend_id);
+    out.push(row);
+  }
+  return out;
+}
+
 export function useFriends() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
@@ -203,10 +256,11 @@ export function useFriends() {
 
       if (error) throw error;
 
-      return ((data as any[]) ?? []).map((f: { id: string; requester_id: string; addressee_id: string; requester: Profile; addressee: Profile }) => {
+      const mapped = ((data as any[]) ?? []).map((f: { id: string; requester_id: string; addressee_id: string; requester: Profile; addressee: Profile }) => {
         const friend = f.requester_id === userId ? f.addressee : f.requester;
         return { ...friend, friendship_id: f.id };
       });
+      return dedupeById(mapped);
     },
     enabled: !!userId,
   });
@@ -224,39 +278,6 @@ export function useFriendCount(targetUserId?: string) {
       if (typeof data === 'number' && Number.isFinite(data)) return Math.max(0, Math.floor(data));
       const n = Number(data);
       return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-    },
-    enabled: !!targetUserId,
-    staleTime: 30_000,
-  });
-}
-
-export type FollowCounts = { followers: number; following: number };
-
-/** Follower / following counts via remodel RPCs. */
-export function useFollowCounts(targetUserId?: string) {
-  return useQuery({
-    queryKey: ['followCounts', targetUserId],
-    queryFn: async (): Promise<FollowCounts> => {
-      if (!targetUserId) return { followers: 0, following: 0 };
-
-      const [followersRes, followingRes] = await Promise.all([
-        supabase.rpc('follower_count', { p_user_id: targetUserId }),
-        supabase.rpc('following_count', { p_user_id: targetUserId }),
-      ]);
-
-      if (followersRes.error) throw followersRes.error;
-      if (followingRes.error) throw followingRes.error;
-
-      const toInt = (v: unknown) => {
-        if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.floor(v));
-        const n = Number(v);
-        return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
-      };
-
-      return {
-        followers: toInt(followersRes.data),
-        following: toInt(followingRes.data),
-      };
     },
     enabled: !!targetUserId,
     staleTime: 30_000,
@@ -282,16 +303,18 @@ export function useProfileFriendsList(profileUserId?: string, enabled = true) {
       });
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
-      return rows.map((row) => ({
-        friend_id: row.friend_id,
-        username: row.username,
-        display_name: row.display_name,
-        avatar_url: row.avatar_url ?? null,
-        avatar_gradient:
-          Array.isArray(row.avatar_gradient) && row.avatar_gradient.length >= 2
-            ? row.avatar_gradient
-            : [...FALLBACK_AVATAR_GRADIENT],
-      }));
+      return dedupeProfileFriends(
+        rows.map((row) => ({
+          friend_id: row.friend_id,
+          username: row.username,
+          display_name: row.display_name,
+          avatar_url: row.avatar_url ?? null,
+          avatar_gradient:
+            Array.isArray(row.avatar_gradient) && row.avatar_gradient.length >= 2
+              ? row.avatar_gradient
+              : [...FALLBACK_AVATAR_GRADIENT],
+        })),
+      );
     },
     enabled: !!profileUserId && enabled,
     staleTime: 25_000,

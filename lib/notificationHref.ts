@@ -1,6 +1,19 @@
 import type { Href } from 'expo-router';
 import { FEED_TAB_HREF, normalizeHref } from './routes';
 
+export type FeedPostDeepLinkOptions = {
+  openComments?: boolean;
+  mentionCommentId?: string;
+};
+
+/** Build feed href that opens a post (and optionally comments) on the home tab. */
+export function feedPostHref(postId: string, options?: FeedPostDeepLinkOptions): Href {
+  const params = new URLSearchParams({ postId });
+  if (options?.openComments) params.set('openComments', '1');
+  if (options?.mentionCommentId) params.set('mentionCommentId', options.mentionCommentId);
+  return `${FEED_TAB_HREF}?${params.toString()}` as Href;
+}
+
 /** Resolve push / in-app notification payload to an in-app route. */
 export function notificationHrefFromData(data: unknown): Href | null {
   if (!data || typeof data !== 'object') return null;
@@ -12,16 +25,14 @@ export function notificationHrefFromData(data: unknown): Href | null {
 
   const type = rec.type;
   const postId = rec.postId;
+  const commentId = rec.commentId;
 
   if (type === 'CHALLENGE') return '/(app)/challenge';
   if (type === 'BADGE' || type === 'BADGE_EARNED') return '/(app)/profile' as Href;
-  if (type === 'FRIEND_REQUEST' || type === 'FOLLOW_REQUEST') {
+  if (type === 'FRIEND_REQUEST') {
     return '/(app)/friends/requests';
   }
-  if (type === 'FRIEND_ACCEPTED' || type === 'FOLLOW_ACCEPTED') {
-    return '/(app)/friends';
-  }
-  if (type === 'FOLLOW_NEW') {
+  if (type === 'FRIEND_ACCEPTED') {
     return '/(app)/friends';
   }
   if (type === 'FRIEND_POST') return FEED_TAB_HREF;
@@ -35,7 +46,10 @@ export function notificationHrefFromData(data: unknown): Href | null {
     typeof postId === 'string' &&
     postId.length > 0
   ) {
-    return `/(app)/post/${postId}` as Href;
+    return feedPostHref(postId, {
+      openComments: type === 'COMMENT' || type === 'MENTION',
+      mentionCommentId: typeof commentId === 'string' ? commentId : undefined,
+    });
   }
 
   return null;

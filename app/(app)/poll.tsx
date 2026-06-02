@@ -234,7 +234,6 @@ export default function PollScreen() {
     <SafeAreaView style={styles.container}>
       {xpOverlay ? (
         <XpGainOverlay
-          visible
           amount={xpOverlay.amount}
           sparks={xpOverlay.sparks}
           xp={xpOverlay.xp}

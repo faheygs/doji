@@ -30,7 +30,6 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
 }));
 
 type Props = {
-  visible: boolean;
   onRequestClose?: () => void;
   backgroundColor?: string;
   showParticles?: boolean;
@@ -39,7 +38,6 @@ type Props = {
 };
 
 export function FullScreenCelebrationShell({
-  visible,
   onRequestClose,
   backgroundColor = '#000000',
   showParticles = true,
@@ -52,16 +50,10 @@ export function FullScreenCelebrationShell({
   const contentOpacity = useSharedValue(0);
 
   useEffect(() => {
-    if (!visible) {
-      backdropOpacity.value = 0;
-      contentScale.value = 0.88;
-      contentOpacity.value = 0;
-      return;
-    }
     backdropOpacity.value = withTiming(1, { duration: 280 });
     contentOpacity.value = withTiming(1, { duration: 320 });
     contentScale.value = withDelay(80, withSpring(1, { damping: 14, stiffness: 140 }));
-  }, [visible, backdropOpacity, contentScale, contentOpacity]);
+  }, [backdropOpacity, contentScale, contentOpacity]);
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
@@ -103,13 +95,9 @@ export function FullScreenCelebrationShell({
     [backgroundColor],
   );
 
-  if (!visible) {
-    return null;
-  }
-
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
       statusBarTranslucent
       animationType="none"

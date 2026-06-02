@@ -38,7 +38,6 @@ export default function OnboardingLayout() {
       <Stack.Screen name="how-it-works" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="profile-setup" />
-      <Stack.Screen name="privacy" />
     </Stack>
   );
 }

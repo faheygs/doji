@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
 import { fetchCommunityPollPostsForFeed } from '../lib/feedCommunityPoll';
 import { filterPostsForAudience, type FeedAudience } from '../lib/feedAudience';
-import { getAcceptedFollowingIds } from '../lib/followGraph';
+import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
@@ -36,34 +36,34 @@ type FetchContext = {
   userId: string;
   dailyEventIds: string[];
   audience: FeedAudience;
-  followingIds?: string[];
+  friendIds?: string[];
 };
 
 async function fetchFeedPostsPage(
   ctx: FetchContext,
   offset: number,
 ): Promise<Post[]> {
-  const { userId, dailyEventIds, audience, followingIds } = ctx;
+  const { userId, dailyEventIds, audience, friendIds } = ctx;
   if (dailyEventIds.length === 0) return [];
 
   const communityMapped =
     offset === 0
-      ? await fetchCommunityPollPostsForFeed(dailyEventIds, audience, followingIds)
+      ? await fetchCommunityPollPostsForFeed(dailyEventIds, audience, friendIds)
       : [];
 
   let userEventIds: string[] | undefined;
-  if (audience === 'friends' && followingIds) {
+  if (audience === 'friends' && friendIds) {
     const { data: userEvents, error: userEventsErr } = await supabase
       .from('user_events')
       .select('id')
       .in('daily_event_id', dailyEventIds)
-      .in('user_id', followingIds);
+      .in('user_id', friendIds);
 
     if (userEventsErr) throw userEventsErr;
     userEventIds = (userEvents ?? []).map((row: { id: string }) => row.id);
 
     if (userEventIds.length === 0) {
-      return attachReactionFields(communityMapped, userId, followingIds);
+      return attachReactionFields(communityMapped, userId, friendIds);
     }
   }
 
@@ -101,19 +101,19 @@ async function fetchFeedPostsPage(
       : userMapped;
 
   const filtered =
-    audience === 'friends' && followingIds
-      ? filterPostsForAudience(merged, audience, followingIds)
+    audience === 'friends' && friendIds
+      ? filterPostsForAudience(merged, audience, friendIds)
       : merged;
 
-  const reactionScope = audience === 'friends' ? followingIds : undefined;
+  const reactionScope = audience === 'friends' ? friendIds : undefined;
 
   return attachReactionFields(filtered, userId, reactionScope);
 }
 
 /**
  * Today's live feed for the selected audience.
- * Friends: posts from accepted follows (+ self), poll results scoped to that network.
- * Everyone: all eligible posts (RLS + privacy) and full poll results.
+ * Friends: posts from mutual friends (+ self), poll results scoped to that network.
+ * Everyone: all eligible posts from today's completers and full poll results.
  */
 export function useFeed(audience: FeedAudience = 'friends') {
   const session = useAuthStore((s) => s.session);
@@ -131,10 +131,10 @@ export function useFeed(audience: FeedAudience = 'friends') {
       if (!userId) return [];
 
       const dailyEventIds = await liveDailyEventIdsForToday();
-      const followingIds =
-        audience === 'friends' ? await getAcceptedFollowingIds(userId) : undefined;
+      const friendIds =
+        audience === 'friends' ? await getFriendIdsIncludingSelf(userId) : undefined;
       const offset = pageParam ?? 0;
-      return fetchFeedPostsPage({ userId, dailyEventIds, audience, followingIds }, offset);
+      return fetchFeedPostsPage({ userId, dailyEventIds, audience, friendIds }, offset);
     },
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       const offset = lastPageParam ?? 0;

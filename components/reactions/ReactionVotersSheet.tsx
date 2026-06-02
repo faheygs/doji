@@ -22,7 +22,7 @@ import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { usePostReactions } from '../../hooks/useFeed';
-import { getAcceptedFollowingIds } from '../../lib/followGraph';
+import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { useAuthStore } from '../../stores/useAuthStore';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
@@ -54,15 +54,15 @@ export function ReactionVotersSheet({
   const userId = useAuthStore((s) => s.session?.user?.id);
   const isFriendsScope = feedAudience === 'friends';
 
-  const { data: followingIds = [], isFetched: followingIdsReady } = useQuery({
-    queryKey: ['followingIds', userId],
-    queryFn: () => getAcceptedFollowingIds(userId!),
+  const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
+    queryKey: ['friendIds', userId],
+    queryFn: () => getFriendIdsIncludingSelf(userId!),
     enabled: visible && isFriendsScope && !!userId,
     staleTime: 30_000,
   });
 
-  const scopeUserIds = isFriendsScope ? followingIds : undefined;
-  const scopeReady = !isFriendsScope || followingIdsReady;
+  const scopeUserIds = isFriendsScope ? friendIds : undefined;
+  const scopeReady = !isFriendsScope || friendIdsReady;
 
   const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = usePostReactions(
     visible && scopeReady ? postId : '',
@@ -172,7 +172,7 @@ export function ReactionVotersSheet({
   const title = emojiFilter
     ? `${reactionLabel(emojiFilter)} · ${reactions.length}${hasNextPage ? '+' : ''}`
     : `Reactions · ${reactions.length}${hasNextPage ? '+' : ''}`;
-  const scopedTitle = isFriendsScope ? `${title} · people you follow` : title;
+  const scopedTitle = isFriendsScope ? `${title} · friends` : title;
 
   const renderItem = useCallback(
     ({ item }: { item: Reaction }) => {
@@ -236,7 +236,7 @@ export function ReactionVotersSheet({
           ) : reactions.length === 0 ? (
             <View style={styles.centered}>
               <Text variant="body" color={colors.textSecondary}>
-                {isFriendsScope ? 'No reactions from people you follow yet.' : 'No reactions yet.'}
+                {isFriendsScope ? 'No reactions from friends yet.' : 'No reactions yet.'}
               </Text>
             </View>
           ) : (

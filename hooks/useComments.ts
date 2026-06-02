@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { fetchMentionableUserIds } from '../lib/mentionNetwork';
+import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
+import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile } from '../types/database';
 
 const COMMENT_SELECT = '*, profile:profiles(username, display_name, avatar_url)';
@@ -40,7 +42,11 @@ async function insertCommentMentions(commentId: string, body: string, viewerId: 
   if (error) throw error;
 }
 
-async function fetchCommentsForPost(postId: string, userId: string | undefined): Promise<CommentWithMeta[]> {
+async function fetchCommentsForPost(
+  postId: string,
+  userId: string | undefined,
+  audience: FeedAudience,
+): Promise<CommentWithMeta[]> {
   const { data, error } = await supabase
     .from('comments')
     .select(COMMENT_SELECT)
@@ -50,29 +56,38 @@ async function fetchCommentsForPost(postId: string, userId: string | undefined):
   if (error) throw error;
   const rows = (data ?? []) as CommentWithMeta[];
   const ids = rows.map((r) => r.id);
+  let withLikes: CommentWithMeta[];
   if (!userId || ids.length === 0) {
-    return rows.map((r) => ({ ...r, my_like: false }));
+    withLikes = rows.map((r) => ({ ...r, my_like: false }));
+  } else {
+    const { data: likes, error: likesErr } = await supabase
+      .from('comment_likes')
+      .select('comment_id')
+      .eq('user_id', userId)
+      .in('comment_id', ids);
+
+    if (likesErr) throw likesErr;
+    const liked = new Set((likes ?? []).map((l: { comment_id: string }) => l.comment_id));
+    withLikes = rows.map((r) => ({ ...r, my_like: liked.has(r.id) }));
   }
 
-  const { data: likes, error: likesErr } = await supabase
-    .from('comment_likes')
-    .select('comment_id')
-    .eq('user_id', userId)
-    .in('comment_id', ids);
-
-  if (likesErr) throw likesErr;
-  const liked = new Set((likes ?? []).map((l: { comment_id: string }) => l.comment_id));
-  return rows.map((r) => ({ ...r, my_like: liked.has(r.id) }));
+  if (audience === 'everyone' || !userId) return withLikes;
+  const friendIds = await getFriendIdsIncludingSelf(userId);
+  return filterCommentsForAudience(withLikes, audience, friendIds);
 }
 
-export function useComments(postId: string | undefined, options?: { fetchEnabled?: boolean }) {
+export function useComments(
+  postId: string | undefined,
+  options?: { fetchEnabled?: boolean; feedAudience?: FeedAudience },
+) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
   const fetchEnabled = options?.fetchEnabled !== false;
+  const feedAudience = options?.feedAudience ?? 'everyone';
 
   return useQuery({
-    queryKey: ['comments', postId, userId],
-    queryFn: () => fetchCommentsForPost(postId!, userId),
+    queryKey: ['comments', postId, userId, feedAudience],
+    queryFn: () => fetchCommentsForPost(postId!, userId, feedAudience),
     enabled: !!postId && !!userId && fetchEnabled,
     staleTime: 5000,
   });

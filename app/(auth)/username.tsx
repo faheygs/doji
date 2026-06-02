@@ -95,7 +95,6 @@ export default function UsernameScreen() {
         level: 1,
         reactions_received: 0,
         streak_shields: 0,
-        is_private: false,
         is_admin: false,
         onboarding_completed_at: null,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

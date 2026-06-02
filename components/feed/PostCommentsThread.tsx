@@ -33,6 +33,7 @@ import {
   useToggleCommentLike,
   type CommentWithMeta,
 } from '../../hooks/useComments';
+import type { FeedAudience } from '../../lib/feedAudience';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 const MAX_LEN = 2000;
@@ -120,8 +121,10 @@ function CommentActionSheet({
     [colors, insets.bottom],
   );
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
           <TouchableOpacity
@@ -400,6 +403,7 @@ type Props = {
   fetchEnabled?: boolean;
   /** Sheet handles safe area; avoid double padding on composer. */
   embedInSheet?: boolean;
+  feedAudience?: FeedAudience;
 };
 
 export function PostCommentsThread({
@@ -408,13 +412,14 @@ export function PostCommentsThread({
   commentsDisabled = false,
   fetchEnabled = true,
   embedInSheet = false,
+  feedAudience = 'everyone',
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const me = useAuthStore((s) => s.session?.user?.id);
-  const { data: comments = [], isLoading, isError } = useComments(postId, { fetchEnabled });
+  const { data: comments = [], isLoading, isError } = useComments(postId, { fetchEnabled, feedAudience });
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();

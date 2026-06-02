@@ -127,11 +127,11 @@ export default function TaskScreen() {
     <SafeAreaView style={styles.container}>
       {xpOverlay ? (
         <XpGainOverlay
-          visible
           amount={xpOverlay.amount}
           sparks={xpOverlay.sparks}
           xp={xpOverlay.xp}
           level={xpOverlay.level}
+          dismissLabel="Back to Feed"
           onComplete={dismissToFeed}
         />
       ) : null}

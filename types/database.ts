@@ -15,8 +15,6 @@ export type NotificationPreferences = {
   badges: boolean;
   comment: boolean;
   mention: boolean;
-  follow_request: boolean;
-  new_follower: boolean;
   suggestion: boolean;
 };
 
@@ -45,7 +43,6 @@ export type Profile = {
   equipped_border_key: string | null;
   equipped_title_key: string | null;
   timezone: string;
-  is_private: boolean;
   is_admin: boolean;
   onboarding_completed_at: string | null;
   created_at: string;
@@ -121,6 +118,7 @@ export type UserEvent = {
   expires_at: string;
   buy_in_at: string | null;
   streak_before_miss: number | null;
+  signup_day_grace?: boolean;
   created_at: string;
   daily_event?: DailyEvent;
   challenge?: Challenge;
@@ -151,7 +149,13 @@ export type SparkLedgerReason =
   | 'badge_unlock'
   | 'buy_in'
   | 'purchase'
-  | 'welcome_bonus';
+  | 'welcome_bonus'
+  | 'comment'
+  | 'reaction'
+  | 'post'
+  | 'poll_vote'
+  | 'friend_request'
+  | 'friend_accept';
 
 export type SparkLedgerEntry = {
   id: string;
@@ -188,19 +192,6 @@ export type Post = {
   profile?: Profile;
   challenge?: Challenge;
   poll_option_text?: string;
-};
-
-export type FollowStatus = 'pending' | 'accepted' | 'blocked';
-
-export type Follow = {
-  id: string;
-  follower_id: string;
-  following_id: string;
-  status: FollowStatus;
-  created_at: string;
-  accepted_at: string | null;
-  follower?: Profile;
-  following?: Profile;
 };
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
@@ -404,17 +395,6 @@ export type Database = {
         Update: Partial<Friendship>;
         Relationships: [];
       };
-      follows: {
-        Row: Follow;
-        Insert: {
-          follower_id: string;
-          following_id: string;
-          status: FollowStatus;
-          accepted_at?: string | null;
-        };
-        Update: Partial<Follow>;
-        Relationships: [];
-      };
       reactions: {
         Row: Reaction;
         Insert: Omit<Reaction, 'id' | 'created_at'>;
@@ -520,18 +500,6 @@ export type Database = {
       friend_count: {
         Args: { p_user_id: string };
         Returns: number;
-      };
-      follower_count: {
-        Args: { p_user_id: string };
-        Returns: number;
-      };
-      following_count: {
-        Args: { p_user_id: string };
-        Returns: number;
-      };
-      is_following: {
-        Args: { p_viewer: string; p_target: string };
-        Returns: boolean;
       };
       can_view_profile: {
         Args: { p_viewer: string; p_target: string };

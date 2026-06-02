@@ -16,7 +16,7 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
-import { useFollowRequests, useRespondToFollowRequest } from '../../../hooks/useFollows';
+import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useProfile';
 import { formatRelativeTime } from '../../../utils/time';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
 
@@ -25,8 +25,8 @@ export default function FriendRequestsScreen() {
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
-  const { data: requests = [], isLoading } = useFollowRequests();
-  const respond = useRespondToFollowRequest();
+  const { data: requests = [], isLoading } = useFriendRequests();
+  const respond = useRespondToFriendRequest();
 
   const styles = useMemo(
     () =>
@@ -87,7 +87,7 @@ export default function FriendRequestsScreen() {
         >
           <IconChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
-        <Text variant="headingLarge">Follow requests</Text>
+        <Text variant="headingLarge">Friend requests</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -104,7 +104,7 @@ export default function FriendRequestsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
-            const requester = item.follower;
+            const requester = item.requester;
             return (
               <Card style={styles.requestCard} elevated>
                 <TouchableOpacity
@@ -133,7 +133,7 @@ export default function FriendRequestsScreen() {
                   <Button
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      respond.mutate({ followId: item.id, accept: true });
+                      respond.mutate({ friendshipId: item.id, accept: true });
                     }}
                     size="sm"
                     loading={respond.isPending}
@@ -141,7 +141,7 @@ export default function FriendRequestsScreen() {
                     Accept
                   </Button>
                   <Button
-                    onPress={() => respond.mutate({ followId: item.id, accept: false })}
+                    onPress={() => respond.mutate({ friendshipId: item.id, accept: false })}
                     size="sm"
                     variant="ghost"
                     loading={respond.isPending}
@@ -156,7 +156,7 @@ export default function FriendRequestsScreen() {
             <View style={styles.empty}>
               <IconFriends size={44} color={colors.textTertiary} />
               <Text variant="body" color={colors.textSecondary}>
-                No pending follow requests
+                No pending friend requests
               </Text>
             </View>
           }

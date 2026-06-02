@@ -1,29 +1,22 @@
 import { supabase } from './supabase';
 
-/** Accepted follows + followers + self — users eligible for @ mentions. */
+/** Accepted friends + self — users eligible for @ mentions. */
 export async function fetchMentionableUserIds(viewerId: string): Promise<string[]> {
-  const [{ data: following, error: fErr }, { data: followers, error: rErr }] = await Promise.all([
-    supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', viewerId)
-      .eq('status', 'accepted'),
-    supabase
-      .from('follows')
-      .select('follower_id')
-      .eq('following_id', viewerId)
-      .eq('status', 'accepted'),
-  ]);
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('requester_id, addressee_id')
+    .eq('status', 'accepted')
+    .or(`requester_id.eq.${viewerId},addressee_id.eq.${viewerId}`);
 
-  if (fErr) throw fErr;
-  if (rErr) throw rErr;
+  if (error) throw error;
 
   const ids = new Set<string>([viewerId]);
-  for (const row of following ?? []) {
-    ids.add(row.following_id as string);
-  }
-  for (const row of followers ?? []) {
-    ids.add(row.follower_id as string);
+  for (const row of data ?? []) {
+    const other =
+      row.requester_id === viewerId
+        ? (row.addressee_id as string)
+        : (row.requester_id as string);
+    if (other) ids.add(other);
   }
   return [...ids];
 }

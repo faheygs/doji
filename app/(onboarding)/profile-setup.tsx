@@ -21,6 +21,7 @@ import { TouchableOpacity } from 'react-native';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
 import { required, validationMessage } from '@/lib/formValidation';
+import { safeReplace, FEED_TAB_HREF } from '@/lib/routes';
 
 const BIO_MAX = 150;
 
@@ -71,22 +72,21 @@ export default function OnboardingProfileSetupScreen() {
   );
 
   const saveAndContinue = async (skip = false) => {
-    if (skip) {
-      router.replace('/(onboarding)/privacy' as Href);
-      return;
-    }
-    if (!displayNameValidation.ok) {
-      setDisplayNameTouched(true);
-      Toast.show({ type: 'error', text1: displayNameValidation.message });
-      return;
-    }
     setSaving(true);
     try {
-      await updateProfile({
-        display_name: displayName.trim(),
-        bio: bio.trim().slice(0, BIO_MAX) || null,
-      });
-      router.replace('/(onboarding)/privacy' as Href);
+      if (!skip) {
+        if (!displayNameValidation.ok) {
+          setDisplayNameTouched(true);
+          Toast.show({ type: 'error', text1: displayNameValidation.message });
+          return;
+        }
+        await updateProfile({
+          display_name: displayName.trim(),
+          bio: bio.trim().slice(0, BIO_MAX) || null,
+        });
+      }
+      await updateProfile({ onboarding_completed_at: new Date().toISOString() });
+      safeReplace(router, FEED_TAB_HREF);
     } catch {
       Toast.show({ type: 'error', text1: 'Could not save profile' });
     } finally {

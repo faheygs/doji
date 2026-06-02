@@ -72,7 +72,6 @@ type ProfileHeroRowProps = {
   photoUploading?: boolean;
   trailing?: React.ReactNode;
   style?: ViewStyle;
-  /** Hide level badge (e.g. private profile before follow is approved). */
   showLevel?: boolean;
 };
 
@@ -165,23 +164,19 @@ export function ProfileHeroRow({
 }
 
 type ProfileStatsStripProps = {
-  followers: number;
-  following: number;
+  friendCount: number;
   responses: number;
   reactions: number;
   style?: ViewStyle;
-  onPressFollowers?: () => void;
-  onPressFollowing?: () => void;
+  onPressFriends?: () => void;
 };
 
 export function ProfileStatsStrip({
-  followers,
-  following,
+  friendCount,
   responses,
   reactions,
   style,
-  onPressFollowers,
-  onPressFollowing,
+  onPressFriends,
 }: ProfileStatsStripProps) {
   const { colors } = useTheme();
   const styles = useMemo(
@@ -203,8 +198,7 @@ export function ProfileStatsStrip({
 
   return (
     <View style={[styles.card, style]}>
-      <ProfileStatChip label="Followers" value={formatCompactCount(followers)} onPress={onPressFollowers} />
-      <ProfileStatChip label="Following" value={formatCompactCount(following)} onPress={onPressFollowing} />
+      <ProfileStatChip label="Friends" value={formatCompactCount(friendCount)} onPress={onPressFriends} />
       <ProfileStatChip label="Responses" value={formatCompactCount(responses)} />
       <ProfileStatChip label="Reactions" value={formatCompactCount(reactions)} />
     </View>
@@ -230,7 +224,7 @@ export function ProfileStreakPair({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        row: {
+        streakRow: {
           marginHorizontal: Spacing.md,
           flexDirection: 'row',
           gap: Spacing.sm,
@@ -247,6 +241,10 @@ export function ProfileStreakPair({
           borderColor: colors.border,
           ...Shadows.card,
         },
+        sparksWrap: {
+          marginHorizontal: Spacing.md,
+          marginTop: Spacing.sm,
+        },
         label: {
           textAlign: 'center',
         },
@@ -261,28 +259,32 @@ export function ProfileStreakPair({
   );
 
   return (
-    <View style={[styles.row, style]}>
-      <View style={styles.card}>
-        <Text variant="micro" color={colors.textSecondary} style={styles.label}>
-          Current Streak
-        </Text>
-        <View style={styles.valueRow}>
-          <Text variant="headingMedium" color={colors.primary}>
-            {currentStreak}
+    <View style={[style]}>
+      <View style={styles.streakRow}>
+        <View style={styles.card}>
+          <Text variant="micro" color={colors.textSecondary} style={styles.label}>
+            Current Streak
           </Text>
-          <IconReactionFire size={20} color={colors.primary} />
+          <View style={styles.valueRow}>
+            <Text variant="headingMedium" color={colors.primary}>
+              {currentStreak}
+            </Text>
+            <IconReactionFire size={20} color={colors.primary} />
+          </View>
+        </View>
+        <View style={styles.card}>
+          <Text variant="micro" color={colors.textSecondary} style={styles.label}>
+            Best Streak
+          </Text>
+          <Text variant="headingMedium" color={colors.xpGold} style={styles.label}>
+            {bestStreak}
+          </Text>
         </View>
       </View>
-      <View style={styles.card}>
-        <Text variant="micro" color={colors.textSecondary} style={styles.label}>
-          Best Streak
-        </Text>
-        <Text variant="headingMedium" color={colors.xpGold} style={styles.label}>
-          {bestStreak}
-        </Text>
-      </View>
       {onPressShop != null && sparks != null ? (
-        <ProfileShopEntry amount={sparks} onPress={onPressShop} />
+        <View style={styles.sparksWrap}>
+          <ProfileShopEntry amount={sparks} onPress={onPressShop} />
+        </View>
       ) : null}
     </View>
   );

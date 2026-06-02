@@ -27,7 +27,7 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { getAcceptedFollowingIds } from '../../lib/followGraph';
+import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Challenge, PollOption } from '../../types/database';
 
@@ -65,16 +65,16 @@ function PollResultCardImpl({
   const [voterModal, setVoterModal] = useState<{ optionId: string; label: string } | null>(null);
   const isFriendsScope = feedAudience === 'friends';
 
-  const { data: followingIds = [], isFetched: followingIdsReady } = useQuery({
-    queryKey: ['followingIds', userId],
-    queryFn: () => getAcceptedFollowingIds(userId!),
+  const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
+    queryKey: ['friendIds', userId],
+    queryFn: () => getFriendIdsIncludingSelf(userId!),
     enabled: isFriendsScope && !!userId && fetchEnabled,
     staleTime: 30_000,
   });
 
-  const scopeUserIds = isFriendsScope ? followingIds : undefined;
+  const scopeUserIds = isFriendsScope ? friendIds : undefined;
   const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
-  const scopeReady = !isFriendsScope || followingIdsReady;
+  const scopeReady = !isFriendsScope || friendIdsReady;
 
   const { data } = useQuery({
     queryKey: ['pollResults', challenge.id, feedAudience, scopeKey],
@@ -486,7 +486,7 @@ function PollResultCardImpl({
       <View style={styles.footer}>
         <Text variant="micro" color={colors.textTertiary}>
           {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
-          {isFriendsScope ? ' from people you follow' : ''}
+          {isFriendsScope ? ' from friends' : ''}
         </Text>
         <Text variant="micro" color={colors.textTertiary}>
           +{challenge.xp_reward} XP

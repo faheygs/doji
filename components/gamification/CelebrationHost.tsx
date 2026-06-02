@@ -7,13 +7,14 @@ export function CelebrationHost() {
   const dismissBadgeUnlock = useCelebrationStore((s) => s.dismissBadgeUnlock);
 
   return (
-    <BadgeUnlockModal
-      visible={badge !== null}
-      categoryId={badge?.categoryId ?? ''}
-      name={badge?.name ?? ''}
-      tier={badge?.tier ?? 'bronze'}
-      unlockedTiers={badge?.unlockedTiers ?? []}
-      onDismiss={dismissBadgeUnlock}
-    />
+    badge ? (
+      <BadgeUnlockModal
+        categoryId={badge.categoryId}
+        name={badge.name}
+        tier={badge.tier}
+        unlockedTiers={badge.unlockedTiers}
+        onDismiss={dismissBadgeUnlock}
+      />
+    ) : null
   );
 }

@@ -31,6 +31,10 @@ export function useUserEvent() {
       const dailyIds = (dailyEvents ?? []).map((e: { id: string }) => e.id);
       if (dailyIds.length === 0) return null;
 
+      type UserEventQueryRow = UserEvent & {
+        daily_event?: DailyEvent & { challenge?: Challenge };
+      };
+
       // One row per user per daily_event — latest if duplicates
       const { data, error } = await supabase
         .from('user_events')
@@ -42,11 +46,28 @@ export function useUserEvent() {
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) return null;
+      if (!data) {
+        const { data: ensured, error: ensureErr } = await supabase.rpc('ensure_today_user_event');
+        if (ensureErr) {
+          if (__DEV__) console.warn('[useUserEvent] ensure_today_user_event', ensureErr.message);
+          return null;
+        }
+        if (!ensured) return null;
 
-      type UserEventQueryRow = UserEvent & {
-        daily_event?: DailyEvent & { challenge?: Challenge };
-      };
+        const row = ensured as UserEvent & {
+          daily_event?: DailyEvent & { challenge?: Challenge };
+        };
+        const { data: withDaily, error: refetchErr } = await supabase
+          .from('user_events')
+          .select(`*, daily_event:daily_events(*, challenge:challenges(*))`)
+          .eq('id', row.id)
+          .maybeSingle();
+        if (refetchErr) throw refetchErr;
+        if (!withDaily) return null;
+        const refetchRow = withDaily as UserEventQueryRow;
+        const challenge = refetchRow.daily_event?.challenge;
+        return { ...refetchRow, challenge } as UserEvent;
+      }
 
       const row = data as UserEventQueryRow;
       const challenge = row.daily_event?.challenge;

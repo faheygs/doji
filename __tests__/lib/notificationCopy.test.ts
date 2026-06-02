@@ -1,9 +1,8 @@
 import {
   notificationActorName,
   notificationActorInitials,
-  followRequestCopy,
-  followAcceptedCopy,
-  newFollowerCopy,
+  friendRequestCopy,
+  friendAcceptedCopy,
   reactionActorsLine,
   challengeCopy,
   normalizeEmbeddedProfile,
@@ -35,27 +34,20 @@ describe('notificationActorInitials', () => {
   });
 });
 
-describe('follow notification copy', () => {
+describe('friend notification copy', () => {
   const actor = { display_name: 'Alex Johnson', username: 'alexj' };
 
-  it('formats follow request', () => {
-    expect(followRequestCopy(actor)).toEqual({
+  it('formats friend request', () => {
+    expect(friendRequestCopy(actor)).toEqual({
       title: 'Alex Johnson',
-      body: 'Wants to follow you',
+      body: 'Sent you a friend request',
     });
   });
 
-  it('formats follow accepted', () => {
-    expect(followAcceptedCopy(actor)).toEqual({
+  it('formats friend accepted', () => {
+    expect(friendAcceptedCopy(actor)).toEqual({
       title: 'Alex Johnson',
-      body: 'Accepted your follow request',
-    });
-  });
-
-  it('formats new follower', () => {
-    expect(newFollowerCopy(actor)).toEqual({
-      title: 'Alex Johnson',
-      body: 'Started following you',
+      body: 'Accepted your friend request',
     });
   });
 });

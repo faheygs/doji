@@ -11,7 +11,7 @@ export function scheduleLocalNotificationIfAllowed(
   title: string,
   body: string,
   data?: Record<string, unknown>,
-  preferenceKind?: NotificationPreferenceKind | 'follow_accepted',
+  preferenceKind?: NotificationPreferenceKind,
 ): void {
   if (Platform.OS === 'web') return;
 

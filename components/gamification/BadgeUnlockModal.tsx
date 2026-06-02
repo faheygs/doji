@@ -1,7 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
+import { IconSpark } from '../icons/IconSpark';
 import { sparksForBadgeTier } from '../../constants/sparks';
 import { BADGE_TIER_COLORS, Spacing, type BadgeTierName } from '../../constants/theme';
 import { Text } from '../ui/Text';
@@ -11,7 +19,6 @@ import { FullScreenCelebrationShell } from './FullScreenCelebrationShell';
 const TIER_ORDER: BadgeTierName[] = ['bronze', 'silver', 'gold', 'diamond'];
 
 type Props = {
-  visible: boolean;
   categoryId: string;
   name: string;
   tier: BadgeTierName;
@@ -21,7 +28,6 @@ type Props = {
 };
 
 export function BadgeUnlockModal({
-  visible,
   categoryId,
   name,
   tier,
@@ -30,6 +36,20 @@ export function BadgeUnlockModal({
 }: Props) {
   const { colors } = useTheme();
   const tierColor = BADGE_TIER_COLORS[tier];
+  const sparkAmount = sparksForBadgeTier(tier);
+  const sparksScale = useSharedValue(0.94);
+  const sparksOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (sparkAmount <= 0) return;
+    sparksOpacity.value = withDelay(320, withTiming(1, { duration: 220 }));
+    sparksScale.value = withDelay(320, withSpring(1, { damping: 14, stiffness: 260 }));
+  }, [sparkAmount, sparksOpacity, sparksScale]);
+
+  const sparksAnimStyle = useAnimatedStyle(() => ({
+    opacity: sparksOpacity.value,
+    transform: [{ scale: sparksScale.value }],
+  }));
 
   const styles = useMemo(
     () =>
@@ -56,6 +76,12 @@ export function BadgeUnlockModal({
           alignItems: 'center',
           justifyContent: 'center',
         },
+        sparksRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: Spacing.xs,
+        },
         tierInner: {
           width: 12,
           height: 12,
@@ -66,7 +92,7 @@ export function BadgeUnlockModal({
   );
 
   return (
-    <FullScreenCelebrationShell visible={visible} onRequestClose={onDismiss}>
+    <FullScreenCelebrationShell onRequestClose={onDismiss}>
       <Text variant="label" color={colors.xpGold} style={{ letterSpacing: 1.2 }}>
         BADGE UNLOCKED
       </Text>
@@ -87,9 +113,14 @@ export function BadgeUnlockModal({
       <Text variant="subhead" color={tierColor} style={{ textTransform: 'capitalize' }}>
         {tier} Tier
       </Text>
-      <Text variant="body" color={colors.accent} style={{ marginTop: Spacing.xs, fontWeight: '700' }}>
-        +{sparksForBadgeTier(tier)} Sparks
-      </Text>
+      {sparkAmount > 0 ? (
+        <Animated.View style={[styles.sparksRow, sparksAnimStyle]}>
+          <IconSpark size={16} />
+          <Text variant="body" color={colors.accent} style={{ fontWeight: '700' }}>
+            +{sparkAmount} Sparks
+          </Text>
+        </Animated.View>
+      ) : null}
       <View style={styles.tierRow}>
         {TIER_ORDER.map((t) => {
           const earned = unlockedTiers.includes(t);

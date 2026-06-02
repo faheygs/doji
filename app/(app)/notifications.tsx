@@ -42,7 +42,7 @@ const CATEGORY_ROWS: RowDef[] = [
   {
     key: 'friend_post',
     title: 'Friend Submitted',
-    description: 'When someone you follow completes the challenge.',
+    description: 'When a friend completes the challenge.',
   },
   {
     key: 'reactions_on_my_post',
@@ -60,19 +60,14 @@ const CATEGORY_ROWS: RowDef[] = [
     description: 'When someone @mentions you in a comment.',
   },
   {
-    key: 'follow_request',
-    title: 'Follow Requests',
-    description: 'When someone requests to follow your private account.',
-  },
-  {
-    key: 'new_follower',
-    title: 'New Followers',
-    description: 'When someone starts following your public account.',
+    key: 'friend_request',
+    title: 'Friend Requests',
+    description: 'When someone sends you a friend request.',
   },
   {
     key: 'friend_accepted',
-    title: 'Follow Accepted',
-    description: 'When someone accepts your follow request.',
+    title: 'Friend Accepted',
+    description: 'When someone accepts your friend request.',
   },
   {
     key: 'badges',

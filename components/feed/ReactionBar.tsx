@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { REACTION_CONTROLS, IconComment } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
+import { useComments } from '../../hooks/useComments';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { formatCompactCount } from '../../utils/formatCount';
 import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
@@ -43,6 +44,12 @@ function ReactionBarImpl({
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
   const myReactions = post.my_reactions ?? [];
+  const { data: scopedComments } = useComments(post.id, {
+    feedAudience,
+    fetchEnabled: feedAudience === 'friends' && !blurred && post.comment_count > 0,
+  });
+  const commentDisplayCount =
+    feedAudience === 'friends' ? (scopedComments?.length ?? 0) : post.comment_count;
   const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
   const [votersOpen, setVotersOpen] = useState(false);
   const [votersEmoji, setVotersEmoji] = useState<ReactionEmoji | null>(null);
@@ -210,17 +217,17 @@ function ReactionBarImpl({
         disabled={blurred}
         style={[styles.commentCol, blurred && styles.disabled]}
         accessibilityRole="button"
-        accessibilityLabel={`Comments, ${post.comment_count}. Open comments.`}
+        accessibilityLabel={`Comments, ${commentDisplayCount}. Open comments.`}
       >
         <View style={styles.commentHit}>
           <IconComment size={ICON_SZ} color={commentMuted} />
         </View>
         <Text
           variant="bodySmall"
-          color={post.comment_count > 0 ? colors.textSecondary : colors.textTertiary}
+          color={commentDisplayCount > 0 ? colors.textSecondary : colors.textTertiary}
           style={styles.commentCount}
         >
-          {formatCompactCount(post.comment_count)}
+          {formatCompactCount(commentDisplayCount)}
         </Text>
       </TouchableOpacity>
       <ReactionVotersSheet

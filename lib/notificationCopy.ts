@@ -30,32 +30,24 @@ export function formatNotificationTime(iso: string): string {
   return iso;
 }
 
-export type FollowRequestCopy = {
+export type NotificationCopy = {
   title: string;
   body: string;
 };
 
-export function followRequestCopy(actor: NotificationActor | null | undefined): FollowRequestCopy {
+export function friendRequestCopy(actor: NotificationActor | null | undefined): NotificationCopy {
   const name = notificationActorName(actor);
   return {
     title: name,
-    body: 'Wants to follow you',
+    body: 'Sent you a friend request',
   };
 }
 
-export function followAcceptedCopy(actor: NotificationActor | null | undefined): FollowRequestCopy {
+export function friendAcceptedCopy(actor: NotificationActor | null | undefined): NotificationCopy {
   const name = notificationActorName(actor);
   return {
     title: name,
-    body: 'Accepted your follow request',
-  };
-}
-
-export function newFollowerCopy(actor: NotificationActor | null | undefined): FollowRequestCopy {
-  const name = notificationActorName(actor);
-  return {
-    title: name,
-    body: 'Started following you',
+    body: 'Accepted your friend request',
   };
 }
 
@@ -76,7 +68,7 @@ export function reactionActorsLine(
   return { title: `${primaryName} and ${extra} others`, body: 'Reacted to your post' };
 }
 
-export function challengeCopy(challengeTitle: string | null | undefined): FollowRequestCopy {
+export function challengeCopy(challengeTitle: string | null | undefined): NotificationCopy {
   const title = challengeTitle?.trim() || "Today's Doji";
   return {
     title: "Today's Doji is live",

@@ -171,7 +171,6 @@ export default function FormatScreen() {
     <SafeAreaView style={styles.container}>
       {xpOverlay ? (
         <XpGainOverlay
-          visible
           amount={xpOverlay.amount}
           sparks={xpOverlay.sparks}
           xp={xpOverlay.xp}

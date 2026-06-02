@@ -12,12 +12,12 @@ function mapCommunityPosts(rows: Record<string, unknown>[]): Post[] {
 /**
  * Community poll cards for the feed.
  * Everyone: all of today's poll cards.
- * Friends: only when someone you follow (or you) has voted.
+ * Friends: only when a friend (or you) has voted.
  */
 export async function fetchCommunityPollPostsForFeed(
   dailyEventIds: string[],
   audience: FeedAudience,
-  followingIds?: string[],
+  friendIds?: string[],
 ): Promise<Post[]> {
   if (dailyEventIds.length === 0) return [];
 
@@ -32,7 +32,7 @@ export async function fetchCommunityPollPostsForFeed(
 
   const mapped = mapCommunityPosts(comm ?? []);
 
-  if (audience === 'everyone' || !followingIds?.length) {
+  if (audience === 'everyone' || !friendIds?.length) {
     return mapped;
   }
 
@@ -46,7 +46,7 @@ export async function fetchCommunityPollPostsForFeed(
     .from('poll_votes')
     .select('challenge_id')
     .in('challenge_id', challengeIds)
-    .in('user_id', followingIds);
+    .in('user_id', friendIds);
 
   if (voteErr) throw voteErr;
 

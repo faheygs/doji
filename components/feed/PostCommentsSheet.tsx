@@ -27,9 +27,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { PostCommentsThread } from './PostCommentsThread';
-import { useToggleCommentsDisabled } from '../../hooks/useComments';
+import { useComments, useToggleCommentsDisabled } from '../../hooks/useComments';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { formatCompactCount } from '../../utils/formatCount';
+import type { FeedAudience } from '../../lib/feedAudience';
 
 type Props = {
   visible: boolean;
@@ -37,6 +38,7 @@ type Props = {
   postOwnerId?: string | null;
   commentsDisabled?: boolean;
   commentCount?: number;
+  feedAudience?: FeedAudience;
   onClose: () => void;
 };
 
@@ -62,12 +64,16 @@ export function PostCommentsSheet({
   postOwnerId,
   commentsDisabled = false,
   commentCount = 0,
+  feedAudience = 'everyone',
   onClose,
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.session?.user?.id);
   const toggleCommentsDisabled = useToggleCommentsDisabled();
+  const { data: scopedComments } = useComments(postId, { feedAudience, fetchEnabled: visible });
+  const displayCommentCount =
+    feedAudience === 'friends' ? (scopedComments?.length ?? 0) : commentCount;
   const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
@@ -288,8 +294,10 @@ export function PostCommentsSheet({
     [colors],
   );
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}>
+    <Modal visible transparent animationType="none" onRequestClose={handleClosePress}>
       <GestureHandlerRootView style={styles.modalRoot}>
         <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="box-none">
           <Pressable
@@ -319,9 +327,9 @@ export function PostCommentsSheet({
                   <Text variant="headingMedium" numberOfLines={1} style={styles.headerTitle}>
                     Comments
                   </Text>
-                  {commentCount > 0 ? (
+                  {displayCommentCount > 0 ? (
                     <Text variant="bodySmall" color={colors.textTertiary} style={styles.headerMeta}>
-                      {formatCompactCount(commentCount)}
+                      {formatCompactCount(displayCommentCount)}
                     </Text>
                   ) : null}
                   <TouchableOpacity
@@ -356,6 +364,7 @@ export function PostCommentsSheet({
                 postOwnerId={postOwnerId}
                 commentsDisabled={localDisabled}
                 fetchEnabled={visible}
+                feedAudience={feedAudience}
                 embedInSheet
               />
             </View>
