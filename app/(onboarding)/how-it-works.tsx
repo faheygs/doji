@@ -12,22 +12,19 @@ const SLIDES = [
   {
     Icon: IconTrophy,
     title: 'Earn XP and Sparks',
-    desc:
-      "Every challenge you complete earns XP (which builds your level and streak) and Sparks — Doji's currency you can spend in the Shop.",
+    desc: "Every challenge you complete earns XP (which builds your level and streak) and Sparks — Doji’s currency you can spend in the Shop.",
     showSparkHint: true,
   },
   {
     Icon: IconBell,
     title: 'Your daily challenge',
-    desc:
-      'Once a day, everyone gets the same Doji — a quick challenge like a photo, poll, or question. Your notification is your cue to jump in.',
+    desc: 'Once a day, everyone gets the same Doji — a quick challenge like a photo, poll, or question. Your notification is your cue to jump in.',
     showSparkHint: false,
   },
   {
     Icon: IconTimer,
     title: 'A quick window to respond',
-    desc:
-      'You'll have a short window to complete each challenge. Miss it? No worries — you can spend Sparks to buy back in and keep your streak alive.',
+    desc: "You'll have a short window to complete each challenge. Miss it? No worries — you can spend Sparks to buy back in and keep your streak alive.",
     showSparkHint: true,
   },
 ] as const;
