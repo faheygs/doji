@@ -30,7 +30,7 @@ import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { isExpired, secondsUntilFiresAt } from '../../utils/time';
 import { backOrHome } from '../../lib/navigationReturn';
-import { canBuyIn, canAffordBuyIn } from '../../lib/participationGate';
+import { canAffordBuyIn } from '../../lib/participationGate';
 import { useBuyInToday } from '../../hooks/useBuyIn';
 import { useSparksBalance } from '../../hooks/useSparks';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
@@ -284,7 +284,7 @@ export default function ChallengeScreen() {
         {(isMissed || isExpiredPending) && !isBuyInOpen ? (
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
             <Text variant="headingLarge">Missed</Text>
-            {canBuyIn(userEvent) && eligible ? (
+            {eligible ? (
               canAffordBuyIn(sparks) ? (
                 <TouchableOpacity
                   style={styles.buyInBtn}
