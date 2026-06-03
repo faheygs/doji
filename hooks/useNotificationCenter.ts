@@ -279,13 +279,11 @@ export function useNotificationCenter() {
     queryFn: async (): Promise<UserEvent[]> => {
       if (!userId) return [];
 
-      // Include buy_in_open so users who paid sparks see a reminder to complete.
-      // Pending: only non-expired (window still open). Buy_in_open: until its expires_at.
       const { data, error } = await supabase
         .from('user_events')
         .select('*, daily_event:daily_events(*, challenge:challenges(*))')
         .eq('user_id', userId)
-        .in('status', ['pending', 'buy_in_open'])
+        .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString())
         .order('expires_at', { ascending: false })
         .limit(25);
