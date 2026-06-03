@@ -125,12 +125,12 @@ function RootLayoutInner() {
     import('expo-notifications').then((Notifications) => {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
-          // Foreground: silence banner and sound — the in-app bell already surfaces the notification.
+          // Foreground: receive silently — the in-app bell is the source of truth.
           // Background/killed-app pushes are unaffected by this handler and always show the OS banner.
           shouldPlaySound: false,
           shouldSetBadge: false,
           shouldShowBanner: false,
-          shouldShowList: true,
+          shouldShowList: false,
         }),
       });
     });
