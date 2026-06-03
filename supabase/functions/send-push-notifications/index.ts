@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
 
     const notifications: ExpoMessage[] = pushRows.map((e) => ({
       to: e.profiles!.notification_token!.trim(),
-      title: title ?? '⚡ Doji! Challenge Time',
-      body: body ?? 'Your challenge is waiting!',
+      title: title ?? 'Doji Challenge',
+      body: body ?? 'Your challenge is waiting.',
       data: { ...dataObj, user_event_id: e.id },
       sound: 'default' as const,
       badge: 1,

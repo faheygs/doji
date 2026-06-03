@@ -95,9 +95,10 @@ function mapUserEventRow(row: unknown): UserEvent {
 }
 
 function challengeSortAt(ev: UserEvent): string {
-  const n = ev.notified_at;
-  if (!n) return ev.created_at;
-  return new Date(n) > new Date(ev.created_at) ? n : ev.created_at;
+  // fires_at is when the challenge went live — use it as the display timestamp
+  // so the notification shows "X minutes ago" relative to when users got the
+  // challenge, not "10 hours ago" from when the cron created the user_event.
+  return ev.daily_event?.fires_at ?? ev.notified_at ?? ev.created_at;
 }
 
 function lowerSinceIso(clearedAt: string | null): string {

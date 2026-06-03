@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../lib/supabase';
-import { scheduleLocalNotificationIfAllowed } from '../lib/localPush';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useCelebrationStore } from '../stores/useCelebrationStore';
 import { isBadgeTierUpgrade, tiersUnlockedUpTo } from '../lib/badgeCelebration';
@@ -108,14 +107,6 @@ export function useAppRealtime(userId: string | undefined) {
                 .maybeSingle();
 
               if (!live) return;
-              if (friendshipRow) {
-                scheduleLocalNotificationIfAllowed(
-                  'Friend posted',
-                  'A friend shared something new on Doji.',
-                  { type: 'FRIEND_POST', postId: row.id },
-                  'friend_post',
-                );
-              }
             })();
           }
         },
@@ -140,22 +131,10 @@ export function useAppRealtime(userId: string | undefined) {
               text1: 'New friend request',
               text2: 'Open notifications to respond.',
             });
-            scheduleLocalNotificationIfAllowed(
-              'Friend request',
-              'Someone wants to connect on Doji.',
-              { type: 'FRIEND_REQUEST' },
-              'friend_request',
-            );
           }
           if (payload.eventType === 'UPDATE' && n?.requester_id === userId) {
             if (n.status === 'accepted') {
               Toast.show({ type: 'success', text1: 'Friend request accepted' });
-              scheduleLocalNotificationIfAllowed(
-                "You're friends",
-                'Your friend request was accepted.',
-                { type: 'FRIEND_ACCEPTED' },
-                'friend_accepted',
-              );
             } else if (n.status === 'blocked') {
               Toast.show({ type: 'info', text1: 'Friend request declined' });
             }
@@ -194,20 +173,6 @@ export function useAppRealtime(userId: string | undefined) {
             if (!live) return;
             if (postRow?.user_id === userId) {
               void useAuthStore.getState().fetchProfile(userId);
-            }
-
-            if (
-              payload.eventType === 'INSERT' &&
-              row.user_id &&
-              row.user_id !== userId &&
-              postRow?.user_id === userId
-            ) {
-              scheduleLocalNotificationIfAllowed(
-                'New reaction',
-                'Someone reacted to your post.',
-                { type: 'REACTION', postId: row.post_id },
-                'reactions_on_my_post',
-              );
             }
           })();
         },
@@ -388,12 +353,6 @@ export function useAppRealtime(userId: string | undefined) {
             row.current_tier &&
             isBadgeTierUpgrade(oldRow?.current_tier, row.current_tier)
           ) {
-            scheduleLocalNotificationIfAllowed(
-              'Badge Unlocked',
-              `${row.category_id ?? 'Badge'} — ${row.current_tier ?? ''} tier`,
-              { type: 'BADGE_EARNED', categoryId: row.category_id, tier: row.current_tier },
-              'badges',
-            );
             void (async () => {
               if (!live) return;
               const { data: category } = await supabase
@@ -424,14 +383,6 @@ export function useAppRealtime(userId: string | undefined) {
             queryClient.invalidateQueries({ queryKey: ['userBadges'] });
           }
           queryClient.invalidateQueries({ queryKey: ['profile'] });
-          if (payload.eventType === 'INSERT' && row?.user_id === userId) {
-            scheduleLocalNotificationIfAllowed(
-              'Badge Earned',
-              `You just unlocked a new badge: ${row.badge_id}`,
-              { type: 'BADGE_EARNED', badgeId: row.badge_id },
-              'badges',
-            );
-          }
         },
       )
       .subscribe();

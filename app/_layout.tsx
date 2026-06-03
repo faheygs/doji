@@ -84,6 +84,11 @@ function RootLayoutInner() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const gate = useAuthGate();
+  // Once we have successfully rendered with gate.ready, never blank the screen
+  // again — profile refreshes (isProfileLoading) should not unmount the nav stack
+  // and reset navigation to the initial route.
+  const hasRenderedOnce = React.useRef(false);
+  if (gate.ready) hasRenderedOnce.current = true;
 
   const toastConfig = useMemo(() => buildToastConfig(colors, isDark), [colors, isDark]);
 
@@ -199,7 +204,7 @@ function RootLayoutInner() {
     };
   }, [router, gate.ready]);
 
-  if (!gate.ready) {
+  if (!gate.ready && !hasRenderedOnce.current) {
     return null;
   }
 

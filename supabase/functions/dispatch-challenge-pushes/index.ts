@@ -10,12 +10,12 @@ const supabase = createClient(
 
 const BATCH_SIZE = 100;
 
-const categoryEmojis: Record<string, string> = {
-  physical: '💪',
-  creative: '🎨',
-  social: '🤝',
-  mental: '🧠',
-  wild: '🌪️',
+const categoryLabels: Record<string, string> = {
+  physical: 'Physical',
+  creative: 'Creative',
+  social: 'Social',
+  mental: 'Mental',
+  wild: 'Wild',
 };
 
 async function clearNotificationTokensForUsers(userIds: string[]) {
@@ -141,11 +141,11 @@ Deno.serve(async (req) => {
         new Date(ev.fires_at).getTime() + ev.window_minutes * 60 * 1000,
       ).toISOString();
 
-      const emoji = categoryEmojis[challenge.category] ?? '⚡';
+      const categoryLabel = categoryLabels[challenge.category] ?? 'Challenge';
       const messages: ExpoMessage[] = pushRows.map((r) => ({
         to: r.profiles!.notification_token!.trim(),
-        title: `${emoji} It's time to Doji!`,
-        body: `${challenge.title} — you have ${ev.window_minutes} minutes. Go!`,
+        title: `It's time to Doji!`,
+        body: `${categoryLabel}: ${challenge.title} — you have ${ev.window_minutes} minutes.`,
         data: {
           type: 'CHALLENGE',
           daily_event_id: ev.id,
