@@ -125,10 +125,11 @@ function RootLayoutInner() {
     import('expo-notifications').then((Notifications) => {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
-          shouldPlaySound: true,
-          // OS icon badge is driven by AppIconBadgeSync + in-app bell unread count, not push payload.
+          // Foreground: silence banner and sound — the in-app bell already surfaces the notification.
+          // Background/killed-app pushes are unaffected by this handler and always show the OS banner.
+          shouldPlaySound: false,
           shouldSetBadge: false,
-          shouldShowBanner: true,
+          shouldShowBanner: false,
           shouldShowList: true,
         }),
       });
