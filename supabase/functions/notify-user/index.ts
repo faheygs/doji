@@ -25,12 +25,7 @@ function prefEnabled(
   preferenceKey: string,
 ): boolean {
   if (!prefs || typeof prefs !== 'object') return true;
-  if (prefs.push_enabled === false) return false;
   return prefs[preferenceKey] !== false;
-}
-
-async function clearNotificationToken(userId: string) {
-  await supabase.from('profiles').update({ notification_token: null }).eq('id', userId);
 }
 
 Deno.serve(async (req) => {
@@ -108,16 +103,19 @@ Deno.serve(async (req) => {
     };
 
     const { httpOk, tickets, invalidTokenIndices } = await sendExpoPushMessages([message]);
-    if (invalidTokenIndices.length > 0) {
-      await clearNotificationToken(row.id);
-    }
+
+    // Do NOT clear the token here even on DeviceNotRegistered.
+    // dispatch-challenge-pushes is the canonical push sender and owns token cleanup.
+    // Clearing here caused a race: a social push (friend-post, reaction, etc.) could
+    // wipe the token hours before the challenge dispatch runs, silently dropping the
+    // most important notification the user receives.
 
     return new Response(
       JSON.stringify({
         message: 'Sent',
         httpOk,
         tickets,
-        cleared_invalid_tokens: invalidTokenIndices.length,
+        stale_token: invalidTokenIndices.length > 0,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     );

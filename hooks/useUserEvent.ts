@@ -29,21 +29,22 @@ export function useUserEvent() {
 
       if (deErr) throw deErr;
       const dailyIds = (dailyEvents ?? []).map((e: { id: string }) => e.id);
-      if (dailyIds.length === 0) return null;
 
       type UserEventQueryRow = UserEvent & {
         daily_event?: DailyEvent & { challenge?: Challenge };
       };
 
       // One row per user per daily_event — latest if duplicates
-      const { data, error } = await supabase
+      // If dailyIds is empty (fires_at crosses a timezone day boundary vs local midnight),
+      // skip to ensure_today_user_event which uses Pacific time on the server.
+      const { data, error } = dailyIds.length > 0 ? await supabase
         .from('user_events')
         .select(`*, daily_event:daily_events(*, challenge:challenges(*))`)
         .eq('user_id', userId)
         .in('daily_event_id', dailyIds)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle() : { data: null, error: null };
 
       if (error) throw error;
       if (!data) {

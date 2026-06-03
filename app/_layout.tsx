@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, AppState } from 'react-native';
 import { webRootViewStyle, webScrollParentStyle } from '../constants/theme';
 import { useFonts } from 'expo-font';
 import { Sora_800ExtraBold } from '@expo-google-fonts/sora';
@@ -97,9 +97,9 @@ function RootLayoutInner() {
       if (session?.user?.id) {
         await fetchProfile(session.user.id);
       } else {
-        useAuthStore.getState().setProfile(null);
+        // No session — nothing to fetch; mark startup done immediately.
+        if (!cancelled) setLoading(false);
       }
-      if (!cancelled) setLoading(false);
     })();
 
     const {
@@ -143,8 +143,7 @@ function RootLayoutInner() {
     if (Platform.OS === 'web') return;
     if (!userId) return;
 
-    let cancelled = false;
-    void (async () => {
+    async function syncPushToken() {
       try {
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.getPermissionsAsync();
@@ -153,14 +152,34 @@ function RootLayoutInner() {
         const { data: token } = await Notifications.getExpoPushTokenAsync(
           projectId ? { projectId } : undefined,
         );
-        if (cancelled || !token) return;
+        if (!token) return;
         const current = useAuthStore.getState().profile?.notification_token;
         if (current !== token) {
-          await supabase.from('profiles').update({ notification_token: token }).eq('id', userId);
+          await supabase
+            .from('profiles')
+            .update({ notification_token: token })
+            .eq('id', userId);
+          // Keep local store in sync so the next foreground check is accurate
+          const profile = useAuthStore.getState().profile;
+          if (profile) {
+            useAuthStore.getState().setProfile({ ...profile, notification_token: token });
+          }
         }
-      } catch { /* token refresh is best-effort */ }
-    })();
-    return () => { cancelled = true; };
+      } catch (e) {
+        if (__DEV__) console.warn('[pushToken] sync failed', e);
+      }
+    }
+
+    // Sync on startup
+    void syncPushToken();
+
+    // Re-sync whenever the app comes back to the foreground — iOS silently rotates
+    // APNs tokens while the app is backgrounded, so we can't rely on cold-start only.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void syncPushToken();
+    });
+
+    return () => sub.remove();
   }, [userId]);
 
   useEffect(() => {

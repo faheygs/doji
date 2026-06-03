@@ -191,6 +191,7 @@ export type Post = {
   my_reactions?: ReactionEmoji[];
   profile?: Profile;
   challenge?: Challenge;
+  daily_event?: DailyEvent;
   poll_option_text?: string;
 };
 

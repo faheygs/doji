@@ -1,7 +1,9 @@
+import { parseDate } from '../utils/time';
+
 /**
  * Local calendar day boundaries for matching `daily_events.fires_at`.
- * `start` / `end` are UTC ISO strings for the viewer’s local midnight → next midnight
- * (each device’s timezone; same calendar logic as yesterday/week ranges).
+ * `start` / `end` are UTC ISO strings for the viewer's local midnight → next midnight
+ * (each device's timezone; same calendar logic as yesterday/week ranges).
  */
 export function todayFiresAtWindow(): { start: string; end: string } {
   const now = new Date();
@@ -37,7 +39,7 @@ export function pastSevenDaysRange(): { start: string; end: string } {
 }
 
 /**
- * YYYY-MM-DD for a calendar day in the device’s local timezone (not UTC).
+ * YYYY-MM-DD for a calendar day in the device's local timezone (not UTC).
  * Use for grouping and labels so “today” matches the viewer (e.g. 10pm MT vs midnight ET).
  */
 export function localDateKeyFromDate(d: Date): string {
@@ -49,11 +51,11 @@ export function localDateKeyFromDate(d: Date): string {
 
 /** YYYY-MM-DD in local time for an ISO instant (`fires_at`, `created_at`, etc.). */
 export function localDateKeyFromIso(iso: string): string {
-  return localDateKeyFromDate(new Date(iso));
+  return localDateKeyFromDate(parseDate(iso));
 }
 
 /** Challenge drop is live for the viewer (feed + poll posts allowed). */
 export function isChallengeLive(firesAt: string | null | undefined): boolean {
   if (!firesAt) return false;
-  return new Date(firesAt).getTime() <= Date.now();
+  return parseDate(firesAt).getTime() <= Date.now();
 }

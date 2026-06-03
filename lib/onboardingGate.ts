@@ -1,4 +1,5 @@
 import type { Profile } from '../types/database';
+import { parseDate } from '../utils/time';
 
 /** True when a brand-new account must finish first-run onboarding. */
 export function needsOnboarding(profile: Profile | null | undefined): boolean {
@@ -10,7 +11,7 @@ export function needsOnboarding(profile: Profile | null | undefined): boolean {
     return false;
   }
 
-  const accountAgeMs = Date.now() - new Date(profile.created_at).getTime();
+  const accountAgeMs = Date.now() - parseDate(profile.created_at).getTime();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   if (accountAgeMs > ONE_DAY_MS) return false;
 

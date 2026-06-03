@@ -13,6 +13,7 @@ import {
   getBannerChallengeSecondsRemaining,
   formatMinutesSecondsCountdown,
   secondsUntilFiresAt,
+  parseDate,
 } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
@@ -239,7 +240,7 @@ export function ChallengeBanner({ userEvent }: Props) {
   if (userEvent.status === 'buy_in_open' && !isExpired(userEvent.expires_at)) {
     const buyInSecondsLeft = Math.max(
       0,
-      Math.floor((new Date(userEvent.expires_at).getTime() - Date.now()) / 1000),
+      Math.floor((parseDate(userEvent.expires_at).getTime() - Date.now()) / 1000),
     );
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>

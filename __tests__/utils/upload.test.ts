@@ -3,6 +3,13 @@ import { supabase } from '../../lib/supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 jest.mock('../../lib/supabase');
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn().mockResolvedValue({ uri: 'file://compressed.jpg' }),
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+}));
+jest.mock('expo-file-system', () => ({
+  readAsStringAsync: jest.fn().mockResolvedValue('dGVzdA=='), // base64 "test"
+}));
 
 const mockStorageFrom = supabase.storage.from as jest.Mock;
 

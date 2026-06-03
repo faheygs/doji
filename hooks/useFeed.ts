@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
+import { parseDate } from '../utils/time';
 import { fetchCommunityPollPostsForFeed } from '../lib/feedCommunityPoll';
 import { filterPostsForAudience, type FeedAudience } from '../lib/feedAudience';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
@@ -96,7 +97,7 @@ async function fetchFeedPostsPage(
   const merged =
     offset === 0
       ? [...communityMapped, ...userMapped].sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          (a, b) => parseDate(b.created_at).getTime() - parseDate(a.created_at).getTime(),
         )
       : userMapped;
 

@@ -110,7 +110,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ profile });
     } finally {
-      if (!signal.aborted) set({ isProfileLoading: false });
+      if (!signal.aborted) {
+        set({ isProfileLoading: false, isLoading: false });
+      }
     }
   },
 

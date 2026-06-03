@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import {
   Spacing,
   Radius,
@@ -29,6 +30,12 @@ import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { isExpired, secondsUntilFiresAt } from '../../utils/time';
 import { backOrHome } from '../../lib/navigationReturn';
+import { canBuyIn, canAffordBuyIn } from '../../lib/participationGate';
+import { useBuyInToday } from '../../hooks/useBuyIn';
+import { useSparksBalance } from '../../hooks/useSparks';
+import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
+import { LiveSparksPill } from '../../components/economy/SparksPill';
+import { BuyInSheet } from '../../components/economy/BuyInSheet';
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -36,6 +43,9 @@ export default function ChallengeScreen() {
   const catColors = useMemo(() => getCategoryColors(colors), [colors]);
 
   const { data: userEvent, isLoading } = useUserEvent();
+  const sparks = useSparksBalance();
+  const { eligible, buyIn, isPending: buyInPending } = useBuyInToday(userEvent);
+  const [buyInVisible, setBuyInVisible] = useState(false);
 
   const challenge = userEvent?.challenge;
   const challengeType = challenge?.type ?? 'photo';
@@ -79,6 +89,20 @@ export default function ChallengeScreen() {
 
   const handleClose = () => {
     backOrHome(router);
+  };
+
+  const handleBuyIn = async () => {
+    try {
+      await buyIn();
+      setBuyInVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      Toast.show({
+        type: 'error',
+        text1: 'Buy-in failed',
+        text2: e instanceof Error ? e.message : 'Try again',
+      });
+    }
   };
 
   const ctaLabel =
@@ -154,6 +178,13 @@ export default function ChallengeScreen() {
           alignItems: 'center',
           justifyContent: 'center',
         },
+        buyInBtn: {
+          backgroundColor: colors.primary,
+          borderRadius: Radius.sm,
+          paddingVertical: Spacing.sm,
+          paddingHorizontal: Spacing.lg,
+          marginTop: Spacing.xs,
+        },
       }),
     [colors],
   );
@@ -164,6 +195,24 @@ export default function ChallengeScreen() {
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary}>
             Loading…
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isLoading && !userEvent) {
+    return (
+      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
+            <IconClose size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.centered}>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>No challenge yet</Text>
+          <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+            {"Today's Doji hasn't dropped yet.\nCheck back soon."}
           </Text>
         </View>
       </SafeAreaView>
@@ -235,9 +284,31 @@ export default function ChallengeScreen() {
         {(isMissed || isExpiredPending) && !isBuyInOpen ? (
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
             <Text variant="headingLarge">Missed</Text>
-            <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
-              Window closed. Buy in from the home feed if you have Sparks.
-            </Text>
+            {canBuyIn(userEvent) && eligible ? (
+              canAffordBuyIn(sparks) ? (
+                <TouchableOpacity
+                  style={styles.buyInBtn}
+                  onPress={() => { Haptics.selectionAsync(); setBuyInVisible(true); }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
+                >
+                  <Text variant="label" color={colors.onPrimary}>
+                    Buy in · {SPARKS_BUY_IN_COST} Sparks
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ alignItems: 'center', gap: 4 }}>
+                  <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+                    Need {SPARKS_BUY_IN_COST} Sparks to rejoin.
+                  </Text>
+                  <LiveSparksPill compact />
+                </View>
+              )
+            ) : (
+              <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+                Window closed.
+              </Text>
+            )}
           </Animated.View>
         ) : isBuyInOpen ? (
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
@@ -270,6 +341,16 @@ export default function ChallengeScreen() {
           </Button>
         )}
       </Animated.View>
+
+      <BuyInSheet
+        visible={buyInVisible}
+        userEvent={userEvent ?? null}
+        challenge={challenge ?? null}
+        sparksBalance={sparks}
+        onConfirm={handleBuyIn}
+        onClose={() => setBuyInVisible(false)}
+        loading={buyInPending}
+      />
     </SafeAreaView>
   );
 }

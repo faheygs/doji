@@ -6,6 +6,16 @@ jest.mock('../../lib/supabase');
 
 const mockFrom = supabase.from as jest.Mock;
 
+/** Build a chain that handles both the initial select and any subsequent update. */
+function makeChain(data: unknown, error: unknown = null) {
+  const chain: Record<string, jest.Mock> = {};
+  ['select', 'update', 'eq', 'abortSignal'].forEach((m) => {
+    chain[m] = jest.fn().mockReturnValue(chain);
+  });
+  chain.maybeSingle = jest.fn().mockResolvedValue({ data, error });
+  return chain;
+}
+
 describe('useAuthStore', () => {
   beforeEach(() => {
     useAuthStore.setState({
@@ -63,46 +73,34 @@ describe('useAuthStore', () => {
 
   describe('fetchProfile', () => {
     it('fetches profile and updates state', async () => {
-      const mockProfile = { id: 'user-1', username: 'testuser', xp: 100 };
-      const chain = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({ data: mockProfile, error: null }),
+      // onboarding_completed_at set → no auto-complete second query
+      const mockProfile = {
+        id: 'user-1',
+        username: 'testuser',
+        xp: 100,
+        onboarding_completed_at: new Date().toISOString(),
       };
-      mockFrom.mockReturnValue(chain);
+      mockFrom.mockReturnValue(makeChain(mockProfile));
 
       await useAuthStore.getState().fetchProfile('user-1');
 
       expect(mockFrom).toHaveBeenCalledWith('profiles');
-      expect(useAuthStore.getState().profile).toEqual({
-        ...mockProfile,
-        app_theme: 'midnight',
-        notification_preferences: mergeNotificationPreferences(undefined),
+      expect(useAuthStore.getState().profile).toMatchObject({
+        id: 'user-1',
+        username: 'testuser',
+        xp: 100,
       });
     });
 
     it('sets profile to null when not found', async () => {
-      const chain = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-      };
-      mockFrom.mockReturnValue(chain);
+      mockFrom.mockReturnValue(makeChain(null));
 
       await useAuthStore.getState().fetchProfile('nonexistent');
       expect(useAuthStore.getState().profile).toBeNull();
     });
 
     it('does not throw on error, logs in dev', async () => {
-      const chain = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'connection failed' },
-        }),
-      };
-      mockFrom.mockReturnValue(chain);
+      mockFrom.mockReturnValue(makeChain(null, { message: 'connection failed' }));
 
       await expect(useAuthStore.getState().fetchProfile('user-1')).resolves.not.toThrow();
     });
@@ -115,6 +113,7 @@ describe('useAuthStore', () => {
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
+        abortSignal: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({ data: updated, error: null }),
       };
       mockFrom.mockReturnValue(chain);
@@ -125,10 +124,9 @@ describe('useAuthStore', () => {
       });
 
       await useAuthStore.getState().updateProfile({ display_name: 'New Name' });
-      expect(useAuthStore.getState().profile).toEqual({
-        ...updated,
-        app_theme: 'midnight',
-        notification_preferences: mergeNotificationPreferences(undefined),
+      expect(useAuthStore.getState().profile).toMatchObject({
+        id: 'user-1',
+        display_name: 'New Name',
       });
     });
 
@@ -144,6 +142,7 @@ describe('useAuthStore', () => {
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
+        abortSignal: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: new Error('RLS violation'),

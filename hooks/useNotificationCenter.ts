@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Profile, UserEvent, Friendship, FriendshipWithRequester } from '../types/database';
 import { useFriendRequests } from './useProfile';
 import { isChallengeLive } from '../lib/challengeDay';
+import { parseDate } from '../utils/time';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { normalizeEmbeddedProfile } from '../lib/notificationCopy';
 
@@ -278,11 +279,13 @@ export function useNotificationCenter() {
     queryFn: async (): Promise<UserEvent[]> => {
       if (!userId) return [];
 
+      // Include buy_in_open so users who paid sparks see a reminder to complete.
+      // Pending: only non-expired (window still open). Buy_in_open: until its expires_at.
       const { data, error } = await supabase
         .from('user_events')
         .select('*, daily_event:daily_events(*, challenge:challenges(*))')
         .eq('user_id', userId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'buy_in_open'])
         .gt('expires_at', new Date().toISOString())
         .order('expires_at', { ascending: false })
         .limit(25);
@@ -374,7 +377,7 @@ export function useNotificationCenter() {
 
   const items = useMemo((): NotificationCenterItem[] => {
     const reqItems: NotificationCenterItem[] = [...friendRequests]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .sort((a, b) => parseDate(b.created_at).getTime() - parseDate(a.created_at).getTime())
       .map((f) => ({
         key: `friend_request:${f.id}`,
         kind: 'friend_request' as const,
@@ -400,7 +403,7 @@ export function useNotificationCenter() {
 
     const reactionGroups: NotificationCenterItem[] = [];
     for (const [postId, rows] of byPost) {
-      rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      rows.sort((a, b) => parseDate(b.created_at).getTime() - parseDate(a.created_at).getTime());
       const seenUser = new Set<string>();
       const actors: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[] = [];
       const emojis: string[] = [];
@@ -532,7 +535,7 @@ export function useNotificationCenter() {
         k === 'friend_request' ? 0 : 1;
       const p = priority(a.kind) - priority(b.kind);
       if (p !== 0) return p;
-      return new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime();
+      return parseDate(b.sortAt).getTime() - parseDate(a.sortAt).getTime();
     });
 
     return merged;
@@ -552,7 +555,7 @@ export function useNotificationCenter() {
   // Always computed — drives the in-app bell dot regardless of settings.
   const unreadCount = useMemo(() => {
     const openedMs = lastOpenedAt ? new Date(lastOpenedAt).getTime() : 0;
-    return items.filter((i) => new Date(i.sortAt).getTime() > openedMs).length;
+    return items.filter((i) => parseDate(i.sortAt).getTime() > openedMs).length;
   }, [items, lastOpenedAt]);
 
   // badgeCount: same as unreadCount but gated by the show_bell_badge preference.

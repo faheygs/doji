@@ -23,7 +23,7 @@ import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { formatCompactCount } from '../../utils/formatCount';
-import { formatCompactRelativeTime } from '../../utils/time';
+import { formatCompactRelativeTime, parseDate } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import {
   useComments,
@@ -50,7 +50,7 @@ function buildRows(comments: CommentWithMeta[]): Row[] {
     byParent.get(k)!.push(c);
   }
   const sortByTime = (a: CommentWithMeta, b: CommentWithMeta) =>
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    parseDate(a.created_at).getTime() - parseDate(b.created_at).getTime();
 
   const tops = (byParent.get(null) ?? []).slice().sort(sortByTime);
   const rows: Row[] = [];

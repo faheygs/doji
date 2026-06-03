@@ -1,7 +1,29 @@
 import { formatDistanceToNow, format, differenceInSeconds, isPast } from 'date-fns';
 
+/**
+ * Parse a Supabase/PostgreSQL timestamp string reliably across all JS engines.
+ *
+ * Supabase returns timestamps like "2026-06-03 00:07:53.947+00" — a space
+ * separator instead of T, and +00 instead of Z or +00:00. Hermes (React
+ * Native on iOS) does not fully support this non-standard format and can
+ * return wrong dates or Invalid Date. Normalise to ISO 8601 before parsing.
+ */
+export function parseDate(dateString: string): Date {
+  let normalised = dateString
+    .trim()
+    .replace(' ', 'T')                    // space → T separator
+    .replace(/([+-]\d{2})$/, '$1:00')     // +00 → +00:00
+    .replace(/\+00:00$/, 'Z');            // +00:00 → Z (unambiguous UTC)
+  // If no timezone indicator, assume UTC (Supabase stores in UTC)
+  if (!/Z$|[+-]\d{2}:\d{2}$/.test(normalised)) {
+    normalised += 'Z';
+  }
+  const d = new Date(normalised);
+  return isNaN(d.getTime()) ? new Date(dateString) : d;
+}
+
 export function getTimeRemaining(expiresAt: string): number {
-  const expiry = new Date(expiresAt);
+  const expiry = parseDate(expiresAt);
   const now = new Date();
   const diff = differenceInSeconds(expiry, now);
   return Math.max(0, diff);
@@ -9,7 +31,7 @@ export function getTimeRemaining(expiresAt: string): number {
 
 /** Positive = fires_at is in the future. Negative = fires_at has already passed. */
 export function secondsUntilFiresAt(fires_at: string): number {
-  return Math.floor((new Date(fires_at).getTime() - Date.now()) / 1000);
+  return Math.floor((parseDate(fires_at).getTime() - Date.now()) / 1000);
 }
 
 const BANNER_MAX_SECONDS = 10 * 60;
@@ -21,7 +43,7 @@ export function getBannerChallengeSecondsRemaining(
   if (!dailyEvent?.fires_at) return 0;
   const rawMins = dailyEvent.window_minutes;
   const minutes = Math.min(rawMins > 0 ? rawMins : 10, 10);
-  const windowEndMs = new Date(dailyEvent.fires_at).getTime() + minutes * 60 * 1000;
+  const windowEndMs = parseDate(dailyEvent.fires_at).getTime() + minutes * 60 * 1000;
   const rawSec = Math.floor((windowEndMs - Date.now()) / 1000);
   return Math.max(0, Math.min(rawSec, BANNER_MAX_SECONDS));
 }
@@ -46,12 +68,12 @@ export function formatCountdown(seconds: number): string {
 }
 
 export function formatRelativeTime(dateString: string): string {
-  return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+  return formatDistanceToNow(parseDate(dateString), { addSuffix: true });
 }
 
 /** Shorter relative labels for tight UI rows (e.g. comment meta). */
 export function formatCompactRelativeTime(dateString: string): string {
-  const seconds = differenceInSeconds(new Date(), new Date(dateString));
+  const seconds = differenceInSeconds(new Date(), parseDate(dateString));
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return minutes === 1 ? '1 min ago' : `${minutes} min ago`;
@@ -61,15 +83,15 @@ export function formatCompactRelativeTime(dateString: string): string {
   if (days < 7) return days === 1 ? '1 day ago' : `${days} days ago`;
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return weeks === 1 ? '1 wk ago' : `${weeks} wk ago`;
-  return format(new Date(dateString), 'MMM d');
+  return format(parseDate(dateString), 'MMM d');
 }
 
 export function isExpired(expiresAt: string): boolean {
-  return isPast(new Date(expiresAt));
+  return isPast(parseDate(expiresAt));
 }
 
 export function formatChallengeDate(dateString: string): string {
-  return format(new Date(dateString), 'MMM d, yyyy');
+  return format(parseDate(dateString), 'MMM d, yyyy');
 }
 
 export function getCompletionRate(completions: number, total: number): number {

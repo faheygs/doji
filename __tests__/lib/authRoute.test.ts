@@ -70,9 +70,10 @@ describe('resolveAuthenticatedRoute', () => {
 });
 
 describe('isAuthRoutingPending', () => {
-  it('is pending when boot or profile loading', () => {
+  it('is pending only when boot loading', () => {
     expect(isAuthRoutingPending(true, false)).toBe(true);
-    expect(isAuthRoutingPending(false, true)).toBe(true);
+    expect(isAuthRoutingPending(true, true)).toBe(true);
+    expect(isAuthRoutingPending(false, true)).toBe(false);
     expect(isAuthRoutingPending(false, false)).toBe(false);
   });
 });

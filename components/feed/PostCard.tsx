@@ -258,7 +258,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
                 {challengeKindLabel(c)}
               </Text>
               <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
-                {formatRelativeTime(post.created_at)}
+                {formatRelativeTime(post.daily_event?.fires_at ?? post.created_at)}
               </Text>
             </View>
           </View>
