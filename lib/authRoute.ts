@@ -15,8 +15,13 @@ export function resolveAuthenticatedRoute(
   return ROUTES.feed;
 }
 
-export function isAuthRoutingPending(isLoading: boolean, isProfileLoading: boolean): boolean {
-  return isLoading || isProfileLoading;
+export function isAuthRoutingPending(isLoading: boolean, _isProfileLoading: boolean): boolean {
+  // isLoading is true only during the one-time startup session check and is
+  // set to false permanently once the initial profile fetch completes.
+  // isProfileLoading can become true again on any subsequent fetchProfile call
+  // (e.g. pull-to-refresh on the profile screen), and including it here caused
+  // gate.canUseApp to flip false → Stack.Protected would redirect away from (app).
+  return isLoading;
 }
 
 export type AuthGate = {
