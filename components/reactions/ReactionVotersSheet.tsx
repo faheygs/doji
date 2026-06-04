@@ -85,7 +85,7 @@ export function ReactionVotersSheet({
     });
   }, [allReactions, emojiFilter]);
 
-  const winH = Dimensions.get('window').height;
+  const winH = Dimensions.get('window').height; // used for sheet height only
 
   const handleClose = useCallback(() => {
     Haptics.selectionAsync();
@@ -114,8 +114,7 @@ export function ReactionVotersSheet({
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
-          maxHeight: winH * 0.72,
-          minHeight: 220,
+          height: winH * 0.5,
           backgroundColor: colors.surface,
           borderTopLeftRadius: Radius.lg,
           borderTopRightRadius: Radius.lg,
