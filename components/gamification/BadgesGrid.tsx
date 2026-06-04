@@ -68,7 +68,7 @@ type Props = {
 
 export function BadgesGrid({ categories, tiers, progress, progressStats, readOnly = false }: Props) {
   const { colors } = useTheme();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const progressMap = new Map(progress.map((p) => [p.category_id, p]));
   const tiersByCategory = useMemo(() => {
     const map = new Map<string, BadgeTier[]>();
@@ -125,7 +125,7 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
         sheet: {
           borderTopLeftRadius: Radius.xl,
           borderTopRightRadius: Radius.xl,
-          maxHeight: '75%',
+          height: windowHeight * 0.5,
           ...Platform.select({
             ios: {
               shadowColor: colors.shadowBase,

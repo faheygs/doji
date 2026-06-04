@@ -7,6 +7,7 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  Dimensions,
   type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -89,7 +90,7 @@ export function KeyboardSafeSheet({
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
-          maxHeight: '92%',
+          height: Dimensions.get('window').height * 0.5,
           backgroundColor: colors.surfaceElevated,
           borderTopLeftRadius: Radius.xl,
           borderTopRightRadius: Radius.xl,

@@ -28,7 +28,7 @@ type Props = {
   ownerDisplayName?: string | null;
 };
 
-const SHEET_HEIGHT_RATIO = 0.72;
+const SHEET_HEIGHT_RATIO = 0.5;
 
 export function ProfileFriendsSheet({
   visible,

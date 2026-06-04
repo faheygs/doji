@@ -543,7 +543,7 @@ function PollResultCardImpl({
                 styles.modalSheet,
                 sheetSlideStyle,
                 {
-                  maxHeight: voterSheetMaxHeight,
+                  height: voterSheetMaxHeight,
                   paddingBottom: insets.bottom + Spacing.sm,
                 },
               ]}
@@ -564,7 +564,7 @@ function PollResultCardImpl({
               <FlatList
                 data={modalVoters}
                 keyExtractor={(item) => item.user_id}
-                style={{ maxHeight: voterListMaxHeight }}
+                style={{ flex: 1 }}
                 contentContainerStyle={{
                   paddingBottom: Spacing.md,
                   flexGrow: modalVoters.length === 0 ? 1 : 0,
