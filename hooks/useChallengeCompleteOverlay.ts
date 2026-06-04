@@ -7,8 +7,9 @@ export function useChallengeCompleteOverlay() {
   const router = useRouter();
   const [xpOverlay, setXpOverlay] = useState<XpOverlayPayload | null>(null);
 
-  /** Navigate away first; overlay unmounts when this screen blurs (see focus cleanup). */
+  /** Close the modal then navigate — the overlay is a native Modal and persists across tab switches if not explicitly cleared. */
   const dismissToFeed = useCallback(() => {
+    setXpOverlay(null);
     navigateToFeedAfterChallengeComplete(router);
   }, [router]);
 

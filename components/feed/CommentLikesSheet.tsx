@@ -12,80 +12,37 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useQuery } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
-import { IconClose, REACTION_CONTROLS, ReactionIcon } from '../icons/Icons';
-import { reactionEmojiIconColors } from '../../lib/reactionColors';
-import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
+import { IconClose } from '../icons/Icons';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
-import { usePostReactions } from '../../hooks/useFeed';
-import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
-import { useAuthStore } from '../../stores/useAuthStore';
-import type { FeedAudience } from '../../lib/feedAudience';
-import type { Reaction, ReactionEmoji } from '../../types/database';
+import { useCommentLikes, type CommentLikeRow } from '../../hooks/useCommentLikes';
 
 type Props = {
   visible: boolean;
-  postId: string;
-  emojiFilter?: ReactionEmoji | null;
-  feedAudience?: FeedAudience;
+  commentId: string;
   onClose: () => void;
 };
 
-function reactionLabel(emoji: ReactionEmoji): string {
-  const key = normalizeReactionEmoji(emoji) ?? emoji;
-  return REACTION_CONTROLS.find((r) => r.emoji === key)?.label ?? emoji;
-}
-
-export function ReactionVotersSheet({
-  visible,
-  postId,
-  emojiFilter,
-  feedAudience = 'everyone',
-  onClose,
-}: Props) {
+export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const userId = useAuthStore((s) => s.session?.user?.id);
-  const isFriendsScope = feedAudience === 'friends';
+  const winH = Dimensions.get('window').height;
 
-  const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
-    queryKey: ['friendIds', userId],
-    queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: visible && isFriendsScope && !!userId,
-    staleTime: 30_000,
-  });
-
-  const scopeUserIds = isFriendsScope ? friendIds : undefined;
-  const scopeReady = !isFriendsScope || friendIdsReady;
-
-  const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = usePostReactions(
-    visible && scopeReady ? postId : '',
-    scopeUserIds,
+  const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = useCommentLikes(
+    commentId,
+    visible,
   );
 
-  const allReactions = useMemo(
+  const likes = useMemo(
     () => (data?.pages ?? []).flatMap((page) => page),
     [data?.pages],
   );
-
-  const reactions = useMemo(() => {
-    if (!emojiFilter) return allReactions;
-    return allReactions.filter((r) => {
-      if (!emojiFilter) return true;
-      const normalized = normalizeReactionEmoji(r.emoji);
-      const filter = normalizeReactionEmoji(emojiFilter) ?? emojiFilter;
-      return normalized === filter || r.emoji === emojiFilter;
-    });
-  }, [allReactions, emojiFilter]);
-
-  const winH = Dimensions.get('window').height;
 
   const handleClose = useCallback(() => {
     Haptics.selectionAsync();
@@ -105,17 +62,11 @@ export function ReactionVotersSheet({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        backdrop: {
-          flex: 1,
-          justifyContent: 'flex-end',
-        },
-        scrim: {
-          ...StyleSheet.absoluteFillObject,
-          backgroundColor: colors.overlayBackdrop,
-        },
+        backdrop: { flex: 1, justifyContent: 'flex-end' },
+        scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayBackdrop },
         sheet: {
-          maxHeight: winH * 0.72,
-          minHeight: 220,
+          maxHeight: winH * 0.6,
+          minHeight: 180,
           backgroundColor: colors.surface,
           borderTopLeftRadius: Radius.lg,
           borderTopRightRadius: Radius.lg,
@@ -153,32 +104,16 @@ export function ReactionVotersSheet({
           borderBottomColor: colors.hairline,
         },
         rowBody: { flex: 1, minWidth: 0 },
-        emojiBadge: {
-          width: 28,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        centered: {
-          padding: Spacing.xl,
-          alignItems: 'center',
-        },
-        footer: {
-          paddingVertical: Spacing.sm,
-          alignItems: 'center',
-        },
+        centered: { padding: Spacing.xl, alignItems: 'center' },
+        footer: { paddingVertical: Spacing.sm, alignItems: 'center' },
       }),
     [colors, winH],
   );
 
-  const title = emojiFilter
-    ? `${reactionLabel(emojiFilter)} · ${reactions.length}${hasNextPage ? '+' : ''}`
-    : `Reactions · ${reactions.length}${hasNextPage ? '+' : ''}`;
-  const scopedTitle = isFriendsScope ? `${title} · friends` : title;
-
   const renderItem = useCallback(
-    ({ item }: { item: Reaction }) => {
+    ({ item }: { item: CommentLikeRow }) => {
       const username = item.profile?.username ?? 'unknown';
-      const tints = reactionEmojiIconColors(colors);
+      const border = getEquippedBorder(item.profile);
       return (
         <TouchableOpacity
           style={styles.row}
@@ -187,38 +122,32 @@ export function ReactionVotersSheet({
           accessibilityRole="button"
           accessibilityLabel={`@${username}`}
         >
-          {(() => {
-            const border = getEquippedBorder(item.profile);
-            return (
-              <Avatar
-                uri={item.profile?.avatar_url}
-                username={username}
-                size={40}
-                borderColor={border?.color}
-                borderWidth={border?.width}
-              />
-            );
-          })()}
+          <Avatar
+            uri={item.profile?.avatar_url}
+            username={username}
+            size={40}
+            borderColor={border?.color}
+            borderWidth={border?.width}
+          />
           <View style={styles.rowBody}>
             <Text variant="body" numberOfLines={1} style={{ fontWeight: '600' }}>
               @{username}
             </Text>
-          </View>
-          <View style={styles.emojiBadge}>
-            <ReactionIcon
-              emoji={item.emoji}
-              size={20}
-              color={tints[item.emoji] ?? colors.textSecondary}
-              filled
-            />
+            {item.profile?.display_name ? (
+              <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={1}>
+                {item.profile.display_name}
+              </Text>
+            ) : null}
           </View>
         </TouchableOpacity>
       );
     },
-    [colors, openProfile, styles.emojiBadge, styles.row, styles.rowBody],
+    [colors, openProfile, styles.row, styles.rowBody],
   );
 
   if (!visible) return null;
+
+  const title = `Likes · ${likes.length}${hasNextPage ? '+' : ''}`;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -228,7 +157,7 @@ export function ReactionVotersSheet({
           <View style={styles.grab} />
           <View style={styles.headRow}>
             <Text variant="headingMedium" numberOfLines={1} style={styles.title}>
-              {scopedTitle}
+              {title}
             </Text>
             <TouchableOpacity
               onPress={handleClose}
@@ -245,15 +174,15 @@ export function ReactionVotersSheet({
             <View style={styles.centered}>
               <ActivityIndicator color={colors.text} />
             </View>
-          ) : reactions.length === 0 ? (
+          ) : likes.length === 0 ? (
             <View style={styles.centered}>
               <Text variant="body" color={colors.textSecondary}>
-                {isFriendsScope ? 'No reactions from friends yet.' : 'No reactions yet.'}
+                No likes yet.
               </Text>
             </View>
           ) : (
             <FlatList
-              data={reactions}
+              data={likes}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
               onEndReached={() => {

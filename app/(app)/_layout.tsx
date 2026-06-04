@@ -122,6 +122,12 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="profile"
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('profile', { screen: 'index' });
+          },
+        })}
         options={{
           tabBarAccessibilityLabel: 'Your profile',
           tabBarIcon: ({ focused }) => (

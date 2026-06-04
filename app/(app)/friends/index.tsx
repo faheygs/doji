@@ -18,6 +18,7 @@ import { Card } from '../../../components/ui/Card';
 import { IconChevronRight, IconFriends, IconSearch } from '../../../components/icons/Icons';
 import { useFriends, useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
+import { getEquippedBorder } from '../../../lib/cosmetics';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
@@ -213,7 +214,18 @@ function FriendCard({
         activeOpacity={0.8}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
       >
-        <Avatar uri={profile.avatar_url} username={profile.username} size={48} />
+        {(() => {
+          const border = getEquippedBorder(profile);
+          return (
+            <Avatar
+              uri={profile.avatar_url}
+              username={profile.username}
+              size={48}
+              borderColor={border?.color}
+              borderWidth={border?.width}
+            />
+          );
+        })()}
         <View style={infoStyle}>
           <Text variant="headingMedium">{profile.display_name}</Text>
           <Text variant="bodySmall" color={colors.textSecondary}>

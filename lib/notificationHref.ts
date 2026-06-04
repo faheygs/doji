@@ -36,18 +36,20 @@ export function notificationHrefFromData(data: unknown): Href | null {
     return '/(app)/friends';
   }
   if (type === 'FRIEND_POST') return FEED_TAB_HREF;
+  if (type === 'POLL_VOTE') return FEED_TAB_HREF;
   if (type === 'SUGGESTION_APPROVED' || type === 'SUGGESTION_REJECTED') {
     return '/(app)/profile' as Href;
   }
   if (
     (type === 'REACTION' ||
       type === 'COMMENT' ||
-      type === 'MENTION') &&
+      type === 'MENTION' ||
+      type === 'COMMENT_REPLY') &&
     typeof postId === 'string' &&
     postId.length > 0
   ) {
     return feedPostHref(postId, {
-      openComments: type === 'COMMENT' || type === 'MENTION',
+      openComments: type === 'COMMENT' || type === 'MENTION' || type === 'COMMENT_REPLY',
       mentionCommentId: typeof commentId === 'string' ? commentId : undefined,
     });
   }

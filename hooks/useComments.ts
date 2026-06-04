@@ -6,7 +6,7 @@ import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile } from '../types/database';
 
-const COMMENT_SELECT = '*, profile:profiles(username, display_name, avatar_url)';
+const COMMENT_SELECT = '*, profile:profiles(username, display_name, avatar_url, equipped_border_key)';
 
 export type CommentWithMeta = Comment;
 

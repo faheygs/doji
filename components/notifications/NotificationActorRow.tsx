@@ -10,6 +10,7 @@ import {
   notificationActorInitials,
   type NotificationActor,
 } from '@/lib/notificationCopy';
+import { getEquippedBorder } from '@/lib/cosmetics';
 
 type Props = {
   actor?: NotificationActor | null;
@@ -61,10 +62,17 @@ export function NotificationActorRow({
     [],
   );
 
+  const border = actor ? getEquippedBorder(actor) : null;
   const avatar =
     leading ??
     (actor ? (
-      <Avatar uri={actor.avatar_url} username={handle ?? initials} size={44} />
+      <Avatar
+        uri={actor.avatar_url}
+        username={handle ?? initials}
+        size={44}
+        borderColor={border?.color}
+        borderWidth={border?.width}
+      />
     ) : null);
 
   const content = (

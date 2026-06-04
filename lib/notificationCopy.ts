@@ -3,6 +3,7 @@ export type NotificationActor = {
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
+  equipped_border_key?: string | null;
 };
 
 export function notificationActorName(actor: NotificationActor | null | undefined): string {

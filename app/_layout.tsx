@@ -35,6 +35,7 @@ import { buildToastConfig } from '../components/ui/toastTheme';
 import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { safeReplace } from '../lib/routes';
+import Toast from 'react-native-toast-message';
 import { isAuthRoutingPending } from '../lib/authRoute';
 import { useAuthGate } from '../hooks/useAuthGate';
 
@@ -189,6 +190,7 @@ function RootLayoutInner() {
 
     let cancelled = false;
     let subscription: { remove: () => void } | undefined;
+    let receivedSub: { remove: () => void } | undefined;
 
     import('expo-notifications').then((Notifications) => {
       if (cancelled) return;
@@ -211,11 +213,27 @@ function RootLayoutInner() {
         const href = notificationHrefFromData(response.notification.request.content.data);
         if (href) safeReplace(router, href);
       });
+
+      receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+        const { title, body, data } = notification.request.content;
+        if (!title && !body) return;
+        Toast.show({
+          type: 'info',
+          text1: title ?? undefined,
+          text2: body ?? undefined,
+          onPress: () => {
+            const href = notificationHrefFromData(data);
+            if (href) safeReplace(router, href);
+            Toast.hide();
+          },
+        });
+      });
     });
 
     return () => {
       cancelled = true;
       subscription?.remove();
+      receivedSub?.remove();
     };
   }, [router, gate.ready]);
 

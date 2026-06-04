@@ -158,7 +158,7 @@ export function usePostReactions(postId: string, scopeUserIds?: string[]) {
     queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
       let query = supabase
         .from('reactions')
-        .select('*, profile:profiles(username, avatar_url)')
+        .select('*, profile:profiles(username, avatar_url, equipped_border_key)')
         .eq('post_id', postId)
         .order('created_at', { ascending: false })
         .range(pageParam * 50, (pageParam + 1) * 50 - 1);

@@ -85,6 +85,20 @@ export type NotificationCenterItem =
       body: string;
       status: 'approved' | 'rejected';
       sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'comment_reply';
+      post_id: string;
+      comment_id: string;
+      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'poll_vote';
+      actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
+      sortAt: string;
     };
 
 function mapUserEventRow(row: unknown): UserEvent {
@@ -114,7 +128,7 @@ type ReactionRow = {
   created_at: string;
   post_id: string;
   user_id: string;
-  actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | Pick<Profile, 'username' | 'display_name' | 'avatar_url'>[] | null;
+  actor: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'>[] | null;
 };
 
 export function useNotificationCenter() {
@@ -209,7 +223,7 @@ export function useNotificationCenter() {
       const { data, error } = await supabase
         .from('reactions')
         .select(
-          'id, emoji, created_at, post_id, user_id, actor:profiles!reactions_user_id_fkey(username, display_name, avatar_url)',
+          'id, emoji, created_at, post_id, user_id, actor:profiles!reactions_user_id_fkey(username, display_name, avatar_url, equipped_border_key)',
         )
         .in('post_id', ids)
         .neq('user_id', userId)
@@ -237,7 +251,7 @@ export function useNotificationCenter() {
       const { data, error } = await supabase
         .from('comments')
         .select(
-          'id, post_id, created_at, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url)',
+          'id, post_id, created_at, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url, equipped_border_key)',
         )
         .in('post_id', ids)
         .neq('user_id', userId)
@@ -260,7 +274,7 @@ export function useNotificationCenter() {
       const { data, error } = await supabase
         .from('comment_mentions')
         .select(
-          'id, comment_id, created_at, comment:comments(post_id, user_id, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url))',
+          'id, comment_id, created_at, comment:comments(post_id, user_id, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url, equipped_border_key))',
         )
         .eq('mentioned_user_id', userId)
         .gt('created_at', sinceIso)
@@ -330,6 +344,61 @@ export function useNotificationCenter() {
         .gt('reviewed_at', sinceIso)
         .order('reviewed_at', { ascending: false })
         .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const repliesQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'replies', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+      // First get the IDs of comments the user has written
+      const { data: myComments } = await supabase
+        .from('comments')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(200);
+      const myIds = (myComments ?? []).map((c) => c.id);
+      if (myIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('comments')
+        .select('id, post_id, parent_id, created_at, actor:profiles!comments_user_id_fkey(username, display_name, avatar_url, equipped_border_key)')
+        .in('parent_id', myIds)
+        .neq('user_id', userId)
+        .gt('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const pollVotesQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'poll_votes', userId, sinceIso],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!userId) return [];
+      // Get mutual friend IDs to filter votes to friends only
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+        .eq('status', 'accepted');
+      const friendIds = (friendships ?? []).map((f) =>
+        f.requester_id === userId ? f.addressee_id : f.requester_id,
+      );
+      if (friendIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('poll_votes')
+        .select('id, user_id, created_at, actor:profiles!poll_votes_user_id_fkey(username, display_name, avatar_url, equipped_border_key)')
+        .in('user_id', friendIds)
+        .gt('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data ?? [];
     },
@@ -517,6 +586,39 @@ export function useNotificationCenter() {
       };
     });
 
+    const replyItems: NotificationCenterItem[] = (repliesQuery.data ?? []).map((row) => {
+      const r = row as {
+        id: string;
+        post_id: string;
+        parent_id: string;
+        created_at: string;
+        actor?: Profile | Profile[] | null;
+      };
+      return {
+        key: `comment_reply:${r.id}`,
+        kind: 'comment_reply' as const,
+        post_id: r.post_id,
+        comment_id: r.id,
+        actor: normalizeEmbeddedProfile(r.actor),
+        sortAt: r.created_at,
+      };
+    });
+
+    const pollVoteItems: NotificationCenterItem[] = (pollVotesQuery.data ?? []).map((row) => {
+      const r = row as {
+        id: string;
+        user_id: string;
+        created_at: string;
+        actor?: Profile | Profile[] | null;
+      };
+      return {
+        key: `poll_vote:${r.id}`,
+        kind: 'poll_vote' as const,
+        actor: normalizeEmbeddedProfile(r.actor),
+        sortAt: r.created_at,
+      };
+    });
+
     const merged = [
       ...reqItems,
       ...accItems,
@@ -526,6 +628,8 @@ export function useNotificationCenter() {
       ...chItems,
       ...badgeItems,
       ...suggestionItems,
+      ...replyItems,
+      ...pollVoteItems,
     ].filter((item) => !dismissedKeys.has(item.key));
 
     merged.sort((a, b) => {
@@ -546,6 +650,8 @@ export function useNotificationCenter() {
     challengesQuery.data,
     badgesQuery.data,
     suggestionsQuery.data,
+    repliesQuery.data,
+    pollVotesQuery.data,
     dismissedKeys,
   ]);
 
@@ -574,7 +680,9 @@ export function useNotificationCenter() {
     reactionsQuery.isLoading ||
     challengesQuery.isLoading ||
     badgesQuery.isLoading ||
-    suggestionsQuery.isLoading;
+    suggestionsQuery.isLoading ||
+    repliesQuery.isLoading ||
+    pollVotesQuery.isLoading;
 
   return {
     items,

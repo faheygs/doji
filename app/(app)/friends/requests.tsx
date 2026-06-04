@@ -19,6 +19,7 @@ import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
 import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useProfile';
 import { formatRelativeTime } from '../../../utils/time';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { getEquippedBorder } from '../../../lib/cosmetics';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
@@ -117,11 +118,18 @@ export default function FriendRequestsScreen() {
                   style={styles.userInfo}
                   activeOpacity={0.8}
                 >
-                  <Avatar
-                    uri={requester?.avatar_url}
-                    username={requester?.username}
-                    size={44}
-                  />
+                  {(() => {
+                    const border = getEquippedBorder(requester);
+                    return (
+                      <Avatar
+                        uri={requester?.avatar_url}
+                        username={requester?.username}
+                        size={44}
+                        borderColor={border?.color}
+                        borderWidth={border?.width}
+                      />
+                    );
+                  })()}
                   <View style={styles.nameContainer}>
                     <Text variant="headingMedium">{requester?.display_name ?? 'Unknown'}</Text>
                     <Text variant="bodySmall" color={colors.textSecondary}>

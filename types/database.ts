@@ -16,6 +16,8 @@ export type NotificationPreferences = {
   comment: boolean;
   mention: boolean;
   suggestion: boolean;
+  comment_reply: boolean;
+  poll_vote: boolean;
 };
 
 export type Profile = {

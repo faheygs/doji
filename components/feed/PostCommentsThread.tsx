@@ -25,6 +25,7 @@ import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime, parseDate } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { getEquippedBorder } from '../../lib/cosmetics';
 import {
   useComments,
   useAddComment,
@@ -35,13 +36,17 @@ import {
 } from '../../hooks/useComments';
 import type { FeedAudience } from '../../lib/feedAudience';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { CommentLikesSheet } from './CommentLikesSheet';
 
 const MAX_LEN = 2000;
 const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
 
-type Row = { kind: 'root' | 'reply'; comment: CommentWithMeta; parentUsername?: string };
+type Row =
+  | { kind: 'root'; comment: CommentWithMeta; replyCount: number }
+  | { kind: 'reply'; comment: CommentWithMeta; parentUsername?: string }
+  | { kind: 'toggle'; parentId: string; replyCount: number; expanded: boolean };
 
-function buildRows(comments: CommentWithMeta[]): Row[] {
+function buildRows(comments: CommentWithMeta[], expandedComments: Set<string>): Row[] {
   const byId = new Map(comments.map((c) => [c.id, c]));
   const byParent = new Map<string | null, CommentWithMeta[]>();
   for (const c of comments) {
@@ -55,15 +60,18 @@ function buildRows(comments: CommentWithMeta[]): Row[] {
   const tops = (byParent.get(null) ?? []).slice().sort(sortByTime);
   const rows: Row[] = [];
   for (const t of tops) {
-    rows.push({ kind: 'root', comment: t });
     const replies = (byParent.get(t.id) ?? []).slice().sort(sortByTime);
-    for (const r of replies) {
-      const parent = r.parent_id ? byId.get(r.parent_id) : undefined;
-      rows.push({
-        kind: 'reply',
-        comment: r,
-        parentUsername: parent?.profile?.username,
-      });
+    const replyCount = replies.length;
+    rows.push({ kind: 'root', comment: t, replyCount });
+    if (replyCount > 0) {
+      const expanded = expandedComments.has(t.id);
+      rows.push({ kind: 'toggle', parentId: t.id, replyCount, expanded });
+      if (expanded) {
+        for (const r of replies) {
+          const parent = r.parent_id ? byId.get(r.parent_id) : undefined;
+          rows.push({ kind: 'reply', comment: r, parentUsername: parent?.profile?.username });
+        }
+      }
     }
   }
   return rows;
@@ -198,11 +206,12 @@ function CommentBody({
 }
 
 type CommentRowProps = {
-  row: Row;
+  row: Row & { kind: 'root' | 'reply' };
   me: string | undefined;
   onReply: (c: CommentWithMeta) => void;
   onProfile: (username: string) => void;
   onToggleLike: (commentId: string, liked: boolean) => void;
+  onViewLikes: (commentId: string) => void;
   onOpenMenu: (c: CommentWithMeta) => void;
   colors: ReturnType<typeof useTheme>['colors'];
 };
@@ -213,6 +222,7 @@ function CommentRow({
   onReply,
   onProfile,
   onToggleLike,
+  onViewLikes,
   onOpenMenu,
   colors,
 }: CommentRowProps) {
@@ -314,7 +324,18 @@ function CommentRow({
         accessibilityRole="button"
         accessibilityLabel={`${u} profile`}
       >
-        <Avatar uri={comment.profile?.avatar_url} username={u} size={isReply ? 32 : 36} />
+        {(() => {
+          const border = getEquippedBorder(comment.profile);
+          return (
+            <Avatar
+              uri={comment.profile?.avatar_url}
+              username={u}
+              size={isReply ? 32 : 36}
+              borderColor={border?.color}
+              borderWidth={border?.width}
+            />
+          );
+        })()}
       </TouchableOpacity>
       <View style={styles.body}>
         <View style={styles.metaRow}>
@@ -375,22 +396,32 @@ function CommentRow({
           </View>
         ) : null}
       </View>
-      <TouchableOpacity
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onToggleLike(comment.id, liked);
-        }}
-        style={styles.likeCol}
-        accessibilityRole="button"
-        accessibilityLabel={liked ? 'Unlike comment' : 'Like comment'}
-      >
-        <IconHeartSmall size={20} color={heartColor} filled={liked} />
+      <View style={styles.likeCol}>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onToggleLike(comment.id, liked);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={liked ? 'Unlike comment' : 'Like comment'}
+        >
+          <IconHeartSmall size={20} color={heartColor} filled={liked} />
+        </TouchableOpacity>
         {comment.like_count > 0 ? (
-          <Text variant="micro" color={colors.textSecondary} style={styles.likeCount}>
-            {formatCompactCount(comment.like_count)}
-          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              onViewLikes(comment.id);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`${comment.like_count} likes, tap to see who liked`}
+          >
+            <Text variant="micro" color={colors.primary} style={[styles.likeCount, { textDecorationLine: 'underline' }]}>
+              {formatCompactCount(comment.like_count)}
+            </Text>
+          </TouchableOpacity>
         ) : null}
-      </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -430,6 +461,8 @@ export function PostCommentsThread({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const composerLocked = commentsDisabled && !isPostOwner;
@@ -455,7 +488,7 @@ export function PostCommentsThread({
     }
   }, [fetchEnabled, embedInSheet]);
 
-  const rows = useMemo(() => buildRows(comments), [comments]);
+  const rows = useMemo(() => buildRows(comments, expandedComments), [comments, expandedComments]);
 
   const onProfile = useCallback(
     (username: string) => {
@@ -497,6 +530,20 @@ export function PostCommentsThread({
     },
     [me, postId, toggleLike],
   );
+
+  const onViewLikes = useCallback((commentId: string) => {
+    setLikesCommentId(commentId);
+  }, []);
+
+  const onToggleReplies = useCallback((parentId: string) => {
+    Haptics.selectionAsync();
+    setExpandedComments((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentId)) next.delete(parentId);
+      else next.add(parentId);
+      return next;
+    });
+  }, []);
 
   const onChangeDraft = useCallback((text: string) => {
     setDraft(text);
@@ -621,18 +668,35 @@ export function PostCommentsThread({
     replyingTo || editingComment || mentionQuery !== null ? styles.inputActive : null;
 
   const renderItem = useCallback(
-    ({ item }: { item: Row }) => (
-      <CommentRow
-        row={item}
-        me={me}
-        onReply={onReply}
-        onProfile={onProfile}
-        onToggleLike={onToggleLike}
-        onOpenMenu={onOpenMenu}
-        colors={colors}
-      />
-    ),
-    [colors, me, onOpenMenu, onProfile, onReply, onToggleLike],
+    ({ item }: { item: Row }) => {
+      if (item.kind === 'toggle') {
+        return (
+          <TouchableOpacity
+            onPress={() => onToggleReplies(item.parentId)}
+            style={{ paddingLeft: Spacing.xl + Spacing.sm + Spacing.md, paddingVertical: Spacing.xs }}
+            accessibilityRole="button"
+            accessibilityLabel={item.expanded ? 'Hide replies' : `View ${item.replyCount} ${item.replyCount === 1 ? 'reply' : 'replies'}`}
+          >
+            <Text variant="micro" color={colors.primary} style={{ fontWeight: '600' }}>
+              {item.expanded ? 'Hide replies' : `View ${item.replyCount} ${item.replyCount === 1 ? 'reply' : 'replies'}`}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      return (
+        <CommentRow
+          row={item}
+          me={me}
+          onReply={onReply}
+          onProfile={onProfile}
+          onToggleLike={onToggleLike}
+          onViewLikes={onViewLikes}
+          onOpenMenu={onOpenMenu}
+          colors={colors}
+        />
+      );
+    },
+    [colors, me, onOpenMenu, onProfile, onReply, onToggleLike, onViewLikes, onToggleReplies],
   );
 
   return (
@@ -656,7 +720,7 @@ export function PostCommentsThread({
         <FlatList
           style={styles.list}
           data={rows}
-          keyExtractor={(item) => item.comment.id}
+          keyExtractor={(item) => item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment.id}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -756,6 +820,12 @@ export function PostCommentsThread({
           </>
         )}
       </View>
+
+      <CommentLikesSheet
+        visible={likesCommentId != null}
+        commentId={likesCommentId ?? ''}
+        onClose={() => setLikesCommentId(null)}
+      />
 
       <CommentActionSheet
         visible={menuComment != null}

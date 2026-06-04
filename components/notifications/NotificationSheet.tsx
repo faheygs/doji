@@ -31,7 +31,7 @@ import {
   notificationActorName,
   notificationActorHandle,
 } from '../../lib/notificationCopy';
-import { navigateToFeedPost } from '../../lib/routes';
+import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 
@@ -420,6 +420,42 @@ export function NotificationSheet({
           );
           break;
         }
+        case 'comment_reply': {
+          const copy = {
+            title: notificationActorName(item.actor),
+            body: 'Replied to your comment',
+          };
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                actor={item.actor ?? undefined}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
+              />
+            </Card>
+          );
+          break;
+        }
+        case 'poll_vote': {
+          const copy = {
+            title: notificationActorName(item.actor),
+            body: "Voted on today's poll",
+          };
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                actor={item.actor ?? undefined}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => { Haptics.selectionAsync(); onClose(); safeReplace(router, ROUTES.feed); }}
+              />
+            </Card>
+          );
+          break;
+        }
         default:
           return null;
       }
@@ -442,6 +478,8 @@ export function NotificationSheet({
       colors,
       openProfile,
       openFeedPost,
+      onClose,
+      router,
       renderRightActions,
       respond,
       styles.actions,

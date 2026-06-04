@@ -17,6 +17,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   comment: true,
   mention: true,
   suggestion: true,
+  comment_reply: true,
+  poll_vote: true,
 };
 
 export function mergeNotificationPreferences(
@@ -38,6 +40,8 @@ export function mergeNotificationPreferences(
     comment: o.comment !== false,
     mention: o.mention !== false,
     suggestion: o.suggestion !== false,
+    comment_reply: o.comment_reply !== false,
+    poll_vote: o.poll_vote !== false,
   };
 }
 
