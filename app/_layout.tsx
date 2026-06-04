@@ -35,7 +35,6 @@ import { buildToastConfig } from '../components/ui/toastTheme';
 import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { safeReplace } from '../lib/routes';
-import Toast from 'react-native-toast-message';
 import { isAuthRoutingPending } from '../lib/authRoute';
 import { useAuthGate } from '../hooks/useAuthGate';
 
