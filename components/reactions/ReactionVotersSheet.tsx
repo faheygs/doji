@@ -251,7 +251,7 @@ export function ReactionVotersSheet({
                 });
               }}
             >
-              {isPending ? 'Pending' : 'Add'}
+              {isPending ? 'Pending' : '+ Friend'}
             </Button>
           ) : (
             <View style={styles.emojiBadge}>

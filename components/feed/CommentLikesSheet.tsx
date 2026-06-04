@@ -20,6 +20,12 @@ import { IconClose } from '../icons/Icons';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { useCommentLikes, type CommentLikeRow } from '../../hooks/useCommentLikes';
+import { Button } from '../ui/Button';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useSendFriendRequest } from '../../hooks/useProfile';
+import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
+import { supabase } from '../../lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type Props = {
   visible: boolean;
@@ -33,6 +39,31 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const winH = Dimensions.get('window').height;
+  const userId = useAuthStore((s) => s.session?.user?.id);
+  const sendRequest = useSendFriendRequest();
+  const queryClient = useQueryClient();
+
+  const { data: friendIds = [] } = useQuery({
+    queryKey: ['friendIds', userId],
+    queryFn: () => getFriendIdsIncludingSelf(userId!),
+    enabled: visible && !!userId,
+    staleTime: 30_000,
+  });
+
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['pendingRequests', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data } = await supabase
+        .from('friendships')
+        .select('addressee_id')
+        .eq('requester_id', userId)
+        .eq('status', 'pending');
+      return (data ?? []).map((r) => r.addressee_id as string);
+    },
+    enabled: visible && !!userId,
+    staleTime: 30_000,
+  });
 
   const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = useCommentLikes(
     commentId,
@@ -105,6 +136,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
         rowBody: { flex: 1, minWidth: 0 },
         centered: { padding: Spacing.xl, alignItems: 'center' },
         footer: { paddingVertical: Spacing.sm, alignItems: 'center' },
+        addBtn: { marginLeft: Spacing.xs },
       }),
     [colors, winH],
   );
@@ -113,6 +145,10 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     ({ item }: { item: CommentLikeRow }) => {
       const username = item.profile?.username ?? 'unknown';
       const border = getEquippedBorder(item.profile);
+      const isMe = item.user_id === userId;
+      const isFriend = friendIds.includes(item.user_id);
+      const isPending = pendingRequests.includes(item.user_id);
+      const canAdd = !isMe && !isFriend;
       return (
         <TouchableOpacity
           style={styles.row}
@@ -138,10 +174,30 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
               </Text>
             ) : null}
           </View>
+          {canAdd ? (
+            <Button
+              size="sm"
+              variant={isPending ? 'ghost' : 'primary'}
+              style={styles.addBtn}
+              disabled={isPending || sendRequest.isPending}
+              onPress={() => {
+                if (isPending || !item.user_id) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                sendRequest.mutate(item.user_id, {
+                  onSuccess: () => {
+                    void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
+                    void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                  },
+                });
+              }}
+            >
+              {isPending ? 'Pending' : '+ Friend'}
+            </Button>
+          ) : null}
         </TouchableOpacity>
       );
     },
-    [colors, openProfile, styles.row, styles.rowBody],
+    [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.row, styles.rowBody, userId],
   );
 
   if (!visible) return null;
