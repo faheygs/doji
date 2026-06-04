@@ -91,22 +91,8 @@ export function navigateToFeedPost(
 
 /** Land on the home feed tab after challenge flows, notifications, onboarding, etc. */
 export function navigateToFeed(router: RouterLike): void {
-  try {
-    if (typeof router.canDismiss === 'function' && router.canDismiss()) {
-      router.dismissAll?.();
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const dismissTo = (router as RouterLike & { dismissTo?: (href: Href) => void }).dismissTo;
-    if (typeof dismissTo === 'function') {
-      dismissTo(ROUTES.feed);
-      return;
-    }
-  } catch {
-    /* ignore */
-  }
+  // dismissAll() fights with safeReplace — both fire, one pops to an intermediate
+  // screen (challenge/camera) before the replace lands. Just replace directly.
   safeReplace(router, ROUTES.feed);
 }
 

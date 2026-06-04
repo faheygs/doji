@@ -21,6 +21,7 @@ import { IconBell, IconClose, IconCheck } from '../icons/Icons';
 import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
+import { CategoryBadgeIcon } from '../icons/BadgeIcons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
 import { useRespondToFriendRequest } from '../../hooks/useProfile';
 import {
@@ -379,11 +380,7 @@ export function NotificationSheet({
                 sortAt={item.sortAt}
                 leading={
                   <View style={styles.badgeLeading}>
-                    {item.categoryEmoji ? (
-                      <Text style={{ fontSize: 22 }}>{item.categoryEmoji}</Text>
-                    ) : (
-                      <IconBell size={22} color={colors.primary} />
-                    )}
+                    <CategoryBadgeIcon categoryId={item.categoryId} size={22} color={colors.primary} />
                   </View>
                 }
               />
