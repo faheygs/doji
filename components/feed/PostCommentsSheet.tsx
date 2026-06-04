@@ -150,20 +150,31 @@ export function PostCommentsSheet({
     }
   }, [visible, halfOffset, closedOffset, translateY]);
 
+  const dismissKeyboard = useCallback(() => Keyboard.dismiss(), []);
+
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(!keyboardOpen)
         .activeOffsetY([-12, 12])
         .failOffsetX([-28, 28])
         .onStart(() => {
           startY.value = translateY.value;
         })
         .onUpdate((e) => {
+          // While keyboard is open, only track downward drags (for dismiss)
+          if (keyboardOpen) return;
           const y = startY.value + e.translationY;
           translateY.value = Math.min(closedOffset, Math.max(0, y));
         })
         .onEnd((e) => {
+          // Swipe down with keyboard open → just dismiss the keyboard
+          if (keyboardOpen) {
+            if (e.translationY > 30 || e.velocityY > 300) {
+              runOnJS(dismissKeyboard)();
+            }
+            return;
+          }
+
           const y = translateY.value;
           const vy = e.velocityY;
 
@@ -191,7 +202,7 @@ export function PostCommentsSheet({
             }
           });
         }),
-    [closedOffset, fireClose, halfOffset, keyboardOpen, snapPoints],
+    [closedOffset, dismissKeyboard, fireClose, halfOffset, keyboardOpen, snapPoints],
   );
 
   const sheetStyle = useAnimatedStyle(() => {

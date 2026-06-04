@@ -12,11 +12,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
+import { Button } from '../ui/Button';
 import { IconClose, REACTION_CONTROLS, ReactionIcon } from '../icons/Icons';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
@@ -25,6 +26,8 @@ import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { usePostReactions } from '../../hooks/useFeed';
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useSendFriendRequest } from '../../hooks/useProfile';
+import { supabase } from '../../lib/supabase';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
 
@@ -58,9 +61,28 @@ export function ReactionVotersSheet({
   const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
     queryKey: ['friendIds', userId],
     queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: visible && isFriendsScope && !!userId,
+    enabled: visible && !!userId,
     staleTime: 30_000,
   });
+
+  // Pending outgoing requests so we can show "Pending" instead of "Add"
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['pendingRequests', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data } = await supabase
+        .from('friendships')
+        .select('addressee_id')
+        .eq('requester_id', userId)
+        .eq('status', 'pending');
+      return (data ?? []).map((r) => r.addressee_id as string);
+    },
+    enabled: visible && !!userId,
+    staleTime: 30_000,
+  });
+
+  const sendRequest = useSendFriendRequest();
+  const queryClient = useQueryClient();
 
   const scopeUserIds = isFriendsScope ? friendIds : undefined;
   const scopeReady = !isFriendsScope || friendIdsReady;
@@ -157,6 +179,9 @@ export function ReactionVotersSheet({
           alignItems: 'center',
           justifyContent: 'center',
         },
+        addBtn: {
+          marginLeft: Spacing.xs,
+        },
         centered: {
           padding: Spacing.xl,
           alignItems: 'center',
@@ -170,14 +195,20 @@ export function ReactionVotersSheet({
   );
 
   const title = emojiFilter
-    ? `${reactionLabel(emojiFilter)} · ${reactions.length}${hasNextPage ? '+' : ''}`
-    : `Reactions · ${reactions.length}${hasNextPage ? '+' : ''}`;
-  const scopedTitle = isFriendsScope ? `${title} · friends` : title;
+    ? `Reacted with ${reactionLabel(emojiFilter)}`
+    : 'Reactions';
+  const countLabel = `${reactions.length}${hasNextPage ? '+' : ''}`;
+  const scopedTitle = `${title} · ${countLabel}`;
 
   const renderItem = useCallback(
     ({ item }: { item: Reaction }) => {
       const username = item.profile?.username ?? 'unknown';
       const tints = reactionEmojiIconColors(colors);
+      const isMe = item.user_id === userId;
+      const isFriend = friendIds.includes(item.user_id);
+      const isPending = pendingRequests.includes(item.user_id);
+      const canAdd = !isMe && !isFriend;
+
       return (
         <TouchableOpacity
           style={styles.row}
@@ -203,18 +234,39 @@ export function ReactionVotersSheet({
               @{username}
             </Text>
           </View>
-          <View style={styles.emojiBadge}>
-            <ReactionIcon
-              emoji={item.emoji}
-              size={20}
-              color={tints[item.emoji] ?? colors.textSecondary}
-              filled
-            />
-          </View>
+          {canAdd ? (
+            <Button
+              size="sm"
+              variant={isPending ? 'ghost' : 'primary'}
+              style={styles.addBtn}
+              disabled={isPending || sendRequest.isPending}
+              onPress={() => {
+                if (isPending || !item.user_id) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                sendRequest.mutate(item.user_id, {
+                  onSuccess: () => {
+                    void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
+                    void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                  },
+                });
+              }}
+            >
+              {isPending ? 'Pending' : 'Add'}
+            </Button>
+          ) : (
+            <View style={styles.emojiBadge}>
+              <ReactionIcon
+                emoji={item.emoji}
+                size={20}
+                color={tints[item.emoji] ?? colors.textSecondary}
+                filled
+              />
+            </View>
+          )}
         </TouchableOpacity>
       );
     },
-    [colors, openProfile, styles.emojiBadge, styles.row, styles.rowBody],
+    [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.emojiBadge, styles.row, styles.rowBody, userId],
   );
 
   if (!visible) return null;
