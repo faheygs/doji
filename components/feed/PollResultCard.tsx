@@ -20,14 +20,17 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
+import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
+import { getEquippedBorder } from '../../lib/cosmetics';
+import { useSendFriendRequest } from '../../hooks/useProfile';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Challenge, PollOption } from '../../types/database';
 
@@ -38,6 +41,7 @@ type VoterRow = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  equipped_border_key?: string | null;
   custom_text?: string | null;
 };
 
@@ -68,9 +72,27 @@ function PollResultCardImpl({
   const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
     queryKey: ['friendIds', userId],
     queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: isFriendsScope && !!userId && fetchEnabled,
+    enabled: !!userId && fetchEnabled,
     staleTime: 30_000,
   });
+
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['pendingRequests', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data } = await supabase
+        .from('friendships')
+        .select('addressee_id')
+        .eq('requester_id', userId)
+        .eq('status', 'pending');
+      return (data ?? []).map((r) => r.addressee_id as string);
+    },
+    enabled: !!userId && fetchEnabled,
+    staleTime: 30_000,
+  });
+
+  const sendRequest = useSendFriendRequest();
+  const queryClient = useQueryClient();
 
   const scopeUserIds = isFriendsScope ? friendIds : undefined;
   const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
@@ -152,7 +174,7 @@ function PollResultCardImpl({
       if (userIds.length > 0) {
         const { data: profs, error: pErr } = await supabase
           .from('profiles')
-          .select('id, username, display_name, avatar_url')
+          .select('id, username, display_name, avatar_url, equipped_border_key')
           .in('id', userIds);
         if (pErr) throw pErr;
         for (const p of profs ?? []) {
@@ -160,6 +182,7 @@ function PollResultCardImpl({
             username: p.username as string,
             display_name: (p.display_name as string | null) ?? null,
             avatar_url: (p.avatar_url as string | null) ?? null,
+            equipped_border_key: (p.equipped_border_key as string | null) ?? null,
           });
         }
       }
@@ -174,6 +197,7 @@ function PollResultCardImpl({
           username: p?.username ?? 'user',
           display_name: p?.display_name ?? null,
           avatar_url: p?.avatar_url ?? null,
+          equipped_border_key: p?.equipped_border_key ?? null,
           custom_text: (row.custom_text as string | null) ?? null,
         });
         m.set(oid, list);
@@ -301,16 +325,17 @@ function PollResultCardImpl({
           paddingHorizontal: Spacing.lg,
           paddingVertical: Spacing.sm,
         },
+        addBtn: { marginLeft: Spacing.xs },
       }),
     [colors, variant],
   );
 
 
-  /** Tall bottom sheet: list fills remaining space below header. */
-  const voterSheetMaxHeight = winH * 0.88;
-  const voterListMaxHeight = Math.max(220, voterSheetMaxHeight - 120 - insets.bottom);
+  /** Fixed sheet height — same size every time, content scrolls inside. */
+  const voterSheetMaxHeight = winH * 0.5;
+  const voterListMaxHeight = Math.max(180, voterSheetMaxHeight - 120 - insets.bottom);
 
-  /** Slide distance matches sheet max height so dragging clears the panel entirely. */
+  /** Slide distance matches sheet height so dragging clears the panel entirely. */
   const sheetSlideRange = voterSheetMaxHeight + insets.bottom + 40;
 
   const sheetTranslateY = useSharedValue(sheetSlideRange);
@@ -548,24 +573,57 @@ function PollResultCardImpl({
                 windowSize={10}
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <View style={styles.voterRow}>
-                    <Avatar uri={item.avatar_url} username={item.username} size={40} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text variant="body" numberOfLines={1}>
-                        {item.display_name?.trim() || item.username}
-                      </Text>
-                      <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
-                        @{item.username}
-                      </Text>
-                      {modalIsOther && item.custom_text?.trim() ? (
-                        <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2} style={{ marginTop: 2 }}>
-                          "{item.custom_text.trim()}"
+                renderItem={({ item }) => {
+                  const border = getEquippedBorder(item);
+                  const isMe = item.user_id === userId;
+                  const isFriend = friendIds.includes(item.user_id);
+                  const isPending = pendingRequests.includes(item.user_id);
+                  const canAdd = !isMe && !isFriend;
+                  return (
+                    <View style={styles.voterRow}>
+                      <Avatar
+                        uri={item.avatar_url}
+                        username={item.username}
+                        size={40}
+                        borderColor={border?.color}
+                        borderWidth={border?.width}
+                      />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text variant="body" numberOfLines={1}>
+                          {item.display_name?.trim() || item.username}
                         </Text>
+                        <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+                          @{item.username}
+                        </Text>
+                        {modalIsOther && item.custom_text?.trim() ? (
+                          <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2} style={{ marginTop: 2 }}>
+                            "{item.custom_text.trim()}"
+                          </Text>
+                        ) : null}
+                      </View>
+                      {canAdd ? (
+                        <Button
+                          size="sm"
+                          variant={isPending ? 'ghost' : 'primary'}
+                          style={styles.addBtn}
+                          disabled={isPending || sendRequest.isPending}
+                          onPress={() => {
+                            if (isPending) return;
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            sendRequest.mutate(item.user_id, {
+                              onSuccess: () => {
+                                void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
+                                void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                              },
+                            });
+                          }}
+                        >
+                          {isPending ? 'Pending' : '+ Friend'}
+                        </Button>
                       ) : null}
                     </View>
-                  </View>
-                )}
+                  );
+                }}
               />
             </Animated.View>
           </View>
