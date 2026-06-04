@@ -221,7 +221,7 @@ export function ReactionVotersSheet({
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <View style={styles.backdrop}>
         <Pressable style={styles.scrim} onPress={handleClose} accessibilityLabel="Dismiss" />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.sm }]}>
