@@ -120,6 +120,7 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
         backdrop: {
           flex: 1,
           justifyContent: 'flex-end',
+          backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
           borderTopLeftRadius: Radius.xl,

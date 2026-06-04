@@ -111,7 +111,7 @@ export function ReactionVotersSheet({
         },
         scrim: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'transparent',
+          backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
           maxHeight: winH * 0.72,

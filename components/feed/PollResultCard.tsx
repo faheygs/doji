@@ -266,7 +266,7 @@ function PollResultCardImpl({
         /** Scrims sit on absolute layer only — not the same View as justifyContent:flex-end sheet. */
         modalBackdropTap: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'transparent',
+          backgroundColor: 'rgba(0,0,0,0.25)',
         },
         modalSheet: {
           backgroundColor: colors.surface,

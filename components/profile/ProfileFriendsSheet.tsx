@@ -120,7 +120,7 @@ function createStyles(colors: AppColors, bottomInset: number, sheetHeight: numbe
     },
     scrim: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'transparent',
+      backgroundColor: 'rgba(0,0,0,0.25)',
     },
     sheet: {
       height: sheetHeight,

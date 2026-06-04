@@ -86,6 +86,7 @@ export function KeyboardSafeSheet({
         backdrop: {
           flex: 1,
           justifyContent: 'flex-end',
+          backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
           maxHeight: '92%',
