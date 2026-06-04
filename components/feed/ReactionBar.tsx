@@ -201,8 +201,8 @@ function ReactionBarImpl({
               >
                 <Text
                   variant="bodySmall"
-                  color={count > 0 && !blurred ? colors.primary : colors.textTertiary}
-                  style={[styles.count, count > 0 && !blurred && { textDecorationLine: 'underline' }]}
+                  color={count > 0 ? colors.textSecondary : colors.textTertiary}
+                  style={styles.count}
                 >
                   {count}
                 </Text>
