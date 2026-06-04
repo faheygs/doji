@@ -29,3 +29,31 @@ describe('wantsCategoryEnabled', () => {
     ).toBe(false);
   });
 });
+
+describe('comment_reply and poll_vote preferences', () => {
+  it('comment_reply defaults to true', () => {
+    expect(mergeNotificationPreferences(null).comment_reply).toBe(true);
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.comment_reply).toBe(true);
+  });
+
+  it('poll_vote defaults to true', () => {
+    expect(mergeNotificationPreferences(null).poll_vote).toBe(true);
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.poll_vote).toBe(true);
+  });
+
+  it('comment_reply opt-out is respected', () => {
+    expect(mergeNotificationPreferences({ comment_reply: false }).comment_reply).toBe(false);
+    expect(wantsCategoryEnabled({ ...DEFAULT_NOTIFICATION_PREFERENCES, comment_reply: false }, 'comment_reply')).toBe(false);
+  });
+
+  it('poll_vote opt-out is respected', () => {
+    expect(mergeNotificationPreferences({ poll_vote: false }).poll_vote).toBe(false);
+    expect(wantsCategoryEnabled({ ...DEFAULT_NOTIFICATION_PREFERENCES, poll_vote: false }, 'poll_vote')).toBe(false);
+  });
+
+  it('missing keys fall back to true (new installs without stored prefs)', () => {
+    const merged = mergeNotificationPreferences({ comment: true, mention: true });
+    expect(merged.comment_reply).toBe(true);
+    expect(merged.poll_vote).toBe(true);
+  });
+});

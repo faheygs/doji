@@ -46,7 +46,7 @@ type Row =
   | { kind: 'reply'; comment: CommentWithMeta; parentUsername?: string }
   | { kind: 'toggle'; parentId: string; replyCount: number; expanded: boolean };
 
-function buildRows(comments: CommentWithMeta[], expandedComments: Set<string>): Row[] {
+export function buildRows(comments: CommentWithMeta[], expandedComments: Set<string>): Row[] {
   const byId = new Map(comments.map((c) => [c.id, c]));
   const byParent = new Map<string | null, CommentWithMeta[]>();
   for (const c of comments) {

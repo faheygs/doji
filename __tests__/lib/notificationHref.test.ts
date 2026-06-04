@@ -108,4 +108,23 @@ describe('notificationHrefFromData', () => {
   it('rejects numeric url', () => {
     expect(notificationHrefFromData({ url: 123 })).toBeNull();
   });
+
+  // New notification types added for reply + poll vote features
+  it('returns feed with openComments for COMMENT_REPLY with postId', () => {
+    expect(notificationHrefFromData({ type: 'COMMENT_REPLY', postId: 'abc' })).toBe(
+      '/(app)?postId=abc&openComments=1',
+    );
+  });
+
+  it('returns null for COMMENT_REPLY without postId', () => {
+    expect(notificationHrefFromData({ type: 'COMMENT_REPLY' })).toBeNull();
+  });
+
+  it('returns feed for POLL_VOTE', () => {
+    expect(notificationHrefFromData({ type: 'POLL_VOTE' })).toBe(FEED_TAB_HREF);
+  });
+
+  it('returns feed for POLL_VOTE with url fallback', () => {
+    expect(notificationHrefFromData({ type: 'POLL_VOTE', url: '/' })).toBe(FEED_TAB_HREF);
+  });
 });
