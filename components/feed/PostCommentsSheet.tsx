@@ -378,13 +378,6 @@ export function PostCommentsSheet({
                 feedAudience={feedAudience}
                 embedInSheet
               />
-              {keyboardOpen ? (
-                <Pressable
-                  style={StyleSheet.absoluteFill}
-                  onPress={() => Keyboard.dismiss()}
-                  accessibilityLabel="Dismiss keyboard"
-                />
-              ) : null}
             </View>
           </Animated.View>
         </View>

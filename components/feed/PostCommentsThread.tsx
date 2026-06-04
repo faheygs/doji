@@ -678,24 +678,33 @@ export function PostCommentsThread({
           </Text>
         </View>
       ) : (
-        <FlatList
-          style={styles.list}
-          data={rows}
-          keyExtractor={(item) => item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment.id}
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          contentContainerStyle={{ flexGrow: 1 }}
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Text variant="body" color={colors.textSecondary}>
-                {commentsDisabled
-                  ? 'Comments are turned off on this post.'
-                  : 'No comments yet. Say something nice.'}
-              </Text>
-            </View>
-          }
-        />
+        <View style={styles.flex1}>
+          <FlatList
+            style={styles.list}
+            data={rows}
+            keyExtractor={(item) => item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment.id}
+            renderItem={renderItem}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ flexGrow: 1 }}
+            ListEmptyComponent={
+              <View style={styles.centered}>
+                <Text variant="body" color={colors.textSecondary}>
+                  {commentsDisabled
+                    ? 'Comments are turned off on this post.'
+                    : 'No comments yet. Say something nice.'}
+                </Text>
+              </View>
+            }
+          />
+          {embedInSheet && keyboardHeight > 0 ? (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => Keyboard.dismiss()}
+              accessibilityLabel="Dismiss keyboard"
+            />
+          ) : null}
+        </View>
       )}
 
       <View style={[styles.composerWrap, { paddingBottom: composerBottomPad }]}>
