@@ -237,73 +237,43 @@ function CommentRow({
         wrap: {
           flexDirection: 'row',
           alignItems: 'flex-start',
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
-          paddingHorizontal: Spacing.sm,
+          paddingHorizontal: Spacing.md,
           paddingVertical: Spacing.sm,
-          borderRadius: Radius.md,
-          backgroundColor: colors.surface,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.hairline,
         },
         replyWrap: {
-          marginLeft: Spacing.xl + Spacing.sm,
-          paddingLeft: Spacing.sm + 2,
-          borderLeftWidth: 2,
-          borderLeftColor: colors.primary,
+          paddingLeft: Spacing.md + 36 + Spacing.sm,
         },
-        avatarCol: { marginRight: Spacing.sm },
+        avatarCol: { marginRight: Spacing.sm, marginTop: 1 },
         body: { flex: 1, minWidth: 0 },
         metaRow: {
           flexDirection: 'row',
           alignItems: 'center',
-          marginBottom: 4,
-        },
-        metaMain: {
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
+          gap: Spacing.xs,
+          marginBottom: 2,
           flexWrap: 'nowrap',
-          gap: 6,
-          minWidth: 0,
         },
-        usernameWrap: {
-          flexShrink: 1,
-          minWidth: 0,
-        },
-        timeText: {
-          flexShrink: 0,
-        },
-        menuBtn: {
-          padding: 4,
-          marginLeft: Spacing.xs,
-        },
-        replyToLabel: {
-          marginBottom: 4,
-        },
+        usernameWrap: { flexShrink: 1, minWidth: 0 },
+        menuBtn: { padding: 4, marginLeft: Spacing.xs },
         actions: {
           flexDirection: 'row',
           alignItems: 'center',
-          marginTop: 6,
+          marginTop: Spacing.xs,
+          gap: Spacing.md,
         },
         likeCol: {
           alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: 2,
           paddingLeft: Spacing.sm,
-          minWidth: 40,
+          paddingTop: 2,
+          minWidth: 36,
           gap: 2,
         },
-        likeCount: {
-          fontVariant: ['tabular-nums'],
-        },
-        replyLabel: { fontWeight: '600' },
+        likeCount: { fontVariant: ['tabular-nums'] },
       }),
-    [colors.hairline, colors.primary, colors.surface],
+    [colors],
   );
 
   const liked = Boolean(comment.my_like);
-  const heartColor = liked ? colors.danger : colors.textSecondary;
+  const heartColor = liked ? colors.danger : colors.textTertiary;
 
   const showOwnMenu = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -318,47 +288,47 @@ function CommentRow({
       delayLongPress={400}
       accessibilityHint={isOwn ? 'Long press for edit or delete' : undefined}
     >
-      <TouchableOpacity
-        onPress={() => onProfile(u)}
-        style={styles.avatarCol}
-        accessibilityRole="button"
-        accessibilityLabel={`${u} profile`}
-      >
-        {(() => {
-          const border = getEquippedBorder(comment.profile);
-          return (
-            <Avatar
-              uri={comment.profile?.avatar_url}
-              username={u}
-              size={isReply ? 32 : 36}
-              borderColor={border?.color}
-              borderWidth={border?.width}
-            />
-          );
-        })()}
-      </TouchableOpacity>
+      {!isReply ? (
+        <TouchableOpacity
+          onPress={() => onProfile(u)}
+          style={styles.avatarCol}
+          accessibilityRole="button"
+          accessibilityLabel={`${u} profile`}
+        >
+          {(() => {
+            const border = getEquippedBorder(comment.profile);
+            return (
+              <Avatar
+                uri={comment.profile?.avatar_url}
+                username={u}
+                size={36}
+                borderColor={border?.color}
+                borderWidth={border?.width}
+              />
+            );
+          })()}
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.body}>
         <View style={styles.metaRow}>
-          <View style={styles.metaMain}>
-            <TouchableOpacity
-              onPress={() => onProfile(u)}
-              style={styles.usernameWrap}
-              accessibilityRole="link"
+          <TouchableOpacity
+            onPress={() => onProfile(u)}
+            style={styles.usernameWrap}
+            accessibilityRole="link"
+          >
+            <Text
+              variant="bodySmall"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ fontWeight: '700', color: colors.text }}
             >
-              <Text
-                variant="bodySmall"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{ fontWeight: '700', color: colors.primary }}
-              >
-                @{u}
-              </Text>
-            </TouchableOpacity>
-            <Text variant="micro" color={colors.textTertiary} style={styles.timeText} numberOfLines={1}>
-              {formatCompactRelativeTime(comment.created_at)}
-              {comment.body_edited ? ' · edited' : ''}
+              {u}
             </Text>
-          </View>
+          </TouchableOpacity>
+          <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
+            {formatCompactRelativeTime(comment.created_at)}
+            {comment.body_edited ? ' · edited' : ''}
+          </Text>
           {isOwn ? (
             <TouchableOpacity
               onPress={showOwnMenu}
@@ -366,35 +336,25 @@ function CommentRow({
               accessibilityLabel="Edit or delete comment"
               style={styles.menuBtn}
             >
-              <IconMoreVertical size={18} color={colors.textSecondary} />
+              <IconMoreVertical size={16} color={colors.textTertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
-        {isReply && row.parentUsername ? (
-          <Text variant="micro" color={colors.textTertiary} style={styles.replyToLabel}>
-            Replying to{' '}
-            <Text variant="micro" color={colors.primary} style={{ fontWeight: '600' }}>
-              {row.parentUsername}
-            </Text>
-          </Text>
-        ) : null}
         <CommentBody body={comment.body} colors={colors} onMentionPress={onProfile} />
-        {!isReply ? (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.selectionAsync();
-                onReply(comment);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Reply"
-            >
-              <Text variant="micro" color={colors.textSecondary} style={styles.replyLabel}>
-                Reply
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              onReply(comment);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Reply"
+          >
+            <Text variant="micro" color={colors.textTertiary} style={{ fontWeight: '600' }}>
+              Reply
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.likeCol}>
         <TouchableOpacity
@@ -405,7 +365,7 @@ function CommentRow({
           accessibilityRole="button"
           accessibilityLabel={liked ? 'Unlike comment' : 'Like comment'}
         >
-          <IconHeartSmall size={20} color={heartColor} filled={liked} />
+          <IconHeartSmall size={18} color={heartColor} filled={liked} />
         </TouchableOpacity>
         {comment.like_count > 0 ? (
           <TouchableOpacity
@@ -416,7 +376,7 @@ function CommentRow({
             accessibilityRole="button"
             accessibilityLabel={`${comment.like_count} likes, tap to see who liked`}
           >
-            <Text variant="micro" color={colors.primary} style={[styles.likeCount, { textDecorationLine: 'underline' }]}>
+            <Text variant="micro" color={colors.textTertiary} style={styles.likeCount}>
               {formatCompactCount(comment.like_count)}
             </Text>
           </TouchableOpacity>
@@ -670,15 +630,18 @@ export function PostCommentsThread({
   const renderItem = useCallback(
     ({ item }: { item: Row }) => {
       if (item.kind === 'toggle') {
+        const label = item.expanded
+          ? 'Hide replies'
+          : `View ${item.replyCount} ${item.replyCount === 1 ? 'reply' : 'replies'}`;
         return (
           <TouchableOpacity
             onPress={() => onToggleReplies(item.parentId)}
-            style={{ paddingLeft: Spacing.xl + Spacing.sm + Spacing.md, paddingVertical: Spacing.xs }}
+            style={{ paddingLeft: Spacing.md + 36 + Spacing.sm + Spacing.md, paddingVertical: Spacing.xs }}
             accessibilityRole="button"
-            accessibilityLabel={item.expanded ? 'Hide replies' : `View ${item.replyCount} ${item.replyCount === 1 ? 'reply' : 'replies'}`}
+            accessibilityLabel={label}
           >
-            <Text variant="micro" color={colors.primary} style={{ fontWeight: '600' }}>
-              {item.expanded ? 'Hide replies' : `View ${item.replyCount} ${item.replyCount === 1 ? 'reply' : 'replies'}`}
+            <Text variant="micro" color={colors.textTertiary} style={{ fontWeight: '600' }}>
+              {'— '}{label}
             </Text>
           </TouchableOpacity>
         );
