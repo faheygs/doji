@@ -240,7 +240,7 @@ export function PostCommentsSheet({
         },
         backdrop: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: colors.overlayBackdrop,
+          backgroundColor: 'transparent',
         },
         sheet: {
           width: '100%',

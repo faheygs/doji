@@ -104,7 +104,6 @@ function CommentActionSheet({
       StyleSheet.create({
         backdrop: {
           flex: 1,
-          backgroundColor: colors.overlayBackdrop,
           justifyContent: 'flex-end',
         },
         sheet: {
@@ -241,7 +240,7 @@ function CommentRow({
           paddingVertical: Spacing.sm,
         },
         replyWrap: {
-          paddingLeft: Spacing.md + 36 + Spacing.sm,
+          paddingLeft: Spacing.xl,
         },
         avatarCol: { marginRight: Spacing.sm, marginTop: 1 },
         body: { flex: 1, minWidth: 0 },
@@ -288,27 +287,25 @@ function CommentRow({
       delayLongPress={400}
       accessibilityHint={isOwn ? 'Long press for edit or delete' : undefined}
     >
-      {!isReply ? (
-        <TouchableOpacity
-          onPress={() => onProfile(u)}
-          style={styles.avatarCol}
-          accessibilityRole="button"
-          accessibilityLabel={`${u} profile`}
-        >
-          {(() => {
-            const border = getEquippedBorder(comment.profile);
-            return (
-              <Avatar
-                uri={comment.profile?.avatar_url}
-                username={u}
-                size={36}
-                borderColor={border?.color}
-                borderWidth={border?.width}
-              />
-            );
-          })()}
-        </TouchableOpacity>
-      ) : null}
+      <TouchableOpacity
+        onPress={() => onProfile(u)}
+        style={styles.avatarCol}
+        accessibilityRole="button"
+        accessibilityLabel={`${u} profile`}
+      >
+        {(() => {
+          const border = getEquippedBorder(comment.profile);
+          return (
+            <Avatar
+              uri={comment.profile?.avatar_url}
+              username={u}
+              size={isReply ? 28 : 36}
+              borderColor={border?.color}
+              borderWidth={border?.width}
+            />
+          );
+        })()}
+      </TouchableOpacity>
       <View style={styles.body}>
         <View style={styles.metaRow}>
           <TouchableOpacity
@@ -636,7 +633,7 @@ export function PostCommentsThread({
         return (
           <TouchableOpacity
             onPress={() => onToggleReplies(item.parentId)}
-            style={{ paddingLeft: Spacing.md + 36 + Spacing.sm + Spacing.md, paddingVertical: Spacing.xs }}
+            style={{ paddingLeft: Spacing.xl + 28 + Spacing.sm, paddingVertical: Spacing.xs }}
             accessibilityRole="button"
             accessibilityLabel={label}
           >

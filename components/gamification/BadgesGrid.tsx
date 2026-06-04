@@ -119,7 +119,6 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
       StyleSheet.create({
         backdrop: {
           flex: 1,
-          backgroundColor: colors.overlayBackdrop,
           justifyContent: 'flex-end',
         },
         sheet: {

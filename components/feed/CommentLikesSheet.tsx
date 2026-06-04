@@ -63,7 +63,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     () =>
       StyleSheet.create({
         backdrop: { flex: 1, justifyContent: 'flex-end' },
-        scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlayBackdrop },
+        scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
         sheet: {
           maxHeight: winH * 0.6,
           minHeight: 180,

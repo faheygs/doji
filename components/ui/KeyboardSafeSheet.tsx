@@ -86,7 +86,6 @@ export function KeyboardSafeSheet({
         backdrop: {
           flex: 1,
           justifyContent: 'flex-end',
-          backgroundColor: colors.overlayBackdrop,
         },
         sheet: {
           maxHeight: '92%',
