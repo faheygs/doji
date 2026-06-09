@@ -131,8 +131,8 @@ function PollResultCardImpl({
       const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
       return { rows, totalVotes };
     },
-    refetchInterval: fetchEnabled ? 10_000 : false,
     enabled: fetchEnabled && scopeReady,
+    staleTime: 30_000,
   });
 
   const rows = data?.rows ?? [];
@@ -205,9 +205,7 @@ function PollResultCardImpl({
       return m;
     },
     enabled: fetchEnabled && scopeReady,
-    /** Keep avatar stacks in sync with bar % (`pollResults` uses the same interval). */
-    refetchInterval: fetchEnabled ? 10_000 : false,
-    staleTime: 5000,
+    staleTime: 30_000,
   });
 
   const styles = useMemo(

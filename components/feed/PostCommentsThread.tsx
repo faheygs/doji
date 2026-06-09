@@ -21,6 +21,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
+import Toast from 'react-native-toast-message';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime, parseDate } from '../../utils/time';
@@ -524,9 +525,9 @@ export function PostCommentsThread({
   const send = useCallback(() => {
     const rawBody = draft.trim();
     if (!rawBody || addComment.isPending || editComment.isPending || composerLocked) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     if (editingComment) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       editComment.mutate(
         { postId, commentId: editingComment.id, body: rawBody },
         { onSuccess: cancelComposerState },
@@ -539,13 +540,17 @@ export function PostCommentsThread({
       : rawBody;
     if (!body) return;
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addComment.mutate(
       {
         postId,
         body,
         parentId: replyingTo?.id ?? null,
       },
-      { onSuccess: cancelComposerState },
+      {
+        onSuccess: cancelComposerState,
+        onError: () => Toast.show({ type: 'error', text1: 'Failed to post comment' }),
+      },
     );
   }, [
     draft,
@@ -686,6 +691,10 @@ export function PostCommentsThread({
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            windowSize={5}
+            initialNumToRender={12}
+            maxToRenderPerBatch={8}
+            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={{ flexGrow: 1 }}
             ListEmptyComponent={
               <View style={styles.centered}>
@@ -697,13 +706,6 @@ export function PostCommentsThread({
               </View>
             }
           />
-          {embedInSheet && keyboardHeight > 0 ? (
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => Keyboard.dismiss()}
-              accessibilityLabel="Dismiss keyboard"
-            />
-          ) : null}
         </View>
       )}
 

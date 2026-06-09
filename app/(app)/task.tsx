@@ -20,9 +20,6 @@ import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
-import { XpGainOverlay } from '../../components/gamification/XpGainOverlay';
-import { useChallengeCompleteOverlay } from '../../hooks/useChallengeCompleteOverlay';
-import { buildXpOverlayPayload } from '../../lib/challengeComplete';
 import { required, validationMessage } from '../../lib/formValidation';
 
 export default function TaskScreen() {
@@ -31,7 +28,6 @@ export default function TaskScreen() {
   const { data: userEvent, isLoading } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
-  const { xpOverlay, setXpOverlay, dismissToFeed } = useChallengeCompleteOverlay();
 
   const challenge = userEvent?.challenge;
   const answerValidation = useMemo(() => required(answer, 'Enter an answer.'), [answer]);
@@ -69,11 +65,7 @@ export default function TaskScreen() {
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setXpOverlay(
-            buildXpOverlayPayload('task', challenge?.xp_reward, {
-              fromBuyIn: userEvent?.status === 'buy_in_open',
-            }),
-          );
+          navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
@@ -125,16 +117,6 @@ export default function TaskScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {xpOverlay ? (
-        <XpGainOverlay
-          amount={xpOverlay.amount}
-          sparks={xpOverlay.sparks}
-          xp={xpOverlay.xp}
-          level={xpOverlay.level}
-          dismissLabel="Back to Feed"
-          onComplete={dismissToFeed}
-        />
-      ) : null}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
