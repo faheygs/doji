@@ -57,6 +57,7 @@ export default function FeedScreen() {
   const {
     data: feedPages,
     isLoading: feedLoading,
+    isFetching: feedFetching,
     isError: feedError,
     fetchNextPage,
     hasNextPage,
@@ -439,7 +440,7 @@ export default function FeedScreen() {
     );
   }
 
-  if (feedLoading && posts.length === 0) {
+  if ((feedLoading || feedFetching) && !refreshing && posts.length === 0) {
     return (
       <SafeAreaView style={outerStyle}>
         {ListHeader}

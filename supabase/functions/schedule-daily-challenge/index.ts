@@ -264,6 +264,27 @@ Deno.serve(async (req) => {
 
     if (userEventsError) throw userEventsError;
 
+    // For poll challenges, ensure the community poll post exists.
+    // The DB trigger trg_daily_event_create_community_poll_post should handle this,
+    // but we create it here explicitly as a reliable fallback — ON CONFLICT DO NOTHING
+    // makes it idempotent if the trigger already succeeded.
+    if (challenge.type === 'poll') {
+      const { error: pollPostErr } = await supabase.from('posts').insert({
+        user_event_id: null,
+        user_id: null,
+        type: 'poll_vote',
+        daily_event_id: dailyEvent.id,
+        is_community_poll: true,
+        is_late: false,
+        visibility: 'public',
+        selected_option_index: null,
+      });
+      // Unique constraint violation (code 23505) means the trigger already created it — fine.
+      if (pollPostErr && pollPostErr.code !== '23505') {
+        console.error('community poll post creation failed:', pollPostErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         message: `Scheduled challenge for ${profiles.length} users; push will dispatch at fires_at`,

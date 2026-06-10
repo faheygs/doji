@@ -157,12 +157,16 @@ export function useCreatePost() {
 
       return post;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
+    onSuccess: async () => {
+      void queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
+      void queryClient.invalidateQueries({ queryKey: ['profile'] });
+      void queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['profilePosts'] });
+      try {
+        await queryClient.refetchQueries({ queryKey: ['feed'] });
+      } catch {
+        // Non-fatal — navigation still proceeds; user can pull-to-refresh.
+      }
       const uid = session?.user?.id;
       if (uid) fetchProfile(uid);
     },

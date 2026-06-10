@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import type { UserEvent } from '../types/database';
 
 type VoteArgs = {
   challengeId: string;
@@ -33,14 +34,41 @@ export function usePollVote() {
         .eq('id', userEventId);
       if (ueErr) throw ueErr;
     },
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['feed'] });
-      qc.invalidateQueries({ queryKey: ['userEvent'] });
-      qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
-      qc.invalidateQueries({ queryKey: ['pollVotersDetail', variables.challengeId] });
-      qc.invalidateQueries({ queryKey: ['profile'] });
-      qc.invalidateQueries({ queryKey: ['leaderboard'] });
-      qc.invalidateQueries({ queryKey: ['profilePosts'] });
+    onMutate: async () => {
+      if (!userId) return;
+      const key = ['userEvent', 'today', userId] as const;
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<UserEvent | null>(key);
+      if (prev) {
+        qc.setQueryData<UserEvent>(key, {
+          ...prev,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!userId || !ctx?.prev) return;
+      qc.setQueryData(['userEvent', 'today', userId], ctx.prev);
+    },
+    onSuccess: async (_data, variables) => {
+      // Fire-and-forget invalidations for non-feed queries
+      void qc.invalidateQueries({ queryKey: ['userEvent'] });
+      void qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
+      void qc.invalidateQueries({ queryKey: ['pollVotersDetail', variables.challengeId] });
+      void qc.invalidateQueries({ queryKey: ['profile'] });
+      void qc.invalidateQueries({ queryKey: ['leaderboard'] });
+      void qc.invalidateQueries({ queryKey: ['profilePosts'] });
+      // Await the feed refetch before resolving. TanStack Query v5 awaits this
+      // promise before calling the local onSuccess (navigation), so the user lands
+      // on the feed with the poll card already loaded. isPending stays true during
+      // this wait, keeping the submit button spinner visible.
+      try {
+        await qc.refetchQueries({ queryKey: ['feed'] });
+      } catch {
+        // Non-fatal — navigation still proceeds; user can pull-to-refresh.
+      }
       if (userId) fetchProfile(userId);
     },
   });
