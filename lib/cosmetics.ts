@@ -39,6 +39,7 @@ export const BORDER_CATALOG: Record<string, BorderDefinition> = {
   border_neon: { key: 'border_neon', color: '#FF6B35', width: 3, label: 'Neon' },
   border_gold: { key: 'border_gold', color: '#FFD700', width: 3, label: 'Gold' },
   border_diamond: { key: 'border_diamond', color: '#00D4FF', width: 3, label: 'Diamond' },
+  border_purple: { key: 'border_purple', color: '#A855F7', width: 3, label: 'Purple' },
 };
 
 export function getEquippedBorder(
