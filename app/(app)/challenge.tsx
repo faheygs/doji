@@ -289,6 +289,7 @@ export default function ChallengeScreen() {
                 <TouchableOpacity
                   style={styles.buyInBtn}
                   onPress={() => { Haptics.selectionAsync(); setBuyInVisible(true); }}
+                  disabled={buyInPending}
                   accessibilityRole="button"
                   accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
                 >

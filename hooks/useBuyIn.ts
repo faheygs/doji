@@ -20,7 +20,6 @@ export function useBuyInToday(userEvent: UserEvent | null | undefined) {
       if (userId) {
         await fetchProfile(userId);
         await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
-        await queryClient.invalidateQueries({ queryKey: ['todayUserEvent'] });
       }
     },
   });

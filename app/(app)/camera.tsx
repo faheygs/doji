@@ -263,6 +263,7 @@ export default function CameraScreen() {
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
+          clearCaptures();
           Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
         },
       },

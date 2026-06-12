@@ -250,7 +250,8 @@ export function useToggleReaction() {
           .eq('user_id', uid);
         if (error) throw error;
       } else {
-        await supabase.from('reactions').delete().eq('post_id', postId).eq('user_id', uid);
+        const { error: delError } = await supabase.from('reactions').delete().eq('post_id', postId).eq('user_id', uid);
+        if (delError) throw delError;
         const { error } = await supabase.from('reactions').insert({
           post_id: postId,
           user_id: uid,
