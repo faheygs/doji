@@ -81,7 +81,13 @@
       ],
       "expo-notifications",
       "expo-font",
-      "@sentry/react-native/expo"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "doji-i0",
+          "project": "react-native"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
