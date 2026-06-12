@@ -46,8 +46,11 @@ Deno.serve(async (req) => {
       typeof payload.target_user_id === 'string' ? payload.target_user_id.trim() : '';
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     const body = typeof payload.body === 'string' ? payload.body.trim() : '';
-    const preferenceKey =
+    const rawPrefKey =
       typeof payload.preference_key === 'string' ? payload.preference_key.trim() : '';
+    // 'poll_vote' was consolidated into 'friend_post' — accept both so deployment
+    // order (edge function vs SQL migration) never causes silent push drops.
+    const preferenceKey = rawPrefKey === 'poll_vote' ? 'friend_post' : rawPrefKey;
 
     if (!targetUserId) {
       return new Response(JSON.stringify({ error: 'target_user_id is required' }), {
