@@ -1,3 +1,12 @@
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+  environment: __DEV__ ? 'development' : 'production',
+});
+
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Stack, type Href, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -275,7 +284,7 @@ function RootLayoutInner() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -286,6 +295,8 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   flex: {
