@@ -87,28 +87,6 @@ export function useAppRealtime(userId: string | undefined) {
             queryClient.invalidateQueries({ queryKey: ['comments', row.id] });
           }
 
-          if (
-            payload.eventType === 'INSERT' &&
-            row?.id &&
-            row.user_id &&
-            row.user_id !== userId &&
-            !row.is_community_poll
-          ) {
-            void (async () => {
-              if (!live) return;
-              const posterId = row.user_id!;
-              const { data: friendshipRow } = await supabase
-                .from('friendships')
-                .select('id')
-                .eq('status', 'accepted')
-                .or(
-                  `and(requester_id.eq.${userId},addressee_id.eq.${posterId}),and(requester_id.eq.${posterId},addressee_id.eq.${userId})`,
-                )
-                .maybeSingle();
-
-              if (!live) return;
-            })();
-          }
         },
       )
       .on(
@@ -259,11 +237,7 @@ export function useAppRealtime(userId: string | undefined) {
               'equipped_title_key' in (payload.new ?? {}) ||
               'accent_theme' in (payload.new ?? {}));
 
-          if (cosmeticChanged) {
-            void queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
-          } else {
-            scheduleFeedInvalidate();
-          }
+          scheduleFeedInvalidate();
         },
       )
       .on(

@@ -89,7 +89,7 @@ export function useComments(
     queryKey: ['comments', postId, userId, feedAudience],
     queryFn: () => fetchCommentsForPost(postId!, userId, feedAudience),
     enabled: !!postId && !!userId && fetchEnabled,
-    staleTime: 5000,
+    staleTime: 20_000,
   });
 }
 

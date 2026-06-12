@@ -36,6 +36,7 @@ export function useProfile(username?: string) {
       return parseProfileRow(data);
     },
     enabled: !!normalized,
+    staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
 }
@@ -71,6 +72,7 @@ export function usePost(postId?: string) {
       return withReaction as Post;
     },
     enabled: !!postId,
+    staleTime: 15_000,
   });
 }
 
@@ -98,6 +100,7 @@ export function useProfilePosts(userId?: string) {
       return attachReactionFields(mapped, me);
     },
     enabled: !!userId,
+    staleTime: 15_000,
   });
 }
 
@@ -121,6 +124,7 @@ export function useFriendship(targetUserId?: string) {
       return data;
     },
     enabled: !!userId && !!targetUserId,
+    staleTime: 30_000,
   });
 }
 
@@ -263,6 +267,7 @@ export function useFriends() {
       return dedupeById(mapped);
     },
     enabled: !!userId,
+    staleTime: 30_000,
   });
 }
 

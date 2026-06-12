@@ -62,7 +62,7 @@ export function NotificationActorRow({
     [],
   );
 
-  const border = actor ? getEquippedBorder(actor) : null;
+  const border = actor ? getEquippedBorder({ equipped_border_key: actor.equipped_border_key ?? null }) : null;
   const avatar =
     leading ??
     (actor ? (

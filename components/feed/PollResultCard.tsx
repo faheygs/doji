@@ -41,7 +41,7 @@ type VoterRow = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
-  equipped_border_key?: string | null;
+  equipped_border_key: string | null;
   custom_text?: string | null;
 };
 
@@ -169,7 +169,7 @@ function PollResultCardImpl({
       const userIds = [...new Set((voteRows ?? []).map((r) => r.user_id as string))];
       let profileById = new Map<
         string,
-        { username: string; display_name: string | null; avatar_url: string | null }
+        { username: string; display_name: string | null; avatar_url: string | null; equipped_border_key: string | null }
       >();
       if (userIds.length > 0) {
         const { data: profs, error: pErr } = await supabase

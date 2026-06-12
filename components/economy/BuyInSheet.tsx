@@ -51,7 +51,7 @@ export function BuyInSheet({
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
         },
-        actions: { gap: Spacing.sm, marginTop: Spacing.md },
+        actions: { gap: Spacing.sm },
       }),
     [colors],
   );
@@ -59,8 +59,19 @@ export function BuyInSheet({
   const balanceAfter = sparksBalance - SPARKS_BUY_IN_COST;
   const challengeType = challenge?.type ?? 'poll';
 
+  const footer = (
+    <View style={styles.actions}>
+      <Button onPress={onConfirm} loading={loading} disabled={sparksBalance < SPARKS_BUY_IN_COST}>
+        Buy in for {SPARKS_BUY_IN_COST} Sparks
+      </Button>
+      <Button variant="ghost" onPress={onClose}>
+        Cancel
+      </Button>
+    </View>
+  );
+
   return (
-    <KeyboardSafeSheet visible={visible} onClose={onClose} title="">
+    <KeyboardSafeSheet visible={visible} onClose={onClose} title="" footer={footer}>
       <Text variant="heading" style={styles.title}>
         Buy into today&apos;s Doji
       </Text>
@@ -89,15 +100,6 @@ export function BuyInSheet({
           Balance after
         </Text>
         <SparksPill amount={Math.max(0, balanceAfter)} compact />
-      </View>
-
-      <View style={styles.actions}>
-        <Button onPress={onConfirm} loading={loading} disabled={sparksBalance < SPARKS_BUY_IN_COST}>
-          Buy in for {SPARKS_BUY_IN_COST} Sparks
-        </Button>
-        <Button variant="ghost" onPress={onClose}>
-          Cancel
-        </Button>
       </View>
     </KeyboardSafeSheet>
   );

@@ -19,7 +19,6 @@ const PREF_KEYS = new Set<string>([
   'suggestion',
   'doji_start',
   'comment_reply',
-  'poll_vote',
 ]);
 
 function prefEnabled(

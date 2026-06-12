@@ -22,7 +22,7 @@ export function useCommentLikes(commentId: string, enabled = true) {
         .order('created_at', { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
       if (error) throw error;
-      return (data ?? []) as CommentLikeRow[];
+      return (data ?? []) as unknown as CommentLikeRow[];
     },
     getNextPageParam: (last, all) =>
       last.length === PAGE_SIZE ? all.length : undefined,

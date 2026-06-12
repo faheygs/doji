@@ -260,9 +260,13 @@ Deno.serve(async (req) => {
       expires_at: expiresAt.toISOString(),
     }));
 
-    const { error: userEventsError } = await supabase.from('user_events').insert(userEventInserts);
-
-    if (userEventsError) throw userEventsError;
+    const FAN_OUT_BATCH = 500;
+    for (let i = 0; i < userEventInserts.length; i += FAN_OUT_BATCH) {
+      const { error: batchErr } = await supabase
+        .from('user_events')
+        .insert(userEventInserts.slice(i, i + FAN_OUT_BATCH));
+      if (batchErr) throw batchErr;
+    }
 
     // For poll challenges, ensure the community poll post exists.
     // The DB trigger trg_daily_event_create_community_poll_post should handle this,

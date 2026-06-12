@@ -191,10 +191,14 @@ export function ChallengeBanner({ userEvent }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push('/(app)/challenge');
     } catch (e) {
+      const msg = e instanceof Error
+        ? e.message
+        : (e as { message?: string })?.message ?? 'Unknown error';
+      if (__DEV__) console.error('[BuyIn] failed:', e);
       Toast.show({
         type: 'error',
         text1: 'Buy-in failed',
-        text2: e instanceof Error ? e.message : 'Try again',
+        text2: msg,
       });
     }
   };

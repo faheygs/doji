@@ -17,7 +17,6 @@ export type NotificationPreferences = {
   mention: boolean;
   suggestion: boolean;
   comment_reply: boolean;
-  poll_vote: boolean;
 };
 
 export type Profile = {
@@ -537,6 +536,14 @@ export type Database = {
       get_profile_by_username: {
         Args: { p_username: string };
         Returns: Profile | null;
+      };
+      ensure_today_user_event: {
+        Args: Record<string, never>;
+        Returns: UserEvent | null;
+      };
+      get_reactions_given_count: {
+        Args: { p_user_id: string };
+        Returns: number;
       };
     };
   };

@@ -53,7 +53,7 @@
     "notification": {
       "icon": "./assets/icon.png",
       "color": "#0A0A0A",
-      "iosDisplayInForeground": true
+      "iosDisplayInForeground": false
     },
     "plugins": [
       "expo-router",

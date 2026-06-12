@@ -159,7 +159,7 @@ function RootLayoutInner() {
           await supabase
             .from('profiles')
             .update({ notification_token: token })
-            .eq('id', userId);
+            .eq('id', userId as string);
           // Keep local store in sync so the next foreground check is accurate
           const profile = useAuthStore.getState().profile;
           if (profile) {

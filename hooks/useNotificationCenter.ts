@@ -40,7 +40,7 @@ export type NotificationCenterItem =
   | {
       key: string;
       kind: 'friend_accepted';
-      friendship: Friendship & { addressee?: Profile | null };
+      friendship: Omit<Friendship, 'addressee'> & { addressee: Profile | null };
       sortAt: string;
     }
   | {
@@ -181,11 +181,42 @@ export function useNotificationCenter() {
 
   const { data: friendRequests = [], isLoading: requestsLoading } = useFriendRequests();
 
+  // Shared: post IDs owned by the viewer (used by reactions + comments queries).
+  const myPostIdsQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'myPostIds', userId],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string[]> => {
+      if (!userId) return [];
+      const { data, error } = await supabase.from('posts').select('id').eq('user_id', userId);
+      if (error) throw error;
+      return (data ?? []).map((p) => p.id as string);
+    },
+  });
+
+  // Shared: accepted friend IDs (used by pollVotesQuery).
+  const friendGraphQuery = useQuery({
+    queryKey: [NOTIFICATION_CENTER_PREFIX, 'friendGraph', userId],
+    enabled: !!userId && prefsHydrated,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string[]> => {
+      if (!userId) return [];
+      const { data } = await supabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+        .eq('status', 'accepted');
+      return (data ?? []).map((f) =>
+        f.requester_id === userId ? f.addressee_id : f.requester_id,
+      );
+    },
+  });
+
   const acceptQuery = useQuery({
     queryKey: [NOTIFICATION_CENTER_PREFIX, 'friend_accepts', userId, sinceIso],
     enabled: !!userId && prefsHydrated,
     staleTime: 15_000,
-    queryFn: async (): Promise<(Friendship & { addressee?: Profile | null })[]> => {
+    queryFn: async (): Promise<(Omit<Friendship, 'addressee'> & { addressee: Profile | null })[]> => {
       if (!userId) return [];
 
       const { data, error } = await supabase
@@ -199,7 +230,7 @@ export function useNotificationCenter() {
         .limit(50);
 
       if (error) throw error;
-      return ((data ?? []) as (Friendship & { addressee?: Profile | Profile[] | null })[]).map(
+      return ((data ?? []) as unknown as (Omit<Friendship, 'addressee'> & { addressee?: Profile | null })[]).map(
         (row) => ({
           ...row,
           addressee: normalizeEmbeddedProfile(row.addressee),
@@ -208,16 +239,15 @@ export function useNotificationCenter() {
     },
   });
 
+  const myPostIds = myPostIdsQuery.data;
+
   const reactionsQuery = useQuery({
     queryKey: [NOTIFICATION_CENTER_PREFIX, 'reactions', userId, sinceIso],
-    enabled: !!userId && prefsHydrated,
+    enabled: !!userId && prefsHydrated && myPostIdsQuery.isSuccess,
     staleTime: 15_000,
     queryFn: async () => {
       if (!userId) return [];
-
-      const { data: myPosts, error: pe } = await supabase.from('posts').select('id').eq('user_id', userId);
-      if (pe) throw pe;
-      const ids = (myPosts ?? []).map((p) => p.id);
+      const ids = myPostIds ?? [];
       if (ids.length === 0) return [];
 
       const { data, error } = await supabase
@@ -238,14 +268,11 @@ export function useNotificationCenter() {
 
   const commentsQuery = useQuery({
     queryKey: [NOTIFICATION_CENTER_PREFIX, 'comments', userId, sinceIso],
-    enabled: !!userId && prefsHydrated,
+    enabled: !!userId && prefsHydrated && myPostIdsQuery.isSuccess,
     staleTime: 15_000,
     queryFn: async () => {
       if (!userId) return [];
-
-      const { data: myPosts, error: pe } = await supabase.from('posts').select('id').eq('user_id', userId);
-      if (pe) throw pe;
-      const ids = (myPosts ?? []).map((p) => p.id);
+      const ids = myPostIds ?? [];
       if (ids.length === 0) return [];
 
       const { data, error } = await supabase
@@ -378,19 +405,11 @@ export function useNotificationCenter() {
 
   const pollVotesQuery = useQuery({
     queryKey: [NOTIFICATION_CENTER_PREFIX, 'poll_votes', userId, sinceIso],
-    enabled: !!userId && prefsHydrated,
+    enabled: !!userId && prefsHydrated && friendGraphQuery.isSuccess,
     staleTime: 15_000,
     queryFn: async () => {
       if (!userId) return [];
-      // Get mutual friend IDs to filter votes to friends only
-      const { data: friendships } = await supabase
-        .from('friendships')
-        .select('requester_id, addressee_id')
-        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
-        .eq('status', 'accepted');
-      const friendIds = (friendships ?? []).map((f) =>
-        f.requester_id === userId ? f.addressee_id : f.requester_id,
-      );
+      const friendIds = friendGraphQuery.data ?? [];
       if (friendIds.length === 0) return [];
       const { data, error } = await supabase
         .from('poll_votes')
@@ -499,7 +518,7 @@ export function useNotificationCenter() {
     }
 
     const commentItems: NotificationCenterItem[] = (commentsQuery.data ?? []).map((row) => {
-      const r = row as {
+      const r = row as unknown as {
         id: string;
         post_id: string;
         created_at: string;
@@ -538,7 +557,7 @@ export function useNotificationCenter() {
           sortAt: r.created_at,
         };
       })
-      .filter((item): item is NotificationCenterItem => item != null);
+      .filter((item): item is NonNullable<typeof item> => item != null);
 
     const chItems: NotificationCenterItem[] =
       challengesQuery.data
@@ -587,7 +606,7 @@ export function useNotificationCenter() {
     });
 
     const replyItems: NotificationCenterItem[] = (repliesQuery.data ?? []).map((row) => {
-      const r = row as {
+      const r = row as unknown as {
         id: string;
         post_id: string;
         parent_id: string;
@@ -605,7 +624,7 @@ export function useNotificationCenter() {
     });
 
     const pollVoteItems: NotificationCenterItem[] = (pollVotesQuery.data ?? []).map((row) => {
-      const r = row as {
+      const r = row as unknown as {
         id: string;
         user_id: string;
         created_at: string;
@@ -671,18 +690,18 @@ export function useNotificationCenter() {
     return unreadCount;
   }, [unreadCount, profile?.notification_preferences]);
 
+  // Show the bell as soon as the fast queries resolve. Reactions/comments/pollVotes
+  // depend on shared prereq queries (myPostIds, friendGraph) which are separately
+  // cached, so they load quickly on repeat opens.
   const isLoading =
     !prefsHydrated ||
     requestsLoading ||
     acceptQuery.isLoading ||
-    commentsQuery.isLoading ||
     mentionsQuery.isLoading ||
-    reactionsQuery.isLoading ||
     challengesQuery.isLoading ||
     badgesQuery.isLoading ||
     suggestionsQuery.isLoading ||
-    repliesQuery.isLoading ||
-    pollVotesQuery.isLoading;
+    repliesQuery.isLoading;
 
   return {
     items,

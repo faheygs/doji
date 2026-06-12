@@ -55,9 +55,7 @@ export function useUserEvent() {
         }
         if (!ensured) return null;
 
-        const row = ensured as UserEvent & {
-          daily_event?: DailyEvent & { challenge?: Challenge };
-        };
+        const row = ensured as UserEvent;
         const { data: withDaily, error: refetchErr } = await supabase
           .from('user_events')
           .select(`*, daily_event:daily_events(*, challenge:challenges(*))`)
