@@ -9,12 +9,18 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development"
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview"
       }
     },
     "production": {
@@ -23,7 +29,7 @@
         "resourceClass": "m-medium"
       },
       "env": {
-        "EXPO_PUBLIC_SENTRY_DSN": "https://262a1a9e7317dad23fb8f6af3bb947a8@o4511550436737024.ingest.us.sentry.io/4511550449647616"
+        "EXPO_PUBLIC_APP_ENV": "production"
       }
     }
   },

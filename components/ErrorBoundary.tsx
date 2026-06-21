@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { captureException } from '@sentry/react-native';
 import { IconAlertTriangle } from '../components/icons/Icons';
 import { Spacing, Radius } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -41,9 +42,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    if (__DEV__) {
-      console.error('[ErrorBoundary]', error, info.componentStack);
-    }
+    console.error('[ErrorBoundary]', error, info.componentStack);
+    captureException(error, { extra: { componentStack: info.componentStack } });
   }
 
   private handleRetry = () => {

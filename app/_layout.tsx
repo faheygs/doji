@@ -4,7 +4,7 @@ Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   enabled: !__DEV__,
   tracesSampleRate: 0.2,
-  environment: __DEV__ ? 'development' : 'production',
+  environment: process.env.EXPO_PUBLIC_APP_ENV,
 });
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -46,6 +46,7 @@ import { notificationHrefFromData } from '../lib/notificationHref';
 import { safeReplace } from '../lib/routes';
 import { isAuthRoutingPending } from '../lib/authRoute';
 import { useAuthGate } from '../hooks/useAuthGate';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -288,9 +289,11 @@ function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrandedFontsGate>
-          <RootLayoutInner />
-        </BrandedFontsGate>
+        <ErrorBoundary>
+          <BrandedFontsGate>
+            <RootLayoutInner />
+          </BrandedFontsGate>
+        </ErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   );
