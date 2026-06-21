@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -42,7 +42,7 @@ export default function ChallengeScreen() {
   const { colors } = useTheme();
   const catColors = useMemo(() => getCategoryColors(colors), [colors]);
 
-  const { data: userEvent, isLoading } = useUserEvent();
+  const { data: userEvent, isLoading, isError, refetch } = useUserEvent();
   const sparks = useSparksBalance();
   const { eligible, buyIn, isPending: buyInPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
@@ -68,13 +68,14 @@ export default function ChallengeScreen() {
   }));
 
   useEffect(() => {
+    if (isLoading) return;
     heroScale.value = withSpring(1, { damping: 14, stiffness: 160 });
     if (!isCompleted && !isMissed && !isExpiredPending && !notYetLive) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-  }, [isCompleted, isMissed, isExpiredPending, notYetLive]);
+  }, [isLoading, isCompleted, isMissed, isExpiredPending, notYetLive]);
 
-  const handleStartChallenge = () => {
+  const handleStartChallenge = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     if (challengeType === 'poll') {
       router.push('/(app)/poll');
@@ -85,11 +86,11 @@ export default function ChallengeScreen() {
     } else {
       router.push('/(app)/camera');
     }
-  };
+  }, [challengeType, router]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     backOrHome(router);
-  };
+  }, [router]);
 
   const handleBuyIn = async () => {
     try {
@@ -201,7 +202,28 @@ export default function ChallengeScreen() {
     );
   }
 
-  if (!isLoading && !userEvent) {
+  if (isError) {
+    return (
+      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
+            <IconClose size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.centered}>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>Something went wrong</Text>
+          <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
+            {"Couldn't load today's challenge."}
+          </Text>
+          <TouchableOpacity onPress={() => void refetch()} style={[styles.buyInBtn, { marginTop: Spacing.md }]}>
+            <Text variant="label" color={colors.onPrimary}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!userEvent) {
     return (
       <SafeAreaView style={[styles.container, webScrollParentStyle]}>
         <View style={styles.header}>

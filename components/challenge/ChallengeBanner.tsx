@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +25,9 @@ import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { LiveSparksPill } from '../economy/SparksPill';
 import { BuyInSheet } from '../economy/BuyInSheet';
 
+const GRADIENT_START = { x: 0, y: 0 } as const;
+const GRADIENT_END = { x: 1, y: 1 } as const;
+
 type Props = {
   userEvent: UserEvent | null;
 };
@@ -43,6 +46,7 @@ export function ChallengeBanner({ userEvent }: Props) {
   });
 
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [buyInSecondsLeft, setBuyInSecondsLeft] = useState(0);
 
   useEffect(() => {
     if (!userEvent?.daily_event?.fires_at) {
@@ -59,6 +63,19 @@ export function ChallengeBanner({ userEvent }: Props) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [userEvent?.daily_event?.fires_at, userEvent?.daily_event?.window_minutes]);
+
+  useEffect(() => {
+    if (userEvent?.status !== 'buy_in_open' || !userEvent?.expires_at) {
+      setBuyInSecondsLeft(0);
+      return;
+    }
+    const expiresAt = userEvent.expires_at;
+    const compute = () =>
+      Math.max(0, Math.floor((parseDate(expiresAt).getTime() - Date.now()) / 1000));
+    setBuyInSecondsLeft(compute());
+    const id = setInterval(() => setBuyInSecondsLeft(compute()), 1000);
+    return () => clearInterval(id);
+  }, [userEvent?.status, userEvent?.expires_at]);
 
   const styles = useMemo(
     () =>
@@ -175,16 +192,21 @@ export function ChallengeBanner({ userEvent }: Props) {
         timerUrgent: {
           color: colors.warning,
         },
+        textOnPrimary: { color: colors.onPrimary },
+        textOnPrimaryFaded: { color: colors.onPrimary, opacity: 0.85 as const },
+        textOnPrimaryArrow: { color: colors.onPrimary },
+        alignEnd: { alignItems: 'flex-end' as const, gap: 2 },
+        flexOne: { flex: 1 },
       }),
     [colors],
   );
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/(app)/challenge');
-  };
+  }, [router]);
 
-  const handleBuyIn = async () => {
+  const handleBuyIn = useCallback(async () => {
     try {
       await buyIn();
       setBuyInVisible(false);
@@ -201,7 +223,7 @@ export function ChallengeBanner({ userEvent }: Props) {
         text2: msg,
       });
     }
-  };
+  }, [buyIn, router]);
 
   if (!userEvent) {
     return null;
@@ -221,19 +243,19 @@ export function ChallengeBanner({ userEvent }: Props) {
       <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
         <LinearGradient
           colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={GRADIENT_START}
+          end={GRADIENT_END}
           style={styles.banner}
         >
           <View style={styles.bannerBody}>
-            <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+            <Text variant="micro" style={styles.textOnPrimaryFaded}>
               WELCOME TO DOJI
             </Text>
-            <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={2}>
+            <Text variant="subhead" style={styles.textOnPrimary} numberOfLines={2}>
               Complete today&apos;s Doji — free on your first day
             </Text>
           </View>
-          <Text variant="subhead" style={{ color: colors.onPrimary }}>
+          <Text variant="subhead" style={styles.textOnPrimaryArrow}>
             GO →
           </Text>
         </LinearGradient>
@@ -242,23 +264,19 @@ export function ChallengeBanner({ userEvent }: Props) {
   }
 
   if (userEvent.status === 'buy_in_open' && !isExpired(userEvent.expires_at)) {
-    const buyInSecondsLeft = Math.max(
-      0,
-      Math.floor((parseDate(userEvent.expires_at).getTime() - Date.now()) / 1000),
-    );
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
         <LinearGradient
           colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={GRADIENT_START}
+          end={GRADIENT_END}
           style={styles.banner}
         >
           <View style={styles.bannerBody}>
-            <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+            <Text variant="micro" style={styles.textOnPrimaryFaded}>
               BUY-IN OPEN
             </Text>
-            <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={1}>
+            <Text variant="subhead" style={styles.textOnPrimary} numberOfLines={1}>
               Complete today&apos;s Doji
             </Text>
           </View>
@@ -266,7 +284,7 @@ export function ChallengeBanner({ userEvent }: Props) {
             <Text variant="label" style={styles.timerDigits}>
               {formatMinutesSecondsCountdown(buyInSecondsLeft)}
             </Text>
-            <Text variant="subhead" style={{ color: colors.onPrimary }}>
+            <Text variant="subhead" style={styles.textOnPrimaryArrow}>
               GO →
             </Text>
           </View>
@@ -282,7 +300,7 @@ export function ChallengeBanner({ userEvent }: Props) {
     return (
       <>
         <View style={styles.missedBanner}>
-          <Text variant="body" color={colors.textSecondary} style={{ flex: 1 }}>
+          <Text variant="body" color={colors.textSecondary} style={styles.flexOne}>
             Missed today&apos;s Doji
           </Text>
           {showBuyIn ? (
@@ -301,7 +319,7 @@ export function ChallengeBanner({ userEvent }: Props) {
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <View style={styles.alignEnd}>
                 <Text variant="micro" color={colors.textTertiary}>
                   Need {SPARKS_BUY_IN_COST} Sparks
                 </Text>
@@ -347,8 +365,8 @@ export function ChallengeBanner({ userEvent }: Props) {
       <View style={styles.countdownWrapper}>
         <LinearGradient
           colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={GRADIENT_START}
+          end={GRADIENT_END}
           style={styles.countdownInner}
         >
           <Text style={styles.countdownDigit}>{secondsUntil}</Text>
@@ -362,8 +380,8 @@ export function ChallengeBanner({ userEvent }: Props) {
     <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
       <LinearGradient
         colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={GRADIENT_START}
+        end={GRADIENT_END}
         style={styles.banner}
       >
         <View style={styles.iconCircle}>
@@ -375,19 +393,19 @@ export function ChallengeBanner({ userEvent }: Props) {
           />
         </View>
         <View style={styles.bannerBody}>
-          <Text variant="micro" style={{ color: colors.onPrimary, opacity: 0.85 }}>
+          <Text variant="micro" style={styles.textOnPrimaryFaded}>
             {challengeKindLabel(challenge ?? null, challengeType)}
           </Text>
-          <Text variant="subhead" style={{ color: colors.onPrimary }} numberOfLines={1}>
+          <Text variant="subhead" style={styles.textOnPrimary} numberOfLines={1}>
             {challenge?.title ?? 'Challenge'}
           </Text>
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
-              <Text variant="nano" style={{ color: colors.onPrimary }}>+{xpReward} XP</Text>
+              <Text variant="nano" style={styles.textOnPrimary}>+{xpReward} XP</Text>
             </View>
             {participants > 0 && (
               <View style={styles.metaPill}>
-                <Text variant="nano" style={{ color: colors.onPrimary }}>{participants} joined</Text>
+                <Text variant="nano" style={styles.textOnPrimary}>{participants} joined</Text>
               </View>
             )}
           </View>
@@ -399,7 +417,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           >
             {formatMinutesSecondsCountdown(secondsLeft)}
           </Text>
-          <Text variant="subhead" style={{ color: colors.onPrimary }}>
+          <Text variant="subhead" style={styles.textOnPrimaryArrow}>
             GO →
           </Text>
         </View>

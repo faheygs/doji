@@ -21,11 +21,12 @@ import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
 import { required, validationMessage } from '../../lib/formValidation';
+import { ErrorState } from '../../components/ui/ErrorState';
 
 export default function TaskScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: userEvent, isLoading } = useUserEvent();
+  const { data: userEvent, isLoading, isError, refetch } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
 
@@ -72,7 +73,7 @@ export default function TaskScreen() {
         },
       },
     );
-  }, [userEvent, answer, createPost, router, challenge?.xp_reward]);
+  }, [userEvent, answer, createPost, router]);
 
   const styles = useMemo(
     () =>
@@ -111,6 +112,18 @@ export default function TaskScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator color={colors.text} size="large" />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorState
+          title="Couldn't load challenge"
+          message="Check your connection and try again."
+          onRetry={() => void refetch()}
+        />
       </SafeAreaView>
     );
   }

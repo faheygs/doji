@@ -97,19 +97,11 @@ export function useCreatePost() {
       const userId = session?.user?.id;
       if (!userId) throw new Error('Not authenticated');
 
-      let photoUrl: string | null = null;
-      let frontPhotoUrl: string | null = null;
-      let videoUrl: string | null = null;
-
-      if (payload.photoUri) {
-        photoUrl = await uploadPostMedia(userId, payload.photoUri, 'photo');
-      }
-      if (payload.frontPhotoUri) {
-        frontPhotoUrl = await uploadPostMedia(userId, payload.frontPhotoUri, 'front');
-      }
-      if (payload.videoUri) {
-        videoUrl = await uploadPostVideo(userId, payload.videoUri);
-      }
+      const [photoUrl, frontPhotoUrl, videoUrl] = await Promise.all([
+        payload.photoUri ? uploadPostMedia(userId, payload.photoUri, 'photo') : Promise.resolve(null),
+        payload.frontPhotoUri ? uploadPostMedia(userId, payload.frontPhotoUri, 'front') : Promise.resolve(null),
+        payload.videoUri ? uploadPostVideo(userId, payload.videoUri) : Promise.resolve(null),
+      ]);
 
       const { data: post, error: postError } = await supabase
         .from('posts')
@@ -156,7 +148,7 @@ export function useCreatePost() {
       return post;
     },
     onSuccess: async () => {
-      void queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'] });
+      void queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'], refetchType: 'none' });
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
       void queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
       void queryClient.invalidateQueries({ queryKey: ['profilePosts'] });

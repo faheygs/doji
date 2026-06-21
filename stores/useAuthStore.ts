@@ -67,6 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         if (__DEV__) console.warn('[fetchProfile]', error.message);
+        set({ isProfileLoading: false, isLoading: false });
         return;
       }
 

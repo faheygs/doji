@@ -68,8 +68,6 @@ export default function FeedScreen() {
   const {
     data: userEvent,
     isLoading: userEventLoading,
-    isError: userEventError,
-    refetch: refetchUserEvent,
   } = useUserEvent();
   const profile = useAuthStore((s) => s.profile);
   const {
@@ -264,6 +262,16 @@ export default function FeedScreen() {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const handleScrollToIndexFailed = useCallback(
+    (info: { averageItemLength: number; index: number }) => {
+      flatListRef.current?.scrollToOffset({
+        offset: Math.max(0, info.averageItemLength * info.index),
+        animated: true,
+      });
+    },
+    [],
+  );
+
   const handleOpenProfile = useCallback(() => {
     Haptics.selectionAsync();
     router.push('/(app)/profile' as Href);
@@ -288,7 +296,9 @@ export default function FeedScreen() {
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
-  const ListHeader = useMemo(
+  const refreshColors = useMemo(() => [colors.text], [colors.text]);
+
+  const ListHeader = useCallback(
     () => (
       <View style={styles.listHeader}>
         <View style={styles.feedTopBar}>
@@ -424,17 +434,14 @@ export default function FeedScreen() {
     [styles.empty, styles.emptyText, colors.textSecondary, emptyHeading, emptyBody],
   );
 
-  if (feedError || userEventError) {
+  if (feedError) {
     return (
       <SafeAreaView style={outerStyle}>
-        {ListHeader}
+        <ListHeader />
         <ErrorState
           title="Couldn't load your feed"
           message="Check your connection and try again."
-          onRetry={() => {
-            void refetch();
-            void refetchUserEvent();
-          }}
+          onRetry={() => void refetch()}
         />
       </SafeAreaView>
     );
@@ -443,7 +450,7 @@ export default function FeedScreen() {
   if ((feedLoading || feedFetching) && !refreshing && posts.length === 0) {
     return (
       <SafeAreaView style={outerStyle}>
-        {ListHeader}
+        <ListHeader />
         <View style={styles.centered}>
           <ActivityIndicator color={colors.text} size="large" />
         </View>
@@ -460,12 +467,7 @@ export default function FeedScreen() {
         data={posts}
         keyExtractor={keyExtractorPost}
         renderItem={renderPost}
-        onScrollToIndexFailed={(info) => {
-          flatListRef.current?.scrollToOffset({
-            offset: Math.max(0, info.averageItemLength * info.index),
-            animated: true,
-          });
-        }}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={handleEndReached}
@@ -479,7 +481,7 @@ export default function FeedScreen() {
             refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={colors.text}
-            colors={[colors.text]}
+            colors={refreshColors}
           />
         }
         contentContainerStyle={styles.list}

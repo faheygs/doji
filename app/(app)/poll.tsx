@@ -32,7 +32,7 @@ import { maxLength, required } from '../../lib/formValidation';
 export default function PollScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: userEvent, isLoading: eventLoading } = useUserEvent();
+  const { data: userEvent, isLoading: eventLoading, isError: eventError, refetch: refetchEvent } = useUserEvent();
   const pollVote = usePollVote();
   const [selected, setSelected] = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
@@ -125,7 +125,7 @@ export default function PollScreen() {
         },
       },
     );
-  }, [selected, challengeId, userEvent, options, pollVote, router, challenge?.xp_reward, isOtherSelected, otherText]);
+  }, [selected, challengeId, userEvent, options, pollVote, router, isOtherSelected, otherText]);
 
   const otherValidation = useMemo(() => {
     if (!isOtherSelected) return null;
@@ -205,7 +205,7 @@ export default function PollScreen() {
     );
   }
 
-  if (optionsError) {
+  if (optionsError || eventError) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -214,9 +214,9 @@ export default function PollScreen() {
           </TouchableOpacity>
         </View>
         <ErrorState
-          title="Couldn't load poll options"
+          title="Couldn't load poll"
           message="Check your connection and try again."
-          onRetry={() => void refetchOptions()}
+          onRetry={() => { void refetchOptions(); void refetchEvent(); }}
         />
       </SafeAreaView>
     );

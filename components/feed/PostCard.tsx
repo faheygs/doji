@@ -57,7 +57,11 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
   }
   const pa = a.profile;
   const pb = b.profile;
-  if (pa?.avatar_url !== pb?.avatar_url || pa?.username !== pb?.username) {
+  if (
+    pa?.avatar_url !== pb?.avatar_url ||
+    pa?.username !== pb?.username ||
+    pa?.equipped_border_key !== pb?.equipped_border_key
+  ) {
     return false;
   }
   const ac = a.challenge;
@@ -73,6 +77,11 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   const { colors } = useTheme();
   const meId = useAuthStore((s) => s.session?.user?.id);
   const isOwnPost = meId != null && post.user_id === meId;
+  const equippedBorder = useMemo(
+    () => getEquippedBorder(post.profile),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [post.profile?.equipped_border_key],
+  );
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const hasVideo = Boolean(post.video_url && !blurred);
@@ -201,7 +210,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
     if (post.profile?.username) {
       router.push(hrefWithReturnTo(`/(app)/member/${post.profile.username}`, pathname));
     }
-  }, [router, post.profile?.username]);
+  }, [router, post.profile?.username, pathname]);
 
   const handleImageToggle = useCallback(() => {
     if (post.front_photo_url && !hasVideo) {
@@ -212,6 +221,12 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
 
   const displayUri =
     showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
+  const mainImageSource = useMemo(() => ({ uri: displayUri ?? '' }), [displayUri]);
+  const thumbImageSource = useMemo(
+    () => ({ uri: showFront ? post.photo_url ?? '' : post.front_photo_url ?? '' }),
+    [showFront, post.photo_url, post.front_photo_url],
+  );
+  const videoSource = useMemo(() => ({ uri: post.video_url ?? '' }), [post.video_url]);
 
   const hasPhotoLayer = Boolean(displayUri);
   const isQuestionPost =
@@ -316,8 +331,8 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
             uri={post.profile?.avatar_url}
             username={post.profile?.username}
             size={36}
-            borderColor={getEquippedBorder(post.profile)?.color}
-            borderWidth={getEquippedBorder(post.profile)?.width}
+            borderColor={equippedBorder?.color}
+            borderWidth={equippedBorder?.width}
           />
           <View style={styles.nameContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
@@ -361,7 +376,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
                   style={{ position: 'relative' }}
                 >
                   <Image
-                    source={{ uri: displayUri ?? '' }}
+                    source={mainImageSource}
                     style={styles.media}
                     contentFit="cover"
                     cachePolicy="memory-disk"
@@ -370,9 +385,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
                   {post.front_photo_url && !hasVideo ? (
                     <View style={styles.frontThumbnailContainer}>
                       <Image
-                        source={{
-                          uri: showFront ? post.photo_url ?? '' : post.front_photo_url,
-                        }}
+                        source={thumbImageSource}
                         style={styles.frontThumbnail}
                         contentFit="cover"
                         cachePolicy="memory-disk"
@@ -385,7 +398,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
 
               {hasVideo ? (
                 <Video
-                  source={{ uri: post.video_url! }}
+                  source={videoSource}
                   style={styles.videoMedia}
                   useNativeControls
                   resizeMode={ResizeMode.CONTAIN}

@@ -131,9 +131,10 @@ export function useFeed(audience: FeedAudience = 'friends') {
     queryFn: async ({ pageParam }): Promise<Post[]> => {
       if (!userId) return [];
 
-      const dailyEventIds = await liveDailyEventIdsForToday();
-      const friendIds =
-        audience === 'friends' ? await getFriendIdsIncludingSelf(userId) : undefined;
+      const [dailyEventIds, friendIds] = await Promise.all([
+        liveDailyEventIdsForToday(),
+        audience === 'friends' ? getFriendIdsIncludingSelf(userId) : Promise.resolve(undefined),
+      ]);
       const offset = pageParam ?? 0;
       return fetchFeedPostsPage({ userId, dailyEventIds, audience, friendIds }, offset);
     },
@@ -145,7 +146,7 @@ export function useFeed(audience: FeedAudience = 'friends') {
     },
     initialPageParam: 0,
     enabled: !!userId,
-    staleTime: 10_000,
+    staleTime: 60_000,
   });
 }
 

@@ -54,7 +54,7 @@ export function usePollVote() {
     },
     onSuccess: async (_data, variables) => {
       // Fire-and-forget invalidations for non-feed queries
-      void qc.invalidateQueries({ queryKey: ['userEvent'] });
+      void qc.invalidateQueries({ queryKey: ['userEvent'], refetchType: 'none' });
       void qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
       void qc.invalidateQueries({ queryKey: ['pollVotersDetail', variables.challengeId] });
       void qc.invalidateQueries({ queryKey: ['profile'] });
