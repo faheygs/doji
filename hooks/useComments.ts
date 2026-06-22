@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
+import { DEMO_COMMENTS_BY_POST } from '../constants/demoData';
 import { fetchMentionableUserIds } from '../lib/mentionNetwork';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
@@ -83,14 +84,20 @@ export function useComments(
 ) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const fetchEnabled = options?.fetchEnabled !== false;
   const feedAudience = options?.feedAudience ?? 'everyone';
 
   return useQuery({
-    queryKey: ['comments', postId, userId, feedAudience],
-    queryFn: () => fetchCommentsForPost(postId!, userId, feedAudience),
-    enabled: !!postId && !!userId && fetchEnabled,
-    staleTime: 20_000,
+    queryKey: isDemoMode
+      ? ['comments', postId, 'demo']
+      : ['comments', postId, userId, feedAudience],
+    queryFn: (): Promise<CommentWithMeta[]> | CommentWithMeta[] => {
+      if (isDemoMode) return (DEMO_COMMENTS_BY_POST[postId ?? ''] ?? []) as CommentWithMeta[];
+      return fetchCommentsForPost(postId!, userId, feedAudience);
+    },
+    enabled: isDemoMode ? !!postId : (!!postId && !!userId && fetchEnabled),
+    staleTime: isDemoMode ? Infinity : 20_000,
   });
 }
 

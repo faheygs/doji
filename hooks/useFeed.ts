@@ -13,7 +13,7 @@ import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
-import { DEMO_FEED_POSTS } from '../constants/demoData';
+import { DEMO_REACTIONS_BY_POST } from '../constants/demoData';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
 
 export type { FeedAudience };
@@ -122,6 +122,7 @@ export function useFeed(audience: FeedAudience = 'friends') {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
+  const demoFeedVersion = useDemoStore((s) => s.demoFeedVersion);
 
   return useInfiniteQuery<
     Post[],
@@ -131,10 +132,10 @@ export function useFeed(audience: FeedAudience = 'friends') {
     number
   >({
     queryKey: isDemoMode
-      ? (['feed', 'friends', 'demo'] as unknown as ['feed', FeedAudience, string | undefined])
+      ? (['feed', 'friends', `demo-v${demoFeedVersion}`] as unknown as ['feed', FeedAudience, string | undefined])
       : ['feed', audience, userId],
     queryFn: async ({ pageParam }): Promise<Post[]> => {
-      if (isDemoMode) return DEMO_FEED_POSTS;
+      if (isDemoMode) return useDemoStore.getState().demoFeedPosts;
       if (!userId) return [];
 
       const [dailyEventIds, friendIds] = await Promise.all([
@@ -158,11 +159,14 @@ export function useFeed(audience: FeedAudience = 'friends') {
 
 export function usePostReactions(postId: string, scopeUserIds?: string[]) {
   const session = useAuthStore((s) => s.session);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
 
   return useInfiniteQuery({
-    queryKey: ['reactions', postId, scopeKey],
+    queryKey: ['reactions', postId, isDemoMode ? 'demo' : scopeKey],
     queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
+      if (isDemoMode) return DEMO_REACTIONS_BY_POST[postId] ?? [];
+
       let query = supabase
         .from('reactions')
         .select('*, profile:profiles(username, avatar_url, equipped_border_key)')
@@ -180,9 +184,10 @@ export function usePostReactions(postId: string, scopeUserIds?: string[]) {
       return data as Reaction[];
     },
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === 50 ? allPages.length : undefined,
+      isDemoMode ? undefined : (lastPage.length === 50 ? allPages.length : undefined),
     initialPageParam: 0,
-    enabled: !!session?.user?.id && !!postId,
+    enabled: isDemoMode || (!!session?.user?.id && !!postId),
+    staleTime: isDemoMode ? Infinity : undefined,
   });
 }
 

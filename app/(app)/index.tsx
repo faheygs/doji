@@ -29,6 +29,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useDemoStore } from '../../stores/useDemoStore';
 import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
+import { ChallengeTypeGlyph } from '../../components/challenge/ChallengeTypeGlyph';
 import type { ChallengeType } from '../../types/database';
 import type { Post } from '../../types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -187,37 +188,37 @@ export default function FeedScreen() {
           borderRadius: Radius.md,
           alignItems: 'center',
         },
-        demoBar: {
+        demoExitBanner: {
+          width: '100%',
+          paddingVertical: Spacing.md + 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        demoTypeBar: {
           marginHorizontal: Spacing.md,
           marginTop: Spacing.sm,
           borderRadius: Radius.md,
           borderWidth: StyleSheet.hairlineWidth,
           overflow: 'hidden',
-        },
-        demoBarTop: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
           paddingVertical: Spacing.sm,
+          paddingHorizontal: Spacing.sm,
+          gap: Spacing.xs,
+        },
+        demoTypeLabel: {
+          paddingHorizontal: Spacing.xs,
+          paddingBottom: Spacing.xs,
         },
         demoTypeRow: {
           flexDirection: 'row',
-          paddingHorizontal: Spacing.sm,
-          paddingBottom: Spacing.sm,
           gap: Spacing.xs,
         },
         demoTypeChip: {
           flex: 1,
-          paddingVertical: Spacing.xs + 2,
+          paddingVertical: Spacing.sm,
           borderRadius: Radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
-        },
-        demoExitBtn: {
-          paddingVertical: Spacing.xs,
-          paddingHorizontal: Spacing.sm,
-          borderRadius: Radius.sm,
+          gap: 4,
         },
       }),
     [colors],
@@ -392,27 +393,16 @@ export default function FeedScreen() {
         </View>
 
         {isDemoMode ? (
-          <View style={[styles.demoBar, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}40` }]}>
-            <View style={styles.demoBarTop}>
-              <Text variant="label" color={colors.primary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
-                DEMO MODE
-              </Text>
-              <TouchableOpacity
-                onPress={exitDemoMode}
-                activeOpacity={0.75}
-                style={[styles.demoExitBtn, { backgroundColor: `${colors.primary}25` }]}
-              >
-                <Text variant="bodySmall" color={colors.primary} style={{ fontWeight: '600' }}>
-                  Exit Demo
-                </Text>
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.demoTypeBar, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}35` }]}>
+            <Text variant="bodySmall" color={colors.primary} style={[styles.demoTypeLabel, { fontWeight: '600', letterSpacing: 0.3 }]}>
+              Preview challenge type:
+            </Text>
             <View style={styles.demoTypeRow}>
               {([
-                { type: 'photo' as ChallengeType, label: '📷 Photo' },
-                { type: 'poll' as ChallengeType, label: '📊 Poll' },
-                { type: 'task' as ChallengeType, label: '📝 Task' },
-                { type: 'format' as ChallengeType, label: '✍️ Format' },
+                { type: 'photo' as ChallengeType, label: 'Photo' },
+                { type: 'poll' as ChallengeType, label: 'Poll' },
+                { type: 'task' as ChallengeType, label: 'Task' },
+                { type: 'format' as ChallengeType, label: 'Question' },
               ]).map(({ type, label }) => {
                 const active = demoChallengeType === type;
                 return (
@@ -422,13 +412,18 @@ export default function FeedScreen() {
                     activeOpacity={0.75}
                     style={[
                       styles.demoTypeChip,
-                      { backgroundColor: active ? colors.primary : `${colors.primary}14` },
+                      { backgroundColor: active ? colors.primary : `${colors.primary}18` },
                     ]}
                   >
+                    <ChallengeTypeGlyph
+                      type={type}
+                      size={16}
+                      color={active ? colors.onPrimary : colors.primary}
+                    />
                     <Text
                       variant="bodySmall"
                       color={active ? colors.onPrimary : colors.primary}
-                      style={{ fontWeight: active ? '700' : '500', fontSize: 12 }}
+                      style={{ fontWeight: active ? '700' : '500', fontSize: 11 }}
                     >
                       {label}
                     </Text>
@@ -503,7 +498,6 @@ export default function FeedScreen() {
       isDemoMode,
       demoChallengeType,
       enterDemoMode,
-      exitDemoMode,
       setDemoChallengeType,
     ],
   );
@@ -575,6 +569,23 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={outerStyle}>
+      {isDemoMode ? (
+        <TouchableOpacity
+          onPress={exitDemoMode}
+          activeOpacity={0.85}
+          style={[styles.demoExitBanner, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Exit demo mode"
+        >
+          <Text
+            variant="headingMedium"
+            color={colors.onPrimary}
+            style={{ fontWeight: '800', letterSpacing: 0.5 }}
+          >
+            DEMO MODE — Tap to Exit
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       <FlatList
         ref={flatListRef}
         key={audience}

@@ -10,7 +10,7 @@ import type {
 import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 import { useDemoStore } from '../stores/useDemoStore';
-import { makeDemoUserEvent } from '../constants/demoData';
+import { makeDemoUserEvent, DEMO_CHALLENGES } from '../constants/demoData';
 
 export function useUserEvent() {
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
@@ -160,12 +160,38 @@ export function useCreatePost() {
 
       return post;
     },
-    onMutate: async ({ isLate }) => {
+    onMutate: async ({ isLate, photoUri, postType }) => {
       const userId = session?.user?.id;
       if (!userId) return;
-      // In demo mode: update the demo store and bail — no cache to touch
       if (useDemoStore.getState().isDemoMode) {
-        useDemoStore.getState().completeDemoChallenge();
+        const store = useDemoStore.getState();
+        const type = store.demoChallengeType;
+        const isPhotoPost = postType === 'photo' || (!postType && !!photoUri);
+        const newPost = {
+          id: `demo-post-mine-${Date.now()}`,
+          user_event_id: null,
+          user_id: 'demo-user',
+          type: (isPhotoPost ? 'photo' : 'task_complete') as 'photo' | 'task_complete',
+          caption: null,
+          photo_url: isPhotoPost
+            ? `https://picsum.photos/seed/demo-mine-${Date.now()}/600/600`
+            : null,
+          front_photo_url: null,
+          video_url: null,
+          is_late: isLate,
+          selected_option_index: null,
+          reaction_count: 0,
+          comment_count: 0,
+          comments_disabled: false,
+          visibility: 'friends' as const,
+          created_at: new Date().toISOString(),
+          reaction_breakdown: {} as any,
+          my_reactions: [],
+          profile: null,
+          challenge: DEMO_CHALLENGES[type],
+        };
+        store.addDemoPost(newPost as any);
+        store.completeDemoChallenge();
         return { prev: null, key: null };
       }
       const key = ['userEvent', 'today', userId] as const;

@@ -10,6 +10,8 @@ import { isChallengeLive } from '../lib/challengeDay';
 import { parseDate } from '../utils/time';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { normalizeEmbeddedProfile } from '../lib/notificationCopy';
+import { useDemoStore } from '../stores/useDemoStore';
+import { DEMO_NOTIFICATIONS } from '../constants/demoData';
 
 const BELL_CLEARED_AT_KEY = '@doit/bell-cleared-at';
 const BELL_LAST_OPENED_KEY = '@doit/bell-last-opened';
@@ -134,6 +136,7 @@ type ReactionRow = {
 export function useNotificationCenter() {
   const userId = useAuthStore((s) => s.session?.user?.id);
   const profile = useAuthStore((s) => s.profile);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const queryClient = useQueryClient();
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
@@ -702,6 +705,19 @@ export function useNotificationCenter() {
     badgesQuery.isLoading ||
     suggestionsQuery.isLoading ||
     repliesQuery.isLoading;
+
+  if (isDemoMode) {
+    return {
+      items: DEMO_NOTIFICATIONS,
+      unreadCount: DEMO_NOTIFICATIONS.length,
+      badgeCount: DEMO_NOTIFICATIONS.length,
+      isLoading: false,
+      markBellOpened: async () => {},
+      dismissItem: async () => {},
+      clearNotificationHistory: async () => {},
+      prefsHydrated: true,
+    };
+  }
 
   return {
     items,

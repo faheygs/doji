@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
+import { DEMO_CHALLENGES } from '../constants/demoData';
 import type { UserEvent } from '../types/database';
 
 type VoteArgs = {
@@ -37,11 +38,34 @@ export function usePollVote() {
         .eq('id', userEventId);
       if (ueErr) throw ueErr;
     },
-    onMutate: async () => {
+    onMutate: async (vars) => {
       if (!userId) return;
       const isDemoMode = useDemoStore.getState().isDemoMode;
       if (isDemoMode) {
-        useDemoStore.getState().completeDemoChallenge();
+        const store = useDemoStore.getState();
+        const newPost = {
+          id: `demo-post-poll-${Date.now()}`,
+          user_event_id: null,
+          user_id: 'demo-user',
+          type: 'poll_vote' as const,
+          caption: null,
+          photo_url: null,
+          front_photo_url: null,
+          video_url: null,
+          is_late: false,
+          selected_option_index: vars.optionIndex,
+          reaction_count: 0,
+          comment_count: 0,
+          comments_disabled: false,
+          visibility: 'friends' as const,
+          created_at: new Date().toISOString(),
+          reaction_breakdown: {} as any,
+          my_reactions: [],
+          profile: null,
+          challenge: DEMO_CHALLENGES.poll,
+        };
+        store.addDemoPost(newPost as any);
+        store.completeDemoChallenge();
         return { prev: null, key: null };
       }
       const key = ['userEvent', 'today', userId] as const;
