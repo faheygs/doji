@@ -1,18 +1,25 @@
 import { create } from 'zustand';
-import type { UserEvent, ChallengeType } from '../types/database';
+import type { ChallengeType, UserEventStatus } from '../types/database';
 
 interface DemoState {
-  activeDemoUserEvent: UserEvent | null;
-  demoUserEvents: Partial<Record<ChallengeType, UserEvent>>;
-  setActiveDemoUserEvent: (event: UserEvent | null) => void;
-  setDemoUserEvents: (events: Partial<Record<ChallengeType, UserEvent>>) => void;
-  clearActiveDemoUserEvent: () => void;
+  isDemoMode: boolean;
+  demoChallengeType: ChallengeType;
+  demoStatus: UserEventStatus;
+  enterDemoMode: (type?: ChallengeType) => void;
+  exitDemoMode: () => void;
+  setDemoChallengeType: (type: ChallengeType) => void;
+  completeDemoChallenge: () => void;
 }
 
 export const useDemoStore = create<DemoState>((set) => ({
-  activeDemoUserEvent: null,
-  demoUserEvents: {},
-  setActiveDemoUserEvent: (event) => set({ activeDemoUserEvent: event }),
-  setDemoUserEvents: (events) => set({ demoUserEvents: events }),
-  clearActiveDemoUserEvent: () => set({ activeDemoUserEvent: null }),
+  isDemoMode: false,
+  demoChallengeType: 'photo',
+  demoStatus: 'pending',
+  enterDemoMode: (type = 'photo') =>
+    set({ isDemoMode: true, demoChallengeType: type, demoStatus: 'pending' }),
+  exitDemoMode: () =>
+    set({ isDemoMode: false, demoChallengeType: 'photo', demoStatus: 'pending' }),
+  setDemoChallengeType: (type) =>
+    set({ demoChallengeType: type, demoStatus: 'pending' }),
+  completeDemoChallenge: () => set({ demoStatus: 'completed' }),
 }));

@@ -10,18 +10,23 @@ import type {
 import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 import { useDemoStore } from '../stores/useDemoStore';
+import { makeDemoUserEvent } from '../constants/demoData';
 
 export function useUserEvent() {
-  const activeDemoUserEvent = useDemoStore((s) => s.activeDemoUserEvent);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+  const demoChallengeType = useDemoStore((s) => s.demoChallengeType);
+  const demoStatus = useDemoStore((s) => s.demoStatus);
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
 
+  const demoEvent = isDemoMode ? makeDemoUserEvent(demoChallengeType, demoStatus) : null;
+
   return useQuery({
-    queryKey: activeDemoUserEvent
-      ? ['userEvent', 'demo', activeDemoUserEvent.id]
-      : ['userEvent', 'today', userId],
+    queryKey: isDemoMode
+      ? (['userEvent', 'demo', demoChallengeType, demoStatus] as const)
+      : (['userEvent', 'today', userId] as const),
     queryFn: async (): Promise<UserEvent | null> => {
-      if (activeDemoUserEvent) return activeDemoUserEvent;
+      if (isDemoMode) return demoEvent;
       if (!userId) return null;
 
       const { start, end } = todayFiresAtWindow();
@@ -77,8 +82,9 @@ export function useUserEvent() {
       const challenge = row.daily_event?.challenge;
       return { ...row, challenge } as UserEvent;
     },
-    enabled: activeDemoUserEvent ? true : !!userId,
-    staleTime: activeDemoUserEvent ? Infinity : 1000 * 30,
+    enabled: isDemoMode || !!userId,
+    staleTime: isDemoMode ? Infinity : 1000 * 30,
+    placeholderData: isDemoMode ? demoEvent : undefined,
   });
 }
 
@@ -101,6 +107,8 @@ export function useCreatePost() {
     mutationFn: async (payload: CreatePostPayload) => {
       const userId = session?.user?.id;
       if (!userId) throw new Error('Not authenticated');
+      // In demo mode: skip all uploads and DB writes
+      if (useDemoStore.getState().isDemoMode) return null;
 
       const [photoUrl, frontPhotoUrl, videoUrl] = await Promise.all([
         payload.photoUri ? uploadPostMedia(userId, payload.photoUri, 'photo') : Promise.resolve(null),
@@ -155,10 +163,12 @@ export function useCreatePost() {
     onMutate: async ({ isLate }) => {
       const userId = session?.user?.id;
       if (!userId) return;
-      const activeDemoUserEvent = useDemoStore.getState().activeDemoUserEvent;
-      const key = activeDemoUserEvent
-        ? (['userEvent', 'demo', activeDemoUserEvent.id] as const)
-        : (['userEvent', 'today', userId] as const);
+      // In demo mode: update the demo store and bail — no cache to touch
+      if (useDemoStore.getState().isDemoMode) {
+        useDemoStore.getState().completeDemoChallenge();
+        return { prev: null, key: null };
+      }
+      const key = ['userEvent', 'today', userId] as const;
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<UserEvent | null>(key);
       if (prev) {

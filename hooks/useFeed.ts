@@ -12,6 +12,8 @@ import { filterPostsForAudience, type FeedAudience } from '../lib/feedAudience';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
+import { DEMO_FEED_POSTS } from '../constants/demoData';
 import type { Post, Reaction, ReactionEmoji } from '../types/database';
 
 export type { FeedAudience };
@@ -119,6 +121,7 @@ async function fetchFeedPostsPage(
 export function useFeed(audience: FeedAudience = 'friends') {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useInfiniteQuery<
     Post[],
@@ -127,8 +130,11 @@ export function useFeed(audience: FeedAudience = 'friends') {
     ['feed', FeedAudience, string | undefined],
     number
   >({
-    queryKey: ['feed', audience, userId],
+    queryKey: isDemoMode
+      ? (['feed', 'friends', 'demo'] as unknown as ['feed', FeedAudience, string | undefined])
+      : ['feed', audience, userId],
     queryFn: async ({ pageParam }): Promise<Post[]> => {
+      if (isDemoMode) return DEMO_FEED_POSTS;
       if (!userId) return [];
 
       const [dailyEventIds, friendIds] = await Promise.all([
@@ -138,15 +144,15 @@ export function useFeed(audience: FeedAudience = 'friends') {
       const offset = pageParam ?? 0;
       return fetchFeedPostsPage({ userId, dailyEventIds, audience, friendIds }, offset);
     },
-    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+    getNextPageParam: isDemoMode ? () => undefined : (lastPage, _allPages, lastPageParam) => {
       const offset = lastPageParam ?? 0;
       const userPostsOnPage = lastPage.filter((p) => !p.is_community_poll).length;
       if (userPostsOnPage < PAGE_SIZE) return undefined;
       return offset + PAGE_SIZE;
     },
     initialPageParam: 0,
-    enabled: !!userId,
-    staleTime: 60_000,
+    enabled: isDemoMode || !!userId,
+    staleTime: isDemoMode ? Infinity : 60_000,
   });
 }
 
@@ -242,6 +248,8 @@ export function useToggleReaction() {
     mutationFn: async ({ postId, emoji, active }: ToggleReactionVars) => {
       const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
+      // In demo mode: skip DB — the optimistic update in onMutate is the full effect
+      if (useDemoStore.getState().isDemoMode) return;
 
       if (active) {
         const { error } = await supabase
@@ -285,6 +293,8 @@ export function useToggleReaction() {
       }
     },
     onSettled: (_data, error, vars) => {
+      // In demo mode: the optimistic update is permanent — don't invalidate or it reverts
+      if (useDemoStore.getState().isDemoMode) return;
       const uid = session?.user?.id;
       if (uid) {
         void queryClient.invalidateQueries({ queryKey: ['reactionsGiven', uid] });

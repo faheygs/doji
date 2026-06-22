@@ -20,6 +20,8 @@ export function usePollVote() {
   return useMutation({
     mutationFn: async ({ challengeId, optionId, optionIndex, userEventId, customText }: VoteArgs) => {
       if (!userId) throw new Error('Not authenticated');
+      // In demo mode: skip all DB writes
+      if (useDemoStore.getState().isDemoMode) return;
 
       const { error: voteErr } = await supabase.from('poll_votes').insert({
         user_id: userId,
@@ -37,10 +39,12 @@ export function usePollVote() {
     },
     onMutate: async () => {
       if (!userId) return;
-      const activeDemoUserEvent = useDemoStore.getState().activeDemoUserEvent;
-      const key = activeDemoUserEvent
-        ? (['userEvent', 'demo', activeDemoUserEvent.id] as const)
-        : (['userEvent', 'today', userId] as const);
+      const isDemoMode = useDemoStore.getState().isDemoMode;
+      if (isDemoMode) {
+        useDemoStore.getState().completeDemoChallenge();
+        return { prev: null, key: null };
+      }
+      const key = ['userEvent', 'today', userId] as const;
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<UserEvent | null>(key);
       if (prev) {
@@ -57,17 +61,14 @@ export function usePollVote() {
       qc.setQueryData(ctx.key as any, ctx.prev);
     },
     onSuccess: async (_data, variables) => {
-      // Fire-and-forget invalidations for non-feed queries
+      // In demo mode: skip all invalidations — static data needs no refresh
+      if (useDemoStore.getState().isDemoMode) return;
       void qc.invalidateQueries({ queryKey: ['userEvent'], refetchType: 'none' });
       void qc.invalidateQueries({ queryKey: ['pollResults', variables.challengeId] });
       void qc.invalidateQueries({ queryKey: ['pollVotersDetail', variables.challengeId] });
       void qc.invalidateQueries({ queryKey: ['profile'] });
       void qc.invalidateQueries({ queryKey: ['leaderboard'] });
       void qc.invalidateQueries({ queryKey: ['profilePosts'] });
-      // Await the feed refetch before resolving. TanStack Query v5 awaits this
-      // promise before calling the local onSuccess (navigation), so the user lands
-      // on the feed with the poll card already loaded. isPending stays true during
-      // this wait, keeping the submit button spinner visible.
       try {
         await qc.refetchQueries({ queryKey: ['feed'] });
       } catch {

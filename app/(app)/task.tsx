@@ -18,7 +18,6 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
-import { useDemoStore } from '../../stores/useDemoStore';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
 import { required, validationMessage } from '../../lib/formValidation';
@@ -67,13 +66,6 @@ export default function TaskScreen() {
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          const { activeDemoUserEvent, clearActiveDemoUserEvent } = useDemoStore.getState();
-          if (activeDemoUserEvent) {
-            clearActiveDemoUserEvent();
-            Toast.show({ type: 'success', text1: 'Submitted! 🎉', text2: 'Back in demo mode.' });
-            router.replace('/(app)/demo' as any);
-            return;
-          }
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {

@@ -26,8 +26,10 @@ import { useNotificationCenter } from '../../hooks/useNotificationCenter';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { useFeed, type FeedAudience } from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useDemoStore } from '../../stores/useDemoStore';
 import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
+import type { ChallengeType } from '../../types/database';
 import type { Post } from '../../types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -70,6 +72,11 @@ export default function FeedScreen() {
     isLoading: userEventLoading,
   } = useUserEvent();
   const profile = useAuthStore((s) => s.profile);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+  const demoChallengeType = useDemoStore((s) => s.demoChallengeType);
+  const enterDemoMode = useDemoStore((s) => s.enterDemoMode);
+  const exitDemoMode = useDemoStore((s) => s.exitDemoMode);
+  const setDemoChallengeType = useDemoStore((s) => s.setDemoChallengeType);
   const {
     unreadCount: notificationUnread,
     markBellOpened,
@@ -180,6 +187,38 @@ export default function FeedScreen() {
           borderRadius: Radius.md,
           alignItems: 'center',
         },
+        demoBar: {
+          marginHorizontal: Spacing.md,
+          marginTop: Spacing.sm,
+          borderRadius: Radius.md,
+          borderWidth: StyleSheet.hairlineWidth,
+          overflow: 'hidden',
+        },
+        demoBarTop: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: Spacing.md,
+          paddingVertical: Spacing.sm,
+        },
+        demoTypeRow: {
+          flexDirection: 'row',
+          paddingHorizontal: Spacing.sm,
+          paddingBottom: Spacing.sm,
+          gap: Spacing.xs,
+        },
+        demoTypeChip: {
+          flex: 1,
+          paddingVertical: Spacing.xs + 2,
+          borderRadius: Radius.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        demoExitBtn: {
+          paddingVertical: Spacing.xs,
+          paddingHorizontal: Spacing.sm,
+          borderRadius: Radius.sm,
+        },
       }),
     [colors],
   );
@@ -252,19 +291,23 @@ export default function FeedScreen() {
 
   }, [pendingPostId, pendingOpenComments, feedLoading, posts, router]);
 
-  const shouldBlur = !hasUnlockedFeed(userEvent) && !userEventLoading;
+  const shouldBlur = !isDemoMode && !hasUnlockedFeed(userEvent) && !userEventLoading;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetch(),
-        queryClient.invalidateQueries({ queryKey: ['userEvent'] }),
-      ]);
+      if (isDemoMode) {
+        await refetch();
+      } else {
+        await Promise.all([
+          refetch(),
+          queryClient.invalidateQueries({ queryKey: ['userEvent'] }),
+        ]);
+      }
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, queryClient]);
+  }, [refetch, queryClient, isDemoMode]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
@@ -348,9 +391,55 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        {profile?.is_demo_account ? (
+        {isDemoMode ? (
+          <View style={[styles.demoBar, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}40` }]}>
+            <View style={styles.demoBarTop}>
+              <Text variant="label" color={colors.primary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
+                DEMO MODE
+              </Text>
+              <TouchableOpacity
+                onPress={exitDemoMode}
+                activeOpacity={0.75}
+                style={[styles.demoExitBtn, { backgroundColor: `${colors.primary}25` }]}
+              >
+                <Text variant="bodySmall" color={colors.primary} style={{ fontWeight: '600' }}>
+                  Exit Demo
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.demoTypeRow}>
+              {([
+                { type: 'photo' as ChallengeType, label: '📷 Photo' },
+                { type: 'poll' as ChallengeType, label: '📊 Poll' },
+                { type: 'task' as ChallengeType, label: '📝 Task' },
+                { type: 'format' as ChallengeType, label: '✍️ Format' },
+              ]).map(({ type, label }) => {
+                const active = demoChallengeType === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => setDemoChallengeType(type)}
+                    activeOpacity={0.75}
+                    style={[
+                      styles.demoTypeChip,
+                      { backgroundColor: active ? colors.primary : `${colors.primary}14` },
+                    ]}
+                  >
+                    <Text
+                      variant="bodySmall"
+                      color={active ? colors.onPrimary : colors.primary}
+                      style={{ fontWeight: active ? '700' : '500', fontSize: 12 }}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ) : profile?.is_demo_account ? (
           <TouchableOpacity
-            onPress={() => router.push('/(app)/demo' as any)}
+            onPress={() => enterDemoMode()}
             activeOpacity={0.85}
             style={[styles.demoBanner, { backgroundColor: colors.primary }]}
           >
@@ -411,6 +500,11 @@ export default function FeedScreen() {
       userEvent,
       userEventLoading,
       audience,
+      isDemoMode,
+      demoChallengeType,
+      enterDemoMode,
+      exitDemoMode,
+      setDemoChallengeType,
     ],
   );
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
 import { fetchMentionableUserIds } from '../lib/mentionNetwork';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
@@ -144,6 +145,8 @@ export function useAddComment() {
       if (!uid) throw new Error('Not authenticated');
       const trimmed = body.trim();
       if (!trimmed) throw new Error('Comment cannot be empty');
+      // In demo mode: skip DB writes
+      if (useDemoStore.getState().isDemoMode) return;
 
       const { data: inserted, error } = await supabase
         .from('comments')
@@ -191,6 +194,7 @@ export function useEditComment() {
       if (!uid) throw new Error('Not authenticated');
       const trimmed = body.trim();
       if (!trimmed) throw new Error('Comment cannot be empty');
+      if (useDemoStore.getState().isDemoMode) return;
 
       const { error } = await supabase
         .from('comments')
@@ -233,6 +237,7 @@ export function useDeleteComment() {
     mutationFn: async ({ commentId }: DeleteCommentVars) => {
       const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
+      if (useDemoStore.getState().isDemoMode) return;
 
       const { error } = await supabase
         .from('comments')
@@ -266,6 +271,7 @@ export function useToggleCommentLike() {
     mutationFn: async ({ commentId, liked }: ToggleCommentLikeVars) => {
       const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
+      if (useDemoStore.getState().isDemoMode) return;
 
       if (liked) {
         const { error } = await supabase
@@ -303,6 +309,7 @@ export function useToggleCommentsDisabled() {
     mutationFn: async ({ postId, disabled }: ToggleCommentsDisabledVars) => {
       const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
+      if (useDemoStore.getState().isDemoMode) return;
 
       const { error } = await supabase
         .from('posts')
