@@ -10,7 +10,7 @@ import type {
 import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 import { useDemoStore } from '../stores/useDemoStore';
-import { makeDemoUserEvent, DEMO_CHALLENGES } from '../constants/demoData';
+import { makeDemoUserEvent, DEMO_CHALLENGES, DEMO_YOU_PROFILE } from '../constants/demoData';
 
 export function useUserEvent() {
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
@@ -167,14 +167,15 @@ export function useCreatePost() {
         const store = useDemoStore.getState();
         const type = store.demoChallengeType;
         const isPhotoPost = postType === 'photo' || (!postType && !!photoUri);
+        const youProfile = { ...DEMO_YOU_PROFILE, id: userId };
         const newPost = {
           id: `demo-post-mine-${Date.now()}`,
           user_event_id: null,
-          user_id: 'demo-user',
+          user_id: userId,
           type: (isPhotoPost ? 'photo' : 'task_complete') as 'photo' | 'task_complete',
           caption: null,
           photo_url: isPhotoPost
-            ? `https://picsum.photos/seed/demo-mine-${Date.now()}/600/600`
+            ? 'https://picsum.photos/seed/demo-my-post/600/600'
             : null,
           front_photo_url: null,
           video_url: null,
@@ -187,7 +188,7 @@ export function useCreatePost() {
           created_at: new Date().toISOString(),
           reaction_breakdown: {} as any,
           my_reactions: [],
-          profile: null,
+          profile: youProfile,
           challenge: DEMO_CHALLENGES[type],
         };
         store.addDemoPost(newPost as any);

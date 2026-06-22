@@ -40,7 +40,9 @@ export const useDemoStore = create<DemoState>((set) => ({
   setDemoChallengeType: (type) =>
     set((s) => ({
       demoChallengeType: type,
-      demoStatus: 'pending',
+      // Keep demoStatus as-is — switching type only updates the feed.
+      // Resetting to 'pending' here caused the ChallengeBanner to appear
+      // right under the type chip on layout shift, triggering accidental navigation.
       demoFeedPosts: DEMO_FEED_POSTS_BY_TYPE[type],
       demoFeedVersion: s.demoFeedVersion + 1,
     })),

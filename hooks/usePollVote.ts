@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
-import { DEMO_CHALLENGES } from '../constants/demoData';
+import { DEMO_CHALLENGES, DEMO_YOU_PROFILE } from '../constants/demoData';
 import type { UserEvent } from '../types/database';
 
 type VoteArgs = {
@@ -43,10 +43,11 @@ export function usePollVote() {
       const isDemoMode = useDemoStore.getState().isDemoMode;
       if (isDemoMode) {
         const store = useDemoStore.getState();
+        const youProfile = userId ? { ...DEMO_YOU_PROFILE, id: userId } : DEMO_YOU_PROFILE;
         const newPost = {
           id: `demo-post-poll-${Date.now()}`,
           user_event_id: null,
-          user_id: 'demo-user',
+          user_id: userId ?? 'demo-user',
           type: 'poll_vote' as const,
           caption: null,
           photo_url: null,
@@ -61,7 +62,7 @@ export function usePollVote() {
           created_at: new Date().toISOString(),
           reaction_breakdown: {} as any,
           my_reactions: [],
-          profile: null,
+          profile: youProfile,
           challenge: DEMO_CHALLENGES.poll,
         };
         store.addDemoPost(newPost as any);

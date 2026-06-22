@@ -12,6 +12,38 @@ import type {
 import type { Comment } from '../types/database';
 import type { NotificationCenterItem } from '../hooks/useNotificationCenter';
 
+// Hardcoded "you" profile used on locally-created demo posts so PostCard shows the "You" pill.
+// user_id is set to the real session user id at post-creation time so isOwnPost=true.
+export const DEMO_YOU_PROFILE: Omit<Profile, 'id'> & { id: string } = {
+  id: 'demo-you',
+  username: 'demo_you',
+  display_name: 'You',
+  avatar_url: 'https://i.pravatar.cc/150?img=12',
+  avatar_gradient: ['#6366f1', '#a855f7'] as [string, string],
+  bio: null,
+  current_streak: 5,
+  longest_streak: 12,
+  total_completions: 23,
+  total_missed: 2,
+  xp: 800,
+  level: 3,
+  reactions_received: 45,
+  streak_shields: 1,
+  notification_token: null,
+  app_theme: 'dark',
+  sparks: 620,
+  accent_theme: 'default',
+  appearance_mode: 'dark',
+  equipped_border_key: null,
+  equipped_title_key: null,
+  timezone: 'America/Los_Angeles',
+  is_admin: false,
+  is_demo_account: true,
+  onboarding_completed_at: '2024-01-01T00:00:00.000Z',
+  created_at: '2024-01-01T00:00:00.000Z',
+  updated_at: new Date().toISOString(),
+};
+
 // ---------------------------------------------------------------------------
 // 10 fake users
 // ---------------------------------------------------------------------------
