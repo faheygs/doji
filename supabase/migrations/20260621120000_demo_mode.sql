@@ -41,11 +41,12 @@ INSERT INTO challenges (
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed poll options for demo poll challenge
-INSERT INTO poll_options (challenge_id, text, display_order) VALUES
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Coffee ☕', 1),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tea 🍵', 2),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Neither', 3),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Both!', 4);
+INSERT INTO poll_options (challenge_id, text, position, vote_count) VALUES
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Coffee ☕', 0, 0),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Tea 🍵', 1, 0),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Neither', 2, 0),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Both!', 3, 0)
+ON CONFLICT DO NOTHING;
 
 -- Seed 4 demo daily_events with STABLE UUIDs
 INSERT INTO daily_events (id, challenge_id, fires_at, window_minutes, created_at)
