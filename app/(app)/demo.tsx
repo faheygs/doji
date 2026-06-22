@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -6,7 +6,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -14,81 +13,10 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { IconClose } from '../../components/icons/Icons';
-import { DemoPostCard, type DemoPost } from '../../components/demo/DemoPostCard';
+import { PostCard } from '../../components/feed/PostCard';
 import { DemoChallengeCard } from '../../components/demo/DemoChallengeCard';
 import { useDemoSetup } from '../../hooks/useDemoSetup';
-import type { ChallengeType } from '../../types/database';
-
-const DEMO_POSTS: DemoPost[] = [
-  {
-    id: 'demo-1',
-    type: 'photo',
-    challengeTitle: 'Show Us Your World',
-    username: 'jordan_k',
-    displayName: 'Jordan K.',
-    gradientColors: ['#FF6B35', '#F7C59F'],
-    photoUrl: 'https://picsum.photos/seed/doji1/600/600',
-    caption: 'My morning setup — finally got the lighting right 📸',
-    reactionCounts: { fire: 14, heart: 9, wow: 3 },
-    comments: [
-      { username: 'alex_m', text: 'The lighting is everything 🔥' },
-      { username: 'sam_r', text: 'Okay this is way too aesthetic for 8am' },
-    ],
-  },
-  {
-    id: 'demo-2',
-    type: 'poll',
-    challengeTitle: 'Coffee or Tea?',
-    username: 'alex_m',
-    displayName: 'Alex M.',
-    gradientColors: ['#4776E6', '#8E54E9'],
-    photoUrl: null,
-    caption: null,
-    pollOptions: [
-      { text: 'Coffee ☕', percent: 47 },
-      { text: 'Tea 🍵', percent: 28 },
-      { text: 'Neither', percent: 8 },
-      { text: 'Both!', percent: 17 },
-    ],
-    selectedOption: 1,
-    reactionCounts: { fire: 22, like: 8 },
-    comments: [
-      { username: 'mia_t', text: 'Tea gang rise up 🍵' },
-      { username: 'jordan_k', text: "Coffee people won and it isn't close" },
-    ],
-  },
-  {
-    id: 'demo-3',
-    type: 'task',
-    challengeTitle: 'Describe Your Day',
-    username: 'sam_r',
-    displayName: 'Sam R.',
-    gradientColors: ['#11998e', '#38ef7d'],
-    photoUrl: null,
-    caption: 'Productive chaos. Three meetings, one good idea, two cold coffees. Somehow still smiling.',
-    reactionCounts: { heart: 11, like: 7, fire: 4 },
-    comments: [
-      { username: 'jordan_k', text: '"productive chaos" is such a mood' },
-      { username: 'alex_m', text: 'cold coffee hits different when you forget about it' },
-    ],
-  },
-  {
-    id: 'demo-4',
-    type: 'format',
-    challengeTitle: 'Two Sentence Story',
-    username: 'mia_t',
-    displayName: 'Mia T.',
-    gradientColors: ['#f953c6', '#b91d73'],
-    photoUrl: null,
-    caption:
-      'She checked her phone one last time before bed. The notification could wait — it already had for three years.',
-    reactionCounts: { fire: 18, wow: 12, heart: 6 },
-    comments: [
-      { username: 'sam_r', text: 'Okay this actually got me 😭' },
-      { username: 'alex_m', text: 'I need a sequel immediately' },
-    ],
-  },
-];
+import type { ChallengeType, Post } from '../../types/database';
 
 const CHALLENGE_CARDS = [
   {
@@ -125,7 +53,23 @@ export default function DemoScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [loading, setLoading] = useState<ChallengeType | null>(null);
-  const { setupAndActivate } = useDemoSetup();
+  const [demoPosts, setDemoPosts] = useState<Post[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const { setupAndActivate, initDemoFeed } = useDemoSetup();
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const posts = await initDemoFeed();
+      if (mounted) {
+        setDemoPosts(posts);
+        setFeedLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [initDemoFeed]);
 
   const handleTry = useCallback(
     async (type: ChallengeType, route: string) => {
@@ -180,9 +124,28 @@ export default function DemoScreen() {
           </Text>
         </View>
 
-        {DEMO_POSTS.map((post) => (
-          <DemoPostCard key={post.id} post={post} />
-        ))}
+        {feedLoading ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+            style={styles.feedLoader}
+          />
+        ) : demoPosts.length === 0 ? (
+          <View style={styles.emptyFeed}>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              Tap &quot;Try it&quot; below to post your first demo entry.
+            </Text>
+          </View>
+        ) : (
+          demoPosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              blurred={false}
+              feedAudience="everyone"
+            />
+          ))
+        )}
 
         {/* Section B — Try It Yourself */}
         <View style={styles.sectionHeader}>
@@ -252,6 +215,14 @@ const styles = StyleSheet.create({
   },
   sectionSub: {
     lineHeight: 20,
+  },
+  feedLoader: {
+    marginVertical: Spacing.xl,
+  },
+  emptyFeed: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
   },
   bottomPad: {
     height: Spacing.xxl,

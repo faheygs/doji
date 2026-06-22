@@ -188,6 +188,7 @@ export type Post = {
   reaction_count: number;
   comment_count: number;
   comments_disabled: boolean;
+  is_demo?: boolean;
   visibility: 'friends' | 'public';
   created_at: string;
   reaction_breakdown?: Record<ReactionEmoji, number>;
@@ -388,6 +389,7 @@ export type Database = {
           video_url?: string | null;
           is_late: boolean;
           selected_option_index?: number | null;
+          is_demo?: boolean;
           visibility: 'friends' | 'public';
         };
         Update: Partial<Post>;
