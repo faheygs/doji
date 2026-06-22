@@ -379,6 +379,7 @@ export default function SuggestChallengeScreen() {
           requires_text: mapped.requires_text,
           answer_rule: answerRule,
           is_active: true,
+          is_demo: false,
           schedule_count: 0,
           emoji: null,
           participant_count: 0,

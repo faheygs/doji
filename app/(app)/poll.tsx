@@ -22,6 +22,7 @@ import { IconClose } from '../../components/icons/Icons';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { usePollVote } from '../../hooks/usePollVote';
+import { useDemoStore } from '../../stores/useDemoStore';
 import { supabase } from '../../lib/supabase';
 import type { PollOption } from '../../types/database';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
@@ -118,6 +119,13 @@ export default function PollScreen() {
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const { activeDemoUserEvent, clearActiveDemoUserEvent } = useDemoStore.getState();
+          if (activeDemoUserEvent) {
+            clearActiveDemoUserEvent();
+            Toast.show({ type: 'success', text1: 'Voted! 🎉', text2: 'Back in demo mode.' });
+            router.replace('/(app)/demo' as any);
+            return;
+          }
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {

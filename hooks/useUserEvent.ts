@@ -9,14 +9,19 @@ import type {
 } from '../types/database';
 import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
+import { useDemoStore } from '../stores/useDemoStore';
 
 export function useUserEvent() {
+  const activeDemoUserEvent = useDemoStore((s) => s.activeDemoUserEvent);
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
 
   return useQuery({
-    queryKey: ['userEvent', 'today', userId],
+    queryKey: activeDemoUserEvent
+      ? ['userEvent', 'demo', activeDemoUserEvent.id]
+      : ['userEvent', 'today', userId],
     queryFn: async (): Promise<UserEvent | null> => {
+      if (activeDemoUserEvent) return activeDemoUserEvent;
       if (!userId) return null;
 
       const { start, end } = todayFiresAtWindow();
@@ -72,8 +77,8 @@ export function useUserEvent() {
       const challenge = row.daily_event?.challenge;
       return { ...row, challenge } as UserEvent;
     },
-    enabled: !!userId,
-    staleTime: 1000 * 30,
+    enabled: activeDemoUserEvent ? true : !!userId,
+    staleTime: activeDemoUserEvent ? Infinity : 1000 * 30,
   });
 }
 
@@ -146,6 +151,28 @@ export function useCreatePost() {
       }
 
       return post;
+    },
+    onMutate: async ({ isLate }) => {
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const activeDemoUserEvent = useDemoStore.getState().activeDemoUserEvent;
+      const key = activeDemoUserEvent
+        ? (['userEvent', 'demo', activeDemoUserEvent.id] as const)
+        : (['userEvent', 'today', userId] as const);
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<UserEvent | null>(key);
+      if (prev) {
+        queryClient.setQueryData<UserEvent>(key, {
+          ...prev,
+          status: isLate ? 'late' : 'completed',
+          completed_at: new Date().toISOString(),
+        });
+      }
+      return { prev, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx?.prev || !ctx?.key) return;
+      queryClient.setQueryData(ctx.key as any, ctx.prev);
     },
     onSuccess: async () => {
       void queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'], refetchType: 'none' });

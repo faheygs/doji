@@ -15,22 +15,41 @@ Deno.serve(async (req) => {
   try {
     const now = new Date().toISOString();
 
+    // Fetch demo daily_event IDs to exclude from expiry
+    const { data: demoChallengeRows } = await supabase
+      .from('challenges')
+      .select('id')
+      .eq('is_demo', true);
+    const demoChallengeIds = (demoChallengeRows ?? []).map((c: { id: string }) => c.id);
+
+    let demoDailyEventIds = new Set<string>();
+    if (demoChallengeIds.length > 0) {
+      const { data: demoDailyRows } = await supabase
+        .from('daily_events')
+        .select('id')
+        .in('challenge_id', demoChallengeIds);
+      demoDailyEventIds = new Set((demoDailyRows ?? []).map((e: { id: string }) => e.id));
+    }
+
     const { data: expiredEvents, error: fetchError } = await supabase
       .from('user_events')
-      .select('id, user_id')
+      .select('id, user_id, daily_event_id')
       .eq('status', 'pending')
       .lt('expires_at', now);
 
     if (fetchError) throw fetchError;
 
-    if (!expiredEvents || expiredEvents.length === 0) {
+    const nonDemoEvents = ((expiredEvents ?? []) as { id: string; user_id: string; daily_event_id: string }[])
+      .filter(e => !demoDailyEventIds.has(e.daily_event_id));
+
+    if (!nonDemoEvents || nonDemoEvents.length === 0) {
       return new Response(JSON.stringify({ message: 'No expired events to process' }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const byUser = new Map<string, string[]>();
-    for (const e of expiredEvents as { id: string; user_id: string }[]) {
+    for (const e of nonDemoEvents) {
       const list = byUser.get(e.user_id) ?? [];
       list.push(e.id);
       byUser.set(e.user_id, list);
@@ -104,7 +123,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        message: `Processed ${expiredEvents.length} expired events`,
+        message: `Processed ${nonDemoEvents.length} expired events`,
         missed: missedEventIds.length,
         shielded: shieldedEventIds.length,
       }),

@@ -97,6 +97,7 @@ export default function UsernameScreen() {
         reactions_received: 0,
         streak_shields: 0,
         is_admin: false,
+        is_demo_account: false,
         onboarding_completed_at: null,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         sparks: 0,

@@ -45,6 +45,7 @@ export type Profile = {
   equipped_title_key: string | null;
   timezone: string;
   is_admin: boolean;
+  is_demo_account: boolean;
   onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -73,6 +74,7 @@ export type Challenge = {
   requires_text: boolean;
   answer_rule?: AnswerRule | null;
   is_active: boolean;
+  is_demo: boolean;
   /** Times this challenge has been assigned to a daily_event; scheduler prefers lower values. */
   schedule_count: number;
   created_at: string;
@@ -544,6 +546,10 @@ export type Database = {
       get_reactions_given_count: {
         Args: { p_user_id: string };
         Returns: number;
+      };
+      ensure_demo_user_events: {
+        Args: { p_user_id: string };
+        Returns: void;
       };
     };
   };

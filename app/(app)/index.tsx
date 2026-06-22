@@ -172,6 +172,14 @@ export default function FeedScreen() {
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
         },
+        demoBanner: {
+          marginHorizontal: Spacing.md,
+          marginTop: Spacing.sm,
+          paddingVertical: Spacing.sm + 2,
+          paddingHorizontal: Spacing.md,
+          borderRadius: Radius.md,
+          alignItems: 'center',
+        },
       }),
     [colors],
   );
@@ -340,6 +348,18 @@ export default function FeedScreen() {
           </View>
         </View>
 
+        {profile?.is_demo_account ? (
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/demo' as any)}
+            activeOpacity={0.85}
+            style={[styles.demoBanner, { backgroundColor: colors.primary }]}
+          >
+            <Text variant="label" color={colors.onPrimary} style={{ letterSpacing: 0.3 }}>
+              Demo the full app →
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {userEventLoading ? (
           <View
             style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
@@ -385,6 +405,7 @@ export default function FeedScreen() {
       notificationUnread,
       profile?.avatar_url,
       profile?.username,
+      profile?.is_demo_account,
       handleOpenProfile,
       handleOpenNotifications,
       userEvent,

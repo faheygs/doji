@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
 import type { UserEvent } from '../types/database';
 
 type VoteArgs = {
@@ -36,7 +37,10 @@ export function usePollVote() {
     },
     onMutate: async () => {
       if (!userId) return;
-      const key = ['userEvent', 'today', userId] as const;
+      const activeDemoUserEvent = useDemoStore.getState().activeDemoUserEvent;
+      const key = activeDemoUserEvent
+        ? (['userEvent', 'demo', activeDemoUserEvent.id] as const)
+        : (['userEvent', 'today', userId] as const);
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<UserEvent | null>(key);
       if (prev) {
@@ -46,11 +50,11 @@ export function usePollVote() {
           completed_at: new Date().toISOString(),
         });
       }
-      return { prev };
+      return { prev, key };
     },
     onError: (_err, _vars, ctx) => {
-      if (!userId || !ctx?.prev) return;
-      qc.setQueryData(['userEvent', 'today', userId], ctx.prev);
+      if (!ctx?.prev || !ctx?.key) return;
+      qc.setQueryData(ctx.key as any, ctx.prev);
     },
     onSuccess: async (_data, variables) => {
       // Fire-and-forget invalidations for non-feed queries

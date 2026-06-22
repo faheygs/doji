@@ -29,6 +29,7 @@ import {
 } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { useDemoStore } from '../../stores/useDemoStore';
 import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
@@ -260,6 +261,13 @@ export default function CameraScreen() {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           clearCaptures();
+          const { activeDemoUserEvent, clearActiveDemoUserEvent } = useDemoStore.getState();
+          if (activeDemoUserEvent) {
+            clearActiveDemoUserEvent();
+            Toast.show({ type: 'success', text1: 'Posted! 🎉', text2: 'Back in demo mode.' });
+            router.replace('/(app)/demo' as any);
+            return;
+          }
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
