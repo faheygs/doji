@@ -18,6 +18,7 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
+import { useDemoStore } from '../../stores/useDemoStore';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
 import { formatRuleHint, parseAnswerRule, validateAnswerRule } from '../../lib/answerRules';
@@ -41,6 +42,7 @@ export default function FormatScreen() {
   }, [answer, answerRule]);
 
   useEffect(() => {
+    if (useDemoStore.getState().isDemoMode) return;
     if (isLoading) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;

@@ -33,6 +33,7 @@ export type Profile = {
   xp: number;
   level: number;
   reactions_received: number;
+  reactions_given: number;
   streak_shields: number;
   notification_token: string | null;
   notification_preferences?: NotificationPreferences;

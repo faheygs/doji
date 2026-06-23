@@ -28,6 +28,7 @@ import {
   IconClose,
 } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
+import { useDemoStore } from '../../stores/useDemoStore';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
@@ -84,6 +85,7 @@ export default function CameraScreen() {
       backOrHome(router);
       return;
     }
+    if (useDemoStore.getState().isDemoMode) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
     if (t && t !== 'photo') {

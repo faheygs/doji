@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
-import { DEMO_CHALLENGES, DEMO_YOU_PROFILE } from '../constants/demoData';
 import type { UserEvent } from '../types/database';
 
 type VoteArgs = {
@@ -43,29 +42,8 @@ export function usePollVote() {
       const isDemoMode = useDemoStore.getState().isDemoMode;
       if (isDemoMode) {
         const store = useDemoStore.getState();
-        const youProfile = userId ? { ...DEMO_YOU_PROFILE, id: userId } : DEMO_YOU_PROFILE;
-        const newPost = {
-          id: `demo-post-poll-${Date.now()}`,
-          user_event_id: null,
-          user_id: userId ?? 'demo-user',
-          type: 'poll_vote' as const,
-          caption: null,
-          photo_url: null,
-          front_photo_url: null,
-          video_url: null,
-          is_late: false,
-          selected_option_index: vars.optionIndex,
-          reaction_count: 0,
-          comment_count: 0,
-          comments_disabled: false,
-          visibility: 'friends' as const,
-          created_at: new Date().toISOString(),
-          reaction_breakdown: {} as any,
-          my_reactions: [],
-          profile: youProfile,
-          challenge: DEMO_CHALLENGES.poll,
-        };
-        store.addDemoPost(newPost as any);
+        // Poll/WYR: one shared community post only — just track the vote for highlighting
+        store.addDemoVote(vars.challengeId, vars.optionId);
         store.completeDemoChallenge();
         return { prev: null, key: null };
       }

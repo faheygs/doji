@@ -28,6 +28,8 @@ import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useDemoStore } from '../../stores/useDemoStore';
+import { DEMO_OPTIONS_BY_CHALLENGE, DEMO_TOTAL_VOTES_BY_CHALLENGE } from '../../constants/demoData';
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
@@ -64,6 +66,7 @@ function PollResultCardImpl({
 }: Props) {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const [voterModal, setVoterModal] = useState<{ optionId: string; label: string } | null>(null);
@@ -72,7 +75,7 @@ function PollResultCardImpl({
   const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
     queryKey: ['friendIds', userId],
     queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: !!userId && fetchEnabled,
+    enabled: !isDemoMode && !!userId && fetchEnabled,
     staleTime: 30_000,
   });
 
@@ -87,7 +90,7 @@ function PollResultCardImpl({
         .eq('status', 'pending');
       return (data ?? []).map((r) => r.addressee_id as string);
     },
-    enabled: !!userId && fetchEnabled,
+    enabled: !isDemoMode && !!userId && fetchEnabled,
     staleTime: 30_000,
   });
 
@@ -131,12 +134,14 @@ function PollResultCardImpl({
       const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
       return { rows, totalVotes };
     },
-    enabled: fetchEnabled && scopeReady,
+    enabled: !isDemoMode && fetchEnabled && scopeReady,
     staleTime: 30_000,
   });
 
-  const rows = data?.rows ?? [];
-  const totalVotes = data?.totalVotes ?? 0;
+  const rows: PollRow[] = isDemoMode ? (DEMO_OPTIONS_BY_CHALLENGE[challenge.id] ?? []) : (data?.rows ?? []);
+  const totalVotes = isDemoMode ? (DEMO_TOTAL_VOTES_BY_CHALLENGE[challenge.id] ?? 0) : (data?.totalVotes ?? 0);
+
+  const demoVoteOptionId = useDemoStore((s) => s.demoVotesByChallenge[challenge.id] ?? null);
 
   const { data: myVoteOptionId } = useQuery<string | null>({
     queryKey: ['myPollVote', challenge.id, userId],
@@ -151,8 +156,20 @@ function PollResultCardImpl({
       if (error) throw error;
       return data?.option_id ?? null;
     },
-    enabled: !!userId && fetchEnabled,
+    enabled: !isDemoMode && !!userId && fetchEnabled,
   });
+
+  const effectiveMyVoteOptionId = isDemoMode ? demoVoteOptionId : (myVoteOptionId ?? null);
+
+  const demoPollVotersMap = useMemo(() => {
+    if (!isDemoMode) return null;
+    const opts = DEMO_OPTIONS_BY_CHALLENGE[challenge.id] ?? [];
+    const m = new Map<string, VoterRow[]>();
+    for (const opt of opts) {
+      m.set(opt.id, opt.voters);
+    }
+    return m;
+  }, [isDemoMode, challenge.id]);
 
   const { data: votersByOption } = useQuery({
     queryKey: ['pollVotersDetail', challenge.id, feedAudience, scopeKey],
@@ -204,7 +221,7 @@ function PollResultCardImpl({
       }
       return m;
     },
-    enabled: fetchEnabled && scopeReady,
+    enabled: !isDemoMode && fetchEnabled && scopeReady,
     staleTime: 30_000,
   });
 
@@ -408,7 +425,8 @@ function PollResultCardImpl({
     [finalizeClose, panStartY, sheetSlideRange, sheetTranslateY],
   );
 
-  const modalVoters = voterModal ? (votersByOption?.get(voterModal.optionId) ?? []) : [];
+  const effectiveVotersByOption = isDemoMode ? demoPollVotersMap : (votersByOption ?? null);
+  const modalVoters = voterModal ? (effectiveVotersByOption?.get(voterModal.optionId) ?? []) : [];
   const modalIsOther = rows.some((r) => r.id === voterModal?.optionId && r.is_other);
 
   if (!fetchEnabled) {
@@ -437,9 +455,9 @@ function PollResultCardImpl({
       {rows.map((opt) => {
         const count = opt.liveCount;
         const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-        const isMyVote = myVoteOptionId === opt.id;
+        const isMyVote = effectiveMyVoteOptionId === opt.id;
         const barColor = isMyVote ? colors.primary : colors.textTertiary;
-        const voters = votersByOption?.get(opt.id) ?? [];
+        const voters = effectiveVotersByOption?.get(opt.id) ?? [];
         const preview = voters.slice(0, 4);
         const extra = Math.max(0, voters.length - 4);
 

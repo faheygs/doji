@@ -1,12 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
 import { DEMO_COMMENTS_BY_POST } from '../constants/demoData';
+import { mapInfinitePosts } from './useFeed';
+import { type CommentLikeRow } from './useCommentLikes';
+import { DEMO_COMMENT_LIKES_BY_COMMENT } from '../constants/demoData';
 import { fetchMentionableUserIds } from '../lib/mentionNetwork';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
-import type { Comment, Profile } from '../types/database';
+import type { Comment, Profile, Post } from '../types/database';
 
 const COMMENT_SELECT = '*, profile:profiles(username, display_name, avatar_url, equipped_border_key)';
 
@@ -93,7 +96,19 @@ export function useComments(
       ? ['comments', postId, 'demo']
       : ['comments', postId, userId, feedAudience],
     queryFn: (): Promise<CommentWithMeta[]> | CommentWithMeta[] => {
-      if (isDemoMode) return (DEMO_COMMENTS_BY_POST[postId ?? ''] ?? []) as CommentWithMeta[];
+      if (isDemoMode) {
+        const store = useDemoStore.getState();
+        const staticComments = (DEMO_COMMENTS_BY_POST[postId ?? ''] ?? []) as CommentWithMeta[];
+        const myComments = (store.demoMyCommentsByPost[postId ?? ''] ?? []) as CommentWithMeta[];
+        const liked = new Set(store.demoLikedCommentIds);
+        return [...staticComments, ...myComments]
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .map((c) => ({
+            ...c,
+            my_like: liked.has(c.id),
+            like_count: liked.has(c.id) ? c.like_count + 1 : c.like_count,
+          }));
+      }
       return fetchCommentsForPost(postId!, userId, feedAudience);
     },
     enabled: isDemoMode ? !!postId : (!!postId && !!userId && fetchEnabled),
@@ -152,7 +167,6 @@ export function useAddComment() {
       if (!uid) throw new Error('Not authenticated');
       const trimmed = body.trim();
       if (!trimmed) throw new Error('Comment cannot be empty');
-      // In demo mode: skip DB writes
       if (useDemoStore.getState().isDemoMode) return;
 
       const { data: inserted, error } = await supabase
@@ -167,20 +181,46 @@ export function useAddComment() {
         .single();
 
       if (error) throw error;
-      // Mention insertion is best-effort — the comment is already saved.
-      // A failure here should not surface an error to the user.
       try {
         await insertCommentMentions(inserted.id, trimmed, uid);
       } catch {
         if (__DEV__) console.warn('[useAddComment] mention insertion failed');
       }
     },
+    onMutate: ({ postId, body, parentId }) => {
+      if (!useDemoStore.getState().isDemoMode) return;
+      const uid = session?.user?.id;
+      const profile = useAuthStore.getState().profile as Profile;
+      if (!uid || !profile) return;
+      const newComment: Comment = {
+        id: `demo-comment-mine-${Date.now()}`,
+        post_id: postId,
+        user_id: uid,
+        parent_id: parentId ?? null,
+        body: body.trim(),
+        like_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+        body_edited: false,
+        my_like: false,
+        profile,
+      };
+      useDemoStore.getState().addDemoMyComment(postId, newComment);
+      queryClient.setQueryData<CommentWithMeta[]>(
+        ['comments', postId, 'demo'],
+        (old) => [...(old ?? []), newComment],
+      );
+      queryClient.setQueriesData<InfiniteData<Post[]>>(
+        { predicate: (q) => q.queryKey[0] === 'feed' },
+        (old) => mapInfinitePosts(old, postId, (p) => ({ ...p, comment_count: p.comment_count + 1 })),
+      );
+    },
     onSettled: (_data, _err, vars) => {
-      if (vars?.postId) {
-        void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
-        void queryClient.invalidateQueries({ queryKey: ['feed'] });
-        void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
-      }
+      if (!vars?.postId) return;
+      if (useDemoStore.getState().isDemoMode) return;
+      void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
     },
   });
 }
@@ -205,17 +245,12 @@ export function useEditComment() {
 
       const { error } = await supabase
         .from('comments')
-        .update({
-          body: trimmed,
-          body_edited: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ body: trimmed, body_edited: true, updated_at: new Date().toISOString() })
         .eq('id', commentId)
         .eq('user_id', uid);
 
       if (error) throw error;
 
-      // Best-effort mention refresh — edit is already saved if this fails.
       try {
         await supabase.from('comment_mentions').delete().eq('comment_id', commentId);
         await insertCommentMentions(commentId, trimmed, uid);
@@ -223,10 +258,19 @@ export function useEditComment() {
         if (__DEV__) console.warn('[useEditComment] mention refresh failed');
       }
     },
+    onMutate: ({ postId, commentId, body }) => {
+      if (!useDemoStore.getState().isDemoMode) return;
+      const trimmed = body.trim();
+      useDemoStore.getState().editDemoMyComment(postId, commentId, trimmed);
+      queryClient.setQueryData<CommentWithMeta[]>(
+        ['comments', postId, 'demo'],
+        (old) => (old ?? []).map((c) => c.id === commentId ? { ...c, body: trimmed, body_edited: true } : c),
+      );
+    },
     onSettled: (_data, _err, vars) => {
-      if (vars?.postId) {
-        void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
-      }
+      if (!vars?.postId) return;
+      if (useDemoStore.getState().isDemoMode) return;
+      void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
     },
   });
 }
@@ -254,12 +298,24 @@ export function useDeleteComment() {
 
       if (error) throw error;
     },
+    onMutate: ({ postId, commentId }) => {
+      if (!useDemoStore.getState().isDemoMode) return;
+      useDemoStore.getState().deleteDemoMyComment(postId, commentId);
+      queryClient.setQueryData<CommentWithMeta[]>(
+        ['comments', postId, 'demo'],
+        (old) => (old ?? []).filter((c) => c.id !== commentId),
+      );
+      queryClient.setQueriesData<InfiniteData<Post[]>>(
+        { predicate: (q) => q.queryKey[0] === 'feed' },
+        (old) => mapInfinitePosts(old, postId, (p) => ({ ...p, comment_count: Math.max(0, p.comment_count - 1) })),
+      );
+    },
     onSettled: (_data, _err, vars) => {
-      if (vars?.postId) {
-        void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
-        void queryClient.invalidateQueries({ queryKey: ['feed'] });
-        void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
-      }
+      if (!vars?.postId) return;
+      if (useDemoStore.getState().isDemoMode) return;
+      void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
     },
   });
 }
@@ -295,10 +351,49 @@ export function useToggleCommentLike() {
         if (error) throw error;
       }
     },
+    onMutate: ({ postId, commentId, liked }) => {
+      if (!useDemoStore.getState().isDemoMode) return;
+      useDemoStore.getState().toggleDemoCommentLike(commentId);
+      // Update comment like count in thread
+      queryClient.setQueryData<CommentWithMeta[]>(
+        ['comments', postId, 'demo'],
+        (old) => (old ?? []).map((c) =>
+          c.id === commentId
+            ? { ...c, my_like: !liked, like_count: liked ? c.like_count - 1 : c.like_count + 1 }
+            : c,
+        ),
+      );
+      // Update the "who liked" viewer cache
+      const profile = useAuthStore.getState().profile;
+      const uid = useAuthStore.getState().session?.user?.id ?? 'demo-me';
+      queryClient.setQueryData<InfiniteData<CommentLikeRow[]>>(
+        ['commentLikes', commentId, 'demo'],
+        (old) => {
+          // Seed with static likers if the cache hasn't been loaded yet
+          const staticLikers = (DEMO_COMMENT_LIKES_BY_COMMENT[commentId] ?? []) as CommentLikeRow[];
+          const existing = old ?? { pages: [staticLikers], pageParams: [0] };
+          if (liked) {
+            return { ...existing, pages: existing.pages.map((p) => p.filter((r) => r.user_id !== uid)) };
+          }
+          const entry: CommentLikeRow = {
+            id: `demo-like-${commentId}`,
+            user_id: uid,
+            created_at: new Date().toISOString(),
+            profile: profile ? {
+              username: profile.username,
+              display_name: profile.display_name,
+              avatar_url: profile.avatar_url,
+              equipped_border_key: profile.equipped_border_key,
+            } : null,
+          };
+          return { ...existing, pages: [[entry, ...(existing.pages[0] ?? [])], ...existing.pages.slice(1)] };
+        },
+      );
+    },
     onSettled: (_data, _err, vars) => {
-      if (vars?.postId) {
-        void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
-      }
+      if (!vars?.postId) return;
+      if (useDemoStore.getState().isDemoMode) return;
+      void queryClient.invalidateQueries({ queryKey: ['comments', vars.postId] });
     },
   });
 }

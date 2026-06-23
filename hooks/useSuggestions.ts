@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
 import type { ChallengeSuggestion, ChallengeSuggestionStatus } from '../types/database';
 
 export function useMySuggestions(userId: string | undefined) {
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+
   return useQuery<ChallengeSuggestion[]>({
-    queryKey: ['mySuggestions', userId],
+    queryKey: isDemoMode ? ['mySuggestions', 'demo'] : ['mySuggestions', userId],
     queryFn: async () => {
+      if (isDemoMode) return [];
       if (!userId) return [];
       const { data, error } = await supabase
         .from('challenge_suggestions')
@@ -16,8 +20,8 @@ export function useMySuggestions(userId: string | undefined) {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!userId,
-    staleTime: 15_000,
+    enabled: isDemoMode || !!userId,
+    staleTime: isDemoMode ? Infinity : 15_000,
   });
 }
 

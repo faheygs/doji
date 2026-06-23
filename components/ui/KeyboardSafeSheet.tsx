@@ -160,7 +160,7 @@ export function KeyboardSafeSheet({
             </View>
           ) : null}
           <ScrollView
-            style={styles.scroll}
+            style={[styles.scroll, { flex: 1 }]}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"

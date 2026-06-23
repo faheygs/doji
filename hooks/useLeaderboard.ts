@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { weekStart } from '../lib/xp';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
+import { DEMO_USERS, DEMO_WEEKLY_XP, DEMO_ME_WEEKLY_XP } from '../constants/demoData';
 import type { LeaderboardEntry, Profile } from '../types/database';
 
 export type LeaderboardMode = 'weekly' | 'alltime';
@@ -26,11 +28,37 @@ export function useLeaderboard(
   audience: LeaderboardAudience = 'everyone',
 ) {
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const currentWeek = weekStart();
 
   return useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', mode, audience, userId, mode === 'weekly' ? currentWeek : 'all'],
+    queryKey: isDemoMode
+      ? ['leaderboard', 'demo', mode, audience]
+      : ['leaderboard', mode, audience, userId, mode === 'weekly' ? currentWeek : 'all'],
     queryFn: async () => {
+      if (isDemoMode) {
+        const meProfile = useAuthStore.getState().profile;
+        const allUsers = Object.values(DEMO_USERS);
+        const allProfiles: Profile[] = meProfile ? [meProfile, ...allUsers] : allUsers;
+
+        let filteredProfiles = allProfiles;
+        if (audience === 'friends') {
+          const { demoFriendIds } = useDemoStore.getState();
+          const friendSet = new Set([...demoFriendIds, meProfile?.id]);
+          filteredProfiles = allProfiles.filter((p) => friendSet.has(p.id));
+        }
+
+        const rows = filteredProfiles.map((p) => ({
+          user_id: p.id,
+          xp: mode === 'alltime'
+            ? (p.xp ?? 0)
+            : (p.id === meProfile?.id ? DEMO_ME_WEEKLY_XP : (DEMO_WEEKLY_XP[p.id] ?? 0)),
+          profile: p,
+        }));
+
+        return rankEntries(rows).slice(0, 50);
+      }
+
       const friendIds =
         audience === 'friends' && userId ? await getFriendIdsIncludingSelf(userId) : null;
 
@@ -81,10 +109,11 @@ export function useLeaderboard(
 
       return rankEntries(rows).slice(0, 50);
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-    enabled: audience === 'everyone' || !!userId,
+    staleTime: isDemoMode ? Infinity : 30_000,
+    refetchOnWindowFocus: !isDemoMode,
+    enabled: isDemoMode || audience === 'everyone' || !!userId,
     placeholderData: (prev, prevQuery) => {
+      if (isDemoMode) return prev;
       const prevKey = prevQuery?.queryKey;
       if (!prevKey || !prev) return undefined;
       const prevWeek = prevKey[4];

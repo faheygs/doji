@@ -23,6 +23,8 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { usePollVote } from '../../hooks/usePollVote';
 import { supabase } from '../../lib/supabase';
+import { useDemoStore } from '../../stores/useDemoStore';
+import { DEMO_OPTIONS_BY_CHALLENGE } from '../../constants/demoData';
 import type { PollOption } from '../../types/database';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
 import { canSubmitChallenge } from '../../lib/participationGate';
@@ -39,6 +41,7 @@ export default function PollScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
+    if (useDemoStore.getState().isDemoMode) return;
     if (eventLoading) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
@@ -47,6 +50,7 @@ export default function PollScreen() {
     }
   }, [eventLoading, userEvent, router]);
 
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const challenge = userEvent?.challenge;
   const challengeId = challenge?.id;
 
@@ -56,8 +60,9 @@ export default function PollScreen() {
     isError: optionsError,
     refetch: refetchOptions,
   } = useQuery<PollOption[]>({
-    queryKey: ['pollOptions', challengeId],
+    queryKey: isDemoMode ? ['pollOptions', challengeId, 'demo'] : ['pollOptions', challengeId],
     queryFn: async () => {
+      if (isDemoMode) return (DEMO_OPTIONS_BY_CHALLENGE[challengeId ?? ''] ?? []) as PollOption[];
       if (!challengeId) return [];
       const { data, error } = await supabase
         .from('poll_options')
@@ -68,6 +73,7 @@ export default function PollScreen() {
       return data ?? [];
     },
     enabled: !!challengeId,
+    staleTime: isDemoMode ? Infinity : undefined,
   });
 
   const selectedOption = options.find((o) => o.id === selected);

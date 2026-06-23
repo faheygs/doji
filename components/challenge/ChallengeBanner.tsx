@@ -24,6 +24,7 @@ import { useBuyInToday } from '../../hooks/useBuyIn';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { LiveSparksPill } from '../economy/SparksPill';
 import { BuyInSheet } from '../economy/BuyInSheet';
+import { useDemoStore } from '../../stores/useDemoStore';
 
 const GRADIENT_START = { x: 0, y: 0 } as const;
 const GRADIENT_END = { x: 1, y: 1 } as const;
@@ -35,6 +36,7 @@ type Props = {
 export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const sparks = useSparksBalance();
   const profile = useAuthStore((s) => s.profile);
   const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
@@ -233,6 +235,38 @@ export function ChallengeBanner({ userEvent }: Props) {
   const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
   const xpReward = challenge?.xp_reward ?? 50;
   const participants = challenge?.participant_count ?? 0;
+
+  // In demo mode: always show the active GO banner — no timer, no completed/countdown states
+  if (isDemoMode) {
+    return (
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+        <LinearGradient
+          colors={[colors.xpGradientStart, colors.xpGradientEnd]}
+          start={GRADIENT_START}
+          end={GRADIENT_END}
+          style={styles.banner}
+        >
+          <View style={styles.iconCircle}>
+            <ChallengeTypeGlyph
+              type={challengeType}
+              title={challenge?.title}
+              size={24}
+              color={colors.onPrimary}
+            />
+          </View>
+          <View style={styles.bannerBody}>
+            <Text variant="micro" style={styles.textOnPrimaryFaded}>
+              {challengeKindLabel(challenge ?? null, challengeType)}
+            </Text>
+            <Text variant="subhead" style={styles.textOnPrimary} numberOfLines={1}>
+              {challenge?.title ?? 'Challenge'}
+            </Text>
+          </View>
+          <Text variant="subhead" style={styles.textOnPrimaryArrow}>GO →</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
 
   if (userEvent.status === 'completed' || userEvent.status === 'late') {
     return null;

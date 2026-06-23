@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,16 +6,17 @@ import {
   useWindowDimensions,
   TouchableOpacity,
   Modal,
-  ScrollView,
   Pressable,
-  Platform,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Spacing, Radius, Shadows, BADGE_TIER_COLORS, type BadgeTierName } from '../../constants/theme';
 import { Text } from '../ui/Text';
+import { IconClose, IconCheck } from '../icons/Icons';
 import type { BadgeCategory, BadgeTier, UserBadgeProgress } from '../../types/database';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
-import { IconCheck } from '../icons/Icons';
 import {
   computeBadgeProgress,
   displayTierForCategory,
@@ -68,7 +69,8 @@ type Props = {
 
 export function BadgesGrid({ categories, tiers, progress, progressStats, readOnly = false }: Props) {
   const { colors } = useTheme();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const progressMap = new Map(progress.map((p) => [p.category_id, p]));
   const tiersByCategory = useMemo(() => {
     const map = new Map<string, BadgeTier[]>();
@@ -100,9 +102,10 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
   const selectedDisplayTier = selected
     ? displayTierForCategory(selectedTier, selectedTiers, progressStats)
     : null;
-  const nextTier = selectedTiers.find(
-    (t) => progressStats && !isTierCriteriaMet(t, progressStats),
-  );
+  const nextTier = selectedTiers.find((t) => {
+    const dbMet = selectedTier != null && tierRank(selectedTier) >= tierRank(t.tier);
+    return !dbMet && !(progressStats && isTierCriteriaMet(t, progressStats));
+  });
   const borderColor = selectedDisplayTier
     ? BADGE_TIER_COLORS[selectedDisplayTier]
     : colors.border;
@@ -114,30 +117,60 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
         )
       : null;
 
-  const modalStyles = useMemo(
+  const handleClose = useCallback(() => {
+    Haptics.selectionAsync();
+    setSelected(null);
+  }, []);
+
+  const sheetStyles = useMemo(
     () =>
       StyleSheet.create({
         backdrop: {
           flex: 1,
           justifyContent: 'flex-end',
+        },
+        scrim: {
+          ...StyleSheet.absoluteFillObject,
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
+          height: winH * 0.5,
+          backgroundColor: colors.surfaceElevated,
           borderTopLeftRadius: Radius.xl,
           borderTopRightRadius: Radius.xl,
-          height: windowHeight * 0.5,
-          ...Platform.select({
-            ios: {
-              shadowColor: colors.shadowBase,
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.12,
-              shadowRadius: 16,
-            },
-            android: { elevation: 16 },
-          }),
+          borderWidth: StyleSheet.hairlineWidth,
+          borderBottomWidth: 0,
+          borderColor: colors.border,
+          paddingTop: Spacing.sm,
+        },
+        grab: {
+          alignSelf: 'center',
+          width: 42,
+          height: 5,
+          borderRadius: 3,
+          backgroundColor: colors.textTertiary,
+          opacity: 0.4,
+          marginBottom: Spacing.sm,
+        },
+        headRow: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: Spacing.sm,
+          gap: Spacing.sm,
+        },
+        scroll: {
+          flex: 1,
+          paddingHorizontal: Spacing.lg,
+        },
+        scrollContent: {
+          gap: Spacing.md,
+          paddingBottom: Math.max(insets.bottom, Spacing.md),
+          alignItems: 'center',
         },
       }),
-    [colors],
+    [colors, winH, insets.bottom],
   );
 
   return (
@@ -211,160 +244,157 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
       </View>
 
       {!readOnly ? (
-      <Modal
-        visible={!!selected}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setSelected(null)}
-      >
-        <Pressable style={modalStyles.backdrop} onPress={() => setSelected(null)}>
-          <Pressable
-            style={[modalStyles.sheet, { backgroundColor: colors.surface }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {selected ? (
+        <Modal
+          visible={!!selected}
+          transparent
+          animationType="fade"
+          onRequestClose={handleClose}
+        >
+          <View style={sheetStyles.backdrop}>
+            <Pressable
+              style={sheetStyles.scrim}
+              onPress={handleClose}
+              accessibilityLabel="Dismiss"
+            />
+            <View style={sheetStyles.sheet}>
+              <View style={sheetStyles.grab} />
+              <View style={sheetStyles.headRow}>
+                <Text variant="headingMedium" style={{ flex: 1 }}>
+                  {selected?.name ?? ''}
+                </Text>
+                <Pressable onPress={handleClose} hitSlop={14} accessibilityLabel="Close">
+                  <IconClose size={26} color={colors.textSecondary} />
+                </Pressable>
+              </View>
               <ScrollView
-                contentContainerStyle={styles.sheetContent}
+                style={sheetStyles.scroll}
+                contentContainerStyle={sheetStyles.scrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                <View
-                  style={[
-                    styles.sheetIconCircle,
-                    {
-                      backgroundColor: selectedDisplayTier
-                        ? `${borderColor}20`
-                        : colors.surfaceMuted,
-                      borderColor: borderColor,
-                    },
-                  ]}
-                >
-                  <CategoryBadgeIcon categoryId={selected.id} size={44} color={borderColor} />
-                </View>
+                {selected ? (
+                  <>
+                    <View
+                      style={[
+                        styles.sheetIconCircle,
+                        {
+                          backgroundColor: selectedDisplayTier ? `${borderColor}20` : colors.surfaceMuted,
+                          borderColor,
+                        },
+                      ]}
+                    >
+                      <CategoryBadgeIcon categoryId={selected.id} size={44} color={borderColor} />
+                    </View>
 
-                <Text variant="headingLarge" style={styles.sheetTitle}>
-                  {selected.name}
-                </Text>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor: selectedDisplayTier
+                            ? colors.success + '22'
+                            : colors.surfaceMuted,
+                          borderColor: selectedDisplayTier ? colors.success : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="micro"
+                        color={selectedDisplayTier ? colors.success : colors.textTertiary}
+                      >
+                        {selectedDisplayTier
+                          ? selectedTier && selectedProgress
+                            ? `${selectedDisplayTier.toUpperCase()} · ${new Date(selectedProgress.unlocked_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                            : `${selectedDisplayTier.toUpperCase()} · CRITERIA MET`
+                          : 'LOCKED'}
+                      </Text>
+                    </View>
 
-                <View
-                  style={[
-                    styles.statusPill,
-                    {
-                      backgroundColor: selectedDisplayTier
-                        ? colors.success + '22'
-                        : colors.surfaceMuted,
-                      borderColor: selectedDisplayTier ? colors.success : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    variant="micro"
-                    color={selectedDisplayTier ? colors.success : colors.textTertiary}
-                  >
-                    {selectedDisplayTier
-                      ? selectedTier && selectedProgress
-                        ? `${selectedDisplayTier.toUpperCase()} · ${new Date(selectedProgress.unlocked_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
-                        : `${selectedDisplayTier.toUpperCase()} · CRITERIA MET`
-                      : 'LOCKED'}
-                  </Text>
-                </View>
+                    <Text variant="body" color={colors.textSecondary} style={styles.sheetDescription}>
+                      {selected.description}
+                    </Text>
 
-                <Text variant="body" color={colors.textSecondary} style={styles.sheetDescription}>
-                  {selected.description}
-                </Text>
+                    <View style={[styles.criteriaBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: Spacing.sm }}>
+                        TIERS
+                      </Text>
+                      {selectedTiers.map((tierDef) => {
+                        const dbMet = selectedTier != null && tierRank(selectedTier) >= tierRank(tierDef.tier);
+                        const met = dbMet || (progressStats != null && isTierCriteriaMet(tierDef, progressStats));
+                        const c = BADGE_TIER_COLORS[tierDef.tier];
+                        return (
+                          <View key={tierDef.id} style={styles.tierRow}>
+                            <View
+                              style={[
+                                styles.tierBadge,
+                                {
+                                  borderColor: met ? c : colors.border,
+                                  backgroundColor: met ? `${c}20` : colors.surfaceMuted,
+                                },
+                              ]}
+                            >
+                              {met ? <IconCheck size={18} color={c} /> : null}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text variant="subhead" color={met ? c : colors.textSecondary}>
+                                {tierDef.tier.charAt(0).toUpperCase() + tierDef.tier.slice(1)}
+                              </Text>
+                              <Text variant="micro" color={colors.textTertiary}>
+                                {criteriaLabel(tierDef.criteria_type, tierDef.criteria_value)}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
 
-                <View style={[styles.criteriaBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                  <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: Spacing.sm }}>
-                    TIERS
-                  </Text>
-                  {selectedTiers.map((tierDef) => {
-                    const met =
-                      progressStats != null && isTierCriteriaMet(tierDef, progressStats);
-                    const c = BADGE_TIER_COLORS[tierDef.tier];
-                    return (
-                      <View key={tierDef.id} style={styles.tierRow}>
-                        <View
-                          style={[
-                            styles.tierBadge,
-                            {
-                              borderColor: met ? c : colors.border,
-                              backgroundColor: met ? `${c}20` : colors.surfaceMuted,
-                            },
-                          ]}
-                        >
-                          {met ? <IconCheck size={18} color={c} /> : null}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text variant="subhead" color={met ? c : colors.textSecondary}>
-                            {tierDef.tier.charAt(0).toUpperCase() + tierDef.tier.slice(1)}
-                          </Text>
-                          <Text variant="micro" color={colors.textTertiary}>
-                            {criteriaLabel(tierDef.criteria_type, tierDef.criteria_value)}
-                          </Text>
+                    {!selectedDisplayTier && selectedProgressDetail ? (
+                      <View style={[styles.progressSection, { borderColor: colors.border }]}>
+                        <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
+                          YOUR PROGRESS
+                        </Text>
+                        <Text variant="subhead" color={colors.text}>
+                          {selectedProgressDetail.label}
+                        </Text>
+                        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              {
+                                width: `${selectedProgressDetail.percent}%`,
+                                backgroundColor: colors.primary,
+                              },
+                            ]}
+                          />
                         </View>
                       </View>
-                    );
-                  })}
-                </View>
+                    ) : null}
 
-                {!selectedDisplayTier && selectedProgressDetail ? (
-                  <View style={[styles.progressSection, { borderColor: colors.border }]}>
-                    <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
-                      YOUR PROGRESS
-                    </Text>
-                    <Text variant="subhead" color={colors.text}>
-                      {selectedProgressDetail.label}
-                    </Text>
-                    <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${selectedProgressDetail.percent}%`,
-                            backgroundColor: colors.primary,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
+                    {selectedDisplayTier && nextTier && selectedProgressDetail ? (
+                      <View style={[styles.progressSection, { borderColor: colors.border }]}>
+                        <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
+                          NEXT: {nextTier.tier.toUpperCase()}
+                        </Text>
+                        <Text variant="subhead" color={colors.text}>
+                          {selectedProgressDetail.label}
+                        </Text>
+                        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              {
+                                width: `${selectedProgressDetail.percent}%`,
+                                backgroundColor: BADGE_TIER_COLORS[nextTier.tier],
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                    ) : null}
+                  </>
                 ) : null}
-
-                {selectedDisplayTier && nextTier && selectedProgressDetail ? (
-                  <View style={[styles.progressSection, { borderColor: colors.border }]}>
-                    <Text variant="micro" color={colors.textTertiary} style={{ marginBottom: 4 }}>
-                      NEXT: {nextTier.tier.toUpperCase()}
-                    </Text>
-                    <Text variant="subhead" color={colors.text}>
-                      {selectedProgressDetail.label}
-                    </Text>
-                    <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${selectedProgressDetail.percent}%`,
-                            backgroundColor: BADGE_TIER_COLORS[nextTier.tier],
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                ) : null}
-
-                <TouchableOpacity
-                  onPress={() => setSelected(null)}
-                  style={[styles.dismissBtn, { borderColor: colors.border }]}
-                  activeOpacity={0.7}
-                >
-                  <Text variant="label" color={colors.textSecondary}>
-                    Close
-                  </Text>
-                </TouchableOpacity>
               </ScrollView>
-            ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </View>
+          </View>
+        </Modal>
       ) : null}
     </>
   );
@@ -385,12 +415,6 @@ const styles = StyleSheet.create({
   },
   tierLabel: { letterSpacing: 0.6 },
   badgeName: { textAlign: 'center', marginTop: 2 },
-  sheetContent: {
-    alignItems: 'center',
-    padding: Spacing.xl,
-    gap: Spacing.md,
-    paddingBottom: Spacing.xxl,
-  },
   sheetIconCircle: {
     width: 88,
     height: 88,
@@ -400,7 +424,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: Spacing.xs,
   },
-  sheetTitle: { textAlign: 'center' },
   statusPill: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 4,
@@ -424,7 +447,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tierInner: { width: 12, height: 12, borderRadius: 6 },
   progressSection: {
     width: '100%',
     borderRadius: Radius.md,
@@ -440,11 +462,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   progressFill: { height: '100%', borderRadius: Radius.full },
-  dismissBtn: {
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
 });

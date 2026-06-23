@@ -21,6 +21,7 @@ import { IconPlus, IconClose, IconCamera, IconComment, IconUsers } from '@/compo
 import { IcnBarChart } from '@/components/icons/BadgeIcons';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useDemoStore } from '@/stores/useDemoStore';
 import { hashSuggestionBody } from '@/lib/hashString';
 import { minLength, validationMessage } from '@/lib/formValidation';
 import type { AnswerRule, Challenge } from '@/types/database';
@@ -95,6 +96,7 @@ function emptyOptionRows(n: number): string[] {
 export default function SuggestChallengeScreen() {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const [kind, setKind] = useState<KindKey>('poll');
   const [body, setBody] = useState('');
   const [optionRows, setOptionRows] = useState<string[]>(() => emptyOptionRows(2));
@@ -341,6 +343,14 @@ export default function SuggestChallengeScreen() {
     if (!userId) return;
     setSaving(true);
     try {
+      if (isDemoMode) {
+        await new Promise((r) => setTimeout(r, 600));
+        Toast.show({ type: 'success', text1: 'Thanks! Your idea was submitted.' });
+        setBody('');
+        resetOptionsForKind(kind);
+        return;
+      }
+
       const suggestionOptions = needsFormatRule && answerRule ? { answer_rule: answerRule } : options;
       const hashPayload = JSON.stringify({ kind, body: text, options: suggestionOptions });
       const bodyHash = hashSuggestionBody(hashPayload);

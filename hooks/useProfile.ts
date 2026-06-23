@@ -2,8 +2,14 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDemoStore } from '../stores/useDemoStore';
 import { FALLBACK_AVATAR_GRADIENT } from '../constants/theme';
 import { normalizeUsernameInput } from './useUsernameAvailability';
+import {
+  DEMO_USERS,
+  DEMO_ALL_USER_POSTS,
+  DEMO_FEED_POSTS_BY_TYPE,
+} from '../constants/demoData';
 import type { Profile, Post, Friendship, FriendshipWithRequester } from '../types/database';
 
 function parseProfileRow(data: unknown): Profile | null {
@@ -18,25 +24,27 @@ function parseProfileRow(data: unknown): Profile | null {
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['profile', normalized],
+    queryKey: isDemoMode ? ['profile', normalized, 'demo'] : ['profile', normalized],
     queryFn: async (): Promise<Profile | null> => {
       if (!normalized) return null;
-
+      if (isDemoMode) {
+        if (normalized === 'demo_me') return useAuthStore.getState().profile;
+        return DEMO_USERS[normalized] ?? null;
+      }
       const { data, error } = await supabase.rpc('get_profile_by_username', {
         p_username: normalized,
       });
-
       if (error) {
         if (__DEV__) console.warn('[useProfile]', error.message);
         return null;
       }
-
       return parseProfileRow(data);
     },
     enabled: !!normalized,
-    staleTime: 30_000,
+    staleTime: isDemoMode ? Infinity : 30_000,
     placeholderData: (prev) => prev,
   });
 }
@@ -45,12 +53,19 @@ export function useProfile(username?: string) {
 export function usePost(postId?: string) {
   const session = useAuthStore((s) => s.session);
   const me = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['post', postId, me],
+    queryKey: isDemoMode ? ['post', postId, 'demo'] : ['post', postId, me],
     queryFn: async (): Promise<Post | null> => {
       if (!postId) return null;
-
+      if (isDemoMode) {
+        for (const posts of Object.values(DEMO_FEED_POSTS_BY_TYPE)) {
+          const found = posts.find((p) => p.id === postId);
+          if (found) return found;
+        }
+        return useDemoStore.getState().demoFeedPosts.find((p) => p.id === postId) ?? null;
+      }
       const { data, error } = await supabase
         .from('posts')
         .select(
@@ -72,19 +87,28 @@ export function usePost(postId?: string) {
       return withReaction as Post;
     },
     enabled: !!postId,
-    staleTime: 15_000,
+    staleTime: isDemoMode ? Infinity : 15_000,
   });
 }
 
 export function useProfilePosts(userId?: string) {
   const session = useAuthStore((s) => s.session);
   const me = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['profilePosts', userId, me],
+    queryKey: isDemoMode ? ['profilePosts', userId, 'demo'] : ['profilePosts', userId, me],
     queryFn: async () => {
       if (!userId) return [];
-
+      if (isDemoMode) {
+        // Static demo posts by this user
+        const staticPosts = DEMO_ALL_USER_POSTS.filter((p) => p.user_id === userId);
+        // Dynamic posts added during demo session (e.g. user completed a challenge)
+        const dynamicPosts = useDemoStore.getState().demoFeedPosts.filter(
+          (p) => p.user_id === userId && !p.is_community_poll,
+        );
+        return [...dynamicPosts, ...staticPosts];
+      }
       const { data, error } = await supabase
         .from('posts')
         .select('*, user_event:user_events(*, daily_event:daily_events(*, challenge:challenges(*)))')
@@ -100,19 +124,57 @@ export function useProfilePosts(userId?: string) {
       return attachReactionFields(mapped, me);
     },
     enabled: !!userId,
-    staleTime: 15_000,
+    staleTime: isDemoMode ? Infinity : 15_000,
   });
 }
 
 export function useFriendship(targetUserId?: string) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['friendship', userId, targetUserId],
+    queryKey: isDemoMode
+      ? ['friendship', userId, targetUserId, 'demo']
+      : ['friendship', userId, targetUserId],
     queryFn: async (): Promise<Friendship | null> => {
       if (!userId || !targetUserId) return null;
-
+      if (isDemoMode) {
+        const { demoFriendIds, demoPendingSentIds, demoPendingReceivedIds } =
+          useDemoStore.getState();
+        const ts = new Date().toISOString();
+        if (demoFriendIds.includes(targetUserId)) {
+          return {
+            id: `demo-friendship-${targetUserId}`,
+            requester_id: userId,
+            addressee_id: targetUserId,
+            status: 'accepted',
+            accepted_at: ts,
+            created_at: ts,
+          };
+        }
+        if (demoPendingSentIds.includes(targetUserId)) {
+          return {
+            id: `demo-friendship-${targetUserId}`,
+            requester_id: userId,
+            addressee_id: targetUserId,
+            status: 'pending',
+            accepted_at: null,
+            created_at: ts,
+          };
+        }
+        if (demoPendingReceivedIds.includes(targetUserId)) {
+          return {
+            id: `demo-friendship-${targetUserId}`,
+            requester_id: targetUserId,
+            addressee_id: userId,
+            status: 'pending',
+            accepted_at: null,
+            created_at: ts,
+          };
+        }
+        return null;
+      }
       const { data } = await supabase
         .from('friendships')
         .select('*')
@@ -124,7 +186,7 @@ export function useFriendship(targetUserId?: string) {
       return data;
     },
     enabled: !!userId && !!targetUserId,
-    staleTime: 30_000,
+    staleTime: isDemoMode ? Infinity : 30_000,
   });
 }
 
@@ -162,21 +224,23 @@ export function useSendFriendRequest() {
     mutationFn: async (addresseeId: string) => {
       const requesterId = session?.user?.id;
       if (!requesterId) throw new Error('Not authenticated');
-
+      if (useDemoStore.getState().isDemoMode) {
+        useDemoStore.getState().sendDemoFriendRequest(addresseeId);
+        return;
+      }
       const { error } = await supabase.from('friendships').insert({
         requester_id: requesterId,
         addressee_id: addresseeId,
         status: 'pending',
       });
-
       if (error) throw error;
     },
     onSuccess: (_data, addresseeId) => {
-      queryClient.invalidateQueries({ queryKey: ['friendship', session?.user?.id, addresseeId] });
-      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['friends'] });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({ queryKey: ['friendship', session?.user?.id, addresseeId] });
+      void queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({
         predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
       });
       invalidateFriendCountQueries(queryClient);
@@ -195,6 +259,15 @@ export function useRespondToFriendRequest() {
       friendshipId: string;
       accept: boolean;
     }) => {
+      if (useDemoStore.getState().isDemoMode) {
+        const targetId = friendshipId.replace('demo-friendship-', '');
+        if (accept) {
+          useDemoStore.getState().acceptDemoFriendRequest(targetId);
+        } else {
+          useDemoStore.getState().declineDemoFriendRequest(targetId);
+        }
+        return;
+      }
       const updates: { status: string; accepted_at?: string } = {
         status: accept ? 'accepted' : 'blocked',
       };
@@ -209,11 +282,11 @@ export function useRespondToFriendRequest() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['friends'] });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'friendship' });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'friendship' });
+      void queryClient.invalidateQueries({
         predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
       });
       invalidateFriendCountQueries(queryClient);
@@ -246,10 +319,19 @@ function dedupeProfileFriends(rows: ProfileFriendListRow[]): ProfileFriendListRo
 export function useFriends() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['friends', userId],
+    queryKey: isDemoMode ? ['friends', 'demo'] : ['friends', userId],
     queryFn: async (): Promise<(Profile & { friendship_id: string })[]> => {
+      if (isDemoMode) {
+        const { demoFriendIds } = useDemoStore.getState();
+        const allUsers = Object.values(DEMO_USERS);
+        return demoFriendIds
+          .map((id) => allUsers.find((u) => u.id === id))
+          .filter((u): u is Profile => !!u)
+          .map((u) => ({ ...u, friendship_id: `demo-friendship-${u.id}` }));
+      }
       if (!userId) return [];
 
       const { data, error } = await supabase
@@ -266,26 +348,35 @@ export function useFriends() {
       });
       return dedupeById(mapped);
     },
-    enabled: !!userId,
-    staleTime: 30_000,
+    enabled: isDemoMode || !!userId,
+    staleTime: isDemoMode ? Infinity : 30_000,
   });
 }
 
 /** Accepted friendships count for any user (uses `friend_count` RPC; works for other peoples profiles under RLS). */
 export function useFriendCount(targetUserId?: string) {
+  const session = useAuthStore((s) => s.session);
+  const me = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+
   return useQuery({
-    queryKey: ['friendCount', targetUserId],
+    queryKey: isDemoMode
+      ? ['friendCount', targetUserId, 'demo']
+      : ['friendCount', targetUserId],
     queryFn: async (): Promise<number> => {
       if (!targetUserId) return 0;
-
+      if (isDemoMode) {
+        if (targetUserId === me) return useDemoStore.getState().demoFriendIds.length;
+        return 5;
+      }
       const { data, error } = await supabase.rpc('friend_count', { p_user_id: targetUserId });
       if (error) throw error;
       if (typeof data === 'number' && Number.isFinite(data)) return Math.max(0, Math.floor(data));
       const n = Number(data);
       return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
     },
-    enabled: !!targetUserId,
-    staleTime: 30_000,
+    enabled: isDemoMode ? !!targetUserId : !!targetUserId,
+    staleTime: isDemoMode ? Infinity : 30_000,
   });
 }
 
@@ -299,10 +390,40 @@ export type ProfileFriendListRow = {
 
 /** Friend list shown on someone's profile sheet (SECURITY DEFINER RPC). */
 export function useProfileFriendsList(profileUserId?: string, enabled = true) {
+  const session = useAuthStore((s) => s.session);
+  const me = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+
   return useQuery({
-    queryKey: ['profileFriends', profileUserId],
+    queryKey: isDemoMode
+      ? ['profileFriends', profileUserId, 'demo']
+      : ['profileFriends', profileUserId],
     queryFn: async (): Promise<ProfileFriendListRow[]> => {
       if (!profileUserId) return [];
+      if (isDemoMode) {
+        const allUsers = Object.values(DEMO_USERS);
+        let friends: Profile[];
+        if (profileUserId === me) {
+          const { demoFriendIds } = useDemoStore.getState();
+          friends = demoFriendIds
+            .map((id) => allUsers.find((u) => u.id === id))
+            .filter((u): u is Profile => !!u);
+        } else {
+          const selfIdx = allUsers.findIndex((u) => u.id === profileUserId);
+          friends = selfIdx >= 0
+            ? [1, 2, 3, 4, 5].map((o) => allUsers[(selfIdx + o) % allUsers.length])
+            : allUsers.slice(0, 5);
+        }
+        return friends.map((u) => ({
+          friend_id: u.id,
+          username: u.username,
+          display_name: u.display_name,
+          avatar_url: u.avatar_url,
+          avatar_gradient: Array.isArray(u.avatar_gradient) && u.avatar_gradient.length >= 2
+            ? u.avatar_gradient
+            : [...FALLBACK_AVATAR_GRADIENT],
+        }));
+      }
       const { data, error } = await supabase.rpc('list_profile_friends', {
         p_profile_user_id: profileUserId,
       });
@@ -321,8 +442,8 @@ export function useProfileFriendsList(profileUserId?: string, enabled = true) {
         })),
       );
     },
-    enabled: !!profileUserId && enabled,
-    staleTime: 25_000,
+    enabled: (isDemoMode || !!profileUserId) && enabled,
+    staleTime: isDemoMode ? Infinity : 25_000,
   });
 }
 
@@ -333,12 +454,53 @@ export function useProfileFriendsList(profileUserId?: string, enabled = true) {
 export function useFriendshipsBulkWithTargets(targetUserIds: readonly string[]) {
   const session = useAuthStore((s) => s.session);
   const me = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const sortedKey = [...new Set(targetUserIds)].slice().sort().join(',');
 
   return useQuery({
-    queryKey: ['friendshipsBulk', me, sortedKey],
+    queryKey: isDemoMode
+      ? ['friendshipsBulk', 'demo', sortedKey]
+      : ['friendshipsBulk', me, sortedKey],
     queryFn: async (): Promise<Record<string, Friendship>> => {
-      if (!me || targetUserIds.length === 0) return {};
+      if (!me) return {};
+      if (isDemoMode) {
+        const { demoFriendIds, demoPendingSentIds, demoPendingReceivedIds } =
+          useDemoStore.getState();
+        const ts = new Date().toISOString();
+        const out: Record<string, Friendship> = {};
+        for (const targetId of new Set(targetUserIds)) {
+          if (demoFriendIds.includes(targetId)) {
+            out[targetId] = {
+              id: `demo-friendship-${targetId}`,
+              requester_id: me,
+              addressee_id: targetId,
+              status: 'accepted',
+              accepted_at: ts,
+              created_at: ts,
+            };
+          } else if (demoPendingSentIds.includes(targetId)) {
+            out[targetId] = {
+              id: `demo-friendship-${targetId}`,
+              requester_id: me,
+              addressee_id: targetId,
+              status: 'pending',
+              accepted_at: null,
+              created_at: ts,
+            };
+          } else if (demoPendingReceivedIds.includes(targetId)) {
+            out[targetId] = {
+              id: `demo-friendship-${targetId}`,
+              requester_id: targetId,
+              addressee_id: me,
+              status: 'pending',
+              accepted_at: null,
+              created_at: ts,
+            };
+          }
+        }
+        return out;
+      }
+      if (targetUserIds.length === 0) return {};
       const uniq = [...new Set(targetUserIds)];
 
       const { data: outgoing, error: eo } = await supabase
@@ -364,8 +526,8 @@ export function useFriendshipsBulkWithTargets(targetUserIds: readonly string[]) 
       }
       return out;
     },
-    enabled: !!me && targetUserIds.length > 0,
-    staleTime: 15_000,
+    enabled: !!me && (isDemoMode || targetUserIds.length > 0),
+    staleTime: isDemoMode ? Infinity : 15_000,
   });
 }
 
@@ -382,10 +544,28 @@ export function invalidateFriendCountQueries(queryClient: QueryClient) {
 export function useFriendRequests() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   return useQuery({
-    queryKey: ['friendRequests', userId],
+    queryKey: isDemoMode ? ['friendRequests', 'demo'] : ['friendRequests', userId],
     queryFn: async (): Promise<FriendshipWithRequester[]> => {
+      if (isDemoMode) {
+        const { demoPendingReceivedIds } = useDemoStore.getState();
+        const allUsers = Object.values(DEMO_USERS);
+        const ts = new Date().toISOString();
+        return demoPendingReceivedIds
+          .map((id) => allUsers.find((u) => u.id === id))
+          .filter((u): u is Profile => !!u)
+          .map((u) => ({
+            id: `demo-friendship-${u.id}`,
+            requester_id: u.id,
+            addressee_id: userId ?? '',
+            status: 'pending' as const,
+            accepted_at: null,
+            created_at: ts,
+            requester: u,
+          }));
+      }
       if (!userId) return [];
 
       const { data, error } = await supabase
@@ -397,7 +577,7 @@ export function useFriendRequests() {
       if (error) throw error;
       return (data ?? []) as FriendshipWithRequester[];
     },
-    enabled: !!userId,
+    enabled: isDemoMode || !!userId,
   });
 }
 
@@ -407,15 +587,20 @@ export function useRemoveFriend() {
 
   return useMutation({
     mutationFn: async (friendshipId: string) => {
+      if (useDemoStore.getState().isDemoMode) {
+        const targetId = friendshipId.replace('demo-friendship-', '');
+        useDemoStore.getState().removeDemoFriend(targetId);
+        return;
+      }
       const { error } = await supabase.from('friendships').delete().eq('id', friendshipId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['friends', session?.user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'friendship' });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
+      void queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'friendship' });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({
         predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'notificationCenter',
       });
       invalidateFriendCountQueries(queryClient);
@@ -424,9 +609,23 @@ export function useRemoveFriend() {
 }
 
 export function useSearchUsers(query: string) {
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+
   return useQuery({
-    queryKey: ['searchUsers', query || '__browse__'],
+    queryKey: isDemoMode
+      ? ['searchUsers', 'demo', query || '__browse__']
+      : ['searchUsers', query || '__browse__'],
     queryFn: async (): Promise<Profile[]> => {
+      if (isDemoMode) {
+        const allUsers = Object.values(DEMO_USERS);
+        if (!query || query.length < 2) return allUsers;
+        const q = query.toLowerCase();
+        return allUsers.filter(
+          (u) =>
+            u.username.includes(q) ||
+            (u.display_name?.toLowerCase() ?? '').includes(q),
+        );
+      }
       if (query && query.length >= 2) {
         const { data, error } = await supabase
           .from('profiles')
@@ -446,5 +645,6 @@ export function useSearchUsers(query: string) {
       return data ?? [];
     },
     enabled: true,
+    staleTime: isDemoMode ? Infinity : undefined,
   });
 }

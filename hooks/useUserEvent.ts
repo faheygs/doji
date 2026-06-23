@@ -10,7 +10,7 @@ import type {
 import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 import { useDemoStore } from '../stores/useDemoStore';
-import { makeDemoUserEvent, DEMO_CHALLENGES, DEMO_YOU_PROFILE } from '../constants/demoData';
+import { makeDemoUserEvent, DEMO_CHALLENGES } from '../constants/demoData';
 
 export function useUserEvent() {
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
@@ -167,7 +167,7 @@ export function useCreatePost() {
         const store = useDemoStore.getState();
         const type = store.demoChallengeType;
         const isPhotoPost = postType === 'photo' || (!postType && !!photoUri);
-        const youProfile = { ...DEMO_YOU_PROFILE, id: userId };
+        const youProfile = useAuthStore.getState().profile ?? { id: userId };
         const newPost = {
           id: `demo-post-mine-${Date.now()}`,
           user_event_id: null,
@@ -175,7 +175,7 @@ export function useCreatePost() {
           type: (isPhotoPost ? 'photo' : 'task_complete') as 'photo' | 'task_complete',
           caption: null,
           photo_url: isPhotoPost
-            ? 'https://picsum.photos/seed/demo-my-post/600/600'
+            ? 'https://picsum.photos/id/43/600/600'
             : null,
           front_photo_url: null,
           video_url: null,
@@ -212,6 +212,7 @@ export function useCreatePost() {
       queryClient.setQueryData(ctx.key as any, ctx.prev);
     },
     onSuccess: async () => {
+      if (useDemoStore.getState().isDemoMode) return;
       void queryClient.invalidateQueries({ queryKey: ['userEvent', 'today'], refetchType: 'none' });
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
       void queryClient.invalidateQueries({ queryKey: ['leaderboard'] });

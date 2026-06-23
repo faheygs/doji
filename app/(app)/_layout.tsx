@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Tabs, usePathname } from 'expo-router';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useAppRealtime } from '../../hooks/useAppRealtime';
@@ -8,6 +8,8 @@ import { useAuthGate } from '../../hooks/useAuthGate';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
+import { Text } from '../../components/ui/Text';
+import { useDemoStore } from '../../stores/useDemoStore';
 import {
   IconHome,
   IconTrophy,
@@ -37,6 +39,9 @@ export default function AppLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pathname = usePathname();
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+  const exitDemoMode = useDemoStore((s) => s.exitDemoMode);
+  const isHome = pathname === '/' || pathname === '/(app)' || pathname === '/(app)/index' || pathname === '/index';
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -81,7 +86,7 @@ export default function AppLayout() {
   if (!ready) return null;
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <Tabs detachInactiveScreens={false} screenOptions={tabScreenOptions}>
       {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
       <Tabs.Screen
@@ -146,6 +151,32 @@ export default function AppLayout() {
       <Tabs.Screen name="admin" options={{ href: null }} />
       </Tabs>
       <CelebrationHost />
-    </>
+      {isDemoMode && !isHome && (
+        <TouchableOpacity
+          onPress={exitDemoMode}
+          activeOpacity={0.8}
+          style={{
+            position: 'absolute',
+            bottom: tabBarHeight + Spacing.sm,
+            alignSelf: 'center',
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            pointerEvents: 'box-none',
+          }}
+        >
+          <View style={{
+            backgroundColor: colors.primary,
+            paddingVertical: 6,
+            paddingHorizontal: Spacing.lg,
+            borderRadius: 999,
+          }}>
+            <Text variant="label" color={colors.onPrimary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
+              DEMO MODE — Tap to exit
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }

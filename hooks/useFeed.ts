@@ -14,7 +14,7 @@ import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
 import { DEMO_REACTIONS_BY_POST } from '../constants/demoData';
-import type { Post, Reaction, ReactionEmoji } from '../types/database';
+import type { Post, Reaction, ReactionEmoji, Profile } from '../types/database';
 
 export type { FeedAudience };
 
@@ -165,7 +165,25 @@ export function usePostReactions(postId: string, scopeUserIds?: string[]) {
   return useInfiniteQuery({
     queryKey: ['reactions', postId, isDemoMode ? 'demo' : scopeKey],
     queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
-      if (isDemoMode) return DEMO_REACTIONS_BY_POST[postId] ?? [];
+      if (isDemoMode) {
+        const store = useDemoStore.getState();
+        const staticReactions = DEMO_REACTIONS_BY_POST[postId] ?? [];
+        const myEmoji = store.demoMyReactionByPost[postId];
+        if (myEmoji) {
+          const uid = useAuthStore.getState().session?.user?.id;
+          const profile = useAuthStore.getState().profile as Profile;
+          const myReaction: Reaction = {
+            id: `demo-my-reaction-${postId}`,
+            post_id: postId,
+            user_id: uid ?? 'demo-me',
+            emoji: myEmoji,
+            created_at: new Date().toISOString(),
+            profile,
+          };
+          return [myReaction, ...staticReactions];
+        }
+        return staticReactions;
+      }
 
       let query = supabase
         .from('reactions')
@@ -233,7 +251,7 @@ function patchReactionToggle(
   };
 }
 
-function mapInfinitePosts(
+export function mapInfinitePosts(
   old: InfiniteData<Post[]> | undefined,
   postId: string,
   patch: (p: Post) => Post,
@@ -288,6 +306,33 @@ export function useToggleReaction() {
         { predicate: (q) => q.queryKey[0] === 'feed' },
         (old) => mapInfinitePosts(old, vars.postId, (p) => patchReactionToggle(p, vars.emoji, vars.active)),
       );
+
+      if (useDemoStore.getState().isDemoMode) {
+        const profile = useAuthStore.getState().profile as Profile;
+        // Update store so queryFn rebuilds correctly if cache is GC'd
+        useDemoStore.getState().setDemoMyReaction(vars.postId, vars.active ? null : vars.emoji);
+        // Patch the reactions viewer cache directly for immediate update
+        queryClient.setQueryData<InfiniteData<Reaction[]>>(
+          ['reactions', vars.postId, 'demo'],
+          (old) => {
+            const basePage = DEMO_REACTIONS_BY_POST[vars.postId] ?? [];
+            const pages = old ? old.pages.map((p) => p.filter((r) => r.user_id !== uid)) : [basePage];
+            const pageParams = old?.pageParams ?? [0];
+            if (!vars.active) {
+              const newReaction: Reaction = {
+                id: `demo-my-reaction-${vars.postId}`,
+                post_id: vars.postId,
+                user_id: uid,
+                emoji: vars.emoji,
+                created_at: new Date().toISOString(),
+                profile,
+              };
+              return { pages: [[newReaction, ...(pages[0] ?? [])], ...pages.slice(1)], pageParams };
+            }
+            return { pages, pageParams };
+          },
+        );
+      }
 
       return { previousFeedQueries, uid };
     },

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
@@ -29,7 +29,6 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useDemoStore } from '../../stores/useDemoStore';
 import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
-import { ChallengeTypeGlyph } from '../../components/challenge/ChallengeTypeGlyph';
 import type { ChallengeType } from '../../types/database';
 import type { Post } from '../../types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -188,37 +187,27 @@ export default function FeedScreen() {
           borderRadius: Radius.md,
           alignItems: 'center',
         },
-        demoExitBanner: {
-          width: '100%',
-          paddingVertical: Spacing.md + 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        demoTypeBar: {
-          marginHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
-          borderRadius: Radius.md,
-          borderWidth: StyleSheet.hairlineWidth,
-          overflow: 'hidden',
-          paddingVertical: Spacing.sm,
-          paddingHorizontal: Spacing.sm,
-          gap: Spacing.xs,
-        },
-        demoTypeLabel: {
-          paddingHorizontal: Spacing.xs,
-          paddingBottom: Spacing.xs,
-        },
         demoTypeRow: {
           flexDirection: 'row',
-          gap: Spacing.xs,
+          marginHorizontal: Spacing.md,
+          marginBottom: Spacing.xs,
+          padding: 3,
+          borderRadius: Radius.md,
+          backgroundColor: colors.chipBackground,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
         },
         demoTypeChip: {
           flex: 1,
           paddingVertical: Spacing.sm,
-          borderRadius: Radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 4,
+          borderRadius: Radius.sm,
+        },
+        demoTypeChipActive: {
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
         },
       }),
     [colors],
@@ -326,7 +315,7 @@ export default function FeedScreen() {
 
   const handleOpenProfile = useCallback(() => {
     Haptics.selectionAsync();
-    router.push('/(app)/profile' as Href);
+    router.push('/(app)/profile' as never);
   }, [router]);
 
   const handleOpenNotifications = useCallback(() => {
@@ -392,47 +381,7 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        {isDemoMode ? (
-          <View style={[styles.demoTypeBar, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}35` }]}>
-            <Text variant="bodySmall" color={colors.primary} style={[styles.demoTypeLabel, { fontWeight: '600', letterSpacing: 0.3 }]}>
-              Preview challenge type:
-            </Text>
-            <View style={styles.demoTypeRow}>
-              {([
-                { type: 'photo' as ChallengeType, label: 'Photo' },
-                { type: 'poll' as ChallengeType, label: 'Poll' },
-                { type: 'task' as ChallengeType, label: 'Task' },
-                { type: 'format' as ChallengeType, label: 'Question' },
-              ]).map(({ type, label }) => {
-                const active = demoChallengeType === type;
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    onPress={() => setDemoChallengeType(type)}
-                    activeOpacity={0.75}
-                    style={[
-                      styles.demoTypeChip,
-                      { backgroundColor: active ? colors.primary : `${colors.primary}18` },
-                    ]}
-                  >
-                    <ChallengeTypeGlyph
-                      type={type}
-                      size={16}
-                      color={active ? colors.onPrimary : colors.primary}
-                    />
-                    <Text
-                      variant="bodySmall"
-                      color={active ? colors.onPrimary : colors.primary}
-                      style={{ fontWeight: active ? '700' : '500', fontSize: 11 }}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        ) : profile?.is_demo_account ? (
+        {!isDemoMode && profile?.is_demo_account ? (
           <TouchableOpacity
             onPress={() => enterDemoMode()}
             activeOpacity={0.85}
@@ -444,7 +393,60 @@ export default function FeedScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {userEventLoading ? (
+        {isDemoMode ? (
+          <TouchableOpacity
+            onPress={exitDemoMode}
+            activeOpacity={0.8}
+            style={{
+              marginHorizontal: Spacing.md,
+              marginBottom: Spacing.xs,
+              paddingVertical: Spacing.sm,
+              paddingHorizontal: Spacing.md,
+              borderRadius: Radius.full,
+              backgroundColor: colors.primary,
+              alignSelf: 'center',
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="label" color={colors.onPrimary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
+              DEMO MODE — Tap to exit
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {isDemoMode ? (
+          <View style={styles.demoTypeRow}>
+            {([
+              { type: 'photo' as ChallengeType, label: 'Photo' },
+              { type: 'poll' as ChallengeType, label: 'Poll' },
+              { type: 'format' as ChallengeType, label: 'WYR' },
+              { type: 'task' as ChallengeType, label: 'Question' },
+            ]).map(({ type, label }) => {
+              const active = demoChallengeType === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => { Haptics.selectionAsync(); setDemoChallengeType(type); }}
+                  activeOpacity={0.75}
+                  style={[styles.demoTypeChip, active && styles.demoTypeChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text
+                    variant="label"
+                    color={active ? colors.text : colors.textTertiary}
+                    style={{ fontWeight: active ? '700' : '500' }}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {userEventLoading && !isDemoMode ? (
           <View
             style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
             accessibilityLabel="Loading today's challenge"
@@ -498,6 +500,7 @@ export default function FeedScreen() {
       isDemoMode,
       demoChallengeType,
       enterDemoMode,
+      exitDemoMode,
       setDemoChallengeType,
     ],
   );
@@ -569,23 +572,6 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={outerStyle}>
-      {isDemoMode ? (
-        <TouchableOpacity
-          onPress={exitDemoMode}
-          activeOpacity={0.85}
-          style={[styles.demoExitBanner, { backgroundColor: colors.primary }]}
-          accessibilityRole="button"
-          accessibilityLabel="Exit demo mode"
-        >
-          <Text
-            variant="headingMedium"
-            color={colors.onPrimary}
-            style={{ fontWeight: '800', letterSpacing: 0.5 }}
-          >
-            DEMO MODE — Tap to Exit
-          </Text>
-        </TouchableOpacity>
-      ) : null}
       <FlatList
         ref={flatListRef}
         key={audience}
