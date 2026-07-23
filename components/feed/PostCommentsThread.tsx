@@ -38,6 +38,7 @@ import {
 import type { FeedAudience } from '../../lib/feedAudience';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { CommentLikesSheet } from './CommentLikesSheet';
+import { ReportSheet } from './ReportSheet';
 
 const MAX_LEN = 2000;
 const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
@@ -92,11 +93,13 @@ function CommentActionSheet({
   onClose,
   onEdit,
   onDelete,
+  onReport,
 }: {
   visible: boolean;
   onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onReport?: () => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -136,32 +139,51 @@ function CommentActionSheet({
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
-          <TouchableOpacity
-            style={sheetStyles.row}
-            onPress={() => {
-              onClose();
-              onEdit();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Edit comment"
-          >
-            <Text variant="body" style={{ fontWeight: '600' }}>
-              Edit comment
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={sheetStyles.row}
-            onPress={() => {
-              onClose();
-              onDelete();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Delete comment"
-          >
-            <Text variant="body" color={colors.error} style={{ fontWeight: '600' }}>
-              Delete comment
-            </Text>
-          </TouchableOpacity>
+          {onEdit ? (
+            <TouchableOpacity
+              style={sheetStyles.row}
+              onPress={() => {
+                onClose();
+                onEdit();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Edit comment"
+            >
+              <Text variant="body" style={{ fontWeight: '600' }}>
+                Edit comment
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {onDelete ? (
+            <TouchableOpacity
+              style={sheetStyles.row}
+              onPress={() => {
+                onClose();
+                onDelete();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Delete comment"
+            >
+              <Text variant="body" color={colors.error} style={{ fontWeight: '600' }}>
+                Delete comment
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {onReport ? (
+            <TouchableOpacity
+              style={sheetStyles.row}
+              onPress={() => {
+                onClose();
+                onReport();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Report comment"
+            >
+              <Text variant="body" color={colors.error} style={{ fontWeight: '600' }}>
+                Report comment
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={sheetStyles.cancel} onPress={onClose} accessibilityRole="button">
             <Text variant="body" color={colors.textSecondary}>
               Cancel
@@ -214,6 +236,7 @@ type CommentRowProps = {
   onToggleLike: (commentId: string, liked: boolean) => void;
   onViewLikes: (commentId: string) => void;
   onOpenMenu: (c: CommentWithMeta) => void;
+  onOpenReport: (c: CommentWithMeta) => void;
   colors: ReturnType<typeof useTheme>['colors'];
 };
 
@@ -225,6 +248,7 @@ function CommentRow({
   onToggleLike,
   onViewLikes,
   onOpenMenu,
+  onOpenReport,
   colors,
 }: CommentRowProps) {
   const { comment } = row;
@@ -337,7 +361,19 @@ function CommentRow({
             >
               <IconMoreVertical size={16} color={colors.textTertiary} />
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onOpenReport(comment);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Report comment"
+              style={styles.menuBtn}
+            >
+              <IconMoreVertical size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
         </View>
         <CommentBody body={comment.body} colors={colors} onMentionPress={onProfile} />
         <View style={styles.actions}>
@@ -420,6 +456,7 @@ export function PostCommentsThread({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
+  const [reportComment, setReportComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
 
@@ -466,6 +503,10 @@ export function PostCommentsThread({
 
   const onOpenMenu = useCallback((c: CommentWithMeta) => {
     setMenuComment(c);
+  }, []);
+
+  const onOpenReport = useCallback((c: CommentWithMeta) => {
+    setReportComment(c);
   }, []);
 
   const onEdit = useCallback((c: CommentWithMeta) => {
@@ -549,7 +590,10 @@ export function PostCommentsThread({
       },
       {
         onSuccess: cancelComposerState,
-        onError: () => Toast.show({ type: 'error', text1: 'Failed to post comment' }),
+        onError: (err: Error) => {
+          if (__DEV__) console.warn('[useAddComment] failed:', err);
+          Toast.show({ type: 'error', text1: err.message || 'Failed to post comment' });
+        },
       },
     );
   }, [
@@ -658,11 +702,12 @@ export function PostCommentsThread({
           onToggleLike={onToggleLike}
           onViewLikes={onViewLikes}
           onOpenMenu={onOpenMenu}
+          onOpenReport={onOpenReport}
           colors={colors}
         />
       );
     },
-    [colors, me, onOpenMenu, onProfile, onReply, onToggleLike, onViewLikes, onToggleReplies],
+    [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes, onToggleReplies],
   );
 
   return (
@@ -818,6 +863,15 @@ export function PostCommentsThread({
           ]);
         }}
       />
+
+      {reportComment?.user_id ? (
+        <ReportSheet
+          visible
+          reportedUserId={reportComment.user_id}
+          commentId={reportComment.id}
+          onClose={() => setReportComment(null)}
+        />
+      ) : null}
     </View>
   );
 }
