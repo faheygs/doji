@@ -33,6 +33,9 @@ import { DEMO_OPTIONS_BY_CHALLENGE, DEMO_TOTAL_VOTES_BY_CHALLENGE } from '../../
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
+import { useMyPollVoteLikes, usePollVoteLikeCounts, useTogglePollVoteLike } from '../../hooks/usePollVoteLikes';
+import { ReportSheet } from './ReportSheet';
+import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Challenge, PollOption } from '../../types/database';
 
@@ -40,6 +43,7 @@ type PollRow = PollOption & { liveCount: number };
 
 type VoterRow = {
   user_id: string;
+  vote_id?: string;
   username: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -69,7 +73,8 @@ function PollResultCardImpl({
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
-  const [voterModal, setVoterModal] = useState<{ optionId: string; label: string } | null>(null);
+  const [voterModal, setVoterModal] = useState<{ optionId: string; label: string; isOther: boolean } | null>(null);
+  const [reportVote, setReportVote] = useState<{ voteId: string; userId: string } | null>(null);
   const isFriendsScope = feedAudience === 'friends';
 
   const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
@@ -95,6 +100,7 @@ function PollResultCardImpl({
   });
 
   const sendRequest = useSendFriendRequest();
+  const toggleVoteLike = useTogglePollVoteLike();
   const queryClient = useQueryClient();
 
   const scopeUserIds = isFriendsScope ? friendIds : undefined;
@@ -176,7 +182,7 @@ function PollResultCardImpl({
     queryFn: async () => {
       let voteQuery = supabase
         .from('poll_votes')
-        .select('option_id, user_id, custom_text')
+        .select('id, option_id, user_id, custom_text')
         .eq('challenge_id', challenge.id);
       if (scopeUserIds) {
         voteQuery = voteQuery.in('user_id', scopeUserIds);
@@ -210,6 +216,7 @@ function PollResultCardImpl({
         const p = profileById.get(uid);
         const list = m.get(oid) ?? [];
         list.push({
+          vote_id: row.id as string,
           user_id: uid,
           username: p?.username ?? 'user',
           display_name: p?.display_name ?? null,
@@ -363,8 +370,8 @@ function PollResultCardImpl({
     setVoterModal(null);
   }, []);
 
-  const openVoters = useCallback((optionId: string, label: string) => {
-    setVoterModal({ optionId, label });
+  const openVoters = useCallback((optionId: string, label: string, isOther: boolean) => {
+    setVoterModal({ optionId, label, isOther });
   }, []);
 
   useEffect(() => {
@@ -427,7 +434,15 @@ function PollResultCardImpl({
 
   const effectiveVotersByOption = isDemoMode ? demoPollVotersMap : (votersByOption ?? null);
   const modalVoters = voterModal ? (effectiveVotersByOption?.get(voterModal.optionId) ?? []) : [];
-  const modalIsOther = rows.some((r) => r.id === voterModal?.optionId && r.is_other);
+  const modalIsOther = voterModal?.isOther ?? false;
+
+  const modalVoteIds = useMemo(
+    () => modalVoters.map((v) => v.vote_id).filter((id): id is string => Boolean(id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [voterModal?.optionId, votersByOption, isDemoMode],
+  );
+  const { data: myVoteLikes = new Set<string>() } = useMyPollVoteLikes(modalVoteIds);
+  const { data: voteLikeCounts = new Map<string, number>() } = usePollVoteLikeCounts(modalVoteIds);
 
   if (!fetchEnabled) {
     return (
@@ -466,7 +481,7 @@ function PollResultCardImpl({
             <TouchableOpacity
               style={styles.optionRow}
               activeOpacity={0.85}
-              onPress={() => (count > 0 ? openVoters(opt.id, opt.text) : undefined)}
+              onPress={() => (count > 0 ? openVoters(opt.id, opt.text, Boolean(opt.is_other)) : undefined)}
               accessibilityRole="button"
               accessibilityLabel={`${opt.text}, ${pct} percent.${count > 0 ? ' Tap to see voters.' : ''}`}
             >
@@ -491,7 +506,7 @@ function PollResultCardImpl({
                 </Text>
                 {count > 0 ? (
                   <TouchableOpacity
-                    onPress={() => openVoters(opt.id, opt.text)}
+                    onPress={() => openVoters(opt.id, opt.text, Boolean(opt.is_other))}
                     hitSlop={8}
                     style={styles.avatarStack}
                     accessibilityRole="button"
@@ -533,8 +548,8 @@ function PollResultCardImpl({
         </Text>
       </View>
 
-      <Modal
-        visible={modalOpen}
+      {voterModal ? <Modal
+        visible
         transparent
         animationType="none"
         statusBarTranslucent={Platform.OS === 'android'}
@@ -595,6 +610,8 @@ function PollResultCardImpl({
                   const isFriend = friendIds.includes(item.user_id);
                   const isPending = pendingRequests.includes(item.user_id);
                   const canAdd = !isMe && !isFriend;
+                  const isLiked = item.vote_id ? myVoteLikes.has(item.vote_id) : false;
+                  const likeCount = item.vote_id ? (voteLikeCounts.get(item.vote_id) ?? 0) : 0;
                   return (
                     <View style={styles.voterRow}>
                       <Avatar
@@ -637,6 +654,39 @@ function PollResultCardImpl({
                           {isPending ? 'Pending' : '+ Friend'}
                         </Button>
                       ) : null}
+                      {modalIsOther && item.vote_id ? (
+                        <View style={{ alignItems: 'center', gap: 2, paddingLeft: Spacing.xs }}>
+                          <TouchableOpacity
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              toggleVoteLike.mutate({ pollVoteId: item.vote_id!, liked: isLiked });
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={isLiked ? 'Unlike this answer' : 'Like this answer'}
+                          >
+                            <IconHeartSmall size={18} color={isLiked ? colors.danger : colors.textTertiary} filled={isLiked} />
+                          </TouchableOpacity>
+                          {likeCount > 0 ? (
+                            <Text variant="nano" color={colors.textTertiary}>
+                              {likeCount}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {modalIsOther && !isMe && item.vote_id ? (
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setReportVote({ voteId: item.vote_id!, userId: item.user_id });
+                          }}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Report this answer"
+                          style={{ paddingLeft: Spacing.xs }}
+                        >
+                          <IconMoreVertical size={16} color={colors.textTertiary} />
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   );
                 }}
@@ -644,7 +694,16 @@ function PollResultCardImpl({
             </Animated.View>
           </View>
         </GestureHandlerRootView>
-      </Modal>
+      </Modal> : null}
+
+      {reportVote ? (
+        <ReportSheet
+          visible
+          reportedUserId={reportVote.userId}
+          pollVoteId={reportVote.voteId}
+          onClose={() => setReportVote(null)}
+        />
+      ) : null}
     </View>
   );
 }

@@ -24,7 +24,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useDemoStore } from '@/stores/useDemoStore';
 import { hashSuggestionBody } from '@/lib/hashString';
 import { minLength, validationMessage } from '@/lib/formValidation';
-import type { AnswerRule, Challenge } from '@/types/database';
+import type { AnswerRule } from '@/types/database';
 
 const BODY_MIN = 8;
 
@@ -44,50 +44,6 @@ const KINDS = [
 
 type KindKey = (typeof KINDS)[number]['key'];
 type FormatRuleKind = 'starts_with_letter' | 'exact_word_count';
-
-function mapKindToChallengeRow(kind: KindKey): {
-  type: Challenge['type'];
-  category: Challenge['category'];
-  requires_photo: boolean;
-  requires_video: boolean;
-  requires_text: boolean;
-} {
-  switch (kind) {
-    case 'poll':
-    case 'wyr':
-      return {
-        type: 'poll',
-        category: 'social',
-        requires_photo: false,
-        requires_video: false,
-        requires_text: false,
-      };
-    case 'question':
-      return {
-        type: 'task',
-        category: 'mental',
-        requires_photo: false,
-        requires_video: false,
-        requires_text: true,
-      };
-    case 'format_question':
-      return {
-        type: 'format',
-        category: 'mental',
-        requires_photo: false,
-        requires_video: false,
-        requires_text: true,
-      };
-    case 'photo_idea':
-      return {
-        type: 'photo',
-        category: 'creative',
-        requires_photo: true,
-        requires_video: false,
-        requires_text: false,
-      };
-  }
-}
 
 function emptyOptionRows(n: number): string[] {
   return Array.from({ length: n }, () => '');
@@ -372,61 +328,6 @@ export default function SuggestChallengeScreen() {
           throw sugErr;
         }
         return;
-      }
-
-      const mapped = mapKindToChallengeRow(kind);
-      const { data: draft, error: chErr } = await supabase
-        .from('challenges')
-        .insert({
-          title: text.slice(0, 200),
-          description: text,
-          type: mapped.type,
-          category: mapped.category,
-          difficulty: 2,
-          xp_reward: 50,
-          requires_photo: mapped.requires_photo,
-          requires_video: mapped.requires_video,
-          requires_text: mapped.requires_text,
-          answer_rule: answerRule,
-          is_active: true,
-          is_demo: false,
-          schedule_count: 0,
-          emoji: null,
-          participant_count: 0,
-        })
-        .select('id')
-        .single();
-
-      if (chErr || !draft?.id) {
-        Toast.show({
-          type: 'info',
-          text1: 'Thanks! Your idea was saved to the pool.',
-          text2: 'We could not add it to the live challenge list — try again later.',
-        });
-        setBody('');
-        resetOptionsForKind(kind);
-        return;
-      }
-
-      if (mapped.type === 'poll' && options.length >= 2) {
-        const pollRows = options.map((opt, i) => ({
-          challenge_id: draft.id,
-          text: opt.slice(0, 200),
-          position: i,
-          vote_count: 0,
-        }));
-        const { error: poErr } = await supabase.from('poll_options').insert(pollRows);
-        if (poErr) {
-          await supabase.from('challenges').delete().eq('id', draft.id);
-          Toast.show({
-            type: 'info',
-            text1: 'Idea saved to the pool',
-            text2: 'Poll choices failed to save — try again or contact support.',
-          });
-          setBody('');
-          resetOptionsForKind(kind);
-          return;
-        }
       }
 
       Toast.show({ type: 'success', text1: 'Thanks! Your idea was submitted.' });

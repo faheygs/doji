@@ -216,12 +216,14 @@ export default function MyProfileScreen() {
           </View>
         ) : null}
       </ScrollView>
-      <ProfileFriendsSheet
-        visible={friendsSheetVisible}
-        onClose={() => setFriendsSheetVisible(false)}
-        profileUserId={profile.id}
-        ownerDisplayName={profile.display_name}
-      />
+      {friendsSheetVisible ? (
+        <ProfileFriendsSheet
+          visible
+          onClose={() => setFriendsSheetVisible(false)}
+          profileUserId={profile.id}
+          ownerDisplayName={profile.display_name}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

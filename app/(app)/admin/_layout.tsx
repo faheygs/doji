@@ -30,6 +30,7 @@ export default function AdminLayout() {
   return (
     <Stack screenOptions={screenOptions}>
       <Stack.Screen name="suggestions" />
+      <Stack.Screen name="reports" />
     </Stack>
   );
 }

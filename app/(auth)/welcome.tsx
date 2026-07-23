@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, SafeAreaView, Text as RNText } from 'react-native';
+import { View, StyleSheet, SafeAreaView, Text as RNText, TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Spacing, BrandWordmark } from '../../constants/theme';
@@ -115,9 +115,15 @@ export default function WelcomeScreen() {
         <Button onPress={() => router.push('/(auth)/login')} fullWidth size="lg">
           Continue
         </Button>
-        <Text variant="bodySmall" color={colors.textTertiary} style={styles.terms}>
-          By continuing you agree to our Terms and Privacy Policy.
-        </Text>
+        <TouchableOpacity onPress={() => router.push('/(auth)/terms')} activeOpacity={0.7}>
+          <Text variant="bodySmall" color={colors.textTertiary} style={styles.terms}>
+            By continuing you agree to our{' '}
+            <Text variant="bodySmall" color={colors.link}>
+              Terms of Use
+            </Text>
+            {' '}and Privacy Policy.
+          </Text>
+        </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
   );

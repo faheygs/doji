@@ -136,8 +136,10 @@ export function KeyboardSafeSheet({
 
   const bottomPad = Math.max(insets.bottom, Spacing.md) + (keyboardHeight > 0 ? keyboardHeight - insets.bottom : 0);
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={tryDismiss}>
+    <Modal visible transparent animationType="fade" onRequestClose={tryDismiss}>
       <Pressable style={styles.backdrop} onPress={tryDismiss} accessibilityLabel="Dismiss">
         <Pressable
           style={[styles.sheet, { paddingBottom: bottomPad }]}

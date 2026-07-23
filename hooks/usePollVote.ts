@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDemoStore } from '../stores/useDemoStore';
 import type { UserEvent } from '../types/database';
+import { filterContent } from '../lib/contentFilter';
 
 type VoteArgs = {
   challengeId: string;
@@ -20,6 +21,10 @@ export function usePollVote() {
   return useMutation({
     mutationFn: async ({ challengeId, optionId, optionIndex, userEventId, customText }: VoteArgs) => {
       if (!userId) throw new Error('Not authenticated');
+      if (customText) {
+        const check = filterContent(customText);
+        if (!check.ok) throw new Error(check.reason);
+      }
       // In demo mode: skip all DB writes
       if (useDemoStore.getState().isDemoMode) return;
 

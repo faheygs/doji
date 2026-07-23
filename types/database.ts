@@ -46,6 +46,7 @@ export type Profile = {
   equipped_title_key: string | null;
   timezone: string;
   is_admin: boolean;
+  is_banned: boolean;
   is_demo_account: boolean;
   onboarding_completed_at: string | null;
   created_at: string;
@@ -97,6 +98,20 @@ export type PollVote = {
   challenge_id: string;
   option_id: string;
   custom_text?: string | null;
+  created_at: string;
+};
+
+export type PollVoteLike = {
+  id: string;
+  user_id: string;
+  poll_vote_id: string;
+  created_at: string;
+};
+
+export type Block = {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
   created_at: string;
 };
 
@@ -337,6 +352,27 @@ export type LeaderboardEntry = {
   profile: Profile;
 };
 
+export type ReportReason = 'spam' | 'inappropriate' | 'harassment' | 'other';
+export type ReportStatus = 'pending' | 'dismissed' | 'actioned';
+
+export type Report = {
+  id: string;
+  reporter_id: string;
+  reported_user_id: string | null;
+  post_id: string | null;
+  comment_id: string | null;
+  poll_vote_id: string | null;
+  reason: ReportReason;
+  status: ReportStatus;
+  notes: string | null;
+  created_at: string;
+  reporter?: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+  reported_user?: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+  post?: { caption: string | null; photo_url: string | null } | null;
+  comment?: { body: string | null } | null;
+  poll_vote?: { custom_text: string | null } | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -445,6 +481,24 @@ export type Database = {
         Row: PollVote;
         Insert: Omit<PollVote, 'id' | 'created_at'>;
         Update: Partial<PollVote>;
+        Relationships: [];
+      };
+      poll_vote_likes: {
+        Row: PollVoteLike;
+        Insert: Omit<PollVoteLike, 'id' | 'created_at'>;
+        Update: Partial<PollVoteLike>;
+        Relationships: [];
+      };
+      blocks: {
+        Row: Block;
+        Insert: Omit<Block, 'id' | 'created_at'>;
+        Update: Partial<Block>;
+        Relationships: [];
+      };
+      reports: {
+        Row: Report;
+        Insert: Omit<Report, 'id' | 'created_at' | 'status' | 'notes' | 'reporter' | 'reported_user' | 'post' | 'comment' | 'poll_vote'>;
+        Update: { status?: ReportStatus; notes?: string | null };
         Relationships: [];
       };
       badges: {

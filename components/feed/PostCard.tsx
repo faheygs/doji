@@ -15,7 +15,8 @@ import { PollResultCard } from './PollResultCard';
 import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
 import { PostQuestionBlock, PostAnswerBlock, PostPhotoPrompt } from './PostContentBlocks';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
-import { IconLock } from '../icons/Icons';
+import { IconLock, IconMoreVertical } from '../icons/Icons';
+import { ReportSheet } from './ReportSheet';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
@@ -84,6 +85,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   );
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
+  const [reportOpen, setReportOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
 
   useEffect(() => {
@@ -352,6 +354,16 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
             </Text>
           </View>
         </TouchableOpacity>
+        {!isOwnPost ? (
+          <TouchableOpacity
+            onPress={() => setReportOpen(true)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+          >
+            <IconMoreVertical size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {blurred ? (
@@ -441,6 +453,14 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
             feedAudience={feedAudience}
             onClose={closeComments}
           />
+          {reportOpen && post.user_id ? (
+            <ReportSheet
+              visible={reportOpen}
+              postId={post.id}
+              reportedUserId={post.user_id}
+              onClose={() => setReportOpen(false)}
+            />
+          ) : null}
         </>
       )}
     </View>

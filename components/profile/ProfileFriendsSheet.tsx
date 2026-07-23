@@ -57,8 +57,10 @@ export function ProfileFriendsSheet({
     [onClose, pathname, router],
   );
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
         <View style={styles.sheet}>

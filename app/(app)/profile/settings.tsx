@@ -20,8 +20,10 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { useBlockedUsers } from '@/hooks/useBlockUser';
 import { useUsernameAvailability, normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import { usePendingSuggestions } from '@/hooks/useSuggestions';
+import { usePendingReports } from '@/hooks/useReports';
 import { required, maxLength, validationMessage } from '@/lib/formValidation';
 
 const BIO_MAX = 150;
@@ -99,6 +101,8 @@ export default function SettingsScreen() {
   const { data: pendingSuggestions = [], isError: pendingSuggestionsError } = usePendingSuggestions(
     !!profile?.is_admin,
   );
+  const { data: pendingReports = [] } = usePendingReports(!!profile?.is_admin);
+  const { data: blockedUsers = [] } = useBlockedUsers();
 
   const {
     errorMessage: usernameAvailabilityError,
@@ -318,6 +322,21 @@ export default function SettingsScreen() {
         </View>
 
         <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
+          PRIVACY
+        </Text>
+        <View style={styles.group}>
+          <SettingsRow
+            label="Blocked users"
+            subtitle={blockedUsers.length > 0 ? `${blockedUsers.length} blocked` : 'Manage blocked accounts'}
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/profile/blocked-users', pathname));
+            }}
+            isLast
+          />
+        </View>
+
+        <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
           APPEARANCE
         </Text>
         <View style={styles.group}>
@@ -365,14 +384,7 @@ export default function SettingsScreen() {
                 subtitle="Approve or reject pending challenge ideas"
                 right={
                   pendingSuggestionsError ? (
-                    <View
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 5,
-                        backgroundColor: colors.error,
-                      }}
-                    />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.error }} />
                   ) : pendingSuggestions.length > 0 ? (
                     <View
                       style={{
@@ -394,6 +406,33 @@ export default function SettingsScreen() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   router.push(hrefWithReturnTo('/(app)/admin/suggestions', pathname));
+                }}
+              />
+              <SettingsRow
+                label="Review reports"
+                subtitle="Moderate flagged content and blocked users"
+                right={
+                  pendingReports.length > 0 ? (
+                    <View
+                      style={{
+                        minWidth: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: colors.error,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 6,
+                      }}
+                    >
+                      <Text variant="micro" color={colors.onPrimary} style={{ fontWeight: '700' }}>
+                        {pendingReports.length}
+                      </Text>
+                    </View>
+                  ) : undefined
+                }
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push(hrefWithReturnTo('/(app)/admin/reports', pathname));
                 }}
                 isLast
               />

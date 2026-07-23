@@ -34,6 +34,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const styles = useMemo(
@@ -68,6 +69,20 @@ export default function LoginScreen() {
           padding: Spacing.lg,
           paddingTop: Spacing.md,
         },
+        tosRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.sm,
+          marginTop: Spacing.xs,
+        },
+        tosCheckbox: {
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          borderWidth: 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
       }),
     [colors.background],
   );
@@ -86,7 +101,8 @@ export default function LoginScreen() {
   const signUpOk =
     emailValidation.ok &&
     passwordValidation.ok &&
-    confirmValidation.ok;
+    confirmValidation.ok &&
+    tosAccepted;
   const signInOk = emailValidation.ok && passwordValidation.ok;
 
   const handleForgotPassword = async () => {
@@ -221,36 +237,84 @@ export default function LoginScreen() {
               hint={password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
             />
             {mode === 'signUp' ? (
-              <Input
-                label="Confirm password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="password-new"
-                textContentType="newPassword"
-                error={showConfirmError ? validationMessage(confirmValidation) : undefined}
-                success={
-                  confirmValidation.ok && confirmPassword.length > 0 ? 'Passwords match' : undefined
-                }
-              />
+              <>
+                <Input
+                  label="Confirm password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="password-new"
+                  textContentType="newPassword"
+                  error={showConfirmError ? validationMessage(confirmValidation) : undefined}
+                  success={
+                    confirmValidation.ok && confirmPassword.length > 0 ? 'Passwords match' : undefined
+                  }
+                />
+                <TouchableOpacity
+                  onPress={() => setTosAccepted((v) => !v)}
+                  style={styles.tosRow}
+                  activeOpacity={0.7}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: tosAccepted }}
+                >
+                  <View
+                    style={[
+                      styles.tosCheckbox,
+                      {
+                        borderColor: tosAccepted ? colors.primary : colors.border,
+                        backgroundColor: tosAccepted ? colors.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    {tosAccepted ? (
+                      <Text variant="micro" style={{ color: colors.onPrimary, fontWeight: '700' }}>
+                        ✓
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text variant="bodySmall" color={colors.textSecondary} style={{ flex: 1 }}>
+                    I agree to the{' '}
+                    <Text
+                      variant="bodySmall"
+                      color={colors.link}
+                      onPress={() => router.push('/(auth)/terms')}
+                    >
+                      Terms of Use
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </>
             ) : null}
           </View>
 
           {mode === 'signIn' ? (
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.switchMode}>
-              <Text variant="body" color={colors.link}>
-                Forgot password?
+            <>
+              <TouchableOpacity onPress={handleForgotPassword} style={styles.switchMode}>
+                <Text variant="body" color={colors.link}>
+                  Forgot password?
+                </Text>
+              </TouchableOpacity>
+              <Text variant="bodySmall" color={colors.textTertiary} style={styles.switchMode}>
+                By signing in you agree to our{' '}
+                <Text
+                  variant="bodySmall"
+                  color={colors.link}
+                  onPress={() => router.push('/(auth)/terms')}
+                >
+                  Terms of Use
+                </Text>
               </Text>
-            </TouchableOpacity>
+            </>
           ) : null}
 
           <TouchableOpacity
             onPress={() => {
               setMode(mode === 'signIn' ? 'signUp' : 'signIn');
               setConfirmPassword('');
+              setTosAccepted(false);
             }}
             style={styles.switchMode}
           >

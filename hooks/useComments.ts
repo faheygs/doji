@@ -10,6 +10,7 @@ import { fetchMentionableUserIds } from '../lib/mentionNetwork';
 import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
 import { filterCommentsForAudience, type FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile, Post } from '../types/database';
+import { filterContent } from '../lib/contentFilter';
 
 const COMMENT_SELECT = '*, profile:profiles(username, display_name, avatar_url, equipped_border_key)';
 
@@ -167,6 +168,8 @@ export function useAddComment() {
       if (!uid) throw new Error('Not authenticated');
       const trimmed = body.trim();
       if (!trimmed) throw new Error('Comment cannot be empty');
+      const check = filterContent(trimmed);
+      if (!check.ok) throw new Error(check.reason);
       if (useDemoStore.getState().isDemoMode) return;
 
       const { data: inserted, error } = await supabase
@@ -241,6 +244,8 @@ export function useEditComment() {
       if (!uid) throw new Error('Not authenticated');
       const trimmed = body.trim();
       if (!trimmed) throw new Error('Comment cannot be empty');
+      const check = filterContent(trimmed);
+      if (!check.ok) throw new Error(check.reason);
       if (useDemoStore.getState().isDemoMode) return;
 
       const { error } = await supabase

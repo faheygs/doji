@@ -26,6 +26,8 @@ interface DemoState {
   demoFriendIds: string[];
   demoPendingSentIds: string[];
   demoPendingReceivedIds: string[];
+  // Blocks (local-only in demo mode)
+  demoBlockedIds: string[];
   // Actions
   enterDemoMode: (type?: ChallengeType) => void;
   exitDemoMode: () => void;
@@ -42,6 +44,8 @@ interface DemoState {
   acceptDemoFriendRequest: (userId: string) => void;
   declineDemoFriendRequest: (userId: string) => void;
   removeDemoFriend: (userId: string) => void;
+  blockDemoUser: (userId: string) => void;
+  unblockDemoUser: (userId: string) => void;
 }
 
 const EMPTY_INTERACTIONS = {
@@ -54,6 +58,7 @@ const EMPTY_FRIENDS = {
   demoFriendIds: [] as string[],
   demoPendingSentIds: [] as string[],
   demoPendingReceivedIds: [] as string[],
+  demoBlockedIds: [] as string[],
 };
 
 const INITIAL_FRIENDS = {
@@ -199,5 +204,20 @@ export const useDemoStore = create<DemoState>((set, get) => ({
     set((s) => ({
       demoFriendIds: s.demoFriendIds.filter((id) => id !== userId),
       demoPendingSentIds: s.demoPendingSentIds.filter((id) => id !== userId),
+    })),
+
+  blockDemoUser: (userId) =>
+    set((s) => ({
+      demoBlockedIds: s.demoBlockedIds.includes(userId)
+        ? s.demoBlockedIds
+        : [...s.demoBlockedIds, userId],
+      demoFriendIds: s.demoFriendIds.filter((id) => id !== userId),
+      demoPendingSentIds: s.demoPendingSentIds.filter((id) => id !== userId),
+      demoPendingReceivedIds: s.demoPendingReceivedIds.filter((id) => id !== userId),
+    })),
+
+  unblockDemoUser: (userId) =>
+    set((s) => ({
+      demoBlockedIds: s.demoBlockedIds.filter((id) => id !== userId),
     })),
 }));

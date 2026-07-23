@@ -11,6 +11,7 @@ import { todayFiresAtWindow } from '../lib/challengeDay';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
 import { useDemoStore } from '../stores/useDemoStore';
 import { makeDemoUserEvent, DEMO_CHALLENGES } from '../constants/demoData';
+import { filterContent } from '../lib/contentFilter';
 
 export function useUserEvent() {
   const isDemoMode = useDemoStore((s) => s.isDemoMode);
@@ -109,6 +110,11 @@ export function useCreatePost() {
       if (!userId) throw new Error('Not authenticated');
       // In demo mode: skip all uploads and DB writes
       if (useDemoStore.getState().isDemoMode) return null;
+
+      if (payload.caption) {
+        const check = filterContent(payload.caption);
+        if (!check.ok) throw new Error(check.reason);
+      }
 
       const [photoUrl, frontPhotoUrl, videoUrl] = await Promise.all([
         payload.photoUri ? uploadPostMedia(userId, payload.photoUri, 'photo') : Promise.resolve(null),
