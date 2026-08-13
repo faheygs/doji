@@ -1,26 +1,57 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { InteractionManager } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { weekStart } from '../lib/xp';
 import { useAuthStore } from '../stores/useAuthStore';
-import { useDemoStore } from '../stores/useDemoStore';
-import { DEMO_USERS, DEMO_WEEKLY_XP, DEMO_ME_WEEKLY_XP } from '../constants/demoData';
-import type { LeaderboardEntry, Profile } from '../types/database';
+import type { LeaderboardEntry } from '../types/database';
+import { createRequestSignal } from '../lib/requestSignal';
 
 export type LeaderboardMode = 'weekly' | 'alltime';
 export type LeaderboardAudience = 'friends' | 'everyone';
 
-import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
+async function fetchLeaderboard(
+  mode: LeaderboardMode,
+  audience: LeaderboardAudience,
+  userId: string | undefined,
+  signal?: AbortSignal,
+): Promise<LeaderboardEntry[]> {
+  if (audience === 'friends' && !userId) return [];
+  const request = createRequestSignal(signal, 6_000);
+  try {
+    const { data, error } = await supabase.rpc('get_leaderboard_snapshot', {
+      p_mode: mode,
+      p_audience: audience,
+      p_limit: 50,
+    }).abortSignal(request.signal);
+    if (error) throw error;
+    return (data ?? []) as LeaderboardEntry[];
+  } finally {
+    request.cleanup();
+  }
+}
 
-function rankEntries(
-  rows: { user_id: string; xp: number; profile: LeaderboardEntry['profile'] }[],
-): LeaderboardEntry[] {
-  const sorted = [...rows].sort((a, b) => b.xp - a.xp);
-  return sorted.map((row, idx) => ({
-    rank: idx + 1,
-    user_id: row.user_id,
-    xp: row.xp,
-    profile: row.profile,
-  }));
+function leaderboardQueryKey(
+  mode: LeaderboardMode,
+  audience: LeaderboardAudience,
+  userId: string | undefined,
+) {
+  return ['leaderboard', mode, audience, userId, mode === 'weekly' ? weekStart() : 'all'] as const;
+}
+
+export function warmLeaderboardCache(queryClient: QueryClient, userId: string | undefined) {
+  if (!userId) return;
+  const variants: [LeaderboardMode, LeaderboardAudience][] = [
+    ['weekly', 'friends'], ['weekly', 'everyone'],
+    ['alltime', 'friends'], ['alltime', 'everyone'],
+  ];
+  for (const [mode, audience] of variants) {
+    void queryClient.prefetchQuery({
+      queryKey: leaderboardQueryKey(mode, audience, userId),
+      queryFn: ({ signal }) => fetchLeaderboard(mode, audience, userId, signal),
+      staleTime: 60_000,
+    });
+  }
 }
 
 export function useLeaderboard(
@@ -28,98 +59,23 @@ export function useLeaderboard(
   audience: LeaderboardAudience = 'everyone',
 ) {
   const userId = useAuthStore((s) => s.session?.user?.id);
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
-  const currentWeek = weekStart();
+  const queryClient = useQueryClient();
 
-  return useQuery<LeaderboardEntry[]>({
-    queryKey: isDemoMode
-      ? ['leaderboard', 'demo', mode, audience]
-      : ['leaderboard', mode, audience, userId, mode === 'weekly' ? currentWeek : 'all'],
-    queryFn: async () => {
-      if (isDemoMode) {
-        const meProfile = useAuthStore.getState().profile;
-        const allUsers = Object.values(DEMO_USERS);
-        const allProfiles: Profile[] = meProfile ? [meProfile, ...allUsers] : allUsers;
-
-        let filteredProfiles = allProfiles;
-        if (audience === 'friends') {
-          const { demoFriendIds } = useDemoStore.getState();
-          const friendSet = new Set([...demoFriendIds, meProfile?.id]);
-          filteredProfiles = allProfiles.filter((p) => friendSet.has(p.id));
-        }
-
-        const rows = filteredProfiles.map((p) => ({
-          user_id: p.id,
-          xp: mode === 'alltime'
-            ? (p.xp ?? 0)
-            : (p.id === meProfile?.id ? DEMO_ME_WEEKLY_XP : (DEMO_WEEKLY_XP[p.id] ?? 0)),
-          profile: p,
-        }));
-
-        return rankEntries(rows).slice(0, 50);
-      }
-
-      const friendIds =
-        audience === 'friends' && userId ? await getFriendIdsIncludingSelf(userId) : null;
-
-      let profileQuery = supabase.from('profiles').select('*').order('xp', { ascending: false });
-
-      if (friendIds) {
-        profileQuery = profileQuery.in('id', friendIds);
-      } else {
-        profileQuery = profileQuery.limit(50);
-      }
-
-      const { data: profiles, error: profileErr } = await profileQuery;
-      if (profileErr) throw profileErr;
-
-      const profileRows = (profiles ?? []) as Profile[];
-
-      if (mode === 'alltime') {
-        const rows = profileRows.map((row) => ({
-          user_id: row.id,
-          xp: row.xp ?? 0,
-          profile: row,
-        }));
-        return rankEntries(rows).slice(0, 50);
-      }
-
-      const ws = currentWeek;
-      const userIds = profileRows.map((p) => p.id);
-      const weeklyMap = new Map<string, number>();
-
-      if (userIds.length > 0) {
-        const { data: weeklyRows, error: weeklyErr } = await supabase
-          .from('weekly_xp')
-          .select('user_id, xp')
-          .eq('week_start', ws)
-          .in('user_id', userIds);
-
-        if (weeklyErr) throw weeklyErr;
-        for (const row of weeklyRows ?? []) {
-          weeklyMap.set(row.user_id as string, row.xp as number);
-        }
-      }
-
-      const rows = profileRows.map((row) => ({
-        user_id: row.id,
-        xp: weeklyMap.get(row.id) ?? 0,
-        profile: row,
-      }));
-
-      return rankEntries(rows).slice(0, 50);
-    },
-    staleTime: isDemoMode ? Infinity : 30_000,
-    refetchOnWindowFocus: !isDemoMode,
-    enabled: isDemoMode || audience === 'everyone' || !!userId,
-    placeholderData: (prev, prevQuery) => {
-      if (isDemoMode) return prev;
-      const prevKey = prevQuery?.queryKey;
-      if (!prevKey || !prev) return undefined;
-      const prevWeek = prevKey[4];
-      if (mode === 'weekly' && prevWeek !== currentWeek) return undefined;
-      if (prevKey[1] !== mode || prevKey[2] !== audience) return undefined;
-      return prev;
-    },
+  const query = useQuery<LeaderboardEntry[]>({
+    queryKey: leaderboardQueryKey(mode, audience, userId),
+    queryFn: ({ signal }) => fetchLeaderboard(mode, audience, userId, signal),
+    staleTime: 60_000,
+    gcTime: 15 * 60_000,
+    enabled: audience === 'everyone' || !!userId,
   });
+
+  useEffect(() => {
+    if (!query.data?.length) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      warmLeaderboardCache(queryClient, userId);
+    });
+    return () => task.cancel();
+  }, [query.data?.length, queryClient, userId]);
+
+  return query;
 }

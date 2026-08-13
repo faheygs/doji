@@ -14,7 +14,7 @@ const mockChain = () => {
   // Terminal methods return a resolved promise by default
   chain.single = jest.fn().mockResolvedValue({ data: null, error: null });
   chain.maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
-  chain.then = undefined; // make it non-thenable so jest doesn't auto-await
+  delete chain.then; // make it non-thenable so jest doesn't auto-await
   return chain;
 };
 

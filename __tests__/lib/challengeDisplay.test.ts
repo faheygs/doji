@@ -1,4 +1,4 @@
-import { challengeKindLabel } from '../../lib/challengeDisplay';
+import { challengeKindLabel, isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge } from '../../types/database';
 
 function mockChallenge(overrides: Partial<Challenge> = {}): Challenge {
@@ -32,7 +32,22 @@ describe('challengeKindLabel', () => {
   });
 
   it('returns "Poll" for poll type without WYR phrase', () => {
-    expect(challengeKindLabel(mockChallenge({ type: 'poll', title: 'Which is better?' }))).toBe('Poll');
+    expect(challengeKindLabel(mockChallenge({ type: 'poll', poll_kind: 'poll', title: 'Which is better?' }))).toBe('Poll');
+  });
+
+  it('uses explicit WYR metadata when the title has no phrase', () => {
+    const challenge = mockChallenge({ type: 'poll', poll_kind: 'wyr', title: 'Fly or swim?' });
+    expect(challengeKindLabel(challenge)).toBe('Would you rather');
+    expect(isWouldYouRatherChallenge(challenge)).toBe(true);
+  });
+
+  it('does not let a title override explicit generic poll metadata', () => {
+    const challenge = mockChallenge({
+      type: 'poll',
+      poll_kind: 'poll',
+      title: 'Would you rather add your own answer?',
+    });
+    expect(challengeKindLabel(challenge)).toBe('Poll');
   });
 
   it('returns "Would you rather" for poll with "would you rather" in title', () => {

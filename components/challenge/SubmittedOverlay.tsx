@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Spacing, Radius } from '../../constants/theme';
 import { IconCheck } from '../icons/Icons';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -55,6 +56,7 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
   );
   const scale = useRef(new Animated.Value(0.5)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  useDismissOnRouteBlur(visible, onDone);
 
   useEffect(() => {
     if (visible) {
@@ -67,6 +69,8 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
       opacity.setValue(0);
     }
   }, [visible]);
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="none">
@@ -104,4 +108,3 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
     </Modal>
   );
 }
-

@@ -1,320 +1,522 @@
-# Doji — LLM Context Reference
+# Doji: authoritative product and system context
 
-## What Doji Is
+Last verified: August 12, 2026
 
-Doji is a daily-challenge mobile app for iOS and Android (React Native / Expo). Its core premise: once per day, a single challenge drops for all users simultaneously. You have a 10-minute window to complete it. If you miss the window, your streak breaks and the social feed locks — unless you spend 400 Sparks to buy back in. Everything in the app is structured around this daily participation gate.
+This is the primary map of what Doji is, how the product flows, who owns each
+piece of state, and how the mobile client, Postgres, Cloudflare, Ably, Expo Push,
+and Supabase Realtime connect. Read this before changing a screen, query, RPC,
+event, notification, or infrastructure component.
 
-Target audience: social/competitive users who want a lightweight daily ritual with a competitive social layer — streaks, leaderboards, badges, and a friends feed.
+Detailed transport guarantees live in
+[`docs/REALTIME_ARCHITECTURE.md`](docs/REALTIME_ARCHITECTURE.md). If these files
+disagree, fix both in the same change. The current code and migrations remain the
+executable source of truth.
 
-Bundle ID: `com.doit.challengeapp`
-Developer: Gavin Fahey (sole developer)
+## Product in one paragraph
 
----
+Doji is a social daily-challenge app. One shared challenge goes live for eligible
+users at the same instant. A user has exactly 10 minutes, authorized by the
+database clock, to participate. Completing the Doji unlocks that day's social
+experience and protects the user's streak. Posts, shared poll results, comments,
+replies, reactions, mentions, friendships, leaderboards, Sparks, badges, profile
+presentation, and shop cosmetics update live. A missed user remains locked unless
+an allowed buy-in reopens participation. Submitting any challenge type returns the
+user directly to the feed; there is no success interstitial.
 
-## Terminology
+## Product contracts that must not regress
 
-| Term | Meaning |
-|---|---|
-| **Doji** | The app name; also used informally to mean "today's challenge" (e.g. "complete your Doji") |
-| **Sparks** | In-app currency. Earned through participation, spent in the shop or on buy-ins |
-| **Streak** | Consecutive days on which the user completed the daily challenge |
-| **Streak shield** | A consumable that auto-activates on a missed day to preserve the streak |
-| **Buy-in** | Spending 400 Sparks after missing the window to re-open the challenge and stay in that day |
-| **User event** | A per-user row tracking the user's status for a given daily challenge |
-| **Daily event** | The single global challenge record for a given day |
-| **Signup-day grace** | New users on their first day get the challenge window extended to end-of-day; they cannot buy in (they don't need to) |
-| **XP** | Experience points earned on challenge completion; drives level progression |
-| **Accent theme** | A purchasable color scheme for the app UI |
-| **Avatar frame** | A purchasable colored border on the user's profile picture |
-| **Title** | A purchasable text badge shown on the user's profile |
+- Challenge authorization uses server time, never the phone clock.
+- The live participation window is exactly 10 minutes.
+- Challenge pre-live, activation, and close are durable one-shot events, not recurring
+  polling jobs or client schedules.
+- Exactly 20 minutes before activation, the server retires the previous feed and
+  publishes a challenge-free pre-live state. The app shows the coming-soon banner
+  from that authoritative state; it does not reveal the challenge early.
+- A completed write and its realtime/push events commit together.
+- A failed submission cannot create a completion notification.
+- Retrying the same command cannot create a second post, vote, reaction, comment,
+  reward, or notification.
+- A user has at most one active reaction per post. Their first reaction notifies
+  the applicable owner/friends; changing, removing, or re-adding it does not
+  create another alert. A comment heart notifies the comment author once per
+  reacting user, and self-hearts never notify.
+- Users do not need to restart or manually refresh to see committed activity.
+- The feed is unlocked only after the current user completes today's Doji
+  (`completed` or paid `late`).
+- Poll and Would You Rather challenges use one community post. Generic polls may
+  include an `Other` answer; Would You Rather has exactly two choices and never
+  offers `Other`. Aggregate results are global; social alerts and the Friends view
+  are limited to accepted friends.
+- Selecting a person opens their profile. The relationship control handles add,
+  accept, sent, and unfriend states; its adjacent menu contains block and report.
+  Neither duplicates “View profile.”
+- Whenever a name or username is shown, show that user's avatar and equipped frame.
+- Blocking immediately removes the person and their content from the viewer's UI,
+  removes the friendship, and creates the required moderation report.
+- Cleared or dismissed notifications are durable account state and never return
+  after reinstall or sign-in on another device.
+- Light and dark themes must both meet contrast and state-visibility requirements.
+- Text-entry screens use the shared keyboard components. Focused fields scroll
+  fully above the keyboard and toolbar, and keyboard movement is synchronized.
 
----
+## End-to-end user journey
 
-## How a Day Works (Core Loop)
-
-1. **Challenge scheduled** — `schedule-daily-challenge` edge function runs at 10am PT via pg_cron. It selects a challenge, creates one `daily_events` row, and fans out individual `user_events` rows to every user profile (status: `pending`).
-
-2. **Challenge drops** — At `fires_at` time (between 10am PT and 10pm ET, randomized), `dispatch-challenge-pushes` cron sends each user a push notification. The window is 10 minutes from `fires_at` (each user_event row has an `expires_at`).
-
-3. **User opens the app** — A countdown timer on the home feed shows time remaining. The Challenge screen shows the prompt, XP reward, and a CTA button.
-
-4. **User completes** — Depending on type: opens camera (photo), votes (poll), submits text answer (task/format). On success, `user_events.status` → `completed`. Feed and post capability unlock immediately.
-
-5. **Window closes** — If the user doesn't complete in time, `expire-events` cron marks their row `missed`. Streak shields auto-consume here if available. The feed locks.
-
-6. **Buy-in path** — If the user missed and hasn't previously bought in today, the Challenge screen shows a "Buy in · 400 Sparks" button. Tapping it deducts 400 Sparks via `buy_in_today()` RPC, sets status → `buy_in_open`, extends `expires_at` to end-of-day. The user can now complete the challenge and unlock the feed.
-
-7. **Day ends** — All unresolved events expire. `schedule-daily-challenge` runs again next day.
-
-**Status progression:**
+```mermaid
+flowchart LR
+  A[Welcome] --> B[Sign in or create account]
+  B --> C[Terms of Use consent]
+  B --> D[Privacy Policy consent]
+  C --> E[Authenticated session]
+  D --> E
+  E --> F{Profile exists?}
+  F -- No --> G[Choose username and optional photo, display name, bio]
+  F -- Yes --> H{New user onboarding complete?}
+  G --> H
+  H -- No --> I[How Doji works]
+  I --> J[Notification permission]
+  J --> K[Photo, display name, bio; all optional]
+  K --> L[Main app]
+  H -- Yes --> L
 ```
-pending → completed
-         → missed → [buy_in_open] → completed
-                                   → (day ends, locked)
-         → (expired pending, treated as missed)
+
+Product requirement: account creation presents two independent, initially
+unchecked consents—Terms of Use and Privacy Policy. Each label links to its own
+readable document. Username is the only required profile-setup field. Photo,
+display name, and bio share that same page and are optional; there is no separate
+profile screen or “skip for now” detour.
+
+Routing is enforced in `app/_layout.tsx`, `hooks/useAuthGate.ts`,
+`lib/authRoute.ts`, and `lib/onboardingGate.ts`. The root layout owns session
+restoration, profile hydration, protected route groups, fonts, theme, keyboard
+provider, push-token registration, notification deep links, and global toasts.
+After authentication, protected-route selection waits for the initial owner
+profile read to finish: a session whose profile is still hydrating is not treated
+as a new account. Refreshing an already loaded profile keeps the app group mounted.
+
+## Daily Doji lifecycle
+
+```mermaid
+sequenceDiagram
+  participant Alarm as Cloudflare Durable Object
+  participant DB as Supabase Postgres
+  participant Relay as Cloudflare Queue / Edge relay
+  participant Live as Ably and Expo Push
+  participant App as Mobile app
+
+  Alarm->>DB: begin_daily_event_prelive(event_id)
+  DB->>DB: retire prior feed; stamp prelive_at; write doji.pre_live event
+  Live-->>App: Doji coming soon
+  Alarm->>DB: activate_daily_event(event_id) 20 minutes later
+  DB->>DB: stamp fires_at and closes_at; create eligible user_events
+  DB->>DB: write global and per-user domain_event_outbox rows
+  DB-->>Alarm: committed activation
+  DB->>Relay: wake outbox relay
+  Relay->>Live: publish sockets and claim push delivery
+  Live-->>App: Doji is live
+  App->>DB: get_current_doji_state()
+  App->>DB: atomic idempotent submission RPC
+  DB->>DB: complete occurrence, content, rewards, badge progress, events
+  DB-->>App: authoritative success
+  App->>App: navigate directly to feed
+  Alarm->>DB: close_daily_event(event_id)
+  DB->>DB: resolve misses/shields and queue close events
+  Alarm->>Alarm: register the next one-shot event
 ```
 
----
-
-## Challenge Types
-
-### Photo
-- Prompt: a visual challenge (e.g. "Show us your workspace right now")
-- Flow: app opens camera directly → user takes photo → photo uploads to Supabase storage → post created
-
-### Poll
-- Prompt: a question with multiple options
-- Flow: user sees options, taps one to vote → result shows how friends voted, with percentage bars
-- Community behavior: all users share a single poll post per daily event (not one post per user)
-
-### Task
-- Prompt: a described activity to perform
-- Flow: user reads the task, performs it, submits a written answer or proof
-
-### Format
-- Prompt: a creative/written prompt
-- Flow: user types a response (text-based)
-
----
-
-## Feed Gating
-
-The social feed (friends' posts) is only accessible when the user has `userEvent.status === 'completed'` for today.
-
-Logic: `isParticipationLocked(userEvent)` returns `true` when status is anything other than `completed`. The feed UI shows a locked state with the current challenge visible and a CTA to complete it.
-
-Exceptions:
-- **Signup-day grace**: New users on their first day can see the feed without completing (their user_event has `signup_day_grace = true` and `expires_at` extended to EOD).
-- **Buy-in open**: After buying in, the feed remains locked until they actually complete the challenge.
-
-Post creation (`canSubmitChallenge()`) is true when: status is `pending` or `buy_in_open`, and `expires_at` has not passed.
-
----
-
-## Sparks Economy
-
-### Earning Sparks
-
-| Action | Sparks |
-|---|---|
-| Complete challenge | 10–50 (scales with XP reward) |
-| Create a post | +10 |
-| Comment on a post | +3 |
-| React to a post | +2 |
-| Vote in a poll | +5 |
-| Send a friend request | +2 |
-| Accept a friend request | +5 |
-| Badge unlock (bronze/silver/gold/diamond) | +8/+15/+30/+60 |
-| Welcome bonus (new users) | +200 |
-
-All awards are idempotent via `award_sparks_once(user_id, delta, reason, ref_id)` — deduplication by `ref_id` prevents double-awarding.
-
-### Spending Sparks
-
-| Item | Cost |
-|---|---|
-| Buy-in (re-open missed challenge) | 400 Sparks |
-| Avatar frame — Classic | 40 Sparks |
-| Avatar frame — Neon | 80 Sparks |
-| Avatar frame — Gold | 120 Sparks |
-| Avatar frame — Diamond | 160 Sparks |
-| Avatar frame — Purple | 200 Sparks |
-
----
-
-## Streak and Shield Mechanics
-
-- **Streak**: count of consecutive days the user completed the challenge. Displayed on profile and home feed.
-- **Streak breaks**: occur when a day ends without `completed` status and no shield is available.
-- **Streak shields**: earned through badge tier unlocks. Stored in `profiles.streak_shields`. When `expire-events` runs, a shield auto-consumes (decrements by 1, streak preserved).
-- A user can only buy in once per day (`buy_in_at` field is set on first buy-in). Buying in does not guarantee streak preservation — they must complete after buying in.
-- `recalculate-streak` edge function walks event history chronologically to recompute streaks after completion.
-
----
-
-## Badge System
-
-Badges are awarded for reaching milestones across five categories:
-
-| Category | Emoji |
-|---|---|
-| Physical | 💪 |
-| Creative | 🎨 |
-| Social | 🤝 |
-| Mental | 🧠 |
-| Wild | 🌪️ |
-
-**Tiers** (in order): Bronze → Silver → Gold → Diamond
-
-Tier colors: Bronze `#E8944A`, Silver `#A0A0A6`, Gold `#FFCA28`, Diamond `#22D3EE`
-
-Badges unlock via DB trigger on `user_badge_progress`. Each unlock awards Sparks and may award streak shields. Progress is tracked in `user_badge_progress` and displayed in a grid on the profile screen.
-
----
-
-## XP and Levels
-
-XP is earned on challenge completion. Level thresholds are defined in `constants/theme.ts` `XP_LEVELS`. Level-up triggers a celebration modal + Sparks reward (`5 × new_level`). XP progress is displayed as a gradient bar on the profile screen.
-
----
-
-## Shop
-
-Three categories of cosmetic items, all purchased with Sparks:
-
-### Avatar Frames (Borders)
-Colored rings around the user's profile picture:
-- Classic (silver `#C0C0C0`) — 40 Sparks
-- Neon (orange `#FF6B35`) — 80 Sparks
-- Gold (`#FFD700`) — 120 Sparks
-- Diamond (cyan `#00D4FF`) — 160 Sparks
-- Purple (`#A855F7`) — 200 Sparks
-
-### Accent Themes
-Replaces the app's primary accent color. Default "Doji Orange" (`#FF6B35`) is always free.
-
-### Titles
-Text badges displayed on the user's profile:
-- **Chaos Agent** — "Zero chill. Maximum plot."
-- **Main Character** — "The timeline bends around you."
-- **Certified Delulu** — "Reality is a suggestion."
-
-Items are purchased once and owned permanently. Cosmetic borders override rank-tier borders when equipped.
-
----
-
-## Social System
-
-### Friendships
-Mutual friendships only (not follows). Table: `friendships (requester_id, addressee_id, status)`. Both users must accept. No one-sided following.
-
-### Feed
-- Only accessible when today's challenge is completed
-- Shows posts from mutual friends only
-- Cursor-based pagination via TanStack Query infinite queries
-- Community poll post is fetched separately, merged into page 0
-
-### Reactions
-Six reaction types. Each user can react once per post. +2 Sparks awarded to the reactor (idempotent per post per user).
-
-### Comments
-Supports @mention tagging. Mentions trigger push notifications. +3 Sparks awarded to commenter (idempotent per post).
-
----
-
-## Notification System
-
-**Foreground behavior**: `setNotificationHandler` sets all `shouldShow*` to `false` — pushes arrive silently in the in-app bell while the app is open. Background/killed-app pushes show OS banners normally.
-
-### Push Types
-
-| Notification | Preference key |
-|---|---|
-| Daily challenge drop | `doji_start` |
-| Friend posted | `friend_post` |
-| Reaction on your post | `reactions_on_my_post` |
-| Comment on your post | `comment` |
-| @mention | `mention` |
-| Friend request received | `friend_request` |
-| Friend request accepted | `friend_accepted` |
-| Badge unlocked | `badges` |
-| Suggestion reviewed | `suggestion` |
-
-**Bell**: `useNotificationCenter` shows all notification types regardless of push preferences. Preferences only gate OS push delivery. The bell is an activity log, not a push mirror.
-
----
-
-## Buy-In Flow
-
-1. User misses 10-minute window (or `expire-events` cron marks them `missed`)
-2. Challenge screen shows "Buy in · 400 Sparks" button if `canBuyIn(userEvent)` is true
-3. `canBuyIn()` requires: status `missed` or `pending+expired`, `buy_in_at` is null, not signup-day grace
-4. `BuyInSheet` confirmation modal shows challenge details and cost
-5. `buy_in_today()` RPC: deducts 400 Sparks, sets status → `buy_in_open`, extends `expires_at` to EOD
-6. User completes challenge → feed unlocks
-7. One buy-in per day maximum (`buy_in_at` prevents repeats)
-
----
-
-## Key Screens
-
-| Screen | Path | Purpose |
-|---|---|---|
-| Home feed | `(app)/index.tsx` | Friends' posts, challenge banner, participation gate |
-| Challenge | `(app)/challenge.tsx` | Today's challenge, buy-in if missed |
-| Camera | `(app)/camera.tsx` | Photo capture for photo challenges |
-| Poll | `(app)/poll.tsx` | Poll voting |
-| Task | `(app)/task.tsx` | Task/written answer |
-| Notifications | `(app)/notifications.tsx` | In-app bell / activity log |
-| Profile | `(app)/profile/index.tsx` | Streak, XP, badges, post history |
-| Shop | `(app)/profile/shop.tsx` | Sparks shop |
-| Friends | `(app)/friends/` | List, add, requests |
-| Leaderboard | `(app)/rank/` | Streak-based ranking |
-| Member | `(app)/member/[username]` | Another user's profile |
-| Post detail | `(app)/post/[id]/` | Post + comments thread |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Expo ~54 / React Native 0.81.5 / React 19 |
-| Routing | Expo Router (file-based, typed routes) |
-| State | Zustand (`useAuthStore`) + TanStack Query v5 |
-| Database | Supabase (Postgres + Realtime + Edge Functions) |
-| Auth | Supabase Auth (email/password) |
-| Push | Expo Push Notifications + pg_net DB triggers |
-| Media | Expo Camera / Image Picker / Supabase Storage |
-| Error tracking | Sentry (`@sentry/react-native`) |
-| Testing | Jest 29 + jest-expo + React Testing Library |
-| Language | TypeScript (strict) |
-
-**Critical**: Supabase returns timestamps as `"2026-06-03 00:07:53.947+00"` (space separator, `+00` not `Z`). Hermes on iOS cannot parse this with `new Date()`. Always use `parseDate()` from `utils/time.ts`.
-
----
-
-## Key Business Logic Files
-
-| File | Purpose |
-|---|---|
-| `lib/participationGate.ts` | `hasUnlockedFeed()`, `canBuyIn()`, `canSubmitChallenge()`, `isParticipationLocked()` |
-| `lib/cosmetics.ts` | Border/title catalog, equip resolution |
-| `lib/notificationPreferences.ts` | Preference keys, merge, `wantsCategoryEnabled()` |
-| `utils/time.ts` | `parseDate()`, `isExpired()`, `todayFiresAtWindow()` |
-| `constants/sparks.ts` | All Sparks earn/cost constants |
-| `constants/theme.ts` | `XP_LEVELS`, color tokens, `BADGE_TIER_COLORS` |
-| `stores/useAuthStore.ts` | Session, profile, isLoading, isProfileLoading |
-| `hooks/useUserEvent.ts` | Fetches/creates today's user_events row |
-| `hooks/useBuyIn.ts` | Buy-in eligibility and mutation |
-| `hooks/useFeed.ts` | Cursor-paginated friends feed |
-
----
-
-## Edge Functions
-
-All require `Authorization: Bearer <CRON_SECRET>`.
-
-| Function | Trigger | Role |
-|---|---|---|
-| `schedule-daily-challenge` | pg_cron daily | Select challenge, fan-out user_events |
-| `dispatch-challenge-pushes` | pg_cron ~5min | Send push at fires_at; owns token cleanup |
-| `expire-events` | pg_cron ~15min | Mark expired pending as missed; consume shields |
-| `notify-user` | DB trigger via pg_net | Social pushes |
-| `recalculate-streak` | Post-completion | Recompute streak from history |
-| `delete-account` | User-initiated | GDPR deletion |
-
----
-
-## Non-Obvious Behaviors
-
-1. **Signup-day grace**: First-day users get `signup_day_grace = true`, `expires_at = EOD`. Buy-in button never shows for them.
-2. **Bell ignores preferences**: Preferences only gate OS pushes. Bell always shows all activity.
-3. **`push_enabled` deprecated**: Exists in schema but not used for gating. Use `wantsCategoryEnabled()`.
-4. **Challenge screen always accessible**: Even if `useUserEvent` returns null, shows "No challenge yet." If it errors, shows an error state with retry. Buy-in is always on the challenge screen — users never need to navigate elsewhere.
-5. **Token cleanup**: Stale push tokens only cleared by `dispatch-challenge-pushes`. `notify-user` silently ignores delivery failures.
-6. **Timezone**: `ensure_today_user_event` uses Pacific time server-side. `buy_in_today` uses a 36-hour lookback to handle all timezone offsets.
-7. **Concurrent buy-in protection**: `buy_in_today()` uses `SELECT FOR UPDATE` row lock + unique partial index on `spark_ledger(user_id, ref_id) WHERE reason = 'buy_in'` to prevent double-charging.
-8. **Optimistic feed-unlock**: `useCreatePost` and `usePollVote` both use TanStack Query `onMutate` to immediately set `userEvent.status = 'completed'` in the cache before the network round-trip completes. `onError` rolls back to the previous value. `invalidateQueries` on the userEvent key uses `refetchType: 'none'` so it marks the cache stale without triggering a background refetch that would overwrite the optimistic value. This prevents the race condition where the feed re-locks between post submission and the server confirming completion.
-9. **Splash screen on network error**: `useAuthStore.fetchProfile` clears both `isLoading` and `isProfileLoading` in its error branch (not just in the finally block). Without this, a network failure during the initial profile fetch would leave `isLoading: true` indefinitely, blocking the splash screen forever.
-10. **Error states on participation screens**: `challenge.tsx`, `poll.tsx`, and `task.tsx` all surface `isError` from `useUserEvent()` with a retry button. Screens that don't handle this error silently render as if no challenge exists, which is a confusing dead end for the user.
+`schedule-daily-challenge` prepares/registers the first or next future event; it is
+not a recurring dispatcher. `DojiEventAlarm` wakes exactly at pre-live, activation,
+and close.
+Postgres owns `fires_at`, `closes_at`, `expires_at`, eligibility, and final status.
+
+Per-user status flow:
+
+```text
+pending -> completed
+pending -> missed -> buy_in_open -> late
+```
+
+- `completed`: submitted inside the normal window.
+- `missed`: normal window closed without completion.
+- `buy_in_open`: the user spent Sparks and may submit until the granted expiry.
+- `late`: completed through the buy-in path; it unlocks the feed.
+- `signup_day_grace`: a first-day exception with an extended free window; it is not
+  a buy-in and does not expose a buy-in action.
+
+Client gating rules are centralized in `lib/participationGate.ts`. Screens must not
+reimplement status or time logic. `hooks/useUserEvent.ts` reads
+`get_current_doji_state`, synchronizes the server-clock offset, and returns the
+authoritative occurrence.
+
+## Challenge types and completion
+
+| Type | User action | Authoritative completion |
+| --- | --- | --- |
+| Photo | Capture/upload required media and optional caption | `complete_doji_with_post` |
+| Task | Perform the task and submit the requested proof/answer | `complete_doji_with_post` |
+| Format/question | Submit the requested text/media format | `complete_doji_with_post` |
+| Poll | Select an option or `Other` with required custom text | `submit_poll_vote` |
+| Would You Rather | Select exactly one of two choices; no `Other` | `submit_poll_vote` |
+
+Uploads may finish before the command, but participation is not complete until the
+atomic RPC commits. The client uses stable occurrence command IDs and single-flight
+guards. It may optimistically unlock navigation, but it rolls back on failure and
+immediately refetches authoritative state on success.
+
+## Social feed behavior
+
+The feed has Friends and Everyone audiences.
+
+- Normal posts belong to a user and an occurrence.
+- Friends shows accepted friends plus the viewer.
+- Everyone shows the wider authorized community.
+- Poll/WYR has one ownerless community post per daily event, not one post per voter.
+- A community poll appears in Friends only after the viewer or a friend votes.
+- Community result totals update for all viewers in realtime.
+- Friend result details use the authoritative `get_poll_snapshot_for_feed` RPC and
+  respect friendship/RLS visibility.
+- Comments in Friends are filtered to the viewer's friend network; Everyone may
+  show the wider authorized conversation.
+- An opened thread uses `get_comment_thread_snapshot`; comments, safe author
+  presentation, audience filtering, block filtering, like counts, and the viewer's
+  like state arrive in one bounded Postgres read rather than a client waterfall.
+- Reactions, comments, replies, and poll-vote likes update the open card/thread and
+  all related counters immediately.
+- Feed queries are scoped to the authoritative current `daily_event_id`, never the
+  device's local calendar. Activating a new Doji gives the feed a new cache identity
+  immediately and deletes the previous occurrence's posts, comments, and reactions.
+  Historical participation, XP, streak, badge, and analytics records remain intact.
+
+The unlocked feed uses `get_feed_page_snapshot` so a page, safe profile presentation,
+scoped social counts, and the viewer's reaction arrive from one Postgres snapshot.
+The key files are `hooks/useFeed.ts`, `lib/feedQueries.ts`, `lib/feedAudience.ts`,
+`components/feed/PollResultCard.tsx`, and the feed components.
+
+## State and data ownership
+
+| State | Owner | Client access pattern |
+| --- | --- | --- |
+| Session and current full profile | Supabase Auth/Postgres, hydrated into Zustand | `stores/useAuthStore.ts`; owner-only RPCs |
+| Feed, profiles, friends, comments, reactions, badges, leaderboard, shop | Postgres | TanStack Query authorized reads |
+| Challenge eligibility and timing | Postgres | Authoritative RPC + server-clock offset |
+| Draft text, selected option, open sheet, animation | Screen/component | Local React state |
+| Realtime events | Transactional outbox | ID-only invalidation hints; never trusted rows |
+| Background alerts | Expo Push | Same committed outbox event as socket delivery |
+| Media | Supabase Storage | User-scoped paths and storage policies |
+
+Zustand is not a second database. TanStack Query caches server state but does not
+own it. Socket handlers invalidate/refetch queries; they do not invent replacement
+rows from untrusted event payloads.
+Ably and Supabase may both signal one commit; `queryInvalidationBatcher` coalesces
+their affected query roots for 80 ms and performs one active-query reconciliation.
+Mutation completion joins that same batch, so an optimistic interaction plus its two
+socket hints cannot create three cache scans or cancel/restart an in-flight read.
+
+The last authorized home/feed, occurrence, poll result, and notification reads are
+persisted locally for stale-while-revalidate startup. Cached content remains visible
+and interactive while Postgres reconciles in the background; refresh indicators must
+never cover the screen or block touch. Realtime invalidation does not cancel an
+already-running authoritative fetch.
+
+Public profile reads use the explicit allowlist in `lib/profileFields.ts`. Full
+profile/account fields are owner-only through `get_own_profile` and
+`update_own_profile`. Never restore `profiles(*)` to public or embedded queries.
+
+## Core data relationships
+
+```mermaid
+erDiagram
+  PROFILES ||--o{ USER_EVENTS : receives
+  DAILY_EVENTS ||--o{ USER_EVENTS : creates
+  CHALLENGES ||--o{ DAILY_EVENTS : selected_for
+  USER_EVENTS ||--o| POSTS : completes_with
+  DAILY_EVENTS ||--o| POSTS : community_poll
+  PROFILES ||--o{ POSTS : authors
+  PROFILES ||--o{ POLL_VOTES : casts
+  USER_EVENTS ||--o| POLL_VOTES : completes_with
+  POSTS ||--o{ COMMENTS : contains
+  COMMENTS ||--o{ COMMENTS : replies
+  POSTS ||--o{ REACTIONS : receives
+  PROFILES ||--o{ COMMENTS : authors
+  PROFILES ||--o{ REACTIONS : gives
+  PROFILES ||--o{ FRIENDSHIPS : requester
+  PROFILES ||--o{ FRIENDSHIPS : addressee
+  PROFILES ||--o{ USER_SHOP_ITEMS : owns
+  SHOP_ITEMS ||--o{ USER_SHOP_ITEMS : purchased_as
+  PROFILES ||--o{ USER_BADGES : earns
+  PROFILES ||--o{ USER_BADGE_PROGRESS : progresses
+  PROFILES ||--o{ NOTIFICATION_DISMISSALS : persists
+```
+
+Important uniqueness rules belong in Postgres, not only the client: one completion
+per user occurrence, one poll vote per user/challenge occurrence, one reaction
+state per user/post, one owned shop item per user/item, durable command receipts,
+and stable notification delivery claims.
+
+## Write path: one command, one transaction
+
+```mermaid
+flowchart LR
+  UI[UI intent] --> Hook[Mutation hook]
+  Hook --> Key[Stable idempotency key]
+  Key --> RPC[Security-definer RPC]
+  RPC --> Lock[Auth checks + advisory lock]
+  Lock --> Tx[Single Postgres transaction]
+  Tx --> Rows[Business rows and rewards]
+  Tx --> Outbox[Domain event outbox]
+  Rows --> Result[Authoritative result]
+  Outbox --> Queue[Cloudflare Queue]
+  Queue --> Ably[Ably channels]
+  Queue --> Push[Expo Push claim/delivery]
+```
+
+Never replace an atomic RPC with multiple client writes. Mutation retries are off by
+default. A command may retry only if the same stable idempotency key is reused.
+Validation, authorization, uniqueness, and business-rule errors are not retried.
+
+Representative commands:
+
+| Domain | Commands |
+| --- | --- |
+| Profile/auth | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_push_token`, `unregister_push_token` |
+| Participation | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today` |
+| Conversation | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like` |
+| Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report` |
+| Economy | `purchase_shop_item`, `equip_shop_item` |
+| Notifications | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened` |
+| Suggestions/admin | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report` |
+
+## Realtime read path
+
+Ably is the ordered domain-event transport. Supabase Postgres Changes is an
+independent commit-signal safety net for active critical tables. Both paths only
+invalidate authorized queries.
+
+1. The mutation commits application rows and outbox rows together.
+2. Cloudflare Queue relays each outbox event with retry/dead-letter behavior.
+3. Ably publishes ID-only events to scoped channels.
+4. `hooks/useDomainRealtime.ts` deduplicates event IDs and invalidates targeted
+   TanStack Query keys.
+5. `hooks/useAppRealtime.ts` observes committed critical rows as a second signal.
+6. `components/QueryLifecycle.tsx` reconciles all server-owned surfaces whenever
+   the app returns to the foreground.
+7. Ably connect/recovery and Supabase subscription establishment also run the
+   shared `lib/reconcileQueries.ts` catch-up.
+
+Channels:
+
+- `doji:global`: pre-live, activation, and close.
+- `feed:public`: posts, votes, reactions, comments, replies, and likes.
+- Public identity, avatar, frame, title, badge, and public-stat events fan out on
+  the owner/friend private channels; there is no all-account profile channel.
+- `leaderboard:global`: XP/rank invalidation.
+- `user:{id}:events`: private occurrence, account, store ownership, friendship,
+  block, badge, suggestion, and notification changes.
+- `moderation:global`: admin-only report queue.
+
+## Live-data coverage
+
+| Change | What updates immediately |
+| --- | --- |
+| Doji pre-live/activation/close | Feed reset, coming-soon/live banner, current occurrence, feed gate, bell, foreground toast/push |
+| Completion or buy-in | Current occurrence, feed gate, profile, XP/Sparks, leaderboard |
+| Post | Feed, post detail, profile post grid, friends' alert history |
+| Poll vote | Community totals, friend results, voter avatars, feed, participant alerts |
+| Reaction | Card counts, voter sheet, post detail, friend/owner alert history |
+| Comment/reply/like | Open thread, counters, feed card, mention/reply/owner alerts |
+| Profile presentation | Every visible avatar/name/frame/title across feed, friends, leaderboard, comments, reactions, poll voters, and notifications |
+| Sparks/account fields | Current user's profile header, shop affordability, purchase state |
+| Shop purchase/equip | Owned inventory, Sparks, current-user preview, public equipped cosmetic |
+| Badge progress/unlock | Owner progress/celebration and public profile badges |
+| XP/streak/level | Profile stats, leaderboard, celebration state |
+| Friendship/block | Friend lists/counts, requests, feed audience, profiles, bell |
+| Dismiss/clear notification | Bell list/count across devices and reinstalls |
+| Suggestion/moderation | Submitter status/bell and admin queues |
+
+## Notifications
+
+The in-app bell is durable activity history, not a mirror of whatever iOS happened
+to display. Per-category preferences control push delivery; they do not erase
+history. Foreground OS banners are suppressed, while the app receives the event and
+may show its own toast. Background/killed clients use Expo Push. Tapping an alert is
+resolved through `lib/notificationHref.ts` and canonical routes in `lib/routes.ts`.
+The device-alert switch is the permission action itself; there is no duplicate
+permission button. Unread bell and app-icon badges follow durable unread activity by
+default and are not exposed as a separate preference.
+Turning the device-alert switch off persists the master `push_enabled` opt-out and
+unregisters that installation's token. Turning it on requests OS permission when
+needed, registers the token, and persists the opt-in. Both push relays enforce the
+master setting before any category preference; bell history remains available.
+
+Community poll notification rule: global aggregate data does not imply global social
+noise. Only accepted friends receive participation, reaction, and comment alerts for
+shared poll content. Normal posts alert the appropriate post owner, replier, mentioned
+user, or accepted friend. A single action must not alert the same recipient twice.
+
+Notification delivery has three product tiers. Doji activation is time-sensitive and
+immediate. Direct human actions (comments, replies, mentions, friend requests, and
+moderation results) are immediate active alerts. Burst-prone social proof (friend
+participation, reactions, and comment likes) updates the bell immediately but uses a
+durable 30-second server bucket whose single OS alert arrives 30-60 seconds later.
+Related pushes share a platform thread/collapse identity. Changing or re-adding the
+same reaction/like does not create another alert. Foreground devices use the live bell
+and never show a redundant OS banner.
+
+Push delivery is claimed server-side using immutable event/recipient keys. Expo token
+ownership is unique per installation and atomically transferred on account change.
+App correctness never depends on OS push delivery; foreground/reconnect reconciliation
+must still reveal the committed state.
+
+## Economy, profiles, and gamification
+
+- Sparks are server-owned. Rewards use idempotent ledger entries; purchases and
+  buy-ins are atomic debits. Client constants in `constants/sparks.ts` describe UI
+  values but the database authorizes balances and awards.
+- Shop catalog rows define current items/prices. Ownership is permanent. Purchase
+  and equip are distinct concepts, though purchase may equip immediately.
+- Equipped theme affects the owner UI. Equipped avatar frame/title are public
+  presentation and must propagate to every other active user immediately.
+- XP, levels, weekly XP, streaks, badge progress, badge tiers, Sparks rewards, and
+  streak shields are server-owned consequences of committed actions.
+- Celebration UI observes authoritative profile/badge changes; it does not award
+  anything itself.
+
+## Friend graph, UGC safety, and moderation
+
+Friendships are mutual accepted relationships, not follows. User-generated content
+must preserve Apple's required protections:
+
+- content filtering before submission plus server-side validation;
+- report actions on objectionable content;
+- block actions on abusive users;
+- blocking hides the content immediately and notifies moderation;
+- persistent admin report queue and developer response workflow;
+- Terms of Use acceptance before account creation;
+- separate Privacy Policy consent and document;
+- action on valid objectionable-content reports within 24 hours.
+
+Reports and blocks are not cosmetic UI. They must use their atomic RPCs and reconcile
+the feed/friend graph immediately.
+
+## UI and interaction system
+
+- Theme tokens live in `constants/theme.ts` and `contexts/ThemeContext`.
+- Shared primitives live in `components/ui`; do not create screen-local versions of
+  buttons, inputs, search fields, cards, avatars, dialogs, sheets, or typography
+  without a real exception. `SearchField` owns the standard icon, focus, clear, and
+  theme states. `AppDialog` owns app confirmations and choice prompts; native system
+  UI is reserved for operating-system permissions and other OS-owned surfaces.
+- `Avatar`/`AvatarStack` resolve equipped frames consistently.
+- Input screens use `AppTextInput`, `AppKeyboardAwareScrollView`,
+  `AppKeyboardStickyFooter`, `AppKeyboardToolbar`, or `KeyboardSafeSheet` as
+  appropriate.
+- Focus must auto-scroll the entire field above both keyboard and toolbar.
+- The toolbar and keyboard animate together; do not add JS-delayed keyboard bars.
+- Up/down toolbar controls follow visual field order. Done dismisses the keyboard.
+- Ten-minute timers derive every tick from the synchronized server clock and the
+  occurrence's authoritative expiry; backgrounding never pauses or extends a window.
+- Sheets and hidden tab screens must not remain touchable above the active screen.
+- Shop item cards lead with the item name and consistently formatted Sparks price;
+  previews and owned/equipped state follow beneath that header.
+- Admin review sheets use a tall, scrollable detail body with persistent moderation
+  actions so long prompts and answer sets remain fully inspectable.
+- Child routes opened with an explicit `returnTo` must return to that origin before
+  considering incidental router-stack history. Settings children return to Settings.
+- Buttons meet minimum touch targets and expose accessibility role, label, state,
+  and disabled behavior.
+- Mutations should feel immediate through safe optimistic UI, then reconcile to the
+  server. Avoid technical “offline,” “server confirmation,” or retry explanations
+  unless user action is truly required.
+
+## Screen map
+
+| Area | Route | Responsibility |
+| --- | --- | --- |
+| Auth | `app/(auth)` | Welcome, sign in/up, legal documents, username |
+| Onboarding | `app/(onboarding)` | How it works and notification permission after the one-page auth profile setup |
+| Feed | `app/(app)/index.tsx` | Header, live banner, Friends/Everyone feed, gate, deep-linked content |
+| Doji | `challenge.tsx`, `camera.tsx`, `poll.tsx`, `task.tsx`, `format.tsx` | Type-specific participation and buy-in entry |
+| Leaderboard | `app/(app)/rank` | Weekly/all-time and Friends/Everyone rankings |
+| Friends | `app/(app)/friends` | List, search, requests, remove/block actions |
+| Suggestions | `suggest-challenge.tsx` | Submit community challenge ideas |
+| Profile | `app/(app)/profile` | Stats, Sparks, badges, posts, settings, dedicated edit profile, appearance, shop |
+| Member | `app/(app)/member/[username].tsx` | Another user's public profile and social actions |
+| Notifications | `app/(app)/notifications.tsx` | Durable bell history, dismiss/clear actions |
+| Post detail | `app/(app)/post/[id]` | Focused content and threaded conversation |
+| Admin | `app/(app)/admin` | Reports and challenge suggestions |
+
+Main tabs are Feed, Leaderboard, Friends, Suggest, and Profile. Participation,
+notifications, member profiles, post detail, and admin are pushed routes, not tabs.
+
+## Repository map
+
+| Path | Role |
+| --- | --- |
+| `app/` | Expo Router screens and navigation composition |
+| `components/` | Reusable visual/interaction components |
+| `hooks/` | Authorized reads and atomic mutations |
+| `lib/` | Pure product rules, clients, routing, idempotency, reconciliation |
+| `stores/` | Minimal cross-screen client state |
+| `types/database.ts` | Client database/RPC types |
+| `supabase/migrations/` | Authoritative schema, RLS, RPCs, triggers, outbox producers |
+| `supabase/functions/` | Privileged edge integrations |
+| `infra/doji-orchestrator/` | Durable alarms, queue wakeups, retries, dead-letter handling |
+| `docs/REALTIME_ARCHITECTURE.md` | Realtime guarantees, channels, deployment, monitoring |
+| `docs/QA_CHECKLIST.md` | Release/device test matrix |
+| `docs/APP_STORE_RELEASE.md` | Apple review and submission evidence |
+
+## Engineering rules
+
+1. Read this file and the realtime architecture before cross-domain work.
+2. Search for the existing shared component, hook, rule, and RPC before adding one.
+3. Keep business authorization in Postgres; keep reusable display rules in `lib/`.
+4. Use explicit public profile fields and RLS-authorized reads.
+5. Use atomic, idempotent commands for writes; never sequence related client writes.
+6. Emit ID-only committed events and reconcile authoritative data.
+7. Add every new server-owned query family to reconnect/foreground reconciliation.
+8. Add both owner and observer realtime handling when a public presentation changes.
+9. Add durable notification history and push preference mapping together.
+10. Use `utils/time.ts`/the server-clock helpers for database timestamps.
+11. Update this map when a product contract, data flow, route, command, or channel changes.
+
+## Performance contract
+
+- Cold start may render an account-scoped cached profile and first feed page while the
+  authoritative reads reconcile. The native splash is held before React mounts, so no
+  blank transition or onboarding flash is allowed.
+- Realtime reads are single-flight and non-cancelling. A burst is batched and receives
+  at most one trailing catch-up; raw global Postgres Changes subscriptions are forbidden.
+- Feed, poll totals, poll voters, comments, leaderboard, bell history, and friend lists
+  are bounded snapshots or paged reads. New collections must not return unbounded history.
+- Search input is debounced and backed by an indexed contains-search path. Background
+  prefetch and cache serialization wait until interactions finish.
+- Cached content remains visible during refresh. Pull-to-refresh has a bounded visible
+  indicator while reconciliation may safely finish behind the UI.
+- A 100k activation must remain bounded: eligibility is prepared at pre-live, activation
+  emits one resumable broadcast command, and push delivery uses keyset pages plus Expo
+  batches. Never restore per-account activation outbox rows.
+- Shared poll, community engagement, and occurrence participation totals use 128 write
+  shards. Global invalidations are coalesced, and high-volume public channels are only
+  subscribed while their owning screen is focused.
+
+## Validation and release
+
+Before a client build:
+
+```powershell
+npx tsc --noEmit
+npm run lint
+npm test -- --runInBand
+npx supabase db lint --linked
+```
+
+Database contract tests under `supabase/tests` additionally require a compatible
+local PostgreSQL/pgTAP environment. A successful unit test run does not replace the
+physical two-device matrix: activation, close boundary, two-user participation,
+feed visibility, poll totals, reaction/comment/reply/mention delivery, notification
+deduplication, profile/frame propagation, Sparks, badges, background/reconnect, and
+reinstall-persistent dismissals must all be verified on the release build.
+
+Required production monitoring is listed in the realtime architecture. At minimum:
+alert on outbox rows more than 60 seconds past `available_at`, queue dead letters,
+Ably/relay errors, push
+ receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.

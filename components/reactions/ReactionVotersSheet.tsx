@@ -28,8 +28,10 @@ import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSendFriendRequest } from '../../hooks/useProfile';
 import { supabase } from '../../lib/supabase';
+import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -57,6 +59,7 @@ export function ReactionVotersSheet({
   const pathname = usePathname();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const isFriendsScope = feedAudience === 'friends';
+  useDismissOnRouteBlur(visible, onClose);
 
   const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
     queryKey: ['friendIds', userId],
@@ -132,7 +135,11 @@ export function ReactionVotersSheet({
           justifyContent: 'flex-end',
         },
         scrim: {
-          ...StyleSheet.absoluteFillObject,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
@@ -243,10 +250,9 @@ export function ReactionVotersSheet({
               onPress={() => {
                 if (isPending || !item.user_id) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                sendRequest.mutate(item.user_id, {
+                sendRequest.mutate({ addresseeId: item.user_id }, {
                   onSuccess: () => {
-                    void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
-                    void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                    scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
                   },
                 });
               }}

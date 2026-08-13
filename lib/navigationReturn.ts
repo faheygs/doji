@@ -1,4 +1,4 @@
-import type { Href, Router } from 'expo-router';
+import type { Href, ImperativeRouter } from 'expo-router';
 import {
   FEED_TAB_HREF,
   ROUTES,
@@ -27,7 +27,7 @@ export function backOrHome(router: RouterBackOrHome): void {
   safeReplace(router, FEED_TAB_HREF);
 }
 
-export function navigateToFeedAfterChallengeComplete(router: Router): void {
+export function navigateToFeedAfterChallengeComplete(router: ImperativeRouter): void {
   // Leave challenge stacks/modals first so hidden tab screens cannot keep a full-screen Modal mounted.
   navigateToFeed(router);
 }
@@ -65,14 +65,14 @@ export function goBackWithOptionalReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
-  // Always prefer popping the stack — this keeps the history clean and
-  // prevents duplicate screens. Only fall back to an explicit returnTo or
-  // fallback route when there is genuinely no history to go back to (e.g.
-  // the screen was opened via a deep link or push notification).
+  const explicit = sanitizeReturnTo(returnToRaw);
+  if (explicit) {
+    safeReplace(router, explicit);
+    return;
+  }
   if (router.canGoBack()) {
     router.back();
     return;
   }
-  const explicit = sanitizeReturnTo(returnToRaw);
-  safeReplace(router, explicit ?? normalizeHref(fallback) ?? FEED_TAB_HREF);
+  safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
 }

@@ -7,8 +7,9 @@ Mark each box when verified.
 
 ## 1. Auth Flow
 
-- [ ] **Sign up** — enter email + password → profile is created, redirected to username screen
-- [ ] **Username setup** — pick a username + display name → lands on feed
+- [ ] **Sign up** — accept separate Terms and Privacy checkboxes, then authenticate
+- [ ] **Profile setup** — username is required; photo, display name, and bio are optional on the same page
+- [ ] **Onboarding** — How Doji Works → notification permission → lands on feed without another profile/skip screen
 - [ ] **Sign out** — tap Sign Out in Settings → returns to welcome screen
 - [ ] **Sign in** — existing credentials → lands on feed with profile loaded
 - [ ] **Invalid credentials** — wrong password shows an error toast, does not crash
@@ -29,6 +30,7 @@ Mark each box when verified.
 
 - [ ] **No active challenge** — banner shows "Check back soon"
 - [ ] **Active challenge** — shows category letter, title, countdown timer
+- [ ] **Timer continuity** — background for 30+ seconds and return; every participation screen shows the same server-clock remaining time
 - [ ] **Completed** — banner shows green checkmark, "Streak active"
 - [ ] **Missed** — banner shows dash, "Next drop soon"
 - [ ] **Tap banner** → opens challenge detail screen
@@ -51,6 +53,8 @@ Mark each box when verified.
 - [ ] **Retake** — clears captures, returns to source selection
 - [ ] **Post** — uploads media, creates post, shows success toast, returns to feed
 - [ ] **Feed updates** — new post appears in feed immediately after posting
+- [ ] **Activation reset** — preparing tomorrow does not clear the feed; activating a new Doji immediately replaces the prior feed without deleting history/XP
+- [ ] **Poll types** — generic Poll offers `Other`; Would You Rather shows exactly two choices and never `Other`
 
 ## 6. Reactions
 
@@ -71,7 +75,11 @@ Mark each box when verified.
 
 - [ ] **Enable notifications** in Settings → saves push token to profile
 - [ ] **In-app toast** — friend request received while app is open shows toast
-- [ ] **Local push** — friend accepted / reaction / challenge events trigger local notification
+- [ ] **Remote push** — direct alerts arrive once; Doji-live is time-sensitive; foreground use updates the bell without a duplicate OS banner
+- [ ] **Grouped social push** — multiple friend completions, reactions on one post, or hearts on one comment within a 30-second bucket produce one alert 30–60 seconds later with the correct count
+- [ ] **Push threads** — later grouped alerts for the same Doji/post/comment reuse the same iOS thread and Android replacement tag
+- [ ] **Reaction changes** — changing, removing, or re-adding a reaction does not create another alert
+- [ ] **Deep links** — challenge alerts open the Doji; comment/reaction alerts open the relevant feed item/thread
 - [ ] **Notification center** — bell icon opens sheet with all notification types
 - [ ] **Unread badge** — badge count shows on bell icon
 - [ ] **Mark as read** — closing notification sheet resets watermark
@@ -86,6 +94,8 @@ Mark each box when verified.
 ## 10. Settings
 
 - [ ] **Edit profile** — change display name + bio → save updates profile
+- [ ] **Legal** — Terms and Privacy open from Settings while signed in
+- [ ] **Support** — Help & support opens `https://dojipro.com/support/`
 - [ ] **Theme toggle** — light/dark switches instantly
 - [ ] **Stats preview** — shows current streak, best, completed counts
 - [ ] **Delete account** — confirmation dialog → deletes all data + signs out
@@ -96,7 +106,7 @@ Mark each box when verified.
 - [ ] **New post** — friend posts → your feed auto-updates (within ~1s)
 - [ ] **New reaction** — someone reacts to your post → notification center updates
 - [ ] **Friend status change** — acceptance triggers toast + feed refresh
-- [ ] **New challenge event** — when user_event inserted → local push fires
+- [ ] **New challenge event** — Ably updates connected devices and outbox push reaches background devices
 
 ## 12. Edge Cases
 
@@ -107,9 +117,12 @@ Mark each box when verified.
 
 ## 13. Backend (Supabase)
 
+- [ ] **Pre-live reset** — exactly 20 minutes before activation, the old feed clears and the coming-soon countdown appears without revealing the challenge
+
 - [ ] **RLS** — unauthenticated requests to tables are blocked
-- [ ] **Edge Functions** — all 5 deployed and responding
-- [ ] **Cron** — schedule-daily-challenge creates events; dispatch-challenge-pushes sends notifications; expire-events marks missed; send-push-notifications clears tokens
+- [ ] **Edge Functions** — realtime-token, relay-domain-events, orchestrate-doji, and schedule-daily-challenge are deployed
+- [ ] **Durable alarms** — exact activation/close fires once; close chains the next event; no recurring Doji cron jobs exist
+- [ ] **Outbox** — committed events publish promptly and the dead-letter queue is empty
 - [ ] **Streak calculation** — completing a challenge increments streak; missing resets it
 
 ---
@@ -134,6 +147,8 @@ Mark each box when verified.
 - [ ] `app.json` → `extra.eas.projectId` is set (run `eas project:init` if needed)
 - [ ] `eas.json` → submit config has correct Apple ID + ASC App ID
 - [ ] Privacy policy URL added to App Store Connect
+- [ ] Support and marketing URLs added to App Store Connect
+- [ ] Public account-deletion page loads at `https://dojipro.com/delete-account/`
 - [ ] App icon meets Apple guidelines (1024x1024, no alpha)
 - [ ] Screenshots for required device sizes
 - [ ] App Review description accurately describes all features

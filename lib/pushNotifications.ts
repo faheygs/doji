@@ -36,7 +36,8 @@ export async function requestPushPermissionAndRegisterToken(
         : String(tokenRes);
 
     if (token) {
-      await supabase.from('profiles').update({ notification_token: token }).eq('id', uid);
+      const { error } = await supabase.rpc('register_push_token', { p_token: token });
+      if (error) throw error;
       const current = useAuthStore.getState().profile;
       if (current?.id === uid) {
         useAuthStore.getState().setProfile({ ...current, notification_token: token });

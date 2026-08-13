@@ -6,13 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +24,6 @@ import {
 } from '@/components/profile/ProfileSections';
 import {
   IconChevronLeft,
-  IconCheck,
   IconPlus,
 } from '@/components/icons/Icons';
 import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
@@ -50,7 +48,10 @@ import {
   useUserBadgeProgress,
 } from '@/hooks/useBadges';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
+import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
+import { ProfileManageMenu } from '@/components/profile/ProfileManageMenu';
+import { useAppDialog } from '@/contexts/DialogContext';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams<{ username: string | string[]; returnTo?: string }>();
@@ -63,6 +64,7 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const currentProfile = useAuthStore((s) => s.profile);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
@@ -128,12 +130,8 @@ export default function UserProfileScreen() {
     if (!profile?.id) return;
     setRefreshing(true);
     try {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['profile', username] }),
-        queryClient.invalidateQueries({ queryKey: ['friendship', currentProfile?.id, profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['friends', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', profile.id] }),
+      await invalidateQueryRoots(queryClient, [
+        'profile', 'friendship', 'friendCount', 'friends', 'userBadgeProgress',
       ]);
     } finally {
       setRefreshing(false);
@@ -155,24 +153,23 @@ export default function UserProfileScreen() {
           alignItems: 'center',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.xs,
-          paddingBottom: Spacing.sm,
+          paddingBottom: Spacing.lg,
           gap: Spacing.sm,
         },
-        topBarActions: {
-          flex: 1,
+        topBarSpacer: { flex: 1 },
+        topActions: {
           flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'flex-end',
           alignItems: 'center',
-          gap: Spacing.xs,
+          gap: Spacing.sm,
+        },
+        headerFriendButton: {
+          minHeight: 44,
+          paddingHorizontal: Spacing.md,
         },
         centered: {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-        },
-        friendActionButton: {
-          minWidth: 0,
         },
         section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
         sectionHeader: {
@@ -244,7 +241,7 @@ export default function UserProfileScreen() {
       return;
     }
     if (friendshipStatus === 'none' && profile) {
-      sendRequest.mutate(profile.id);
+      sendRequest.mutate({ addresseeId: profile.id });
     }
   };
 
@@ -256,26 +253,30 @@ export default function UserProfileScreen() {
 
   const handleRemoveFriend = () => {
     if (!profile || !friendship?.id) return;
-    Alert.alert('Remove friend', `Remove ${profile.display_name} from your friends?`, [
-      { text: 'Cancel', style: 'cancel' },
+    showDialog({
+      title: 'Unfriend?',
+      message: `Remove ${profile.display_name} from your friends?`,
+      actions: [
+        { label: 'Cancel', variant: 'cancel' },
       {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => removeFriend.mutate(friendship.id),
+        label: 'Unfriend',
+        variant: 'destructive',
+        onPress: () => removeFriend.mutate({ friendshipId: friendship.id }),
       },
-    ]);
+      ],
+    });
   };
 
   const handleBlockUser = () => {
     if (!profile) return;
-    Alert.alert(
-      'Block user',
-      `Block ${profile.display_name}? Their content will be removed from your feed immediately. This also notifies our moderation team.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showDialog({
+      title: 'Block user?',
+      message: `Block ${profile.display_name}? Their content will leave your feed immediately and our moderation team will be notified.`,
+      actions: [
+        { label: 'Cancel', variant: 'cancel' },
         {
-          text: 'Block',
-          style: 'destructive',
+          label: 'Block',
+          variant: 'destructive',
           onPress: () =>
             blockUser.mutate(
               { blockedUserId: profile.id, friendshipId: friendship?.id },
@@ -283,26 +284,25 @@ export default function UserProfileScreen() {
             ),
         },
       ],
-    );
+    });
   };
 
   const handleUnblockUser = () => {
     if (!profile) return;
-    Alert.alert(
-      'Unblock user',
-      `Unblock ${profile.display_name}? They'll be able to see your posts and interact with you again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showDialog({
+      title: 'Unblock user?',
+      message: `Unblock ${profile.display_name}? They'll be able to see your posts and interact with you again.`,
+      actions: [
+        { label: 'Cancel', variant: 'cancel' },
         {
-          text: 'Unblock',
-          style: 'destructive',
+          label: 'Unblock',
           onPress: () =>
-            unblockUser.mutate(profile.id, {
+            unblockUser.mutate({ blockedUserId: profile.id }, {
               onSuccess: () => Toast.show({ type: 'success', text1: `${profile.display_name} unblocked` }),
             }),
         },
       ],
-    );
+    });
   };
 
   return (
@@ -319,94 +319,40 @@ export default function UserProfileScreen() {
       >
         <View style={styles.topBar}>
           {headerBack}
-          <View style={styles.topBarActions}>
-            {isBlockedByMe ? (
+          <View style={styles.topBarSpacer} />
+          <View style={styles.topActions}>
+            {!isBlockedByMe ? (
               <Button
-                onPress={handleUnblockUser}
-                variant="secondary"
+                onPress={isFriend ? handleRemoveFriend : handleFriendAction}
+                variant={isFriend || pendingOutgoing ? 'secondary' : 'primary'}
                 size="sm"
-                loading={unblockUser.isPending}
-                disabled={unblockUser.isPending}
-                style={styles.friendActionButton}
+                loading={
+                  sendRequest.isPending || respondRequest.isPending || removeFriend.isPending
+                }
+                disabled={removeFriend.isPending || (!isFriend && friendDisabled)}
+                leftIcon={
+                  !isFriend && !pendingOutgoing ? (
+                    <IconPlus size={15} color={colors.onPrimary} />
+                  ) : undefined
+                }
+                style={styles.headerFriendButton}
               >
-                Unblock
+                {isFriend
+                  ? 'Unfriend'
+                  : pendingOutgoing
+                    ? 'Sent'
+                    : pendingIncoming
+                      ? 'Accept'
+                      : 'Add friend'}
               </Button>
-            ) : (
-              <>
-                {isFriend ? (
-                  <Button
-                    onPress={handleRemoveFriend}
-                    variant="secondary"
-                    size="sm"
-                    loading={removeFriend.isPending}
-                    disabled={removeFriend.isPending}
-                    leftIcon={<IconCheck size={15} color={colors.textSecondary} />}
-                    style={styles.friendActionButton}
-                  >
-                    Friends
-                  </Button>
-                ) : pendingOutgoing ? (
-                  <Button
-                    onPress={() => {}}
-                    variant="secondary"
-                    size="sm"
-                    disabled
-                    style={styles.friendActionButton}
-                  >
-                    Requested
-                  </Button>
-                ) : friendshipStatus === 'blocked' ? (
-                  <Button
-                    onPress={() => {}}
-                    variant="secondary"
-                    size="sm"
-                    disabled
-                    style={styles.friendActionButton}
-                  >
-                    Unavailable
-                  </Button>
-                ) : (
-                  <Button
-                    onPress={handleFriendAction}
-                    variant="primary"
-                    size="sm"
-                    loading={sendRequest.isPending || respondRequest.isPending}
-                    disabled={friendDisabled}
-                    leftIcon={
-                      pendingIncoming ? (
-                        <IconCheck size={14} color={colors.onPrimary} />
-                      ) : (
-                        <IconPlus size={14} color={colors.onPrimary} />
-                      )
-                    }
-                    style={styles.friendActionButton}
-                  >
-                    {pendingIncoming ? 'Accept' : 'Add friend'}
-                  </Button>
-                )}
-                <Button
-                  onPress={handleBlockUser}
-                  variant="secondary"
-                  size="sm"
-                  loading={blockUser.isPending}
-                  disabled={blockUser.isPending}
-                  style={styles.friendActionButton}
-                >
-                  Block
-                </Button>
-                <Button
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setReportUserOpen(true);
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  style={styles.friendActionButton}
-                >
-                  Report
-                </Button>
-              </>
-            )}
+            ) : null}
+            <ProfileManageMenu
+              isBlocked={isBlockedByMe}
+              busy={removeFriend.isPending || blockUser.isPending || unblockUser.isPending}
+              onBlock={handleBlockUser}
+              onUnblock={handleUnblockUser}
+              onReport={() => setReportUserOpen(true)}
+            />
           </View>
         </View>
 
@@ -464,6 +410,7 @@ export default function UserProfileScreen() {
           onClose={() => setReportUserOpen(false)}
         />
       ) : null}
+
     </SafeAreaView>
   );
 }

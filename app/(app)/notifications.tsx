@@ -13,8 +13,9 @@ import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import Constants from 'expo-constants';
-import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAppDialog } from '@/contexts/DialogContext';
 import { Text } from '@/components/ui/Text';
 import { Card } from '@/components/ui/Card';
 import { IconChevronLeft } from '@/components/icons/Icons';
@@ -26,6 +27,7 @@ import {
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { supabase } from '@/lib/supabase';
 
 type RowDef = {
   key: NotificationPreferenceKind;
@@ -41,13 +43,13 @@ const CATEGORY_ROWS: RowDef[] = [
   },
   {
     key: 'friend_post',
-    title: 'Friend Submitted',
-    description: 'When a friend completes the challenge.',
+    title: 'Friend activity',
+    description: "Grouped updates when friends complete today's Doji.",
   },
   {
     key: 'reactions_on_my_post',
-    title: 'New Reaction',
-    description: 'When someone reacts to your post.',
+    title: 'Reactions & comment likes',
+    description: 'Grouped updates for reactions and likes.',
   },
   {
     key: 'comment',
@@ -85,6 +87,7 @@ export default function NotificationSettingsScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const { profile, updateProfile } = useAuthStore();
   const [prefs, setPrefs] = useState<NotificationPreferences>(() =>
     mergeNotificationPreferences(profile?.notification_preferences ?? DEFAULT_NOTIFICATION_PREFERENCES),
@@ -184,13 +187,15 @@ export default function NotificationSettingsScreen() {
       if (!profile?.id) return;
       setSavingKey(changedKey);
       const base = mergeNotificationPreferences(profile.notification_preferences);
-      const next: NotificationPreferences = { ...base, ...patch, push_enabled: true };
+      const next: NotificationPreferences = { ...base, ...patch };
+      setPrefs(next);
       try {
         await updateProfile({ notification_preferences: next });
-        setPrefs(next);
+        return true;
       } catch {
         Toast.show({ type: 'error', text1: 'Could not save notification settings' });
         setPrefs(mergeNotificationPreferences(profile.notification_preferences));
+        return false;
       } finally {
         setSavingKey(null);
       }
@@ -212,8 +217,13 @@ export default function NotificationSettingsScreen() {
     const token = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
     );
-    await updateProfile({ notification_token: token.data });
-  }, [updateProfile]);
+    const { error } = await supabase.rpc('register_push_token', { p_token: token.data });
+    if (error) throw error;
+    const current = useAuthStore.getState().profile;
+    if (current) {
+      useAuthStore.getState().setProfile({ ...current, notification_token: token.data });
+    }
+  }, []);
 
   const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
@@ -222,22 +232,50 @@ export default function NotificationSettingsScreen() {
     }
     try {
       const Notifications = await import('expo-notifications');
-      const { status } = await Notifications.requestPermissionsAsync();
+      const currentPermission = await Notifications.getPermissionsAsync();
+      const { status } =
+        currentPermission.status === 'granted'
+          ? currentPermission
+          : await Notifications.requestPermissionsAsync();
       setPermStatus(status === 'granted' ? 'granted' : 'denied');
       if (status === 'granted') {
         await registerTokenIfGranted();
+        const saved = await persistCategories({ push_enabled: true }, 'push_enabled');
+        if (!saved) return;
         Toast.show({ type: 'success', text1: 'Alerts enabled for this device' });
       } else {
-        Toast.show({ type: 'error', text1: 'Permission denied — enable in Settings' });
+        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
+        showDialog({
+          title: 'Allow notifications',
+          message: 'Turn on notifications for Doji in your phone settings.',
+          actions: [
+            { label: 'Not now', variant: 'cancel' },
+            { label: 'Open Settings', onPress: () => Linking.openSettings() },
+          ],
+        });
       }
     } catch {
+      setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
       Toast.show({ type: 'error', text1: 'Could not enable alerts' });
     }
-  }, [registerTokenIfGranted]);
+  }, [persistCategories, registerTokenIfGranted, showDialog]);
+
+  const disableSystemAlerts = useCallback(async () => {
+    const saved = await persistCategories({ push_enabled: false }, 'push_enabled');
+    if (!saved) return;
+    const { error } = await supabase.rpc('unregister_push_token');
+    if (__DEV__ && error) console.warn('[notifications] token cleanup failed', error.message);
+    if (!error) {
+      const current = useAuthStore.getState().profile;
+      if (current) useAuthStore.getState().setProfile({ ...current, notification_token: null });
+    }
+    Toast.show({ type: 'success', text1: 'Phone alerts turned off' });
+  }, [persistCategories]);
 
   const onMasterSystemSwitch = useCallback(
     async (value: boolean) => {
       Haptics.selectionAsync();
+      setPrefs((current) => ({ ...current, push_enabled: value }));
       if (Platform.OS === 'web') {
         Toast.show({ type: 'info', text1: 'Use the mobile app for system alerts.' });
         return;
@@ -246,21 +284,14 @@ export default function NotificationSettingsScreen() {
         await enableSystemAlerts();
         return;
       }
-      try {
-        await Linking.openSettings();
-        Toast.show({
-          type: 'info',
-          text1: 'Turn off notifications for Doji in Settings if you want them fully off.',
-        });
-      } catch {
-        Toast.show({ type: 'error', text1: 'Could not open Settings' });
-      }
+      await disableSystemAlerts();
     },
-    [enableSystemAlerts],
+    [disableSystemAlerts, enableSystemAlerts],
   );
 
+  const masterEnabled = prefs.push_enabled && permStatus === 'granted';
   const categoriesDisabled =
-    Platform.OS === 'web' ? true : permStatus !== 'granted' || Boolean(savingKey);
+    Platform.OS === 'web' ? true : !masterEnabled || Boolean(savingKey);
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
@@ -295,43 +326,18 @@ export default function NotificationSettingsScreen() {
                 <View style={styles.rowText}>
                   <Text variant="body">Alerts on this phone</Text>
                   <Text variant="micro" color={colors.textTertiary}>
-                    iOS / Android permission — controls banners, sounds, and lock-screen alerts from
-                    Doji.
-                  </Text>
-                  <Text variant="micro" color={colors.textTertiary}>
-                    Status:{' '}
-                    {permStatus === 'granted'
-                      ? 'Allowed'
-                      : permStatus === 'denied'
-                        ? 'Not allowed'
-                        : '…'}
+                    Get alerts when a Doji goes live and when friends interact.
                   </Text>
                 </View>
                 <Switch
-                  value={permStatus === 'granted'}
+                  value={masterEnabled}
                   onValueChange={onMasterSystemSwitch}
-                  {...themedSwitchProps(permStatus === 'granted')}
+                  disabled={Boolean(savingKey)}
+                  accessibilityLabel="Alerts on this phone"
+                  accessibilityHint="Turns Doji phone notifications on or off."
+                  {...themedSwitchProps(masterEnabled, { disabled: Boolean(savingKey) })}
                 />
               </View>
-              {permStatus !== 'granted' ? (
-                <TouchableOpacity
-                  onPress={enableSystemAlerts}
-                  style={{
-                    marginTop: Spacing.sm,
-                    paddingVertical: Spacing.sm,
-                    paddingHorizontal: Spacing.md,
-                    backgroundColor: colors.accent,
-                    borderRadius: Radius.md,
-                    alignItems: 'center',
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Request notification permission"
-                >
-                  <Text variant="label" style={{ color: colors.onAccent }}>
-                    Request permission
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
             </Card>
           ) : (
             <Card>
@@ -341,28 +347,6 @@ export default function NotificationSettingsScreen() {
               </Text>
             </Card>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
-            <View style={[styles.row, styles.rowLast]}>
-              <View style={styles.rowText}>
-                <Text variant="body">Show unread count on home</Text>
-                <Text variant="micro" color={colors.textTertiary}>
-                  Red badge on the bell reflects new items since you last opened notifications.
-                </Text>
-              </View>
-              <Switch
-                value={prefs.show_bell_badge}
-                onValueChange={(v) => {
-                  Haptics.selectionAsync();
-                  void persistCategories({ show_bell_badge: v }, 'show_bell_badge');
-                }}
-                disabled={Boolean(savingKey)}
-                {...themedSwitchProps(prefs.show_bell_badge, { disabled: Boolean(savingKey) })}
-              />
-            </View>
-          </Card>
         </View>
 
         <View style={styles.section}>

@@ -4,15 +4,9 @@
     "slug": "doit-challenge-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-ios.png",
     "scheme": "doit",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.doit.challengeapp",
@@ -22,7 +16,10 @@
         "NSPhotoLibraryUsageDescription": "Doji uses your photo library for challenge proof and your profile picture.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "31"
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
+      "buildNumber": "40"
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +27,6 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.doit.challengeapp",
-      "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "android.permission.CAMERA",
@@ -49,11 +45,6 @@
     },
     "web": {
       "favicon": "./assets/icon.png"
-    },
-    "notification": {
-      "icon": "./assets/icon.png",
-      "color": "#0A0A0A",
-      "iosDisplayInForeground": false
     },
     "plugins": [
       "expo-router",
@@ -79,7 +70,13 @@
           "cameraPermission": "Doji needs camera access to capture your challenge proof or profile photo."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0A0A0A"
+        }
+      ],
       "expo-font",
       [
         "@sentry/react-native/expo",
@@ -87,7 +84,18 @@
           "organization": "doji-i0",
           "project": "react-native"
         }
-      ]
+      ],
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
+      "expo-status-bar",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

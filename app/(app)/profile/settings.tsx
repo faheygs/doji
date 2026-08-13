@@ -1,126 +1,38 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import {
-  Alert,
-  View,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Linking, View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import Constants from 'expo-constants';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
+import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import { useBlockedUsers } from '@/hooks/useBlockUser';
-import { useUsernameAvailability, normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import { usePendingSuggestions } from '@/hooks/useSuggestions';
 import { usePendingReports } from '@/hooks/useReports';
-import { required, maxLength, validationMessage } from '@/lib/formValidation';
-
-const BIO_MAX = 150;
-
-type SettingsRowProps = {
-  label: string;
-  onPress?: () => void;
-  danger?: boolean;
-  right?: React.ReactNode;
-  subtitle?: string;
-  showChevron?: boolean;
-  isLast?: boolean;
-};
-
-function SettingsRow({
-  label,
-  onPress,
-  danger,
-  right,
-  subtitle,
-  showChevron = true,
-  isLast,
-}: SettingsRowProps) {
-  const { colors } = useTheme();
-  const content = (
-    <View
-      style={[
-        rowStyles.row,
-        !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-      ]}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="body" color={danger ? colors.error : colors.text} style={{ fontWeight: '500' }}>
-          {label}
-        </Text>
-        {subtitle ? (
-          <Text variant="micro" color={colors.textTertiary}>
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {right ?? (showChevron ? <Text variant="body" color={colors.textTertiary}>›</Text> : null)}
-    </View>
-  );
-
-  if (!onPress) return content;
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button">
-      {content}
-    </TouchableOpacity>
-  );
-}
-
-const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
-  },
-});
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
+import { ChangePasswordSheet } from '@/components/settings/ChangePasswordSheet';
+import { SettingsRow } from '@/components/settings/SettingsGroup';
+import { useAppDialog } from '@/contexts/DialogContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
-  const { profile, updateProfile, signOut } = useAuthStore();
+  const { profile, signOut } = useAuthStore();
   const { colors } = useTheme();
-  const [editOpen, setEditOpen] = useState(false);
-  const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
-  const [usernameEdit, setUsernameEdit] = useState(profile?.username ?? '');
-  const [bio, setBio] = useState(profile?.bio ?? '');
-  const [saving, setSaving] = useState(false);
+  const { showDialog } = useAppDialog();
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const { data: pendingSuggestions = [], isError: pendingSuggestionsError } = usePendingSuggestions(
     !!profile?.is_admin,
   );
   const { data: pendingReports = [] } = usePendingReports(!!profile?.is_admin);
   const { data: blockedUsers = [] } = useBlockedUsers();
-
-  const {
-    errorMessage: usernameAvailabilityError,
-    isOkForSubmit: usernameSaveOk,
-    status: usernameAvailabilityStatus,
-  } = useUsernameAvailability(usernameEdit, {
-    treatAsUnchangedIfMatches: profile?.username,
-    ownUserId: profile?.id,
-  });
-
-  const displayNameValidation = useMemo(() => required(displayName, 'Display name is required.'), [displayName]);
-  const bioValidation = useMemo(() => maxLength(bio, BIO_MAX), [bio]);
-
-  useEffect(() => {
-    setDisplayName(profile?.display_name ?? '');
-    setUsernameEdit(profile?.username ?? '');
-    setBio(profile?.bio ?? '');
-  }, [profile?.display_name, profile?.username, profile?.bio]);
 
   const styles = useMemo(
     () =>
@@ -147,14 +59,15 @@ export default function SettingsScreen() {
           backgroundColor: colors.surfaceElevated,
           overflow: 'hidden',
         },
-        editCard: {
+        profileCard: {
           marginHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
           padding: Spacing.md,
           borderRadius: Radius.lg,
           borderWidth: 1,
           borderColor: colors.border,
           backgroundColor: colors.surfaceElevated,
+          flexDirection: 'row',
+          alignItems: 'center',
           gap: Spacing.md,
         },
         version: { textAlign: 'center', marginTop: Spacing.lg },
@@ -162,39 +75,15 @@ export default function SettingsScreen() {
     [colors],
   );
 
-  const handleSaveProfile = async () => {
-    const handle = normalizeUsernameInput(usernameEdit);
-    if (!usernameSaveOk || usernameAvailabilityStatus === 'checking') {
-      if (usernameAvailabilityError) {
-        Toast.show({ type: 'error', text1: usernameAvailabilityError });
-      }
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateProfile({
-        username: handle,
-        display_name: displayName.trim(),
-        bio: bio.trim() || null,
-      });
-      Toast.show({ type: 'success', text1: 'Profile updated!' });
-      setEditOpen(false);
-    } catch {
-      Toast.show({ type: 'error', text1: 'Could not save — username may already be taken' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete account',
-      'This will permanently delete your account and all your data. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showDialog({
+      title: 'Delete account',
+      message: 'This permanently deletes your account and all its data. This cannot be undone.',
+      actions: [
+        { label: 'Cancel', variant: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          label: 'Delete',
+          variant: 'destructive',
           onPress: async () => {
             try {
               const userId = useAuthStore.getState().session?.user?.id;
@@ -209,17 +98,15 @@ export default function SettingsScreen() {
           },
         },
       ],
-    );
+    });
   };
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
-      <ScrollView
+      <AppKeyboardAwareScrollView
         style={webScrollParentStyle}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <TouchableOpacity
@@ -238,73 +125,34 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
+        <TouchableOpacity
+          style={styles.profileCard}
+          onPress={() => {
+            Haptics.selectionAsync();
+            router.push(hrefWithReturnTo('/(app)/profile/edit', pathname));
+          }}
+          activeOpacity={0.78}
+        >
+          <ProfileAvatar profile={profile} size={52} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="subhead">{profile?.display_name || profile?.username}</Text>
+            <Text variant="micro" color={colors.textTertiary}>
+              @{profile?.username} · Edit profile
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
-          ACCOUNT
+          SECURITY
         </Text>
         <View style={styles.group}>
           <SettingsRow
-            label="Edit profile"
-            onPress={() => {
-              Haptics.selectionAsync();
-              setEditOpen((v) => !v);
-            }}
-          />
-          <SettingsRow
             label="Change password"
-            subtitle="Coming soon"
-            onPress={() => Toast.show({ type: 'info', text1: 'Password changes coming soon' })}
+            subtitle="Update your account password"
+            onPress={() => setPasswordOpen(true)}
             isLast
           />
         </View>
-
-        {editOpen ? (
-          <View style={styles.editCard}>
-            <Input
-              label="Username"
-              value={usernameEdit}
-              onChangeText={(v) => setUsernameEdit(normalizeUsernameInput(v))}
-              autoCapitalize="none"
-              autoCorrect={false}
-              error={
-                usernameAvailabilityStatus === 'invalid' ||
-                usernameAvailabilityStatus === 'taken' ||
-                usernameAvailabilityStatus === 'error'
-                  ? usernameAvailabilityError
-                  : undefined
-              }
-            />
-            <Input
-              label="Display name"
-              value={displayName}
-              onChangeText={setDisplayName}
-              error={validationMessage(displayNameValidation)}
-            />
-            <Input
-              label="Bio"
-              value={bio}
-              onChangeText={(v) => setBio(v.slice(0, BIO_MAX))}
-              placeholder="Tell people who you are…"
-              multiline
-              numberOfLines={3}
-              hint={`${bio.length}/${BIO_MAX}`}
-              error={validationMessage(bioValidation)}
-            />
-            <Button
-              onPress={handleSaveProfile}
-              loading={saving}
-              disabled={
-                !displayNameValidation.ok ||
-                !bioValidation.ok ||
-                !usernameEdit.trim() ||
-                !usernameSaveOk ||
-                usernameAvailabilityStatus === 'checking'
-              }
-              size="md"
-            >
-              Save changes
-            </Button>
-          </View>
-        ) : null}
 
         <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
           NOTIFICATIONS
@@ -322,12 +170,35 @@ export default function SettingsScreen() {
         </View>
 
         <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
+          LEGAL
+        </Text>
+        <View style={styles.group}>
+          <SettingsRow
+            label="Terms of Use"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/legal/terms', pathname));
+            }}
+          />
+          <SettingsRow
+            label="Privacy Policy"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/legal/privacy', pathname));
+            }}
+            isLast
+          />
+        </View>
+
+        <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
           PRIVACY
         </Text>
         <View style={styles.group}>
           <SettingsRow
             label="Blocked users"
-            subtitle={blockedUsers.length > 0 ? `${blockedUsers.length} blocked` : 'Manage blocked accounts'}
+            subtitle={
+              blockedUsers.length > 0 ? `${blockedUsers.length} blocked` : 'Manage blocked accounts'
+            }
             onPress={() => {
               Haptics.selectionAsync();
               router.push(hrefWithReturnTo('/(app)/profile/blocked-users', pathname));
@@ -364,6 +235,14 @@ export default function SettingsScreen() {
         </Text>
         <View style={styles.group}>
           <SettingsRow
+            label="Help & support"
+            subtitle="Support, safety, and account help"
+            onPress={() => {
+              Haptics.selectionAsync();
+              void Linking.openURL('https://dojipro.com/support/');
+            }}
+          />
+          <SettingsRow
             label="Sign out"
             onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -384,7 +263,14 @@ export default function SettingsScreen() {
                 subtitle="Approve or reject pending challenge ideas"
                 right={
                   pendingSuggestionsError ? (
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.error }} />
+                    <View
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: colors.error,
+                      }}
+                    />
                   ) : pendingSuggestions.length > 0 ? (
                     <View
                       style={{
@@ -441,9 +327,10 @@ export default function SettingsScreen() {
         ) : null}
 
         <Text variant="bodySmall" color={colors.textTertiary} style={styles.version}>
-          Doji v1.0.0
+          Doji {Constants.expoConfig?.version ?? '1.0.0'}{Constants.nativeBuildVersion ? ` (${Constants.nativeBuildVersion})` : ''}
         </Text>
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
+      <ChangePasswordSheet visible={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </SafeAreaView>
   );
 }

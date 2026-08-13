@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useDemoStore } from '../stores/useDemoStore';
 
 export type ChallengeSuggestionCounts = {
   /** Rows you submitted (any state). */
@@ -13,14 +12,9 @@ export type ChallengeSuggestionCounts = {
  * Progress toward `challenge_idea` / `challenge_idea_picked` badges.
  */
 export function useChallengeSuggestionCounts(userId: string | undefined) {
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
-
   return useQuery({
-    queryKey: isDemoMode
-      ? ['challengeSuggestionCounts', 'demo']
-      : ['challengeSuggestionCounts', userId],
+    queryKey: ['challengeSuggestionCounts', userId],
     queryFn: async (): Promise<ChallengeSuggestionCounts> => {
-      if (isDemoMode) return { submitted: 0, picked: 0 };
       if (!userId) return { submitted: 0, picked: 0 };
 
       const [subRes, pickedRes] = await Promise.all([
@@ -43,7 +37,7 @@ export function useChallengeSuggestionCounts(userId: string | undefined) {
         picked: pickedRes.count ?? 0,
       };
     },
-    enabled: isDemoMode || !!userId,
-    staleTime: isDemoMode ? Infinity : 15_000,
+    enabled: !!userId,
+    staleTime: 15_000,
   });
 }

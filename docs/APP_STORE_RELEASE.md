@@ -1,57 +1,46 @@
-# App Store release (iOS) — Doji / DoIt
+# App Store release checklist
 
-This document ties together the Expo client, Supabase backend, and Apple submission. Backend cron and secrets are detailed in [`supabase/CRON_AND_SECRETS.md`](../supabase/CRON_AND_SECRETS.md).
+## Build and secrets
 
-## 1. Environment and secrets (client)
+- Ship only the Supabase URL and anon key in the client.
+- Never ship service-role, Ably API, relay, or orchestrator secrets.
+- Test a production-profile iOS binary on physical iPhone and iPad devices.
+- Verify camera, library, microphone, notifications, and account deletion.
+- Verify `https://dojipro.com/privacy/`, `/terms/`, `/community-guidelines/`,
+  `/support/`, and `/delete-account/` load publicly over HTTPS.
 
-- Use **only** the Supabase **anon** key in the app (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` or your naming convention).
-- **Never** ship `SUPABASE_SERVICE_ROLE_KEY` or `CRON_SECRET` in the mobile binary.
+## Apple user-generated-content requirements
 
-## 2. EAS / iOS build (template)
+- Present separate Terms of Use and Privacy Policy checkboxes before authentication.
+- Keep links to both complete documents before acceptance and in Settings.
+- Filter objectionable text and enforce server moderation policies.
+- Provide report actions for posts, comments, and poll answers.
+- Provide block from profiles. Blocking instantly removes that account from the feed
+  and creates a pending developer moderation report.
+- Review reports within 24 hours and remove content/suspend offending accounts.
+- Record a physical-device video showing terms acceptance, reporting, and blocking.
+- Put `https://dojipro.com/privacy/` in App Store Connect's Privacy Policy URL,
+  `https://dojipro.com/support/` in Support URL, and `https://dojipro.com/` in
+  Marketing URL.
 
-1. Install EAS CLI: `npm i -g eas-cli`
-2. Log in: `eas login`
-3. In the app root (where `package.json` / `app.config` live), run `eas build:configure`
-4. Production iOS: `eas build --platform ios --profile production`
-5. Configure **APNs** in the Expo project (EAS credentials). Test push on a **development or production build**, not only Expo Go.
-6. Submit: `eas submit -p ios` (or upload via Transporter / Xcode Organizer)
+## Realtime/push device matrix
 
-Ensure `ios.bundleIdentifier`, version, and icons match App Store Connect.
+- Two devices receive activation immediately without restarting.
+- A background device receives push and opens the active Doji.
+- Participation succeeds before the database close boundary and fails after it.
+- Posts, comments, reactions, poll votes, and poll-vote likes appear on device two.
+- Friend accept/remove/block updates both devices immediately.
+- Disconnect/reconnect and foreground recovery reconcile without duplicate actions.
+- Repeated taps and simulated response loss do not create duplicate rows.
+- Notification dismiss/clear remains gone after reinstall and on a second device.
 
-## 3. Push notifications (client checklist)
+## Production verification
 
-- Add the `expo-notifications` config plugin in `app.json` / `app.config.ts`
-- On launch (after sign-in): `Notifications.requestPermissionsAsync()` then `Notifications.getExpoPushTokenAsync({ projectId })` using your EAS project ID
-- Upsert the string token into `profiles.notification_token` for the current user
-- Listen for token refresh and update the row again
-- Handle `useLastNotificationResponse` / `addNotificationResponseReceivedListener` to deep-link using the `url` field from the server payload (e.g. `/(app)/challenge`)
-- See [`examples/push-registration.example.tsx`](examples/push-registration.example.tsx) for a starting pattern
-
-## 4. `recalculate-streak` from the client
-
-Call the Edge Function with the **user’s JWT**, not `CRON_SECRET`:
-
-- Header: `Authorization: Bearer <session.access_token>`
-- Body: `{ "user_id": "<same as auth user id>" }`
-
-## 5. Apple App Review
-
-- Complete **Privacy Nutrition Labels** and host a **Privacy Policy** (auth, push tokens, Supabase storage)
-- If you offer Google or other third-party sign-in, add **Sign in with Apple**
-- Provide a clear **account deletion** or data-deletion request path if users can create accounts
-- Declare **camera / photo library / microphone** usage strings if those native features are used; remove unused native modules to simplify review
-
-## 6. Pre-submission test matrix
-
-- Install on a physical iPhone via TestFlight; accept notification permission; confirm token row updates in `profiles`
-- Run `dispatch-challenge-pushes` path: challenge appears after `fires_at`, push received, tap opens the correct screen
-- Complete and miss flows: `user_events` status and streak fields update without errors
-- Airplane mode / offline: no crashes; sensible error handling
-
-## 7. Operations after deploy
-
-1. Apply migrations (including `20260508120000_app_store_readiness.sql` and `20260516143000_pg_cron_doji_automation.sql` for automated cron)
-2. Set Edge secret `CRON_SECRET`
-3. **Vault (one-time):** add `doji_project_url` and `doji_cron_secret` per [`supabase/scripts/vault_pg_cron_secrets.sql`](../supabase/scripts/vault_pg_cron_secrets.sql) (copy of `CRON_SECRET`)
-4. Deploy all functions (at minimum `schedule-daily-challenge`, `dispatch-challenge-pushes`, `expire-events`)
-5. Confirm **Database → Extensions**: `pg_cron`, `pg_net` enabled; verify **`cron.job`** contains the `doji_*` schedules (or see [`CRON_AND_SECRETS.md`](../supabase/CRON_AND_SECRETS.md))
+1. `npx supabase db push --linked --dry-run` reports no unexpected migration.
+2. `npx supabase db lint --linked --level warning` reports no findings.
+3. Deploy `realtime-token`, `relay-domain-events`, `orchestrate-doji`, and
+   `schedule-daily-challenge`.
+4. Deploy `infra/doji-orchestrator` and verify queue/dead-letter bindings.
+5. Confirm there are no recurring `doji_*` pg_cron jobs.
+6. Confirm outbox rows publish promptly and the dead-letter queue remains empty.
+7. Run the complete physical-device matrix before submitting.

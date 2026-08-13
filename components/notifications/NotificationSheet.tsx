@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -21,6 +19,7 @@ import { IconBell, IconClose, IconCheck } from '../icons/Icons';
 import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
+import { FriendActivityNotificationCard } from './FriendActivityNotificationCard';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
 import { useRespondToFriendRequest } from '../../hooks/useProfile';
@@ -35,7 +34,8 @@ import {
 import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
-
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { useAppDialog } from '../../contexts/DialogContext';
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -44,7 +44,6 @@ type Props = {
   onDismissItem?: (key: string) => void | Promise<void>;
   onClearHistory?: () => void | Promise<void>;
 };
-
 export function NotificationSheet({
   visible,
   onClose,
@@ -55,15 +54,10 @@ export function NotificationSheet({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const respond = useRespondToFriendRequest();
-
-  useEffect(() => {
-    if (!visible) return;
-    queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-    queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'notificationCenter' });
-  }, [visible, queryClient]);
+  useDismissOnRouteBlur(visible, onClose);
 
   const openFeedPost = useCallback(
     (postId: string, openComments = false, mentionCommentId?: string) => {
@@ -102,12 +96,6 @@ export function NotificationSheet({
         actions: {
           flexDirection: 'row',
           gap: Spacing.sm,
-        },
-        reactionLeading: {
-          width: 44,
-          height: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
         },
         challengeLeading: {
           width: 44,
@@ -226,10 +214,6 @@ export function NotificationSheet({
           const copy = friendRequestCopy(requester);
           card = (
             <Card style={styles.card} elevated padded={false}>
-              {/* No onPress on the row — the footer buttons are the only actions.
-                  Having both an outer TouchableOpacity and inner buttons causes
-                  openProfile() to fire when Accept is tapped, which navigates
-                  away and closes the sheet. */}
               <NotificationActorRow
                 actor={requester}
                 title={copy.title}
@@ -298,6 +282,24 @@ export function NotificationSheet({
           );
           break;
         }
+        case 'comment_like': {
+          const copy = {
+            title: notificationActorName(item.actor),
+            body: 'Liked your comment',
+          };
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                actor={item.actor ?? undefined}
+                title={copy.title}
+                body={copy.body}
+                sortAt={item.sortAt}
+                onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
+              />
+            </Card>
+          );
+          break;
+        }
         case 'mention': {
           const copy = {
             title: notificationActorName(item.actor),
@@ -327,17 +329,16 @@ export function NotificationSheet({
                 sortAt={item.sortAt}
                 onPress={() => openFeedPost(item.post_id)}
                 leading={
-                  <View style={styles.reactionLeading}>
-                    <AvatarStack
-                      users={shown.map((a) => ({
-                        avatar_url: a.avatar_url,
-                        username: a.username ?? undefined,
-                      }))}
-                      size={40}
-                      max={3}
-                      borderColor={colors.background}
-                    />
-                  </View>
+                  <AvatarStack
+                    users={shown.map((a) => ({
+                      avatar_url: a.avatar_url,
+                      username: a.username ?? undefined,
+                      equipped_border_key: a.equipped_border_key,
+                    }))}
+                    size={40}
+                    max={3}
+                    borderColor={colors.background}
+                  />
                 }
                 footer={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
@@ -349,6 +350,19 @@ export function NotificationSheet({
                 }
               />
             </Card>
+          );
+          break;
+        }
+        case 'friend_activity_group': {
+          card = (
+            <FriendActivityNotificationCard
+              item={item}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onClose();
+                safeReplace(router, ROUTES.feed);
+              }}
+            />
           );
           break;
         }
@@ -482,12 +496,13 @@ export function NotificationSheet({
       styles.actions,
       styles.card,
       styles.challengeLeading,
-      styles.reactionLeading,
       styles.badgeLeading,
       styles.suggestionApprovedLeading,
       styles.suggestionRejectedLeading,
     ],
   );
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -537,20 +552,19 @@ export function NotificationSheet({
           {onClearHistory ? (
             <TouchableOpacity
               onPress={() => {
-                Alert.alert(
-                  'Clear notification history',
-                  'Remove older items from this list? Pending friend requests stay visible.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
+                showDialog({
+                  title: 'Clear notifications?', message: 'Remove older items from this list? Pending friend requests stay visible.',
+                  actions: [
+                    { label: 'Cancel', variant: 'cancel' },
                     {
-                      text: 'Clear',
-                      style: 'destructive',
+                      label: 'Clear',
+                      variant: 'destructive',
                       onPress: () => {
                         void onClearHistory();
                       },
                     },
                   ],
-                );
+                });
               }}
               style={styles.footerBtn}
               accessibilityRole="button"

@@ -1,17 +1,15 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
+  type TextInput,
   ActivityIndicator,
   Platform,
   Keyboard,
   Modal,
   Pressable,
-  Alert,
-  type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +17,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
+import { AppTextInput } from '../ui/AppTextInput';
 import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import Toast from 'react-native-toast-message';
@@ -39,6 +38,7 @@ import type { FeedAudience } from '../../lib/feedAudience';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { CommentLikesSheet } from './CommentLikesSheet';
 import { ReportSheet } from './ReportSheet';
+import { useAppDialog } from '../../contexts/DialogContext';
 
 const MAX_LEN = 2000;
 const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
@@ -429,6 +429,8 @@ type Props = {
   fetchEnabled?: boolean;
   /** Sheet handles safe area; avoid double padding on composer. */
   embedInSheet?: boolean;
+  /** Overlay inset measured by the sheet that owns keyboard avoidance. */
+  keyboardInset?: number;
   feedAudience?: FeedAudience;
 };
 
@@ -438,14 +440,20 @@ export function PostCommentsThread({
   commentsDisabled = false,
   fetchEnabled = true,
   embedInSheet = false,
+  keyboardInset = 0,
   feedAudience = 'everyone',
 }: Props) {
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const me = useAuthStore((s) => s.session?.user?.id);
-  const { data: comments = [], isLoading, isError } = useComments(postId, { fetchEnabled, feedAudience });
+  const {
+    data: comments = [],
+    isLoading,
+    isError,
+  } = useComments(postId, { fetchEnabled, feedAudience });
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
@@ -454,7 +462,7 @@ export function PostCommentsThread({
   const [replyingTo, setReplyingTo] = useState<CommentWithMeta | null>(null);
   const [editingComment, setEditingComment] = useState<CommentWithMeta | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const inputRef = useRef<TextInput>(null);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
   const [reportComment, setReportComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
@@ -464,23 +472,8 @@ export function PostCommentsThread({
   const composerLocked = commentsDisabled && !isPostOwner;
 
   useEffect(() => {
-    if (!embedInSheet) return;
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = (e: KeyboardEvent) => setKeyboardHeight(e.endCoordinates.height);
-    const onHide = () => setKeyboardHeight(0);
-    const s = Keyboard.addListener(showEvt, onShow);
-    const h = Keyboard.addListener(hideEvt, onHide);
-    return () => {
-      s.remove();
-      h.remove();
-    };
-  }, [embedInSheet]);
-
-  useEffect(() => {
     if (!fetchEnabled && embedInSheet) {
       Keyboard.dismiss();
-      setKeyboardHeight(0);
     }
   }, [fetchEnabled, embedInSheet]);
 
@@ -499,6 +492,7 @@ export function PostCommentsThread({
     setReplyingTo(c);
     setDraft('');
     setMentionQuery(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
   const onOpenMenu = useCallback((c: CommentWithMeta) => {
@@ -514,6 +508,7 @@ export function PostCommentsThread({
     setEditingComment(c);
     setDraft(c.body);
     setMentionQuery(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
   const onDelete = useCallback(
@@ -554,6 +549,8 @@ export function PostCommentsThread({
   const onSelectMention = useCallback((username: string) => {
     setDraft((prev) => prev.replace(/@[a-zA-Z0-9_]*$/, `@${username} `));
     setMentionQuery(null);
+    inputRef.current?.focus();
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
   const cancelComposerState = useCallback(() => {
@@ -576,9 +573,7 @@ export function PostCommentsThread({
       return;
     }
 
-    const body = replyingTo
-      ? stripReplyMention(rawBody, replyingTo.profile?.username)
-      : rawBody;
+    const body = replyingTo ? stripReplyMention(rawBody, replyingTo.profile?.username) : rawBody;
     if (!body) return;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -688,7 +683,8 @@ export function PostCommentsThread({
             accessibilityLabel={label}
           >
             <Text variant="micro" color={colors.textTertiary} style={{ fontWeight: '600' }}>
-              {'— '}{label}
+              {'— '}
+              {label}
             </Text>
           </TouchableOpacity>
         );
@@ -707,14 +703,24 @@ export function PostCommentsThread({
         />
       );
     },
-    [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes, onToggleReplies],
+    [
+      colors,
+      me,
+      onOpenMenu,
+      onOpenReport,
+      onProfile,
+      onReply,
+      onToggleLike,
+      onViewLikes,
+      onToggleReplies,
+    ],
   );
 
   return (
     <View
       style={[
         styles.root,
-        embedInSheet && keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        embedInSheet && keyboardInset > 0 ? { paddingBottom: keyboardInset } : null,
       ]}
     >
       {isLoading ? (
@@ -732,7 +738,9 @@ export function PostCommentsThread({
           <FlatList
             style={styles.list}
             data={rows}
-            keyExtractor={(item) => item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment.id}
+            keyExtractor={(item) =>
+              item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment.id
+            }
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
@@ -765,7 +773,12 @@ export function PostCommentsThread({
           <>
             {replyingTo ? (
               <View style={styles.replyBanner}>
-                <Text variant="micro" color={colors.primary} numberOfLines={1} style={{ flex: 1, fontWeight: '600' }}>
+                <Text
+                  variant="micro"
+                  color={colors.primary}
+                  numberOfLines={1}
+                  style={{ flex: 1, fontWeight: '600' }}
+                >
                   Replying to {replyingTo.profile?.username ?? 'user'}
                 </Text>
                 <TouchableOpacity onPress={cancelComposerState} accessibilityRole="button">
@@ -777,7 +790,12 @@ export function PostCommentsThread({
             ) : null}
             {editingComment ? (
               <View style={styles.replyBanner}>
-                <Text variant="micro" color={colors.primary} numberOfLines={1} style={{ flex: 1, fontWeight: '600' }}>
+                <Text
+                  variant="micro"
+                  color={colors.primary}
+                  numberOfLines={1}
+                  style={{ flex: 1, fontWeight: '600' }}
+                >
                   Editing comment
                 </Text>
                 <TouchableOpacity onPress={cancelComposerState} accessibilityRole="button">
@@ -793,7 +811,8 @@ export function PostCommentsThread({
               onSelect={onSelectMention}
             />
             <View style={styles.inputRow}>
-              <TextInput
+              <AppTextInput
+                ref={inputRef}
                 value={draft}
                 onChangeText={onChangeDraft}
                 placeholder={
@@ -825,9 +844,7 @@ export function PostCommentsThread({
             </View>
             <Text
               variant="micro"
-              color={
-                draft.length >= MAX_LEN ? colors.error : colors.textTertiary
-              }
+              color={draft.length >= MAX_LEN ? colors.error : colors.textTertiary}
               style={styles.composerHint}
             >
               {draft.trim().length === 0 && draft.length > 0
@@ -853,14 +870,13 @@ export function PostCommentsThread({
         onDelete={() => {
           const target = menuComment;
           if (!target) return;
-          Alert.alert('Delete comment?', 'This cannot be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Delete',
-              style: 'destructive',
-              onPress: () => onDelete(target),
-            },
-          ]);
+          showDialog({
+            title: 'Delete comment?', message: 'This cannot be undone.',
+            actions: [
+              { label: 'Cancel', variant: 'cancel' },
+              { label: 'Delete', variant: 'destructive', onPress: () => onDelete(target) },
+            ],
+          });
         }}
       />
 

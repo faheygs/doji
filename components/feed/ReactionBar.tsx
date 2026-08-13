@@ -12,8 +12,14 @@ import { formatCompactCount } from '../../utils/formatCount';
 import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Post, ReactionEmoji } from '../../types/database';
-
 const ICON_SZ = 22;
+
+function withAlpha(color: string, alpha: number): string {
+  const hex = color.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+  const value = Number.parseInt(hex, 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
 
 type Props = {
   post: Post;
@@ -46,10 +52,13 @@ function ReactionBarImpl({
   const myReactions = post.my_reactions ?? [];
   const { data: scopedComments } = useComments(post.id, {
     feedAudience,
-    fetchEnabled: feedAudience === 'friends' && !blurred && post.comment_count > 0,
+    // Do not download every comment thread just to render the feed counter.
+    // When the sheet is opened it fills this same cache key and the scoped
+    // count updates automatically.
+    fetchEnabled: false,
   });
   const commentDisplayCount =
-    feedAudience === 'friends' ? (scopedComments?.length ?? 0) : post.comment_count;
+    feedAudience === 'friends' ? (scopedComments?.length ?? post.comment_count) : post.comment_count;
   const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
   const [votersOpen, setVotersOpen] = useState(false);
   const [votersEmoji, setVotersEmoji] = useState<ReactionEmoji | null>(null);
@@ -105,12 +114,11 @@ function ReactionBarImpl({
           gap: 6,
         },
         iconButton: {
-          paddingHorizontal: Spacing.xs,
-          paddingVertical: 6,
+          width: 40,
+          height: 40,
+          borderRadius: Radius.full,
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: ICON_SZ + 12,
-          minWidth: ICON_SZ + 12,
         },
         countHit: {
           paddingHorizontal: 2,
@@ -179,7 +187,8 @@ function ReactionBarImpl({
             : selected
               ? (emojiTints[emoji] ?? colors.primary)
               : muted;
-          const count = (post.reaction_breakdown as Record<string, number> | undefined)?.[emoji] ?? 0;
+          const count =
+            (post.reaction_breakdown as Record<string, number> | undefined)?.[emoji] ?? 0;
           return (
             <View key={emoji} style={styles.emojiCol}>
               <TouchableOpacity
@@ -187,7 +196,12 @@ function ReactionBarImpl({
                 activeOpacity={blurred ? 1 : 0.72}
                 accessibilityRole="button"
                 accessibilityLabel={`${label} reaction, ${count}. ${selected ? 'Selected.' : ''}`}
-                style={[styles.iconButton, blurred && styles.disabled]}
+                hitSlop={2}
+                style={[
+                  styles.iconButton,
+                  selected && !blurred && { backgroundColor: withAlpha(iconColor, 0.14) },
+                  blurred && styles.disabled,
+                ]}
               >
                 <Icon size={ICON_SZ} color={iconColor} filled={selected && !blurred} />
               </TouchableOpacity>
@@ -244,10 +258,8 @@ function ReactionBarImpl({
 export const ReactionBar = React.memo(ReactionBarImpl, (prev, next) => {
   if (prev.onOpenComments !== next.onOpenComments) return false;
   if (prev.blurred !== next.blurred || prev.post.id !== next.post.id) return false;
-  if (prev.showTopBorder !== next.showTopBorder) return false;
-  if (prev.feedAudience !== next.feedAudience) return false;
-  if (prev.post.reaction_count !== next.post.reaction_count) return false;
-  if (prev.post.comment_count !== next.post.comment_count) return false;
+  if (prev.showTopBorder !== next.showTopBorder || prev.feedAudience !== next.feedAudience) return false;
+  if (prev.post.reaction_count !== next.post.reaction_count || prev.post.comment_count !== next.post.comment_count) return false;
   if (myReactionsSig(prev.post) !== myReactionsSig(next.post)) return false;
   if (breakdownSig(prev.post) !== breakdownSig(next.post)) return false;
   return true;

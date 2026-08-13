@@ -1,14 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
@@ -16,17 +7,18 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
-import { useDemoStore } from '../../stores/useDemoStore';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
-import { canSubmitChallenge } from '../../lib/participationGate';
 import { formatRuleHint, parseAnswerRule, validateAnswerRule } from '../../lib/answerRules';
+import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
+import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 
 export default function FormatScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: userEvent, isLoading } = useUserEvent();
+  const { data: userEvent, isLoading, refetch } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
 
@@ -42,7 +34,6 @@ export default function FormatScreen() {
   }, [answer, answerRule]);
 
   useEffect(() => {
-    if (useDemoStore.getState().isDemoMode) return;
     if (isLoading) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
@@ -58,12 +49,6 @@ export default function FormatScreen() {
       Toast.show({ type: 'error', text1: check.message });
       return;
     }
-    if (!canSubmitChallenge(userEvent)) {
-      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
-      navigateToFeedAfterChallengeComplete(router);
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     createPost.mutate(
@@ -82,7 +67,8 @@ export default function FormatScreen() {
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
-          Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
+          const copy = dojiSubmissionErrorCopy(err);
+          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
         },
       },
     );
@@ -100,7 +86,8 @@ export default function FormatScreen() {
         container: { flex: 1, backgroundColor: colors.background },
         header: {
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.sm,
         },
@@ -122,7 +109,7 @@ export default function FormatScreen() {
         inputWrap: { minHeight: 120 },
         validationOk: { color: colors.success },
         validationErr: { color: colors.error },
-        footer: { padding: Spacing.lg },
+        footer: { width: '100%', paddingVertical: Spacing.lg },
         submitButton: {
           width: '100%',
           height: 52,
@@ -148,12 +135,21 @@ export default function FormatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <ChallengeTimer expiresAt={userEvent?.expires_at} onExpire={() => void refetch()} />
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={{ padding: Spacing.sm }}
+          >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', padding: Spacing.xl }}>
-          <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center', lineHeight: 22 }}>
+          <Text
+            variant="body"
+            color={colors.textSecondary}
+            style={{ textAlign: 'center', lineHeight: 22 }}
+          >
             This format challenge is missing answer rules. Try again later.
           </Text>
         </View>
@@ -163,20 +159,20 @@ export default function FormatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <View style={{ flex: 1 }}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <ChallengeTimer expiresAt={userEvent?.expires_at} onExpire={() => void refetch()} />
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={{ padding: Spacing.sm }}
+          >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <AppKeyboardAwareScrollView
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
@@ -191,10 +187,18 @@ export default function FormatScreen() {
             ) : null}
 
             <View style={styles.ruleBanner}>
-              <Text variant="micro" color={colors.primary} style={{ fontWeight: '700', letterSpacing: 0.5 }}>
+              <Text
+                variant="micro"
+                color={colors.primary}
+                style={{ fontWeight: '700', letterSpacing: 0.5 }}
+              >
                 FORMAT RULE
               </Text>
-              <Text variant="bodySmall" color={colors.text} style={{ marginTop: 4, lineHeight: 20 }}>
+              <Text
+                variant="bodySmall"
+                color={colors.text}
+                style={{ marginTop: 4, lineHeight: 20 }}
+              >
                 {ruleHint}
               </Text>
             </View>
@@ -220,31 +224,30 @@ export default function FormatScreen() {
                 </Text>
               ) : null}
             </View>
+            <View style={styles.footer}>
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              activeOpacity={0.85}
+              style={[
+                styles.submitButton,
+                {
+                  backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+                },
+              ]}
+            >
+              {createPost.isPending ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
+                  Submit Answer
+                </Text>
+              )}
+            </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-            activeOpacity={0.85}
-            style={[
-              styles.submitButton,
-              {
-                backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
-              },
-            ]}
-          >
-            {createPost.isPending ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
-                Submit Answer
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

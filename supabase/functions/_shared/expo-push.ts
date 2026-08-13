@@ -7,6 +7,11 @@ export type ExpoMessage = {
   data?: Record<string, unknown>;
   sound?: 'default';
   badge?: number;
+  priority?: 'default' | 'normal' | 'high';
+  interruptionLevel?: 'active' | 'critical' | 'passive' | 'time-sensitive';
+  threadId?: string;
+  collapseId?: string;
+  tag?: string;
   /** Seconds since epoch — supported by Expo push API for delayed delivery */
   ttl?: number;
 };

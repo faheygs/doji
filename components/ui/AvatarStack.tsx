@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Avatar } from './Avatar';
+import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
 
 type StackUser = {
   avatar_url?: string | null;
   username?: string | null;
+  equipped_border_key?: string | null;
 };
 
 type Props = {
@@ -40,6 +42,12 @@ export function AvatarStack({ users, size = 36, max = 3, borderColor }: Props) {
             uri={user.avatar_url}
             username={user.username ?? '?'}
             size={size - 4}
+            borderColor={resolveAvatarBorderColor({
+              equipped_border_key: user.equipped_border_key ?? null,
+            })}
+            borderWidth={resolveAvatarBorderWidth({
+              equipped_border_key: user.equipped_border_key ?? null,
+            })}
           />
         </View>
       ))}

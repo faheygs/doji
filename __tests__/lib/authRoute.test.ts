@@ -70,11 +70,21 @@ describe('resolveAuthenticatedRoute', () => {
 });
 
 describe('isAuthRoutingPending', () => {
-  it('is pending only when boot loading', () => {
-    expect(isAuthRoutingPending(true, false)).toBe(true);
-    expect(isAuthRoutingPending(true, true)).toBe(true);
-    expect(isAuthRoutingPending(false, true)).toBe(false);
-    expect(isAuthRoutingPending(false, false)).toBe(false);
+  it('is pending during startup loading', () => {
+    expect(isAuthRoutingPending(true, false, null, null)).toBe(true);
+  });
+
+  it('is pending while an authenticated profile initially hydrates', () => {
+    expect(isAuthRoutingPending(false, true, mockSession(), null)).toBe(true);
+  });
+
+  it('does not become pending during an existing profile refresh', () => {
+    expect(isAuthRoutingPending(false, true, mockSession(), mockProfile())).toBe(false);
+  });
+
+  it('is ready when signed out or profile hydration has finished', () => {
+    expect(isAuthRoutingPending(false, false, null, null)).toBe(false);
+    expect(isAuthRoutingPending(false, false, mockSession(), null)).toBe(false);
   });
 });
 
@@ -97,6 +107,24 @@ describe('getAuthGate', () => {
     expect(gate.canUseAuthGroup).toBe(true);
     expect(gate.mustFinishOnboarding).toBe(false);
     expect(gate.canUseApp).toBe(false);
+  });
+
+  it('blocks auth routes while the authenticated profile initially hydrates', () => {
+    const gate = getAuthGate(false, true, mockSession(), null);
+    expect(gate.ready).toBe(false);
+    expect(gate.canUseAuthGroup).toBe(false);
+    expect(gate.canUseApp).toBe(false);
+  });
+
+  it('keeps the app active while an existing profile refreshes', () => {
+    const gate = getAuthGate(
+      false,
+      true,
+      mockSession(),
+      mockProfile({ onboarding_completed_at: new Date().toISOString() }),
+    );
+    expect(gate.ready).toBe(true);
+    expect(gate.canUseApp).toBe(true);
   });
 
   it('allows onboarding for new profiles', () => {

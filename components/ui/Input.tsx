@@ -1,7 +1,7 @@
 import React, { forwardRef, useMemo } from 'react';
 import {
-  TextInput,
-  TextInputProps,
+  type TextInput,
+  type TextInputProps,
   StyleSheet,
   View,
   ViewStyle,
@@ -11,6 +11,7 @@ import {
 import { Radius, Spacing, Typography } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from './Text';
+import { AppTextInput } from './AppTextInput';
 
 type Props = TextInputProps & {
   label?: string;
@@ -37,7 +38,7 @@ export const Input = forwardRef<TextInput, Props>(
     },
     ref,
   ) => {
-    const { colors, isDark } = useTheme();
+    const { colors } = useTheme();
 
     const styles = useMemo(
       () =>
@@ -87,13 +88,10 @@ export const Input = forwardRef<TextInput, Props>(
               {label}
             </Text>
           ) : null,
-          <TextInput
+          <AppTextInput
             key="field"
             ref={ref}
             style={[styles.input, error ? styles.inputError : undefined, style]}
-            placeholderTextColor={colors.textTertiary}
-            selectionColor={colors.link}
-            keyboardAppearance={isDark ? 'dark' : 'light'}
             multiline={multiline}
             returnKeyType={multiline ? returnKeyType : (returnKeyType ?? 'done')}
             blurOnSubmit={multiline ? blurOnSubmit : (blurOnSubmit ?? true)}

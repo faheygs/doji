@@ -14,17 +14,15 @@ import {
   Spacing,
   Radius,
   webScrollParentStyle,
-  ACCENT_THEME_CATALOG,
   DEFAULT_ACCENT_THEME,
-  type AccentThemeKey,
 } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
-import { Avatar } from '@/components/ui/Avatar';
-import { IconChevronLeft, IconCheck } from '@/components/icons/Icons';
+import { IconChevronLeft } from '@/components/icons/Icons';
 import { LiveSparksPill } from '@/components/economy/SparksPill';
-import { SparkPriceTag } from '@/components/economy/SparkPriceTag';
 import { PurchaseConfirmSheet } from '@/components/economy/PurchaseConfirmSheet';
+import { ShopCatalogCard } from '@/components/economy/ShopCatalogCard';
+import { SparkPriceTag } from '@/components/economy/SparkPriceTag';
 import { useSparksBalance } from '@/hooks/useSparks';
 import {
   useShopCatalog,
@@ -34,7 +32,7 @@ import {
   isShopItemOwned,
 } from '@/hooks/useShop';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { BORDER_CATALOG, TITLE_CATALOG } from '@/lib/cosmetics';
+import { TITLE_CATALOG } from '@/lib/cosmetics';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import type { ShopItem } from '@/types/database';
 
@@ -68,17 +66,10 @@ export default function ShopScreen() {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
-        section: { paddingHorizontal: Spacing.lg, marginTop: Spacing.lg, gap: Spacing.md },
-        themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
-        themeSwatch: {
-          width: 60,
-          height: 60,
-          borderRadius: Radius.lg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        borderRow: { flexDirection: 'row', gap: Spacing.md },
-        borderItem: { flex: 1, alignItems: 'center', gap: Spacing.sm },
+        intro: { margin: Spacing.md, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border, gap: Spacing.xs },
+        section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg, gap: Spacing.md },
+        sectionHeading: { gap: 3 },
+        catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.md },
         titleList: { gap: Spacing.sm },
         titleRow: {
           flexDirection: 'row',
@@ -102,7 +93,6 @@ export default function ShopScreen() {
           borderColor: colors.primary,
           backgroundColor: colors.surfaceElevated,
         },
-        equippedLabel: { fontWeight: '600' },
       }),
     [colors],
   );
@@ -137,11 +127,6 @@ export default function ShopScreen() {
     }
   };
 
-  const themeColor = (key: string) =>
-    ACCENT_THEME_CATALOG[key as AccentThemeKey]?.color ??
-    (catalog.find((c) => c.key === key)?.metadata?.color as string) ??
-    colors.primary;
-
   const titleTagline = (item: ShopItem) =>
     TITLE_CATALOG[item.key]?.tagline ?? (item.metadata?.tagline as string | undefined);
 
@@ -159,87 +144,53 @@ export default function ShopScreen() {
         <ActivityIndicator style={{ marginTop: Spacing.xxl }} color={colors.primary} />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxl }} showsVerticalScrollIndicator={false}>
+          <View style={styles.intro}>
+            <Text variant="headingLarge">Make Doji yours</Text>
+            <Text variant="body" color={colors.textSecondary} style={{ lineHeight: 21 }}>
+              Spend Sparks once, then switch owned themes, frames, and titles whenever you want.
+            </Text>
+          </View>
           <View style={styles.section}>
-            <Text variant="heading">Accent themes</Text>
-            <View style={styles.themeGrid}>
+            <View style={styles.sectionHeading}>
+              <Text variant="heading">Accent themes</Text>
+              <Text variant="micro" color={colors.textTertiary}>Changes buttons, highlights, and key moments.</Text>
+            </View>
+            <View style={styles.catalogGrid}>
               {themes.map((item) => {
                 const ownedItem = isShopItemOwned(owned, item.key);
                 const active = activeAccent === item.key;
-                const color = themeColor(item.key);
                 return (
-                  <TouchableOpacity
+                  <ShopCatalogCard
                     key={item.key}
+                    item={item}
+                    profile={profile}
+                    owned={ownedItem}
+                    equipped={active}
                     onPress={() => handleItemPress(item)}
-                    style={{ alignItems: 'center', gap: 6, opacity: ownedItem ? 1 : 0.8 }}
-                  >
-                    <View
-                      style={[
-                        styles.themeSwatch,
-                        {
-                          backgroundColor: color,
-                          borderWidth: active ? 3 : 0,
-                          borderColor: colors.text,
-                        },
-                      ]}
-                    >
-                      {ownedItem && active ? <IconCheck size={22} color="#fff" /> : null}
-                    </View>
-                    <Text variant="micro" color={colors.textTertiary} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {!ownedItem ? (
-                      <SparkPriceTag price={item.price} />
-                    ) : active ? (
-                      <Text variant="micro" color={colors.primary} style={styles.equippedLabel}>
-                        Equipped
-                      </Text>
-                    ) : (
-                      <Text variant="micro" color={colors.success}>
-                        Owned
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
           </View>
 
           <View style={styles.section}>
-            <Text variant="heading">Avatar frames</Text>
-            <View style={styles.borderRow}>
+            <View style={styles.sectionHeading}>
+              <Text variant="heading">Avatar frames</Text>
+              <Text variant="micro" color={colors.textTertiary}>Shown everywhere your avatar appears.</Text>
+            </View>
+            <View style={styles.catalogGrid}>
               {borders.map((item) => {
                 const ownedItem = isShopItemOwned(owned, item.key);
-                const def = BORDER_CATALOG[item.key];
-                const borderColor = def?.color ?? colors.border;
                 const equipped = profile?.equipped_border_key === item.key;
                 return (
-                  <TouchableOpacity
+                  <ShopCatalogCard
                     key={item.key}
-                    style={[styles.borderItem, { opacity: ownedItem ? 1 : 0.7 }]}
+                    item={item}
+                    profile={profile}
+                    owned={ownedItem}
+                    equipped={equipped}
                     onPress={() => handleItemPress(item)}
-                  >
-                    <Avatar
-                      username={profile?.username}
-                      uri={profile?.avatar_url}
-                      size={48}
-                      borderColor={borderColor}
-                      borderWidth={def?.width ?? 3}
-                    />
-                    <Text variant="label">{item.name}</Text>
-                    {ownedItem ? (
-                      equipped ? (
-                        <Text variant="micro" color={colors.primary} style={styles.equippedLabel}>
-                          Equipped
-                        </Text>
-                      ) : (
-                        <Text variant="micro" color={colors.success}>
-                          Owned
-                        </Text>
-                      )
-                    ) : (
-                      <SparkPriceTag price={item.price} />
-                    )}
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -274,7 +225,7 @@ export default function ShopScreen() {
                     </View>
                     {ownedItem ? (
                       equipped ? (
-                        <Text variant="micro" color={colors.primary} style={styles.equippedLabel}>
+                        <Text variant="micro" color={colors.primary}>
                           Equipped
                         </Text>
                       ) : (

@@ -4,6 +4,7 @@ import {
   friendRequestCopy,
   friendAcceptedCopy,
   reactionActorsLine,
+  friendActivityActorsLine,
   challengeCopy,
   normalizeEmbeddedProfile,
 } from '../../lib/notificationCopy';
@@ -67,6 +68,17 @@ describe('reactionActorsLine', () => {
         { display_name: 'Ben', username: 'ben' },
       ]),
     ).toEqual({ title: 'Alex and 2 others', body: 'Reacted to your post' });
+  });
+});
+
+describe('friendActivityActorsLine', () => {
+  it('uses the exact grouped count even when actor previews are bounded', () => {
+    expect(
+      friendActivityActorsLine([{ display_name: 'Kira', username: 'kira' }], 20),
+    ).toEqual({
+      title: 'Kira and 19 other friends',
+      body: "Completed today's Doji",
+    });
   });
 });
 

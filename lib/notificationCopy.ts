@@ -69,6 +69,20 @@ export function reactionActorsLine(
   return { title: `${primaryName} and ${extra} others`, body: 'Reacted to your post' };
 }
 
+export function friendActivityActorsLine(
+  actors: NotificationActor[],
+  count: number,
+): NotificationCopy {
+  const primaryName = notificationActorName(actors[0]);
+  const extra = Math.max(0, count - 1);
+  return {
+    title: extra === 0
+      ? primaryName
+      : `${primaryName} and ${extra} other friend${extra === 1 ? '' : 's'}`,
+    body: "Completed today's Doji",
+  };
+}
+
 export function challengeCopy(challengeTitle: string | null | undefined): NotificationCopy {
   const title = challengeTitle?.trim() || "Today's Doji";
   return {

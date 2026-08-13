@@ -1,10 +1,12 @@
 import { useAuthStore } from '../../stores/useAuthStore';
 import { supabase } from '../../lib/supabase';
 import { mergeNotificationPreferences } from '../../lib/notificationPreferences';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 jest.mock('../../lib/supabase');
 
 const mockFrom = supabase.from as jest.Mock;
+const mockRpc = supabase.rpc as jest.Mock;
 
 /** Build a chain that handles both the initial select and any subsequent update. */
 function makeChain(data: unknown, error: unknown = null) {
@@ -14,6 +16,12 @@ function makeChain(data: unknown, error: unknown = null) {
   });
   chain.maybeSingle = jest.fn().mockResolvedValue({ data, error });
   return chain;
+}
+
+function makeRpcChain(data: unknown, error: unknown = null) {
+  return {
+    abortSignal: jest.fn().mockResolvedValue({ data, error }),
+  };
 }
 
 describe('useAuthStore', () => {
@@ -72,6 +80,27 @@ describe('useAuthStore', () => {
   });
 
   describe('fetchProfile', () => {
+    it('renders the account-scoped cached profile while the server reconciles', async () => {
+      const cached = {
+        id: 'user-1', username: 'cached', xp: 10, onboarding_completed_at: '2026-01-01',
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(cached));
+      let finishRequest: ((value: unknown) => void) | undefined;
+      mockRpc.mockReturnValue({
+        abortSignal: jest.fn(() => new Promise((resolve) => { finishRequest = resolve; })),
+      });
+
+      const pending = useAuthStore.getState().fetchProfile('user-1');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(useAuthStore.getState().profile).toMatchObject({ id: 'user-1', username: 'cached' });
+      expect(useAuthStore.getState().isLoading).toBe(false);
+
+      finishRequest?.({ data: { ...cached, username: 'fresh' }, error: null });
+      await pending;
+      expect(useAuthStore.getState().profile).toMatchObject({ username: 'fresh' });
+    });
+
     it('fetches profile and updates state', async () => {
       // onboarding_completed_at set → no auto-complete second query
       const mockProfile = {
@@ -80,11 +109,11 @@ describe('useAuthStore', () => {
         xp: 100,
         onboarding_completed_at: new Date().toISOString(),
       };
-      mockFrom.mockReturnValue(makeChain(mockProfile));
+      mockRpc.mockReturnValue(makeRpcChain(mockProfile));
 
       await useAuthStore.getState().fetchProfile('user-1');
 
-      expect(mockFrom).toHaveBeenCalledWith('profiles');
+      expect(mockRpc).toHaveBeenCalledWith('get_own_profile');
       expect(useAuthStore.getState().profile).toMatchObject({
         id: 'user-1',
         username: 'testuser',
@@ -93,14 +122,14 @@ describe('useAuthStore', () => {
     });
 
     it('sets profile to null when not found', async () => {
-      mockFrom.mockReturnValue(makeChain(null));
+      mockRpc.mockReturnValue(makeRpcChain(null));
 
       await useAuthStore.getState().fetchProfile('nonexistent');
       expect(useAuthStore.getState().profile).toBeNull();
     });
 
     it('does not throw on error, logs in dev', async () => {
-      mockFrom.mockReturnValue(makeChain(null, { message: 'connection failed' }));
+      mockRpc.mockReturnValue(makeRpcChain(null, { message: 'connection failed' }));
 
       await expect(useAuthStore.getState().fetchProfile('user-1')).resolves.not.toThrow();
     });
@@ -109,14 +138,7 @@ describe('useAuthStore', () => {
   describe('updateProfile', () => {
     it('updates profile on server and in state', async () => {
       const updated = { id: 'user-1', username: 'testuser', display_name: 'New Name' };
-      const chain = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        abortSignal: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({ data: updated, error: null }),
-      };
-      mockFrom.mockReturnValue(chain);
+      mockRpc.mockResolvedValue({ data: updated, error: null });
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,
@@ -124,6 +146,10 @@ describe('useAuthStore', () => {
       });
 
       await useAuthStore.getState().updateProfile({ display_name: 'New Name' });
+      expect(mockRpc).toHaveBeenCalledWith(
+        'update_own_profile',
+        expect.objectContaining({ p_patch: { display_name: 'New Name' } }),
+      );
       expect(useAuthStore.getState().profile).toMatchObject({
         id: 'user-1',
         display_name: 'New Name',
@@ -138,17 +164,7 @@ describe('useAuthStore', () => {
     });
 
     it('throws on supabase error', async () => {
-      const chain = {
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        abortSignal: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: null,
-          error: new Error('RLS violation'),
-        }),
-      };
-      mockFrom.mockReturnValue(chain);
+      mockRpc.mockResolvedValue({ data: null, error: new Error('RLS violation') });
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,

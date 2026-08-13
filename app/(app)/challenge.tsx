@@ -36,6 +36,7 @@ import { useSparksBalance } from '../../hooks/useSparks';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { LiveSparksPill } from '../../components/economy/SparksPill';
 import { BuyInSheet } from '../../components/economy/BuyInSheet';
+import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -294,6 +295,14 @@ export default function ChallengeScreen() {
             </Text>
           ) : null}
         </Animated.View>
+
+        {userEvent.status === 'pending' && !isExpiredPending ? (
+          <ChallengeTimer
+            expiresAt={userEvent.expires_at}
+            onExpire={() => void refetch()}
+            variant="ring"
+          />
+        ) : null}
 
         <Animated.View entering={FadeInDown.delay(220).springify()}>
           <View style={styles.xpChip}>

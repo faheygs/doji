@@ -1,80 +1,40 @@
-/**
- * Test the usePollVote mutation logic (the raw mutation function).
- * We test the underlying Supabase calls directly since testing React Query hooks
- * requires more complex wrapper setup.
- */
 import { supabase } from '../../lib/supabase';
 
 jest.mock('../../lib/supabase');
 
-const mockFrom = supabase.from as jest.Mock;
-
-describe('usePollVote mutation logic', () => {
-  const userId = 'user-123';
-  const challengeId = 'challenge-456';
-  const optionId = 'option-789';
-  const userEventId = 'event-abc';
+describe('poll vote server contract', () => {
+  const rpc = supabase.rpc as jest.Mock;
 
   afterEach(() => jest.clearAllMocks());
 
-  it('inserts poll_vote then updates user_event', async () => {
-    const insertChain = {
-      insert: jest.fn().mockResolvedValue({ error: null }),
+  it('uses the atomic submit_poll_vote RPC instead of direct table writes', async () => {
+    rpc.mockResolvedValue({ data: { id: 'vote-1' }, error: null });
+    const command = {
+      p_user_event_id: 'event-abc',
+      p_option_id: 'option-789',
+      p_custom_text: null,
+      p_idempotency_key: 'poll-vote:occurrence:event-abc',
     };
-    const updateChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: null }),
-    };
 
-    mockFrom
-      .mockReturnValueOnce(insertChain)  // poll_votes
-      .mockReturnValueOnce(updateChain); // user_events
+    const result = await rpc('submit_poll_vote', command);
 
-    // Simulate the mutation function
-    const { error: voteErr } = await mockFrom('poll_votes').insert({
-      user_id: userId,
-      challenge_id: challengeId,
-      option_id: optionId,
-    });
-    expect(voteErr).toBeNull();
-
-    const { error: ueErr } = await mockFrom('user_events')
-      .update({ status: 'completed', completed_at: new Date().toISOString() })
-      .eq('id', userEventId);
-    expect(ueErr).toBeNull();
+    expect(result.error).toBeNull();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('submit_poll_vote', command);
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  it('throws when poll_votes insert fails', async () => {
-    const insertChain = {
-      insert: jest.fn().mockResolvedValue({ error: new Error('Duplicate vote') }),
-    };
-    mockFrom.mockReturnValue(insertChain);
-
-    const { error } = await mockFrom('poll_votes').insert({
-      user_id: userId,
-      challenge_id: challengeId,
-      option_id: optionId,
+  it('returns the server error without starting a second write path', async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error('Doji has closed') });
+    const result = await rpc('submit_poll_vote', {
+      p_user_event_id: 'event-abc',
+      p_option_id: 'option-789',
+      p_custom_text: null,
+      p_idempotency_key: 'poll-vote:occurrence:event-abc',
     });
-    expect(error).toBeTruthy();
-    expect(error.message).toBe('Duplicate vote');
-  });
 
-  it('throws when user_events update fails', async () => {
-    const insertChain = {
-      insert: jest.fn().mockResolvedValue({ error: null }),
-    };
-    const updateChain = {
-      update: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockResolvedValue({ error: new Error('RLS denied') }),
-    };
-
-    mockFrom
-      .mockReturnValueOnce(insertChain)
-      .mockReturnValueOnce(updateChain);
-
-    await mockFrom('poll_votes').insert({});
-    const { error } = await mockFrom('user_events').update({}).eq('id', userEventId);
-    expect(error).toBeTruthy();
-    expect(error.message).toBe('RLS denied');
+    expect(result.error?.message).toBe('Doji has closed');
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });

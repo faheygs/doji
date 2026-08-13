@@ -6,15 +6,12 @@ import {
   SafeAreaView,
   Dimensions,
   Platform,
-  KeyboardAvoidingView,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
@@ -22,18 +19,16 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import {
-  IconCamera,
-  IconChevronLeft,
-  IconClose,
-} from '../../components/icons/Icons';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
+import { AppVideo } from '../../components/ui/AppVideo';
+import { IconCamera, IconChevronLeft, IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
-import { useDemoStore } from '../../stores/useDemoStore';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { isExpired } from '../../utils/time';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
-import { canSubmitChallenge } from '../../lib/participationGate';
+import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { required, validationMessage } from '../../lib/formValidation';
+import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { CameraTopControls, CameraZoomControls } from '../../components/challenge/CameraCaptureControls';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -45,7 +40,9 @@ export default function CameraScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
-  const facing = 'back' as const;
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const [zoom, setZoom] = useState(0);
+  const [flashEnabled, setFlashEnabled] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [flowStep, setFlowStep] = useState<FlowStep>('chooseSource');
   const [caption, setCaption] = useState('');
@@ -57,6 +54,7 @@ export default function CameraScreen() {
     data: userEvent,
     isLoading: userEventLoading,
     isFetching: userEventFetching,
+    refetch: refetchUserEvent,
   } = useUserEvent();
   const {
     capturedPhoto,
@@ -85,7 +83,6 @@ export default function CameraScreen() {
       backOrHome(router);
       return;
     }
-    if (useDemoStore.getState().isDemoMode) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
     if (t && t !== 'photo') {
@@ -124,13 +121,12 @@ export default function CameraScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setVideoRecording(true);
     const p = cameraRef.current.recordAsync({ maxDuration: 120 });
-    p
-      .then((vid) => {
-        if (vid?.uri) {
-          setCapturedVideoUri(vid.uri);
-          setFlowStep('preview');
-        }
-      })
+    p.then((vid) => {
+      if (vid?.uri) {
+        setCapturedVideoUri(vid.uri);
+        setFlowStep('preview');
+      }
+    })
       .catch(() => {
         Toast.show({ type: 'error', text1: 'Recording failed. Try again.' });
       })
@@ -230,12 +226,6 @@ export default function CameraScreen() {
 
   const handlePost = async () => {
     if (!userEvent) return;
-    if (!canSubmitChallenge(userEvent)) {
-      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
-      navigateToFeedAfterChallengeComplete(router);
-      return;
-    }
-
     if (challenge?.requires_photo && !capturedPhoto) {
       Toast.show({ type: 'error', text1: 'This challenge needs a photo.' });
       return;
@@ -265,8 +255,8 @@ export default function CameraScreen() {
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
-          clearCaptures();
-          Toast.show({ type: 'error', text1: err.message ?? 'Failed to post' });
+          const copy = dojiSubmissionErrorCopy(err);
+          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
         },
       },
     );
@@ -278,8 +268,7 @@ export default function CameraScreen() {
     if (!captionRequired) return { ok: true as const };
     return required(caption, 'Add a caption for this challenge.');
   }, [captionRequired, caption]);
-  const canPost =
-    canPreview && (!captionRequired || captionValidation.ok) && !createPost.isPending;
+  const canPost = canPreview && (!captionRequired || captionValidation.ok) && !createPost.isPending;
 
   if (userEventLoading) {
     return (
@@ -312,9 +301,17 @@ export default function CameraScreen() {
     return (
       <SafeAreaView style={[styles.chooseRoot, { backgroundColor: colors.background }]}>
         <View style={styles.chooseHeader}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={styles.headerButtonDark}>
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={styles.headerButtonDark}
+          >
             <IconClose size={26} color={colors.textSecondary} />
           </TouchableOpacity>
+          <ChallengeTimer
+            expiresAt={userEvent.expires_at}
+            onExpire={() => void refetchUserEvent()}
+          />
         </View>
         <View style={styles.chooseBody}>
           <IconCamera size={48} color={colors.textSecondary} />
@@ -351,10 +348,7 @@ export default function CameraScreen() {
     );
   }
 
-  if (
-    (flowStep === 'capturePhoto' || flowStep === 'captureVideo') &&
-    permission === null
-  ) {
+  if ((flowStep === 'capturePhoto' || flowStep === 'captureVideo') && permission === null) {
     return (
       <View
         style={[
@@ -390,11 +384,7 @@ export default function CameraScreen() {
           <Button onPress={requestPermission} fullWidth size="lg">
             Allow camera
           </Button>
-          <Button
-            onPress={() => setFlowStep('chooseSource')}
-            variant="ghost"
-            fullWidth
-          >
+          <Button onPress={() => setFlowStep('chooseSource')} variant="ghost" fullWidth>
             Back
           </Button>
         </View>
@@ -405,15 +395,10 @@ export default function CameraScreen() {
   if (flowStep === 'preview' && canPreview) {
     return (
       <>
-        <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
+        <AppKeyboardAwareScrollView
+          style={[styles.container, { backgroundColor: colors.background }]}
           contentContainerStyle={[styles.previewContent, { backgroundColor: colors.background }]}
           showsVerticalScrollIndicator={false}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
         >
           <SafeAreaView>
             <View style={styles.previewHeader}>
@@ -423,6 +408,10 @@ export default function CameraScreen() {
                   Retake
                 </Text>
               </TouchableOpacity>
+              <ChallengeTimer
+                expiresAt={userEvent.expires_at}
+                onExpire={() => void refetchUserEvent()}
+              />
             </View>
           </SafeAreaView>
 
@@ -447,12 +436,11 @@ export default function CameraScreen() {
 
           {capturedVideoUri ? (
             <View style={[styles.videoPreviewWrap, { backgroundColor: colors.mediaLetterbox }]}>
-              <Video
-                source={{ uri: capturedVideoUri }}
+              <AppVideo
+                uri={capturedVideoUri}
                 style={styles.videoPreview}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={false}
+                nativeControls
+                contentFit="contain"
               />
             </View>
           ) : null}
@@ -479,8 +467,7 @@ export default function CameraScreen() {
               Share
             </Button>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
       </>
     );
   }
@@ -494,26 +481,39 @@ export default function CameraScreen() {
         ref={cameraRef}
         style={styles.camera}
         facing={facing}
+        zoom={zoom}
+        flash={flashEnabled && facing === 'back' ? 'on' : 'off'}
         mode={showVideoControls ? 'video' : 'picture'}
         mute
       />
 
       <SafeAreaView style={styles.cameraOverlay}>
-        <View style={styles.cameraHeader}>
-          <TouchableOpacity
-            onPress={() => setFlowStep('chooseSource')}
-            hitSlop={16}
-            style={styles.headerButton}
-          >
-            <IconClose size={26} color={colors.onPrimary} />
-          </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-        </View>
+        <CameraTopControls
+          flashEnabled={flashEnabled}
+          flashAvailable={facing === 'back'}
+          expiresAt={userEvent.expires_at}
+          onClose={() => setFlowStep('chooseSource')}
+          onFlip={() => {
+            setFacing((current) => (current === 'back' ? 'front' : 'back'));
+            setFlashEnabled(false);
+          }}
+          onToggleFlash={() => setFlashEnabled((enabled) => !enabled)}
+          onExpire={() => void refetchUserEvent()}
+          color={colors.onPrimary}
+        />
+
+        {showPhotoControls || showVideoControls ? (
+          <CameraZoomControls zoom={zoom} onChange={setZoom} color={colors.onPrimary} />
+        ) : null}
 
         {showPhotoControls ? (
           <>
             <View style={styles.captureHint}>
-              <Text variant="bodySmall" color={colors.onPrimary} style={{ textAlign: 'center', opacity: 0.7 }}>
+              <Text
+                variant="bodySmall"
+                color={colors.onPrimary}
+                style={{ textAlign: 'center', opacity: 0.7 }}
+              >
                 Tap to capture your photo
               </Text>
             </View>
@@ -540,7 +540,11 @@ export default function CameraScreen() {
         {showVideoControls ? (
           <>
             <View style={styles.captureHint}>
-              <Text variant="bodySmall" color={colors.onPrimary} style={{ textAlign: 'center', opacity: 0.7 }}>
+              <Text
+                variant="bodySmall"
+                color={colors.onPrimary}
+                style={{ textAlign: 'center', opacity: 0.7 }}
+              >
                 {videoRecording
                   ? 'Tap stop when you are done.'
                   : 'Tap record to capture your clip (up to 2 min).'}
@@ -553,7 +557,9 @@ export default function CameraScreen() {
                   styles.recordOuter,
                   {
                     borderColor: videoRecording ? colors.danger : colors.onPrimary,
-                    backgroundColor: videoRecording ? `${colors.danger}40` : `${colors.onPrimary}40`,
+                    backgroundColor: videoRecording
+                      ? `${colors.danger}40`
+                      : `${colors.onPrimary}40`,
                   },
                 ]}
                 activeOpacity={0.85}
@@ -582,9 +588,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chooseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
-    alignItems: 'flex-start',
   },
   headerButtonDark: {
     width: 44,
@@ -618,22 +626,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     inset: 0,
     justifyContent: 'space-between',
-  },
-  cameraHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
   },
   captureHint: {
     paddingHorizontal: Spacing.xl,

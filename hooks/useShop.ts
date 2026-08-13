@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Profile, ShopItem, UserShopItem } from '../types/database';
+import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 
 export function useShopCatalog() {
   return useQuery({
@@ -52,17 +53,10 @@ function patchProfileForItem(profile: Profile, item: ShopItem): Profile {
 
 export function invalidateCosmeticQueries(
   queryClient: QueryClient,
-  userId: string,
-  username?: string | null,
+  _userId: string,
+  _username?: string | null,
 ) {
-  void queryClient.invalidateQueries({ queryKey: ['ownedShopItems', userId] });
-  queryClient.invalidateQueries({
-    predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'profile',
-  });
-  if (username) {
-    void queryClient.invalidateQueries({ queryKey: ['profile', username] });
-  }
-  void queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
+  scheduleQueryInvalidation(queryClient, ['ownedShopItems', 'profile', 'feed']);
 }
 
 function applyOptimisticEquip(

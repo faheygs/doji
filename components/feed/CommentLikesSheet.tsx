@@ -26,6 +26,8 @@ import { useSendFriendRequest } from '../../hooks/useProfile';
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { supabase } from '../../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -42,6 +44,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const userId = useAuthStore((s) => s.session?.user?.id);
   const sendRequest = useSendFriendRequest();
   const queryClient = useQueryClient();
+  useDismissOnRouteBlur(visible, onClose);
 
   const { data: friendIds = [] } = useQuery({
     queryKey: ['friendIds', userId],
@@ -94,7 +97,14 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     () =>
       StyleSheet.create({
         backdrop: { flex: 1, justifyContent: 'flex-end' },
-        scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
+        scrim: {
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+        },
         sheet: {
           height: winH * 0.5,
           backgroundColor: colors.surface,
@@ -183,10 +193,9 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
               onPress={() => {
                 if (isPending || !item.user_id) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                sendRequest.mutate(item.user_id, {
+                sendRequest.mutate({ addresseeId: item.user_id }, {
                   onSuccess: () => {
-                    void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
-                    void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                    scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
                   },
                 });
               }}

@@ -6,17 +6,14 @@
 [functions.schedule-daily-challenge]
 verify_jwt = false
 
-[functions.dispatch-challenge-pushes]
-verify_jwt = false
-
-[functions.expire-events]
-verify_jwt = false
-
-[functions.send-push-notifications]
-verify_jwt = false
-
 [functions.notify-user]
 verify_jwt = false
 
-[functions.recalculate-streak]
+[functions.realtime-token]
+verify_jwt = false
+
+[functions.relay-domain-events]
+verify_jwt = false
+
+[functions.orchestrate-doji]
 verify_jwt = false

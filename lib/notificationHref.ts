@@ -18,11 +18,6 @@ export function feedPostHref(postId: string, options?: FeedPostDeepLinkOptions):
 export function notificationHrefFromData(data: unknown): Href | null {
   if (!data || typeof data !== 'object') return null;
   const rec = data as Record<string, unknown>;
-  const url = rec.url;
-  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
-    return normalizeHref(url) ?? FEED_TAB_HREF;
-  }
-
   const type = rec.type;
   const postId = rec.postId;
   const commentId = rec.commentId;
@@ -43,15 +38,28 @@ export function notificationHrefFromData(data: unknown): Href | null {
   if (
     (type === 'REACTION' ||
       type === 'COMMENT' ||
+      type === 'COMMENT_LIKE' ||
       type === 'MENTION' ||
       type === 'COMMENT_REPLY') &&
     typeof postId === 'string' &&
     postId.length > 0
   ) {
     return feedPostHref(postId, {
-      openComments: type === 'COMMENT' || type === 'MENTION' || type === 'COMMENT_REPLY',
+      openComments:
+        type === 'COMMENT' ||
+        type === 'COMMENT_LIKE' ||
+        type === 'MENTION' ||
+        type === 'COMMENT_REPLY',
       mentionCommentId: typeof commentId === 'string' ? commentId : undefined,
     });
+  }
+
+  // Older notification producers used `/post/:id`, which is not a real Expo
+  // route. Resolve known notification types from identifiers first, then allow
+  // a validated URL only for forward-compatible/unknown payloads.
+  const url = rec.url;
+  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
+    return normalizeHref(url) ?? FEED_TAB_HREF;
   }
 
   return null;

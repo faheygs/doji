@@ -11,17 +11,19 @@ import {
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
-import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { KeyboardSafeSheet } from '@/components/ui/KeyboardSafeSheet';
-import { Avatar } from '@/components/ui/Avatar';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { usePendingSuggestions, useReviewSuggestion } from '@/hooks/useSuggestions';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { SuggestionReviewSheet } from '@/components/admin/SuggestionReviewSheet';
+import type { ChallengeSuggestion } from '@/types/database';
+import { SuggestionQueueCard } from '@/components/admin/SuggestionQueueCard';
 
 const REJECT_NOTE_MAX = 500;
 
@@ -96,6 +98,7 @@ export default function AdminSuggestionsScreen() {
   const review = useReviewSuggestion();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<ChallengeSuggestion | null>(null);
 
   const styles = useMemo(
     () =>
@@ -109,18 +112,6 @@ export default function AdminSuggestionsScreen() {
           gap: Spacing.sm,
         },
         headerText: { flex: 1, gap: 2 },
-        card: {
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.md,
-          padding: Spacing.md,
-          borderRadius: Radius.lg,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.surfaceElevated,
-          gap: Spacing.sm,
-        },
-        metaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-        actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
         empty: {
           flex: 1,
           alignItems: 'center',
@@ -220,51 +211,18 @@ export default function AdminSuggestionsScreen() {
               </Text>
             </View>
           ) : (
-            suggestions.map((s) => {
-              const author = s.profile;
-              const fallbackHandle = `@${s.user_id.slice(0, 8)}`;
-              return (
-                <View key={s.id} style={styles.card}>
-                  <View style={styles.metaRow}>
-                    <Avatar
-                      uri={author?.avatar_url}
-                      username={author?.username ?? fallbackHandle}
-                      size={36}
-                    />
-                    <View>
-                      <Text variant="subhead">{author?.display_name ?? fallbackHandle}</Text>
-                      <Text variant="micro" color={colors.textTertiary}>
-                        {author?.username ? `@${author.username}` : fallbackHandle} · {s.kind}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text variant="body" style={{ lineHeight: 22 }}>
-                    {s.body}
-                  </Text>
-                  <View style={styles.actions}>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      style={{ flex: 1 }}
-                      loading={review.isPending && activeReviewId === s.id && rejectingId === s.id}
-                      disabled={review.isPending}
-                      onPress={() => setRejectingId(s.id)}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      style={{ flex: 1 }}
-                      loading={review.isPending && activeReviewId === s.id && rejectingId !== s.id}
-                      disabled={review.isPending}
-                      onPress={() => handleApprove(s.id)}
-                    >
-                      Approve
-                    </Button>
-                  </View>
-                </View>
-              );
-            })
+            suggestions.map((s) => (
+              <SuggestionQueueCard
+                key={s.id}
+                suggestion={s}
+                busy={review.isPending}
+                approving={review.isPending && activeReviewId === s.id && rejectingId !== s.id}
+                rejecting={review.isPending && activeReviewId === s.id && rejectingId === s.id}
+                onOpen={() => setSelectedSuggestion(s)}
+                onReject={() => setRejectingId(s.id)}
+                onApprove={() => handleApprove(s.id)}
+              />
+            ))
           )}
         </ScrollView>
       )}
@@ -274,6 +232,21 @@ export default function AdminSuggestionsScreen() {
         loading={review.isPending}
         onClose={() => setRejectingId(null)}
         onConfirm={handleRejectConfirm}
+      />
+      <SuggestionReviewSheet
+        suggestion={selectedSuggestion}
+        busy={review.isPending}
+        onApprove={() => {
+          if (!selectedSuggestion) return;
+          handleApprove(selectedSuggestion.id);
+          setSelectedSuggestion(null);
+        }}
+        onReject={() => {
+          if (!selectedSuggestion) return;
+          setRejectingId(selectedSuggestion.id);
+          setSelectedSuggestion(null);
+        }}
+        onClose={() => setSelectedSuggestion(null)}
       />
     </SafeAreaView>
   );

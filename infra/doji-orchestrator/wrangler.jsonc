@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "doji-orchestrator",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-11",
+  "workers_dev": true,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "DOJI_EVENT_ALARM", "class_name": "DojiEventAlarm" },
+      { "name": "OUTBOX_RELAY_ALARM", "class_name": "OutboxRelayAlarm" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DojiEventAlarm"] },
+    { "tag": "v2", "new_sqlite_classes": ["OutboxRelayAlarm"] }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "DOMAIN_EVENT_QUEUE", "queue": "doji-domain-events" }
+    ],
+    "consumers": [
+      {
+        "queue": "doji-domain-events",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 10,
+        "dead_letter_queue": "doji-domain-events-dead-letter"
+      }
+    ]
+  },
+  "observability": { "enabled": true }
+}

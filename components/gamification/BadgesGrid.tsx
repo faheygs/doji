@@ -23,6 +23,7 @@ import {
   isTierCriteriaMet,
   type BadgeProgressStats,
 } from '../../lib/badgeProgress';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 const COLUMN_GAP = Spacing.md;
 const ROW_GAP = Spacing.md;
@@ -121,6 +122,7 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
     Haptics.selectionAsync();
     setSelected(null);
   }, []);
+  useDismissOnRouteBlur(Boolean(selected), handleClose);
 
   const sheetStyles = useMemo(
     () =>
@@ -130,7 +132,11 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
           justifyContent: 'flex-end',
         },
         scrim: {
-          ...StyleSheet.absoluteFillObject,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
@@ -243,9 +249,9 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
         </View>
       </View>
 
-      {!readOnly ? (
+      {!readOnly && selected ? (
         <Modal
-          visible={!!selected}
+          visible
           transparent
           animationType="fade"
           onRequestClose={handleClose}

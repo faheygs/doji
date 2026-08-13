@@ -1,6 +1,5 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { assertCronAuthorized } from '../_shared/cron-auth.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -8,6 +7,28 @@ const supabase = createClient(
 );
 
 const WINDOW_MINUTES = Number(Deno.env.get('CHALLENGE_WINDOW_MINUTES') ?? '10');
+
+async function registerDurableAlarm(dailyEventId: string, firesAt: string) {
+  const orchestratorUrl = Deno.env.get('DOJI_ORCHESTRATOR_URL');
+  const orchestratorSecret = Deno.env.get('DOJI_ORCHESTRATOR_SECRET');
+  if (!orchestratorUrl || !orchestratorSecret) {
+    throw new Error('Durable Doji orchestrator is not configured');
+  }
+  const response = await fetch(
+    `${orchestratorUrl.replace(/\/$/, '')}/events/${dailyEventId}/alarm`,
+    {
+      method: 'PUT',
+      headers: {
+        authorization: `Bearer ${orchestratorSecret}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ dailyEventId, firesAt, phase: 'prelive' }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Durable alarm registration failed: ${response.status} ${await response.text()}`);
+  }
+}
 
 /** Continental US drop window: 10:00 Pacific → 22:00 Eastern (same Eastern calendar day). */
 const TZ_PACIFIC = 'America/Los_Angeles';
@@ -61,8 +82,11 @@ function zonedWallTimeToUtc(
 }
 
 /** Random instant inside [10:00 Pacific, 22:00 Eastern] on the anchor calendar day, or next day if none left. */
-function randomFiresAt(now: Date): Date {
-  const parts = zonedParts(now, WINDOW_ANCHOR_TZ);
+function randomFiresAt(now: Date, forceNextDay = false): Date {
+  const anchor = forceNextDay
+    ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    : now;
+  const parts = zonedParts(anchor, WINDOW_ANCHOR_TZ);
   let windowStart = zonedWallTimeToUtc(
     parts.y,
     parts.mo,
@@ -86,7 +110,7 @@ function randomFiresAt(now: Date): Date {
     windowStart.getTime() + Math.floor(Math.random() * spanMs),
   );
 
-  if (firesAt.getTime() <= now.getTime()) {
+  if (!forceNextDay && firesAt.getTime() <= now.getTime()) {
     const nextProbe = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const nx = zonedParts(nextProbe, WINDOW_ANCHOR_TZ);
     windowStart = zonedWallTimeToUtc(
@@ -116,186 +140,41 @@ function randomFiresAt(now: Date): Date {
 }
 
 Deno.serve(async (req) => {
-  const denied = assertCronAuthorized(req);
-  if (denied) return denied;
+  const expectedOrchestratorSecret = Deno.env.get('DOJI_ORCHESTRATOR_SECRET');
+  const orchestratorAuthorized = Boolean(expectedOrchestratorSecret) &&
+    req.headers.get('x-orchestrator-secret') === expectedOrchestratorSecret;
+  if (!orchestratorAuthorized) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
   try {
-    const { error: purgeErr } = await supabase.rpc('purge_posts_older_than_24h');
-    if (purgeErr) {
-      console.error('purge_posts_older_than_24h:', purgeErr);
-    }
+    const requestBody = await req.json().catch(() => ({})) as { forceNextDay?: boolean };
+    const forceNextDay = requestBody.forceNextDay === true;
 
-    const utcNow = new Date();
-    const y = utcNow.getUTCFullYear();
-    const mo = utcNow.getUTCMonth();
-    const da = utcNow.getUTCDate();
-    const utcDayStart = new Date(Date.UTC(y, mo, da, 0, 0, 0, 0));
-    const utcDayEnd = new Date(Date.UTC(y, mo, da + 1, 0, 0, 0, 0));
-
-    const { data: alreadyToday } = await supabase
-      .from('daily_events')
-      .select('id, fires_at')
-      .gte('created_at', utcDayStart.toISOString())
-      .lt('created_at', utcDayEnd.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (alreadyToday && alreadyToday.length > 0) {
-      const row = alreadyToday[0] as { id: string; fires_at: string };
-      return new Response(
-        JSON.stringify({
-          message: 'Daily event already scheduled for this UTC day',
-          skipped: true,
-          daily_event_id: row.id,
-          fires_at: row.fires_at,
-        }),
-        { headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-
-    const { data: recentEvents } = await supabase
-      .from('daily_events')
-      .select('challenge_id')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    const recentIds = (recentEvents ?? []).map((e: { challenge_id: string }) => e.challenge_id);
-
-    let query = supabase
-      .from('challenges')
-      .select('*')
-      .eq('is_active', true)
-      .order('schedule_count', { ascending: true })
-      .order('created_at', { ascending: true });
-    if (recentIds.length > 0) {
-      query = query.not('id', 'in', `(${recentIds.join(',')})`);
-    }
-
-    const { data: challenges, error: challengeError } = await query;
-
-    let pool: Record<string, unknown>[] = [...(challenges ?? [])];
-
-    if (challengeError || pool.length === 0) {
-      let fb = supabase
-        .from('challenges')
-        .select('*')
-        .eq('is_active', true)
-        .order('schedule_count', { ascending: true })
-        .order('created_at', { ascending: true })
-        .limit(80);
-      if (recentIds.length > 0) {
-        fb = fb.not('id', 'in', `(${recentIds.join(',')})`);
-      }
-      const { data: fallback } = await fb;
-      pool = [...(fallback ?? [])];
-    }
-
-    if (pool.length === 0) {
-      return new Response(JSON.stringify({ error: 'No active challenges in database' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const scheduleCounts = pool.map((c) => Number((c as { schedule_count?: number }).schedule_count ?? 0));
-    const minCount = Math.min(...scheduleCounts);
-    const tier = pool.filter(
-      (c) => Number((c as { schedule_count?: number }).schedule_count ?? 0) === minCount,
+    const proposedFiresAt = randomFiresAt(new Date(), forceNextDay);
+    const { data: prepared, error: preparationError } = await supabase.rpc(
+      'prepare_next_daily_event',
+      {
+        p_proposed_fires_at: proposedFiresAt.toISOString(),
+        p_window_minutes: WINDOW_MINUTES,
+      },
     );
-    const challenge = tier[Math.floor(Math.random() * tier.length)] as {
-      id: string;
-      title: string;
-      category: string;
-      type: string;
-      emoji: string | null;
-      xp_reward: number;
-      schedule_count: number;
-    };
-
-    // Random fire slot 10:00 Pacific – 10:00 Eastern (conUS), one instant for all users / same daily_event.
-    const now = new Date();
-    const firesAt = randomFiresAt(now);
-
-    const expiresAt = new Date(firesAt.getTime() + WINDOW_MINUTES * 60 * 1000);
-
-    const { data: dailyEvent, error: eventError } = await supabase
-      .from('daily_events')
-      .insert({
-        challenge_id: challenge.id,
-        fires_at: firesAt.toISOString(),
-        window_minutes: WINDOW_MINUTES,
-      })
-      .select()
-      .single();
-
-    if (eventError) throw eventError;
-
-    const nextCount = Number(challenge.schedule_count ?? 0) + 1;
-    const { error: countErr } = await supabase
-      .from('challenges')
-      .update({ schedule_count: nextCount })
-      .eq('id', challenge.id);
-    if (countErr) console.error('schedule_count update:', countErr);
-
-    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id');
-
-    if (profilesError) throw profilesError;
-
-    if (!profiles || profiles.length === 0) {
-      return new Response(
-        JSON.stringify({
-          message: 'Daily event created; no profiles to fan out.',
-          challenge: challenge.title,
-          fires_at: firesAt.toISOString(),
-          note: 'Pushes are sent by dispatch-challenge-pushes when fires_at is reached.',
-        }),
-        { headers: { 'Content-Type': 'application/json' } },
-      );
+    if (preparationError) throw preparationError;
+    if (!prepared?.daily_event_id || !prepared?.fires_at) {
+      throw new Error('Database did not return a prepared daily event');
     }
 
-    const userEventInserts = profiles.map((p: { id: string }) => ({
-      user_id: p.id,
-      daily_event_id: dailyEvent.id,
-      status: 'pending',
-      expires_at: expiresAt.toISOString(),
-    }));
-
-    const FAN_OUT_BATCH = 500;
-    for (let i = 0; i < userEventInserts.length; i += FAN_OUT_BATCH) {
-      const { error: batchErr } = await supabase
-        .from('user_events')
-        .insert(userEventInserts.slice(i, i + FAN_OUT_BATCH));
-      if (batchErr) throw batchErr;
-    }
-
-    // For poll challenges, ensure the community poll post exists.
-    // The DB trigger trg_daily_event_create_community_poll_post should handle this,
-    // but we create it here explicitly as a reliable fallback — ON CONFLICT DO NOTHING
-    // makes it idempotent if the trigger already succeeded.
-    if (challenge.type === 'poll') {
-      const { error: pollPostErr } = await supabase.from('posts').insert({
-        user_event_id: null,
-        user_id: null,
-        type: 'poll_vote',
-        daily_event_id: dailyEvent.id,
-        is_community_poll: true,
-        is_late: false,
-        visibility: 'public',
-        selected_option_index: null,
-      });
-      // Unique constraint violation (code 23505) means the trigger already created it — fine.
-      if (pollPostErr && pollPostErr.code !== '23505') {
-        console.error('community poll post creation failed:', pollPostErr);
-      }
-    }
+    await registerDurableAlarm(prepared.daily_event_id, prepared.fires_at);
 
     return new Response(
       JSON.stringify({
-        message: `Scheduled challenge for ${profiles.length} users; push will dispatch at fires_at`,
-        challenge: challenge.title,
-        fires_at: firesAt.toISOString(),
-        daily_event_id: dailyEvent.id,
-        note: 'Run dispatch-challenge-pushes on a short interval (e.g. every 1–5 minutes) so notifications align with fires_at.',
+        message: prepared.already_prepared
+          ? 'Current or future Doji alarm confirmed'
+          : 'Next Doji prepared atomically and alarm registered',
+        daily_event_id: prepared.daily_event_id,
+        challenge_id: prepared.challenge_id,
+        fires_at: prepared.fires_at,
+        skipped: prepared.already_prepared,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     );

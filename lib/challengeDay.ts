@@ -1,4 +1,5 @@
 import { parseDate } from '../utils/time';
+import { serverNowMs } from './serverClock';
 
 /**
  * Local calendar day boundaries for matching `daily_events.fires_at`.
@@ -57,5 +58,5 @@ export function localDateKeyFromIso(iso: string): string {
 /** Challenge drop is live for the viewer (feed + poll posts allowed). */
 export function isChallengeLive(firesAt: string | null | undefined): boolean {
   if (!firesAt) return false;
-  return parseDate(firesAt).getTime() <= Date.now();
+  return parseDate(firesAt).getTime() <= serverNowMs();
 }

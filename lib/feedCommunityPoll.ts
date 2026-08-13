@@ -18,15 +18,18 @@ export async function fetchCommunityPollPostsForFeed(
   dailyEventIds: string[],
   audience: FeedAudience,
   friendIds?: string[],
+  signal?: AbortSignal,
 ): Promise<Post[]> {
   if (dailyEventIds.length === 0) return [];
 
-  const { data: comm, error: commErr } = await supabase
+  let communityQuery = supabase
     .from('posts')
     .select(`*, daily_event:daily_events!inner(*, challenge:challenges(*))`)
     .eq('is_community_poll', true)
     .in('daily_event_id', dailyEventIds)
     .order('created_at', { ascending: false });
+  if (signal) communityQuery = communityQuery.abortSignal(signal);
+  const { data: comm, error: commErr } = await communityQuery;
 
   if (commErr) throw commErr;
 
@@ -42,14 +45,23 @@ export async function fetchCommunityPollPostsForFeed(
 
   if (challengeIds.length === 0) return [];
 
-  const { data: votes, error: voteErr } = await supabase
+  let votesQuery = supabase
     .from('poll_votes')
-    .select('challenge_id')
+    .select('user_event:user_events!inner(daily_event_id)')
     .in('challenge_id', challengeIds)
+    .in('user_event.daily_event_id', dailyEventIds)
     .in('user_id', friendIds);
+  if (signal) votesQuery = votesQuery.abortSignal(signal);
+  const { data: votes, error: voteErr } = await votesQuery;
 
   if (voteErr) throw voteErr;
 
-  const withNetworkVotes = new Set((votes ?? []).map((v) => v.challenge_id as string));
-  return mapped.filter((p) => p.challenge?.id && withNetworkVotes.has(p.challenge.id));
+  const withNetworkVotes = new Set(
+    (votes ?? []).flatMap((vote) => {
+      const relation = vote.user_event as { daily_event_id?: string } | { daily_event_id?: string }[];
+      const row = Array.isArray(relation) ? relation[0] : relation;
+      return row?.daily_event_id ? [row.daily_event_id] : [];
+    }),
+  );
+  return mapped.filter((post) => post.daily_event_id && withNetworkVotes.has(post.daily_event_id));
 }

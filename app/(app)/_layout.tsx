@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo } from 'react';
 import { Tabs, usePathname } from 'expo-router';
-import { StyleSheet, Platform, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useDomainRealtime } from '../../hooks/useDomainRealtime';
 import { useAppRealtime } from '../../hooks/useAppRealtime';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
-import { Text } from '../../components/ui/Text';
-import { useDemoStore } from '../../stores/useDemoStore';
 import {
   IconHome,
   IconTrophy,
@@ -35,13 +34,11 @@ function blurFocusedElementIfAriaHiddenAncestor(): void {
 export default function AppLayout() {
   const { session } = useAuthStore();
   const { ready } = useAuthGate();
+  useDomainRealtime(session?.user?.id);
   useAppRealtime(session?.user?.id);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pathname = usePathname();
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
-  const exitDemoMode = useDemoStore((s) => s.exitDemoMode);
-  const isHome = pathname === '/' || pathname === '/(app)' || pathname === '/(app)/index' || pathname === '/index';
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -51,7 +48,8 @@ export default function AppLayout() {
     return () => window.clearTimeout(t);
   }, [pathname]);
 
-  const tabBarHeight = 52 + (Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : insets.bottom + 8);
+  const tabBarHeight =
+    52 + (Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : insets.bottom + 8);
 
   const tabBarStyle = useMemo(
     () => [
@@ -73,7 +71,10 @@ export default function AppLayout() {
   const tabScreenOptions = useMemo(
     () => ({
       headerShown: false,
-      freezeOnBlur: false,
+      // Hidden tab trees must not keep rendering, refetching, or intercepting
+      // touches above the active route. Query invalidation still updates their
+      // cache and they reconcile when focused again.
+      freezeOnBlur: true,
       tabBarStyle,
       tabBarShowLabel: false,
       tabBarActiveTintColor: colors.text,
@@ -87,96 +88,72 @@ export default function AppLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tabs detachInactiveScreens={false} screenOptions={tabScreenOptions}>
-      {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <IconHome size={26} color={focused ? colors.text : colors.textTertiary} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="rank"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <IconTrophy size={26} color={focused ? colors.text : colors.textTertiary} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="friends"
-        options={{
-          title: 'Friends',
-          tabBarAccessibilityLabel: 'Friends',
-          tabBarIcon: ({ focused }) => (
-            <IconFriends size={26} color={focused ? colors.text : colors.textTertiary} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="suggest-challenge"
-        options={{
-          title: 'Suggest',
-          tabBarAccessibilityLabel: 'Suggest a challenge',
-          tabBarIcon: ({ focused }) => (
-            <IconLightbulb size={26} color={focused ? colors.text : colors.textTertiary} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('profile', { screen: 'index' });
-          },
-        })}
-        options={{
-          tabBarAccessibilityLabel: 'Your profile',
-          tabBarIcon: ({ focused }) => (
-            <IconProfile size={26} color={focused ? colors.text : colors.textTertiary} />
-          ),
-        }}
-      />
-      <Tabs.Screen name="member" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="challenge" options={{ href: null }} />
-      <Tabs.Screen name="camera" options={{ href: null }} />
-      <Tabs.Screen name="poll" options={{ href: null }} />
-      <Tabs.Screen name="task" options={{ href: null }} />
-      <Tabs.Screen name="format" options={{ href: null }} />
-      <Tabs.Screen name="post" options={{ href: null }} />
-      <Tabs.Screen name="admin" options={{ href: null }} />
+      <Tabs detachInactiveScreens screenOptions={tabScreenOptions}>
+        {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
+        <Tabs.Screen
+          name="index"
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <IconHome size={26} color={focused ? colors.text : colors.textTertiary} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="rank"
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <IconTrophy size={26} color={focused ? colors.text : colors.textTertiary} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="friends"
+          options={{
+            title: 'Friends',
+            tabBarAccessibilityLabel: 'Friends',
+            tabBarIcon: ({ focused }) => (
+              <IconFriends size={26} color={focused ? colors.text : colors.textTertiary} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="suggest-challenge"
+          options={{
+            title: 'Suggest',
+            tabBarAccessibilityLabel: 'Suggest a challenge',
+            tabBarIcon: ({ focused }) => (
+              <IconLightbulb size={26} color={focused ? colors.text : colors.textTertiary} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+              navigation.navigate('profile', { screen: 'index' });
+            },
+          })}
+          options={{
+            tabBarAccessibilityLabel: 'Your profile',
+            tabBarIcon: ({ focused }) => (
+              <IconProfile size={26} color={focused ? colors.text : colors.textTertiary} />
+            ),
+          }}
+        />
+        <Tabs.Screen name="member" options={{ href: null }} />
+        <Tabs.Screen name="notifications" options={{ href: null }} />
+        <Tabs.Screen name="challenge" options={{ href: null }} />
+        <Tabs.Screen name="camera" options={{ href: null }} />
+        <Tabs.Screen name="poll" options={{ href: null }} />
+        <Tabs.Screen name="task" options={{ href: null }} />
+        <Tabs.Screen name="format" options={{ href: null }} />
+        <Tabs.Screen name="post" options={{ href: null }} />
+        <Tabs.Screen name="admin" options={{ href: null }} />
+        <Tabs.Screen name="legal/terms" options={{ href: null }} />
+        <Tabs.Screen name="legal/privacy" options={{ href: null }} />
       </Tabs>
       <CelebrationHost />
-      {isDemoMode && !isHome && (
-        <TouchableOpacity
-          onPress={exitDemoMode}
-          activeOpacity={0.8}
-          style={{
-            position: 'absolute',
-            bottom: tabBarHeight + Spacing.sm,
-            alignSelf: 'center',
-            left: 0,
-            right: 0,
-            alignItems: 'center',
-            pointerEvents: 'box-none',
-          }}
-        >
-          <View style={{
-            backgroundColor: colors.primary,
-            paddingVertical: 6,
-            paddingHorizontal: Spacing.lg,
-            borderRadius: 999,
-          }}>
-            <Text variant="label" color={colors.onPrimary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
-              DEMO MODE — Tap to exit
-            </Text>
-          </View>
-        </TouchableOpacity>
-      )}
     </View>
   );
 }

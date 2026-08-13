@@ -1,0 +1,7 @@
+{
+  "name": "doji-public-site",
+  "private": true,
+  "scripts": {
+    "validate": "node validate.mjs"
+  }
+}

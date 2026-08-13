@@ -33,6 +33,7 @@ import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
 import { useSparksBalance } from '@/hooks/useSparks';
 import { hrefWithReturnTo } from '@/lib/navigationReturn';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
+import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 
@@ -87,13 +88,15 @@ export default function MyProfileScreen() {
     setRefreshing(true);
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['userBadgeProgress', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['friendCount', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['friends', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['profileFriends', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['mySuggestions', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['reactionsGiven', profile.id] }),
-        queryClient.invalidateQueries({ queryKey: ['profile'] }),
+        invalidateQueryRoots(queryClient, [
+          'userBadgeProgress',
+          'friendCount',
+          'friends',
+          'profileFriends',
+          'mySuggestions',
+          'reactionsGiven',
+          'profile',
+        ]),
         fetchProfile(profile.id),
       ]);
     } finally {

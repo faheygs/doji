@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Report } from '../types/database';
+import { newCommandId } from '../lib/idempotency';
+import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 
 export type { Report };
 
@@ -22,7 +24,8 @@ export function usePendingReports(enabled = true) {
           poll_vote:poll_votes!reports_poll_vote_id_fkey(custom_text)`,
         )
         .eq('status', 'pending')
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(100);
 
       if (error) throw error;
       return (data ?? []) as Report[];
@@ -39,48 +42,28 @@ export function useModerateReport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      reportId,
-      action,
-      postId,
-      commentId,
-      reportedUserId,
-    }: {
+    mutationFn: async (variables: {
       reportId: string;
       action: ModerateAction;
       postId?: string | null;
       commentId?: string | null;
       reportedUserId?: string | null;
+      commandId?: string;
     }) => {
-      if (action === 'remove_content' || action === 'remove_and_ban') {
-        const deletePost = postId
-          ? supabase.from('posts').delete().eq('id', postId)
-          : Promise.resolve({ error: null });
-
-        const deleteComment = commentId
-          ? supabase.from('comments').delete().eq('id', commentId)
-          : Promise.resolve({ error: null });
-
-        const banUser =
-          action === 'remove_and_ban' && reportedUserId
-            ? supabase.from('profiles').update({ is_banned: true }).eq('id', reportedUserId)
-            : Promise.resolve({ error: null });
-
-        const [postResult, commentResult, banResult] = await Promise.all([deletePost, deleteComment, banUser]);
-        if (postResult.error) throw postResult.error;
-        if (commentResult.error) throw commentResult.error;
-        if (banResult.error) throw banResult.error;
-      }
-
-      const { error } = await supabase
-        .from('reports')
-        .update({ status: action === 'dismiss' ? 'dismissed' : 'actioned' })
-        .eq('id', reportId);
+      const {
+      reportId,
+      action,
+      } = variables;
+      variables.commandId ??= newCommandId('moderate-report');
+      const { error } = await supabase.rpc('moderate_report', {
+        p_report_id: reportId,
+        p_action: action,
+        p_idempotency_key: variables.commandId,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      scheduleQueryInvalidation(queryClient, ['admin', 'feed']);
     },
   });
 }

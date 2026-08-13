@@ -5,7 +5,7 @@ export type ReactionEmoji = 'fire' | 'like' | 'dislike' | 'laugh' | 'wow' | 'hea
 /** Stored on profiles.notification_preferences (jsonb). */
 export type NotificationPreferences = {
   push_enabled: boolean;
-  /** Show numeric unread badge on the home bell icon. */
+  /** Legacy compatibility field; unread badges now follow unread activity. */
   show_bell_badge: boolean;
   doji_start: boolean;
   friend_post: boolean;
@@ -17,6 +17,19 @@ export type NotificationPreferences = {
   mention: boolean;
   suggestion: boolean;
   comment_reply: boolean;
+};
+
+export type NotificationCenterState = {
+  user_id: string;
+  cleared_at: string | null;
+  last_opened_at: string | null;
+  updated_at: string;
+};
+
+export type NotificationDismissal = {
+  user_id: string;
+  notification_key: string;
+  dismissed_at: string;
 };
 
 export type Profile = {
@@ -54,6 +67,7 @@ export type Profile = {
 };
 
 export type ChallengeType = 'photo' | 'poll' | 'task' | 'format';
+export type PollKind = 'poll' | 'wyr';
 
 export type AnswerRuleType = 'starts_with_letter' | 'exact_word_count';
 
@@ -66,6 +80,7 @@ export type Challenge = {
   title: string;
   description: string;
   type: ChallengeType;
+  poll_kind?: PollKind | null;
   emoji: string | null;
   category: 'physical' | 'creative' | 'social' | 'mental' | 'wild';
   difficulty: 1 | 2 | 3;
@@ -79,6 +94,7 @@ export type Challenge = {
   is_demo: boolean;
   /** Times this challenge has been assigned to a daily_event; scheduler prefers lower values. */
   schedule_count: number;
+  poll_options?: PollOption[];
   created_at: string;
 };
 
@@ -97,6 +113,8 @@ export type PollVote = {
   user_id: string;
   challenge_id: string;
   option_id: string;
+  user_event_id?: string | null;
+  idempotency_key?: string | null;
   custom_text?: string | null;
   created_at: string;
 };
@@ -121,6 +139,10 @@ export type DailyEvent = {
   fires_at: string;
   window_minutes: number;
   push_sent_at: string | null;
+  activated_at?: string | null;
+  prelive_at?: string | null;
+  closes_at?: string | null;
+  closed_at?: string | null;
   created_at: string;
   challenge?: Challenge;
 };
@@ -207,6 +229,7 @@ export type Post = {
   is_demo?: boolean;
   visibility: 'friends' | 'public';
   created_at: string;
+  idempotency_key?: string | null;
   reaction_breakdown?: Record<ReactionEmoji, number>;
   my_reactions?: ReactionEmoji[];
   profile?: Profile;
@@ -251,6 +274,7 @@ export type Comment = {
   created_at: string;
   updated_at: string | null;
   body_edited: boolean;
+  idempotency_key?: string | null;
   profile?: Profile;
   /** Filled client-side for the signed-in user. */
   my_like?: boolean;
@@ -382,6 +406,18 @@ export type Database = {
         Update: Partial<Profile>;
         Relationships: [];
       };
+      notification_center_state: {
+        Row: NotificationCenterState;
+        Insert: Omit<NotificationCenterState, 'updated_at'> & { updated_at?: string };
+        Update: Partial<Omit<NotificationCenterState, 'user_id'>>;
+        Relationships: [];
+      };
+      notification_dismissals: {
+        Row: NotificationDismissal;
+        Insert: NotificationDismissal;
+        Update: Pick<NotificationDismissal, 'dismissed_at'>;
+        Relationships: [];
+      };
       challenges: {
         Row: Challenge;
         Insert: Omit<Challenge, 'id' | 'created_at'>;
@@ -497,7 +533,18 @@ export type Database = {
       };
       reports: {
         Row: Report;
-        Insert: Omit<Report, 'id' | 'created_at' | 'status' | 'notes' | 'reporter' | 'reported_user' | 'post' | 'comment' | 'poll_vote'>;
+        Insert: Omit<
+          Report,
+          | 'id'
+          | 'created_at'
+          | 'status'
+          | 'notes'
+          | 'reporter'
+          | 'reported_user'
+          | 'post'
+          | 'comment'
+          | 'poll_vote'
+        >;
         Update: { status?: ReportStatus; notes?: string | null };
         Relationships: [];
       };
@@ -558,6 +605,18 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_own_profile: {
+        Args: Record<string, never>;
+        Returns: Profile;
+      };
+      register_push_token: {
+        Args: { p_token: string };
+        Returns: boolean;
+      };
+      unregister_push_token: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
       friend_count: {
         Args: { p_user_id: string };
         Returns: number;
@@ -574,6 +633,7 @@ export type Database = {
           display_name: string;
           avatar_url: string | null;
           avatar_gradient: string[];
+          equipped_border_key: string | null;
         }[];
       };
       level_from_xp: {
@@ -607,6 +667,322 @@ export type Database = {
       ensure_demo_user_events: {
         Args: { p_user_id: string };
         Returns: void;
+      };
+      get_current_doji_state: {
+        Args: Record<string, never>;
+        Returns: {
+          server_now: string;
+          phase: 'none' | 'waiting' | 'live' | 'completed' | 'missed';
+          opens_at?: string | null;
+          closes_at?: string | null;
+          user_event: UserEvent | null;
+        };
+      };
+      get_upcoming_doji_state: {
+        Args: Record<string, never>;
+        Returns: {
+          server_now: string;
+          daily_event_id: string;
+          prelive_at: string;
+          fires_at: string;
+        } | null;
+      };
+      get_locked_feed_previews: {
+        Args: {
+          p_daily_event_ids: string[];
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Post[];
+      };
+      get_feed_page_snapshot: {
+        Args: {
+          p_daily_event_id: string;
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Post[];
+      };
+      get_feed_page_snapshot_v2: {
+        Args: {
+          p_daily_event_id: string;
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+        };
+        Returns: Post[];
+      };
+      get_comment_thread_snapshot: {
+        Args: {
+          p_post_id: string;
+          p_audience?: 'friends' | 'everyone';
+        };
+        Returns: Comment[];
+      };
+      get_leaderboard_snapshot: {
+        Args: {
+          p_mode?: 'weekly' | 'alltime';
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+        };
+        Returns: LeaderboardEntry[];
+      };
+      list_profile_friends_page: {
+        Args: {
+          p_profile_user_id: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Array<{
+          friend_id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          avatar_gradient: string[];
+          equipped_border_key: string | null;
+        }>;
+      };
+      get_notification_center_snapshot: {
+        Args: {
+          p_since: string;
+          p_limit?: number;
+        };
+        Returns: Record<string, unknown>[];
+      };
+      get_poll_votes_for_feed: {
+        Args: {
+          p_daily_event_id: string;
+          p_audience?: 'friends' | 'everyone';
+        };
+        Returns: {
+          id: string;
+          option_id: string;
+          user_id: string;
+          custom_text: string | null;
+          created_at: string;
+        }[];
+      };
+      get_poll_snapshot_for_feed: {
+        Args: {
+          p_daily_event_id: string;
+          p_audience?: 'friends' | 'everyone';
+        };
+        Returns: {
+          option_id: string;
+          challenge_id: string;
+          option_text: string;
+          option_position: number;
+          option_is_other: boolean;
+          option_created_at: string;
+          vote_id: string | null;
+          user_id: string | null;
+          custom_text: string | null;
+          vote_created_at: string | null;
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          equipped_border_key: string | null;
+        }[];
+      };
+      get_poll_results_summary: {
+        Args: {
+          p_daily_event_id: string;
+          p_audience?: 'friends' | 'everyone';
+        };
+        Returns: {
+          option_id: string;
+          challenge_id: string;
+          option_text: string;
+          option_position: number;
+          option_is_other: boolean;
+          option_created_at: string;
+          vote_count: number;
+          is_my_vote: boolean;
+          preview_voters: Array<{
+            vote_id: string;
+            user_id: string;
+            username: string;
+            display_name: string | null;
+            avatar_url: string | null;
+            equipped_border_key: string | null;
+          }>;
+        }[];
+      };
+      get_poll_option_voters_page: {
+        Args: {
+          p_daily_event_id: string;
+          p_option_id: string;
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Array<{
+          vote_id: string;
+          user_id: string;
+          custom_text: string | null;
+          created_at: string;
+          username: string;
+          display_name: string | null;
+          avatar_url: string | null;
+          equipped_border_key: string | null;
+          like_count: number;
+          my_like: boolean;
+        }>;
+      };
+      submit_poll_vote: {
+        Args: {
+          p_user_event_id: string;
+          p_option_id: string;
+          p_custom_text: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: PollVote;
+      };
+      complete_doji_with_post: {
+        Args: {
+          p_user_event_id: string;
+          p_post_type: string;
+          p_caption: string;
+          p_photo_url: string | null;
+          p_front_photo_url: string | null;
+          p_video_url: string | null;
+          p_visibility: 'friends' | 'public';
+          p_idempotency_key: string;
+        };
+        Returns: Post;
+      };
+      toggle_post_reaction: {
+        Args: { p_post_id: string; p_emoji: string; p_idempotency_key: string };
+        Returns: { post_id: string; emoji: string; active: boolean; count: number };
+      };
+      toggle_comment_like: {
+        Args: { p_comment_id: string; p_idempotency_key: string };
+        Returns: { comment_id: string; active: boolean; count: number };
+      };
+      toggle_poll_vote_like: {
+        Args: { p_poll_vote_id: string; p_idempotency_key: string };
+        Returns: { poll_vote_id: string; active: boolean; count: number };
+      };
+      request_friendship: {
+        Args: { p_addressee_id: string; p_idempotency_key: string };
+        Returns: Friendship;
+      };
+      respond_to_friendship: {
+        Args: { p_friendship_id: string; p_accept: boolean; p_idempotency_key: string };
+        Returns: Friendship | { id: string; status: 'declined' };
+      };
+      remove_friendship: {
+        Args: { p_friendship_id: string; p_idempotency_key: string };
+        Returns: { id: string; removed: boolean };
+      };
+      block_user: {
+        Args: { p_blocked_user_id: string; p_idempotency_key: string };
+        Returns: { id: string; blocked_user_id: string };
+      };
+      unblock_user: {
+        Args: { p_blocked_user_id: string; p_idempotency_key: string };
+        Returns: { blocked_user_id: string; blocked: false };
+      };
+      submit_content_report: {
+        Args: {
+          p_reported_user_id: string;
+          p_post_id: string | null;
+          p_comment_id: string | null;
+          p_poll_vote_id: string | null;
+          p_reason: ReportReason;
+          p_idempotency_key: string;
+        };
+        Returns: Report;
+      };
+      moderate_report: {
+        Args: { p_report_id: string; p_action: string; p_idempotency_key: string };
+        Returns: Report;
+      };
+      prepare_next_daily_event: {
+        Args: { p_proposed_fires_at: string; p_window_minutes: number };
+        Returns: {
+          daily_event_id: string;
+          challenge_id: string;
+          fires_at: string;
+          already_prepared: boolean;
+        };
+      };
+      submit_comment: {
+        Args: {
+          p_post_id: string;
+          p_body: string;
+          p_parent_id: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: Comment;
+      };
+      edit_comment: {
+        Args: { p_comment_id: string; p_body: string; p_idempotency_key: string };
+        Returns: Comment;
+      };
+      delete_comment: {
+        Args: { p_comment_id: string; p_idempotency_key: string };
+        Returns: { id: string; deleted: boolean };
+      };
+      set_post_comments_disabled: {
+        Args: { p_post_id: string; p_disabled: boolean; p_idempotency_key: string };
+        Returns: { id: string; comments_disabled: boolean };
+      };
+      sync_notification_center_state: {
+        Args: {
+          p_cleared_at: string | null;
+          p_last_opened_at: string | null;
+          p_dismissals: Record<string, string>;
+        };
+        Returns: NotificationCenterState;
+      };
+      mark_notification_center_opened: {
+        Args: { p_opened_at: string };
+        Returns: NotificationCenterState;
+      };
+      dismiss_notification: {
+        Args: { p_notification_key: string; p_dismissed_at: string };
+        Returns: { notification_key: string; dismissed_at: string };
+      };
+      clear_notification_history: {
+        Args: { p_cleared_at: string };
+        Returns: NotificationCenterState;
+      };
+      create_own_profile: {
+        Args: {
+          p_username: string;
+          p_display_name: string;
+          p_avatar_gradient: string[];
+          p_timezone: string;
+          p_app_theme: string;
+        };
+        Returns: Profile;
+      };
+      update_own_profile: {
+        Args: { p_patch: Partial<Profile>; p_idempotency_key: string };
+        Returns: Profile;
+      };
+      submit_challenge_suggestion: {
+        Args: {
+          p_kind: string;
+          p_body: string;
+          p_body_hash: string;
+          p_options: unknown;
+          p_idempotency_key: string;
+        };
+        Returns: ChallengeSuggestion;
+      };
+      review_challenge_suggestion: {
+        Args: {
+          p_suggestion_id: string;
+          p_status: 'approved' | 'rejected';
+          p_admin_note: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: ChallengeSuggestion & { challenge_id: string | null };
       };
     };
   };

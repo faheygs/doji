@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
+import { AppKeyboardAwareScrollView } from '../ui/AppKeyboardAwareScrollView';
 import { Typography, Spacing, Radius } from '../../constants/theme';
 import { IconChevronLeft, IconCheck, IconCamera } from '../icons/Icons';
 import type { Challenge } from '../../types/database';
@@ -23,7 +16,13 @@ type Props = {
   isCompleted: boolean;
 };
 
-export function TaskScreen({ challenge, onComplete, onTakeProofPhoto, onBack, isCompleted }: Props) {
+export function TaskScreen({
+  challenge,
+  onComplete,
+  onTakeProofPhoto,
+  onBack,
+  isCompleted,
+}: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
@@ -38,76 +37,80 @@ export function TaskScreen({ challenge, onComplete, onTakeProofPhoto, onBack, is
   };
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAwareScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.xl },
+      ]}
     >
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.xl }]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={16}>
-          <IconChevronLeft size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
+      <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={16}>
+        <IconChevronLeft size={24} color={colors.textSecondary} />
+      </TouchableOpacity>
 
-        <View style={styles.content}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primaryPale }]}>
-            <IconCheck size={36} color={colors.primary} />
-          </View>
-
-          <Text variant="title" style={{ textAlign: 'center' }}>
-            {challenge.title}
-          </Text>
-
-          {challenge.description ? (
-            <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center', marginTop: Spacing.sm }}>
-              {challenge.description}
-            </Text>
-          ) : null}
-
-          <View style={[styles.xpPill, { backgroundColor: colors.primaryPale }]}>
-            <Text variant="micro" color={colors.primary}>
-              +{challenge.xp_reward} XP
-            </Text>
-          </View>
-
-          {isCompleted ? (
-            <View style={[styles.doneCard, { backgroundColor: colors.successLight }]}>
-              <IconCheck size={22} color={colors.success} />
-              <Text variant="subhead" color={colors.success} style={{ marginLeft: 8 }}>Task Completed</Text>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity
-                onPress={handleComplete}
-                disabled={submitting}
-                style={[styles.ctaBtn, { backgroundColor: colors.primary }]}
-                activeOpacity={0.85}
-              >
-                {submitting ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <Text variant="subhead" color={colors.onPrimary}>I did it!</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={onTakeProofPhoto}
-                style={[styles.secondaryBtn, { borderColor: colors.border }]}
-                activeOpacity={0.8}
-              >
-                <IconCamera size={18} color={colors.textSecondary} />
-                <Text variant="body" color={colors.textSecondary} style={{ marginLeft: 8 }}>
-                  Take a proof photo (optional)
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+      <View style={styles.content}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.primaryPale }]}>
+          <IconCheck size={36} color={colors.primary} />
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <Text variant="title" style={{ textAlign: 'center' }}>
+          {challenge.title}
+        </Text>
+
+        {challenge.description ? (
+          <Text
+            variant="body"
+            color={colors.textSecondary}
+            style={{ textAlign: 'center', marginTop: Spacing.sm }}
+          >
+            {challenge.description}
+          </Text>
+        ) : null}
+
+        <View style={[styles.xpPill, { backgroundColor: colors.primaryPale }]}>
+          <Text variant="micro" color={colors.primary}>
+            +{challenge.xp_reward} XP
+          </Text>
+        </View>
+
+        {isCompleted ? (
+          <View style={[styles.doneCard, { backgroundColor: colors.successLight }]}>
+            <IconCheck size={22} color={colors.success} />
+            <Text variant="subhead" color={colors.success} style={{ marginLeft: 8 }}>
+              Task Completed
+            </Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={handleComplete}
+              disabled={submitting}
+              style={[styles.ctaBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.85}
+            >
+              {submitting ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text variant="subhead" color={colors.onPrimary}>
+                  I did it!
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={onTakeProofPhoto}
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              activeOpacity={0.8}
+            >
+              <IconCamera size={18} color={colors.textSecondary} />
+              <Text variant="body" color={colors.textSecondary} style={{ marginLeft: 8 }}>
+                Take a proof photo (optional)
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </AppKeyboardAwareScrollView>
   );
 }
 

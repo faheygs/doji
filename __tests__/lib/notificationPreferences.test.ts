@@ -2,6 +2,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   mergeNotificationPreferences,
   wantsCategoryEnabled,
+  wantsPushForKind,
 } from '../../lib/notificationPreferences';
 
 describe('mergeNotificationPreferences', () => {
@@ -25,6 +26,17 @@ describe('wantsCategoryEnabled', () => {
       wantsCategoryEnabled(
         { ...DEFAULT_NOTIFICATION_PREFERENCES, friend_accepted: false },
         'friend_accepted',
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('wantsPushForKind', () => {
+  it('honors the master switch before the category switch', () => {
+    expect(
+      wantsPushForKind(
+        { ...DEFAULT_NOTIFICATION_PREFERENCES, push_enabled: false, comment: true },
+        'comment',
       ),
     ).toBe(false);
   });

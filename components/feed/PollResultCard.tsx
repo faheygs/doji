@@ -8,6 +8,7 @@ import {
   Pressable,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -20,7 +21,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -28,18 +29,19 @@ import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { useDemoStore } from '../../stores/useDemoStore';
-import { DEMO_OPTIONS_BY_CHALLENGE, DEMO_TOTAL_VOTES_BY_CHALLENGE } from '../../constants/demoData';
 import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
-import { useMyPollVoteLikes, usePollVoteLikeCounts, useTogglePollVoteLike } from '../../hooks/usePollVoteLikes';
+import { useTogglePollVoteLike } from '../../hooks/usePollVoteLikes';
 import { ReportSheet } from './ReportSheet';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import type { FeedAudience } from '../../lib/feedAudience';
+import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
+import { createRequestSignal } from '../../lib/requestSignal';
+import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 
-type PollRow = PollOption & { liveCount: number };
+type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 
 type VoterRow = {
   user_id: string;
@@ -49,10 +51,31 @@ type VoterRow = {
   avatar_url: string | null;
   equipped_border_key: string | null;
   custom_text?: string | null;
+  like_count?: number;
+  my_like?: boolean;
+};
+
+type PollSnapshot = {
+  rows: PollRow[];
+  totalVotes: number;
+  myVoteOptionId: string | null;
+};
+
+type PollSummaryRow = {
+  option_id: string;
+  challenge_id: string;
+  option_text: string;
+  option_position: number;
+  option_is_other: boolean;
+  option_created_at: string;
+  vote_count: number;
+  is_my_vote: boolean;
+  preview_voters: VoterRow[];
 };
 
 type Props = {
   challenge: Challenge;
+  dailyEventId: string;
   variant?: 'full' | 'embedded';
   fetchEnabled?: boolean;
   feedAudience?: FeedAudience;
@@ -64,24 +87,27 @@ const SPRING = { damping: 28, stiffness: 320, mass: 0.88 };
 
 function PollResultCardImpl({
   challenge,
+  dailyEventId,
   variant = 'full',
   fetchEnabled = true,
   feedAudience = 'everyone',
 }: Props) {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
-  const [voterModal, setVoterModal] = useState<{ optionId: string; label: string; isOther: boolean } | null>(null);
+  const [voterModal, setVoterModal] = useState<{
+    optionId: string; label: string; isOther: boolean; count: number;
+  } | null>(null);
   const [reportVote, setReportVote] = useState<{ voteId: string; userId: string } | null>(null);
   const isFriendsScope = feedAudience === 'friends';
+  const modalOpen = voterModal !== null;
 
-  const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
+  const { data: friendIds = [] } = useQuery({
     queryKey: ['friendIds', userId],
-    queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: !isDemoMode && !!userId && fetchEnabled,
-    staleTime: 30_000,
+    queryFn: ({ signal }) => getFriendIdsIncludingSelf(userId!, signal),
+    enabled: !!userId && fetchEnabled && modalOpen,
+    staleTime: 5 * 60_000,
   });
 
   const { data: pendingRequests = [] } = useQuery({
@@ -95,140 +121,86 @@ function PollResultCardImpl({
         .eq('status', 'pending');
       return (data ?? []).map((r) => r.addressee_id as string);
     },
-    enabled: !isDemoMode && !!userId && fetchEnabled,
-    staleTime: 30_000,
+    enabled: !!userId && fetchEnabled && modalOpen,
+    staleTime: 5 * 60_000,
   });
 
   const sendRequest = useSendFriendRequest();
   const toggleVoteLike = useTogglePollVoteLike();
   const queryClient = useQueryClient();
 
-  const scopeUserIds = isFriendsScope ? friendIds : undefined;
-  const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
-  const scopeReady = !isFriendsScope || friendIdsReady;
-
-  const { data } = useQuery({
-    queryKey: ['pollResults', challenge.id, feedAudience, scopeKey],
-    queryFn: async (): Promise<{ rows: PollRow[]; totalVotes: number }> => {
-      const [{ data: options, error: optErr }, { data: votes, error: voteErr }] = await Promise.all([
-        supabase
-          .from('poll_options')
-          .select('*')
-          .eq('challenge_id', challenge.id)
-          .order('position', { ascending: true }),
-        scopeUserIds
-          ? supabase
-              .from('poll_votes')
-              .select('option_id')
-              .eq('challenge_id', challenge.id)
-              .in('user_id', scopeUserIds)
-          : supabase.from('poll_votes').select('option_id').eq('challenge_id', challenge.id),
-      ]);
-      if (optErr) throw optErr;
-      if (voteErr) throw voteErr;
-
-      const counts = new Map<string, number>();
-      for (const row of votes ?? []) {
-        const id = row.option_id as string;
-        counts.set(id, (counts.get(id) ?? 0) + 1);
-      }
-
-      const rows: PollRow[] = (options ?? []).map((o) => ({
-        ...(o as PollOption),
-        liveCount: counts.get(o.id) ?? 0,
-      }));
-      const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
-      return { rows, totalVotes };
-    },
-    enabled: !isDemoMode && fetchEnabled && scopeReady,
-    staleTime: 30_000,
-  });
-
-  const rows: PollRow[] = isDemoMode ? (DEMO_OPTIONS_BY_CHALLENGE[challenge.id] ?? []) : (data?.rows ?? []);
-  const totalVotes = isDemoMode ? (DEMO_TOTAL_VOTES_BY_CHALLENGE[challenge.id] ?? 0) : (data?.totalVotes ?? 0);
-
-  const demoVoteOptionId = useDemoStore((s) => s.demoVotesByChallenge[challenge.id] ?? null);
-
-  const { data: myVoteOptionId } = useQuery<string | null>({
-    queryKey: ['myPollVote', challenge.id, userId],
-    queryFn: async () => {
-      if (!userId) return null;
-      const { data, error } = await supabase
-        .from('poll_votes')
-        .select('option_id')
-        .eq('challenge_id', challenge.id)
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.option_id ?? null;
-    },
-    enabled: !isDemoMode && !!userId && fetchEnabled,
-  });
-
-  const effectiveMyVoteOptionId = isDemoMode ? demoVoteOptionId : (myVoteOptionId ?? null);
-
-  const demoPollVotersMap = useMemo(() => {
-    if (!isDemoMode) return null;
-    const opts = DEMO_OPTIONS_BY_CHALLENGE[challenge.id] ?? [];
-    const m = new Map<string, VoterRow[]>();
-    for (const opt of opts) {
-      m.set(opt.id, opt.voters);
-    }
-    return m;
-  }, [isDemoMode, challenge.id]);
-
-  const { data: votersByOption } = useQuery({
-    queryKey: ['pollVotersDetail', challenge.id, feedAudience, scopeKey],
-    queryFn: async () => {
-      let voteQuery = supabase
-        .from('poll_votes')
-        .select('id, option_id, user_id, custom_text')
-        .eq('challenge_id', challenge.id);
-      if (scopeUserIds) {
-        voteQuery = voteQuery.in('user_id', scopeUserIds);
-      }
-      const { data: voteRows, error } = await voteQuery;
-      if (error) throw error;
-      const userIds = [...new Set((voteRows ?? []).map((r) => r.user_id as string))];
-      let profileById = new Map<
-        string,
-        { username: string; display_name: string | null; avatar_url: string | null; equipped_border_key: string | null }
-      >();
-      if (userIds.length > 0) {
-        const { data: profs, error: pErr } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, equipped_border_key')
-          .in('id', userIds);
-        if (pErr) throw pErr;
-        for (const p of profs ?? []) {
-          profileById.set(p.id as string, {
-            username: p.username as string,
-            display_name: (p.display_name as string | null) ?? null,
-            avatar_url: (p.avatar_url as string | null) ?? null,
-            equipped_border_key: (p.equipped_border_key as string | null) ?? null,
-          });
+  const { data } = useQuery<PollSnapshot>({
+    queryKey: ['pollResults', dailyEventId, feedAudience],
+    queryFn: async ({ signal }): Promise<PollSnapshot> => {
+      const request = createRequestSignal(signal);
+      const { data: summaryRows, error } = await (async () => {
+        try {
+          return await supabase
+            .rpc('get_poll_results_summary', {
+              p_daily_event_id: dailyEventId,
+              p_audience: feedAudience,
+            })
+            .abortSignal(request.signal);
+        } finally {
+          request.cleanup();
         }
-      }
-      const m = new Map<string, VoterRow[]>();
-      for (const row of voteRows ?? []) {
-        const oid = row.option_id as string;
-        const uid = row.user_id as string;
-        const p = profileById.get(uid);
-        const list = m.get(oid) ?? [];
-        list.push({
-          vote_id: row.id as string,
-          user_id: uid,
-          username: p?.username ?? 'user',
-          display_name: p?.display_name ?? null,
-          avatar_url: p?.avatar_url ?? null,
-          equipped_border_key: p?.equipped_border_key ?? null,
-          custom_text: (row.custom_text as string | null) ?? null,
-        });
-        m.set(oid, list);
-      }
-      return m;
+      })();
+      if (error) throw error;
+      const snapshotRows = (summaryRows ?? []) as PollSummaryRow[];
+      let myVoteOptionId: string | null = null;
+      const options: PollRow[] = snapshotRows.map((row) => {
+        if (row.is_my_vote) myVoteOptionId = row.option_id;
+        return {
+          id: row.option_id,
+          challenge_id: row.challenge_id,
+          text: row.option_text,
+          position: row.option_position,
+          is_other: row.option_is_other,
+          created_at: row.option_created_at,
+          vote_count: row.vote_count,
+          liveCount: row.vote_count,
+          previewVoters: row.preview_voters ?? [],
+        };
+      });
+      const visibleOptions = isWouldYouRatherChallenge(challenge)
+        ? options.filter((option) => !option.is_other)
+        : options;
+      const rows = visibleOptions;
+      const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
+      return { rows, totalVotes, myVoteOptionId };
     },
-    enabled: !isDemoMode && fetchEnabled && scopeReady,
+    enabled: fetchEnabled,
+    staleTime: 60_000,
+    placeholderData: (previous) => previous,
+  });
+
+  const rows: PollRow[] = data?.rows ?? [];
+  const totalVotes = data?.totalVotes ?? 0;
+  const effectiveMyVoteOptionId = data?.myVoteOptionId ?? null;
+
+  const voterPages = useInfiniteQuery({
+    queryKey: ['pollVotersDetail', dailyEventId, voterModal?.optionId, feedAudience],
+    queryFn: async ({ pageParam = 0, signal }): Promise<VoterRow[]> => {
+      const request = createRequestSignal(signal);
+      try {
+        const { data: page, error } = await supabase
+          .rpc('get_poll_option_voters_page', {
+            p_daily_event_id: dailyEventId,
+            p_option_id: voterModal!.optionId,
+            p_audience: feedAudience,
+            p_limit: 40,
+            p_offset: pageParam,
+          })
+          .abortSignal(request.signal);
+        if (error) throw error;
+        return (page ?? []) as VoterRow[];
+      } finally {
+        request.cleanup();
+      }
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last, _pages, offset) => last.length === 40 ? offset + 40 : undefined,
+    enabled: modalOpen && Boolean(voterModal?.optionId),
     staleTime: 30_000,
   });
 
@@ -311,7 +283,11 @@ function PollResultCardImpl({
         },
         /** Scrims sit on absolute layer only — not the same View as justifyContent:flex-end sheet. */
         modalBackdropTap: {
-          ...StyleSheet.absoluteFillObject,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         modalSheet: {
@@ -363,15 +339,13 @@ function PollResultCardImpl({
   const sheetTranslateY = useSharedValue(sheetSlideRange);
   const panStartY = useSharedValue(0);
 
-  const modalOpen = Boolean(voterModal);
-
   const finalizeClose = useCallback(() => {
     Haptics.selectionAsync();
     setVoterModal(null);
   }, []);
 
-  const openVoters = useCallback((optionId: string, label: string, isOther: boolean) => {
-    setVoterModal({ optionId, label, isOther });
+  const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
+    setVoterModal({ optionId, label, isOther, count });
   }, []);
 
   useEffect(() => {
@@ -432,17 +406,8 @@ function PollResultCardImpl({
     [finalizeClose, panStartY, sheetSlideRange, sheetTranslateY],
   );
 
-  const effectiveVotersByOption = isDemoMode ? demoPollVotersMap : (votersByOption ?? null);
-  const modalVoters = voterModal ? (effectiveVotersByOption?.get(voterModal.optionId) ?? []) : [];
+  const modalVoters = voterPages.data?.pages.flat() ?? [];
   const modalIsOther = voterModal?.isOther ?? false;
-
-  const modalVoteIds = useMemo(
-    () => modalVoters.map((v) => v.vote_id).filter((id): id is string => Boolean(id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [voterModal?.optionId, votersByOption, isDemoMode],
-  );
-  const { data: myVoteLikes = new Set<string>() } = useMyPollVoteLikes(modalVoteIds);
-  const { data: voteLikeCounts = new Map<string, number>() } = usePollVoteLikeCounts(modalVoteIds);
 
   if (!fetchEnabled) {
     return (
@@ -472,16 +437,15 @@ function PollResultCardImpl({
         const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
         const isMyVote = effectiveMyVoteOptionId === opt.id;
         const barColor = isMyVote ? colors.primary : colors.textTertiary;
-        const voters = effectiveVotersByOption?.get(opt.id) ?? [];
-        const preview = voters.slice(0, 4);
-        const extra = Math.max(0, voters.length - 4);
+        const preview = opt.previewVoters;
+        const extra = Math.max(0, count - preview.length);
 
         return (
           <View key={opt.id}>
             <TouchableOpacity
               style={styles.optionRow}
               activeOpacity={0.85}
-              onPress={() => (count > 0 ? openVoters(opt.id, opt.text, Boolean(opt.is_other)) : undefined)}
+              onPress={() => (count > 0 ? openVoters(opt.id, opt.text, Boolean(opt.is_other), count) : undefined)}
               accessibilityRole="button"
               accessibilityLabel={`${opt.text}, ${pct} percent.${count > 0 ? ' Tap to see voters.' : ''}`}
             >
@@ -506,11 +470,11 @@ function PollResultCardImpl({
                 </Text>
                 {count > 0 ? (
                   <TouchableOpacity
-                    onPress={() => openVoters(opt.id, opt.text, Boolean(opt.is_other))}
+                    onPress={() => openVoters(opt.id, opt.text, Boolean(opt.is_other), count)}
                     hitSlop={8}
                     style={styles.avatarStack}
                     accessibilityRole="button"
-                    accessibilityLabel={`${voters.length} voters for ${opt.text}`}
+                    accessibilityLabel={`${count} voters for ${opt.text}`}
                   >
                     {preview.map((v, i) => (
                       <View
@@ -587,7 +551,7 @@ function PollResultCardImpl({
                       {voterModal?.label}
                     </Text>
                     <Text variant="micro" color={colors.textTertiary} style={{ marginTop: 4 }}>
-                      {modalVoters.length} {modalVoters.length === 1 ? 'vote' : 'votes'}
+                       {voterModal.count} {voterModal.count === 1 ? 'vote' : 'votes'}
                     </Text>
                   </View>
                 </View>
@@ -602,6 +566,15 @@ function PollResultCardImpl({
                 }}
                 initialNumToRender={20}
                 windowSize={10}
+                onEndReached={() => {
+                  if (voterPages.hasNextPage && !voterPages.isFetchingNextPage) {
+                    void voterPages.fetchNextPage();
+                  }
+                }}
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={
+                  voterPages.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null
+                }
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {
@@ -610,8 +583,8 @@ function PollResultCardImpl({
                   const isFriend = friendIds.includes(item.user_id);
                   const isPending = pendingRequests.includes(item.user_id);
                   const canAdd = !isMe && !isFriend;
-                  const isLiked = item.vote_id ? myVoteLikes.has(item.vote_id) : false;
-                  const likeCount = item.vote_id ? (voteLikeCounts.get(item.vote_id) ?? 0) : 0;
+                   const isLiked = item.my_like === true;
+                   const likeCount = item.like_count ?? 0;
                   return (
                     <View style={styles.voterRow}>
                       <Avatar
@@ -643,10 +616,9 @@ function PollResultCardImpl({
                           onPress={() => {
                             if (isPending) return;
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            sendRequest.mutate(item.user_id, {
+                            sendRequest.mutate({ addresseeId: item.user_id }, {
                               onSuccess: () => {
-                                void queryClient.invalidateQueries({ queryKey: ['pendingRequests', userId] });
-                                void queryClient.invalidateQueries({ queryKey: ['friendIds', userId] });
+                                scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
                               },
                             });
                           }}

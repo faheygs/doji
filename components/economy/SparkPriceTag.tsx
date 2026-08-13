@@ -32,9 +32,9 @@ export function SparkPriceTag({ price }: Props) {
 
   return (
     <View style={styles.tag}>
-      <IconSpark size={10} />
+      <IconSpark size={14} />
       <Text variant="micro" style={{ fontWeight: '700' }}>
-        {price}
+        {price.toLocaleString()}
       </Text>
     </View>
   );

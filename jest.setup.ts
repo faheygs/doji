@@ -1,5 +1,4 @@
 // Provide WebSocket for Supabase realtime in Node.js < 22 test environment
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const ws = require('ws');
 if (typeof global.WebSocket === 'undefined') {
   // @ts-ignore

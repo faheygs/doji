@@ -6,22 +6,22 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Text } from '../../../components/ui/Text';
-import { Avatar } from '../../../components/ui/Avatar';
+import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronRight, IconFriends, IconSearch } from '../../../components/icons/Icons';
-import { useFriends, useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
+import { useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
+import { useFriendsPaged, type FriendListRow } from '../../../hooks/useFriendsPaged';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
-import { getEquippedBorder } from '../../../lib/cosmetics';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
+import { useAppDialog } from '../../../contexts/DialogContext';
 
 type FriendRow = Profile & { friendship_id: string };
 
@@ -29,8 +29,12 @@ export default function FriendsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const meId = useAuthStore((s) => s.session?.user?.id);
-  const { data: friends = [], isLoading } = useFriends();
+  const friendsQuery = useFriendsPaged();
+  const friends = useMemo(() => friendsQuery.data?.pages.flat() ?? [],
+    [friendsQuery.data?.pages]) as FriendListRow[];
+  const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = friendsQuery;
   const { data: requests = [] } = useFriendRequests();
   const { data: friendCount = 0 } = useFriendCount(meId);
   const removeFriend = useRemoveFriend();
@@ -145,6 +149,11 @@ export default function FriendsScreen() {
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={
+            isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null
+          }
           renderItem={({ item }) => (
             <FriendCard
               profile={item}
@@ -156,18 +165,18 @@ export default function FriendsScreen() {
                 router.push(hrefWithReturnTo(`/(app)/member/${item.username}`, pathname));
               }}
               onRemove={() => {
-                Alert.alert(
-                  'Remove friend',
-                  `Remove ${item.display_name ?? item.username} from your friends?`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
+                showDialog({
+                  title: 'Unfriend?',
+                  message: `Remove ${item.display_name ?? item.username} from your friends?`,
+                  actions: [
+                    { label: 'Cancel', variant: 'cancel' },
                     {
-                      text: 'Remove',
-                      style: 'destructive',
-                      onPress: () => removeFriend.mutate(item.friendship_id),
+                      label: 'Unfriend',
+                      variant: 'destructive',
+                      onPress: () => removeFriend.mutate({ friendshipId: item.friendship_id }),
                     },
                   ],
-                );
+                });
               }}
             />
           )}
@@ -214,18 +223,7 @@ function FriendCard({
         activeOpacity={0.8}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
       >
-        {(() => {
-          const border = getEquippedBorder(profile);
-          return (
-            <Avatar
-              uri={profile.avatar_url}
-              username={profile.username}
-              size={48}
-              borderColor={border?.color}
-              borderWidth={border?.width}
-            />
-          );
-        })()}
+        <ProfileAvatar profile={profile} size={48} />
         <View style={infoStyle}>
           <Text variant="headingMedium">{profile.display_name}</Text>
           <Text variant="bodySmall" color={colors.textSecondary}>

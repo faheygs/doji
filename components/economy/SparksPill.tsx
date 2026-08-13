@@ -41,7 +41,11 @@ export function SparksPill({ amount, onPress, style, compact, trackGain = false 
           overflow: 'hidden',
         },
         highlight: {
-          ...StyleSheet.absoluteFillObject,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           backgroundColor: colors.accent,
         },
         amount: {

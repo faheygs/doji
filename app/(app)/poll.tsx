@@ -5,14 +5,9 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  Keyboard,
 } from 'react-native';
+import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
@@ -20,28 +15,34 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { IconClose } from '../../components/icons/Icons';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { AppTextInput } from '../../components/ui/AppTextInput';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { usePollVote } from '../../hooks/usePollVote';
-import { supabase } from '../../lib/supabase';
-import { useDemoStore } from '../../stores/useDemoStore';
-import { DEMO_OPTIONS_BY_CHALLENGE } from '../../constants/demoData';
 import type { PollOption } from '../../types/database';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
-import { canSubmitChallenge } from '../../lib/participationGate';
-import { isExpired } from '../../utils/time';
 import { maxLength, required } from '../../lib/formValidation';
+import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
+import { occurrenceCommandId } from '../../lib/idempotency';
+import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 
 export default function PollScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: userEvent, isLoading: eventLoading, isError: eventError, refetch: refetchEvent } = useUserEvent();
+  const {
+    data: userEvent,
+    isLoading: eventLoading,
+    isError: eventError,
+    refetch: refetchEvent,
+  } = useUserEvent();
   const pollVote = usePollVote();
   const [selected, setSelected] = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
-    if (useDemoStore.getState().isDemoMode) return;
     if (eventLoading) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
@@ -50,33 +51,18 @@ export default function PollScreen() {
     }
   }, [eventLoading, userEvent, router]);
 
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const challenge = userEvent?.challenge;
   const challengeId = challenge?.id;
 
-  const {
-    data: options = [],
-    isLoading: optionsLoading,
-    isError: optionsError,
-    refetch: refetchOptions,
-  } = useQuery<PollOption[]>({
-    queryKey: isDemoMode ? ['pollOptions', challengeId, 'demo'] : ['pollOptions', challengeId],
-    queryFn: async () => {
-      if (isDemoMode) return (DEMO_OPTIONS_BY_CHALLENGE[challengeId ?? ''] ?? []) as PollOption[];
-      if (!challengeId) return [];
-      const { data, error } = await supabase
-        .from('poll_options')
-        .select('*')
-        .eq('challenge_id', challengeId)
-        .order('position', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!challengeId,
-    staleTime: isDemoMode ? Infinity : undefined,
-  });
+  const options = (challenge?.poll_options ?? []) as PollOption[];
+  const optionsError = !eventLoading && challenge?.type === 'poll' && options.length < 2;
 
-  const selectedOption = options.find((o) => o.id === selected);
+  const isWouldYouRather = isWouldYouRatherChallenge(challenge);
+  const visibleOptions = useMemo(
+    () => (isWouldYouRather ? options.filter((option) => !option.is_other) : options),
+    [isWouldYouRather, options],
+  );
+  const selectedOption = visibleOptions.find((o) => o.id === selected);
   const isOtherSelected = Boolean(selectedOption?.is_other);
 
   useEffect(() => {
@@ -87,29 +73,15 @@ export default function PollScreen() {
     return () => clearTimeout(t);
   }, [isOtherSelected]);
 
-  useEffect(() => {
-    if (!isOtherSelected) return;
-    const sub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
-        scrollRef.current?.scrollToEnd({ animated: true });
-      },
-    );
-    return () => sub.remove();
-  }, [isOtherSelected]);
-
   const handleVote = useCallback(async () => {
+    if (submitLockRef.current) return;
     if (!selected || !challengeId || !userEvent) return;
     if (isOtherSelected && !otherText.trim()) {
       Toast.show({ type: 'error', text1: 'Enter your answer', text2: 'Type something for Other.' });
       return;
     }
-    if (!canSubmitChallenge(userEvent) || isExpired(userEvent.expires_at)) {
-      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
-      navigateToFeedAfterChallengeComplete(router);
-      return;
-    }
-    const optionIndex = options.findIndex((o) => o.id === selected);
+    const optionIndex = visibleOptions.findIndex((o) => o.id === selected);
+    submitLockRef.current = true;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -120,6 +92,7 @@ export default function PollScreen() {
         optionIndex,
         userEventId: userEvent.id,
         customText: isOtherSelected ? otherText.trim() : null,
+        commandId: occurrenceCommandId('poll-vote', userEvent.id),
       },
       {
         onSuccess: () => {
@@ -127,11 +100,15 @@ export default function PollScreen() {
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
-          Toast.show({ type: 'error', text1: err.message ?? 'Failed to vote' });
+          const copy = dojiSubmissionErrorCopy(err);
+          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
+        },
+        onSettled: () => {
+          submitLockRef.current = false;
         },
       },
     );
-  }, [selected, challengeId, userEvent, options, pollVote, router, isOtherSelected, otherText]);
+  }, [selected, challengeId, userEvent, visibleOptions, pollVote, router, isOtherSelected, otherText]);
 
   const otherValidation = useMemo(() => {
     if (!isOtherSelected) return null;
@@ -141,9 +118,7 @@ export default function PollScreen() {
   }, [isOtherSelected, otherText]);
 
   const canSubmit =
-    Boolean(selected) &&
-    (!isOtherSelected || (otherValidation?.ok === true)) &&
-    !pollVote.isPending;
+    Boolean(selected) && (!isOtherSelected || otherValidation?.ok === true) && !pollVote.isPending;
 
   const styles = useMemo(
     () =>
@@ -151,7 +126,8 @@ export default function PollScreen() {
         container: { flex: 1, backgroundColor: colors.background },
         header: {
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.sm,
         },
@@ -188,7 +164,8 @@ export default function PollScreen() {
           flex: 1,
         },
         footer: {
-          padding: Spacing.lg,
+          width: '100%',
+          paddingVertical: Spacing.lg,
         },
         voteButton: {
           width: '100%',
@@ -201,7 +178,7 @@ export default function PollScreen() {
     [colors],
   );
 
-  if (eventLoading || optionsLoading) {
+  if (eventLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -215,14 +192,24 @@ export default function PollScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <ChallengeTimer
+            expiresAt={userEvent?.expires_at}
+            onExpire={() => void refetchEvent()}
+          />
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={{ padding: Spacing.sm }}
+          >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <ErrorState
           title="Couldn't load poll"
           message="Check your connection and try again."
-          onRetry={() => { void refetchOptions(); void refetchEvent(); }}
+          onRetry={() => {
+            void refetchEvent();
+          }}
         />
       </SafeAreaView>
     );
@@ -230,23 +217,25 @@ export default function PollScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
+      <View style={styles.keyboardRoot}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <ChallengeTimer
+            expiresAt={userEvent?.expires_at}
+            onExpire={() => void refetchEvent()}
+          />
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={{ padding: Spacing.sm }}
+          >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <AppKeyboardAwareScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <Text variant="displayMedium" style={styles.title}>
@@ -260,7 +249,7 @@ export default function PollScreen() {
           ) : null}
 
           <View style={styles.optionsList}>
-            {options.map((opt) => {
+            {visibleOptions.map((opt) => {
               const isSelected = selected === opt.id;
               return (
                 <TouchableOpacity
@@ -291,14 +280,16 @@ export default function PollScreen() {
             })}
             {isOtherSelected ? (
               <View style={{ width: '100%' }}>
-                <TextInput
+                <AppTextInput
                   value={otherText}
                   onChangeText={setOtherText}
                   placeholder="Type your answer…"
                   placeholderTextColor={colors.textTertiary}
                   style={[
                     styles.otherInput,
-                    otherValidation && !otherValidation.ok ? { borderColor: colors.error, borderWidth: 1 } : null,
+                    otherValidation && !otherValidation.ok
+                      ? { borderColor: colors.error, borderWidth: 1 }
+                      : null,
                   ]}
                   maxLength={100}
                   autoFocus
@@ -307,9 +298,7 @@ export default function PollScreen() {
                 <Text
                   variant="bodySmall"
                   color={
-                    otherValidation && !otherValidation.ok
-                      ? colors.error
-                      : colors.textTertiary
+                    otherValidation && !otherValidation.ok ? colors.error : colors.textTertiary
                   }
                   style={{ marginTop: Spacing.xs, textAlign: 'center' }}
                 >
@@ -320,30 +309,29 @@ export default function PollScreen() {
               </View>
             ) : null}
           </View>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={handleVote}
-            disabled={!canSubmit}
-            activeOpacity={0.85}
-            style={[
-              styles.voteButton,
-              {
-                backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
-              },
-            ]}
-          >
-            {pollVote.isPending ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
-                {selected ? 'Submit Vote' : 'Pick an option'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              onPress={handleVote}
+              disabled={!canSubmit}
+              activeOpacity={0.85}
+              style={[
+                styles.voteButton,
+                {
+                  backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+                },
+              ]}
+            >
+              {pollVote.isPending ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
+                  {selected ? 'Submit Vote' : 'Pick an option'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

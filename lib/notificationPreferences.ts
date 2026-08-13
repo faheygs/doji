@@ -43,7 +43,7 @@ export function mergeNotificationPreferences(
   };
 }
 
-/** Category toggles only (OS permission is checked in the client before scheduling). */
+/** Category setting only; useful for rendering individual preference controls. */
 export function wantsCategoryEnabled(
   prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
   kind: NotificationPreferenceKind,
@@ -52,10 +52,11 @@ export function wantsCategoryEnabled(
   return p[kind] !== false;
 }
 
-/** @deprecated Use wantsCategoryEnabled; push_enabled is no longer used for gating. */
+/** Whether push delivery is enabled by both the master and category settings. */
 export function wantsPushForKind(
   prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
   kind: NotificationPreferenceKind,
 ): boolean {
-  return wantsCategoryEnabled(prefs, kind);
+  const p = mergeNotificationPreferences(prefs);
+  return p.push_enabled && p[kind] !== false;
 }

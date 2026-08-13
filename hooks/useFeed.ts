@@ -1,116 +1,53 @@
 import {
   type InfiniteData,
+  type QueryClient,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { todayFiresAtWindow, isChallengeLive } from '../lib/challengeDay';
-import { parseDate } from '../utils/time';
-import { fetchCommunityPollPostsForFeed } from '../lib/feedCommunityPoll';
-import { filterPostsForAudience, type FeedAudience } from '../lib/feedAudience';
-import { getFriendIdsIncludingSelf } from '../lib/friendGraph';
-import { attachReactionFields } from '../lib/postReactions';
+import { type FeedAudience } from '../lib/feedAudience';
+import { fetchFeedPostsPage, nextFeedPage, type FeedPageParam } from '../lib/feedQueries';
 import { useAuthStore } from '../stores/useAuthStore';
-import { useDemoStore } from '../stores/useDemoStore';
-import { DEMO_REACTIONS_BY_POST } from '../constants/demoData';
-import type { Post, Reaction, ReactionEmoji, Profile } from '../types/database';
-
+import { newCommandId } from '../lib/idempotency';
+import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import type { Post, Reaction, ReactionEmoji } from '../types/database';
 export type { FeedAudience };
-
-const PAGE_SIZE = 20;
-
-/** Today: only daily_events in the current calendar day that have already fired. */
-async function liveDailyEventIdsForToday(): Promise<string[]> {
-  const { start, end } = todayFiresAtWindow();
-  const { data, error } = await supabase
-    .from('daily_events')
-    .select('id, fires_at')
-    .gte('fires_at', start)
-    .lt('fires_at', end);
-
-  if (error) throw error;
-  return (data ?? [])
-    .filter((e: { fires_at: string }) => isChallengeLive(e.fires_at))
-    .map((e: { id: string }) => e.id);
-}
-
-type FetchContext = {
+type FeedQueryArgs = {
   userId: string;
-  dailyEventIds: string[];
+  dailyEventId: string;
   audience: FeedAudience;
-  friendIds?: string[];
+  unlocked: boolean;
 };
 
-async function fetchFeedPostsPage(
-  ctx: FetchContext,
-  offset: number,
-): Promise<Post[]> {
-  const { userId, dailyEventIds, audience, friendIds } = ctx;
-  if (dailyEventIds.length === 0) return [];
+type FeedKey = [
+  'feed',
+  string | undefined,
+  FeedAudience,
+  string | undefined,
+  'full' | 'locked',
+];
 
-  const communityMapped =
-    offset === 0
-      ? await fetchCommunityPollPostsForFeed(dailyEventIds, audience, friendIds)
-      : [];
+const feedKey = ({
+  userId,
+  dailyEventId,
+  audience,
+  unlocked,
+}: Omit<FeedQueryArgs, 'userId' | 'dailyEventId'> & {
+  userId?: string;
+  dailyEventId?: string;
+}): FeedKey => ['feed', dailyEventId, audience, userId, unlocked ? 'full' : 'locked'];
 
-  let userEventIds: string[] | undefined;
-  if (audience === 'friends' && friendIds) {
-    const { data: userEvents, error: userEventsErr } = await supabase
-      .from('user_events')
-      .select('id')
-      .in('daily_event_id', dailyEventIds)
-      .in('user_id', friendIds);
-
-    if (userEventsErr) throw userEventsErr;
-    userEventIds = (userEvents ?? []).map((row: { id: string }) => row.id);
-
-    if (userEventIds.length === 0) {
-      return attachReactionFields(communityMapped, userId, friendIds);
-    }
-  }
-
-  let query = supabase
-    .from('posts')
-    .select(
-      `*, profile:profiles(*), user_event:user_events!inner(*, daily_event:daily_events(*, challenge:challenges(*)))`,
-    )
-    .eq('is_community_poll', false)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
-
-  if (userEventIds) {
-    query = query.in('user_event_id', userEventIds);
-  } else {
-    query = query.in('user_event.daily_event_id', dailyEventIds);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-
-  const userMapped = (data ?? []).map((p: Record<string, unknown>) => ({
-    ...p,
-    challenge:
-      (p.user_event as { daily_event?: { challenge?: unknown } } | undefined)?.daily_event
-        ?.challenge ?? null,
-  })) as Post[];
-
-  const merged =
-    offset === 0
-      ? [...communityMapped, ...userMapped].sort(
-          (a, b) => parseDate(b.created_at).getTime() - parseDate(a.created_at).getTime(),
-        )
-      : userMapped;
-
-  const filtered =
-    audience === 'friends' && friendIds
-      ? filterPostsForAudience(merged, audience, friendIds)
-      : merged;
-
-  const reactionScope = audience === 'friends' ? friendIds : undefined;
-
-  return attachReactionFields(filtered, userId, reactionScope);
+/** Warms the adjacent audience after the visible feed settles. */
+export function prefetchFeedAudience(client: QueryClient, args: FeedQueryArgs) {
+  return client.prefetchInfiniteQuery({
+    queryKey: feedKey(args),
+    queryFn: ({ pageParam, signal }) =>
+      fetchFeedPostsPage(args, pageParam ?? { offset: 0 }, signal),
+    getNextPageParam: nextFeedPage,
+    initialPageParam: { offset: 0 },
+    staleTime: 60_000,
+  });
 }
 
 /**
@@ -118,73 +55,49 @@ async function fetchFeedPostsPage(
  * Friends: posts from mutual friends (+ self), poll results scoped to that network.
  * Everyone: all eligible posts from today's completers and full poll results.
  */
-export function useFeed(audience: FeedAudience = 'friends') {
+export function useFeed(
+  audience: FeedAudience = 'friends',
+  unlocked: boolean | undefined = undefined,
+  dailyEventId: string | undefined = undefined,
+) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
-  const demoFeedVersion = useDemoStore((s) => s.demoFeedVersion);
 
   return useInfiniteQuery<
     Post[],
     Error,
-    InfiniteData<Post[], number>,
-    ['feed', FeedAudience, string | undefined],
-    number
+    InfiniteData<Post[], FeedPageParam>,
+    FeedKey,
+    FeedPageParam
   >({
-    queryKey: isDemoMode
-      ? (['feed', 'friends', `demo-v${demoFeedVersion}`] as unknown as ['feed', FeedAudience, string | undefined])
-      : ['feed', audience, userId],
-    queryFn: async ({ pageParam }): Promise<Post[]> => {
-      if (isDemoMode) return useDemoStore.getState().demoFeedPosts;
-      if (!userId) return [];
-
-      const [dailyEventIds, friendIds] = await Promise.all([
-        liveDailyEventIdsForToday(),
-        audience === 'friends' ? getFriendIdsIncludingSelf(userId) : Promise.resolve(undefined),
-      ]);
-      const offset = pageParam ?? 0;
-      return fetchFeedPostsPage({ userId, dailyEventIds, audience, friendIds }, offset);
+    queryKey: feedKey({
+      userId,
+      dailyEventId,
+      audience,
+      unlocked: unlocked === true,
+    }),
+    queryFn: async ({ pageParam, signal }): Promise<Post[]> => {
+      if (!userId || !dailyEventId) return [];
+      return fetchFeedPostsPage(
+        { userId, dailyEventId, audience, unlocked: unlocked === true },
+        pageParam ?? { offset: 0 },
+        signal,
+      );
     },
-    getNextPageParam: isDemoMode ? () => undefined : (lastPage, _allPages, lastPageParam) => {
-      const offset = lastPageParam ?? 0;
-      const userPostsOnPage = lastPage.filter((p) => !p.is_community_poll).length;
-      if (userPostsOnPage < PAGE_SIZE) return undefined;
-      return offset + PAGE_SIZE;
-    },
-    initialPageParam: 0,
-    enabled: isDemoMode || !!userId,
-    staleTime: isDemoMode ? Infinity : 60_000,
+    getNextPageParam: nextFeedPage,
+    initialPageParam: { offset: 0 },
+    enabled: !!userId && !!dailyEventId && unlocked !== undefined,
+    staleTime: 60_000,
   });
 }
 
 export function usePostReactions(postId: string, scopeUserIds?: string[]) {
   const session = useAuthStore((s) => s.session);
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
 
   return useInfiniteQuery({
-    queryKey: ['reactions', postId, isDemoMode ? 'demo' : scopeKey],
+    queryKey: ['reactions', postId, scopeKey],
     queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
-      if (isDemoMode) {
-        const store = useDemoStore.getState();
-        const staticReactions = DEMO_REACTIONS_BY_POST[postId] ?? [];
-        const myEmoji = store.demoMyReactionByPost[postId];
-        if (myEmoji) {
-          const uid = useAuthStore.getState().session?.user?.id;
-          const profile = useAuthStore.getState().profile as Profile;
-          const myReaction: Reaction = {
-            id: `demo-my-reaction-${postId}`,
-            post_id: postId,
-            user_id: uid ?? 'demo-me',
-            emoji: myEmoji,
-            created_at: new Date().toISOString(),
-            profile,
-          };
-          return [myReaction, ...staticReactions];
-        }
-        return staticReactions;
-      }
-
       let query = supabase
         .from('reactions')
         .select('*, profile:profiles(username, avatar_url, equipped_border_key)')
@@ -202,10 +115,9 @@ export function usePostReactions(postId: string, scopeUserIds?: string[]) {
       return data as Reaction[];
     },
     getNextPageParam: (lastPage, allPages) =>
-      isDemoMode ? undefined : (lastPage.length === 50 ? allPages.length : undefined),
+      lastPage.length === 50 ? allPages.length : undefined,
     initialPageParam: 0,
-    enabled: isDemoMode || (!!session?.user?.id && !!postId),
-    staleTime: isDemoMode ? Infinity : undefined,
+    enabled: !!session?.user?.id && !!postId,
   });
 }
 
@@ -213,6 +125,7 @@ type ToggleReactionVars = {
   postId: string;
   emoji: ReactionEmoji;
   active: boolean;
+  commandId?: string;
 };
 
 function patchReactionToggle(
@@ -268,29 +181,18 @@ export function useToggleReaction() {
   const session = useAuthStore((s) => s.session);
 
   return useMutation({
-    mutationFn: async ({ postId, emoji, active }: ToggleReactionVars) => {
+    mutationFn: async (variables: ToggleReactionVars) => {
+      const { postId, emoji } = variables;
       const uid = session?.user?.id;
       if (!uid) throw new Error('Not authenticated');
-      // In demo mode: skip DB — the optimistic update in onMutate is the full effect
-      if (useDemoStore.getState().isDemoMode) return;
-
-      if (active) {
-        const { error } = await supabase
-          .from('reactions')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', uid);
-        if (error) throw error;
-      } else {
-        const { error: delError } = await supabase.from('reactions').delete().eq('post_id', postId).eq('user_id', uid);
-        if (delError) throw delError;
-        const { error } = await supabase.from('reactions').insert({
-          post_id: postId,
-          user_id: uid,
-          emoji,
-        });
-        if (error) throw error;
-      }
+      variables.commandId ??= newCommandId('reaction');
+      const { data, error } = await supabase.rpc('toggle_post_reaction', {
+        p_post_id: postId,
+        p_emoji: emoji,
+        p_idempotency_key: variables.commandId,
+      });
+      if (error) throw error;
+      return data;
     },
     onMutate: async (vars) => {
       const uid = session?.user?.id;
@@ -307,33 +209,6 @@ export function useToggleReaction() {
         (old) => mapInfinitePosts(old, vars.postId, (p) => patchReactionToggle(p, vars.emoji, vars.active)),
       );
 
-      if (useDemoStore.getState().isDemoMode) {
-        const profile = useAuthStore.getState().profile as Profile;
-        // Update store so queryFn rebuilds correctly if cache is GC'd
-        useDemoStore.getState().setDemoMyReaction(vars.postId, vars.active ? null : vars.emoji);
-        // Patch the reactions viewer cache directly for immediate update
-        queryClient.setQueryData<InfiniteData<Reaction[]>>(
-          ['reactions', vars.postId, 'demo'],
-          (old) => {
-            const basePage = DEMO_REACTIONS_BY_POST[vars.postId] ?? [];
-            const pages = old ? old.pages.map((p) => p.filter((r) => r.user_id !== uid)) : [basePage];
-            const pageParams = old?.pageParams ?? [0];
-            if (!vars.active) {
-              const newReaction: Reaction = {
-                id: `demo-my-reaction-${vars.postId}`,
-                post_id: vars.postId,
-                user_id: uid,
-                emoji: vars.emoji,
-                created_at: new Date().toISOString(),
-                profile,
-              };
-              return { pages: [[newReaction, ...(pages[0] ?? [])], ...pages.slice(1)], pageParams };
-            }
-            return { pages, pageParams };
-          },
-        );
-      }
-
       return { previousFeedQueries, uid };
     },
     onError: (_err, _vars, ctx) => {
@@ -342,17 +217,20 @@ export function useToggleReaction() {
         queryClient.setQueryData(queryKey, data);
       }
     },
-    onSettled: (_data, error, vars) => {
-      // In demo mode: the optimistic update is permanent — don't invalidate or it reverts
-      if (useDemoStore.getState().isDemoMode) return;
-      const uid = session?.user?.id;
-      if (uid) {
-        void queryClient.invalidateQueries({ queryKey: ['reactionsGiven', uid] });
-      }
+    onSuccess: (result, vars) => {
+      if (!result) return;
+      queryClient.setQueriesData<InfiniteData<Post[]>>(
+        { predicate: (q) => q.queryKey[0] === 'feed' },
+        (old) => mapInfinitePosts(old, vars.postId, (post) => ({
+          ...post,
+          reaction_count: result.count,
+          my_reactions: result.active ? [vars.emoji] : [],
+        })),
+      );
+    },
+    onSettled: (_data, _error, vars) => {
       if (vars?.postId) {
-        void queryClient.invalidateQueries({ queryKey: ['reactions', vars.postId] });
-        void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'feed' });
-        void queryClient.invalidateQueries({ queryKey: ['post', vars.postId] });
+        scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions', 'feed', 'post']);
       }
     },
   });

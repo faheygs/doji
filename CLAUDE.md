@@ -1,6 +1,11 @@
 # Doji — Codebase Reference for LLMs
 
-## What This App Is
+> **Deprecated:** Read `DOJI_CONTEXT.md` and
+> `docs/REALTIME_ARCHITECTURE.md` instead. They supersede the implementation
+> details below. The remainder of this file is legacy history and must not be used
+> for architecture or product decisions.
+
+## Legacy: What This App Was
 
 **Doji** is a daily-challenge mobile app (React Native / Expo). Once a day a challenge drops — photo, poll, task, or format (text). Users complete it within a time window to keep their streak alive. Miss the window and you can buy back in with Sparks. Feed access is gated on completing the challenge.
 
@@ -12,7 +17,7 @@
 
 | Layer | Technology |
 |---|---|
-| Framework | Expo ~54 / React Native 0.81.5 / React 19 |
+| Framework | Expo ~56 / React Native 0.85.3 / React 19.2 |
 | Routing | Expo Router (file-based) |
 | State | Zustand (`useAuthStore`) + TanStack Query v5 |
 | Database | Supabase (Postgres + Realtime + Edge Functions) |

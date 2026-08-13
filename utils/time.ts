@@ -1,4 +1,5 @@
-import { formatDistanceToNow, format, differenceInSeconds, isPast } from 'date-fns';
+import { formatDistanceToNow, format, differenceInSeconds } from 'date-fns';
+import { serverNowMs } from '../lib/serverClock';
 
 /**
  * Parse a Supabase/PostgreSQL timestamp string reliably across all JS engines.
@@ -24,14 +25,14 @@ export function parseDate(dateString: string): Date {
 
 export function getTimeRemaining(expiresAt: string): number {
   const expiry = parseDate(expiresAt);
-  const now = new Date();
+  const now = new Date(serverNowMs());
   const diff = differenceInSeconds(expiry, now);
   return Math.max(0, diff);
 }
 
 /** Positive = fires_at is in the future. Negative = fires_at has already passed. */
 export function secondsUntilFiresAt(fires_at: string): number {
-  return Math.floor((parseDate(fires_at).getTime() - Date.now()) / 1000);
+  return Math.floor((parseDate(fires_at).getTime() - serverNowMs()) / 1000);
 }
 
 const BANNER_MAX_SECONDS = 10 * 60;
@@ -44,7 +45,7 @@ export function getBannerChallengeSecondsRemaining(
   const rawMins = dailyEvent.window_minutes;
   const minutes = Math.min(rawMins > 0 ? rawMins : 10, 10);
   const windowEndMs = parseDate(dailyEvent.fires_at).getTime() + minutes * 60 * 1000;
-  const rawSec = Math.floor((windowEndMs - Date.now()) / 1000);
+  const rawSec = Math.floor((windowEndMs - serverNowMs()) / 1000);
   return Math.max(0, Math.min(rawSec, BANNER_MAX_SECONDS));
 }
 
@@ -87,7 +88,7 @@ export function formatCompactRelativeTime(dateString: string): string {
 }
 
 export function isExpired(expiresAt: string): boolean {
-  return isPast(parseDate(expiresAt));
+  return parseDate(expiresAt).getTime() <= serverNowMs();
 }
 
 export function formatChallengeDate(dateString: string): string {

@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { useRouter, usePathname } from 'expo-router';
 import { Spacing, Radius, Shadows } from '../../constants/theme';
@@ -22,6 +21,7 @@ import { formatRelativeTime } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import type { FeedAudience } from '../../lib/feedAudience';
+import { AppVideo } from '../ui/AppVideo';
 
 type Props = {
   post: Post;
@@ -78,11 +78,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   const { colors } = useTheme();
   const meId = useAuthStore((s) => s.session?.user?.id);
   const isOwnPost = meId != null && post.user_id === meId;
-  const equippedBorder = useMemo(
-    () => getEquippedBorder(post.profile),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [post.profile?.equipped_border_key],
-  );
+  const equippedBorder = getEquippedBorder(post.profile);
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
@@ -228,7 +224,6 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
     () => ({ uri: showFront ? post.photo_url ?? '' : post.front_photo_url ?? '' }),
     [showFront, post.photo_url, post.front_photo_url],
   );
-  const videoSource = useMemo(() => ({ uri: post.video_url ?? '' }), [post.video_url]);
 
   const hasPhotoLayer = Boolean(displayUri);
   const isQuestionPost =
@@ -266,6 +261,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
               <ChallengeTypeGlyph
                 type={c.type}
                 title={c.title}
+                pollKind={c.poll_kind}
                 size={22}
                 color={colors.primary}
               />
@@ -287,6 +283,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
             <View style={styles.pollBodyWrap}>
               <PollResultCard
                 challenge={c}
+                dailyEventId={post.daily_event_id!}
                 variant="embedded"
                 fetchEnabled
                 feedAudience={feedAudience}
@@ -409,12 +406,12 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
               ) : null}
 
               {hasVideo ? (
-                <Video
-                  source={videoSource}
+                <AppVideo
+                  uri={post.video_url!}
                   style={styles.videoMedia}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay={false}
+                  nativeControls
+                  contentFit="contain"
+                  cache
                 />
               ) : null}
 

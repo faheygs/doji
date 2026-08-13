@@ -8,6 +8,7 @@ export async function attachReactionFields<T extends { id: string }>(
   rows: T[],
   userId: string | undefined,
   scopeUserIds?: string[],
+  signal?: AbortSignal,
 ): Promise<
   (T & { my_reactions: ReactionEmoji[]; reaction_breakdown: ReactionBreakdown })[]
 > {
@@ -17,10 +18,12 @@ export async function attachReactionFields<T extends { id: string }>(
   const scope =
     scopeUserIds && scopeUserIds.length > 0 ? new Set(scopeUserIds) : null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('reactions')
     .select('post_id, emoji, user_id')
     .in('post_id', ids);
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
 
   if (error) throw error;
 

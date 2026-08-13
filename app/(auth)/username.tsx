@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Platform,
+  TouchableOpacity,
   View,
   StyleSheet,
   SafeAreaView,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -17,17 +17,29 @@ import { Spacing, DEFAULT_APP_THEME } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { Button } from '../../components/ui/Button';
-import { IconProfile } from '../../components/icons/Icons';
 import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
+import { Avatar } from '../../components/ui/Avatar';
+import { IconCamera } from '../../components/icons/Icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadAvatar } from '../../utils/upload';
+import { filterContent } from '../../lib/contentFilter';
+import { useAppDialog } from '../../contexts/DialogContext';
+import { showProfilePhotoDialog } from '../../lib/profilePhotoDialog';
+
+const BIO_MAX = 150;
 
 export default function UsernameScreen() {
   const router = useRouter();
   const { session, fetchProfile } = useAuthStore();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { showDialog } = useAppDialog();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const {
@@ -57,6 +69,21 @@ export default function UsernameScreen() {
           gap: Spacing.md,
           marginTop: Spacing.md,
         },
+        avatarWrap: { alignSelf: 'center', alignItems: 'center', gap: Spacing.xs },
+        avatarTouchable: { position: 'relative' },
+        editFab: {
+          position: 'absolute',
+          right: -4,
+          bottom: -4,
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 2,
+          borderColor: colors.background,
+        },
         footer: {
           marginTop: 'auto' as any,
           paddingTop: Spacing.xl,
@@ -67,44 +94,24 @@ export default function UsernameScreen() {
 
   const handleCreate = async () => {
     if (!usernameOk || usernameAvailabilityStatus === 'checking') return;
-    if (!displayName.trim()) {
-      Toast.show({ type: 'error', text1: 'Enter your display name' });
-      return;
-    }
-
     const userId = session?.user?.id;
     if (!userId) return;
 
     const handle = normalizeUsernameInput(username);
+    const optionalText = [displayName, bio].map(filterContent).find((result) => !result.ok);
+    if (optionalText && !optionalText.ok) {
+      Toast.show({ type: 'error', text1: optionalText.reason });
+      return;
+    }
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('profiles').insert({
-        id: userId,
-        username: handle,
-        display_name: displayName.trim(),
-        avatar_url: null,
-        avatar_gradient: [colors.xpGradientStart, colors.xpGradientEnd],
-        bio: null,
-        notification_token: null,
-        app_theme: DEFAULT_APP_THEME,
-        current_streak: 0,
-        longest_streak: 0,
-        total_completions: 0,
-        total_missed: 0,
-        xp: 0,
-        level: 1,
-        reactions_received: 0,
-        streak_shields: 0,
-        is_admin: false,
-        is_demo_account: false,
-        onboarding_completed_at: null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        sparks: 0,
-        accent_theme: 'doji_orange',
-        appearance_mode: DEFAULT_APP_THEME,
-        equipped_border_key: null,
-        equipped_title_key: null,
+      const { error } = await supabase.rpc('create_own_profile', {
+        p_username: handle,
+        p_display_name: displayName.trim() || handle,
+        p_avatar_gradient: [colors.xpGradientStart, colors.xpGradientEnd],
+        p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        p_app_theme: DEFAULT_APP_THEME,
       });
 
       if (error) {
@@ -118,6 +125,12 @@ export default function UsernameScreen() {
       }
 
       await fetchProfile(userId);
+      const profilePatch: { bio?: string | null; avatar_url?: string } = {};
+      if (bio.trim()) profilePatch.bio = bio.trim().slice(0, BIO_MAX);
+      if (avatarUri) profilePatch.avatar_url = await uploadAvatar(userId, avatarUri);
+      if (Object.keys(profilePatch).length > 0) {
+        await useAuthStore.getState().updateProfile(profilePatch);
+      }
       await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
       router.replace(ROUTES.onboardingHowItWorks);
     } catch (err: unknown) {
@@ -128,24 +141,82 @@ export default function UsernameScreen() {
     }
   };
 
+  const chooseAvatar = async () => {
+    const fromLibrary = async () => {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Toast.show({ type: 'error', text1: 'Photo library permission denied' });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+        mediaTypes: ['images'],
+      });
+      if (!result.canceled && result.assets[0]?.uri) setAvatarUri(result.assets[0].uri);
+    };
+    const fromCamera = async () => {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Toast.show({ type: 'error', text1: 'Camera permission denied' });
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+        mediaTypes: ['images'],
+      });
+      if (!result.canceled && result.assets[0]?.uri) setAvatarUri(result.assets[0].uri);
+    };
+
+    if (Platform.OS === 'web') {
+      await fromLibrary();
+      return;
+    }
+    showProfilePhotoDialog(showDialog, () => void fromCamera(), () => void fromLibrary());
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
+      <View style={styles.keyboardView}>
+        <AppKeyboardAwareScrollView
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <IconProfile size={48} color={colors.textSecondary} />
           <Text variant="displayMedium">Set up your profile</Text>
           <Text variant="body" color={colors.textSecondary}>
-            Choose a username and display name to get started.
+            Choose your username. Everything else is optional and can be changed later.
           </Text>
+
+          <View style={styles.avatarWrap}>
+            <TouchableOpacity
+              style={styles.avatarTouchable}
+              onPress={() => void chooseAvatar()}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel={avatarUri ? 'Change profile photo' : 'Add profile photo'}
+            >
+              <Avatar
+                uri={avatarUri}
+                username={username || 'you'}
+                size={88}
+                fallbackTone="brand"
+              />
+              <View style={styles.editFab}>
+                {loading && avatarUri ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <IconCamera size={16} color={colors.onPrimary} />
+                )}
+              </View>
+            </TouchableOpacity>
+            <Text variant="label" color={colors.textSecondary}>
+              {avatarUri ? 'Change photo' : 'Add photo (optional)'}
+            </Text>
+          </View>
 
           <View style={styles.inputs}>
             <Input
@@ -165,10 +236,18 @@ export default function UsernameScreen() {
               autoFocus
             />
             <Input
-              label="Display name"
+              label="Display name (optional)"
               placeholder="e.g. John Doe"
               value={displayName}
               onChangeText={setDisplayName}
+            />
+            <Input
+              label={`Bio (optional) - ${bio.length}/${BIO_MAX}`}
+              placeholder="Tell people who you are..."
+              value={bio}
+              onChangeText={(value) => setBio(value.slice(0, BIO_MAX))}
+              multiline
+              numberOfLines={3}
             />
           </View>
 
@@ -179,7 +258,6 @@ export default function UsernameScreen() {
               fullWidth
               size="lg"
               disabled={
-                !displayName.trim() ||
                 !username.trim() ||
                 !usernameOk ||
                 usernameAvailabilityStatus === 'checking'
@@ -188,8 +266,8 @@ export default function UsernameScreen() {
               Continue
             </Button>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

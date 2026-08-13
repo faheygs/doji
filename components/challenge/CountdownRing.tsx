@@ -29,25 +29,33 @@ export function CountdownRing({
   const { colors } = useTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const progress = useSharedValue(remainingSeconds / totalSeconds);
+  const safeTotal = Math.max(1, totalSeconds);
+  const clampedRemaining = Math.max(0, Math.min(remainingSeconds, safeTotal));
+  const progress = useSharedValue(clampedRemaining / safeTotal);
 
   useEffect(() => {
-    const target = remainingSeconds / totalSeconds;
+    const target = clampedRemaining / safeTotal;
     progress.value = withTiming(target, {
       duration: 1000,
       easing: Easing.linear,
     });
-  }, [remainingSeconds, totalSeconds]);
+  }, [clampedRemaining, safeTotal]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - progress.value),
   }));
 
-  const isUrgent = remainingSeconds < 60;
+  const isUrgent = clampedRemaining <= 60;
   const strokeColor = isUrgent ? colors.error : colors.text;
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View
+      style={[styles.container, { width: size, height: size }]}
+      accessible
+      accessibilityRole="timer"
+      accessibilityLabel={`${formatCountdown(clampedRemaining)} remaining`}
+      accessibilityLiveRegion={isUrgent ? 'polite' : 'none'}
+    >
       <Svg width={size} height={size}>
         <Circle
           cx={size / 2}
@@ -72,7 +80,7 @@ export function CountdownRing({
       </Svg>
       <View style={styles.labelContainer}>
         <Text variant="displayMedium" color={isUrgent ? colors.error : colors.text}>
-          {formatCountdown(remainingSeconds)}
+          {formatCountdown(clampedRemaining)}
         </Text>
         <Text variant="label" color={colors.textSecondary}>
           remaining

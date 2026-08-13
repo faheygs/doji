@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image as ExpoImage } from 'expo-image';
@@ -7,10 +7,14 @@ import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { uploadAvatar } from '../utils/upload';
 import { useAuthStore } from '../stores/useAuthStore';
+import { invalidateQueryRoots } from '../lib/queryInvalidationBatcher';
+import { useAppDialog } from '../contexts/DialogContext';
+import { showProfilePhotoDialog } from '../lib/profilePhotoDialog';
 
 const PICKER_QUALITY = 0.85 as const;
 
 export function useChangeProfilePhoto() {
+  const { showDialog } = useAppDialog();
   const session = useAuthStore((s) => s.session);
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const queryClient = useQueryClient();
@@ -25,12 +29,7 @@ export function useChangeProfilePhoto() {
         const url = await uploadAvatar(uid, uri);
         await updateProfile({ avatar_url: url });
         void ExpoImage.prefetch(url);
-        await queryClient.invalidateQueries({ queryKey: ['feed'] });
-        await queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'profilePosts' });
-        await queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'post' });
-        if (session?.user?.id) {
-          await queryClient.invalidateQueries({ queryKey: ['friends', session.user.id] });
-        }
+        await invalidateQueryRoots(queryClient, ['feed', 'profilePosts', 'post', 'friends']);
         Toast.show({ type: 'success', text1: 'Profile photo updated!' });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : 'Could not upload photo';
@@ -82,12 +81,8 @@ export function useChangeProfilePhoto() {
       void pickFromLibrary();
       return;
     }
-    Alert.alert('Profile photo', 'Take a picture or select a photo from your library.', [
-      { text: 'Take a picture', onPress: () => void pickFromCamera() },
-      { text: 'Select a photo', onPress: () => void pickFromLibrary() },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [pickFromCamera, pickFromLibrary]);
+    showProfilePhotoDialog(showDialog, () => void pickFromCamera(), () => void pickFromLibrary());
+  }, [pickFromCamera, pickFromLibrary, showDialog]);
 
   return { openChangePhotoDialog, uploading };
 }

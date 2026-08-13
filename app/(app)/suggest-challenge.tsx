@@ -1,14 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
@@ -17,21 +8,42 @@ import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { AppTextInput } from '@/components/ui/AppTextInput';
+import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconPlus, IconClose, IconCamera, IconComment, IconUsers } from '@/components/icons/Icons';
 import { IcnBarChart } from '@/components/icons/BadgeIcons';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useDemoStore } from '@/stores/useDemoStore';
 import { hashSuggestionBody } from '@/lib/hashString';
+import { newCommandId } from '@/lib/idempotency';
+import { filterContent } from '@/lib/contentFilter';
 import { minLength, validationMessage } from '@/lib/formValidation';
 import type { AnswerRule } from '@/types/database';
 
 const BODY_MIN = 8;
 
 const KINDS = [
-  { key: 'poll' as const, label: 'Poll', shortLabel: 'Poll', hint: 'Two or more choices; everyone votes for one.', Icon: IcnBarChart },
-  { key: 'wyr' as const, label: 'Would you rather', shortLabel: 'WYR', hint: 'Two or more contrasting options to choose between.', Icon: IconUsers },
-  { key: 'question' as const, label: 'Question', shortLabel: 'Question', hint: 'Open prompt — others answer in free text.', Icon: IconComment },
+  {
+    key: 'poll' as const,
+    label: 'Poll',
+    shortLabel: 'Poll',
+    hint: 'Two or more choices; everyone votes for one.',
+    Icon: IcnBarChart,
+  },
+  {
+    key: 'wyr' as const,
+    label: 'Would you rather',
+    shortLabel: 'WYR',
+    hint: 'Two or more contrasting options to choose between.',
+    Icon: IconUsers,
+  },
+  {
+    key: 'question' as const,
+    label: 'Question',
+    shortLabel: 'Question',
+    hint: 'Open prompt — others answer in free text.',
+    Icon: IconComment,
+  },
   {
     key: 'format_question' as const,
     label: 'Format question',
@@ -39,7 +51,13 @@ const KINDS = [
     hint: 'Define how answers must be formatted (word count or starting letter).',
     Icon: IconComment,
   },
-  { key: 'photo_idea' as const, label: 'Photo idea', shortLabel: 'Photo', hint: 'Something people snap a picture for.', Icon: IconCamera },
+  {
+    key: 'photo_idea' as const,
+    label: 'Photo idea',
+    shortLabel: 'Photo',
+    hint: 'Something people snap a picture for.',
+    Icon: IconCamera,
+  },
 ];
 
 type KindKey = (typeof KINDS)[number]['key'];
@@ -52,7 +70,6 @@ function emptyOptionRows(n: number): string[] {
 export default function SuggestChallengeScreen() {
   const { colors } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const [kind, setKind] = useState<KindKey>('poll');
   const [body, setBody] = useState('');
   const [optionRows, setOptionRows] = useState<string[]>(() => emptyOptionRows(2));
@@ -104,14 +121,12 @@ export default function SuggestChallengeScreen() {
   }, [needsOptions, filledOptions.length]);
   const formatValidation = useMemo(() => {
     if (!needsFormatRule) return { ok: true as const };
-    return buildFormatRule() ? { ok: true as const } : { ok: false as const, message: 'Set a valid format rule.' };
+    return buildFormatRule()
+      ? { ok: true as const }
+      : { ok: false as const, message: 'Set a valid format rule.' };
   }, [needsFormatRule, buildFormatRule]);
 
-  const canSubmit =
-    bodyValidation.ok &&
-    optionsValidation.ok &&
-    formatValidation.ok &&
-    !saving;
+  const canSubmit = bodyValidation.ok && optionsValidation.ok && formatValidation.ok && !saving;
 
   const bodyHint =
     body.trim().length === 0
@@ -279,12 +294,23 @@ export default function SuggestChallengeScreen() {
       return;
     }
 
+    const bodyFilter = filterContent(text);
+    if (!bodyFilter.ok) {
+      Toast.show({ type: 'error', text1: bodyFilter.reason });
+      return;
+    }
+
     let options: string[] = [];
     let answerRule: AnswerRule | null = null;
     if (needsOptions) {
       options = filledOptions;
       if (!optionsValidation.ok) {
         Toast.show({ type: 'error', text1: optionsValidation.message });
+        return;
+      }
+      const rejectedOption = options.map(filterContent).find((result) => !result.ok);
+      if (rejectedOption && !rejectedOption.ok) {
+        Toast.show({ type: 'error', text1: rejectedOption.reason });
         return;
       }
     }
@@ -299,23 +325,16 @@ export default function SuggestChallengeScreen() {
     if (!userId) return;
     setSaving(true);
     try {
-      if (isDemoMode) {
-        await new Promise((r) => setTimeout(r, 600));
-        Toast.show({ type: 'success', text1: 'Thanks! Your idea was submitted.' });
-        setBody('');
-        resetOptionsForKind(kind);
-        return;
-      }
-
-      const suggestionOptions = needsFormatRule && answerRule ? { answer_rule: answerRule } : options;
+      const suggestionOptions =
+        needsFormatRule && answerRule ? { answer_rule: answerRule } : options;
       const hashPayload = JSON.stringify({ kind, body: text, options: suggestionOptions });
       const bodyHash = hashSuggestionBody(hashPayload);
-      const { error: sugErr } = await supabase.from('challenge_suggestions').insert({
-        user_id: userId,
-        kind,
-        body: text,
-        body_hash: bodyHash,
-        options: suggestionOptions,
+      const { error: sugErr } = await supabase.rpc('submit_challenge_suggestion', {
+        p_kind: kind,
+        p_body: text,
+        p_body_hash: bodyHash,
+        p_options: suggestionOptions,
+        p_idempotency_key: newCommandId('suggestion-submit'),
       });
       if (sugErr) {
         if (sugErr.code === '23505') {
@@ -344,16 +363,10 @@ export default function SuggestChallengeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
-      <KeyboardAvoidingView
+      <AppKeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
-      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <Text variant="displayMedium" style={styles.headerTitle}>
@@ -431,13 +444,17 @@ export default function SuggestChallengeScreen() {
             <Input
               value={body}
               onChangeText={setBody}
-              placeholder={needsOptions ? 'e.g. Best snack for a road trip?' : 'Describe your challenge…'}
+              placeholder={
+                needsOptions ? 'e.g. Best snack for a road trip?' : 'Describe your challenge…'
+              }
               multiline
               editable={!saving}
               style={styles.bodyInput}
               error={body.trim().length > 0 ? validationMessage(bodyValidation) : undefined}
               hint={bodyHint}
-              success={bodyValidation.ok && body.trim().length >= BODY_MIN ? 'Looks good' : undefined}
+              success={
+                bodyValidation.ok && body.trim().length >= BODY_MIN ? 'Looks good' : undefined
+              }
             />
           </View>
 
@@ -453,7 +470,7 @@ export default function SuggestChallengeScreen() {
                 </Text>
                 {optionRows.map((row, i) => (
                   <View key={`opt-${i}`} style={styles.optionRow}>
-                    <TextInput
+                    <AppTextInput
                       style={[styles.optionInput, { flex: 1 }]}
                       value={row}
                       onChangeText={(t) => setOptionAt(i, t)}
@@ -474,7 +491,11 @@ export default function SuggestChallengeScreen() {
                     )}
                   </View>
                 ))}
-                <TouchableOpacity onPress={addOption} style={styles.addOptionBtn} activeOpacity={0.85}>
+                <TouchableOpacity
+                  onPress={addOption}
+                  style={styles.addOptionBtn}
+                  activeOpacity={0.85}
+                >
                   <IconPlus size={20} color={colors.primary} />
                   <Text variant="label" color={colors.primary}>
                     Add option
@@ -533,7 +554,7 @@ export default function SuggestChallengeScreen() {
                     <Text variant="bodySmall" color={colors.textSecondary}>
                       Must start with
                     </Text>
-                    <TextInput
+                    <AppTextInput
                       style={styles.letterInput}
                       value={formatLetter}
                       onChangeText={(t) => setFormatLetter(t.slice(0, 1))}
@@ -550,7 +571,9 @@ export default function SuggestChallengeScreen() {
                     <TouchableOpacity
                       style={styles.stepperBtn}
                       onPress={() =>
-                        setFormatWordCount(String(Math.max(1, parseInt(formatWordCount, 10) - 1 || 1)))
+                        setFormatWordCount(
+                          String(Math.max(1, parseInt(formatWordCount, 10) - 1 || 1)),
+                        )
                       }
                       accessibilityLabel="Decrease word count"
                     >
@@ -562,7 +585,9 @@ export default function SuggestChallengeScreen() {
                     <TouchableOpacity
                       style={styles.stepperBtn}
                       onPress={() =>
-                        setFormatWordCount(String(Math.min(20, (parseInt(formatWordCount, 10) || 1) + 1)))
+                        setFormatWordCount(
+                          String(Math.min(20, (parseInt(formatWordCount, 10) || 1) + 1)),
+                        )
                       }
                       accessibilityLabel="Increase word count"
                     >
@@ -595,12 +620,11 @@ export default function SuggestChallengeScreen() {
 
         <Card style={styles.tipCard}>
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.tipText}>
-            Earn the Pitch Perfect badge when you submit. If your idea is picked for a daily Doji, you&apos;ll unlock
-            Spotlight.
+            Earn the Pitch Perfect badge when you submit. If your idea is picked for a daily Doji,
+            you&apos;ll unlock Spotlight.
           </Text>
         </Card>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

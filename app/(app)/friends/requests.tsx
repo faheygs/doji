@@ -12,14 +12,13 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Text } from '../../../components/ui/Text';
-import { Avatar } from '../../../components/ui/Avatar';
+import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
 import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useProfile';
 import { formatRelativeTime } from '../../../utils/time';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
-import { getEquippedBorder } from '../../../lib/cosmetics';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
@@ -118,18 +117,7 @@ export default function FriendRequestsScreen() {
                   style={styles.userInfo}
                   activeOpacity={0.8}
                 >
-                  {(() => {
-                    const border = getEquippedBorder(requester);
-                    return (
-                      <Avatar
-                        uri={requester?.avatar_url}
-                        username={requester?.username}
-                        size={44}
-                        borderColor={border?.color}
-                        borderWidth={border?.width}
-                      />
-                    );
-                  })()}
+                  <ProfileAvatar profile={requester} size={44} />
                   <View style={styles.nameContainer}>
                     <Text variant="headingMedium">{requester?.display_name ?? 'Unknown'}</Text>
                     <Text variant="bodySmall" color={colors.textSecondary}>

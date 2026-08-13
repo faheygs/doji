@@ -1,13 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
@@ -22,8 +14,10 @@ import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { Button } from '../../components/ui/Button';
-import { IconChevronLeft } from '../../components/icons/Icons';
+import { legalAcceptanceMetadata } from '../../lib/legal';
+import { AuthModeBackButton } from '../../components/auth/AuthModeBackButton';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -35,6 +29,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const styles = useMemo(
@@ -66,8 +61,9 @@ export default function LoginScreen() {
           marginTop: Spacing.sm,
         },
         footer: {
-          padding: Spacing.lg,
           paddingTop: Spacing.md,
+          paddingBottom: Spacing.xl,
+          width: '100%',
         },
         tosRow: {
           flexDirection: 'row',
@@ -88,7 +84,10 @@ export default function LoginScreen() {
   );
 
   const emailValidation = useMemo(() => validateEmailField(email), [email]);
-  const passwordValidation = useMemo(() => validatePasswordField(password, MIN_PASSWORD_LENGTH), [password]);
+  const passwordValidation = useMemo(
+    () => validatePasswordField(password, MIN_PASSWORD_LENGTH),
+    [password],
+  );
   const confirmValidation = useMemo(
     () => validatePasswordMatch(password, confirmPassword),
     [password, confirmPassword],
@@ -102,8 +101,16 @@ export default function LoginScreen() {
     emailValidation.ok &&
     passwordValidation.ok &&
     confirmValidation.ok &&
-    tosAccepted;
+    tosAccepted &&
+    privacyAccepted;
   const signInOk = emailValidation.ok && passwordValidation.ok;
+
+  const showSignIn = useCallback(() => {
+    setMode('signIn');
+    setConfirmPassword('');
+    setTosAccepted(false);
+    setPrivacyAccepted(false);
+  }, []);
 
   const handleForgotPassword = async () => {
     if (!emailValidation.ok) {
@@ -119,7 +126,11 @@ export default function LoginScreen() {
         text2: 'Check your inbox for a password reset link.',
       });
     } catch (err: unknown) {
-      Toast.show({ type: 'error', text1: 'Could not send reset email', text2: formatAuthError(err) });
+      Toast.show({
+        type: 'error',
+        text1: 'Could not send reset email',
+        text2: formatAuthError(err),
+      });
     }
   };
 
@@ -148,9 +159,11 @@ export default function LoginScreen() {
         });
         if (error) throw error;
       } else {
+        const acceptedAt = new Date().toISOString();
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
+          options: { data: legalAcceptanceMetadata(acceptedAt) },
         });
         if (error) throw error;
 
@@ -183,19 +196,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <View style={styles.keyboardView}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={16}>
-            <IconChevronLeft size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
+          <AuthModeBackButton mode={mode} onReturnToSignIn={showSignIn} />
         </View>
 
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+        <AppKeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -219,7 +225,6 @@ export default function LoginScreen() {
               autoCorrect={false}
               autoComplete="email"
               textContentType="emailAddress"
-              autoFocus
               error={showEmailError ? validationMessage(emailValidation) : undefined}
               success={emailValidation.ok && email.length > 0 ? 'Looks good' : undefined}
             />
@@ -234,7 +239,9 @@ export default function LoginScreen() {
               autoComplete={mode === 'signUp' ? 'password-new' : 'password'}
               textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
               error={showPasswordError ? validationMessage(passwordValidation) : undefined}
-              hint={password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
+              hint={
+                password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined
+              }
             />
             {mode === 'signUp' ? (
               <>
@@ -250,7 +257,9 @@ export default function LoginScreen() {
                   textContentType="newPassword"
                   error={showConfirmError ? validationMessage(confirmValidation) : undefined}
                   success={
-                    confirmValidation.ok && confirmPassword.length > 0 ? 'Passwords match' : undefined
+                    confirmValidation.ok && confirmPassword.length > 0
+                      ? 'Passwords match'
+                      : undefined
                   }
                 />
                 <TouchableOpacity
@@ -286,6 +295,40 @@ export default function LoginScreen() {
                     </Text>
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setPrivacyAccepted((v) => !v)}
+                  style={styles.tosRow}
+                  activeOpacity={0.7}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel="Agree to the Privacy Policy"
+                  accessibilityState={{ checked: privacyAccepted }}
+                >
+                  <View
+                    style={[
+                      styles.tosCheckbox,
+                      {
+                        borderColor: privacyAccepted ? colors.primary : colors.border,
+                        backgroundColor: privacyAccepted ? colors.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    {privacyAccepted ? (
+                      <Text variant="micro" style={{ color: colors.onPrimary, fontWeight: '700' }}>
+                        ✓
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text variant="bodySmall" color={colors.textSecondary} style={{ flex: 1 }}>
+                    I have read and agree to the{' '}
+                    <Text
+                      variant="bodySmall"
+                      color={colors.link}
+                      onPress={() => router.push('/(auth)/privacy')}
+                    >
+                      Privacy Policy
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
               </>
             ) : null}
           </View>
@@ -312,9 +355,8 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             onPress={() => {
-              setMode(mode === 'signIn' ? 'signUp' : 'signIn');
-              setConfirmPassword('');
-              setTosAccepted(false);
+              if (mode === 'signIn') setMode('signUp');
+              else showSignIn();
             }}
             style={styles.switchMode}
           >
@@ -325,20 +367,19 @@ export default function LoginScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <Button
-            onPress={handleSubmit}
-            loading={loading}
-            fullWidth
-            size="lg"
-            disabled={mode === 'signIn' ? !signInOk : !signUpOk}
-          >
-            {mode === 'signIn' ? 'Sign in' : 'Create account'}
-          </Button>
-        </View>
-      </KeyboardAvoidingView>
+          <View style={styles.footer}>
+            <Button
+              onPress={handleSubmit}
+              loading={loading}
+              fullWidth
+              size="lg"
+              disabled={mode === 'signIn' ? !signInOk : !signUpOk}
+            >
+              {mode === 'signIn' ? 'Sign in' : 'Create account'}
+            </Button>
+          </View>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

@@ -39,7 +39,13 @@ export function PostQuestionBlock({ challenge }: QuestionProps) {
   return (
     <View style={styles.block}>
       <View style={styles.labelRow}>
-        <ChallengeTypeGlyph type={challenge.type} title={challenge.title} size={14} color={colors.primary} />
+        <ChallengeTypeGlyph
+          type={challenge.type}
+          title={challenge.title}
+          pollKind={challenge.poll_kind}
+          size={14}
+          color={colors.primary}
+        />
         <Text variant="micro" color={colors.textTertiary} style={{ fontWeight: '700', letterSpacing: 0.6 }}>
           QUESTION
         </Text>

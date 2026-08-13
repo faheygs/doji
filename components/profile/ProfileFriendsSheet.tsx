@@ -15,11 +15,12 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { AppColors } from '../../constants/theme';
-import { Avatar } from '../ui/Avatar';
+import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
-import { useProfileFriendsList } from '../../hooks/useProfile';
+import { useProfileFriendsPaged } from '../../hooks/useProfileFriendsPaged';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -40,8 +41,14 @@ export function ProfileFriendsSheet({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  useDismissOnRouteBlur(visible, onClose);
 
-  const { data: friends = [], isPending } = useProfileFriendsList(profileUserId, visible);
+  const friendsQuery = useProfileFriendsPaged(profileUserId, visible);
+  const friends = useMemo(
+    () => friendsQuery.data?.pages.flat() ?? [],
+    [friendsQuery.data?.pages],
+  );
+  const { isPending, fetchNextPage, hasNextPage, isFetchingNextPage } = friendsQuery;
 
   const winH = Dimensions.get('window').height;
   const sheetHeight = winH * SHEET_HEIGHT_RATIO;
@@ -84,13 +91,20 @@ export function ProfileFriendsSheet({
               keyExtractor={(row) => row.friend_id}
               contentContainerStyle={styles.list}
               keyboardDismissMode="on-drag"
+              onEndReached={() => {
+                if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+              }}
+              onEndReachedThreshold={0.35}
+              ListFooterComponent={
+                isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.row}
                   onPress={() => openMember(item.username)}
                   activeOpacity={0.8}
                 >
-                  <Avatar uri={item.avatar_url} username={item.username} size={44} />
+                  <ProfileAvatar profile={item} size={44} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="headingMedium">{item.display_name}</Text>
                     <Text variant="bodySmall" color={colors.textSecondary}>
@@ -121,7 +135,11 @@ function createStyles(colors: AppColors, bottomInset: number, sheetHeight: numbe
       justifyContent: 'flex-end',
     },
     scrim: {
-      ...StyleSheet.absoluteFillObject,
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
       backgroundColor: 'rgba(0,0,0,0.25)',
     },
     sheet: {

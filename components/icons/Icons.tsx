@@ -381,7 +381,7 @@ export function IconGlobe({ size = 22, color }: IconProps) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={9.25} stroke={color} strokeWidth={1.65} />
       <Path
-        d="M2.5 12h19M12 2.75a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"
+        d="M2.75 12h18.5M12 2.75c2.4 2.55 3.75 5.7 3.75 9.25S14.4 18.7 12 21.25C9.6 18.7 8.25 15.55 8.25 12S9.6 5.3 12 2.75Z"
         stroke={color}
         strokeWidth={1.65}
         strokeLinecap="round"

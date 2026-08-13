@@ -75,6 +75,16 @@ describe('notificationHrefFromData', () => {
     );
   });
 
+  it('returns the liked comment for COMMENT_LIKE with postId', () => {
+    expect(
+      notificationHrefFromData({
+        type: 'COMMENT_LIKE',
+        postId: 'abc',
+        commentId: 'comment-1',
+      }),
+    ).toBe('/(app)?postId=abc&openComments=1&mentionCommentId=comment-1');
+  });
+
   it('returns feed with openComments for MENTION with postId', () => {
     expect(notificationHrefFromData({ type: 'MENTION', postId: 'abc' })).toBe(
       '/(app)?postId=abc&openComments=1',
@@ -89,9 +99,15 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'REACTION' })).toBeNull();
   });
 
-  it('prefers url over type', () => {
-    expect(notificationHrefFromData({ url: '/(app)/post/123', type: 'CHALLENGE' })).toBe(
-      '/(app)/post/123',
+  it('prefers the canonical route for a known type over a stale producer url', () => {
+    expect(notificationHrefFromData({ url: '/post/123', type: 'CHALLENGE' })).toBe(
+      '/(app)/challenge',
+    );
+  });
+
+  it('uses a valid in-app url for an unknown future type', () => {
+    expect(notificationHrefFromData({ url: '/(app)/profile', type: 'FUTURE_EVENT' })).toBe(
+      '/(app)/profile',
     );
   });
 

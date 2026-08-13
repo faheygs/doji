@@ -12,8 +12,8 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Text } from '../../../components/ui/Text';
-import { Input } from '../../../components/ui/Input';
-import { Avatar } from '../../../components/ui/Avatar';
+import { SearchField } from '../../../components/ui/SearchField';
+import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
@@ -21,6 +21,7 @@ import { useSearchUsers, useSendFriendRequest, useFriendshipStatus } from '../..
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function AddFriendsScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
-  const { data: results = [], isLoading } = useSearchUsers(query);
+  const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  const { data: results = [], isLoading } = useSearchUsers(debouncedQuery);
   const currentProfile = useAuthStore((s) => s.profile);
 
   const styles = useMemo(
@@ -86,13 +88,14 @@ export default function AddFriendsScreen() {
       </View>
 
       <View style={styles.searchContainer}>
-        <Input
-          placeholder="Search by username..."
+        <SearchField
+          accessibilityLabel="Search people by username"
+          placeholder="Search people…"
           value={query}
           onChangeText={setQuery}
-          autoFocus
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="search"
         />
       </View>
 
@@ -168,7 +171,7 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
         style={rowStyles.userInfo}
         activeOpacity={0.8}
       >
-        <Avatar uri={user.avatar_url} username={user.username} size={44} />
+        <ProfileAvatar profile={user} size={44} />
         <View style={rowStyles.nameContainer}>
           <Text variant="headingMedium">{user.display_name}</Text>
           <Text variant="bodySmall" color={colors.textSecondary}>
@@ -197,7 +200,7 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
           Unavailable
         </Text>
       ) : (
-        <Button onPress={() => sendRequest.mutate(user.id)} loading={sendRequest.isPending} size="sm">
+        <Button onPress={() => sendRequest.mutate({ addresseeId: user.id })} loading={sendRequest.isPending} size="sm">
           Add friend
         </Button>
       )}

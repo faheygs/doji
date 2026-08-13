@@ -11,7 +11,9 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "__tests__"
+    "__tests__",
+    "**/__mocks__",
+    "jest.setup.ts"
   ],
   "include": [
     "**/*.ts",

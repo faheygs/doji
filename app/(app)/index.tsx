@@ -5,9 +5,9 @@ import {
   StyleSheet,
   RefreshControl,
   SafeAreaView,
-  ActivityIndicator,
   TouchableOpacity,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -15,26 +15,30 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
-import { Avatar } from '../../components/ui/Avatar';
+import { ProfileAvatar } from '../../components/ui/ProfileAvatar';
 import { PostCard } from '../../components/feed/PostCard';
+import { FeedSkeleton } from '../../components/feed/FeedSkeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { DojiHeaderBrand } from '../../components/branding/DojiHeaderBrand';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
 import { ChallengeBanner } from '../../components/challenge/ChallengeBanner';
+import { UpcomingDojiBanner } from '../../components/challenge/UpcomingDojiBanner';
 import { IconBell } from '../../components/icons/Icons';
-import { useNotificationCenter } from '../../hooks/useNotificationCenter';
+import { useNotificationCenterContext } from '../../contexts/NotificationCenterContext';
 import { useUserEvent } from '../../hooks/useUserEvent';
-import { useFeed, type FeedAudience } from '../../hooks/useFeed';
+import { useUpcomingDoji } from '../../hooks/useUpcomingDoji';
+import {
+  prefetchFeedAudience,
+  useFeed,
+  type FeedAudience,
+} from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { useDemoStore } from '../../stores/useDemoStore';
 import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
-import type { ChallengeType } from '../../types/database';
 import type { Post } from '../../types/database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-
+import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 export default function FeedScreen() {
+  useFocusedRealtimeInvalidation('feed:public', ['feed', 'pollResults', 'pollVotersDetail', 'reactions', 'comments', 'post']);
   const router = useRouter();
   const params = useLocalSearchParams<{
     postId?: string | string[];
@@ -49,34 +53,28 @@ export default function FeedScreen() {
     const val = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
     return val === '1' || val === 'true';
   }, [params.openComments]);
-
   const { colors } = useTheme();
   const [audience, setAudience] = useState<FeedAudience>('friends');
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
+  const { data: upcomingDoji } = useUpcomingDoji();
+  const feedUnlocked = userEventLoading ? undefined : hasUnlockedFeed(userEvent);
   const {
     data: feedPages,
     isLoading: feedLoading,
-    isFetching: feedFetching,
     isError: feedError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useFeed(audience);
+  } = useFeed(audience, feedUnlocked, userEvent?.daily_event_id);
   const queryClient = useQueryClient();
-  const {
-    data: userEvent,
-    isLoading: userEventLoading,
-  } = useUserEvent();
   const profile = useAuthStore((s) => s.profile);
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
-  const demoChallengeType = useDemoStore((s) => s.demoChallengeType);
-  const enterDemoMode = useDemoStore((s) => s.enterDemoMode);
-  const exitDemoMode = useDemoStore((s) => s.exitDemoMode);
-  const setDemoChallengeType = useDemoStore((s) => s.setDemoChallengeType);
+  const userId = useAuthStore((s) => s.session?.user?.id);
   const {
     unreadCount: notificationUnread,
     markBellOpened,
@@ -84,7 +82,7 @@ export default function FeedScreen() {
     clearNotificationHistory,
     items: notificationItems,
     isLoading: notificationsLoading,
-  } = useNotificationCenter();
+  } = useNotificationCenterContext();
 
   const styles = useMemo(
     () =>
@@ -142,11 +140,6 @@ export default function FeedScreen() {
         list: {
           paddingBottom: Spacing.xxl,
         },
-        centered: {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
         empty: {
           alignItems: 'center',
           paddingTop: Spacing.xxl * 2,
@@ -179,89 +172,35 @@ export default function FeedScreen() {
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
         },
-        demoBanner: {
-          marginHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
-          paddingVertical: Spacing.sm + 2,
-          paddingHorizontal: Spacing.md,
-          borderRadius: Radius.md,
-          alignItems: 'center',
-        },
-        demoTypeRow: {
-          flexDirection: 'row',
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.xs,
-          padding: 3,
-          borderRadius: Radius.md,
-          backgroundColor: colors.chipBackground,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        demoTypeChip: {
-          flex: 1,
-          paddingVertical: Spacing.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: Radius.sm,
-        },
-        demoTypeChipActive: {
-          backgroundColor: colors.surfaceElevated,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
       }),
     [colors],
   );
 
-  const outerStyle = useMemo(
-    () => [styles.container, webScrollParentStyle],
-    [styles.container],
-  );
+  const outerStyle = useMemo(() => [styles.container, webScrollParentStyle], [styles.container]);
 
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const refreshWorkRef = useRef<Promise<unknown> | null>(null);
 
   const challengeIsLive = useMemo(() => {
     if (!userEvent?.daily_event?.fires_at) return false;
     return isChallengeLive(userEvent.daily_event.fires_at);
   }, [userEvent]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const key = '@doit/first-home-push-prompt';
-    void (async () => {
-      try {
-        const done = await AsyncStorage.getItem(key);
-        if (done) return;
-        const Notifications = await import('expo-notifications');
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status === 'undetermined') {
-          await Notifications.requestPermissionsAsync();
-        }
-        const { status: after } = await Notifications.getPermissionsAsync();
-        if (after === 'granted') {
-          const uid = useAuthStore.getState().session?.user?.id;
-          if (uid) {
-            const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-            const tokenRes = await Notifications.getExpoPushTokenAsync(
-              projectId ? { projectId } : undefined,
-            );
-            const tokenStr =
-              tokenRes && typeof tokenRes === 'object' && 'data' in tokenRes
-                ? (tokenRes as { data: string }).data
-                : String(tokenRes);
-            await useAuthStore.getState().updateProfile({ notification_token: tokenStr });
-          }
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        await AsyncStorage.setItem(key, '1');
-      }
-    })();
-  }, []);
-
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+
+  useEffect(() => {
+    if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
+    const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
+    const task = InteractionManager.runAfterInteractions(() => {
+      void prefetchFeedAudience(queryClient, {
+        userId,
+        dailyEventId: userEvent.daily_event_id,
+        audience: nextAudience,
+        unlocked: feedUnlocked,
+      });
+    });
+    return () => task.cancel();
+  }, [audience, feedPages, feedUnlocked, queryClient, userEvent?.daily_event_id, userId]);
 
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
@@ -278,26 +217,40 @@ export default function FeedScreen() {
       router.setParams({ postId: undefined, openComments: undefined, mentionCommentId: undefined });
       return;
     }
-
   }, [pendingPostId, pendingOpenComments, feedLoading, posts, router]);
 
-  const shouldBlur = !isDemoMode && !hasUnlockedFeed(userEvent) && !userEventLoading;
-
+  const shouldBlur = !hasUnlockedFeed(userEvent) && !userEventLoading;
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      if (isDemoMode) {
-        await refetch();
-      } else {
-        await Promise.all([
-          refetch(),
-          queryClient.invalidateQueries({ queryKey: ['userEvent'] }),
-        ]);
+      if (!refreshWorkRef.current) {
+        refreshWorkRef.current = Promise.allSettled([
+          refetch({ cancelRefetch: false }),
+          queryClient.refetchQueries({
+            predicate: (query) => {
+              const root = query.queryKey[0];
+              return root === 'userEvent' || root === 'pollResults';
+            },
+            type: 'active',
+          }),
+        ]).finally(() => {
+          refreshWorkRef.current = null;
+        });
       }
+
+      // Native RefreshControl otherwise spins forever when the radio changes
+      // networks while a request is in flight. The authoritative queries keep
+      // reconciling in the background; the UI never becomes a blocking state.
+      await Promise.race([
+        refreshWorkRef.current,
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 2_500);
+        }),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, queryClient, isDemoMode]);
+  }, [refetch, queryClient]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
@@ -338,7 +291,6 @@ export default function FeedScreen() {
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
   const refreshColors = useMemo(() => [colors.text], [colors.text]);
-
   const ListHeader = useCallback(
     () => (
       <View style={styles.listHeader}>
@@ -375,83 +327,27 @@ export default function FeedScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Your profile"
               >
-                <Avatar uri={profile?.avatar_url} username={profile?.username} size={36} />
+                <ProfileAvatar profile={profile} size={36} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {!isDemoMode && profile?.is_demo_account ? (
-          <TouchableOpacity
-            onPress={() => enterDemoMode()}
-            activeOpacity={0.85}
-            style={[styles.demoBanner, { backgroundColor: colors.primary }]}
-          >
-            <Text variant="label" color={colors.onPrimary} style={{ letterSpacing: 0.3 }}>
-              Demo the full app →
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {isDemoMode ? (
-          <TouchableOpacity
-            onPress={exitDemoMode}
-            activeOpacity={0.8}
-            style={{
-              marginHorizontal: Spacing.md,
-              marginBottom: Spacing.xs,
-              paddingVertical: Spacing.sm,
-              paddingHorizontal: Spacing.md,
-              borderRadius: Radius.full,
-              backgroundColor: colors.primary,
-              alignSelf: 'center',
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Text variant="label" color={colors.onPrimary} style={{ fontWeight: '700', letterSpacing: 0.4 }}>
-              DEMO MODE — Tap to exit
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {isDemoMode ? (
-          <View style={styles.demoTypeRow}>
-            {([
-              { type: 'photo' as ChallengeType, label: 'Photo' },
-              { type: 'poll' as ChallengeType, label: 'Poll' },
-              { type: 'format' as ChallengeType, label: 'WYR' },
-              { type: 'task' as ChallengeType, label: 'Question' },
-            ]).map(({ type, label }) => {
-              const active = demoChallengeType === type;
-              return (
-                <TouchableOpacity
-                  key={type}
-                  onPress={() => { Haptics.selectionAsync(); setDemoChallengeType(type); }}
-                  activeOpacity={0.75}
-                  style={[styles.demoTypeChip, active && styles.demoTypeChipActive]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text
-                    variant="label"
-                    color={active ? colors.text : colors.textTertiary}
-                    style={{ fontWeight: active ? '700' : '500' }}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {userEventLoading && !isDemoMode ? (
+        {upcomingDoji ? (
+          <UpcomingDojiBanner firesAt={upcomingDoji.fires_at} />
+        ) : userEventLoading ? (
           <View
+            pointerEvents="none"
             style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
             accessibilityLabel="Loading today's challenge"
           >
-            <ActivityIndicator color={colors.text} />
+            <View
+              style={{
+                height: 64,
+                borderRadius: Radius.md,
+                backgroundColor: colors.surfaceMuted,
+              }}
+            />
           </View>
         ) : (
           <ChallengeBanner userEvent={userEvent ?? null} />
@@ -491,17 +387,14 @@ export default function FeedScreen() {
       notificationUnread,
       profile?.avatar_url,
       profile?.username,
-      profile?.is_demo_account,
+      profile?.equipped_border_key,
+      profile?.accent_theme,
       handleOpenProfile,
       handleOpenNotifications,
       userEvent,
       userEventLoading,
+      upcomingDoji,
       audience,
-      isDemoMode,
-      demoChallengeType,
-      enterDemoMode,
-      exitDemoMode,
-      setDemoChallengeType,
     ],
   );
 
@@ -559,13 +452,11 @@ export default function FeedScreen() {
     );
   }
 
-  if ((feedLoading || feedFetching) && !refreshing && posts.length === 0) {
+  if (feedLoading && !refreshing && posts.length === 0) {
     return (
       <SafeAreaView style={outerStyle}>
         <ListHeader />
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.text} size="large" />
-        </View>
+        <FeedSkeleton />
       </SafeAreaView>
     );
   }
@@ -574,7 +465,6 @@ export default function FeedScreen() {
     <SafeAreaView style={outerStyle}>
       <FlatList
         ref={flatListRef}
-        key={audience}
         style={webScrollParentStyle}
         data={posts}
         keyExtractor={keyExtractorPost}

@@ -97,14 +97,15 @@ describe('goBackWithOptionalReturn', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it('uses explicit returnTo when canGoBack is false', () => {
+  it('uses explicit returnTo even when stack history exists', () => {
     const router = {
       back: jest.fn(),
-      canGoBack: jest.fn().mockReturnValue(false),
+      canGoBack: jest.fn().mockReturnValue(true),
       replace: jest.fn(),
     };
     goBackWithOptionalReturn(router, encodeURIComponent('/(app)/friends'), ROUTES.feed);
     expect(router.replace).toHaveBeenCalledWith('/(app)/friends');
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it('uses fallback when canGoBack is false and returnTo is null', () => {

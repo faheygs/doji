@@ -15,7 +15,7 @@ import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
-import { Avatar } from '@/components/ui/Avatar';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlockUser';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
@@ -62,7 +62,7 @@ export default function BlockedUsersScreen() {
   const handleUnblock = useCallback(
     (userId: string, displayName: string | null) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      unblock.mutate(userId, {
+      unblock.mutate({ blockedUserId: userId }, {
         onSuccess: () => {
           Toast.show({ type: 'success', text1: `${displayName ?? 'User'} unblocked` });
         },
@@ -128,7 +128,7 @@ export default function BlockedUsersScreen() {
           }
           renderItem={({ item }) => (
             <View style={styles.row}>
-              <Avatar uri={item.avatar_url} username={item.username} size={40} />
+              <ProfileAvatar profile={item} size={40} />
               <View style={styles.nameCol}>
                 <Text variant="body" numberOfLines={1}>
                   {item.display_name?.trim() || item.username}

@@ -1,52 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { newCommandId } from '../lib/idempotency';
+import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 
-/** Returns a Set of poll_vote_ids liked by the current user for a given list of vote ids. */
-export function useMyPollVoteLikes(voteIds: string[]) {
-  const userId = useAuthStore((s) => s.session?.user?.id);
-  const sortedKey = voteIds.slice().sort().join(',');
+type VoterPageRow = { vote_id?: string; like_count?: number; my_like?: boolean };
 
-  return useQuery<Set<string>>({
-    queryKey: ['pollVoteLikes', 'mine', userId, sortedKey],
-    queryFn: async (): Promise<Set<string>> => {
-      if (!userId || voteIds.length === 0) return new Set();
-      const { data, error } = await supabase
-        .from('poll_vote_likes')
-        .select('poll_vote_id')
-        .eq('user_id', userId)
-        .in('poll_vote_id', voteIds);
-      if (error) throw error;
-      return new Set((data ?? []).map((r) => r.poll_vote_id as string));
-    },
-    enabled: !!userId && voteIds.length > 0,
-    staleTime: 30_000,
-  });
-}
-
-/** Returns total like counts keyed by poll_vote_id for a list of vote ids. */
-export function usePollVoteLikeCounts(voteIds: string[]) {
-  const sortedKey = voteIds.slice().sort().join(',');
-
-  return useQuery<Map<string, number>>({
-    queryKey: ['pollVoteLikes', 'counts', sortedKey],
-    queryFn: async (): Promise<Map<string, number>> => {
-      if (voteIds.length === 0) return new Map();
-      const { data, error } = await supabase
-        .from('poll_vote_likes')
-        .select('poll_vote_id')
-        .in('poll_vote_id', voteIds);
-      if (error) throw error;
-      const counts = new Map<string, number>();
-      for (const row of data ?? []) {
-        const id = row.poll_vote_id as string;
-        counts.set(id, (counts.get(id) ?? 0) + 1);
-      }
-      return counts;
-    },
-    enabled: voteIds.length > 0,
-    staleTime: 30_000,
-  });
+function patchVoterLike(
+  data: InfiniteData<VoterPageRow[]> | undefined,
+  voteId: string,
+  active: boolean,
+  count?: number,
+) {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page) => page.map((row) => row.vote_id === voteId ? {
+      ...row,
+      my_like: active,
+      like_count: count ?? Math.max(0, (row.like_count ?? 0) + (active ? 1 : -1)),
+    } : row)),
+  };
 }
 
 export function useTogglePollVoteLike() {
@@ -54,24 +28,40 @@ export function useTogglePollVoteLike() {
   const userId = useAuthStore((s) => s.session?.user?.id);
 
   return useMutation({
-    mutationFn: async ({ pollVoteId, liked }: { pollVoteId: string; liked: boolean }) => {
+    mutationFn: async (variables: { pollVoteId: string; liked: boolean; commandId?: string }) => {
       if (!userId) throw new Error('Not authenticated');
-      if (liked) {
-        const { error } = await supabase
-          .from('poll_vote_likes')
-          .delete()
-          .eq('user_id', userId)
-          .eq('poll_vote_id', pollVoteId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('poll_vote_likes')
-          .insert({ user_id: userId, poll_vote_id: pollVoteId });
-        if (error) throw error;
+      variables.commandId ??= newCommandId('poll-vote-like');
+      const { data, error } = await supabase.rpc('toggle_poll_vote_like', {
+        p_poll_vote_id: variables.pollVoteId,
+        p_idempotency_key: variables.commandId,
+      });
+      if (error) throw error;
+      return data as { poll_vote_id: string; active: boolean; count: number };
+    },
+    onMutate: async ({ pollVoteId, liked }) => {
+      await queryClient.cancelQueries({ queryKey: ['pollVotersDetail'] });
+      const previous = queryClient.getQueriesData<InfiniteData<VoterPageRow[]>>({
+        queryKey: ['pollVotersDetail'],
+      });
+      queryClient.setQueriesData<InfiniteData<VoterPageRow[]>>(
+        { queryKey: ['pollVotersDetail'] },
+        (old) => patchVoterLike(old, pollVoteId, !liked),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      for (const [queryKey, data] of context?.previous ?? []) {
+        queryClient.setQueryData(queryKey, data);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pollVoteLikes'] });
+    onSuccess: (result) => {
+      queryClient.setQueriesData<InfiniteData<VoterPageRow[]>>(
+        { queryKey: ['pollVotersDetail'] },
+        (old) => patchVoterLike(old, result.poll_vote_id, result.active, result.count),
+      );
+    },
+    onSettled: () => {
+      scheduleQueryInvalidation(queryClient, ['pollVotersDetail']);
     },
   });
 }

@@ -1,17 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { IconBell } from '@/components/icons/Icons';
 import { requestPushPermissionAndRegisterToken } from '@/lib/pushNotifications';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { safeReplace, FEED_TAB_HREF } from '@/lib/routes';
+import Toast from 'react-native-toast-message';
+import { mergeNotificationPreferences } from '@/lib/notificationPreferences';
 
 export default function OnboardingNotificationsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [loading, setLoading] = useState(false);
+  const updateProfile = useAuthStore((state) => state.updateProfile);
 
   const styles = useMemo(
     () =>
@@ -46,17 +51,29 @@ export default function OnboardingNotificationsScreen() {
     [colors],
   );
 
-  const goNext = () => {
-    router.replace('/(onboarding)/profile-setup' as Href);
+  const goNext = async (pushEnabled: boolean) => {
+    try {
+      const profile = useAuthStore.getState().profile;
+      await updateProfile({
+        onboarding_completed_at: new Date().toISOString(),
+        notification_preferences: {
+          ...mergeNotificationPreferences(profile?.notification_preferences),
+          push_enabled: pushEnabled,
+        },
+      });
+      safeReplace(router, FEED_TAB_HREF);
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not finish setup. Try again.' });
+    }
   };
 
   const handleEnable = async () => {
     setLoading(true);
     try {
-      await requestPushPermissionAndRegisterToken();
+      const result = await requestPushPermissionAndRegisterToken();
+      await goNext(result === 'granted');
     } finally {
       setLoading(false);
-      goNext();
     }
   };
 
@@ -78,7 +95,7 @@ export default function OnboardingNotificationsScreen() {
         <Button onPress={() => void handleEnable()} loading={loading} fullWidth size="lg">
           Enable Notifications
         </Button>
-        <Button variant="ghost" onPress={goNext} fullWidth size="md" disabled={loading}>
+        <Button variant="ghost" onPress={() => void goNext(false)} fullWidth size="md" disabled={loading}>
           Skip for now
         </Button>
       </View>

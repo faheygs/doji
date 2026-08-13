@@ -26,7 +26,7 @@ import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
-
+import { useFocusedRealtimeInvalidation } from '../../../hooks/useFocusedRealtimeInvalidation';
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
@@ -184,8 +184,8 @@ function SegmentedToggle<T extends string>({
     </View>
   );
 }
-
 export default function LeaderboardScreen() {
+  useFocusedRealtimeInvalidation('leaderboard:global', ['leaderboard']);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const userId = useAuthStore((s) => s.session?.user?.id);

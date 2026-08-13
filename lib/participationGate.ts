@@ -3,9 +3,9 @@ import { isExpired } from '../utils/time';
 import { SPARKS_BUY_IN_COST } from '../constants/sparks';
 import { localDateKeyFromIso, localDateKeyFromDate } from './challengeDay';
 
-/** User completed today's challenge within the window — feed and posts are unlocked. */
+/** User completed this Doji, including a paid late completion. */
 export function hasUnlockedFeed(userEvent: UserEvent | null | undefined): boolean {
-  return userEvent?.status === 'completed';
+  return userEvent?.status === 'completed' || userEvent?.status === 'late';
 }
 
 export function isSignupDayGrace(userEvent: UserEvent | null | undefined): boolean {

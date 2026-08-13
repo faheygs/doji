@@ -2,6 +2,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { assertCronAuthorized } from '../_shared/cron-auth.ts';
 import { sendExpoPushMessages, type ExpoMessage } from '../_shared/expo-push.ts';
+import { claimPushDelivery, legacyPushDeliveryKey } from '../_shared/push-delivery.ts';
+import { pushPreferenceEnabled } from '../_shared/notification-preferences.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -20,14 +22,6 @@ const PREF_KEYS = new Set<string>([
   'doji_start',
   'comment_reply',
 ]);
-
-function prefEnabled(
-  prefs: Record<string, unknown> | null | undefined,
-  preferenceKey: string,
-): boolean {
-  if (!prefs || typeof prefs !== 'object') return true;
-  return prefs[preferenceKey] !== false;
-}
 
 Deno.serve(async (req) => {
   const denied = assertCronAuthorized(req);
@@ -91,8 +85,27 @@ Deno.serve(async (req) => {
     }
 
     const prefs = row.notification_preferences as Record<string, unknown> | null;
-    if (!prefEnabled(prefs, preferenceKey)) {
+    if (!pushPreferenceEnabled(prefs, preferenceKey)) {
       return new Response(JSON.stringify({ message: 'Skipped by notification preferences' }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const delivery = await legacyPushDeliveryKey({
+      targetUserId,
+      preferenceKey,
+      title,
+      body,
+      data: dataObj,
+    });
+    const claimed = await claimPushDelivery(supabase, {
+      deliveryKey: delivery.key,
+      targetUserId,
+      category: preferenceKey,
+      aggregateId: delivery.aggregateId,
+    });
+    if (!claimed) {
+      return new Response(JSON.stringify({ message: 'Duplicate push skipped' }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -104,15 +117,18 @@ Deno.serve(async (req) => {
       data: dataObj,
       sound: 'default' as const,
       badge: 1,
+      ttl: 600,
     };
 
     const { httpOk, tickets, invalidTokenIndices } = await sendExpoPushMessages([message]);
 
-    // Do NOT clear the token here even on DeviceNotRegistered.
-    // dispatch-challenge-pushes is the canonical push sender and owns token cleanup.
-    // Clearing here caused a race: a social push (friend-post, reaction, etc.) could
-    // wipe the token hours before the challenge dispatch runs, silently dropping the
-    // most important notification the user receives.
+    if (invalidTokenIndices.includes(0)) {
+      // Match both owner and token. A concurrent account switch transfers the token,
+      // so this stale response can never clear the new owner's registration.
+      await supabase.from('profiles').update({ notification_token: null })
+        .eq('id', targetUserId)
+        .eq('notification_token', token);
+    }
 
     return new Response(
       JSON.stringify({

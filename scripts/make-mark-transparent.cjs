@@ -40,6 +40,9 @@ const output = path.join(__dirname, '../assets/mark.png');
     }
   }
 
-  await sharp(Buffer.from(data), { raw: { width, height, channels } }).png().toFile(output);
+  await sharp(Buffer.from(data), { raw: { width, height, channels } })
+    .resize(256, 256, { fit: 'contain' })
+    .png({ compressionLevel: 9 })
+    .toFile(output);
   console.log('Wrote', output);
 })();

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -8,23 +8,22 @@ import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { UserEvent, type ChallengeType } from '../../types/database';
-import {
-  isExpired,
-  getBannerChallengeSecondsRemaining,
-  formatMinutesSecondsCountdown,
-  secondsUntilFiresAt,
-  parseDate,
-} from '../../utils/time';
+import { isExpired, formatMinutesSecondsCountdown } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
-import { canBuyIn, canAffordBuyIn, isMissedOrExpiredPending, showSignupDayGraceBanner } from '../../lib/participationGate';
+import {
+  canBuyIn,
+  canAffordBuyIn,
+  isMissedOrExpiredPending,
+  showSignupDayGraceBanner,
+} from '../../lib/participationGate';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSparksBalance } from '../../hooks/useSparks';
 import { useBuyInToday } from '../../hooks/useBuyIn';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { LiveSparksPill } from '../economy/SparksPill';
 import { BuyInSheet } from '../economy/BuyInSheet';
-import { useDemoStore } from '../../stores/useDemoStore';
+import { useServerCountdown } from '../../hooks/useServerCountdown';
 
 const GRADIENT_START = { x: 0, y: 0 } as const;
 const GRADIENT_END = { x: 1, y: 1 } as const;
@@ -36,48 +35,13 @@ type Props = {
 export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
-  const isDemoMode = useDemoStore((s) => s.isDemoMode);
   const sparks = useSparksBalance();
   const profile = useAuthStore((s) => s.profile);
   const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
 
-  const [secondsUntil, setSecondsUntil] = useState<number>(() => {
-    if (!userEvent?.daily_event?.fires_at) return 0;
-    return secondsUntilFiresAt(userEvent.daily_event.fires_at);
-  });
-
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [buyInSecondsLeft, setBuyInSecondsLeft] = useState(0);
-
-  useEffect(() => {
-    if (!userEvent?.daily_event?.fires_at) {
-      setSecondsUntil(0);
-      setSecondsLeft(0);
-      return;
-    }
-    const de = userEvent.daily_event;
-    const tick = () => {
-      setSecondsUntil(secondsUntilFiresAt(de.fires_at));
-      setSecondsLeft(getBannerChallengeSecondsRemaining(de));
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [userEvent?.daily_event?.fires_at, userEvent?.daily_event?.window_minutes]);
-
-  useEffect(() => {
-    if (userEvent?.status !== 'buy_in_open' || !userEvent?.expires_at) {
-      setBuyInSecondsLeft(0);
-      return;
-    }
-    const expiresAt = userEvent.expires_at;
-    const compute = () =>
-      Math.max(0, Math.floor((parseDate(expiresAt).getTime() - Date.now()) / 1000));
-    setBuyInSecondsLeft(compute());
-    const id = setInterval(() => setBuyInSecondsLeft(compute()), 1000);
-    return () => clearInterval(id);
-  }, [userEvent?.status, userEvent?.expires_at]);
+  const secondsUntil = useServerCountdown(userEvent?.daily_event?.fires_at);
+  const secondsLeft = useServerCountdown(userEvent?.expires_at);
 
   const styles = useMemo(
     () =>
@@ -215,9 +179,8 @@ export function ChallengeBanner({ userEvent }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push('/(app)/challenge');
     } catch (e) {
-      const msg = e instanceof Error
-        ? e.message
-        : (e as { message?: string })?.message ?? 'Unknown error';
+      const msg =
+        e instanceof Error ? e.message : ((e as { message?: string })?.message ?? 'Unknown error');
       if (__DEV__) console.error('[BuyIn] failed:', e);
       Toast.show({
         type: 'error',
@@ -235,38 +198,6 @@ export function ChallengeBanner({ userEvent }: Props) {
   const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
   const xpReward = challenge?.xp_reward ?? 50;
   const participants = challenge?.participant_count ?? 0;
-
-  // In demo mode: always show the active GO banner — no timer, no completed/countdown states
-  if (isDemoMode) {
-    return (
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
-        <LinearGradient
-          colors={[colors.xpGradientStart, colors.xpGradientEnd]}
-          start={GRADIENT_START}
-          end={GRADIENT_END}
-          style={styles.banner}
-        >
-          <View style={styles.iconCircle}>
-            <ChallengeTypeGlyph
-              type={challengeType}
-              title={challenge?.title}
-              size={24}
-              color={colors.onPrimary}
-            />
-          </View>
-          <View style={styles.bannerBody}>
-            <Text variant="micro" style={styles.textOnPrimaryFaded}>
-              {challengeKindLabel(challenge ?? null, challengeType)}
-            </Text>
-            <Text variant="subhead" style={styles.textOnPrimary} numberOfLines={1}>
-              {challenge?.title ?? 'Challenge'}
-            </Text>
-          </View>
-          <Text variant="subhead" style={styles.textOnPrimaryArrow}>GO →</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    );
-  }
 
   if (userEvent.status === 'completed' || userEvent.status === 'late') {
     return null;
@@ -316,7 +247,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           </View>
           <View style={styles.timer}>
             <Text variant="label" style={styles.timerDigits}>
-              {formatMinutesSecondsCountdown(buyInSecondsLeft)}
+              {formatMinutesSecondsCountdown(secondsLeft)}
             </Text>
             <Text variant="subhead" style={styles.textOnPrimaryArrow}>
               GO →
@@ -382,12 +313,15 @@ export function ChallengeBanner({ userEvent }: Props) {
           <ChallengeTypeGlyph
             type={challengeType}
             title={challenge?.title}
+            pollKind={challenge?.poll_kind}
             size={22}
             color={colors.textTertiary}
           />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text variant="micro" color={colors.textTertiary}>CHALLENGE INCOMING</Text>
+          <Text variant="micro" color={colors.textTertiary}>
+            CHALLENGE INCOMING
+          </Text>
           <View style={styles.lockedTitleBar} />
         </View>
       </View>
@@ -404,7 +338,9 @@ export function ChallengeBanner({ userEvent }: Props) {
           style={styles.countdownInner}
         >
           <Text style={styles.countdownDigit}>{secondsUntil}</Text>
-          <Text variant="micro" style={styles.countdownLabel}>Challenge unlocking…</Text>
+          <Text variant="micro" style={styles.countdownLabel}>
+            Challenge unlocking…
+          </Text>
         </LinearGradient>
       </View>
     );
@@ -422,6 +358,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           <ChallengeTypeGlyph
             type={challengeType}
             title={challenge?.title}
+            pollKind={challenge?.poll_kind}
             size={24}
             color={colors.onPrimary}
           />
@@ -435,11 +372,15 @@ export function ChallengeBanner({ userEvent }: Props) {
           </Text>
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
-              <Text variant="nano" style={styles.textOnPrimary}>+{xpReward} XP</Text>
+              <Text variant="nano" style={styles.textOnPrimary}>
+                +{xpReward} XP
+              </Text>
             </View>
             {participants > 0 && (
               <View style={styles.metaPill}>
-                <Text variant="nano" style={styles.textOnPrimary}>{participants} joined</Text>
+                <Text variant="nano" style={styles.textOnPrimary}>
+                  {participants} joined
+                </Text>
               </View>
             )}
           </View>
@@ -447,7 +388,10 @@ export function ChallengeBanner({ userEvent }: Props) {
         <View style={styles.timer}>
           <Text
             variant="label"
-            style={[styles.timerDigits, secondsLeft > 0 && secondsLeft <= 60 ? styles.timerUrgent : null]}
+            style={[
+              styles.timerDigits,
+              secondsLeft > 0 && secondsLeft <= 60 ? styles.timerUrgent : null,
+            ]}
           >
             {formatMinutesSecondsCountdown(secondsLeft)}
           </Text>

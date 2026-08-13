@@ -64,8 +64,12 @@ function mockProfile(overrides: Partial<Profile> = {}): Profile {
 // hasUnlockedFeed
 // ---------------------------------------------------------------------------
 describe('hasUnlockedFeed', () => {
-  it('is true only for completed status', () => {
+  it('is true for an on-time completion', () => {
     expect(hasUnlockedFeed(mockEvent({ status: 'completed' }))).toBe(true);
+  });
+
+  it('is true for a paid late completion', () => {
+    expect(hasUnlockedFeed(mockEvent({ status: 'late' }))).toBe(true);
   });
 
   it('is false for pending', () => {

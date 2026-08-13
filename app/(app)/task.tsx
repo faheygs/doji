@@ -1,14 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
@@ -16,13 +7,14 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { IconClose } from '../../components/icons/Icons';
 import { useUserEvent, useCreatePost } from '../../hooks/useUserEvent';
-import { useDemoStore } from '../../stores/useDemoStore';
 import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navigationReturn';
-import { canSubmitChallenge } from '../../lib/participationGate';
 import { required, validationMessage } from '../../lib/formValidation';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
+import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 
 export default function TaskScreen() {
   const router = useRouter();
@@ -36,7 +28,6 @@ export default function TaskScreen() {
   const canSubmit = answerValidation.ok && !createPost.isPending;
 
   useEffect(() => {
-    if (useDemoStore.getState().isDemoMode) return;
     if (isLoading) return;
     if (!userEvent) return;
     const t = userEvent.challenge?.type;
@@ -47,12 +38,6 @@ export default function TaskScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!userEvent || !answer.trim()) return;
-    if (!canSubmitChallenge(userEvent)) {
-      Toast.show({ type: 'error', text1: "Time's up!", text2: "You missed today's window." });
-      navigateToFeedAfterChallengeComplete(router);
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     createPost.mutate(
@@ -71,7 +56,8 @@ export default function TaskScreen() {
           navigateToFeedAfterChallengeComplete(router);
         },
         onError: (err: Error) => {
-          Toast.show({ type: 'error', text1: err.message ?? 'Failed to submit' });
+          const copy = dojiSubmissionErrorCopy(err);
+          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
         },
       },
     );
@@ -83,7 +69,8 @@ export default function TaskScreen() {
         container: { flex: 1, backgroundColor: colors.background },
         header: {
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           paddingHorizontal: Spacing.lg,
           paddingTop: Spacing.sm,
         },
@@ -96,7 +83,7 @@ export default function TaskScreen() {
         },
         title: { textAlign: 'center' },
         inputWrap: { flex: 1, minHeight: 120 },
-        footer: { padding: Spacing.lg },
+        footer: { width: '100%', paddingVertical: Spacing.lg },
         submitButton: {
           width: '100%',
           height: 52,
@@ -132,20 +119,20 @@ export default function TaskScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <View style={{ flex: 1 }}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => backOrHome(router)} hitSlop={16} style={{ padding: Spacing.sm }}>
+          <ChallengeTimer expiresAt={userEvent?.expires_at} onExpire={() => void refetch()} />
+          <TouchableOpacity
+            onPress={() => backOrHome(router)}
+            hitSlop={16}
+            style={{ padding: Spacing.sm }}
+          >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <AppKeyboardAwareScrollView
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
@@ -171,31 +158,30 @@ export default function TaskScreen() {
                 error={answer.length > 0 ? validationMessage(answerValidation) : undefined}
               />
             </View>
+            <View style={styles.footer}>
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              activeOpacity={0.85}
+              style={[
+                styles.submitButton,
+                {
+                  backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+                },
+              ]}
+            >
+              {createPost.isPending ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
+                  Submit Answer
+                </Text>
+              )}
+            </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-            activeOpacity={0.85}
-            style={[
-              styles.submitButton,
-              {
-                backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
-              },
-            ]}
-          >
-            {createPost.isPending ? (
-              <ActivityIndicator color={colors.onPrimary} />
-          ) : (
-            <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
-                Submit Answer
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

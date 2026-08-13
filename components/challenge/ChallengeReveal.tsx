@@ -12,6 +12,7 @@ import { Spacing, Radius } from '../../constants/theme';
 import { IconCamera, IconCheck } from '../icons/Icons';
 import { IcnBarChart, IcnTarget } from '../icons/BadgeIcons';
 import type { Challenge, DailyEvent } from '../../types/database';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -107,6 +108,7 @@ export function ChallengeReveal({
   );
   const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  useDismissOnRouteBlur(visible, onDismiss);
 
   useEffect(() => {
     if (visible) {
@@ -132,6 +134,8 @@ export function ChallengeReveal({
       : challenge.type === 'task' || challenge.type === 'format'
         ? "Let's Do It"
         : 'Open Camera';
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>

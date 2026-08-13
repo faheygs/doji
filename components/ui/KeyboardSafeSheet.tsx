@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  useWindowDimensions,
   type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,13 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from './Text';
 import { IconClose } from '../icons/Icons';
+import { AppKeyboardToolbar } from './AppKeyboardToolbar';
+import { KEYBOARD_TOOLBAR_CLEARANCE } from './AppKeyboardAwareScrollView';
+import {
+  getKeyboardAvoidanceInset,
+  getKeyboardDismissTarget,
+} from '../../lib/keyboardSafeInteraction';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -26,6 +34,8 @@ type Props = {
   footer?: React.ReactNode;
   /** When true, scrim/back dismisses keyboard first instead of closing immediately */
   keyboardAwareDismiss?: boolean;
+  /** Portion of the visible window used by the sheet. */
+  heightFraction?: number;
 };
 
 export function KeyboardSafeSheet({
@@ -36,11 +46,15 @@ export function KeyboardSafeSheet({
   children,
   footer,
   keyboardAwareDismiss = true,
+  heightFraction = 0.5,
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: liveWindowHeight } = useWindowDimensions();
+  const [initialWindowHeight, setInitialWindowHeight] = useState(Dimensions.get('window').height);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardVisibleRef = useRef(false);
+  useDismissOnRouteBlur(visible, onClose);
 
   useEffect(() => {
     if (!visible) {
@@ -48,6 +62,7 @@ export function KeyboardSafeSheet({
       keyboardVisibleRef.current = false;
       return;
     }
+    setInitialWindowHeight(Dimensions.get('window').height);
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const onShow = (e: KeyboardEvent) => {
@@ -67,7 +82,7 @@ export function KeyboardSafeSheet({
   }, [visible]);
 
   const tryDismiss = useCallback(() => {
-    if (keyboardAwareDismiss && keyboardVisibleRef.current) {
+    if (getKeyboardDismissTarget(keyboardAwareDismiss, keyboardVisibleRef.current) === 'keyboard') {
       Keyboard.dismiss();
       return;
     }
@@ -77,9 +92,8 @@ export function KeyboardSafeSheet({
 
   const handleExplicitClose = useCallback(() => {
     Haptics.selectionAsync();
-    Keyboard.dismiss();
-    onClose();
-  }, [onClose]);
+    tryDismiss();
+  }, [tryDismiss]);
 
   const styles = useMemo(
     () =>
@@ -90,7 +104,6 @@ export function KeyboardSafeSheet({
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
-          height: Dimensions.get('window').height * 0.5,
           backgroundColor: colors.surfaceElevated,
           borderTopLeftRadius: Radius.xl,
           borderTopRightRadius: Radius.xl,
@@ -134,7 +147,17 @@ export function KeyboardSafeSheet({
     [colors],
   );
 
-  const bottomPad = Math.max(insets.bottom, Spacing.md) + (keyboardHeight > 0 ? keyboardHeight - insets.bottom : 0);
+  const keyboardInset = getKeyboardAvoidanceInset({
+    keyboardHeight,
+    initialWindowHeight,
+    currentWindowHeight: liveWindowHeight,
+  });
+  const bottomPad = Math.max(
+    insets.bottom,
+    Spacing.md,
+    keyboardInset > 0 ? keyboardInset + KEYBOARD_TOOLBAR_CLEARANCE : 0,
+  );
+  const sheetHeight = initialWindowHeight * Math.min(0.9, Math.max(0.4, heightFraction));
 
   if (!visible) return null;
 
@@ -142,7 +165,7 @@ export function KeyboardSafeSheet({
     <Modal visible transparent animationType="fade" onRequestClose={tryDismiss}>
       <Pressable style={styles.backdrop} onPress={tryDismiss} accessibilityLabel="Dismiss">
         <Pressable
-          style={[styles.sheet, { paddingBottom: bottomPad }]}
+          style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
           onPress={(e) => e.stopPropagation()}
         >
           <View style={styles.grab} />
@@ -165,7 +188,7 @@ export function KeyboardSafeSheet({
             style={[styles.scroll, { flex: 1 }]}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="none"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
             {children}
@@ -173,6 +196,7 @@ export function KeyboardSafeSheet({
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </Pressable>
       </Pressable>
+      <AppKeyboardToolbar insidePageSheet />
     </Modal>
   );
 }

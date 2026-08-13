@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useMemo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Keyboard,
   Platform,
+  type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,10 +28,17 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { PostCommentsThread } from './PostCommentsThread';
+import { AppKeyboardToolbar } from '../ui/AppKeyboardToolbar';
+import { KEYBOARD_TOOLBAR_CLEARANCE } from '../ui/AppKeyboardAwareScrollView';
 import { useComments, useToggleCommentsDisabled } from '../../hooks/useComments';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { formatCompactCount } from '../../utils/formatCount';
 import type { FeedAudience } from '../../lib/feedAudience';
+import {
+  getKeyboardAvoidanceInset,
+  getKeyboardDismissTarget,
+} from '../../lib/keyboardSafeInteraction';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 
 type Props = {
   visible: boolean;
@@ -76,8 +84,11 @@ export function PostCommentsSheet({
     feedAudience === 'friends' ? (scopedComments?.length ?? 0) : commentCount;
   const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardVisibleRef = useRef(false);
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const { height: liveWinH } = useWindowDimensions();
+  useDismissOnRouteBlur(visible, onClose);
 
   useEffect(() => {
     setLocalDisabled(commentsDisabled);
@@ -86,12 +97,22 @@ export function PostCommentsSheet({
   useEffect(() => {
     if (!visible) {
       setKeyboardOpen(false);
+      setKeyboardHeight(0);
+      keyboardVisibleRef.current = false;
       return;
     }
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = () => setKeyboardOpen(true);
-    const onHide = () => setKeyboardOpen(false);
+    const onShow = (event: KeyboardEvent) => {
+      keyboardVisibleRef.current = true;
+      setKeyboardOpen(true);
+      setKeyboardHeight(event.endCoordinates.height);
+    };
+    const onHide = () => {
+      keyboardVisibleRef.current = false;
+      setKeyboardOpen(false);
+      setKeyboardHeight(0);
+    };
     const s = Keyboard.addListener(showEvt, onShow);
     const h = Keyboard.addListener(hideEvt, onHide);
     return () => {
@@ -116,6 +137,11 @@ export function PostCommentsSheet({
   }, [visible]);
 
   const layoutWinH = lockedWinH ?? liveWinH;
+  const keyboardInset = getKeyboardAvoidanceInset({
+    keyboardHeight,
+    initialWindowHeight: layoutWinH,
+    currentWindowHeight: liveWinH,
+  });
 
   /** Max height: sheet top stops at the top safe area (not under status bar). */
   const expandedHeight = layoutWinH - insets.top;
@@ -222,6 +248,10 @@ export function PostCommentsSheet({
   }));
 
   const handleClosePress = useCallback(() => {
+    if (getKeyboardDismissTarget(true, keyboardVisibleRef.current) === 'keyboard') {
+      Keyboard.dismiss();
+      return;
+    }
     animateToClose();
   }, [animateToClose]);
 
@@ -250,7 +280,11 @@ export function PostCommentsSheet({
           flex: 1,
         },
         backdrop: {
-          ...StyleSheet.absoluteFillObject,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           backgroundColor: 'rgba(0,0,0,0.25)',
         },
         sheet: {
@@ -377,10 +411,14 @@ export function PostCommentsSheet({
                 fetchEnabled={visible}
                 feedAudience={feedAudience}
                 embedInSheet
+                keyboardInset={
+                  keyboardInset > 0 ? keyboardInset + KEYBOARD_TOOLBAR_CLEARANCE : 0
+                }
               />
             </View>
           </Animated.View>
         </View>
+        <AppKeyboardToolbar insidePageSheet />
       </GestureHandlerRootView>
     </Modal>
   );

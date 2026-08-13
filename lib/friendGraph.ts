@@ -1,12 +1,17 @@
 import { supabase } from './supabase';
 
 /** Accepted mutual friend user ids for the viewer (does not include self). */
-export async function getAcceptedFriendIds(viewerId: string): Promise<string[]> {
-  const { data, error } = await supabase
+export async function getAcceptedFriendIds(
+  viewerId: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  let query = supabase
     .from('friendships')
     .select('requester_id, addressee_id')
     .eq('status', 'accepted')
     .or(`requester_id.eq.${viewerId},addressee_id.eq.${viewerId}`);
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -22,7 +27,10 @@ export async function getAcceptedFriendIds(viewerId: string): Promise<string[]> 
 }
 
 /** Friend ids including the viewer (for feed audience filtering). */
-export async function getFriendIdsIncludingSelf(viewerId: string): Promise<string[]> {
-  const friends = await getAcceptedFriendIds(viewerId);
+export async function getFriendIdsIncludingSelf(
+  viewerId: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const friends = await getAcceptedFriendIds(viewerId, signal);
   return [...new Set([viewerId, ...friends])];
 }
