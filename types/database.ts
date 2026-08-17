@@ -390,8 +390,8 @@ export type Report = {
   status: ReportStatus;
   notes: string | null;
   created_at: string;
-  reporter?: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
-  reported_user?: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null;
+  reporter?: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
+  reported_user?: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
   post?: { caption: string | null; photo_url: string | null } | null;
   comment?: { body: string | null } | null;
   poll_vote?: { custom_text: string | null } | null;
@@ -655,6 +655,17 @@ export type Database = {
       get_profile_by_username: {
         Args: { p_username: string };
         Returns: Profile | null;
+      };
+      get_public_profile_view: {
+        Args: { p_username: string };
+        Returns: {
+          status: 'visible' | 'blocked_by_user' | 'not_found';
+          profile: Profile | null;
+        };
+      };
+      get_pending_reports_snapshot: {
+        Args: { p_limit?: number };
+        Returns: Report[];
       };
       ensure_today_user_event: {
         Args: Record<string, never>;

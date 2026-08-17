@@ -70,8 +70,6 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
     }
   }, [visible]);
 
-  if (!visible) return null;
-
   return (
     <Modal visible={visible} transparent animationType="none">
       <View style={styles.backdrop}>

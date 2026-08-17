@@ -76,8 +76,8 @@ export function BuyInSheet({
         Buy into today&apos;s Doji
       </Text>
       <Text variant="body" color={colors.textSecondary} style={styles.body}>
-        You missed the window, but you can still participate — and keep your streak — for {SPARKS_BUY_IN_COST}{' '}
-        Sparks.
+        Spend {SPARKS_BUY_IN_COST} Sparks to open today&apos;s Doji now. Once paid,
+        it stays open until you complete it.
       </Text>
 
       <View style={styles.preview}>

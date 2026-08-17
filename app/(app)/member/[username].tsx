@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
+import { ProfileSkeleton } from '@/components/ui/LoadingSkeletons';
 import { Button } from '@/components/ui/Button';
 import { XPBar } from '@/components/gamification/XPBar';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
@@ -75,7 +76,7 @@ export default function UserProfileScreen() {
     setFriendsSheetVisible(true);
   }, []);
 
-  const { data: profile, isLoading } = useProfile(username);
+  const { data: profile, blockedByUser, isLoading } = useProfile(username);
   const { data: friendship } = useFriendship(profile?.id);
   const { data: friendshipStatus = 'none' } = useFriendshipStatus(profile?.id);
   const { data: friendCount = 0 } = useFriendCount(profile?.id);
@@ -205,16 +206,12 @@ export default function UserProfileScreen() {
           {headerBack}
           <View style={{ flex: 1 }} />
         </View>
-        <View style={styles.centered}>
-          <Text variant="body" color={colors.textSecondary}>
-            Loading profile…
-          </Text>
-        </View>
+        <ProfileSkeleton />
       </SafeAreaView>
     );
   }
 
-  if (!profile) {
+  if (blockedByUser || !profile) {
     return (
       <SafeAreaView style={[styles.container, webScrollParentStyle]}>
         <View style={styles.topBar}>
@@ -222,8 +219,8 @@ export default function UserProfileScreen() {
           <View style={{ flex: 1 }} />
         </View>
         <View style={styles.centered}>
-          <Text variant="body" color={colors.textSecondary}>
-            User not found
+          <Text variant="headingMedium">
+            {blockedByUser ? 'This user has blocked you' : 'User not found'}
           </Text>
         </View>
       </SafeAreaView>

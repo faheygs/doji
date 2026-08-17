@@ -10,13 +10,22 @@ export const ROUTES = {
   username: '/(auth)/username' as Href,
   onboarding: '/(onboarding)' as Href,
   onboardingHowItWorks: '/(onboarding)/how-it-works' as Href,
+  banned: '/banned' as Href,
   challenge: '/(app)/challenge' as Href,
   poll: '/(app)/poll' as Href,
   task: '/(app)/task' as Href,
+  format: '/(app)/format' as Href,
   camera: '/(app)/camera' as Href,
   profile: '/(app)/profile' as Href,
   friends: '/(app)/friends' as Href,
 } as const;
+
+export function challengeEntryHref(type: string | null | undefined): Href {
+  if (type === 'poll') return ROUTES.poll;
+  if (type === 'task') return ROUTES.task;
+  if (type === 'format') return ROUTES.format;
+  return ROUTES.camera;
+}
 
 /** @deprecated Use ROUTES.feed — kept for existing imports. */
 export const FEED_TAB_HREF = ROUTES.feed;

@@ -18,6 +18,7 @@ import { Text } from '../../components/ui/Text';
 import { ProfileAvatar } from '../../components/ui/ProfileAvatar';
 import { PostCard } from '../../components/feed/PostCard';
 import { FeedSkeleton } from '../../components/feed/FeedSkeleton';
+import { SkeletonSwap } from '../../components/ui/SkeletonSwap';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { DojiHeaderBrand } from '../../components/branding/DojiHeaderBrand';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
@@ -27,18 +28,21 @@ import { IconBell } from '../../components/icons/Icons';
 import { useNotificationCenterContext } from '../../contexts/NotificationCenterContext';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { useUpcomingDoji } from '../../hooks/useUpcomingDoji';
-import {
-  prefetchFeedAudience,
-  useFeed,
-  type FeedAudience,
-} from '../../hooks/useFeed';
+import { prefetchFeedAudience, useFeed, type FeedAudience } from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 export default function FeedScreen() {
-  useFocusedRealtimeInvalidation('feed:public', ['feed', 'pollResults', 'pollVotersDetail', 'reactions', 'comments', 'post']);
+  useFocusedRealtimeInvalidation('feed:public', [
+    'feed',
+    'pollResults',
+    'pollVotersDetail',
+    'reactions',
+    'comments',
+    'post',
+  ]);
   const router = useRouter();
   const params = useLocalSearchParams<{
     postId?: string | string[];
@@ -82,8 +86,8 @@ export default function FeedScreen() {
     clearNotificationHistory,
     items: notificationItems,
     isLoading: notificationsLoading,
+    isClearing: notificationsClearing,
   } = useNotificationCenterContext();
-
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -175,19 +179,14 @@ export default function FeedScreen() {
       }),
     [colors],
   );
-
   const outerStyle = useMemo(() => [styles.container, webScrollParentStyle], [styles.container]);
-
   const [refreshing, setRefreshing] = useState(false);
   const refreshWorkRef = useRef<Promise<unknown> | null>(null);
-
   const challengeIsLive = useMemo(() => {
     if (!userEvent?.daily_event?.fires_at) return false;
     return isChallengeLive(userEvent.daily_event.fires_at);
   }, [userEvent]);
-
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
-
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
     const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
@@ -201,7 +200,6 @@ export default function FeedScreen() {
     });
     return () => task.cancel();
   }, [audience, feedPages, feedUnlocked, queryClient, userEvent?.daily_event_id, userId]);
-
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
     if (deepLinkHandledRef.current === pendingPostId) return;
@@ -452,50 +450,52 @@ export default function FeedScreen() {
     );
   }
 
-  if (feedLoading && !refreshing && posts.length === 0) {
-    return (
-      <SafeAreaView style={outerStyle}>
-        <ListHeader />
-        <FeedSkeleton />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={outerStyle}>
-      <FlatList
-        ref={flatListRef}
-        style={webScrollParentStyle}
-        data={posts}
-        keyExtractor={keyExtractorPost}
-        renderItem={renderPost}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmptyComponent}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.35}
-        initialNumToRender={6}
-        maxToRenderPerBatch={4}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === 'android'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.text}
-            colors={refreshColors}
-          />
+      <SkeletonSwap
+        loading={feedLoading && !refreshing && posts.length === 0}
+        skeleton={
+          <>
+            <ListHeader />
+            <FeedSkeleton />
+          </>
         }
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-      />
+      >
+        <FlatList
+          ref={flatListRef}
+          style={webScrollParentStyle}
+          data={posts}
+          keyExtractor={keyExtractorPost}
+          renderItem={renderPost}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmptyComponent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.35}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.text}
+              colors={refreshColors}
+            />
+          }
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        />
+      </SkeletonSwap>
 
       <NotificationSheet
         visible={notificationsOpen}
         items={notificationItems}
         isLoading={notificationsLoading}
+        isClearing={notificationsClearing}
         onDismissItem={dismissNotificationItem}
         onClearHistory={clearNotificationHistory}
         onClose={() => {

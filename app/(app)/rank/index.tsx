@@ -1,17 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { Text } from '../../../components/ui/Text';
+import { LeaderboardSkeleton } from '../../../components/ui/LoadingSkeletons';
+import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
 import {
   useLeaderboard,
   type LeaderboardMode,
@@ -191,15 +186,15 @@ export default function LeaderboardScreen() {
   const userId = useAuthStore((s) => s.session?.user?.id);
   const [mode, setMode] = useState<LeaderboardMode>('weekly');
   const [audience, setAudience] = useState<LeaderboardAudience>('everyone');
-  const { data: entries, isLoading, isError, refetch, isRefetching, isFetching } = useLeaderboard(
-    mode,
-    audience,
-  );
+  const {
+    data: entries,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+  } = useLeaderboard(mode, audience);
 
-  const restEntries = useMemo(
-    () => (entries ?? []).filter((e) => e.rank > 3),
-    [entries],
-  );
+  const restEntries = useMemo(() => (entries ?? []).filter((e) => e.rank > 3), [entries]);
 
   const layout = useMemo(
     () =>
@@ -276,20 +271,22 @@ export default function LeaderboardScreen() {
             : 'Ranked by total XP ever earned.'}
         </Text>
 
-        <PodiumTopThree entries={entries ?? []} currentUserId={userId} />
-
-        {isFetching && !entries?.length ? (
-          <View style={layout.fetchFooter}>
-            <ActivityIndicator color={colors.primary} size="small" />
-          </View>
-        ) : null}
+        <SkeletonSwap
+          loading={isLoading && (entries ?? []).length === 0}
+          skeleton={<LeaderboardSkeleton />}
+          fill={false}
+        >
+          <PodiumTopThree entries={entries ?? []} currentUserId={userId} />
+        </SkeletonSwap>
       </>
     ),
-    [layout, colors, audience, mode, entries, userId, isFetching],
+    [layout, colors, audience, mode, entries, userId, isLoading],
   );
 
   return (
-    <View style={[layout.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View
+      style={[layout.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+    >
       {isError ? (
         <>
           {ListHeader}
@@ -311,19 +308,20 @@ export default function LeaderboardScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
-          }
-          ListFooterComponent={
-            isFetching && isLoading ? (
-              <View style={layout.fetchFooter}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
-            ) : null
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
           }
           ListEmptyComponent={
             !isLoading && !entries?.length ? (
               <View style={layout.empty}>
-                <Text variant="headingLarge" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+                <Text
+                  variant="headingLarge"
+                  color={colors.textSecondary}
+                  style={{ textAlign: 'center' }}
+                >
                   {audience === 'friends' ? 'No friends yet' : "You're early"}
                 </Text>
                 <Text

@@ -8,6 +8,7 @@ import { syncServerClock } from '../lib/serverClock';
 import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { createRequestSignal } from '../lib/requestSignal';
+import { getCommittedPostReceipt } from '../lib/dojiWriteReceipt';
 
 export function useUserEvent() {
   const session = useAuthStore((s) => s.session);
@@ -85,7 +86,11 @@ export function useCreatePost() {
           p_idempotency_key: commandId,
         });
 
-        if (postError) throw postError;
+        if (postError) {
+          const committedPost = await getCommittedPostReceipt(payload.userEventId);
+          if (committedPost) return committedPost;
+          throw postError;
+        }
         return post;
       });
     },

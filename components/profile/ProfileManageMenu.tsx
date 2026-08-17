@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { IconMoreVertical } from '../icons/Icons';
 import { Text } from '../ui/Text';
+import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { useModalPresence } from '../../hooks/useModalPresence';
 
 type Props = {
   isBlocked: boolean;
@@ -32,7 +35,10 @@ function MenuAction({ label, destructive, disabled, isLast, onPress }: MenuActio
       onPress={onPress}
       style={({ pressed }) => [
         styles.action,
-        !isLast && { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
+        !isLast && {
+          borderBottomColor: colors.hairline,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
         pressed && { backgroundColor: colors.surfaceElevated },
         disabled && styles.disabled,
       ]}
@@ -44,20 +50,36 @@ function MenuAction({ label, destructive, disabled, isLast, onPress }: MenuActio
   );
 }
 
-export function ProfileManageMenu({
-  isBlocked,
-  busy,
-  onBlock,
-  onUnblock,
-  onReport,
-}: Props) {
+export function ProfileManageMenu({ isBlocked, busy, onBlock, onUnblock, onReport }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const pendingActionRef = useRef<null | (() => void)>(null);
+  const wasPresented = useRef(false);
+  const { presented, progress } = useModalPresence(open);
+  const closeMenu = useCallback(() => setOpen(false), []);
+  useDismissOnRouteBlur(open, closeMenu);
+
+  const menuMotionStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [-6, 0]) },
+      { scale: interpolate(progress.value, [0, 1], [0.98, 1]) },
+    ],
+  }));
+
+  useEffect(() => {
+    if (wasPresented.current && !presented) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      action?.();
+    }
+    wasPresented.current = presented;
+  }, [presented]);
 
   const run = (action: () => void) => {
+    pendingActionRef.current = action;
     setOpen(false);
-    action();
   };
 
   return (
@@ -68,26 +90,29 @@ export function ProfileManageMenu({
         accessibilityState={{ expanded: open }}
         activeOpacity={0.8}
         onPress={() => setOpen(true)}
-        style={[
-          styles.trigger,
-          { backgroundColor: 'transparent', borderColor: colors.border },
-        ]}
+        style={[styles.trigger, { backgroundColor: 'transparent', borderColor: colors.border }]}
       >
         <IconMoreVertical size={20} color={colors.text} />
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
+      <Modal
+        visible={presented}
+        transparent
+        animationType="none"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.overlay} pointerEvents={open ? 'auto' : 'none'}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close manage menu"
             style={StyleSheet.absoluteFill}
             onPress={() => setOpen(false)}
           />
-          <View
+          <Animated.View
             accessibilityRole="menu"
             style={[
               styles.menu,
+              menuMotionStyle,
               {
                 top: insets.top + 56,
                 backgroundColor: colors.surface,
@@ -116,7 +141,7 @@ export function ProfileManageMenu({
                 onPress={() => run(onReport)}
               />
             ) : null}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </>

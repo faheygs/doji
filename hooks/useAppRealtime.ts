@@ -102,7 +102,7 @@ export function useAppRealtime(userId: string | undefined) {
           filter: `blocker_id=eq.${userId}`,
         },
         () => {
-          invalidateRoots('blockedUsers', 'isBlocked', 'feed');
+          invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'feed');
         },
       )
       .on(

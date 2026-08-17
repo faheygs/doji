@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { UserEvent } from '../types/database';
 import { canBuyIn } from '../lib/participationGate';
+import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 
 export function useBuyInToday(userEvent: UserEvent | null | undefined) {
   const eligible = canBuyIn(userEvent);
@@ -14,13 +15,23 @@ export function useBuyInToday(userEvent: UserEvent | null | undefined) {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc('buy_in_today');
       if (error) throw error;
-      return data as { user_event_id: string; sparks: number; expires_at: string };
+      return data as { user_event_id: string; sparks: number; expires_at: string | null };
     },
-    onSuccess: async () => {
-      if (userId) {
-        await fetchProfile(userId);
-        await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
-      }
+    onSuccess: (data) => {
+      if (!userId) return;
+
+      const key = ['userEvent', 'today', userId] as const;
+      queryClient.setQueryData<UserEvent | null>(key, (current) => current ? {
+        ...current,
+        status: 'buy_in_open',
+        buy_in_at: new Date().toISOString(),
+      } : current);
+
+      const { profile, setProfile } = useAuthStore.getState();
+      if (profile) setProfile({ ...profile, sparks: data.sparks });
+
+      scheduleQueryInvalidation(queryClient, ['userEvent', 'profile', 'leaderboard']);
+      void fetchProfile(userId);
     },
   });
 

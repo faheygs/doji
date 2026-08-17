@@ -65,13 +65,16 @@ export function goBackWithOptionalReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
+  // A screen reached with router.push already has its real parent underneath it.
+  // Pop that entry instead of replacing it with returnTo, which duplicates the
+  // parent route (for example Profile -> Settings -> Edit -> Settings).
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
   const explicit = sanitizeReturnTo(returnToRaw);
   if (explicit) {
     safeReplace(router, explicit);
-    return;
-  }
-  if (router.canGoBack()) {
-    router.back();
     return;
   }
   safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);

@@ -5,7 +5,7 @@ import { NotificationActorRow } from './NotificationActorRow';
 import { useTheme } from '../../contexts/ThemeContext';
 import { friendActivityActorsLine } from '../../lib/notificationCopy';
 import type { NotificationCenterItem } from '../../lib/notificationCenterTypes';
-import { Spacing } from '../../constants/theme';
+import { Radius, Spacing } from '../../constants/theme';
 
 type FriendActivityItem = Extract<
   NotificationCenterItem,
@@ -36,14 +36,18 @@ export function FriendActivityNotificationCard({ item, onPress }: Props) {
               username: actor.username ?? undefined,
               equipped_border_key: actor.equipped_border_key,
             }))}
-            size={40}
+            size={36}
             max={3}
-            borderColor={colors.background}
+            borderColor={colors.surface}
           />
         }
         footer={
-          <Text variant="micro" color={colors.textTertiary}>
-            {item.count} friend{item.count === 1 ? '' : 's'} participated
+          <Text
+            variant="micro"
+            color={colors.primary}
+            style={{ alignSelf: 'flex-start', backgroundColor: colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs }}
+          >
+            {item.count} participated
           </Text>
         }
       />

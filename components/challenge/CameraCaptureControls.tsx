@@ -8,7 +8,7 @@ import { ChallengeTimer } from './ChallengeTimer';
 type TopProps = {
   flashEnabled: boolean;
   flashAvailable: boolean;
-  expiresAt: string;
+  expiresAt: string | null;
   onClose: () => void;
   onFlip: () => void;
   onToggleFlash: () => void;

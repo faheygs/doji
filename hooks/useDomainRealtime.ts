@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import Toast from 'react-native-toast-message';
 import {
   closeRealtimeConnection,
   onRealtimeConnectionChange,
@@ -38,23 +37,12 @@ export function useDomainRealtime(userId: string | undefined) {
       }, 200);
     };
 
-    const invalidateRoots = (...roots: string[]) =>
-      scheduleQueryInvalidation(queryClient, roots);
+    const invalidateRoots = (...roots: string[]) => scheduleQueryInvalidation(queryClient, roots);
 
     const handleEvent = (event: DojiRealtimeEvent) => {
       if (!deduper.shouldProcess(event.eventId)) return;
       if (event.type.startsWith('doji.')) {
         invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'notificationCenter');
-        if (event.type === 'doji.activated') {
-          Toast.show({
-            type: 'info',
-            text1: typeof event.payload.title === 'string' ? event.payload.title : 'Doji is live',
-            text2:
-              typeof event.payload.body === 'string'
-                ? event.payload.body
-                : 'You have 10 minutes to participate.',
-          });
-        }
         return;
       }
 
@@ -100,7 +88,7 @@ export function useDomainRealtime(userId: string | undefined) {
       }
 
       if (event.type.startsWith('social.block.')) {
-        invalidateRoots('blockedUsers', 'isBlocked', 'feed');
+        invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'feed');
         return;
       }
 
@@ -116,10 +104,7 @@ export function useDomainRealtime(userId: string | undefined) {
         return;
       }
 
-      if (
-        event.type === 'profile.updated' ||
-        event.type.startsWith('profile.presentation.')
-      ) {
+      if (event.type === 'profile.updated' || event.type.startsWith('profile.presentation.')) {
         const changedUserId =
           typeof event.payload.userId === 'string' ? event.payload.userId : undefined;
         if (changedUserId === userId) {
@@ -184,10 +169,7 @@ export function useDomainRealtime(userId: string | undefined) {
       }
     };
 
-    const channelNames = [
-      'doji:global',
-      `user:${userId}:events`,
-    ];
+    const channelNames = ['doji:global', `user:${userId}:events`];
     if (isAdmin) channelNames.push('moderation:global');
 
     for (const channelName of channelNames) {

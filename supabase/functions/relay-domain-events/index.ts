@@ -1,53 +1,49 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendExpoPushMessages } from '../_shared/expo-push.ts';
-import { claimPushDelivery } from '../_shared/push-delivery.ts';
+import {
+  claimPushDelivery,
+  recordPushDeliveryResults,
+  type PushDeliveryOutcome,
+} from '../_shared/push-delivery.ts';
 import { pushPreferenceEnabled } from '../_shared/notification-preferences.ts';
 import { processBroadcastPush } from '../_shared/broadcast-push.ts';
+import {
+  buildAblyMessages,
+  isPushFresh,
+  type DeliveryEvent,
+} from '../_shared/domain-event-delivery.ts';
 
-const MAX_INLINE_ATTEMPTS = 3;
 const MAX_TOPIC_WORKERS = 8;
+const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
 
-function wait(milliseconds: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
-async function publishAblyEvent(
+async function publishAblyEvents(
   apiKey: string,
-  event: RelayEvent,
+  topic: string,
+  events: RelayEvent[],
 ): Promise<void> {
-  const response = await fetch(
-    `https://rest.ably.io/channels/${encodeURIComponent(event.topic)}/messages`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(apiKey)}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: event.id,
-        name: event.event_type,
-        data: {
-          eventId: event.id,
-          aggregateId: event.aggregate_id,
-          ...event.payload,
+  if (events.length === 0) return;
+  for (let index = 0; index < events.length; index += MAX_ABLY_MESSAGES_PER_REQUEST) {
+    const chunk = events.slice(index, index + MAX_ABLY_MESSAGES_PER_REQUEST);
+    const response = await fetch(
+      `https://rest.ably.io/channels/${encodeURIComponent(topic)}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(apiKey)}`,
+          'Content-Type': 'application/json',
         },
-      }),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`Ably publish failed (${response.status}): ${await response.text()}`);
+        body: JSON.stringify(buildAblyMessages(chunk)),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Ably publish failed (${response.status}): ${await response.text()}`);
+    }
   }
 }
 
-type RelayEvent = {
-  id: string;
+type RelayEvent = DeliveryEvent & {
   topic: string;
-  event_type: string;
-  aggregate_id: string | null;
-  payload: Record<string, unknown>;
   lease_id: string;
 };
 
@@ -86,17 +82,19 @@ Deno.serve(async (request) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-  const { data: events, error } = await database.rpc('claim_domain_events', {
+  const { data: events, error } = await database.rpc('claim_domain_events_v2', {
     p_batch_size: 100,
   });
   if (error) return new Response(error.message, { status: 500 });
 
   const claimedEvents = (events ?? []) as RelayEvent[];
-  const targetUserIds = [...new Set(
-    claimedEvents
-      .filter((event) => event.payload?.sendPush === true && event.payload?.targetUserId)
-      .map((event) => String(event.payload.targetUserId)),
-  )];
+  const targetUserIds = [
+    ...new Set(
+      claimedEvents
+        .filter((event) => event.payload?.sendPush === true && event.payload?.targetUserId)
+        .map((event) => String(event.payload.targetUserId)),
+    ),
+  ];
   const profilesById = new Map<string, PushProfile>();
   if (targetUserIds.length > 0) {
     const { data: profiles, error: profilesError } = await database
@@ -107,7 +105,10 @@ Deno.serve(async (request) => {
     for (const profile of profiles ?? []) {
       profilesById.set(String(profile.id), {
         notification_token: profile.notification_token,
-        notification_preferences: profile.notification_preferences as Record<string, unknown> | null,
+        notification_preferences: profile.notification_preferences as Record<
+          string,
+          unknown
+        > | null,
       });
     }
   }
@@ -123,10 +124,19 @@ Deno.serve(async (request) => {
   let failed = 0;
   let continued = 0;
   let broadcastSent = 0;
-  const processEvent = async (event: RelayEvent) => {
+  const processEventSideEffects = async (event: RelayEvent) => {
     try {
-      if (event.payload?.realtimePublished !== true) {
-        await publishAblyEvent(ablyKey, event);
+      const hasPush = event.payload?.sendPush === true || event.payload?.broadcastPush === true;
+      if (hasPush && !isPushFresh(event)) {
+        const { data: completed, error: completionError } = await database.rpc(
+          'complete_domain_event',
+          { p_event_id: event.id, p_lease_id: event.lease_id },
+        );
+        if (completionError || !completed) {
+          throw completionError ?? new Error('Event lease was lost');
+        }
+        published += 1;
+        return;
       }
 
       const broadcast = await processBroadcastPush(database, event);
@@ -146,8 +156,9 @@ Deno.serve(async (request) => {
           : null;
         const preferences = profile?.notification_preferences;
         if (token && pushPreferenceEnabled(preferences, preferenceKey)) {
+          const deliveryKey = `outbox-push:${event.id}:${targetUserId}`;
           const claimed = await claimPushDelivery(database, {
-            deliveryKey: `outbox-push:${event.id}:${targetUserId}`,
+            deliveryKey,
             targetUserId,
             category: preferenceKey ?? event.event_type,
             aggregateId: String(event.aggregate_id ?? event.id),
@@ -164,54 +175,61 @@ Deno.serve(async (request) => {
             return;
           }
 
-          let pushResult: Awaited<ReturnType<typeof sendExpoPushMessages>> | null = null;
-          for (let attempt = 0; attempt < MAX_INLINE_ATTEMPTS; attempt += 1) {
-            pushResult = await sendExpoPushMessages([{
+          const pushResult = await sendExpoPushMessages([
+            {
               to: token,
               title: String(event.payload.title ?? 'Doji'),
               body: String(event.payload.body ?? ''),
               sound: 'default',
               badge: 1,
-              ttl: 600,
+              ttl: event.event_type === 'doji.activated' ? 120 : 300,
               priority: event.payload.priority === 'normal' ? 'normal' : 'high',
-              interruptionLevel: event.payload.interruptionLevel === 'passive'
-                ? 'passive'
-                : event.payload.interruptionLevel === 'time-sensitive'
-                  ? 'time-sensitive'
-                  : 'active',
+              interruptionLevel:
+                event.payload.interruptionLevel === 'passive'
+                  ? 'passive'
+                  : event.payload.interruptionLevel === 'time-sensitive'
+                    ? 'time-sensitive'
+                    : 'active',
               threadId: event.payload.threadId ? String(event.payload.threadId) : undefined,
               collapseId: event.payload.collapseId ? String(event.payload.collapseId) : undefined,
               tag: event.payload.tag ? String(event.payload.tag) : undefined,
               data: {
-                type: String(event.payload.type ?? (
-                  event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'
-                )),
+                type: String(
+                  event.payload.type ??
+                    (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'),
+                ),
                 eventId: event.id,
                 daily_event_id: event.payload.dailyEventId,
                 postId: event.payload.postId,
                 voteId: event.payload.voteId,
                 url: event.payload.url,
               },
-            }]);
-            if (pushResult.httpOk && pushResult.tickets[0]?.status === 'ok') break;
-            if (pushResult.invalidTokenIndices.includes(0)) {
-              await database.from('profiles').update({ notification_token: null })
-                .eq('id', targetUserId)
-                .eq('notification_token', token);
-              break;
-            }
-            await wait(250 * (2 ** attempt));
-          }
-          if (!pushResult?.httpOk) throw new Error('Expo push transport failed');
+            },
+          ]);
           const ticket = pushResult.tickets[0];
-          if (ticket?.status === 'error' && !pushResult.invalidTokenIndices.includes(0)) {
-            throw new Error(ticket.message ?? 'Expo rejected push');
+          const invalidToken = pushResult.invalidTokenIndices.includes(0);
+          const outcome: PushDeliveryOutcome = invalidToken
+            ? 'invalid_token'
+            : ticket?.status === 'ok'
+              ? 'accepted'
+              : pushResult.httpOk
+                ? 'rejected'
+                : 'transport_error';
+          await recordPushDeliveryResults(database, [
+            {
+              deliveryKey,
+              outcome,
+              providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
+              error: ticket?.status === 'error' ? ticket.message : pushResult.transportError,
+            },
+          ]);
+          if (invalidToken) {
+            await database
+              .from('profiles')
+              .update({ notification_token: null })
+              .eq('id', targetUserId)
+              .eq('notification_token', token);
           }
-          const { error: deliveredError } = await database.rpc(
-            'complete_push_deliveries_batch',
-            { p_event_id: event.id, p_target_user_ids: [targetUserId] },
-          );
-          if (deliveredError) throw deliveredError;
         }
       }
 
@@ -237,7 +255,42 @@ Deno.serve(async (request) => {
   // Preserve ordering within each Ably channel, while allowing independent
   // user/public channels to drain concurrently under a bounded worker count.
   await runTopicWorkers([...byTopic.values()], async (group) => {
-    for (const event of group) await processEvent(event);
+    const unpublished = group.filter((event) => event.payload?.realtimePublished !== true);
+    try {
+      await publishAblyEvents(ablyKey, group[0].topic, unpublished);
+      if (unpublished.length > 0) {
+        const { data: marked, error: markedError } = await database.rpc(
+          'mark_domain_events_realtime_published',
+          {
+            p_events: unpublished.map((event) => ({
+              id: event.id,
+              leaseId: event.lease_id,
+            })),
+          },
+        );
+        if (markedError || marked !== unpublished.length) {
+          throw markedError ?? new Error('One or more event leases were lost after publish');
+        }
+        for (const event of unpublished) event.payload.realtimePublished = true;
+      }
+    } catch (publishError) {
+      failed += group.length;
+      const message = publishError instanceof Error ? publishError.message : String(publishError);
+      await Promise.all(
+        group.map((event) =>
+          database.rpc('release_domain_event', {
+            p_event_id: event.id,
+            p_lease_id: event.lease_id,
+            p_error: message,
+          }),
+        ),
+      );
+      return;
+    }
+
+    // Realtime for the entire channel is now live. Slower push delivery may run
+    // afterward without delaying a newer feed/comment/reaction invalidation.
+    for (const event of group) await processEventSideEffects(event);
   });
 
   const { data: nextWakeData, error: nextWakeError } = await database.rpc(

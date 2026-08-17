@@ -49,6 +49,7 @@ import { useAuthGate } from '../hooks/useAuthGate';
 import { AppKeyboardToolbar } from '../components/ui/AppKeyboardToolbar';
 import { AppProviders } from '../components/AppProviders';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
+import { AppThemeHost } from '../components/system/AppThemeHost';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -144,7 +145,6 @@ function RootLayoutInner() {
   const session = useAuthStore((s) => s.session);
   const profile = useAuthStore((s) => s.profile);
   const userId = session?.user?.id;
-
   useEffect(() => {
     if (Platform.OS === 'web') return;
     if (!userId || !profile || profile.id !== userId) return;
@@ -152,9 +152,9 @@ function RootLayoutInner() {
     async function syncPushToken() {
       try {
         const activeProfile = useAuthStore.getState().profile;
-        const notificationsEnabled = mergeNotificationPreferences(
-          activeProfile?.notification_preferences,
-        ).push_enabled;
+        const notificationsEnabled =
+          activeProfile?.is_banned !== true &&
+          mergeNotificationPreferences(activeProfile?.notification_preferences).push_enabled;
         if (!notificationsEnabled) {
           if (!activeProfile?.notification_token) return;
           const { error } = await supabase.rpc('unregister_push_token');
@@ -198,11 +198,10 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    if (!gate.ready) return;
+    if (!gate.canUseApp) return;
 
     let cancelled = false;
     let subscription: { remove: () => void } | undefined;
-    let receivedSub: { remove: () => void } | undefined;
 
     import('expo-notifications').then((Notifications) => {
       if (cancelled) return;
@@ -225,71 +224,65 @@ function RootLayoutInner() {
         const href = notificationHrefFromData(response.notification.request.content.data);
         if (href) safeReplace(router, href);
       });
-
-      receivedSub = Notifications.addNotificationReceivedListener((notification) => {
-        const { title, body, data } = notification.request.content;
-        if (!title && !body) return;
-        Toast.show({
-          type: 'info',
-          text1: title ?? undefined,
-          text2: body ?? undefined,
-          onPress: () => {
-            const href = notificationHrefFromData(data);
-            if (href) safeReplace(router, href);
-            Toast.hide();
-          },
-        });
-      });
     });
 
     return () => {
       cancelled = true;
       subscription?.remove();
-      receivedSub?.remove();
     };
-  }, [router, gate.ready]);
+  }, [router, gate.canUseApp]);
 
   if (!gate.ready) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView
-      style={[styles.flex, { backgroundColor: colors.background }, webRootViewStyle]}
-    >
-      <SafeAreaProvider style={styles.flex}>
-        <View style={styles.flex}>
-          <AppIconBadgeSync />
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: [{ backgroundColor: colors.background, flex: 1 }, webScrollParentStyle],
-            }}
-          >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Protected guard={gate.canUseApp}>
-              <Stack.Screen name="(app)" />
-            </Stack.Protected>
-            <Stack.Protected guard={gate.mustFinishOnboarding}>
-              <Stack.Screen name="(onboarding)" />
-            </Stack.Protected>
-            <Stack.Protected guard={gate.canUseAuthGroup}>
-              <Stack.Screen name="(auth)" />
-            </Stack.Protected>
-          </Stack>
-          <AppKeyboardToolbar />
-          <Toast config={toastConfig} />
-        </View>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <AppThemeHost>
+      <GestureHandlerRootView
+        style={[styles.flex, { backgroundColor: colors.background }, webRootViewStyle]}
+      >
+        <SafeAreaProvider style={[styles.flex, { backgroundColor: colors.background }]}>
+          <View style={[styles.flex, { backgroundColor: colors.background }]}>
+            {gate.canUseApp ? <AppIconBadgeSync /> : null}
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: [
+                  { backgroundColor: colors.background, flex: 1 },
+                  webScrollParentStyle,
+                ],
+              }}
+            >
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Protected guard={gate.canUseBannedScreen}>
+                <Stack.Screen name="banned" />
+              </Stack.Protected>
+              <Stack.Protected guard={gate.canUseApp}>
+                <Stack.Screen name="(app)" />
+              </Stack.Protected>
+              <Stack.Protected guard={gate.mustFinishOnboarding}>
+                <Stack.Screen name="(onboarding)" />
+              </Stack.Protected>
+              <Stack.Protected guard={gate.canUseAuthGroup}>
+                <Stack.Screen name="(auth)" />
+              </Stack.Protected>
+            </Stack>
+            <AppKeyboardToolbar />
+            <Toast config={toastConfig} />
+          </View>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </AppThemeHost>
   );
 }
 
 function RootLayout() {
   return (
     <AppProviders>
-      <BrandedFontsGate><RootLayoutInner /></BrandedFontsGate>
+      <BrandedFontsGate>
+        <RootLayoutInner />
+      </BrandedFontsGate>
     </AppProviders>
   );
 }

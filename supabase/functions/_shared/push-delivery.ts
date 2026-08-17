@@ -1,6 +1,22 @@
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 type JsonRecord = Record<string, unknown>;
+type RpcClient = {
+  rpc: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{
+    data: unknown;
+    error: { message: string } | null;
+  }>;
+};
+
+export type PushDeliveryOutcome = 'accepted' | 'rejected' | 'invalid_token' | 'transport_error';
+
+export type PushDeliveryResult = {
+  deliveryKey: string;
+  outcome: PushDeliveryOutcome;
+  providerTicketId?: string;
+  error?: string;
+};
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -9,9 +25,7 @@ function stringValue(value: unknown): string | null {
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function legacyPushDeliveryKey(input: {
@@ -31,7 +45,9 @@ export async function legacyPushDeliveryKey(input: {
     'userEventId',
     'badgeId',
     'suggestionId',
-  ].map((name) => stringValue(input.data[name])).find(Boolean);
+  ]
+    .map((name) => stringValue(input.data[name]))
+    .find(Boolean);
 
   // Older trigger payloads do not all contain an entity id. Bucket those for
   // five minutes: retries collapse, while a genuinely new later event remains
@@ -53,7 +69,7 @@ export async function legacyPushDeliveryKey(input: {
 }
 
 export async function claimPushDelivery(
-  database: SupabaseClient,
+  database: RpcClient,
   input: {
     deliveryKey: string;
     targetUserId: string;
@@ -69,4 +85,16 @@ export async function claimPushDelivery(
   });
   if (error) throw error;
   return data === true;
+}
+
+/** Outcome recording is telemetry only. A failed write must never unlock a resend. */
+export async function recordPushDeliveryResults(
+  database: RpcClient,
+  results: PushDeliveryResult[],
+): Promise<void> {
+  if (results.length === 0) return;
+  const { error } = await database.rpc('record_push_delivery_results', {
+    p_results: results,
+  });
+  if (error) console.error('Could not record terminal push results:', error.message);
 }

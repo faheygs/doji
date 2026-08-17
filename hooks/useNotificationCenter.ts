@@ -8,6 +8,7 @@ import type { NotificationCenterState, NotificationDismissal } from '../types/da
 import type { NotificationCenterItem } from '../lib/notificationCenterTypes';
 import { parseDate } from '../utils/time';
 import { createRequestSignal } from '../lib/requestSignal';
+import { isNotificationVisible } from '../lib/notificationVisibility';
 
 export type { NotificationCenterItem } from '../lib/notificationCenterTypes';
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
@@ -18,7 +19,7 @@ const KEYS = {
   dismissed: '@doit/dismissed-notif-keys',
 };
 type Dismissed = Map<string, string>;
-const storageKey = (key: string, uid?: string) => uid ? `${key}:${uid}` : key;
+const storageKey = (key: string, uid?: string) => (uid ? `${key}:${uid}` : key);
 
 function latestIso(a: string | null, b: string | null) {
   if (!a) return b;
@@ -32,12 +33,22 @@ function parseDismissed(raw: string | null): Dismissed {
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       const migratedAt = new Date().toISOString();
-      return new Map(parsed.filter((key): key is string => typeof key === 'string').map((key) => [key, migratedAt]));
+      return new Map(
+        parsed
+          .filter((key): key is string => typeof key === 'string')
+          .map((key) => [key, migratedAt]),
+      );
     }
     if (parsed && typeof parsed === 'object') {
-      return new Map(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+      return new Map(
+        Object.entries(parsed).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string',
+        ),
+      );
     }
-  } catch { /* ignore invalid legacy state */ }
+  } catch {
+    /* ignore invalid legacy state */
+  }
   return new Map();
 }
 
@@ -61,10 +72,14 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
   const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
   const [dismissedKeys, setDismissedKeys] = useState<Dismissed>(new Map());
   const dismissedRef = useRef<Dismissed>(new Map());
+  const clearingRef = useRef(false);
   const [prefsHydrated, setPrefsHydrated] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     if (!userId) {
+      clearingRef.current = false;
+      setIsClearing(false);
       setClearedAt(null);
       setLastOpenedAt(null);
       dismissedRef.current = new Map();
@@ -77,37 +92,48 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     const horizon = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString();
     void Promise.all([
       AsyncStorage.multiGet([
-        storageKey(KEYS.cleared, userId), storageKey(KEYS.opened, userId),
+        storageKey(KEYS.cleared, userId),
+        storageKey(KEYS.opened, userId),
         storageKey(KEYS.dismissed, userId),
       ]),
       supabase.from('notification_center_state').select('*').eq('user_id', userId).maybeSingle(),
-      supabase.from('notification_dismissals').select('*').eq('user_id', userId).gte('dismissed_at', horizon),
-    ]).then(([entries, stateResult, dismissalsResult]) => {
-      if (cancelled) return;
-      const remote = stateResult.data as NotificationCenterState | null;
-      const mergedCleared = latestIso(entries[0][1], remote?.cleared_at ?? null);
-      const mergedOpened = latestIso(entries[1][1], remote?.last_opened_at ?? null);
-      const mergedDismissed = mergeDismissed(
-        parseDismissed(entries[2][1]),
-        (dismissalsResult.data ?? []) as NotificationDismissal[],
-      );
-      setClearedAt(mergedCleared);
-      setLastOpenedAt(mergedOpened);
-      dismissedRef.current = mergedDismissed;
-      setDismissedKeys(mergedDismissed);
-      setPrefsHydrated(true);
-      void AsyncStorage.multiSet([
-        [storageKey(KEYS.cleared, userId), mergedCleared ?? ''],
-        [storageKey(KEYS.opened, userId), mergedOpened ?? ''],
-        [storageKey(KEYS.dismissed, userId), serializeDismissed(mergedDismissed)],
-      ]);
-      void supabase.rpc('sync_notification_center_state', {
-        p_cleared_at: mergedCleared,
-        p_last_opened_at: mergedOpened,
-        p_dismissals: Object.fromEntries(mergedDismissed),
+      supabase
+        .from('notification_dismissals')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('dismissed_at', horizon),
+    ])
+      .then(([entries, stateResult, dismissalsResult]) => {
+        if (cancelled) return;
+        const remote = stateResult.data as NotificationCenterState | null;
+        const mergedCleared = latestIso(entries[0][1], remote?.cleared_at ?? null);
+        const mergedOpened = latestIso(entries[1][1], remote?.last_opened_at ?? null);
+        const mergedDismissed = mergeDismissed(
+          parseDismissed(entries[2][1]),
+          (dismissalsResult.data ?? []) as NotificationDismissal[],
+        );
+        setClearedAt(mergedCleared);
+        setLastOpenedAt(mergedOpened);
+        dismissedRef.current = mergedDismissed;
+        setDismissedKeys(mergedDismissed);
+        setPrefsHydrated(true);
+        void AsyncStorage.multiSet([
+          [storageKey(KEYS.cleared, userId), mergedCleared ?? ''],
+          [storageKey(KEYS.opened, userId), mergedOpened ?? ''],
+          [storageKey(KEYS.dismissed, userId), serializeDismissed(mergedDismissed)],
+        ]);
+        void supabase.rpc('sync_notification_center_state', {
+          p_cleared_at: mergedCleared,
+          p_last_opened_at: mergedOpened,
+          p_dismissals: Object.fromEntries(mergedDismissed),
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPrefsHydrated(true);
       });
-    }).catch(() => { if (!cancelled) setPrefsHydrated(true); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   const sinceIso = useMemo(() => lowerSinceIso(clearedAt), [clearedAt]);
@@ -116,23 +142,28 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     queryFn: async ({ signal }): Promise<NotificationCenterItem[]> => {
       const request = createRequestSignal(signal);
       try {
-        const { data, error } = await supabase.rpc('get_notification_center_snapshot', {
-          p_since: sinceIso,
-          p_limit: 200,
-        }).abortSignal(request.signal);
+        const { data, error } = await supabase
+          .rpc('get_notification_center_snapshot', {
+            p_since: sinceIso,
+            p_limit: 200,
+          })
+          .abortSignal(request.signal);
         if (error) throw error;
         return (data ?? []) as unknown as NotificationCenterItem[];
-      } finally { request.cleanup(); }
+      } finally {
+        request.cleanup();
+      }
     },
     enabled: Boolean(userId && prefsHydrated),
     staleTime: 15_000,
     placeholderData: (previous) => previous,
   });
 
-  const items = useMemo(() => (snapshot.data ?? []).filter((item) => {
-    const dismissedAt = dismissedKeys.get(item.key);
-    return !dismissedAt || parseDate(item.sortAt).getTime() > parseDate(dismissedAt).getTime();
-  }), [dismissedKeys, snapshot.data]);
+  const items = useMemo(
+    () =>
+      (snapshot.data ?? []).filter((item) => isNotificationVisible(item, clearedAt, dismissedKeys)),
+    [clearedAt, dismissedKeys, snapshot.data],
+  );
   const unreadCount = useMemo(() => {
     const openedMs = lastOpenedAt ? parseDate(lastOpenedAt).getTime() : 0;
     return items.filter((item) => parseDate(item.sortAt).getTime() > openedMs).length;
@@ -147,42 +178,70 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
       supabase.rpc('mark_notification_center_opened', { p_opened_at: iso }),
     ]);
     if (Platform.OS !== 'web') {
-      try { await (await import('expo-notifications')).setBadgeCountAsync(0); } catch { /* unsupported */ }
+      try {
+        await (await import('expo-notifications')).setBadgeCountAsync(0);
+      } catch {
+        /* unsupported */
+      }
     }
   }, [userId]);
 
-  const dismissItem = useCallback(async (key: string) => {
-    if (!userId) return;
-    const at = new Date().toISOString();
-    const next = new Map(dismissedRef.current).set(key, at);
-    dismissedRef.current = next;
-    setDismissedKeys(next);
-    await Promise.all([
-      AsyncStorage.setItem(storageKey(KEYS.dismissed, userId), serializeDismissed(next)),
-      supabase.rpc('dismiss_notification', { p_notification_key: key, p_dismissed_at: at }),
-    ]);
-  }, [userId]);
+  const dismissItem = useCallback(
+    async (key: string) => {
+      if (!userId) return;
+      const at = new Date().toISOString();
+      const previous = new Map(dismissedRef.current);
+      const next = new Map(dismissedRef.current).set(key, at);
+      dismissedRef.current = next;
+      setDismissedKeys(next);
+      const { error } = await supabase.rpc('dismiss_notification', {
+        p_notification_key: key,
+        p_dismissed_at: at,
+      });
+      if (error) {
+        dismissedRef.current = previous;
+        setDismissedKeys(previous);
+        throw error;
+      }
+      void AsyncStorage.setItem(storageKey(KEYS.dismissed, userId), serializeDismissed(next));
+    },
+    [userId],
+  );
 
   const clearNotificationHistory = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || clearingRef.current) return;
     const iso = new Date().toISOString();
+    const previousCleared = clearedAt;
+    const previousDismissed = new Map(dismissedRef.current);
+    clearingRef.current = true;
+    setIsClearing(true);
     setClearedAt(iso);
     dismissedRef.current = new Map();
     setDismissedKeys(new Map());
-    await Promise.all([
-      AsyncStorage.multiSet([
+    try {
+      const { error } = await supabase.rpc('clear_notification_history', { p_cleared_at: iso });
+      if (error) throw error;
+      void AsyncStorage.multiSet([
         [storageKey(KEYS.cleared, userId), iso],
         [storageKey(KEYS.dismissed, userId), serializeDismissed(new Map())],
-      ]),
-      supabase.rpc('clear_notification_history', { p_cleared_at: iso }),
-    ]);
-  }, [userId]);
+      ]);
+    } catch (error) {
+      setClearedAt(previousCleared);
+      dismissedRef.current = previousDismissed;
+      setDismissedKeys(previousDismissed);
+      throw error;
+    } finally {
+      clearingRef.current = false;
+      setIsClearing(false);
+    }
+  }, [clearedAt, userId]);
 
   return {
     items,
     unreadCount,
     badgeCount: unreadCount,
     isLoading: !prefsHydrated || snapshot.isLoading,
+    isClearing,
     markBellOpened,
     dismissItem,
     clearNotificationHistory,

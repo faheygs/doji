@@ -37,6 +37,7 @@ import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { LiveSparksPill } from '../../components/economy/SparksPill';
 import { BuyInSheet } from '../../components/economy/BuyInSheet';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { challengeEntryHref } from '../../lib/routes';
 
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -58,7 +59,7 @@ export default function ChallengeScreen() {
   const notYetLive = firesAt ? secondsUntilFiresAt(firesAt) > 0 : false;
 
   const isMissed = userEvent?.status === 'missed';
-  const isBuyInOpen = userEvent?.status === 'buy_in_open' && userEvent && !isExpired(userEvent.expires_at);
+  const isBuyInOpen = userEvent?.status === 'buy_in_open';
   const isCompleted = userEvent?.status === 'completed';
   const isExpiredPending =
     userEvent?.status === 'pending' && userEvent && isExpired(userEvent.expires_at);
@@ -78,15 +79,7 @@ export default function ChallengeScreen() {
 
   const handleStartChallenge = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    if (challengeType === 'poll') {
-      router.push('/(app)/poll');
-    } else if (challengeType === 'task') {
-      router.push('/(app)/task');
-    } else if (challengeType === 'format') {
-      router.push('/(app)/format');
-    } else {
-      router.push('/(app)/camera');
-    }
+    router.push(challengeEntryHref(challengeType));
   }, [challengeType, router]);
 
   const handleClose = useCallback(() => {
@@ -98,6 +91,7 @@ export default function ChallengeScreen() {
       await buyIn();
       setBuyInVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      requestAnimationFrame(handleStartChallenge);
     } catch (e) {
       Toast.show({
         type: 'error',
@@ -346,7 +340,7 @@ export default function ChallengeScreen() {
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>
             <Text variant="headingLarge">Buy-in open</Text>
             <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
-              Complete today&apos;s Doji before the day ends to unlock the feed.
+              Your Doji is open. Complete it to unlock the feed.
             </Text>
           </Animated.View>
         ) : isCompleted ? (

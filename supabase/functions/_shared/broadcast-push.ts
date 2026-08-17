@@ -1,11 +1,15 @@
 import { sendExpoPushMessages, type ExpoMessage } from './expo-push.ts';
+import { recordPushDeliveryResults, type PushDeliveryOutcome } from './push-delivery.ts';
 
 const PAGE_SIZE = 1000;
 const EXPO_BATCH_SIZE = 100;
 const EXPO_BATCH_DELAY_MS = 220;
 
 type DatabaseClient = {
-  rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{
+  rpc: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{
     data: unknown;
     error: { message: string } | null;
   }>;
@@ -44,7 +48,7 @@ function messageFor(event: BroadcastEvent, token: string): ExpoMessage {
     body: String(event.payload.body ?? ''),
     sound: 'default',
     badge: 1,
-    ttl: 600,
+    ttl: 120,
     priority: 'high',
     interruptionLevel: 'time-sensitive',
     threadId: `doji-live:${String(event.payload.dailyEventId ?? event.id)}`,
@@ -69,9 +73,10 @@ export async function processBroadcastPush(
 
   const dailyEventId = String(event.payload.dailyEventId ?? '');
   if (!dailyEventId) throw new Error('Broadcast is missing dailyEventId');
-  const afterUserId = typeof event.payload.broadcastAfterUserId === 'string'
-    ? event.payload.broadcastAfterUserId
-    : null;
+  const afterUserId =
+    typeof event.payload.broadcastAfterUserId === 'string'
+      ? event.payload.broadcastAfterUserId
+      : null;
   const { data, error } = await database.rpc('get_doji_push_recipients_page', {
     p_daily_event_id: dailyEventId,
     p_after_user_id: afterUserId,
@@ -103,34 +108,37 @@ export async function processBroadcastPush(
     const result = await sendExpoPushMessages(
       chunk.map((recipient) => messageFor(event, recipient.notification_token)),
     );
-    if (!result.httpOk) throw new Error('Expo push transport failed');
-    const terminalUserIds: string[] = [];
     const invalidTokens: string[] = [];
     result.invalidTokenIndices.forEach((index) => {
       const token = chunk[index]?.notification_token;
       if (token) invalidTokens.push(token);
     });
-    result.tickets.forEach((ticket, index) => {
-      if (ticket.status === 'ok' || result.invalidTokenIndices.includes(index)) {
-        const userId = chunk[index]?.user_id;
-        if (userId) terminalUserIds.push(userId);
-      }
-    });
-    if (terminalUserIds.length > 0) {
-      const { error: completeError } = await database.rpc('complete_push_deliveries_batch', {
-        p_event_id: event.id,
-        p_target_user_ids: terminalUserIds,
-      });
-      if (completeError) throw new Error(completeError.message);
-    }
+    await recordPushDeliveryResults(
+      database,
+      chunk.map((recipient, index) => {
+        const ticket = result.tickets[index];
+        const invalidToken = result.invalidTokenIndices.includes(index);
+        const outcome: PushDeliveryOutcome = invalidToken
+          ? 'invalid_token'
+          : ticket?.status === 'ok'
+            ? 'accepted'
+            : result.httpOk
+              ? 'rejected'
+              : 'transport_error';
+        return {
+          deliveryKey: `outbox-push:${event.id}:${recipient.user_id}`,
+          outcome,
+          providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
+          error: ticket?.status === 'error' ? ticket.message : result.transportError,
+        };
+      }),
+    );
     if (invalidTokens.length > 0) {
-      const { error: clearError } = await database.from('profiles')
+      const { error: clearError } = await database
+        .from('profiles')
         .update({ notification_token: null })
         .in('notification_token', [...new Set(invalidTokens)]);
       if (clearError) throw new Error(clearError.message);
-    }
-    if (terminalUserIds.length !== chunk.length) {
-      throw new Error('Expo rejected one or more broadcast pushes');
     }
     await wait(EXPO_BATCH_DELAY_MS);
   }

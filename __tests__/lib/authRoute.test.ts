@@ -35,6 +35,7 @@ function mockProfile(overrides: Partial<Profile> = {}): Profile {
     equipped_title_key: null,
     timezone: 'UTC',
     is_admin: false,
+    is_banned: false,
     onboarding_completed_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -62,6 +63,12 @@ describe('resolveAuthenticatedRoute', () => {
         mockProfile({ onboarding_completed_at: new Date().toISOString() }),
       ),
     ).toBe(ROUTES.feed);
+  });
+
+  it('sends banned users to the dedicated account screen', () => {
+    expect(resolveAuthenticatedRoute(mockSession(), mockProfile({ is_banned: true }))).toBe(
+      ROUTES.banned,
+    );
   });
 
   it('sends active legacy users to feed', () => {
@@ -144,5 +151,19 @@ describe('getAuthGate', () => {
     expect(gate.canUseApp).toBe(true);
     expect(gate.mustFinishOnboarding).toBe(false);
     expect(gate.canUseAuthGroup).toBe(false);
+  });
+
+  it('allows only the banned screen for a banned profile', () => {
+    const gate = getAuthGate(
+      false,
+      false,
+      mockSession(),
+      mockProfile({ is_banned: true, onboarding_completed_at: new Date().toISOString() }),
+    );
+    expect(gate.isBanned).toBe(true);
+    expect(gate.canUseBannedScreen).toBe(true);
+    expect(gate.canUseApp).toBe(false);
+    expect(gate.canUseAuthGroup).toBe(false);
+    expect(gate.mustFinishOnboarding).toBe(false);
   });
 });

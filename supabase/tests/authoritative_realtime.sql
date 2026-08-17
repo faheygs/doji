@@ -1,6 +1,6 @@
 begin;
 
-select plan(44);
+select plan(59);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -11,9 +11,46 @@ select has_function(
   'public', 'next_domain_event_available_at', array[]::text[],
   'relay can schedule the next one-shot delayed wake'
 );
+select has_function(
+  'public', 'mark_domain_events_realtime_published', array['jsonb'],
+  'relay durably separates realtime publication from optional push delivery'
+);
 select has_table(
   'public', 'notification_once_keys',
   'first reaction and like alerts remain one-time'
+);
+select has_function(
+  'public', 'get_public_profile_view', array['text'],
+  'public profile read returns an explicit blocked-view state'
+);
+select has_function(
+  'public', 'get_pending_reports_snapshot', array['integer'],
+  'admin moderation evidence uses a bounded safe snapshot'
+);
+select unlike(
+  pg_get_functiondef('public.block_user(uuid,text)'::regprocedure),
+  '%insert into public.reports%',
+  'blocking stays separate from explicit moderation reports'
+);
+select like(
+  pg_get_functiondef('public.get_current_doji_state()'::regprocedure),
+  '%participant_deadline%',
+  'current Doji state exposes the participant-specific authorized deadline'
+);
+select like(
+  pg_get_functiondef('public.submit_poll_vote(uuid,uuid,text,text)'::regprocedure),
+  '%participant_deadline%',
+  'late poll submissions use the participant-specific deadline'
+);
+select like(
+  pg_get_functiondef('public.complete_doji_with_post(uuid,text,text,text,text,text,text,text)'::regprocedure),
+  '%participant_deadline%',
+  'late post submissions use the participant-specific deadline'
+);
+select like(
+  pg_get_functiondef('public.close_daily_event(uuid)'::regprocedure),
+  '%signup_day_grace is true%',
+  'shared close preserves active signup-day grace'
 );
 select has_table('public', 'command_receipts', 'idempotent command receipts exist');
 select has_table('public', 'poll_vote_count_shards', 'poll totals use fixed shards');
@@ -31,6 +68,37 @@ select has_function(
 select has_function(
   'public', 'complete_push_deliveries_batch', array['uuid', 'jsonb'],
   'successful push batches are durably completed'
+);
+select has_column(
+  'public', 'push_delivery_claims', 'terminal_at',
+  'push claims become terminal before provider handoff'
+);
+select has_column(
+  'public', 'push_delivery_claims', 'outcome',
+  'push claims retain provider outcome telemetry'
+);
+select has_column(
+  'public', 'push_delivery_claims', 'provider_ticket_id',
+  'push claims retain Expo ticket identifiers'
+);
+select has_function(
+  'public', 'record_push_delivery_results', array['jsonb'],
+  'provider outcomes are recorded separately from delivery permission'
+);
+select like(
+  pg_get_functiondef('public.claim_push_delivery(text,uuid,text,text)'::regprocedure),
+  '%on conflict (delivery_key) do nothing%',
+  'direct push claims are terminal on first insert'
+);
+select like(
+  pg_get_functiondef('public.claim_push_deliveries_batch(uuid,jsonb,text,text)'::regprocedure),
+  '%on conflict (delivery_key) do nothing%',
+  'broadcast push claims are terminal on first insert'
+);
+select unlike(
+  pg_get_functiondef('public.claim_push_delivery(text,uuid,text,text)'::regprocedure),
+  '%attempts =%',
+  'direct delivery claims cannot be reopened for retry'
 );
 select has_function(
   'public', 'get_doji_push_recipients_page', array['uuid', 'uuid', 'integer'],

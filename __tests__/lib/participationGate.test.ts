@@ -9,7 +9,7 @@ import {
   showSignupDayGraceBanner,
   userEventStatusLabel,
 } from '../../lib/participationGate';
-import type { Profile, UserEvent } from '../../types/database';
+import type { UserEvent } from '../../types/database';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 
 function mockEvent(overrides: Partial<UserEvent> = {}): UserEvent {
@@ -24,38 +24,6 @@ function mockEvent(overrides: Partial<UserEvent> = {}): UserEvent {
     buy_in_at: null,
     streak_before_miss: null,
     created_at: new Date().toISOString(),
-    ...overrides,
-  };
-}
-
-function mockProfile(overrides: Partial<Profile> = {}): Profile {
-  return {
-    id: 'u-1',
-    username: 'test',
-    display_name: 'Test',
-    avatar_url: null,
-    avatar_gradient: ['#000', '#111'],
-    bio: null,
-    current_streak: 0,
-    longest_streak: 0,
-    total_completions: 0,
-    total_missed: 0,
-    xp: 0,
-    level: 1,
-    reactions_received: 0,
-    streak_shields: 0,
-    notification_token: null,
-    app_theme: 'dark',
-    sparks: 0,
-    accent_theme: 'doji_orange',
-    appearance_mode: 'dark',
-    equipped_border_key: null,
-    equipped_title_key: null,
-    timezone: 'UTC',
-    is_admin: false,
-    onboarding_completed_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     ...overrides,
   };
 }
@@ -121,7 +89,7 @@ describe('canSubmitChallenge', () => {
     ).toBe(false);
   });
 
-  it('returns false for expired buy_in_open', () => {
+  it('keeps a paid buy-in open after the original deadline', () => {
     expect(
       canSubmitChallenge(
         mockEvent({
@@ -129,7 +97,7 @@ describe('canSubmitChallenge', () => {
           expires_at: new Date(Date.now() - 1000).toISOString(),
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('returns false for null', () => {
@@ -170,7 +138,7 @@ describe('isMissedOrExpiredPending', () => {
     expect(isMissedOrExpiredPending(mockEvent({ status: 'missed' }))).toBe(true);
   });
 
-  it('is true for expired pending (no signup grace)', () => {
+  it('is true for expired pending', () => {
     const expired = new Date(Date.now() - 1000).toISOString();
     expect(
       isMissedOrExpiredPending(mockEvent({ status: 'pending', expires_at: expired })),
@@ -181,13 +149,13 @@ describe('isMissedOrExpiredPending', () => {
     expect(isMissedOrExpiredPending(mockEvent({ status: 'pending' }))).toBe(false);
   });
 
-  it('is false for expired pending with signup grace', () => {
+  it('treats an expired signup-day exception as missed', () => {
     const expired = new Date(Date.now() - 1000).toISOString();
     expect(
       isMissedOrExpiredPending(
         mockEvent({ status: 'pending', expires_at: expired, signup_day_grace: true }),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('is false for null/undefined', () => {
@@ -223,7 +191,7 @@ describe('canBuyIn', () => {
     );
   });
 
-  it('is false for signup_day_grace', () => {
+  it('does not charge a signup-day exception', () => {
     const expired = new Date(Date.now() - 1000).toISOString();
     expect(
       canBuyIn(mockEvent({ status: 'pending', expires_at: expired, signup_day_grace: true })),
@@ -240,6 +208,24 @@ describe('canBuyIn', () => {
 
   it('is false for null', () => {
     expect(canBuyIn(null)).toBe(false);
+  });
+});
+
+describe('signup-day exception', () => {
+  it('recognizes the server-owned flag', () => {
+    expect(isSignupDayGrace(mockEvent({ signup_day_grace: true }))).toBe(true);
+    expect(isSignupDayGrace(mockEvent({ signup_day_grace: false }))).toBe(false);
+  });
+
+  it('shows the free entry while its server deadline remains open', () => {
+    expect(showSignupDayGraceBanner(mockEvent({ signup_day_grace: true }))).toBe(true);
+  });
+
+  it('hides the free entry after its server deadline', () => {
+    expect(showSignupDayGraceBanner(mockEvent({
+      signup_day_grace: true,
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+    }))).toBe(false);
   });
 });
 
@@ -263,73 +249,6 @@ describe('canAffordBuyIn', () => {
     if (SPARKS_BUY_IN_COST > 0) {
       expect(canAffordBuyIn(0)).toBe(false);
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// isSignupDayGrace
-// ---------------------------------------------------------------------------
-describe('isSignupDayGrace', () => {
-  it('returns true when signup_day_grace is true', () => {
-    expect(isSignupDayGrace(mockEvent({ signup_day_grace: true }))).toBe(true);
-  });
-
-  it('returns false when signup_day_grace is false', () => {
-    expect(isSignupDayGrace(mockEvent({ signup_day_grace: false }))).toBe(false);
-  });
-
-  it('returns false when signup_day_grace is undefined', () => {
-    expect(isSignupDayGrace(mockEvent())).toBe(false);
-  });
-
-  it('returns false for null', () => {
-    expect(isSignupDayGrace(null)).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// showSignupDayGraceBanner
-// ---------------------------------------------------------------------------
-describe('showSignupDayGraceBanner', () => {
-  it('returns true for signup-day pending event created today', () => {
-    const result = showSignupDayGraceBanner(
-      mockEvent({ signup_day_grace: true, status: 'pending' }),
-      mockProfile({ created_at: new Date().toISOString() }),
-    );
-    expect(result).toBe(true);
-  });
-
-  it('returns false when event is not signup_day_grace', () => {
-    const result = showSignupDayGraceBanner(
-      mockEvent({ signup_day_grace: false, status: 'pending' }),
-      mockProfile({ created_at: new Date().toISOString() }),
-    );
-    expect(result).toBe(false);
-  });
-
-  it('returns false when event status is completed', () => {
-    const result = showSignupDayGraceBanner(
-      mockEvent({ signup_day_grace: true, status: 'completed' }),
-      mockProfile({ created_at: new Date().toISOString() }),
-    );
-    expect(result).toBe(false);
-  });
-
-  it('returns false when window is expired', () => {
-    const expired = new Date(Date.now() - 1000).toISOString();
-    const result = showSignupDayGraceBanner(
-      mockEvent({ signup_day_grace: true, status: 'pending', expires_at: expired }),
-      mockProfile({ created_at: new Date().toISOString() }),
-    );
-    expect(result).toBe(false);
-  });
-
-  it('returns false for null event', () => {
-    expect(showSignupDayGraceBanner(null, mockProfile())).toBe(false);
-  });
-
-  it('returns false for null profile', () => {
-    expect(showSignupDayGraceBanner(mockEvent({ signup_day_grace: true }), null)).toBe(false);
   });
 });
 

@@ -1,11 +1,11 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   TouchableOpacity,
   Modal,
-  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
@@ -20,6 +20,8 @@ import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
 import { FriendActivityNotificationCard } from './FriendActivityNotificationCard';
+import { NotificationListSkeleton } from './NotificationListSkeleton';
+import { SkeletonSwap } from '../ui/SkeletonSwap';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
 import { useRespondToFriendRequest } from '../../hooks/useProfile';
@@ -35,12 +37,12 @@ import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
-import { useAppDialog } from '../../contexts/DialogContext';
 type Props = {
   visible: boolean;
   onClose: () => void;
   items: NotificationCenterItem[];
   isLoading: boolean;
+  isClearing?: boolean;
   onDismissItem?: (key: string) => void | Promise<void>;
   onClearHistory?: () => void | Promise<void>;
 };
@@ -49,23 +51,43 @@ export function NotificationSheet({
   onClose,
   items,
   isLoading,
+  isClearing = false,
   onDismissItem,
   onClearHistory,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
-  const { showDialog } = useAppDialog();
+  const [actionError, setActionError] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const respond = useRespondToFriendRequest();
   useDismissOnRouteBlur(visible, onClose);
+
+  const dismissThen = useCallback((action: () => void) => {
+    pendingActionRef.current = action;
+    onClose();
+  }, [onClose]);
+
+  const finishDismiss = useCallback(() => {
+    swipeableRefs.current.forEach((ref) => ref?.close());
+    swipeableRefs.current.clear();
+    setActionError(false);
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (action) requestAnimationFrame(action);
+  }, []);
+
+  React.useEffect(() => {
+    if (!visible && Platform.OS !== 'ios') finishDismiss();
+  }, [finishDismiss, visible]);
 
   const openFeedPost = useCallback(
     (postId: string, openComments = false, mentionCommentId?: string) => {
       Haptics.selectionAsync();
-      onClose();
-      navigateToFeedPost(router, postId, { openComments, mentionCommentId });
+      dismissThen(() => navigateToFeedPost(router, postId, { openComments, mentionCommentId }));
     },
-    [onClose, router],
+    [dismissThen, router],
   );
 
   const styles = useMemo(
@@ -153,12 +175,6 @@ export function NotificationSheet({
           gap: Spacing.sm,
           paddingVertical: Spacing.sm,
         },
-        centered: {
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingTop: Spacing.xxl,
-        },
         dismissAction: {
           justifyContent: 'center',
           alignItems: 'center',
@@ -181,20 +197,23 @@ export function NotificationSheet({
       const handle = username ? normalizeUsernameInput(username) : '';
       if (!handle) return;
       Haptics.selectionAsync();
-      router.push(hrefWithReturnTo(`/(app)/member/${handle}`, pathname));
+      dismissThen(() => router.push(hrefWithReturnTo(`/(app)/member/${handle}`, pathname)));
     },
-    [router, pathname],
+    [dismissThen, router, pathname],
   );
-
-  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const clearAll = useCallback(async () => {
+    setActionError(false);
+    try { await onClearHistory?.(); } catch { setActionError(true); }
+  }, [onClearHistory]);
 
   const renderRightActions = useCallback(
     (key: string) => (
       <TouchableOpacity
         style={styles.dismissAction}
-        onPress={() => {
+        onPress={async () => {
           swipeableRefs.current.get(key)?.close();
-          void onDismissItem?.(key);
+          setActionError(false);
+          try { await onDismissItem?.(key); } catch { setActionError(true); }
         }}
         activeOpacity={0.8}
       >
@@ -335,13 +354,13 @@ export function NotificationSheet({
                       username: a.username ?? undefined,
                       equipped_border_key: a.equipped_border_key,
                     }))}
-                    size={40}
+                    size={36}
                     max={3}
-                    borderColor={colors.background}
+                    borderColor={colors.surface}
                   />
                 }
                 footer={
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
                     <ReactionIconRow emojis={item.emojis} colors={colors} size={15} />
                     <Text variant="micro" color={colors.textTertiary}>
                       {item.count} reaction{item.count === 1 ? '' : 's'}
@@ -359,8 +378,7 @@ export function NotificationSheet({
               item={item}
               onPress={() => {
                 Haptics.selectionAsync();
-                onClose();
-                safeReplace(router, ROUTES.feed);
+                dismissThen(() => safeReplace(router, ROUTES.feed));
               }}
             />
           );
@@ -461,7 +479,7 @@ export function NotificationSheet({
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
-                onPress={() => { Haptics.selectionAsync(); onClose(); safeReplace(router, ROUTES.feed); }}
+                onPress={() => { Haptics.selectionAsync(); dismissThen(() => safeReplace(router, ROUTES.feed)); }}
               />
             </Card>
           );
@@ -490,6 +508,7 @@ export function NotificationSheet({
       openProfile,
       openFeedPost,
       onClose,
+      dismissThen,
       router,
       renderRightActions,
       respond,
@@ -502,14 +521,13 @@ export function NotificationSheet({
     ],
   );
 
-  if (!visible) return null;
-
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      onDismiss={finishDismiss}
     >
       <View style={styles.flex}>
         <View style={styles.header}>
@@ -524,11 +542,10 @@ export function NotificationSheet({
           </TouchableOpacity>
         </View>
 
-        {visible && isLoading && items.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.text} />
-          </View>
-        ) : (
+        <SkeletonSwap
+          loading={visible && isLoading && items.length === 0}
+          skeleton={<NotificationListSkeleton />}
+        >
           <FlatList
             data={items}
             keyExtractor={(i) => i.key}
@@ -546,34 +563,14 @@ export function NotificationSheet({
               </View>
             }
           />
-        )}
+        </SkeletonSwap>
 
         <View style={styles.footer}>
-          {onClearHistory ? (
-            <TouchableOpacity
-              onPress={() => {
-                showDialog({
-                  title: 'Clear notifications?', message: 'Remove older items from this list? Pending friend requests stay visible.',
-                  actions: [
-                    { label: 'Cancel', variant: 'cancel' },
-                    {
-                      label: 'Clear',
-                      variant: 'destructive',
-                      onPress: () => {
-                        void onClearHistory();
-                      },
-                    },
-                  ],
-                });
-              }}
-              style={styles.footerBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Clear notifications"
-            >
-              <Text variant="bodySmall" color={colors.textTertiary}>
-                Clear notifications
-              </Text>
-            </TouchableOpacity>
+          {actionError ? <Text variant="micro" color={colors.error} style={{ textAlign: 'center' }}>Couldn&apos;t update notifications. Try again.</Text> : null}
+          {onClearHistory && items.some((item) => item.kind !== 'friend_request') ? (
+            <Button onPress={() => void clearAll()} variant="ghost" size="sm" loading={isClearing} fullWidth>
+              Clear notifications
+            </Button>
           ) : null}
         </View>
       </View>

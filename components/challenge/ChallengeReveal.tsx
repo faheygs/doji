@@ -135,8 +135,6 @@ export function ChallengeReveal({
         ? "Let's Do It"
         : 'Open Camera';
 
-  if (!visible) return null;
-
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>

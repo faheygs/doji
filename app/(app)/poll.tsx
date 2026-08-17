@@ -193,7 +193,7 @@ export default function PollScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <ChallengeTimer
-            expiresAt={userEvent?.expires_at}
+            expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at}
             onExpire={() => void refetchEvent()}
           />
           <TouchableOpacity
@@ -220,7 +220,7 @@ export default function PollScreen() {
       <View style={styles.keyboardRoot}>
         <View style={styles.header}>
           <ChallengeTimer
-            expiresAt={userEvent?.expires_at}
+            expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at}
             onExpire={() => void refetchEvent()}
           />
           <TouchableOpacity

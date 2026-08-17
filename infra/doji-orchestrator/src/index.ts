@@ -87,6 +87,9 @@ export class DojiEventAlarm extends DurableObject<Env> {
       existing.phase === phase &&
       existing.closesAt === input.closesAt
     ) {
+      // Durable Object state can survive a failed/consumed alarm. Re-registering
+      // the same phase must therefore repair the alarm, not only return state.
+      await this.ctx.storage.setAlarm(Math.max(Date.now(), alarmTime));
       return Response.json(existing);
     }
 

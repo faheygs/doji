@@ -45,12 +45,13 @@ export function NotificationActorRow({
         row: {
           flexDirection: 'row',
           alignItems: 'flex-start',
-          gap: Spacing.sm,
+          gap: Spacing.md,
         },
+        leading: { flexShrink: 0 },
         meta: {
           flex: 1,
-          gap: 2,
-          paddingTop: 2,
+          gap: 3,
+          minWidth: 0,
         },
         time: {
           marginTop: 2,
@@ -77,9 +78,9 @@ export function NotificationActorRow({
 
   const content = (
     <View style={[styles.row, style]}>
-      {avatar}
+      {avatar ? <View style={styles.leading}>{avatar}</View> : null}
       <View style={styles.meta}>
-        <Text variant="headingMedium" numberOfLines={1}>
+        <Text variant="headingMedium" numberOfLines={2}>
           {title}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>

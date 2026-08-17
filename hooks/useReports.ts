@@ -13,19 +13,9 @@ export function usePendingReports(enabled = true) {
   return useQuery<Report[]>({
     queryKey: ['admin', 'reports', 'pending'],
     queryFn: async (): Promise<Report[]> => {
-      const { data, error } = await supabase
-        .from('reports')
-        .select(
-          `*,
-          reporter:profiles!reports_reporter_fkey(username, display_name, avatar_url),
-          reported_user:profiles!reports_reported_fkey(username, display_name, avatar_url),
-          post:posts!reports_post_fkey(caption, photo_url),
-          comment:comments!reports_comment_fkey(body),
-          poll_vote:poll_votes!reports_poll_vote_id_fkey(custom_text)`,
-        )
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(100);
+      const { data, error } = await supabase.rpc('get_pending_reports_snapshot', {
+        p_limit: 100,
+      });
 
       if (error) throw error;
       return (data ?? []) as Report[];

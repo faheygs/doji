@@ -2,7 +2,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { assertCronAuthorized } from '../_shared/cron-auth.ts';
 import { sendExpoPushMessages, type ExpoMessage } from '../_shared/expo-push.ts';
-import { claimPushDelivery, legacyPushDeliveryKey } from '../_shared/push-delivery.ts';
+import {
+  claimPushDelivery,
+  legacyPushDeliveryKey,
+  recordPushDeliveryResults,
+  type PushDeliveryOutcome,
+} from '../_shared/push-delivery.ts';
 import { pushPreferenceEnabled } from '../_shared/notification-preferences.ts';
 
 const supabase = createClient(
@@ -117,12 +122,27 @@ Deno.serve(async (req) => {
       data: dataObj,
       sound: 'default' as const,
       badge: 1,
-      ttl: 600,
+      ttl: 300,
     };
 
-    const { httpOk, tickets, invalidTokenIndices } = await sendExpoPushMessages([message]);
+    const pushResult = await sendExpoPushMessages([message]);
+    const ticket = pushResult.tickets[0];
+    const invalidToken = pushResult.invalidTokenIndices.includes(0);
+    const outcome: PushDeliveryOutcome = invalidToken
+      ? 'invalid_token'
+      : ticket?.status === 'ok'
+        ? 'accepted'
+        : pushResult.httpOk
+          ? 'rejected'
+          : 'transport_error';
+    await recordPushDeliveryResults(supabase, [{
+      deliveryKey: delivery.key,
+      outcome,
+      providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
+      error: ticket?.status === 'error' ? ticket.message : pushResult.transportError,
+    }]);
 
-    if (invalidTokenIndices.includes(0)) {
+    if (invalidToken) {
       // Match both owner and token. A concurrent account switch transfers the token,
       // so this stale response can never clear the new owner's registration.
       await supabase.from('profiles').update({ notification_token: null })
@@ -133,9 +153,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         message: 'Sent',
-        httpOk,
-        tickets,
-        stale_token: invalidTokenIndices.length > 0,
+        httpOk: pushResult.httpOk,
+        tickets: pushResult.tickets,
+        stale_token: invalidToken,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     );

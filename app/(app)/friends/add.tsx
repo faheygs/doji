@@ -1,12 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
@@ -16,8 +9,14 @@ import { SearchField } from '../../../components/ui/SearchField';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
+import { ListRowsSkeleton } from '../../../components/ui/LoadingSkeletons';
+import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
 import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
-import { useSearchUsers, useSendFriendRequest, useFriendshipStatus } from '../../../hooks/useProfile';
+import {
+  useSearchUsers,
+  useSendFriendRequest,
+  useFriendshipStatus,
+} from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import type { Profile } from '../../../types/database';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
@@ -99,11 +98,10 @@ export default function AddFriendsScreen() {
         />
       </View>
 
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.text} />
-        </View>
-      ) : (
+      <SkeletonSwap
+        loading={isLoading}
+        skeleton={<ListRowsSkeleton rows={4} label="Searching people" />}
+      >
         <FlatList
           style={webScrollParentStyle}
           data={filteredResults}
@@ -120,7 +118,7 @@ export default function AddFriendsScreen() {
             </View>
           }
         />
-      )}
+      </SkeletonSwap>
     </SafeAreaView>
   );
 }
@@ -200,7 +198,11 @@ function UserResult({ user, returnPath }: { user: Profile; returnPath: string })
           Unavailable
         </Text>
       ) : (
-        <Button onPress={() => sendRequest.mutate({ addresseeId: user.id })} loading={sendRequest.isPending} size="sm">
+        <Button
+          onPress={() => sendRequest.mutate({ addresseeId: user.id })}
+          loading={sendRequest.isPending}
+          size="sm"
+        >
           Add friend
         </Button>
       )}

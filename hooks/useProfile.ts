@@ -8,6 +8,7 @@ import type { Profile, Post, Friendship, FriendshipWithRequester } from '../type
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { PUBLIC_PROFILE_COLUMNS } from '../lib/profileFields';
+import { parsePublicProfileView } from '../lib/publicProfileView';
 function parseProfileRow(data: unknown): Profile | null {
   if (!data || typeof data !== 'object') return null;
   const row = data as Profile;
@@ -20,24 +21,28 @@ function parseProfileRow(data: unknown): Profile | null {
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
-  return useQuery({
+  const query = useQuery({
     queryKey: ['profile', normalized],
-    queryFn: async (): Promise<Profile | null> => {
-      if (!normalized) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(PUBLIC_PROFILE_COLUMNS)
-        .eq('username', normalized)
-        .maybeSingle();
+    queryFn: async () => {
+      if (!normalized) return { status: 'not_found' as const, profile: null };
+      const { data, error } = await supabase.rpc('get_public_profile_view', {
+        p_username: normalized,
+      });
       if (error) {
         if (__DEV__) console.warn('[useProfile]', error.message);
-        return null;
+        throw error;
       }
-      return parseProfileRow(data);
+      const view = parsePublicProfileView(data);
+      return { ...view, profile: parseProfileRow(view.profile) };
     },
     enabled: !!normalized,
     staleTime: 30_000,
   });
+  return {
+    ...query,
+    data: query.data?.profile ?? null,
+    blockedByUser: query.data?.status === 'blocked_by_user',
+  };
 }
 
 /** Single post — same shape as feed (for profile grid → detail). */

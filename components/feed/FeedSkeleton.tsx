@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Skeleton } from '../ui/Skeleton';
 
 export function FeedSkeleton() {
   const { colors } = useTheme();
@@ -19,24 +20,7 @@ export function FeedSkeleton() {
           borderColor: colors.border,
         },
         row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-        avatar: {
-          width: 42,
-          height: 42,
-          borderRadius: 21,
-          backgroundColor: colors.surfaceMuted,
-        },
         textGroup: { flex: 1, gap: Spacing.xs },
-        line: {
-          height: 12,
-          borderRadius: Radius.full,
-          backgroundColor: colors.surfaceMuted,
-        },
-        content: {
-          flex: 1,
-          minHeight: 120,
-          borderRadius: Radius.md,
-          backgroundColor: colors.surfaceMuted,
-        },
       }),
     [colors],
   );
@@ -50,14 +34,14 @@ export function FeedSkeleton() {
     >
       <View style={styles.card}>
         <View style={styles.row}>
-          <View style={styles.avatar} />
+          <Skeleton width={42} height={42} radius={21} />
           <View style={styles.textGroup}>
-            <View style={[styles.line, { width: '38%' }]} />
-            <View style={[styles.line, { width: '24%' }]} />
+            <Skeleton width="38%" height={12} />
+            <Skeleton width="24%" height={10} />
           </View>
         </View>
-        <View style={styles.content} />
-        <View style={[styles.line, { width: '62%' }]} />
+        <Skeleton height={120} radius={Radius.md} />
+        <Skeleton width="62%" height={12} />
       </View>
     </View>
   );

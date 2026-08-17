@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   StyleSheet,
-  Modal,
   Pressable,
   Keyboard,
   Platform,
@@ -24,6 +23,7 @@ import {
   getKeyboardDismissTarget,
 } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { AppSheetModal } from './AppSheetModal';
 
 type Props = {
   visible: boolean;
@@ -98,11 +98,6 @@ export function KeyboardSafeSheet({
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        backdrop: {
-          flex: 1,
-          justifyContent: 'flex-end',
-          backgroundColor: 'rgba(0,0,0,0.25)',
-        },
         sheet: {
           backgroundColor: colors.surfaceElevated,
           borderTopLeftRadius: Radius.xl,
@@ -159,44 +154,39 @@ export function KeyboardSafeSheet({
   );
   const sheetHeight = initialWindowHeight * Math.min(0.9, Math.max(0.4, heightFraction));
 
-  if (!visible) return null;
-
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={tryDismiss}>
-      <Pressable style={styles.backdrop} onPress={tryDismiss} accessibilityLabel="Dismiss">
-        <Pressable
-          style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={styles.grab} />
-          {title ? (
-            <View style={styles.headRow}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text variant="headingMedium">{title}</Text>
-                {subtitle ? (
-                  <Text variant="bodySmall" color={colors.textSecondary} style={{ lineHeight: 20 }}>
-                    {subtitle}
-                  </Text>
-                ) : null}
-              </View>
-              <Pressable onPress={handleExplicitClose} hitSlop={14} accessibilityLabel="Close">
-                <IconClose size={26} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-          ) : null}
-          <ScrollView
-            style={[styles.scroll, { flex: 1 }]}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            showsVerticalScrollIndicator={false}
-          >
-            {children}
-          </ScrollView>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </Pressable>
-      </Pressable>
-      <AppKeyboardToolbar insidePageSheet />
-    </Modal>
+    <AppSheetModal
+      visible={visible}
+      onClose={tryDismiss}
+      sheetStyle={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
+      accessory={<AppKeyboardToolbar insidePageSheet />}
+    >
+      <View style={styles.grab} />
+      {title ? (
+        <View style={styles.headRow}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text variant="headingMedium">{title}</Text>
+            {subtitle ? (
+              <Text variant="bodySmall" color={colors.textSecondary} style={{ lineHeight: 20 }}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable onPress={handleExplicitClose} hitSlop={14} accessibilityLabel="Close">
+            <IconClose size={26} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      ) : null}
+      <ScrollView
+        style={[styles.scroll, { flex: 1 }]}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </AppSheetModal>
   );
 }

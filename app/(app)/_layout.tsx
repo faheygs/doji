@@ -87,7 +87,7 @@ export default function AppLayout() {
   if (!ready) return null;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Tabs detachInactiveScreens screenOptions={tabScreenOptions}>
         {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
         <Tabs.Screen

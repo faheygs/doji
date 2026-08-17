@@ -27,7 +27,9 @@ export type ExpoPushReceipt = ExpoTicketOk | ExpoTicketErr;
 
 export type ExpoPushResult = {
   httpOk: boolean;
+  httpStatus?: number;
   tickets: ExpoPushReceipt[];
+  transportError?: string;
   /**
    * Indices into the original `messages` array for tokens that should be cleared
    * (e.g. DeviceNotRegistered, InvalidCredentials).
@@ -42,7 +44,12 @@ function parseTickets(json: unknown): ExpoPushReceipt[] {
   if (Array.isArray(json)) {
     return json as ExpoPushReceipt[];
   }
-  if (json && typeof json === 'object' && 'data' in json && Array.isArray((json as { data: unknown }).data)) {
+  if (
+    json &&
+    typeof json === 'object' &&
+    'data' in json &&
+    Array.isArray((json as { data: unknown }).data)
+  ) {
     return (json as { data: ExpoPushReceipt[] }).data;
   }
   return [];
@@ -62,11 +69,21 @@ export async function sendExpoPushMessages(messages: ExpoMessage[]): Promise<Exp
     return { httpOk: true, tickets: [], invalidTokenIndices: [] };
   }
 
-  const res = await fetch(EXPO_PUSH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(messages),
-  });
+  let res: Response;
+  try {
+    res = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages),
+    });
+  } catch (error) {
+    return {
+      httpOk: false,
+      tickets: [],
+      invalidTokenIndices: [],
+      transportError: error instanceof Error ? error.message : String(error),
+    };
+  }
 
   let json: unknown;
   try {
@@ -84,8 +101,10 @@ export async function sendExpoPushMessages(messages: ExpoMessage[]): Promise<Exp
 
   return {
     httpOk: res.ok,
+    httpStatus: res.status,
     tickets,
     invalidTokenIndices,
+    transportError: res.ok ? undefined : `Expo push HTTP ${res.status}`,
   };
 }
 

@@ -55,6 +55,8 @@ export function useBlockUser() {
         'notificationCenter',
         'blockedUsers',
         'isBlocked',
+        'profile',
+        'leaderboard',
       ]);
     },
   });
@@ -76,7 +78,9 @@ export function useUnblockUser() {
       if (error) throw error;
     },
     onSuccess: () => {
-      scheduleQueryInvalidation(queryClient, ['blockedUsers', 'isBlocked', 'feed']);
+      scheduleQueryInvalidation(queryClient, [
+        'blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed',
+      ]);
     },
   });
 }

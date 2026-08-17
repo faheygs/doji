@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon-ios.png",
     "scheme": "doit",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.doit.challengeapp",
@@ -19,7 +19,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "42"
+      "buildNumber": "51"
     },
     "android": {
       "adaptiveIcon": {

@@ -133,10 +133,8 @@ function CommentActionSheet({
     [colors, insets.bottom],
   );
 
-  if (!visible) return null;
-
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
           {onEdit ? (

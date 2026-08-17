@@ -1,10 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Modal,
-  Pressable,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -32,6 +30,9 @@ import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { AppSheetModal } from '../ui/AppSheetModal';
+import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
+import { SkeletonSwap } from '../ui/SkeletonSwap';
 
 type Props = {
   visible: boolean;
@@ -57,6 +58,7 @@ export function ReactionVotersSheet({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const pendingNavigationRef = useRef<null | (() => void)>(null);
   const userId = useAuthStore((s) => s.session?.user?.id);
   const isFriendsScope = feedAudience === 'friends';
   useDismissOnRouteBlur(visible, onClose);
@@ -121,27 +123,22 @@ export function ReactionVotersSheet({
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
+      pendingNavigationRef.current = () =>
+        router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
       handleClose();
-      router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
     },
     [handleClose, pathname, router],
   );
 
+  const finishDismiss = useCallback(() => {
+    const action = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    action?.();
+  }, []);
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        backdrop: {
-          flex: 1,
-          justifyContent: 'flex-end',
-        },
-        scrim: {
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          backgroundColor: 'rgba(0,0,0,0.25)',
-        },
         sheet: {
           height: winH * 0.5,
           backgroundColor: colors.surface,
@@ -275,13 +272,13 @@ export function ReactionVotersSheet({
     [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.emojiBadge, styles.row, styles.rowBody, userId],
   );
 
-  if (!visible) return null;
-
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.backdrop}>
-        <Pressable style={styles.scrim} onPress={handleClose} accessibilityLabel="Dismiss" />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.sm }]}>
+    <AppSheetModal
+      visible={visible}
+      onClose={handleClose}
+      onDismiss={finishDismiss}
+      sheetStyle={[styles.sheet, { paddingBottom: insets.bottom + Spacing.sm }]}
+    >
           <View style={styles.grab} />
           <View style={styles.headRow}>
             <Text variant="headingMedium" numberOfLines={1} style={styles.title}>
@@ -298,36 +295,35 @@ export function ReactionVotersSheet({
             </TouchableOpacity>
           </View>
 
-          {isPending ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={colors.text} />
-            </View>
-          ) : reactions.length === 0 ? (
-            <View style={styles.centered}>
-              <Text variant="body" color={colors.textSecondary}>
-                {isFriendsScope ? 'No reactions from friends yet.' : 'No reactions yet.'}
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={reactions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-              }}
-              onEndReachedThreshold={0.4}
-              ListFooterComponent={
-                isFetchingNextPage ? (
-                  <View style={styles.footer}>
-                    <ActivityIndicator color={colors.textSecondary} size="small" />
-                  </View>
-                ) : null
-              }
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
+          <SkeletonSwap
+            loading={isPending}
+            skeleton={<ListRowsSkeleton rows={4} label="Loading reactions" />}
+          >
+            {reactions.length === 0 ? (
+              <View style={styles.centered}>
+                <Text variant="body" color={colors.textSecondary}>
+                  {isFriendsScope ? 'No reactions from friends yet.' : 'No reactions yet.'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={reactions}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+                }}
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={
+                  isFetchingNextPage ? (
+                    <View style={styles.footer}>
+                      <ActivityIndicator color={colors.textSecondary} size="small" />
+                    </View>
+                  ) : null
+                }
+              />
+            )}
+          </SkeletonSwap>
+    </AppSheetModal>
   );
 }

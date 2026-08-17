@@ -309,7 +309,7 @@ export default function CameraScreen() {
             <IconClose size={26} color={colors.textSecondary} />
           </TouchableOpacity>
           <ChallengeTimer
-            expiresAt={userEvent.expires_at}
+            expiresAt={userEvent.status === 'buy_in_open' ? null : userEvent.expires_at}
             onExpire={() => void refetchUserEvent()}
           />
         </View>
@@ -409,7 +409,7 @@ export default function CameraScreen() {
                 </Text>
               </TouchableOpacity>
               <ChallengeTimer
-                expiresAt={userEvent.expires_at}
+                expiresAt={userEvent.status === 'buy_in_open' ? null : userEvent.expires_at}
                 onExpire={() => void refetchUserEvent()}
               />
             </View>
@@ -491,7 +491,7 @@ export default function CameraScreen() {
         <CameraTopControls
           flashEnabled={flashEnabled}
           flashAvailable={facing === 'back'}
-          expiresAt={userEvent.expires_at}
+          expiresAt={userEvent.status === 'buy_in_open' ? null : userEvent.expires_at}
           onClose={() => setFlowStep('chooseSource')}
           onFlip={() => {
             setFacing((current) => (current === 'back' ? 'front' : 'back'));

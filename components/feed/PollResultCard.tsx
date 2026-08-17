@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -99,9 +99,12 @@ function PollResultCardImpl({
   const [voterModal, setVoterModal] = useState<{
     optionId: string; label: string; isOther: boolean; count: number;
   } | null>(null);
+  const [voterVisible, setVoterVisible] = useState(false);
   const [reportVote, setReportVote] = useState<{ voteId: string; userId: string } | null>(null);
+  const [reportVisible, setReportVisible] = useState(false);
+  const pendingReportRef = useRef<{ voteId: string; userId: string } | null>(null);
   const isFriendsScope = feedAudience === 'friends';
-  const modalOpen = voterModal !== null;
+  const modalOpen = voterVisible;
 
   const { data: friendIds = [] } = useQuery({
     queryKey: ['friendIds', userId],
@@ -327,8 +330,6 @@ function PollResultCardImpl({
       }),
     [colors, variant],
   );
-
-
   /** Fixed sheet height — same size every time, content scrolls inside. */
   const voterSheetMaxHeight = winH * 0.5;
   const voterListMaxHeight = Math.max(180, voterSheetMaxHeight - 120 - insets.bottom);
@@ -338,15 +339,24 @@ function PollResultCardImpl({
 
   const sheetTranslateY = useSharedValue(sheetSlideRange);
   const panStartY = useSharedValue(0);
-
+  const finishVoterDismiss = useCallback(() => {
+    const pendingReport = pendingReportRef.current; pendingReportRef.current = null;
+    setVoterModal(null);
+    if (pendingReport) {
+      setReportVote(pendingReport); setReportVisible(true);
+    }
+  }, []);
   const finalizeClose = useCallback(() => {
     Haptics.selectionAsync();
-    setVoterModal(null);
+    setVoterVisible(false);
+  }, []);
+  const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
+    setVoterModal({ optionId, label, isOther, count }); setVoterVisible(true);
   }, []);
 
-  const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
-    setVoterModal({ optionId, label, isOther, count });
-  }, []);
+  useEffect(() => {
+    if (!voterVisible && voterModal && Platform.OS !== 'ios') finishVoterDismiss();
+  }, [finishVoterDismiss, voterModal, voterVisible]);
 
   useEffect(() => {
     if (modalOpen) {
@@ -513,11 +523,12 @@ function PollResultCardImpl({
       </View>
 
       {voterModal ? <Modal
-        visible
+        visible={voterVisible}
         transparent
         animationType="none"
         statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={dismissWithSpring}
+        onDismiss={finishVoterDismiss}
       >
         <GestureHandlerRootView style={styles.modalGestureRoot}>
           <Animated.View
@@ -649,7 +660,8 @@ function PollResultCardImpl({
                         <TouchableOpacity
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setReportVote({ voteId: item.vote_id!, userId: item.user_id });
+                             pendingReportRef.current = { voteId: item.vote_id!, userId: item.user_id };
+                             dismissWithSpring();
                           }}
                           hitSlop={8}
                           accessibilityRole="button"
@@ -670,10 +682,10 @@ function PollResultCardImpl({
 
       {reportVote ? (
         <ReportSheet
-          visible
+          visible={reportVisible}
           reportedUserId={reportVote.userId}
           pollVoteId={reportVote.voteId}
-          onClose={() => setReportVote(null)}
+          onClose={() => setReportVisible(false)}
         />
       ) : null}
     </View>

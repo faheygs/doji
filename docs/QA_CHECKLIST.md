@@ -74,8 +74,9 @@ Mark each box when verified.
 ## 8. Notifications
 
 - [ ] **Enable notifications** in Settings → saves push token to profile
-- [ ] **In-app toast** — friend request received while app is open shows toast
+- [ ] **Foreground notification** — friend requests and activity update the bell without a redundant OS banner or app toast
 - [ ] **Remote push** — direct alerts arrive once; Doji-live is time-sensitive; foreground use updates the bell without a duplicate OS banner
+- [ ] **Terminal delivery claim** — simulate a lost Expo response or failed outcome write; the same event/recipient key is never handed to Expo again
 - [ ] **Grouped social push** — multiple friend completions, reactions on one post, or hearts on one comment within a 30-second bucket produce one alert 30–60 seconds later with the correct count
 - [ ] **Push threads** — later grouped alerts for the same Doji/post/comment reuse the same iOS thread and Android replacement tag
 - [ ] **Reaction changes** — changing, removing, or re-adding a reaction does not create another alert
@@ -97,6 +98,7 @@ Mark each box when verified.
 - [ ] **Legal** — Terms and Privacy open from Settings while signed in
 - [ ] **Support** — Help & support opens `https://dojipro.com/support/`
 - [ ] **Theme toggle** — light/dark switches instantly
+- [ ] **Theme navigation** — push/pop and interactive-swipe transitions never reveal the opposite-theme window background
 - [ ] **Stats preview** — shows current streak, best, completed counts
 - [ ] **Delete account** — confirmation dialog → deletes all data + signs out
 - [ ] **Sign out** — clears session, returns to welcome
@@ -112,6 +114,10 @@ Mark each box when verified.
 
 - [ ] **No internet** — app doesn't crash; shows appropriate loading states
 - [ ] **Rapid navigation** — tab switching doesn't break layout
+- [ ] **Sheet lifecycle** — rapidly open/close every sheet, swipe or tap outside, then verify the underlying screen accepts touches immediately
+- [ ] **Deferred sheet navigation** — opening a profile from a voters/likes/friends sheet dismisses the sheet before the route push and leaves no invisible overlay
+- [ ] **Skeleton transition** — cold feed, leaderboard, shop, friends, search, and notifications loads preserve layout and crossfade once; cached refreshes keep content interactive
+- [ ] **Reduce Motion** — with the OS setting enabled, sheets and skeleton swaps settle without decorative movement while remaining fully operable
 - [ ] **Long caption** — text wraps properly in post card
 - [ ] **Very long username** — truncates with ellipsis
 

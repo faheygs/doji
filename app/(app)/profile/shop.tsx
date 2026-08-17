@@ -1,23 +1,13 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import {
-  Spacing,
-  Radius,
-  webScrollParentStyle,
-  DEFAULT_ACCENT_THEME,
-} from '@/constants/theme';
+import { Spacing, Radius, webScrollParentStyle, DEFAULT_ACCENT_THEME } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
+import { ShopSkeleton } from '@/components/ui/LoadingSkeletons';
+import { SkeletonSwap } from '@/components/ui/SkeletonSwap';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { LiveSparksPill } from '@/components/economy/SparksPill';
 import { PurchaseConfirmSheet } from '@/components/economy/PurchaseConfirmSheet';
@@ -66,10 +56,23 @@ export default function ShopScreen() {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
-        intro: { margin: Spacing.md, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border, gap: Spacing.xs },
+        intro: {
+          margin: Spacing.md,
+          padding: Spacing.lg,
+          borderRadius: Radius.xl,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          gap: Spacing.xs,
+        },
         section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg, gap: Spacing.md },
         sectionHeading: { gap: 3 },
-        catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.md },
+        catalogGrid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          rowGap: Spacing.md,
+        },
         titleList: { gap: Spacing.sm },
         titleRow: {
           flexDirection: 'row',
@@ -140,10 +143,11 @@ export default function ShopScreen() {
         <LiveSparksPill />
       </View>
 
-      {isLoading ? (
-        <ActivityIndicator style={{ marginTop: Spacing.xxl }} color={colors.primary} />
-      ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxl }} showsVerticalScrollIndicator={false}>
+      <SkeletonSwap loading={isLoading} skeleton={<ShopSkeleton />}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: Spacing.xxl }}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.intro}>
             <Text variant="headingLarge">Make Doji yours</Text>
             <Text variant="body" color={colors.textSecondary} style={{ lineHeight: 21 }}>
@@ -153,7 +157,9 @@ export default function ShopScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
               <Text variant="heading">Accent themes</Text>
-              <Text variant="micro" color={colors.textTertiary}>Changes buttons, highlights, and key moments.</Text>
+              <Text variant="micro" color={colors.textTertiary}>
+                Changes buttons, highlights, and key moments.
+              </Text>
             </View>
             <View style={styles.catalogGrid}>
               {themes.map((item) => {
@@ -176,7 +182,9 @@ export default function ShopScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
               <Text variant="heading">Avatar frames</Text>
-              <Text variant="micro" color={colors.textTertiary}>Shown everywhere your avatar appears.</Text>
+              <Text variant="micro" color={colors.textTertiary}>
+                Shown everywhere your avatar appears.
+              </Text>
             </View>
             <View style={styles.catalogGrid}>
               {borders.map((item) => {
@@ -242,7 +250,7 @@ export default function ShopScreen() {
             </View>
           </View>
         </ScrollView>
-      )}
+      </SkeletonSwap>
 
       <PurchaseConfirmSheet
         visible={!!confirmItem}

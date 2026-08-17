@@ -14,6 +14,8 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { Text } from '../../../components/ui/Text';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Card } from '../../../components/ui/Card';
+import { ListRowsSkeleton } from '../../../components/ui/LoadingSkeletons';
+import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
 import { IconChevronRight, IconFriends, IconSearch } from '../../../components/icons/Icons';
 import { useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
 import { useFriendsPaged, type FriendListRow } from '../../../hooks/useFriendsPaged';
@@ -137,11 +139,10 @@ export default function FriendsScreen() {
         </TouchableOpacity>
       )}
 
-      {isLoading && friends.length === 0 ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.text} />
-        </View>
-      ) : (
+      <SkeletonSwap
+        loading={isLoading && friends.length === 0}
+        skeleton={<ListRowsSkeleton label="Loading friends" />}
+      >
         <FlatList
           style={webScrollParentStyle}
           data={friends as FriendRow[]}
@@ -195,7 +196,7 @@ export default function FriendsScreen() {
             </View>
           }
         />
-      )}
+      </SkeletonSwap>
     </SafeAreaView>
   );
 }

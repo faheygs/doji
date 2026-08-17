@@ -8,7 +8,7 @@ import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { UserEvent, type ChallengeType } from '../../types/database';
-import { isExpired, formatMinutesSecondsCountdown } from '../../utils/time';
+import { formatMinutesSecondsCountdown } from '../../utils/time';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { ChallengeTypeGlyph } from './ChallengeTypeGlyph';
 import {
@@ -17,13 +17,13 @@ import {
   isMissedOrExpiredPending,
   showSignupDayGraceBanner,
 } from '../../lib/participationGate';
-import { useAuthStore } from '../../stores/useAuthStore';
 import { useSparksBalance } from '../../hooks/useSparks';
 import { useBuyInToday } from '../../hooks/useBuyIn';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
-import { LiveSparksPill } from '../economy/SparksPill';
 import { BuyInSheet } from '../economy/BuyInSheet';
 import { useServerCountdown } from '../../hooks/useServerCountdown';
+import { MissedChallengeBanner } from './MissedChallengeBanner';
+import { challengeEntryHref } from '../../lib/routes';
 
 const GRADIENT_START = { x: 0, y: 0 } as const;
 const GRADIENT_END = { x: 1, y: 1 } as const;
@@ -36,9 +36,10 @@ export function ChallengeBanner({ userEvent }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
   const sparks = useSparksBalance();
-  const profile = useAuthStore((s) => s.profile);
   const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
+  const challenge = userEvent?.challenge;
+  const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
 
   const secondsUntil = useServerCountdown(userEvent?.daily_event?.fires_at);
   const secondsLeft = useServerCountdown(userEvent?.expires_at);
@@ -113,24 +114,6 @@ export function ChallengeBanner({ userEvent }: Props) {
           color: colors.onPrimary,
           opacity: 0.85,
         },
-        missedBanner: {
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: Radius.lg,
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.sm,
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: Spacing.md,
-          gap: Spacing.sm,
-        },
-        buyInBtn: {
-          backgroundColor: colors.primary,
-          borderRadius: Radius.sm,
-          paddingVertical: Spacing.sm,
-          paddingHorizontal: Spacing.md,
-        },
         iconCircle: {
           width: 44,
           height: 44,
@@ -161,8 +144,6 @@ export function ChallengeBanner({ userEvent }: Props) {
         textOnPrimary: { color: colors.onPrimary },
         textOnPrimaryFaded: { color: colors.onPrimary, opacity: 0.85 as const },
         textOnPrimaryArrow: { color: colors.onPrimary },
-        alignEnd: { alignItems: 'flex-end' as const, gap: 2 },
-        flexOne: { flex: 1 },
       }),
     [colors],
   );
@@ -177,7 +158,7 @@ export function ChallengeBanner({ userEvent }: Props) {
       await buyIn();
       setBuyInVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push('/(app)/challenge');
+      requestAnimationFrame(() => router.push(challengeEntryHref(challengeType)));
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : ((e as { message?: string })?.message ?? 'Unknown error');
@@ -188,14 +169,17 @@ export function ChallengeBanner({ userEvent }: Props) {
         text2: msg,
       });
     }
-  }, [buyIn, router]);
+  }, [buyIn, challengeType, router]);
+
+  const handleOpenBuyIn = useCallback(() => {
+    Haptics.selectionAsync();
+    setBuyInVisible(true);
+  }, []);
 
   if (!userEvent) {
     return null;
   }
 
-  const challenge = userEvent.challenge;
-  const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
   const xpReward = challenge?.xp_reward ?? 50;
   const participants = challenge?.participant_count ?? 0;
 
@@ -203,7 +187,7 @@ export function ChallengeBanner({ userEvent }: Props) {
     return null;
   }
 
-  if (showSignupDayGraceBanner(userEvent, profile)) {
+  if (showSignupDayGraceBanner(userEvent)) {
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
         <LinearGradient
@@ -228,7 +212,7 @@ export function ChallengeBanner({ userEvent }: Props) {
     );
   }
 
-  if (userEvent.status === 'buy_in_open' && !isExpired(userEvent.expires_at)) {
+  if (userEvent.status === 'buy_in_open') {
     return (
       <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
         <LinearGradient
@@ -245,14 +229,7 @@ export function ChallengeBanner({ userEvent }: Props) {
               Complete today&apos;s Doji
             </Text>
           </View>
-          <View style={styles.timer}>
-            <Text variant="label" style={styles.timerDigits}>
-              {formatMinutesSecondsCountdown(secondsLeft)}
-            </Text>
-            <Text variant="subhead" style={styles.textOnPrimaryArrow}>
-              GO →
-            </Text>
-          </View>
+          <Text variant="subhead" style={styles.textOnPrimaryArrow}>GO →</Text>
         </LinearGradient>
       </TouchableOpacity>
     );
@@ -264,35 +241,11 @@ export function ChallengeBanner({ userEvent }: Props) {
 
     return (
       <>
-        <View style={styles.missedBanner}>
-          <Text variant="body" color={colors.textSecondary} style={styles.flexOne}>
-            Missed today&apos;s Doji
-          </Text>
-          {showBuyIn ? (
-            canPay ? (
-              <TouchableOpacity
-                style={styles.buyInBtn}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setBuyInVisible(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
-              >
-                <Text variant="label" color={colors.onPrimary}>
-                  Buy in · {SPARKS_BUY_IN_COST} Sparks
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.alignEnd}>
-                <Text variant="micro" color={colors.textTertiary}>
-                  Need {SPARKS_BUY_IN_COST} Sparks
-                </Text>
-                <LiveSparksPill compact />
-              </View>
-            )
-          ) : null}
-        </View>
+        <MissedChallengeBanner
+          showBuyIn={showBuyIn}
+          canPay={canPay}
+          onPress={handleOpenBuyIn}
+        />
         <BuyInSheet
           visible={buyInVisible}
           userEvent={userEvent}

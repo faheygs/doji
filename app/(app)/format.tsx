@@ -135,7 +135,7 @@ export default function FormatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <ChallengeTimer expiresAt={userEvent?.expires_at} onExpire={() => void refetch()} />
+          <ChallengeTimer expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at} onExpire={() => void refetch()} />
           <TouchableOpacity
             onPress={() => backOrHome(router)}
             hitSlop={16}
@@ -161,7 +161,7 @@ export default function FormatScreen() {
     <SafeAreaView style={styles.container}>
       <View style={{ flex: 1 }}>
         <View style={styles.header}>
-          <ChallengeTimer expiresAt={userEvent?.expires_at} onExpire={() => void refetch()} />
+          <ChallengeTimer expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at} onExpire={() => void refetch()} />
           <TouchableOpacity
             onPress={() => backOrHome(router)}
             hitSlop={16}

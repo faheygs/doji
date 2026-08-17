@@ -339,10 +339,8 @@ export function PostCommentsSheet({
     [colors],
   );
 
-  if (!visible) return null;
-
   return (
-    <Modal visible transparent animationType="none" onRequestClose={handleClosePress}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}>
       <GestureHandlerRootView style={styles.modalRoot}>
         <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="box-none">
           <Pressable

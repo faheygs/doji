@@ -1,7 +1,6 @@
-import type { Profile, UserEvent, UserEventStatus } from '../types/database';
+import type { UserEvent, UserEventStatus } from '../types/database';
 import { isExpired } from '../utils/time';
 import { SPARKS_BUY_IN_COST } from '../constants/sparks';
-import { localDateKeyFromIso, localDateKeyFromDate } from './challengeDay';
 
 /** User completed this Doji, including a paid late completion. */
 export function hasUnlockedFeed(userEvent: UserEvent | null | undefined): boolean {
@@ -17,17 +16,17 @@ export function isMissedOrExpiredPending(userEvent: UserEvent | null | undefined
   if (!userEvent) return false;
   if (userEvent.status === 'missed') return true;
   if (userEvent.status === 'pending' && isExpired(userEvent.expires_at)) {
-    return !isSignupDayGrace(userEvent);
+    return true;
   }
   return false;
 }
 
-/** User can still submit (window open, buy-in open, or signup-day grace until EOD). */
+/** User can still submit in the normal window or after a successful paid buy-in. */
 export function canSubmitChallenge(userEvent: UserEvent | null | undefined): boolean {
   if (!userEvent) return false;
   if (userEvent.status === 'completed' || userEvent.status === 'missed') return false;
-  if (isExpired(userEvent.expires_at)) return false;
   if (userEvent.status === 'buy_in_open') return true;
+  if (isExpired(userEvent.expires_at)) return false;
   if (userEvent.status === 'pending') {
     return true;
   }
@@ -38,6 +37,14 @@ export function canBuyIn(userEvent: UserEvent | null | undefined): boolean {
   if (!userEvent || userEvent.buy_in_at != null) return false;
   if (isSignupDayGrace(userEvent)) return false;
   return isMissedOrExpiredPending(userEvent);
+}
+
+/** Signup-day participants retain their server-authorized free exception. */
+export function showSignupDayGraceBanner(
+  userEvent: UserEvent | null | undefined,
+): boolean {
+  if (!userEvent || !isSignupDayGrace(userEvent)) return false;
+  return userEvent.status === 'pending' && !isExpired(userEvent.expires_at);
 }
 
 export function canAffordBuyIn(sparks: number): boolean {
@@ -64,18 +71,4 @@ export function userEventStatusLabel(status: UserEventStatus | undefined): strin
     default:
       return 'Unknown';
   }
-}
-
-/** True when signup-day user can still complete for free until EOD. */
-export function showSignupDayGraceBanner(
-  userEvent: UserEvent | null | undefined,
-  profile: Profile | null | undefined,
-): boolean {
-  if (!userEvent || !profile) return false;
-  if (!isSignupDayGrace(userEvent)) return false;
-  if (userEvent.status !== 'pending' && userEvent.status !== 'buy_in_open') return false;
-  if (isExpired(userEvent.expires_at)) return false;
-  const createdDay = localDateKeyFromIso(profile.created_at);
-  const today = localDateKeyFromDate(new Date());
-  return createdDay === today;
 }

@@ -3,8 +3,16 @@
 ## Guarantees
 
 - Postgres is the source of truth. Socket messages only announce committed state.
+- `profiles.is_banned` is authoritative account-access state. Profile hydration or
+  realtime reconciliation moves a banned session to the isolated ban route without
+  deleting its auth session; normal app routes and push-token registration stay off.
 - The handset clock never authorizes participation. `get_current_doji_state`,
   `submit_poll_vote`, and `complete_doji_with_post` use the database clock.
+- The existing server-owned signup-day exception remains free through its authorized
+  deadline. All other participants close at the shared 10-minute event deadline. A
+  successful paid buy-in changes the occurrence to `buy_in_open`, which both
+  submission commands accept without the original deadline. A newer Doji supersedes
+  the older occurrence.
 - Challenge pre-live, activation, and close use one durable Cloudflare alarm chain per `daily_event`.
   There is no recurring "look for due events" job.
 - Every committed live change writes `domain_event_outbox` in the same transaction.
@@ -14,10 +22,15 @@
   safety net for private account, friendship, dismissal, and inventory rows. Shared
   social tables use Ably only; every handset must not receive every raw table change.
 - Mutating RPCs are atomic and idempotent. A retried command returns its prior result.
+  If a client receives an ambiguous transport failure, it reconciles the authorized
+  receipt/read model before presenting failure; a committed response is treated as
+  success without issuing a second direct write.
 - Friend requests, responses, removals, blocks, reports, moderation, posts, comments,
   reactions, poll votes, and poll-vote likes never rely on multiple client writes.
-- Blocking removes the friendship, inserts the block, and creates a pending developer
-  report in one transaction. The client hides that account's posts optimistically.
+- Blocking removes the friendship and inserts the block in one transaction. It is a
+  personal privacy action and never creates a moderation report; only the explicit
+  report command enters the admin queue. The client hides that account's posts
+  optimistically.
 - Comment mention parsing, notification clear/dismiss state, profile writes, and
   suggestion approval also commit inside their owning command. There are no
   client-side cleanup transactions.
@@ -49,6 +62,9 @@
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
+- Presentation motion never owns server state or delays reconciliation. Cold reads may
+  crossfade a shape-matched skeleton into content, while cached reads remain interactive.
+  Native sheet dismissal completes before a queued route action is allowed to run.
 
 ## Runtime flow
 
@@ -60,12 +76,19 @@
 3. At `fires_at`, the alarm calls `activate_daily_event`. One transaction stamps
    authoritative times, fans out `user_events`, and writes global and per-user events.
 4. The outbox wakes Cloudflare Queue, which invokes `relay-domain-events` immediately.
-5. The relay preloads push profiles in one query, preserves order per Ably channel,
-   drains independent channels with bounded concurrency, and submits high-priority push.
+5. The relay claims critical activation and realtime-only rows ahead of push-only
+   backlog, explicitly orders each claim, and atomically publishes each channel batch
+   to Ably. It durably records that publication before optional push work begins.
+   Independent channels drain with bounded concurrency.
 6. Connected devices update immediately. Background devices receive remote push.
 7. The same Durable Object wakes at `closes_at` and calls `close_daily_event`.
 8. After close, that one-shot alarm prepares and registers the next Doji. There is no
    recurring scheduler.
+
+Re-registering the same event phase always re-arms the Durable Object alarm; stored
+phase state is not proof that an alarm is still pending after a failed invocation.
+Pre-live feed retirement must tolerate cascade deletes without recreating engagement
+counters for a parent post that no longer exists.
 
 Push providers cannot guarantee OS display. App correctness never depends on push:
 connected clients receive Ably events, while launch, foreground, and reconnect always
@@ -92,23 +115,36 @@ reconcile authoritative database state.
   remains immediate and authoritative.
 - Social recipient fanout is set-based, so one action creates one relay wakeup rather
   than one database HTTP wakeup per friend.
-- Every sender calls `claim_push_delivery` before contacting Expo. Database, queue,
-  HTTP, lease, and function retries therefore collapse to a successful no-op after the
-  first claim.
+- Every sender calls `claim_push_delivery` before contacting Expo. The first
+  event/recipient insert is terminal; conflicts never reopen an unfinished claim.
+  Database, queue, HTTP, lease, and function retries therefore collapse to a no-op.
+  Expo ticket/outcome recording is telemetry and can never authorize another send.
+- Provider handoff is attempted once. An ambiguous timeout is terminal rather than
+  retried because Expo may have accepted the request even when its response was lost.
+  Doji correctness comes from Postgres, Ably, and reconciliation, so the rare missed
+  alert is safer than a duplicate-notification storm.
+- Every claimed outbox row includes its immutable `created_at`. Doji pushes are
+  rejected after two minutes or after `closesAt`, whichever comes first; all other
+  pushes are rejected after five minutes. This freshness gate runs before delivery
+  claims and before Expo TTL is assigned, so old backlog can drain without alerting.
 - Outbox push keys use the immutable outbox event ID and recipient. Legacy direct
   events use their immutable entity ID; payloads without an entity ID are collapsed
   into a five-minute retry window.
 - Realtime publication and push display are independent. A duplicate Ably message is
   harmless because clients deduplicate event IDs; a push must additionally pass the
   server delivery claim.
+- Push backlog never sits in front of live app state. The
+  relay publishes the full ordered Ably channel batch first and only then performs
+  slower Expo side effects. A durable `realtimePublished` marker prevents a relay retry
+  from republishing or delaying the corresponding socket event.
 - Doji-live pushes use high priority and iOS time-sensitive interruption. Direct
   social pushes are active; grouped social pushes use normal transport priority.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
 
-These constraints prevent two historic amplification paths: multiple profiles owning
-the same physical-device token, and a retried direct push request sending again after
-the underlying social action had already committed.
+These constraints prevent three historic amplification paths: multiple profiles owning
+the same physical-device token, duplicate producers for one action, and a provider
+handoff being repeated when its database acknowledgement failed.
 
 ## Channels
 
@@ -122,30 +158,32 @@ the underlying social action had already committed.
 - `user:{id}:events`: private friendship, block, badge, suggestion, and notification state.
 - `moderation:global`: report queue changes; granted only to administrator tokens.
 
-Messages contain identifiers, versions, and event IDs, not trusted application rows.
+Messages contain identifiers, versions, original occurrence time, and event IDs, not trusted application rows.
+Ably batch envelopes omit client-specified message IDs; the durable outbox UUID stays
+in `data.eventId` for application deduplication.
 The app deduplicates event IDs and refetches authorized data through RLS. A shared
 reconciliation function invalidates all server-owned surfaces on reconnect/foreground.
 
 ## User-visible mutation coverage
 
-| Surface | Authoritative event | Scope | Client reconciliation |
-| --- | --- | --- | --- |
-| Doji pre-live/activation/close | `doji.*` | global + targeted user | upcoming state, occurrence, banner, feed, notification center |
-| User occurrence/completion/buy-in | `user_event.updated` | user | current Doji, feed |
-| Poll vote/result | `poll.vote.*` | global | friend/everyone results, voters, feed |
-| Posts | `feed.post.*` | public or owner/friends | feed, post, profile posts |
-| Reactions | `feed.reaction.*` | public or owner/friends | counts, voters, feed, post |
-| Comments/replies/likes | `feed.comment*` | public or owner/friends | thread, counts, feed, post |
-| Mentions and social alerts | `notification.*` | recipient | bell history and remote push |
-| Friendships/blocks | `social.*` | involved users | graph, counts, feed, requests |
-| Public profile/avatar/cosmetics | `profile.presentation.updated` | owner + friends | avatar-bearing active queries |
-| Public profile statistics | `profile.stats.updated` | owner + friends | active profile and friends |
-| Sparks/theme/preferences | `account.profile.updated` | user | auth profile and account UI |
-| Store ownership | `shop.ownership.*` | user | owned inventory and auth profile |
-| Badges | `badge.updated` + `notification.badge.*` | global + user | public profile badges, owner alert/profile |
-| XP/rank | `leaderboard.updated` | global | active leaderboard/profile |
-| Suggestions | `notification.suggestion.*` | owner | submission state and bell history |
-| Moderation | `moderation.report.*` | admins | report queue |
+| Surface                           | Authoritative event                      | Scope                   | Client reconciliation                                         |
+| --------------------------------- | ---------------------------------------- | ----------------------- | ------------------------------------------------------------- |
+| Doji pre-live/activation/close    | `doji.*`                                 | global + targeted user  | upcoming state, occurrence, banner, feed, notification center |
+| User occurrence/completion/buy-in | `user_event.updated`                     | user                    | current Doji, feed                                            |
+| Poll vote/result                  | `poll.vote.*`                            | global                  | friend/everyone results, voters, feed                         |
+| Posts                             | `feed.post.*`                            | public or owner/friends | feed, post, profile posts                                     |
+| Reactions                         | `feed.reaction.*`                        | public or owner/friends | counts, voters, feed, post                                    |
+| Comments/replies/likes            | `feed.comment*`                          | public or owner/friends | thread, counts, feed, post                                    |
+| Mentions and social alerts        | `notification.*`                         | recipient               | bell history and remote push                                  |
+| Friendships/blocks                | `social.*`                               | involved users          | graph, counts, feed, requests, open profiles                  |
+| Public profile/avatar/cosmetics   | `profile.presentation.updated`           | owner + friends         | avatar-bearing active queries                                 |
+| Public profile statistics         | `profile.stats.updated`                  | owner + friends         | active profile and friends                                    |
+| Sparks/theme/preferences          | `account.profile.updated`                | user                    | auth profile and account UI                                   |
+| Store ownership                   | `shop.ownership.*`                       | user                    | owned inventory and auth profile                              |
+| Badges                            | `badge.updated` + `notification.badge.*` | global + user           | public profile badges, owner alert/profile                    |
+| XP/rank                           | `leaderboard.updated`                    | global                  | active leaderboard/profile                                    |
+| Suggestions                       | `notification.suggestion.*`              | owner                   | submission state and bell history                             |
+| Moderation                        | `moderation.report.*`                    | admins                  | report queue                                                  |
 
 Shared poll/WYR cards have community-wide aggregate state, but social alerts are
 friend-scoped: only accepted friends of the actor receive participation, reaction,
@@ -164,6 +202,13 @@ choices, so participation has no dependent request. Leaderboard and bell history
 bounded server snapshots, and friend lists page in 50-row windows. TanStack Query
 restores the first cached feed page and reference data, then reconciles in place.
 
+Block filtering applies bidirectionally to social content and activity, but not to
+the global leaderboard. `get_public_profile_view` exposes an explicit access state:
+when the target blocked the viewer, it returns no profile fields. Both accounts receive
+the identifier-only block event so an already-open profile reconciles immediately.
+Administrators read pending report evidence through a bounded safe-field snapshot that
+is not suppressed by viewer-relative content blocking.
+
 Opened comment threads use `get_comment_thread_snapshot`, which includes authorized
 comments, safe author presentation, friend/everyone and block filtering, and the
 viewer's like state in one query. The client does not fetch comment IDs, likes, and
@@ -174,8 +219,8 @@ the friend graph serially.
 - Pre-live provisions occurrence eligibility with one set-based insert. Activation
   updates the occurrence and commits one Ably event plus one resumable push-broadcast
   command; it never inserts one outbox row per account.
-- Push recipients are keyset-paged in 1,000-account windows, claimed in one batch,
-  and sent to Expo in paced batches of 100. The Cloudflare queue
+- Push recipients are keyset-paged in 1,000-account windows, terminally claimed in one
+  batch, and sent to Expo once in paced batches of 100. The Cloudflare queue
   enqueues a continuation until every page and every pending outbox page is drained.
 - Expo broadcast batches are paced below its 600-notifications/second project limit.
   Connected clients still receive activation immediately over Ably; if the product

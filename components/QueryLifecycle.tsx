@@ -9,6 +9,7 @@ export function QueryLifecycle() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user?.id);
   const isAdmin = useAuthStore((state) => state.profile?.is_admin === true);
+  const isBanned = useAuthStore((state) => state.profile?.is_banned === true);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -18,11 +19,11 @@ export function QueryLifecycle() {
       focusManager.setFocused(active);
       if (active) {
         if (userId) void useAuthStore.getState().fetchProfile(userId);
-        void reconcileAppQueries(queryClient, { userId, isAdmin });
+        if (!isBanned) void reconcileAppQueries(queryClient, { userId, isAdmin });
       }
     });
     return () => subscription.remove();
-  }, [isAdmin, queryClient, userId]);
+  }, [isAdmin, isBanned, queryClient, userId]);
 
   return null;
 }

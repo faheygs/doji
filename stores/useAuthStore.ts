@@ -147,12 +147,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         }
 
-        if (profile.is_banned) {
-        await supabase.auth.signOut();
-        set({ session: null, profile: null, isProfileLoading: false, isLoading: false });
-        return;
-        }
-
         set({ profile });
         persistProfile(profile);
       } finally {

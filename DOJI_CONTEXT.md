@@ -1,6 +1,6 @@
 # Doji: authoritative product and system context
 
-Last verified: August 12, 2026
+Last verified: August 15, 2026
 
 This is the primary map of what Doji is, how the product flows, who owns each
 piece of state, and how the mobile client, Postgres, Cloudflare, Ably, Expo Push,
@@ -51,8 +51,12 @@ user directly to the feed; there is no success interstitial.
   accept, sent, and unfriend states; its adjacent menu contains block and report.
   Neither duplicates “View profile.”
 - Whenever a name or username is shown, show that user's avatar and equipped frame.
-- Blocking immediately removes the person and their content from the viewer's UI,
-  removes the friendship, and creates the required moderation report.
+- Blocking immediately removes the person and their content from the viewer's UI
+  and removes the friendship. It does not create moderation work; only an explicit
+  report action enters the admin queue.
+- A banned account keeps its authenticated session but cannot enter onboarding or
+  the app. It is routed exclusively to the branded ban screen with Contact Support
+  and Sign Out actions; a live ban takes effect as soon as the owner profile updates.
 - Cleared or dismissed notifications are durable account state and never return
   after reinstall or sign-in on another device.
 - Light and dark themes must both meet contrast and state-visibility requirements.
@@ -123,9 +127,16 @@ sequenceDiagram
   Alarm->>Alarm: register the next one-shot event
 ```
 
+After an ambiguous submission response, the client checks the authorized committed
+receipt before showing failure. A committed post navigates directly to the feed; the
+client never compensates with a second direct insert.
+
 `schedule-daily-challenge` prepares/registers the first or next future event; it is
 not a recurring dispatcher. `DojiEventAlarm` wakes exactly at pre-live, activation,
 and close.
+An idempotent re-registration also re-arms the matching Durable Object alarm because
+stored phase state can outlive a failed or consumed invocation. Feed retirement never
+recreates engagement counters for posts already removed by a cascade.
 Postgres owns `fires_at`, `closes_at`, `expires_at`, eligibility, and final status.
 
 Per-user status flow:
@@ -137,10 +148,16 @@ pending -> missed -> buy_in_open -> late
 
 - `completed`: submitted inside the normal window.
 - `missed`: normal window closed without completion.
-- `buy_in_open`: the user spent Sparks and may submit until the granted expiry.
+- `buy_in_open`: the user spent Sparks and may submit without the original
+  10-minute restriction; payment routes directly into the response flow.
 - `late`: completed through the buy-in path; it unlocks the feed.
-- `signup_day_grace`: a first-day exception with an extended free window; it is not
-  a buy-in and does not expose a buy-in action.
+
+Users created that day retain the existing server-owned signup-day exception and may
+complete their assigned Doji for free until that exception's deadline. Everyone else
+receives the normal 10-minute server window. After a normal miss, only a successful
+Sparks buy-in reopens that occurrence. A paid occurrence remains available until
+completion or until a newer Doji supersedes it; the original 10-minute cutoff is not
+applied again.
 
 Client gating rules are centralized in `lib/participationGate.ts`. Screens must not
 reimplement status or time logic. `hooks/useUserEvent.ts` reads
@@ -149,13 +166,13 @@ authoritative occurrence.
 
 ## Challenge types and completion
 
-| Type | User action | Authoritative completion |
-| --- | --- | --- |
-| Photo | Capture/upload required media and optional caption | `complete_doji_with_post` |
-| Task | Perform the task and submit the requested proof/answer | `complete_doji_with_post` |
-| Format/question | Submit the requested text/media format | `complete_doji_with_post` |
-| Poll | Select an option or `Other` with required custom text | `submit_poll_vote` |
-| Would You Rather | Select exactly one of two choices; no `Other` | `submit_poll_vote` |
+| Type             | User action                                            | Authoritative completion  |
+| ---------------- | ------------------------------------------------------ | ------------------------- |
+| Photo            | Capture/upload required media and optional caption     | `complete_doji_with_post` |
+| Task             | Perform the task and submit the requested proof/answer | `complete_doji_with_post` |
+| Format/question  | Submit the requested text/media format                 | `complete_doji_with_post` |
+| Poll             | Select an option or `Other` with required custom text  | `submit_poll_vote`        |
+| Would You Rather | Select exactly one of two choices; no `Other`          | `submit_poll_vote`        |
 
 Uploads may finish before the command, but participation is not complete until the
 atomic RPC commits. The client uses stable occurrence command IDs and single-flight
@@ -193,15 +210,15 @@ The key files are `hooks/useFeed.ts`, `lib/feedQueries.ts`, `lib/feedAudience.ts
 
 ## State and data ownership
 
-| State | Owner | Client access pattern |
-| --- | --- | --- |
-| Session and current full profile | Supabase Auth/Postgres, hydrated into Zustand | `stores/useAuthStore.ts`; owner-only RPCs |
-| Feed, profiles, friends, comments, reactions, badges, leaderboard, shop | Postgres | TanStack Query authorized reads |
-| Challenge eligibility and timing | Postgres | Authoritative RPC + server-clock offset |
-| Draft text, selected option, open sheet, animation | Screen/component | Local React state |
-| Realtime events | Transactional outbox | ID-only invalidation hints; never trusted rows |
-| Background alerts | Expo Push | Same committed outbox event as socket delivery |
-| Media | Supabase Storage | User-scoped paths and storage policies |
+| State                                                                   | Owner                                         | Client access pattern                          |
+| ----------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Session and current full profile                                        | Supabase Auth/Postgres, hydrated into Zustand | `stores/useAuthStore.ts`; owner-only RPCs      |
+| Feed, profiles, friends, comments, reactions, badges, leaderboard, shop | Postgres                                      | TanStack Query authorized reads                |
+| Challenge eligibility and timing                                        | Postgres                                      | Authoritative RPC + server-clock offset        |
+| Draft text, selected option, open sheet, animation                      | Screen/component                              | Local React state                              |
+| Realtime events                                                         | Transactional outbox                          | ID-only invalidation hints; never trusted rows |
+| Background alerts                                                       | Expo Push                                     | Same committed outbox event as socket delivery |
+| Media                                                                   | Supabase Storage                              | User-scoped paths and storage policies         |
 
 Zustand is not a second database. TanStack Query caches server state but does not
 own it. Socket handlers invalidate/refetch queries; they do not invent replacement
@@ -275,15 +292,15 @@ Validation, authorization, uniqueness, and business-rule errors are not retried.
 
 Representative commands:
 
-| Domain | Commands |
-| --- | --- |
-| Profile/auth | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_push_token`, `unregister_push_token` |
-| Participation | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today` |
-| Conversation | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like` |
-| Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report` |
-| Economy | `purchase_shop_item`, `equip_shop_item` |
-| Notifications | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened` |
-| Suggestions/admin | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report` |
+| Domain              | Commands                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Profile/auth        | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_push_token`, `unregister_push_token`              |
+| Participation       | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today`                                    |
+| Conversation        | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like` |
+| Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report`  |
+| Economy             | `purchase_shop_item`, `equip_shop_item`                                                                                    |
+| Notifications       | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened`                                    |
+| Suggestions/admin   | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report`                                            |
 
 ## Realtime read path
 
@@ -292,8 +309,10 @@ independent commit-signal safety net for active critical tables. Both paths only
 invalidate authorized queries.
 
 1. The mutation commits application rows and outbox rows together.
-2. Cloudflare Queue relays each outbox event with retry/dead-letter behavior.
-3. Ably publishes ID-only events to scoped channels.
+2. Cloudflare Queue claims critical activation and realtime-only rows ahead of
+   push-only backlog and relays them with retry/dead-letter behavior.
+3. Ably atomically publishes each ordered channel batch of ID-only events. The relay
+   durably marks realtime publication before slower push delivery begins.
 4. `hooks/useDomainRealtime.ts` deduplicates event IDs and invalidates targeted
    TanStack Query keys.
 5. `hooks/useAppRealtime.ts` observes committed critical rows as a second signal.
@@ -315,30 +334,33 @@ Channels:
 
 ## Live-data coverage
 
-| Change | What updates immediately |
-| --- | --- |
-| Doji pre-live/activation/close | Feed reset, coming-soon/live banner, current occurrence, feed gate, bell, foreground toast/push |
-| Completion or buy-in | Current occurrence, feed gate, profile, XP/Sparks, leaderboard |
-| Post | Feed, post detail, profile post grid, friends' alert history |
-| Poll vote | Community totals, friend results, voter avatars, feed, participant alerts |
-| Reaction | Card counts, voter sheet, post detail, friend/owner alert history |
-| Comment/reply/like | Open thread, counters, feed card, mention/reply/owner alerts |
-| Profile presentation | Every visible avatar/name/frame/title across feed, friends, leaderboard, comments, reactions, poll voters, and notifications |
-| Sparks/account fields | Current user's profile header, shop affordability, purchase state |
-| Shop purchase/equip | Owned inventory, Sparks, current-user preview, public equipped cosmetic |
-| Badge progress/unlock | Owner progress/celebration and public profile badges |
-| XP/streak/level | Profile stats, leaderboard, celebration state |
-| Friendship/block | Friend lists/counts, requests, feed audience, profiles, bell |
-| Dismiss/clear notification | Bell list/count across devices and reinstalls |
-| Suggestion/moderation | Submitter status/bell and admin queues |
+| Change                         | What updates immediately                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Doji pre-live/activation/close | Feed reset, coming-soon/live banner, current occurrence, feed gate, bell, background push                                    |
+| Completion or buy-in           | Current occurrence, feed gate, profile, XP/Sparks, leaderboard                                                               |
+| Post                           | Feed, post detail, profile post grid, friends' alert history                                                                 |
+| Poll vote                      | Community totals, friend results, voter avatars, feed, participant alerts                                                    |
+| Reaction                       | Card counts, voter sheet, post detail, friend/owner alert history                                                            |
+| Comment/reply/like             | Open thread, counters, feed card, mention/reply/owner alerts                                                                 |
+| Profile presentation           | Every visible avatar/name/frame/title across feed, friends, leaderboard, comments, reactions, poll voters, and notifications |
+| Sparks/account fields          | Current user's profile header, shop affordability, purchase state                                                            |
+| Shop purchase/equip            | Owned inventory, Sparks, current-user preview, public equipped cosmetic                                                      |
+| Badge progress/unlock          | Owner progress/celebration and public profile badges                                                                         |
+| XP/streak/level                | Profile stats, leaderboard, celebration state                                                                                |
+| Friendship/block               | Friend lists/counts, requests, feed audience, profiles, bell                                                                 |
+| Dismiss/clear notification     | Bell list/count across devices and reinstalls                                                                                |
+| Suggestion/moderation          | Submitter status/bell and admin queues                                                                                       |
 
 ## Notifications
 
 The in-app bell is durable activity history, not a mirror of whatever iOS happened
 to display. Per-category preferences control push delivery; they do not erase
-history. Foreground OS banners are suppressed, while the app receives the event and
-may show its own toast. Background/killed clients use Expo Push. Tapping an alert is
+history. Foreground OS banners and notification-derived app toasts are suppressed;
+the live bell and actionable feed banner update instead. Background/killed clients use Expo Push. Tapping an alert is
 resolved through `lib/notificationHref.ts` and canonical routes in `lib/routes.ts`.
+Clearing history optimistically filters the retained query snapshot immediately,
+then persists through the atomic clear RPC; a failed authoritative write rolls the
+UI back. Pending friend requests remain because they are actionable account state.
 The device-alert switch is the permission action itself; there is no duplicate
 permission button. Unread bell and app-icon badges follow durable unread activity by
 default and are not exposed as a separate preference.
@@ -346,6 +368,19 @@ Turning the device-alert switch off persists the master `push_enabled` opt-out a
 unregisters that installation's token. Turning it on requests OS permission when
 needed, registers the token, and persists the opt-in. Both push relays enforce the
 master setting before any category preference; bell history remains available.
+
+Server-backed screens use shared, non-interactive skeletons only when there is no
+cached content to show. Background refreshes keep the last successful content visible
+and must never place a loading overlay above usable controls.
+
+Native dialogs and sheets remain mounted while their `visible` prop transitions to
+false so iOS/Android can finish dismissal and release the presentation layer. Route
+changes initiated inside a native sheet run after its dismissal callback; never hard-
+unmount a visible native modal or leave an invisible backdrop intercepting touches.
+
+Stack Back actions pop existing navigation history before consulting a `returnTo`
+fallback. `returnTo` is only for routes opened without usable history (for example a
+direct link); replacing a pushed child with its parent duplicates the parent route.
 
 Community poll notification rule: global aggregate data does not imply global social
 noise. Only accepted friends receive participation, reaction, and comment alerts for
@@ -363,6 +398,14 @@ and never show a redundant OS banner.
 
 Push delivery is claimed server-side using immutable event/recipient keys. Expo token
 ownership is unique per installation and atomically transferred on account change.
+The first claim is terminal before provider handoff; conflicts never reopen it, and
+an ambiguous Expo timeout is not resent. Provider tickets and outcomes are telemetry
+only and cannot authorize delivery. This intentionally favors a rare missed OS alert
+over any possibility of a notification storm because Postgres, Ably, and foreground
+reconciliation remain authoritative.
+The relay carries the immutable outbox creation time and rejects Doji pushes older
+than two minutes and other pushes older than five minutes. Provider TTL begins only
+after this freshness check; a retry can never give a day-old action a new lifetime.
 App correctness never depends on OS push delivery; foreground/reconnect reconciliation
 must still reveal the committed state.
 
@@ -388,18 +431,30 @@ must preserve Apple's required protections:
 - content filtering before submission plus server-side validation;
 - report actions on objectionable content;
 - block actions on abusive users;
-- blocking hides the content immediately and notifies moderation;
+- blocking hides the content immediately without creating a moderation report;
+- blocking is bidirectional for posts, comments, reactions, alerts, and profile
+  access. A blocked viewer sees only “This user has blocked you” on the blocker’s
+  profile. The global leaderboard remains competition-neutral; the friends board
+  still follows the accepted-friend graph;
 - persistent admin report queue and developer response workflow;
 - Terms of Use acceptance before account creation;
 - separate Privacy Policy consent and document;
 - action on valid objectionable-content reports within 24 hours.
 
-Reports and blocks are not cosmetic UI. They must use their atomic RPCs and reconcile
-the feed/friend graph immediately.
+Reports and blocks are separate safety actions. Both use their atomic RPCs and
+reconcile the feed/friend graph and any open profile immediately, but only an explicit
+report creates moderation work. Admin report reads use the bounded security-definer
+evidence snapshot so a later block cannot hide explicitly reported content from
+moderation. Report cards distinguish reporter, reported account, evidence, and
+confirmed destructive actions.
 
 ## UI and interaction system
 
 - Theme tokens live in `constants/theme.ts` and `contexts/ThemeContext`.
+- `AppThemeHost` synchronizes the selected Doji appearance with React Navigation,
+  native color scheme, and the native root-window background. Expo is configured
+  for automatic native appearance so light and dark transitions never reveal a
+  stale opposite-theme surface.
 - Shared primitives live in `components/ui`; do not create screen-local versions of
   buttons, inputs, search fields, cards, avatars, dialogs, sheets, or typography
   without a real exception. `SearchField` owns the standard icon, focus, clear, and
@@ -415,6 +470,12 @@ the feed/friend graph immediately.
 - Ten-minute timers derive every tick from the synchronized server clock and the
   occurrence's authoritative expiry; backgrounding never pauses or extends a window.
 - Sheets and hidden tab screens must not remain touchable above the active screen.
+- Bottom sheets use the shared `AppSheetModal` presence lifecycle: backdrop and surface
+  animate together, Reduce Motion is honored, navigation waits for dismissal, and the
+  native modal unmounts only after its closing motion releases the presentation layer.
+- Cold server reads use `SkeletonSwap` to preserve final layout and crossfade into
+  content. Cached content remains mounted during reconciliation; background refreshes
+  never restore a skeleton or a touch-blocking loading layer.
 - Shop item cards lead with the item name and consistently formatted Sparks price;
   previews and owned/equipped state follow beneath that header.
 - Admin review sheets use a tall, scrollable detail body with persistent moderation
@@ -429,40 +490,40 @@ the feed/friend graph immediately.
 
 ## Screen map
 
-| Area | Route | Responsibility |
-| --- | --- | --- |
-| Auth | `app/(auth)` | Welcome, sign in/up, legal documents, username |
-| Onboarding | `app/(onboarding)` | How it works and notification permission after the one-page auth profile setup |
-| Feed | `app/(app)/index.tsx` | Header, live banner, Friends/Everyone feed, gate, deep-linked content |
-| Doji | `challenge.tsx`, `camera.tsx`, `poll.tsx`, `task.tsx`, `format.tsx` | Type-specific participation and buy-in entry |
-| Leaderboard | `app/(app)/rank` | Weekly/all-time and Friends/Everyone rankings |
-| Friends | `app/(app)/friends` | List, search, requests, remove/block actions |
-| Suggestions | `suggest-challenge.tsx` | Submit community challenge ideas |
-| Profile | `app/(app)/profile` | Stats, Sparks, badges, posts, settings, dedicated edit profile, appearance, shop |
-| Member | `app/(app)/member/[username].tsx` | Another user's public profile and social actions |
-| Notifications | `app/(app)/notifications.tsx` | Durable bell history, dismiss/clear actions |
-| Post detail | `app/(app)/post/[id]` | Focused content and threaded conversation |
-| Admin | `app/(app)/admin` | Reports and challenge suggestions |
+| Area          | Route                                                               | Responsibility                                                                   |
+| ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Auth          | `app/(auth)`                                                        | Welcome, sign in/up, legal documents, username                                   |
+| Onboarding    | `app/(onboarding)`                                                  | How it works and notification permission after the one-page auth profile setup   |
+| Feed          | `app/(app)/index.tsx`                                               | Header, live banner, Friends/Everyone feed, gate, deep-linked content            |
+| Doji          | `challenge.tsx`, `camera.tsx`, `poll.tsx`, `task.tsx`, `format.tsx` | Type-specific participation and buy-in entry                                     |
+| Leaderboard   | `app/(app)/rank`                                                    | Weekly/all-time and Friends/Everyone rankings                                    |
+| Friends       | `app/(app)/friends`                                                 | List, search, requests, remove/block actions                                     |
+| Suggestions   | `suggest-challenge.tsx`                                             | Submit community challenge ideas                                                 |
+| Profile       | `app/(app)/profile`                                                 | Stats, Sparks, badges, posts, settings, dedicated edit profile, appearance, shop |
+| Member        | `app/(app)/member/[username].tsx`                                   | Another user's public profile and social actions                                 |
+| Notifications | `app/(app)/notifications.tsx`                                       | Durable bell history, dismiss/clear actions                                      |
+| Post detail   | `app/(app)/post/[id]`                                               | Focused content and threaded conversation                                        |
+| Admin         | `app/(app)/admin`                                                   | Reports and challenge suggestions                                                |
 
 Main tabs are Feed, Leaderboard, Friends, Suggest, and Profile. Participation,
 notifications, member profiles, post detail, and admin are pushed routes, not tabs.
 
 ## Repository map
 
-| Path | Role |
-| --- | --- |
-| `app/` | Expo Router screens and navigation composition |
-| `components/` | Reusable visual/interaction components |
-| `hooks/` | Authorized reads and atomic mutations |
-| `lib/` | Pure product rules, clients, routing, idempotency, reconciliation |
-| `stores/` | Minimal cross-screen client state |
-| `types/database.ts` | Client database/RPC types |
-| `supabase/migrations/` | Authoritative schema, RLS, RPCs, triggers, outbox producers |
-| `supabase/functions/` | Privileged edge integrations |
-| `infra/doji-orchestrator/` | Durable alarms, queue wakeups, retries, dead-letter handling |
-| `docs/REALTIME_ARCHITECTURE.md` | Realtime guarantees, channels, deployment, monitoring |
-| `docs/QA_CHECKLIST.md` | Release/device test matrix |
-| `docs/APP_STORE_RELEASE.md` | Apple review and submission evidence |
+| Path                            | Role                                                              |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `app/`                          | Expo Router screens and navigation composition                    |
+| `components/`                   | Reusable visual/interaction components                            |
+| `hooks/`                        | Authorized reads and atomic mutations                             |
+| `lib/`                          | Pure product rules, clients, routing, idempotency, reconciliation |
+| `stores/`                       | Minimal cross-screen client state                                 |
+| `types/database.ts`             | Client database/RPC types                                         |
+| `supabase/migrations/`          | Authoritative schema, RLS, RPCs, triggers, outbox producers       |
+| `supabase/functions/`           | Privileged edge integrations                                      |
+| `infra/doji-orchestrator/`      | Durable alarms, queue wakeups, retries, dead-letter handling      |
+| `docs/REALTIME_ARCHITECTURE.md` | Realtime guarantees, channels, deployment, monitoring             |
+| `docs/QA_CHECKLIST.md`          | Release/device test matrix                                        |
+| `docs/APP_STORE_RELEASE.md`     | Apple review and submission evidence                              |
 
 ## Engineering rules
 
@@ -519,4 +580,4 @@ reinstall-persistent dismissals must all be verified on the release build.
 Required production monitoring is listed in the realtime architecture. At minimum:
 alert on outbox rows more than 60 seconds past `available_at`, queue dead letters,
 Ably/relay errors, push
- receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.
+receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.

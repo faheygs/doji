@@ -1,10 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Modal,
-  Pressable,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -28,6 +26,9 @@ import { supabase } from '../../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { AppSheetModal } from '../ui/AppSheetModal';
+import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
+import { SkeletonSwap } from '../ui/SkeletonSwap';
 
 type Props = {
   visible: boolean;
@@ -40,6 +41,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const pendingNavigationRef = useRef<null | (() => void)>(null);
   const winH = Dimensions.get('window').height;
   const userId = useAuthStore((s) => s.session?.user?.id);
   const sendRequest = useSendFriendRequest();
@@ -87,24 +89,22 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
+      pendingNavigationRef.current = () =>
+        router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
       handleClose();
-      router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
     },
     [handleClose, pathname, router],
   );
 
+  const finishDismiss = useCallback(() => {
+    const action = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    action?.();
+  }, []);
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        backdrop: { flex: 1, justifyContent: 'flex-end' },
-        scrim: {
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          backgroundColor: 'rgba(0,0,0,0.25)',
-        },
         sheet: {
           height: winH * 0.5,
           backgroundColor: colors.surface,
@@ -209,15 +209,15 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.row, styles.rowBody, userId],
   );
 
-  if (!visible) return null;
-
   const title = `Likes · ${likes.length}${hasNextPage ? '+' : ''}`;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.backdrop}>
-        <Pressable style={styles.scrim} onPress={handleClose} accessibilityLabel="Dismiss" />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.sm }]}>
+    <AppSheetModal
+      visible={visible}
+      onClose={handleClose}
+      onDismiss={finishDismiss}
+      sheetStyle={[styles.sheet, { paddingBottom: insets.bottom + Spacing.sm }]}
+    >
           <View style={styles.grab} />
           <View style={styles.headRow}>
             <Text variant="headingMedium" numberOfLines={1} style={styles.title}>
@@ -234,36 +234,33 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          {isPending ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={colors.text} />
-            </View>
-          ) : likes.length === 0 ? (
-            <View style={styles.centered}>
-              <Text variant="body" color={colors.textSecondary}>
-                No likes yet.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={likes}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-              }}
-              onEndReachedThreshold={0.4}
-              ListFooterComponent={
-                isFetchingNextPage ? (
-                  <View style={styles.footer}>
-                    <ActivityIndicator color={colors.textSecondary} size="small" />
-                  </View>
-                ) : null
-              }
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
+          <SkeletonSwap
+            loading={isPending}
+            skeleton={<ListRowsSkeleton rows={4} label="Loading likes" />}
+          >
+            {likes.length === 0 ? (
+              <View style={styles.centered}>
+                <Text variant="body" color={colors.textSecondary}>No likes yet.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={likes}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+                }}
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={
+                  isFetchingNextPage ? (
+                    <View style={styles.footer}>
+                      <ActivityIndicator color={colors.textSecondary} size="small" />
+                    </View>
+                  ) : null
+                }
+              />
+            )}
+          </SkeletonSwap>
+    </AppSheetModal>
   );
 }
