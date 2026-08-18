@@ -56,4 +56,19 @@ describe('mobile data architecture', () => {
     expect(token).not.toContain("select('is_admin')");
     expect(profileContract).toContain('create or replace function public.is_current_user_admin()');
   });
+
+  it('keeps authenticated RLS helpers executable after function hardening', () => {
+    const grants = read(
+      'supabase/migrations/20260818240000_restore_policy_helper_execute.sql',
+    );
+    expect(grants).toContain(
+      'grant execute on function public.can_access_daily_event(uuid, uuid)',
+    );
+    expect(grants).toContain(
+      'grant execute on function public.can_view_full_post(uuid, uuid, uuid, uuid, boolean)',
+    );
+    expect(grants).toContain('grant execute on function public.is_current_user_admin()');
+    expect(grants).toContain('drop policy if exists posts_read_own');
+    expect(grants).toContain('drop policy if exists posts_read_friends');
+  });
 });

@@ -306,6 +306,8 @@ the friend graph serially.
 - `PUBLIC` and `anon` have no execution privilege on `security definer` functions.
   Mobile RPCs are allowlisted to `authenticated`, fixed `search_path` values prevent
   caller-controlled name resolution, and RLS auth helpers are statement-cached.
+  Security-definer helpers referenced by authenticated RLS policies retain explicit
+  `authenticated` execute grants; revoking those grants makes the policy fail closed.
 - A clean database bootstrap does not require an existing Apple reviewer Auth user;
   reviewer profile setup is an optional, idempotent post-bootstrap action.
 - Socket payloads do not bypass RLS; clients always refetch Postgres rows.

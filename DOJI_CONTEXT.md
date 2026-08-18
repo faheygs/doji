@@ -590,7 +590,9 @@ optional Apple reviewer profile is added only when its Auth identity exists. Def
 function execution is closed, anonymous users cannot execute `security definer`
 functions, and each mobile RPC is explicitly granted to `authenticated`. RLS policies
 cache `auth.uid()`, `auth.role()`, and `auth.jwt()` once per statement so authorization
-does not add a per-row function call to bounded reads.
+does not add a per-row function call to bounded reads. Security-definer helpers called
+by authenticated RLS policies retain explicit `authenticated` execute grants; revoking
+those grants makes the policy fail closed.
 
 ## Performance contract
 
