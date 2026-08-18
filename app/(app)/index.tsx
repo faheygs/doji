@@ -68,6 +68,8 @@ export default function FeedScreen() {
   const {
     data: feedPages,
     isLoading: feedLoading,
+    isFetching: feedFetching,
+    isFetchedAfterMount: feedFetchedAfterMount,
     isError: feedError,
     fetchNextPage,
     hasNextPage,
@@ -185,6 +187,10 @@ export default function FeedScreen() {
     return isChallengeLive(userEvent.daily_event.fires_at);
   }, [userEvent]);
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const showInitialFeedSkeleton =
+    posts.length === 0 &&
+    !refreshing &&
+    (userEventLoading || feedLoading || (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
     const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
@@ -432,7 +438,7 @@ export default function FeedScreen() {
     [styles.empty, styles.emptyText, colors.textSecondary, emptyHeading, emptyBody],
   );
 
-  if (feedError) {
+  if (feedError && posts.length === 0) {
     return (
       <SafeAreaView style={outerStyle}>
         <ListHeader />
@@ -448,7 +454,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={outerStyle}>
       <SkeletonSwap
-        loading={feedLoading && !refreshing && posts.length === 0}
+        loading={showInitialFeedSkeleton}
         skeleton={
           <>
             <ListHeader />

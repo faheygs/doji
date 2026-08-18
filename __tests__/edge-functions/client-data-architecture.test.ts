@@ -26,6 +26,14 @@ describe('mobile data architecture', () => {
     expect(card).toContain('a.comments_disabled !== b.comments_disabled');
   });
 
+  it('does not flash a feed empty state while cold cached data reconciles', () => {
+    const feed = read('app/(app)/index.tsx');
+    expect(feed).toContain('isFetchedAfterMount: feedFetchedAfterMount');
+    expect(feed).toContain('feedFetching && !feedFetchedAfterMount');
+    expect(feed).toContain('if (feedError && posts.length === 0)');
+    expect(feed).toContain('loading={showInitialFeedSkeleton}');
+  });
+
   it('registers native push endpoints and keeps Expo only as a migration fallback', () => {
     const client = read('lib/pushNotifications.ts');
     const fanout = read('supabase/functions/fanout-doji-push/index.ts');
