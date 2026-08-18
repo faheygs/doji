@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   TouchableOpacity,
   View,
   StyleSheet,
@@ -22,11 +21,10 @@ import { Button } from '../../components/ui/Button';
 import { useUsernameAvailability, normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { Avatar } from '../../components/ui/Avatar';
 import { IconCamera } from '../../components/icons/Icons';
-import * as ImagePicker from 'expo-image-picker';
-import { uploadAvatar } from '../../utils/upload';
+import { removePublicStorageObject, uploadAvatar } from '../../utils/upload';
 import { filterContent } from '../../lib/contentFilter';
-import { useAppDialog } from '../../contexts/DialogContext';
-import { showProfilePhotoDialog } from '../../lib/profilePhotoDialog';
+import { assessBirthDate, formatBirthDateInput } from '../../lib/ageAssurance';
+import { useProfilePhotoPicker } from '../../hooks/useProfilePhotoPicker';
 
 const BIO_MAX = 150;
 
@@ -35,18 +33,22 @@ export default function UsernameScreen() {
   const { session, fetchProfile } = useAuthStore();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const { showDialog } = useAppDialog();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [birthDateTouched, setBirthDateTouched] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const onAvatarSelected = useCallback((uri: string) => setAvatarUri(uri), []);
+  const chooseAvatar = useProfilePhotoPicker(onAvatarSelected);
 
   const {
     errorMessage: usernameAvailabilityError,
     isOkForSubmit: usernameOk,
     status: usernameAvailabilityStatus,
   } = useUsernameAvailability(username, { ownUserId: session?.user?.id });
+  const birthDateAssessment = useMemo(() => assessBirthDate(birthDate), [birthDate]);
 
   const styles = useMemo(
     () =>
@@ -89,13 +91,18 @@ export default function UsernameScreen() {
           paddingTop: Spacing.xl,
         },
       }),
-    [colors.background],
+    [colors.background, colors.primary],
   );
 
   const handleCreate = async () => {
     if (!usernameOk || usernameAvailabilityStatus === 'checking') return;
     const userId = session?.user?.id;
     if (!userId) return;
+    setBirthDateTouched(true);
+    if (!birthDateAssessment.ok) {
+      Toast.show({ type: 'error', text1: birthDateAssessment.message });
+      return;
+    }
 
     const handle = normalizeUsernameInput(username);
     const optionalText = [displayName, bio].map(filterContent).find((result) => !result.ok);
@@ -105,16 +112,26 @@ export default function UsernameScreen() {
     }
 
     setLoading(true);
+    let uploadedAvatarUrl: string | null = null;
     try {
-      const { error } = await supabase.rpc('create_own_profile', {
+      if (avatarUri) uploadedAvatarUrl = await uploadAvatar(userId, avatarUri);
+
+      const { data: createdProfile, error } = await supabase.rpc('create_own_profile', {
         p_username: handle,
         p_display_name: displayName.trim() || handle,
         p_avatar_gradient: [colors.xpGradientStart, colors.xpGradientEnd],
         p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         p_app_theme: DEFAULT_APP_THEME,
+        p_birth_date: birthDateAssessment.isoDate,
+        p_bio: bio.trim().slice(0, BIO_MAX) || null,
+        p_avatar_url: uploadedAvatarUrl,
       });
 
       if (error) {
+        if (uploadedAvatarUrl) {
+          void removePublicStorageObject('avatars', uploadedAvatarUrl);
+          uploadedAvatarUrl = null;
+        }
         if (error.code === '23505') {
           // Race: hook may have missed a concurrent signup
           Toast.show({ type: 'error', text1: 'That username was just taken. Pick another.' });
@@ -124,58 +141,23 @@ export default function UsernameScreen() {
         return;
       }
 
-      await fetchProfile(userId);
-      const profilePatch: { bio?: string | null; avatar_url?: string } = {};
-      if (bio.trim()) profilePatch.bio = bio.trim().slice(0, BIO_MAX);
-      if (avatarUri) profilePatch.avatar_url = await uploadAvatar(userId, avatarUri);
-      if (Object.keys(profilePatch).length > 0) {
-        await useAuthStore.getState().updateProfile(profilePatch);
+      // If an already-created profile won an auth/navigation race, the command
+      // returns that authoritative row. Do not leave a newly uploaded orphan.
+      if (uploadedAvatarUrl && createdProfile?.avatar_url !== uploadedAvatarUrl) {
+        void removePublicStorageObject('avatars', uploadedAvatarUrl);
+        uploadedAvatarUrl = null;
       }
+
+      await fetchProfile(userId);
       await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
       router.replace(ROUTES.onboardingHowItWorks);
     } catch (err: unknown) {
+      if (uploadedAvatarUrl) void removePublicStorageObject('avatars', uploadedAvatarUrl);
       const msg = err instanceof Error ? err.message : 'Failed to create profile';
       Toast.show({ type: 'error', text1: msg });
     } finally {
       setLoading(false);
     }
-  };
-
-  const chooseAvatar = async () => {
-    const fromLibrary = async () => {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Toast.show({ type: 'error', text1: 'Photo library permission denied' });
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-        mediaTypes: ['images'],
-      });
-      if (!result.canceled && result.assets[0]?.uri) setAvatarUri(result.assets[0].uri);
-    };
-    const fromCamera = async () => {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Toast.show({ type: 'error', text1: 'Camera permission denied' });
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.85,
-        mediaTypes: ['images'],
-      });
-      if (!result.canceled && result.assets[0]?.uri) setAvatarUri(result.assets[0].uri);
-    };
-
-    if (Platform.OS === 'web') {
-      await fromLibrary();
-      return;
-    }
-    showProfilePhotoDialog(showDialog, () => void fromCamera(), () => void fromLibrary());
   };
 
   return (
@@ -188,13 +170,14 @@ export default function UsernameScreen() {
         >
           <Text variant="displayMedium">Set up your profile</Text>
           <Text variant="body" color={colors.textSecondary}>
-            Choose your username. Everything else is optional and can be changed later.
+            Confirm your age and choose a username. Your birthday stays private and is
+            not saved after we verify you are 13 or older.
           </Text>
 
           <View style={styles.avatarWrap}>
             <TouchableOpacity
               style={styles.avatarTouchable}
-              onPress={() => void chooseAvatar()}
+              onPress={chooseAvatar}
               disabled={loading}
               accessibilityRole="button"
               accessibilityLabel={avatarUri ? 'Change profile photo' : 'Add profile photo'}
@@ -220,6 +203,23 @@ export default function UsernameScreen() {
 
           <View style={styles.inputs}>
             <Input
+              label="Date of birth"
+              placeholder="MM/DD/YYYY"
+              value={birthDate}
+              onChangeText={(value) => setBirthDate(formatBirthDateInput(value))}
+              onBlur={() => setBirthDateTouched(true)}
+              keyboardType="number-pad"
+              autoComplete="birthdate-full"
+              textContentType="none"
+              maxLength={10}
+              hint="Required for age verification. This is not shown on your profile."
+              error={
+                birthDateTouched && !birthDateAssessment.ok
+                  ? birthDateAssessment.message
+                  : undefined
+              }
+            />
+            <Input
               label="Username"
               placeholder="e.g. john_doe"
               value={username}
@@ -233,7 +233,6 @@ export default function UsernameScreen() {
                   ? usernameAvailabilityError
                   : undefined
               }
-              autoFocus
             />
             <Input
               label="Display name (optional)"
@@ -259,6 +258,7 @@ export default function UsernameScreen() {
               size="lg"
               disabled={
                 !username.trim() ||
+                !birthDateAssessment.ok ||
                 !usernameOk ||
                 usernameAvailabilityStatus === 'checking'
               }

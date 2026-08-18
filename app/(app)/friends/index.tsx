@@ -17,15 +17,15 @@ import { Card } from '../../../components/ui/Card';
 import { ListRowsSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
 import { IconChevronRight, IconFriends, IconSearch } from '../../../components/icons/Icons';
-import { useFriendRequests, useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
+import { useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
+import { useFriendRequestCount } from '../../../hooks/useFriendRequests';
 import { useFriendsPaged, type FriendListRow } from '../../../hooks/useFriendsPaged';
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import type { Profile } from '../../../types/database';
 import { useAppDialog } from '../../../contexts/DialogContext';
 
-type FriendRow = Profile & { friendship_id: string };
+type FriendRow = FriendListRow;
 
 export default function FriendsScreen() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function FriendsScreen() {
   const friends = useMemo(() => friendsQuery.data?.pages.flat() ?? [],
     [friendsQuery.data?.pages]) as FriendListRow[];
   const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = friendsQuery;
-  const { data: requests = [] } = useFriendRequests();
+  const { data: friendRequestCount = 0 } = useFriendRequestCount();
   const { data: friendCount = 0 } = useFriendCount(meId);
   const removeFriend = useRemoveFriend();
 
@@ -125,7 +125,7 @@ export default function FriendsScreen() {
         </TouchableOpacity>
       </View>
 
-      {requests.length > 0 && (
+      {friendRequestCount > 0 && (
         <TouchableOpacity
           onPress={() => router.push(hrefWithReturnTo('/(app)/friends/requests', pathname))}
           style={styles.requestsBanner}
@@ -133,7 +133,7 @@ export default function FriendsScreen() {
         >
           <IconFriends size={22} color={colors.textSecondary} />
           <Text variant="body" style={{ flex: 1, color: colors.text }}>
-            {requests.length} friend request{requests.length > 1 ? 's' : ''}
+            {friendRequestCount} friend request{friendRequestCount > 1 ? 's' : ''}
           </Text>
           <IconChevronRight size={20} color={colors.textTertiary} />
         </TouchableOpacity>

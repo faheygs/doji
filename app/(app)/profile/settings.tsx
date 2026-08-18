@@ -12,7 +12,7 @@ import { Text } from '@/components/ui/Text';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
-import { useBlockedUsers } from '@/hooks/useBlockUser';
+import { useBlockedUserCount } from '@/hooks/useBlockUser';
 import { usePendingSuggestions } from '@/hooks/useSuggestions';
 import { usePendingReports } from '@/hooks/useReports';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
@@ -32,7 +32,7 @@ export default function SettingsScreen() {
     !!profile?.is_admin,
   );
   const { data: pendingReports = [] } = usePendingReports(!!profile?.is_admin);
-  const { data: blockedUsers = [] } = useBlockedUsers();
+  const { data: blockedUserCount = 0 } = useBlockedUserCount();
 
   const styles = useMemo(
     () =>
@@ -197,7 +197,7 @@ export default function SettingsScreen() {
           <SettingsRow
             label="Blocked users"
             subtitle={
-              blockedUsers.length > 0 ? `${blockedUsers.length} blocked` : 'Manage blocked accounts'
+              blockedUserCount > 0 ? `${blockedUserCount} blocked` : 'Manage blocked accounts'
             }
             onPress={() => {
               Haptics.selectionAsync();

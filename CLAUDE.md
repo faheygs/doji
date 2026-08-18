@@ -238,7 +238,8 @@ All edge functions require `Authorization: Bearer <CRON_SECRET>` header (checked
 - Feed audience: `friends` (mutual only) or `everyone`
 - Posts linked to `user_events` — can only post if `canSubmitChallenge()` is true
 - Reactions: fire, like, dislike, laugh, wow, heart — each awards sparks once per post per user
-- Comments support @mention tagging (resolved via `lib/mentionNetwork.ts`)
+- Comments support @mention tagging through the bounded `search_mentionable_profiles`
+  RPC used by `hooks/useComments.ts`; never download the complete friend graph.
 - Community poll posts: single shared post per daily_event (not per user)
 
 ---

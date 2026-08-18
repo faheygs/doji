@@ -96,12 +96,18 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
         storageKey(KEYS.opened, userId),
         storageKey(KEYS.dismissed, userId),
       ]),
-      supabase.from('notification_center_state').select('*').eq('user_id', userId).maybeSingle(),
+      supabase
+        .from('notification_center_state')
+        .select('user_id, cleared_at, last_opened_at, updated_at')
+        .eq('user_id', userId)
+        .maybeSingle(),
       supabase
         .from('notification_dismissals')
-        .select('*')
+        .select('user_id, notification_key, dismissed_at')
         .eq('user_id', userId)
-        .gte('dismissed_at', horizon),
+        .gte('dismissed_at', horizon)
+        .order('dismissed_at', { ascending: false })
+        .limit(2000),
     ])
       .then(([entries, stateResult, dismissalsResult]) => {
         if (cancelled) return;

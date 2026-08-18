@@ -39,7 +39,7 @@ export function CountdownRing({
       duration: 1000,
       easing: Easing.linear,
     });
-  }, [clampedRemaining, safeTotal]);
+  }, [clampedRemaining, progress, safeTotal]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - progress.value),

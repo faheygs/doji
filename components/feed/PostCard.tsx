@@ -22,6 +22,7 @@ import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import type { FeedAudience } from '../../lib/feedAudience';
 import { AppVideo } from '../ui/AppVideo';
+import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalidation';
 
 type Props = {
   post: Post;
@@ -29,15 +30,13 @@ type Props = {
   feedAudience?: FeedAudience;
   initialCommentsOpen?: boolean;
 };
-
 function reactionBreakdownSig(p: Post): string {
   return Object.entries(p.reaction_breakdown ?? {})
     .sort(([x], [y]) => x.localeCompare(y))
     .map(([k, v]) => `${k}:${v}`)
     .join('|');
 }
-
-function postsVisuallyEqual(a: Post, b: Post): boolean {
+export function postsVisuallyEqual(a: Post, b: Post): boolean {
   if (
     a.id !== b.id ||
     a.type !== b.type ||
@@ -51,7 +50,7 @@ function postsVisuallyEqual(a: Post, b: Post): boolean {
     a.video_url !== b.video_url ||
     a.caption !== b.caption ||
     a.created_at !== b.created_at ||
-    a.is_late !== b.is_late ||
+    a.is_late !== b.is_late || a.comments_disabled !== b.comments_disabled ||
     Boolean(a.is_community_poll) !== Boolean(b.is_community_poll)
   ) {
     return false;
@@ -83,6 +82,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
+  usePostRealtimeInvalidation(post.id, !blurred);
 
   useEffect(() => {
     if (initialCommentsOpen) setCommentsOpen(true);

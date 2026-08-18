@@ -21,9 +21,7 @@ import { useCommentLikes, type CommentLikeRow } from '../../hooks/useCommentLike
 import { Button } from '../ui/Button';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSendFriendRequest } from '../../hooks/useProfile';
-import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
-import { supabase } from '../../lib/supabase';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { AppSheetModal } from '../ui/AppSheetModal';
@@ -47,28 +45,6 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const sendRequest = useSendFriendRequest();
   const queryClient = useQueryClient();
   useDismissOnRouteBlur(visible, onClose);
-
-  const { data: friendIds = [] } = useQuery({
-    queryKey: ['friendIds', userId],
-    queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: visible && !!userId,
-    staleTime: 30_000,
-  });
-
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pendingRequests', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      const { data } = await supabase
-        .from('friendships')
-        .select('addressee_id')
-        .eq('requester_id', userId)
-        .eq('status', 'pending');
-      return (data ?? []).map((r) => r.addressee_id as string);
-    },
-    enabled: visible && !!userId,
-    staleTime: 30_000,
-  });
 
   const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = useCommentLikes(
     commentId,
@@ -156,8 +132,8 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
       const username = item.profile?.username ?? 'unknown';
       const border = getEquippedBorder(item.profile);
       const isMe = item.user_id === userId;
-      const isFriend = friendIds.includes(item.user_id);
-      const isPending = pendingRequests.includes(item.user_id);
+      const isFriend = item.friendship_status === 'friends';
+      const isPending = item.friendship_status === 'pending_out';
       const canAdd = !isMe && !isFriend;
       return (
         <TouchableOpacity
@@ -195,7 +171,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 sendRequest.mutate({ addresseeId: item.user_id }, {
                   onSuccess: () => {
-                    scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
+                    scheduleQueryInvalidation(queryClient, ['commentLikes', 'friendship']);
                   },
                 });
               }}
@@ -206,7 +182,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
         </TouchableOpacity>
       );
     },
-    [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.row, styles.rowBody, userId],
+    [colors, openProfile, queryClient, sendRequest, styles.addBtn, styles.row, styles.rowBody, userId],
   );
 
   const title = `Likes · ${likes.length}${hasNextPage ? '+' : ''}`;

@@ -67,12 +67,14 @@ export function useCreatePost() {
 
         const [photoUrl, frontPhotoUrl, videoUrl] = await Promise.all([
           payload.photoUri
-            ? uploadPostMedia(userId, payload.photoUri, 'photo')
+            ? uploadPostMedia(payload.userEventId, commandId, payload.photoUri, 'photo')
             : Promise.resolve(null),
           payload.frontPhotoUri
-            ? uploadPostMedia(userId, payload.frontPhotoUri, 'front')
+            ? uploadPostMedia(payload.userEventId, commandId, payload.frontPhotoUri, 'front')
             : Promise.resolve(null),
-          payload.videoUri ? uploadPostVideo(userId, payload.videoUri) : Promise.resolve(null),
+          payload.videoUri
+            ? uploadPostVideo(payload.userEventId, commandId, payload.videoUri)
+            : Promise.resolve(null),
         ]);
 
         const { data: post, error: postError } = await supabase.rpc('complete_doji_with_post', {
@@ -121,7 +123,7 @@ export function useCreatePost() {
           { cancelRefetch: false },
         );
       }
-      scheduleQueryInvalidation(queryClient, ['profile', 'leaderboard', 'profilePosts', 'feed']);
+      scheduleQueryInvalidation(queryClient, ['profile', 'leaderboard', 'feed']);
       if (uid) fetchProfile(uid);
     },
   });

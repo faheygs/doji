@@ -89,6 +89,7 @@ describe('useAuthStore', () => {
       mockRpc.mockReturnValue({
         abortSignal: jest.fn(() => new Promise((resolve) => { finishRequest = resolve; })),
       });
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       const pending = useAuthStore.getState().fetchProfile('user-1');
       await Promise.resolve();
@@ -110,6 +111,7 @@ describe('useAuthStore', () => {
         onboarding_completed_at: new Date().toISOString(),
       };
       mockRpc.mockReturnValue(makeRpcChain(mockProfile));
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       await useAuthStore.getState().fetchProfile('user-1');
 
@@ -123,6 +125,7 @@ describe('useAuthStore', () => {
 
     it('sets profile to null when not found', async () => {
       mockRpc.mockReturnValue(makeRpcChain(null));
+      useAuthStore.setState({ session: { user: { id: 'nonexistent' } } as any });
 
       await useAuthStore.getState().fetchProfile('nonexistent');
       expect(useAuthStore.getState().profile).toBeNull();
@@ -130,6 +133,7 @@ describe('useAuthStore', () => {
 
     it('does not throw on error, logs in dev', async () => {
       mockRpc.mockReturnValue(makeRpcChain(null, { message: 'connection failed' }));
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       await expect(useAuthStore.getState().fetchProfile('user-1')).resolves.not.toThrow();
     });

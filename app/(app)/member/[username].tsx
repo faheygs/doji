@@ -33,10 +33,10 @@ import {
   useFriendship,
   useFriendshipStatus,
   useSendFriendRequest,
-  useRespondToFriendRequest,
   useRemoveFriend,
   useFriendCount,
 } from '@/hooks/useProfile';
+import { useRespondToFriendRequest } from '@/hooks/useFriendRequests';
 import { useBlockUser, useUnblockUser, useIsBlockedByMe } from '@/hooks/useBlockUser';
 import { ReportSheet } from '@/components/feed/ReportSheet';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -137,7 +137,7 @@ export default function UserProfileScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [profile?.id, username, queryClient, currentProfile?.id]);
+  }, [profile?.id, queryClient]);
 
   const styles = useMemo(
     () =>
@@ -268,7 +268,7 @@ export default function UserProfileScreen() {
     if (!profile) return;
     showDialog({
       title: 'Block user?',
-      message: `Block ${profile.display_name}? Their content will leave your feed immediately and our moderation team will be notified.`,
+      message: `Block ${profile.display_name}? Their content will leave your feed immediately. Use Report separately if you also want our moderation team to review the account.`,
       actions: [
         { label: 'Cancel', variant: 'cancel' },
         {

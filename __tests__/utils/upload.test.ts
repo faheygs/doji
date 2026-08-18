@@ -1,6 +1,7 @@
 import { uploadPostMedia, uploadPostVideo, uploadAvatar, compressImage } from '../../utils/upload';
 import { supabase } from '../../lib/supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { resumableStorageUpload } from '../../utils/resumableUpload';
 
 jest.mock('../../lib/supabase');
 jest.mock('expo-image-manipulator', () => ({
@@ -8,19 +9,27 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
 }));
 jest.mock('expo-file-system', () => ({
-  readAsStringAsync: jest.fn().mockResolvedValue('dGVzdA=='), // base64 "test"
+  File: jest.fn(),
 }));
+jest.mock('../../utils/resumableUpload', () => ({ resumableStorageUpload: jest.fn() }));
 
 const mockStorageFrom = supabase.storage.from as jest.Mock;
 
-function setupStorageMock(uploadError: Error | null = null) {
+function setupStorageMock() {
   const storageBucket = {
-    upload: jest.fn().mockResolvedValue({ error: uploadError }),
     getPublicUrl: jest.fn(() => ({
-      data: { publicUrl: 'https://cdn.example.com/bucket/file.jpg' },
+      data: {
+        publicUrl:
+          'https://project.supabase.co/storage/v1/object/public/post-media/user/file.jpg',
+      },
     })),
   };
   mockStorageFrom.mockReturnValue(storageBucket);
+  (supabase.rpc as jest.Mock).mockResolvedValue({
+    data: { object_path: 'user-123/events/event-1/upload-photo.jpg' },
+    error: null,
+  });
+  (resumableStorageUpload as jest.Mock).mockResolvedValue(undefined);
   return storageBucket;
 }
 
@@ -38,56 +47,66 @@ describe('compressImage', () => {
 
 describe('uploadPostMedia', () => {
   it('compresses, uploads to post-media bucket, and returns public URL', async () => {
-    const bucket = setupStorageMock();
-    const url = await uploadPostMedia('user-123', 'file://photo.jpg', 'photo');
+    setupStorageMock();
+    const url = await uploadPostMedia('event-1', 'command-123456789', 'file://photo.jpg', 'photo');
 
     expect(mockStorageFrom).toHaveBeenCalledWith('post-media');
-    expect(bucket.upload).toHaveBeenCalled();
-    const [filePath] = bucket.upload.mock.calls[0];
-    expect(filePath).toMatch(/^user-123\/\d+_photo\.jpg$/);
-    expect(url).toBe('https://cdn.example.com/bucket/file.jpg');
+    expect(resumableStorageUpload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucketId: 'post-media',
+        objectPath: 'user-123/events/event-1/upload-photo.jpg',
+        contentType: 'image/jpeg',
+      }),
+    );
+    expect(url).toContain('/storage/v1/object/public/post-media/');
   });
 
   it('throws on upload error', async () => {
-    setupStorageMock(new Error('Storage full'));
-    await expect(uploadPostMedia('user-123', 'file://photo.jpg', 'photo')).rejects.toThrow(
-      'Storage full',
-    );
+    setupStorageMock();
+    (resumableStorageUpload as jest.Mock).mockRejectedValueOnce(new Error('Storage full'));
+    await expect(
+      uploadPostMedia('event-1', 'command-123456789', 'file://photo.jpg', 'photo'),
+    ).rejects.toThrow('Storage full');
   });
 });
 
 describe('uploadPostVideo', () => {
   it('uploads video to post-media bucket', async () => {
-    const bucket = setupStorageMock();
-    const url = await uploadPostVideo('user-123', 'file://video.mp4');
+    setupStorageMock();
+    const url = await uploadPostVideo('event-1', 'command-123456789', 'file://video.mp4');
 
     expect(mockStorageFrom).toHaveBeenCalledWith('post-media');
-    const [filePath, , options] = bucket.upload.mock.calls[0];
-    expect(filePath).toMatch(/^user-123\/\d+_video\.mp4$/);
-    expect(options.contentType).toBe('video/mp4');
-    expect(url).toBe('https://cdn.example.com/bucket/file.jpg');
+    expect(resumableStorageUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ contentType: 'video/mp4' }),
+    );
+    expect(url).toContain('/storage/v1/object/public/post-media/');
   });
 
   it('detects MOV content type', async () => {
-    const bucket = setupStorageMock();
-    await uploadPostVideo('user-123', 'file://clip.MOV');
+    setupStorageMock();
+    await uploadPostVideo('event-1', 'command-123456789', 'file://clip.MOV');
 
-    const [filePath, , options] = bucket.upload.mock.calls[0];
-    expect(options.contentType).toBe('video/quicktime');
-    expect(filePath).toMatch(/\.mov$/);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'reserve_doji_media_upload',
+      expect.objectContaining({ p_content_type: 'video/quicktime', p_extension: 'mov' }),
+    );
   });
 });
 
 describe('uploadAvatar', () => {
-  it('uploads to avatars bucket with upsert', async () => {
-    const bucket = setupStorageMock();
+  it('uploads to a new immutable avatar path', async () => {
+    setupStorageMock();
     const url = await uploadAvatar('user-123', 'file://face.jpg');
 
     expect(mockStorageFrom).toHaveBeenCalledWith('avatars');
-    const [filePath, , options] = bucket.upload.mock.calls[0];
-    expect(filePath).toBe('user-123/avatar.jpg');
-    expect(options.upsert).toBe(true);
-    expect(url).toContain('https://cdn.example.com/bucket/file.jpg');
+    expect(resumableStorageUpload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucketId: 'avatars',
+        objectPath: expect.stringMatching(/^user-123\/avatar-\d+\.jpg$/),
+        contentType: 'image/jpeg',
+      }),
+    );
+    expect(url).toContain('/storage/v1/object/public/post-media/');
     expect(url).toMatch(/\?v=\d+/);
   });
 });

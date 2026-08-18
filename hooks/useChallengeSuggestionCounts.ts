@@ -20,11 +20,11 @@ export function useChallengeSuggestionCounts(userId: string | undefined) {
       const [subRes, pickedRes] = await Promise.all([
         supabase
           .from('challenge_suggestions')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('user_id', userId),
         supabase
           .from('challenge_suggestions')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
           .not('selected_at', 'is', null),
       ]);

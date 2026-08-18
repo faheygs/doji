@@ -17,14 +17,19 @@ import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { IconChevronLeft } from '@/components/icons/Icons';
-import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlockUser';
+import { useBlockedUsersPaged, useUnblockUser } from '@/hooks/useBlockUser';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 
 export default function BlockedUsersScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
-  const { data: blocked = [], isLoading, refetch, isRefetching } = useBlockedUsers();
+  const blockedQuery = useBlockedUsersPaged();
+  const blocked = useMemo(
+    () => blockedQuery.data?.pages.flatMap((page) => page) ?? [],
+    [blockedQuery.data?.pages],
+  );
+  const { isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = blockedQuery;
   const unblock = useUnblockUser();
 
   const styles = useMemo(
@@ -109,6 +114,13 @@ export default function BlockedUsersScreen() {
           style={webScrollParentStyle}
           data={blocked}
           keyExtractor={(item) => item.id}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+          }}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={
+            isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}

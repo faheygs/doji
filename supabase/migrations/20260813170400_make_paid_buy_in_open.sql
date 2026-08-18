@@ -203,14 +203,19 @@ declare
   event_row record;
   participant_deadline timestamptz;
   vote_row record;
+  option_row record;
+  community_post_id uuid;
+  normalized_custom_text text := nullif(trim(p_custom_text), '');
 begin
   if uid is null then raise exception 'Authentication required'; end if;
   if length(p_idempotency_key) < 16 then raise exception 'Invalid idempotency key'; end if;
 
-  select participant.*, event.challenge_id, event.activated_at, event.closes_at
+  select participant.*, event.challenge_id, event.activated_at, event.closes_at,
+         challenge.type as challenge_type, challenge.poll_kind
   into event_row
   from public.user_events participant
   join public.daily_events event on event.id = participant.daily_event_id
+  join public.challenges challenge on challenge.id = event.challenge_id
   where participant.id = p_user_event_id and participant.user_id = uid
   for update of participant;
   if not found then raise exception 'Doji not found'; end if;
@@ -232,15 +237,23 @@ begin
   if event_row.status = 'pending' and clock_timestamp() >= participant_deadline then
     raise exception 'Doji has closed';
   end if;
-  if not exists (
-    select 1 from public.poll_options option
-    where option.id = p_option_id and option.challenge_id = event_row.challenge_id
-  ) then raise exception 'Invalid poll option'; end if;
+  if event_row.challenge_type <> 'poll' then raise exception 'This is not a poll challenge'; end if;
+  select option.id, option.is_other into option_row
+  from public.poll_options option
+  where option.id = p_option_id and option.challenge_id = event_row.challenge_id;
+  if not found then raise exception 'Invalid poll option'; end if;
+  if coalesce(option_row.is_other, false) then
+    if event_row.poll_kind = 'wyr' then raise exception 'Would You Rather has no Other option'; end if;
+    if normalized_custom_text is null then raise exception 'Enter your answer for Other'; end if;
+    if length(normalized_custom_text) > 200 then raise exception 'Poll answer is too long'; end if;
+  else
+    normalized_custom_text := null;
+  end if;
 
   insert into public.poll_votes (
     user_id, challenge_id, option_id, custom_text, user_event_id, idempotency_key
   ) values (
-    uid, event_row.challenge_id, p_option_id, nullif(trim(p_custom_text), ''),
+    uid, event_row.challenge_id, p_option_id, normalized_custom_text,
     p_user_event_id, p_idempotency_key
   ) returning * into vote_row;
 
@@ -249,10 +262,18 @@ begin
       completed_at = clock_timestamp()
   where id = p_user_event_id;
 
+  select post.id into community_post_id
+  from public.posts post
+  where post.daily_event_id = event_row.daily_event_id
+    and post.is_community_poll = true
+  limit 1;
+  if community_post_id is null then raise exception 'Community poll post not found'; end if;
+
   perform public.enqueue_domain_event(
-    'doji:global', 'poll.vote.created', vote_row.id,
+    'post:' || community_post_id::text, 'poll.vote.created', vote_row.id,
     jsonb_build_object(
       'voteId', vote_row.id,
+      'postId', community_post_id,
       'dailyEventId', event_row.daily_event_id,
       'challengeId', event_row.challenge_id,
       'optionId', p_option_id,

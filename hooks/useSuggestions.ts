@@ -8,16 +8,16 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 export function useMySuggestions(userId: string | undefined) {
   return useQuery<ChallengeSuggestion[]>({
     queryKey: ['mySuggestions', userId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ChallengeSuggestion[]> => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from('challenge_suggestions')
-        .select('*, reviewer:profiles!reviewed_by(id, username, display_name, avatar_url)')
+        .select('id, user_id, kind, body, body_hash, options, status, admin_note, selected_at, reviewed_at, reviewed_by, created_at, reviewer:profiles!challenge_suggestions_reviewed_by_fkey(id, username, display_name, avatar_url)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as ChallengeSuggestion[];
     },
     enabled: !!userId,
     staleTime: 15_000,
@@ -29,15 +29,15 @@ export function usePendingSuggestions(enabled = true) {
 
   return useQuery<ChallengeSuggestion[]>({
     queryKey: ['pendingSuggestions'],
-    queryFn: async () => {
+    queryFn: async (): Promise<ChallengeSuggestion[]> => {
       const { data, error } = await supabase
         .from('challenge_suggestions')
-        .select('*, profile:profiles!user_id(id, username, display_name, avatar_url, equipped_border_key)')
+        .select('id, user_id, kind, body, body_hash, options, status, admin_note, selected_at, reviewed_at, reviewed_by, created_at, profile:profiles!challenge_suggestions_user_id_fkey(id, username, display_name, avatar_url, equipped_border_key)')
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
         .limit(100);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as ChallengeSuggestion[];
     },
     enabled: !!isAdmin && enabled,
     staleTime: 10_000,

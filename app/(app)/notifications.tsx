@@ -12,7 +12,6 @@ import {
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
-import Constants from 'expo-constants';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAppDialog } from '@/contexts/DialogContext';
@@ -28,6 +27,10 @@ import {
 } from '@/lib/notificationPreferences';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import { supabase } from '@/lib/supabase';
+import {
+  syncPushRegistration,
+  unregisterCurrentPushInstallation,
+} from '@/lib/pushNotifications';
 
 type RowDef = {
   key: NotificationPreferenceKind;
@@ -212,18 +215,8 @@ export default function NotificationSettingsScreen() {
   );
 
   const registerTokenIfGranted = useCallback(async () => {
-    const Notifications = await import('expo-notifications');
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    const token = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
-    const { error } = await supabase.rpc('register_push_token', { p_token: token.data });
-    if (error) throw error;
-    const current = useAuthStore.getState().profile;
-    if (current) {
-      useAuthStore.getState().setProfile({ ...current, notification_token: token.data });
-    }
-  }, []);
+    await syncPushRegistration(profile?.id);
+  }, [profile?.id]);
 
   const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
@@ -263,11 +256,12 @@ export default function NotificationSettingsScreen() {
   const disableSystemAlerts = useCallback(async () => {
     const saved = await persistCategories({ push_enabled: false }, 'push_enabled');
     if (!saved) return;
-    const { error } = await supabase.rpc('unregister_push_token');
-    if (__DEV__ && error) console.warn('[notifications] token cleanup failed', error.message);
-    if (!error) {
+    try {
+      await unregisterCurrentPushInstallation();
       const current = useAuthStore.getState().profile;
       if (current) useAuthStore.getState().setProfile({ ...current, notification_token: null });
+    } catch (error) {
+      if (__DEV__) console.warn('[notifications] token cleanup failed', error);
     }
     Toast.show({ type: 'success', text1: 'Phone alerts turned off' });
   }, [persistCategories]);

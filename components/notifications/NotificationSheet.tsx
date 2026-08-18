@@ -24,7 +24,7 @@ import { NotificationListSkeleton } from './NotificationListSkeleton';
 import { SkeletonSwap } from '../ui/SkeletonSwap';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
-import { useRespondToFriendRequest } from '../../hooks/useProfile';
+import { useRespondToFriendRequest } from '../../hooks/useFriendRequests';
 import {
   friendRequestCopy,
   friendAcceptedCopy,
@@ -507,7 +507,6 @@ export function NotificationSheet({
       colors,
       openProfile,
       openFeedPost,
-      onClose,
       dismissThen,
       router,
       renderRightActions,

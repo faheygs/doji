@@ -34,15 +34,8 @@ import { isChallengeLive } from '../../lib/challengeDay';
 import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
+import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
 export default function FeedScreen() {
-  useFocusedRealtimeInvalidation('feed:public', [
-    'feed',
-    'pollResults',
-    'pollVotersDetail',
-    'reactions',
-    'comments',
-    'post',
-  ]);
   const router = useRouter();
   const params = useLocalSearchParams<{
     postId?: string | string[];
@@ -59,6 +52,11 @@ export default function FeedScreen() {
   }, [params.openComments]);
   const { colors } = useTheme();
   const [audience, setAudience] = useState<FeedAudience>('friends');
+  useFocusedRealtimeInvalidation(
+    'feed:public',
+    realtimeQueryRoots,
+    audience === 'everyone',
+  );
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
@@ -383,10 +381,7 @@ export default function FeedScreen() {
       styles,
       colors,
       notificationUnread,
-      profile?.avatar_url,
-      profile?.username,
-      profile?.equipped_border_key,
-      profile?.accent_theme,
+      profile,
       handleOpenProfile,
       handleOpenNotifications,
       userEvent,

@@ -1,6 +1,6 @@
 -- Apple reviewer test account profile setup.
--- Auth user must be created first via Supabase dashboard:
---   Authentication → Users → Add user → reviewer@doji.app / DojiReview2026!
+-- The Auth user is managed separately in environments that need review access.
+-- Fresh databases must remain deployable when that optional account is absent.
 
 DO $$
 DECLARE
@@ -9,7 +9,8 @@ BEGIN
   SELECT id INTO v_user_id FROM auth.users WHERE email = 'reviewer@doji.app';
 
   IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Auth user reviewer@doji.app not found — create it in the Supabase dashboard first.';
+    RAISE NOTICE 'Optional Apple reviewer Auth user is absent; skipping reviewer profile setup.';
+    RETURN;
   END IF;
 
   INSERT INTO public.profiles (

@@ -1,8 +1,9 @@
 /**
- * Example: register Expo push token with Supabase after login.
+ * Legacy fallback example: register an Expo push token after login.
  * Copy into your app (e.g. a hook) and adjust imports / Supabase client.
  *
- * Requires: expo-notifications, expo-constants, @supabase/supabase-js
+ * Production Doji uses lib/pushNotifications.ts so every installation registers
+ * its native APNs/FCM endpoint atomically. Do not write profile token fields directly.
  * EAS: projectId in app.config extra.eas.projectId
  */
 
@@ -52,12 +53,12 @@ export function usePushRegistration(
       if (cancelled) return;
 
       const token = tokenData.data;
-      await supabase.from('profiles').update({ notification_token: token }).eq('id', userId);
+      await supabase.rpc('register_push_token', { p_token: token });
     })();
 
     listenerRef.current = Notifications.addPushTokenListener(async (next) => {
       const token = next.data;
-      await supabase.from('profiles').update({ notification_token: token }).eq('id', userId);
+      await supabase.rpc('register_push_token', { p_token: token });
     });
 
     return () => {

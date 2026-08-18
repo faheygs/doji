@@ -13,7 +13,6 @@ import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Post, ReactionEmoji } from '../../types/database';
 const ICON_SZ = 22;
-
 function withAlpha(color: string, alpha: number): string {
   const hex = color.replace('#', '');
   if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
@@ -28,14 +27,12 @@ type Props = {
   onOpenComments: () => void;
   feedAudience?: FeedAudience;
 };
-
 function breakdownSig(post: Post): string {
   return Object.entries(post.reaction_breakdown ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}:${v}`)
     .join('|');
 }
-
 function myReactionsSig(post: Post): string {
   return (post.my_reactions ?? []).sort().join(',');
 }
@@ -49,7 +46,7 @@ function ReactionBarImpl({
 }: Props) {
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
-  const myReactions = post.my_reactions ?? [];
+  const myReactions = useMemo(() => post.my_reactions ?? [], [post.my_reactions]);
   const { data: scopedComments } = useComments(post.id, {
     feedAudience,
     // Do not download every comment thread just to render the feed counter.
@@ -58,7 +55,10 @@ function ReactionBarImpl({
     fetchEnabled: false,
   });
   const commentDisplayCount =
-    feedAudience === 'friends' ? (scopedComments?.length ?? post.comment_count) : post.comment_count;
+    feedAudience === 'friends'
+      ? (scopedComments?.pages.reduce((total, page) => total + page.length, 0) ??
+        post.comment_count)
+      : post.comment_count;
   const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
   const [votersOpen, setVotersOpen] = useState(false);
   const [votersEmoji, setVotersEmoji] = useState<ReactionEmoji | null>(null);
@@ -72,7 +72,7 @@ function ReactionBarImpl({
           paddingTop: Spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
-          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopWidth: showTopBorder ? StyleSheet.hairlineWidth : 0,
           borderTopColor: colors.hairline,
           backgroundColor: colors.surface,
         },
@@ -143,7 +143,7 @@ function ReactionBarImpl({
 
   const handleReact = useCallback(
     (emoji: ReactionEmoji) => {
-      if (blurred) return;
+      if (blurred || toggleReaction.isPending) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const active = myReactions.includes(emoji);
       toggleReaction.mutate({ postId: post.id, emoji, active });
@@ -173,9 +173,7 @@ function ReactionBarImpl({
     setVotersOpen(false);
     setVotersEmoji(null);
   }, []);
-
   const commentMuted = blurred ? colors.textTertiary : colors.textSecondary;
-
   return (
     <View style={styles.container}>
       <View style={styles.reactions}>

@@ -120,7 +120,7 @@ export function ChallengeReveal({
       scale.setValue(0.85);
       opacity.setValue(0);
     }
-  }, [visible]);
+  }, [opacity, scale, visible]);
 
   const onCTA = () => {
     if (challenge.type === 'poll') return onStartPoll();

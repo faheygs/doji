@@ -54,7 +54,10 @@ export default function PollScreen() {
   const challenge = userEvent?.challenge;
   const challengeId = challenge?.id;
 
-  const options = (challenge?.poll_options ?? []) as PollOption[];
+  const options = useMemo(
+    () => (challenge?.poll_options ?? []) as PollOption[],
+    [challenge?.poll_options],
+  );
   const optionsError = !eventLoading && challenge?.type === 'poll' && options.length < 2;
 
   const isWouldYouRather = isWouldYouRatherChallenge(challenge);

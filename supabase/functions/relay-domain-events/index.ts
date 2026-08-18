@@ -2,12 +2,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendExpoPushMessages } from '../_shared/expo-push.ts';
 import {
-  claimPushDelivery,
   recordPushDeliveryResults,
   type PushDeliveryOutcome,
 } from '../_shared/push-delivery.ts';
 import { pushPreferenceEnabled } from '../_shared/notification-preferences.ts';
 import { processBroadcastPush } from '../_shared/broadcast-push.ts';
+import { apnsConfigured, sendApnsMessage } from '../_shared/apns-push.ts';
+import { fcmConfigured, sendFcmMessage } from '../_shared/fcm-push.ts';
 import {
   buildAblyMessages,
   isPushFresh,
@@ -16,6 +17,7 @@ import {
 
 const MAX_TOPIC_WORKERS = 8;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
+const MAX_ABLY_BATCH_CHANNELS = 100;
 
 async function publishAblyEvents(
   apiKey: string,
@@ -42,14 +44,86 @@ async function publishAblyEvents(
   }
 }
 
+function batchResponseFailed(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(batchResponseFailed);
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  if (typeof result.statusCode === 'number' && result.statusCode >= 400) return true;
+  if (result.error) return true;
+  return Object.values(result).some(batchResponseFailed);
+}
+
+async function publishFriendFanoutBatch(
+  apiKey: string,
+  event: RelayEvent,
+  topics: string[],
+): Promise<void> {
+  const eventType = event.event_type === 'fanout.post_membership'
+    ? 'post.created'
+    : event.event_type === 'fanout.friend_completion'
+      ? 'notification.friend_activity.updated'
+      : event.event_type === 'fanout.community_reaction'
+        ? 'notification.reaction.updated'
+        : event.event_type === 'fanout.profile_presentation'
+          ? 'profile.presentation.updated'
+          : event.event_type === 'fanout.profile_stats'
+            ? 'profile.stats.updated'
+            : event.event_type === 'fanout.badge'
+              ? 'badge.updated'
+              : null;
+  if (!eventType || topics.length === 0) return;
+
+  for (let index = 0; index < topics.length; index += MAX_ABLY_BATCH_CHANNELS) {
+    const channels = topics.slice(index, index + MAX_ABLY_BATCH_CHANNELS);
+    const response = await fetch('https://main.realtime.ably.net/messages', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(apiKey)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channels,
+        messages: {
+          id: event.id,
+          name: eventType,
+          data: {
+            ...event.payload,
+            eventId: event.id,
+            aggregateId: event.aggregate_id,
+            occurredAt: event.payload?.occurredAt ?? event.created_at,
+          },
+        },
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || batchResponseFailed(body)) {
+      throw new Error(`Ably friend fanout failed (${response.status})`);
+    }
+  }
+}
+
 type RelayEvent = DeliveryEvent & {
   topic: string;
   lease_id: string;
 };
 
+type NativeEndpoint = {
+  installationId: string;
+  token: string;
+  provider: 'apns' | 'fcm';
+  environment: 'sandbox' | 'production';
+};
+
 type PushProfile = {
   notification_token: string | null;
   notification_preferences: Record<string, unknown> | null;
+  native_endpoints: NativeEndpoint[];
+};
+
+type ClaimedPushTarget = {
+  delivery_key: string;
+  target_user_id: string;
+  endpoint_key: string;
 };
 
 async function runTopicWorkers(
@@ -97,27 +171,36 @@ Deno.serve(async (request) => {
   ];
   const profilesById = new Map<string, PushProfile>();
   if (targetUserIds.length > 0) {
-    const { data: profiles, error: profilesError } = await database
-      .from('profiles')
-      .select('id, notification_token, notification_preferences')
-      .in('id', targetUserIds);
+    const { data: profiles, error: profilesError } = await database.rpc(
+      'get_push_recipients',
+      { p_user_ids: targetUserIds },
+    );
     if (profilesError) return new Response(profilesError.message, { status: 500 });
     for (const profile of profiles ?? []) {
-      profilesById.set(String(profile.id), {
+      profilesById.set(String(profile.user_id), {
         notification_token: profile.notification_token,
         notification_preferences: profile.notification_preferences as Record<
           string,
           unknown
         > | null,
+        native_endpoints: Array.isArray(profile.native_endpoints)
+          ? profile.native_endpoints as NativeEndpoint[]
+          : [],
       });
     }
   }
 
   const byTopic = new Map<string, RelayEvent[]>();
   for (const event of claimedEvents) {
-    const group = byTopic.get(event.topic) ?? [];
+    // Internal expansion jobs are independent. A unique worker key preserves
+    // bounded parallelism instead of serializing the entire social graph on one
+    // synthetic topic.
+    const workerKey = event.topic === 'internal:friend-fanout'
+      ? `${event.topic}:${event.id}`
+      : event.topic;
+    const group = byTopic.get(workerKey) ?? [];
     group.push(event);
-    byTopic.set(event.topic, group);
+    byTopic.set(workerKey, group);
   }
 
   let published = 0;
@@ -155,15 +238,32 @@ Deno.serve(async (request) => {
           ? String(event.payload.preferenceKey)
           : null;
         const preferences = profile?.notification_preferences;
-        if (token && pushPreferenceEnabled(preferences, preferenceKey)) {
-          const deliveryKey = `outbox-push:${event.id}:${targetUserId}`;
-          const claimed = await claimPushDelivery(database, {
-            deliveryKey,
-            targetUserId,
-            category: preferenceKey ?? event.event_type,
-            aggregateId: String(event.aggregate_id ?? event.id),
-          });
-          if (!claimed) {
+        const nativeEndpoints = (profile?.native_endpoints ?? []).filter((endpoint) =>
+          Boolean(endpoint.token) && (
+            (endpoint.provider === 'apns' && apnsConfigured()) ||
+            (endpoint.provider === 'fcm' && fcmConfigured())
+          )
+        );
+        if ((nativeEndpoints.length > 0 || token) &&
+          pushPreferenceEnabled(preferences, preferenceKey)) {
+          const pushTargets = nativeEndpoints.length > 0
+            ? nativeEndpoints.map((endpoint) => ({
+              userId: targetUserId,
+              endpointKey: `native:${endpoint.installationId}`,
+            }))
+            : [{ userId: targetUserId, endpointKey: 'expo' }];
+          const { data: claimedData, error: claimError } = await database.rpc(
+            'claim_push_delivery_targets_batch',
+            {
+              p_event_id: event.id,
+              p_targets: pushTargets,
+              p_category: preferenceKey ?? event.event_type,
+              p_aggregate_id: String(event.aggregate_id ?? event.id),
+            },
+          );
+          if (claimError) throw claimError;
+          const claimedTargets = (claimedData ?? []) as ClaimedPushTarget[];
+          if (claimedTargets.length === 0) {
             const { data: completed, error: completionError } = await database.rpc(
               'complete_domain_event',
               { p_event_id: event.id, p_lease_id: event.lease_id },
@@ -175,14 +275,71 @@ Deno.serve(async (request) => {
             return;
           }
 
-          const pushResult = await sendExpoPushMessages([
-            {
-              to: token,
-              title: String(event.payload.title ?? 'Doji'),
-              body: String(event.payload.body ?? ''),
-              sound: 'default',
-              badge: 1,
-              ttl: event.event_type === 'doji.activated' ? 120 : 300,
+          const ttl = event.event_type === 'doji.activated' ? 120 : 300;
+          const title = String(event.payload.title ?? 'Doji');
+          const body = String(event.payload.body ?? '');
+          const collapseKey = String(event.payload.collapseId ?? event.payload.threadId ?? event.id);
+          const notificationData = {
+            type: String(
+              event.payload.type ??
+                (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'),
+            ),
+            eventId: event.id,
+            daily_event_id: event.payload.dailyEventId
+              ? String(event.payload.dailyEventId)
+              : '',
+            postId: event.payload.postId ? String(event.payload.postId) : '',
+            voteId: event.payload.voteId ? String(event.payload.voteId) : '',
+            url: event.payload.url ? String(event.payload.url) : '',
+          };
+          const claimedByEndpoint = new Map(
+            claimedTargets.map((target) => [target.endpoint_key, target.delivery_key]),
+          );
+          const results: Array<{
+            deliveryKey: string;
+            outcome: PushDeliveryOutcome;
+            providerTicketId?: string;
+            error?: string;
+          }> = [];
+          const invalidNativeTokens: string[] = [];
+
+          for (const endpoint of nativeEndpoints) {
+            const deliveryKey = claimedByEndpoint.get(`native:${endpoint.installationId}`);
+            if (!deliveryKey) continue;
+            const push = endpoint.provider === 'apns'
+              ? await sendApnsMessage({
+                token: endpoint.token,
+                environment: endpoint.environment ?? 'production',
+                title,
+                body,
+                collapseId: collapseKey,
+                expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + ttl,
+                interruptionLevel:
+                  event.payload.interruptionLevel === 'passive'
+                    ? 'passive'
+                    : event.payload.interruptionLevel === 'time-sensitive'
+                      ? 'time-sensitive'
+                      : 'active',
+                data: notificationData,
+              })
+              : await sendFcmMessage({
+                token: endpoint.token, title, body, collapseKey, ttlSeconds: ttl,
+                data: notificationData,
+              });
+            results.push({
+              deliveryKey,
+              outcome: push.outcome,
+              providerTicketId: push.providerId,
+              error: push.error,
+            });
+            if (push.outcome === 'invalid_token') invalidNativeTokens.push(endpoint.token);
+          }
+
+          let invalidExpoToken = false;
+          const expoDeliveryKey = claimedByEndpoint.get('expo');
+          if (expoDeliveryKey && token) {
+            const pushResult = await sendExpoPushMessages([{
+              to: token, title, body, sound: 'default', badge: 1, ttl,
               priority: event.payload.priority === 'normal' ? 'normal' : 'high',
               interruptionLevel:
                 event.payload.interruptionLevel === 'passive'
@@ -193,42 +350,32 @@ Deno.serve(async (request) => {
               threadId: event.payload.threadId ? String(event.payload.threadId) : undefined,
               collapseId: event.payload.collapseId ? String(event.payload.collapseId) : undefined,
               tag: event.payload.tag ? String(event.payload.tag) : undefined,
-              data: {
-                type: String(
-                  event.payload.type ??
-                    (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'),
-                ),
-                eventId: event.id,
-                daily_event_id: event.payload.dailyEventId,
-                postId: event.payload.postId,
-                voteId: event.payload.voteId,
-                url: event.payload.url,
-              },
-            },
-          ]);
-          const ticket = pushResult.tickets[0];
-          const invalidToken = pushResult.invalidTokenIndices.includes(0);
-          const outcome: PushDeliveryOutcome = invalidToken
-            ? 'invalid_token'
-            : ticket?.status === 'ok'
-              ? 'accepted'
-              : pushResult.httpOk
-                ? 'rejected'
-                : 'transport_error';
-          await recordPushDeliveryResults(database, [
-            {
-              deliveryKey,
-              outcome,
+              data: notificationData,
+            }]);
+            const ticket = pushResult.tickets[0];
+            invalidExpoToken = pushResult.invalidTokenIndices.includes(0);
+            results.push({
+              deliveryKey: expoDeliveryKey,
+              outcome: invalidExpoToken
+                ? 'invalid_token'
+                : ticket?.status === 'ok'
+                  ? 'accepted'
+                  : pushResult.httpOk ? 'rejected' : 'transport_error',
               providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
               error: ticket?.status === 'error' ? ticket.message : pushResult.transportError,
-            },
-          ]);
-          if (invalidToken) {
-            await database
-              .from('profiles')
-              .update({ notification_token: null })
-              .eq('id', targetUserId)
-              .eq('notification_token', token);
+            });
+          }
+          await recordPushDeliveryResults(database, results);
+          if (invalidExpoToken && token) {
+            await database.rpc('invalidate_expo_push_token', {
+              p_user_id: targetUserId,
+              p_token: token,
+            });
+          }
+          if (invalidNativeTokens.length > 0) {
+            await database.rpc('invalidate_native_push_tokens', {
+              p_tokens: invalidNativeTokens,
+            });
           }
         }
       }
@@ -252,9 +399,62 @@ Deno.serve(async (request) => {
     }
   };
 
+  const processInternalFanout = async (event: RelayEvent): Promise<void> => {
+    const { data: realtimeTargets, error: targetsError } = await database.rpc(
+      'get_friend_fanout_realtime_topics',
+      { p_event_id: event.id },
+    );
+    if (targetsError) {
+      failed += 1;
+      await database.rpc('release_domain_event', {
+        p_event_id: event.id,
+        p_lease_id: event.lease_id,
+        p_error: targetsError.message,
+      });
+      return;
+    }
+    try {
+      await publishFriendFanoutBatch(
+        ablyKey,
+        event,
+        ((realtimeTargets ?? []) as Array<{ topic: string }>).map((row) => row.topic),
+      );
+    } catch (fanoutPublishError) {
+      failed += 1;
+      const message = fanoutPublishError instanceof Error
+        ? fanoutPublishError.message
+        : String(fanoutPublishError);
+      await database.rpc('release_domain_event', {
+        p_event_id: event.id,
+        p_lease_id: event.lease_id,
+        p_error: message,
+      });
+      return;
+    }
+    if (event.payload?.realtimeOnly !== true) {
+      const { error: fanoutError } = await database.rpc('process_friend_fanout_event', {
+        p_event_id: event.id,
+      });
+      if (fanoutError) {
+        failed += 1;
+        await database.rpc('release_domain_event', {
+          p_event_id: event.id,
+          p_lease_id: event.lease_id,
+          p_error: fanoutError.message,
+        });
+        return;
+      }
+    }
+    await processEventSideEffects(event);
+  };
+
   // Preserve ordering within each Ably channel, while allowing independent
   // user/public channels to drain concurrently under a bounded worker count.
   await runTopicWorkers([...byTopic.values()], async (group) => {
+    if (group[0].topic === 'internal:friend-fanout') {
+      for (const event of group) await processInternalFanout(event);
+      return;
+    }
     const unpublished = group.filter((event) => event.payload?.realtimePublished !== true);
     try {
       await publishAblyEvents(ablyKey, group[0].topic, unpublished);

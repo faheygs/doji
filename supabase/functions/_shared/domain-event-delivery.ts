@@ -31,7 +31,10 @@ export function buildAblyMessages(events: DeliveryEvent[]) {
 export function isPushFresh(event: DeliveryEvent, nowMs = Date.now()): boolean {
   if (event.payload.sendPush !== true && event.payload.broadcastPush !== true) return true;
 
-  const createdMs = dateMs(event.created_at);
+  // Asynchronous friend fanout creates child outbox rows after the original
+  // action. Freshness follows the source action so a backlog can never turn an
+  // old reaction/comment into a new phone alert.
+  const createdMs = dateMs(event.payload.occurredAt) ?? dateMs(event.created_at);
   if (createdMs === null || createdMs > nowMs + 30_000) return false;
 
   if (event.event_type === 'doji.activated') {

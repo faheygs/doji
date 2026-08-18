@@ -8,12 +8,12 @@ const PAGE_SIZE = 50;
 export function useProfileFriendsPaged(profileUserId?: string, enabled = true) {
   return useInfiniteQuery({
     queryKey: ['profileFriends', profileUserId, 'paged'],
-    queryFn: async ({ pageParam = 0 }): Promise<ProfileFriendListRow[]> => {
+    queryFn: async ({ pageParam }): Promise<ProfileFriendListRow[]> => {
       if (!profileUserId) return [];
       const { data, error } = await supabase.rpc('list_profile_friends_page', {
         p_profile_user_id: profileUserId,
         p_limit: PAGE_SIZE,
-        p_offset: pageParam,
+        p_after_friend_id: pageParam,
       });
       if (error) throw error;
       return (data ?? []).map((row) => ({
@@ -27,9 +27,9 @@ export function useProfileFriendsPaged(profileUserId?: string, enabled = true) {
           : [...FALLBACK_AVATAR_GRADIENT],
       }));
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, _pages, offset) =>
-      lastPage.length === PAGE_SIZE ? offset + PAGE_SIZE : undefined,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.length === PAGE_SIZE ? lastPage.at(-1)?.friend_id : undefined,
     enabled: Boolean(profileUserId && enabled),
     staleTime: 30_000,
   });

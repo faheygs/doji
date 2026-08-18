@@ -1,25 +1,38 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
-import { fetchMentionableUserIds } from '../lib/mentionNetwork';
 import type { FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile } from '../types/database';
 import { filterContent } from '../lib/contentFilter';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { createRequestSignal } from '../lib/requestSignal';
+import { patchInfiniteCommentLike } from '../lib/commentLikeOptimism';
 
 export type CommentWithMeta = Comment;
 
 async function fetchCommentsForPost(
   postId: string,
   audience: FeedAudience,
+  page: { beforeCreatedAt: string; beforeId: string } | null,
   parentSignal?: AbortSignal,
 ): Promise<CommentWithMeta[]> {
   const request = createRequestSignal(parentSignal);
   try {
     const { data, error } = await supabase
-      .rpc('get_comment_thread_snapshot', { p_post_id: postId, p_audience: audience })
+      .rpc('get_comment_thread_snapshot', {
+        p_post_id: postId,
+        p_audience: audience,
+        p_before_created_at: page?.beforeCreatedAt ?? null,
+        p_before_id: page?.beforeId ?? null,
+        p_limit: 50,
+      })
       .abortSignal(request.signal);
     if (error) throw error;
     return (data ?? []) as CommentWithMeta[];
@@ -37,9 +50,16 @@ export function useComments(
   const fetchEnabled = options?.fetchEnabled !== false;
   const feedAudience = options?.feedAudience ?? 'everyone';
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['comments', postId, userId, feedAudience],
-    queryFn: ({ signal }) => fetchCommentsForPost(postId!, feedAudience, signal),
+    queryFn: ({ signal, pageParam }) =>
+      fetchCommentsForPost(postId!, feedAudience, pageParam, signal),
+    initialPageParam: null as { beforeCreatedAt: string; beforeId: string } | null,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < 50) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return { beforeCreatedAt: last.created_at, beforeId: last.id };
+    },
     enabled: !!postId && !!userId && fetchEnabled,
     staleTime: 20_000,
   });
@@ -54,23 +74,11 @@ export function useMentionSearch(query: string, options?: { enabled?: boolean })
     queryKey: ['mentionSearch', viewerId, query],
     queryFn: async (): Promise<Profile[]> => {
       if (!viewerId) return [];
-      const mentionableIds = await fetchMentionableUserIds(viewerId);
-      if (mentionableIds.length === 0) return [];
-
       const trimmed = query.trim();
-      let builder = supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', mentionableIds)
-        .limit(8);
-
-      if (trimmed) {
-        builder = builder.ilike('username', `${trimmed}%`);
-      } else {
-        builder = builder.order('username', { ascending: true });
-      }
-
-      const { data, error } = await builder;
+      const { data, error } = await supabase.rpc('search_mentionable_profiles', {
+        p_query: trimmed,
+        p_limit: 8,
+      });
       if (error) throw error;
       return (data ?? []) as Profile[];
     },
@@ -205,24 +213,33 @@ export function useToggleCommentLike() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (result, vars) => {
-      if (!result) return;
-      queryClient.setQueriesData<CommentWithMeta[]>(
+    onMutate: (vars) => {
+      const previousCommentQueries = queryClient.getQueriesData<InfiniteData<CommentWithMeta[]>>({
+        predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+      });
+      queryClient.setQueriesData<InfiniteData<CommentWithMeta[]>>(
         {
           predicate: (query) =>
             query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
         },
-        (old) =>
-          (old ?? []).map((comment) =>
-            comment.id === vars.commentId
-              ? { ...comment, my_like: result.active, like_count: result.count }
-              : comment,
-          ),
+        (old) => patchInfiniteCommentLike(old, vars.commentId, !vars.liked),
       );
+      return { previousCommentQueries };
     },
-    onSettled: (_data, _err, vars) => {
-      if (!vars?.postId) return;
-      scheduleQueryInvalidation(queryClient, ['comments']);
+    onError: (_error, _vars, context) => {
+      for (const [queryKey, data] of context?.previousCommentQueries ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
+    },
+    onSuccess: (result, vars) => {
+      if (!result) return;
+      queryClient.setQueriesData<InfiniteData<CommentWithMeta[]>>(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+        },
+        (old) => patchInfiniteCommentLike(old, vars.commentId, result.active, result.count),
+      );
     },
   });
 }

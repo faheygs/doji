@@ -29,7 +29,6 @@ import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
 import { useTogglePollVoteLike } from '../../hooks/usePollVoteLikes';
@@ -46,6 +45,7 @@ type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 type VoterRow = {
   user_id: string;
   vote_id?: string;
+  created_at?: string;
   username: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -53,6 +53,7 @@ type VoterRow = {
   custom_text?: string | null;
   like_count?: number;
   my_like?: boolean;
+  friendship_status?: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
 };
 
 type PollSnapshot = {
@@ -106,34 +107,12 @@ function PollResultCardImpl({
   const isFriendsScope = feedAudience === 'friends';
   const modalOpen = voterVisible;
 
-  const { data: friendIds = [] } = useQuery({
-    queryKey: ['friendIds', userId],
-    queryFn: ({ signal }) => getFriendIdsIncludingSelf(userId!, signal),
-    enabled: !!userId && fetchEnabled && modalOpen,
-    staleTime: 5 * 60_000,
-  });
-
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pendingRequests', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      const { data } = await supabase
-        .from('friendships')
-        .select('addressee_id')
-        .eq('requester_id', userId)
-        .eq('status', 'pending');
-      return (data ?? []).map((r) => r.addressee_id as string);
-    },
-    enabled: !!userId && fetchEnabled && modalOpen,
-    staleTime: 5 * 60_000,
-  });
-
   const sendRequest = useSendFriendRequest();
   const toggleVoteLike = useTogglePollVoteLike();
   const queryClient = useQueryClient();
 
   const { data } = useQuery<PollSnapshot>({
-    queryKey: ['pollResults', dailyEventId, feedAudience],
+    queryKey: ['pollResults', dailyEventId, feedAudience, userId],
     queryFn: async ({ signal }): Promise<PollSnapshot> => {
       const request = createRequestSignal(signal);
       const { data: summaryRows, error } = await (async () => {
@@ -182,8 +161,8 @@ function PollResultCardImpl({
   const effectiveMyVoteOptionId = data?.myVoteOptionId ?? null;
 
   const voterPages = useInfiniteQuery({
-    queryKey: ['pollVotersDetail', dailyEventId, voterModal?.optionId, feedAudience],
-    queryFn: async ({ pageParam = 0, signal }): Promise<VoterRow[]> => {
+    queryKey: ['pollVotersDetail', dailyEventId, voterModal?.optionId, feedAudience, userId],
+    queryFn: async ({ pageParam, signal }): Promise<VoterRow[]> => {
       const request = createRequestSignal(signal);
       try {
         const { data: page, error } = await supabase
@@ -192,7 +171,8 @@ function PollResultCardImpl({
             p_option_id: voterModal!.optionId,
             p_audience: feedAudience,
             p_limit: 40,
-            p_offset: pageParam,
+            p_before_created_at: pageParam?.createdAt ?? null,
+            p_before_id: pageParam?.id ?? null,
           })
           .abortSignal(request.signal);
         if (error) throw error;
@@ -201,8 +181,13 @@ function PollResultCardImpl({
         request.cleanup();
       }
     },
-    initialPageParam: 0,
-    getNextPageParam: (last, _pages, offset) => last.length === 40 ? offset + 40 : undefined,
+    initialPageParam: null as { createdAt: string; id: string } | null,
+    getNextPageParam: (last) => {
+      const tail = last.at(-1);
+      return last.length === 40 && tail?.created_at && tail.vote_id
+        ? { createdAt: tail.created_at, id: tail.vote_id }
+        : undefined;
+    },
     enabled: modalOpen && Boolean(voterModal?.optionId),
     staleTime: 30_000,
   });
@@ -591,8 +576,8 @@ function PollResultCardImpl({
                 renderItem={({ item }) => {
                   const border = getEquippedBorder(item);
                   const isMe = item.user_id === userId;
-                  const isFriend = friendIds.includes(item.user_id);
-                  const isPending = pendingRequests.includes(item.user_id);
+                  const isFriend = item.friendship_status === 'friends';
+                  const isPending = item.friendship_status === 'pending_out';
                   const canAdd = !isMe && !isFriend;
                    const isLiked = item.my_like === true;
                    const likeCount = item.like_count ?? 0;
@@ -629,7 +614,7 @@ function PollResultCardImpl({
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             sendRequest.mutate({ addresseeId: item.user_id }, {
                               onSuccess: () => {
-                                scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
+                                scheduleQueryInvalidation(queryClient, ['pollVotersDetail', 'friendship']);
                               },
                             });
                           }}
@@ -641,9 +626,11 @@ function PollResultCardImpl({
                         <View style={{ alignItems: 'center', gap: 2, paddingLeft: Spacing.xs }}>
                           <TouchableOpacity
                             onPress={() => {
+                              if (toggleVoteLike.isPending) return;
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                               toggleVoteLike.mutate({ pollVoteId: item.vote_id!, liked: isLiked });
                             }}
+                            disabled={toggleVoteLike.isPending}
                             accessibilityRole="button"
                             accessibilityLabel={isLiked ? 'Unlike this answer' : 'Like this answer'}
                           >

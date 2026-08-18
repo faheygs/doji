@@ -70,7 +70,6 @@ export function usePollVote() {
         'pollVotersDetail',
         'profile',
         'leaderboard',
-        'profilePosts',
         'feed',
       ]);
       if (userId) fetchProfile(userId);

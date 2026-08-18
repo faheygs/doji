@@ -22,6 +22,16 @@ import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../../hooks/useFocusedRealtimeInvalidation';
+
+const MODE_LABELS: Record<LeaderboardMode, string> = {
+  weekly: 'This week',
+  alltime: 'All time',
+};
+const AUDIENCE_LABELS: Record<LeaderboardAudience, string> = {
+  friends: 'Friends',
+  everyone: 'Everyone',
+};
+
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
@@ -228,16 +238,6 @@ export default function LeaderboardScreen() {
     [],
   );
 
-  const modeLabels: Record<LeaderboardMode, string> = {
-    weekly: 'This week',
-    alltime: 'All time',
-  };
-
-  const audienceLabels: Record<LeaderboardAudience, string> = {
-    friends: 'Friends',
-    everyone: 'Everyone',
-  };
-
   const ListHeader = useMemo(
     () => (
       <>
@@ -255,13 +255,13 @@ export default function LeaderboardScreen() {
             options={['friends', 'everyone'] as const}
             value={audience}
             onChange={setAudience}
-            labels={audienceLabels}
+            labels={AUDIENCE_LABELS}
           />
           <SegmentedToggle
             options={['weekly', 'alltime'] as const}
             value={mode}
             onChange={setMode}
-            labels={modeLabels}
+            labels={MODE_LABELS}
           />
         </View>
 

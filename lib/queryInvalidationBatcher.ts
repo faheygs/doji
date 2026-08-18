@@ -64,7 +64,7 @@ function armFlush(client: QueryClient, state: BatchState, requestedDelay: number
 }
 
 /**
- * Coalesces duplicate Ably/Supabase hints into one cache traversal. The window
+ * Coalesces duplicate Ably hints into one cache traversal. The window
  * is shorter than a rendered frame sequence but long enough to collect the
  * outbox event and matching database row event.
  */

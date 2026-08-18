@@ -4,7 +4,6 @@ import { StyleSheet, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useDomainRealtime } from '../../hooks/useDomainRealtime';
-import { useAppRealtime } from '../../hooks/useAppRealtime';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -35,7 +34,6 @@ export default function AppLayout() {
   const { session } = useAuthStore();
   const { ready } = useAuthGate();
   useDomainRealtime(session?.user?.id);
-  useAppRealtime(session?.user?.id);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const pathname = usePathname();

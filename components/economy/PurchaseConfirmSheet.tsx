@@ -56,7 +56,7 @@ export function PurchaseConfirmSheet({
         },
         actions: { gap: Spacing.sm },
       }),
-    [colors],
+    [],
   );
 
   if (!item) return null;

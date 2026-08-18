@@ -145,9 +145,10 @@ Deno.serve(async (req) => {
     if (invalidToken) {
       // Match both owner and token. A concurrent account switch transfers the token,
       // so this stale response can never clear the new owner's registration.
-      await supabase.from('profiles').update({ notification_token: null })
-        .eq('id', targetUserId)
-        .eq('notification_token', token);
+      await supabase.rpc('invalidate_expo_push_token', {
+        p_user_id: targetUserId,
+        p_token: token,
+      });
     }
 
     return new Response(

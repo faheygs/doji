@@ -68,7 +68,7 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
       scale.setValue(0.5);
       opacity.setValue(0);
     }
-  }, [visible]);
+  }, [opacity, scale, visible]);
 
   return (
     <Modal visible={visible} transparent animationType="none">

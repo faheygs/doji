@@ -3,14 +3,16 @@ import { supabase } from '../../lib/supabase';
 
 jest.mock('../../lib/supabase');
 
-const mockFrom = supabase.from as jest.Mock;
+const mockRpc = supabase.rpc as jest.Mock;
 
-function setupReactionsMock(reactions: { post_id: string; emoji: string; user_id: string }[]) {
-  const chain = {
-    select: jest.fn().mockReturnThis(),
-    in: jest.fn().mockResolvedValue({ data: reactions, error: null }),
-  };
-  mockFrom.mockReturnValue(chain);
+function setupSummaryMock(
+  summaries: Array<{
+    post_id: string;
+    reaction_breakdown: Record<string, number>;
+    my_reactions: string[];
+  }>,
+) {
+  mockRpc.mockResolvedValue({ data: summaries, error: null });
 }
 
 describe('attachReactionFields', () => {
@@ -19,15 +21,13 @@ describe('attachReactionFields', () => {
   it('returns empty array for empty input', async () => {
     const result = await attachReactionFields([], 'user-1');
     expect(result).toEqual([]);
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('attaches reaction_breakdown and my_reactions to posts', async () => {
-    setupReactionsMock([
-      { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
-      { post_id: 'p1', emoji: 'fire', user_id: 'user-2' },
-      { post_id: 'p1', emoji: 'heart', user_id: 'user-1' },
-      { post_id: 'p2', emoji: 'wow', user_id: 'user-3' },
+    setupSummaryMock([
+      { post_id: 'p1', reaction_breakdown: { fire: 2, heart: 1 }, my_reactions: ['fire', 'heart'] },
+      { post_id: 'p2', reaction_breakdown: { wow: 1 }, my_reactions: [] },
     ]);
 
     const posts = [{ id: 'p1' }, { id: 'p2' }];
@@ -41,33 +41,24 @@ describe('attachReactionFields', () => {
   });
 
   it('returns empty my_reactions when userId is undefined', async () => {
-    setupReactionsMock([
-      { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
+    setupSummaryMock([
+      { post_id: 'p1', reaction_breakdown: { fire: 1 }, my_reactions: ['fire'] },
     ]);
 
     const result = await attachReactionFields([{ id: 'p1' }], undefined);
     expect(result[0].my_reactions).toEqual([]);
   });
 
-  it('scopes reaction_breakdown to friends on friends feed', async () => {
-    setupReactionsMock([
-      { post_id: 'p1', emoji: 'fire', user_id: 'user-1' },
-      { post_id: 'p1', emoji: 'fire', user_id: 'user-2' },
-      { post_id: 'p1', emoji: 'heart', user_id: 'user-3' },
-    ]);
-
-    const result = await attachReactionFields([{ id: 'p1' }], 'user-1', ['user-1', 'user-2']);
-
-    expect(result[0].reaction_breakdown).toEqual({ fire: 2 });
-    expect(result[0].my_reactions).toEqual(['fire']);
+  it('requests one bounded server aggregate for the visible posts', async () => {
+    setupSummaryMock([]);
+    await attachReactionFields([{ id: 'p1' }, { id: 'p2' }], 'user-1');
+    expect(mockRpc).toHaveBeenCalledWith('get_post_reaction_summaries', {
+      p_post_ids: ['p1', 'p2'],
+    });
   });
 
   it('throws when supabase returns an error', async () => {
-    const chain = {
-      select: jest.fn().mockReturnThis(),
-      in: jest.fn().mockResolvedValue({ data: null, error: new Error('DB error') }),
-    };
-    mockFrom.mockReturnValue(chain);
+    mockRpc.mockResolvedValue({ data: null, error: new Error('DB error') });
 
     await expect(attachReactionFields([{ id: 'p1' }], 'user-1')).rejects.toThrow('DB error');
   });

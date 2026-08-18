@@ -15,10 +15,9 @@ import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
 import {
   useSearchUsers,
   useSendFriendRequest,
-  useFriendshipStatus,
+  type SearchProfile,
 } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import type { Profile } from '../../../types/database';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
@@ -123,11 +122,11 @@ export default function AddFriendsScreen() {
   );
 }
 
-function UserResult({ user, returnPath }: { user: Profile; returnPath: string }) {
+function UserResult({ user, returnPath }: { user: SearchProfile; returnPath: string }) {
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: friendshipStatus = 'none' } = useFriendshipStatus(user.id);
   const sendRequest = useSendFriendRequest();
+  const friendshipStatus = user.friendship_status;
 
   const rowStyles = useMemo(
     () =>

@@ -1,6 +1,6 @@
 # Doji: authoritative product and system context
 
-Last verified: August 15, 2026
+Last verified: August 18, 2026
 
 This is the primary map of what Doji is, how the product flows, who owns each
 piece of state, and how the mobile client, Postgres, Cloudflare, Ably, Expo Push,
@@ -29,8 +29,9 @@ user directly to the feed; there is no success interstitial.
 - The live participation window is exactly 10 minutes.
 - Challenge pre-live, activation, and close are durable one-shot events, not recurring
   polling jobs or client schedules.
-- Exactly 20 minutes before activation, the server retires the previous feed and
-  publishes a challenge-free pre-live state. The app shows the coming-soon banner
+- Exactly 20 minutes before activation, the server advances to a challenge-free
+  pre-live state. The prior occurrence stays durable but leaves the active feed
+  because every feed read is keyed by the authoritative occurrence. The app shows the coming-soon banner
   from that authoritative state; it does not reveal the challenge early.
 - A completed write and its realtime/push events commit together.
 - A failed submission cannot create a completion notification.
@@ -73,7 +74,7 @@ flowchart LR
   C --> E[Authenticated session]
   D --> E
   E --> F{Profile exists?}
-  F -- No --> G[Choose username and optional photo, display name, bio]
+  F -- No --> G[Confirm age 13+, choose username and optional photo, display name, bio]
   F -- Yes --> H{New user onboarding complete?}
   G --> H
   H -- No --> I[How Doji works]
@@ -85,9 +86,10 @@ flowchart LR
 
 Product requirement: account creation presents two independent, initially
 unchecked consents—Terms of Use and Privacy Policy. Each label links to its own
-readable document. Username is the only required profile-setup field. Photo,
-display name, and bio share that same page and are optional; there is no separate
-profile screen or “skip for now” detour.
+readable document. Date of birth and username are required on the single profile-setup
+page; photo, display name, and bio are optional. The date is evaluated by the server
+clock, is never stored, and only a versioned 13-plus assurance result is retained.
+There is no separate profile screen or “skip for now” detour.
 
 Routing is enforced in `app/_layout.tsx`, `hooks/useAuthGate.ts`,
 `lib/authRoute.ts`, and `lib/onboardingGate.ts`. The root layout owns session
@@ -108,11 +110,11 @@ sequenceDiagram
   participant App as Mobile app
 
   Alarm->>DB: begin_daily_event_prelive(event_id)
-  DB->>DB: retire prior feed; stamp prelive_at; write doji.pre_live event
+  DB->>DB: stamp prelive_at; write doji.pre_live event
   Live-->>App: Doji coming soon
   Alarm->>DB: activate_daily_event(event_id) 20 minutes later
-  DB->>DB: stamp fires_at and closes_at; create eligible user_events
-  DB->>DB: write global and per-user domain_event_outbox rows
+  DB->>DB: stamp fires_at and closes_at; seed 128 push shards
+  DB->>DB: write one global identifier event
   DB-->>Alarm: committed activation
   DB->>Relay: wake outbox relay
   Relay->>Live: publish sockets and claim push delivery
@@ -135,8 +137,9 @@ client never compensates with a second direct insert.
 not a recurring dispatcher. `DojiEventAlarm` wakes exactly at pre-live, activation,
 and close.
 An idempotent re-registration also re-arms the matching Durable Object alarm because
-stored phase state can outlive a failed or consumed invocation. Feed retirement never
-recreates engagement counters for posts already removed by a cascade.
+stored phase state can outlive a failed or consumed invocation. Occurrences and their
+content are retained outside the active feed and removed only by explicit retention
+policy, never by the activation-critical transaction.
 Postgres owns `fires_at`, `closes_at`, `expires_at`, eligibility, and final status.
 
 Per-user status flow:
@@ -199,9 +202,9 @@ The feed has Friends and Everyone audiences.
 - Reactions, comments, replies, and poll-vote likes update the open card/thread and
   all related counters immediately.
 - Feed queries are scoped to the authoritative current `daily_event_id`, never the
-  device's local calendar. Activating a new Doji gives the feed a new cache identity
-  immediately and deletes the previous occurrence's posts, comments, and reactions.
-  Historical participation, XP, streak, badge, and analytics records remain intact.
+  device's local calendar. Pre-live immediately changes the active cache identity;
+  the prior occurrence's posts, comments, and reactions remain durable but are no
+  longer returned by active-feed reads. No launch transaction deletes social rows.
 
 The unlocked feed uses `get_feed_page_snapshot` so a page, safe profile presentation,
 scoped social counts, and the viewer's reaction arrive from one Postgres snapshot.
@@ -217,7 +220,7 @@ The key files are `hooks/useFeed.ts`, `lib/feedQueries.ts`, `lib/feedAudience.ts
 | Challenge eligibility and timing                                        | Postgres                                      | Authoritative RPC + server-clock offset        |
 | Draft text, selected option, open sheet, animation                      | Screen/component                              | Local React state                              |
 | Realtime events                                                         | Transactional outbox                          | ID-only invalidation hints; never trusted rows |
-| Background alerts                                                       | Expo Push                                     | Same committed outbox event as socket delivery |
+| Background alerts                                                       | Native APNs/FCM; Expo migration fallback      | Same committed outbox event as socket delivery |
 | Media                                                                   | Supabase Storage                              | User-scoped paths and storage policies         |
 
 Zustand is not a second database. TanStack Query caches server state but does not
@@ -227,6 +230,9 @@ Ably and Supabase may both signal one commit; `queryInvalidationBatcher` coalesc
 their affected query roots for 80 ms and performs one active-query reconciliation.
 Mutation completion joins that same batch, so an optimistic interaction plus its two
 socket hints cannot create three cache scans or cancel/restart an in-flight read.
+High-volume public events additionally map to the exact query families they change:
+a comment heart refreshes the open comment thread, not the feed, poll totals, voter
+pages, and reaction sheets. Unknown events do not trigger a catch-all refetch.
 
 The last authorized home/feed, occurrence, poll result, and notification reads are
 persisted locally for stale-while-revalidate startup. Cached content remains visible
@@ -237,6 +243,11 @@ already-running authoritative fetch.
 Public profile reads use the explicit allowlist in `lib/profileFields.ts`. Full
 profile/account fields are owner-only through `get_own_profile` and
 `update_own_profile`. Never restore `profiles(*)` to public or embedded queries.
+Post media uses server-reserved, user/occurrence-scoped object paths and resumable
+TUS uploads. Completion accepts only reserved objects from the same idempotent command.
+Uncommitted objects are removed after 24 hours. A deleted/moderated post durably queues
+its physical objects for removal; committed reservation metadata expires after the post
+is gone and 30 days have elapsed, without deleting media still referenced by a post.
 
 ## Core data relationships
 
@@ -294,7 +305,7 @@ Representative commands:
 
 | Domain              | Commands                                                                                                                   |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Profile/auth        | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_push_token`, `unregister_push_token`              |
+| Profile/auth        | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_native_push_endpoint`, `unregister_push_installation` |
 | Participation       | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today`                                    |
 | Conversation        | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like` |
 | Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report`  |
@@ -304,9 +315,9 @@ Representative commands:
 
 ## Realtime read path
 
-Ably is the ordered domain-event transport. Supabase Postgres Changes is an
-independent commit-signal safety net for active critical tables. Both paths only
-invalidate authorized queries.
+Ably is the only handset socket transport. Postgres is still authoritative: each
+committed command writes its domain event in the same transaction, and reconnect or
+foreground reconciliation refetches authorized state if any event was missed.
 
 1. The mutation commits application rows and outbox rows together.
 2. Cloudflare Queue claims critical activation and realtime-only rows ahead of
@@ -315,22 +326,36 @@ invalidate authorized queries.
    durably marks realtime publication before slower push delivery begins.
 4. `hooks/useDomainRealtime.ts` deduplicates event IDs and invalidates targeted
    TanStack Query keys.
-5. `hooks/useAppRealtime.ts` observes committed critical rows as a second signal.
-6. `components/QueryLifecycle.tsx` reconciles all server-owned surfaces whenever
+5. `components/QueryLifecycle.tsx` reconciles all server-owned surfaces whenever
    the app returns to the foreground.
-7. Ably connect/recovery and Supabase subscription establishment also run the
-   shared `lib/reconcileQueries.ts` catch-up.
+6. Ably connect/recovery runs the shared `lib/reconcileQueries.ts` catch-up.
+
+The mobile client does not subscribe to Supabase Postgres Changes. Running two socket
+transports for the same commit duplicated invalidation and reconnect work, while
+Postgres Changes performs per-subscriber authorization and does not provide a more
+authoritative row than the follow-up RLS query. Older builds may remain in the
+Supabase publication during migration, but current correctness never depends on it.
 
 Channels:
 
 - `doji:global`: pre-live, activation, and close.
-- `feed:public`: posts, votes, reactions, comments, replies, and likes.
+- `feed:public`: coalesced public/community post membership changes only.
+- `post:{postId}`: reactions, comments, comment likes, poll votes, and vote likes
+  for a mounted, unlocked card or open thread. List virtualization bounds active
+  subscriptions instead of sending every engagement event to every handset.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.
 - `user:{id}:events`: private occurrence, account, store ownership, friendship,
   block, badge, suggestion, and notification changes.
 - `moderation:global`: admin-only report queue.
+
+Accepted friend circles are capped at 500 accounts. That product bound is
+enforced atomically in Postgres. Posts, completions, community reactions, and
+community comments enqueue one durable fanout command; the relay expands the
+bounded circle after the interactive transaction commits. This keeps writes,
+reads, and notifications bounded even if total registrations grow far beyond
+100,000. Outgoing pending requests are capped at 100 per account.
 
 ## Live-data coverage
 
@@ -356,7 +381,7 @@ Channels:
 The in-app bell is durable activity history, not a mirror of whatever iOS happened
 to display. Per-category preferences control push delivery; they do not erase
 history. Foreground OS banners and notification-derived app toasts are suppressed;
-the live bell and actionable feed banner update instead. Background/killed clients use Expo Push. Tapping an alert is
+the live bell and actionable feed banner update instead. Background/killed clients use native push, with Expo retained during endpoint migration. Tapping an alert is
 resolved through `lib/notificationHref.ts` and canonical routes in `lib/routes.ts`.
 Clearing history optimistically filters the retained query snapshot immediately,
 then persists through the atomic clear RPC; a failed authoritative write rolls the
@@ -396,10 +421,15 @@ Related pushes share a platform thread/collapse identity. Changing or re-adding 
 same reaction/like does not create another alert. Foreground devices use the live bell
 and never show a redundant OS banner.
 
-Push delivery is claimed server-side using immutable event/recipient keys. Expo token
-ownership is unique per installation and atomically transferred on account change.
+Push delivery is claimed server-side using immutable event/recipient/installation keys. Native
+APNs/FCM endpoints are private per-installation records and atomically transferred on
+account change. The five most recent active installations are independently delivered
+and independently idempotent; no account silently receives alerts on only its newest
+phone. Direct APNs and FCM are the scale paths and the unique Expo token is a
+temporary migration fallback. Production requires APNs key/team/bundle secrets and
+FCM project/client-email/private-key secrets before the readiness load gate.
 The first claim is terminal before provider handoff; conflicts never reopen it, and
-an ambiguous Expo timeout is not resent. Provider tickets and outcomes are telemetry
+an ambiguous provider timeout is not resent. Provider tickets and outcomes are telemetry
 only and cannot authorize delivery. This intentionally favors a rare missed OS alert
 over any possibility of a notification storm because Postgres, Ably, and foreground
 reconciliation remain authoritative.
@@ -408,6 +438,18 @@ than two minutes and other pushes older than five minutes. Provider TTL begins o
 after this freshness check; a retry can never give a day-old action a new lifetime.
 App correctness never depends on OS push delivery; foreground/reconnect reconciliation
 must still reveal the committed state.
+Nested outbox inserts issue one post-commit relay wake per database transaction.
+`INSERT ... ON CONFLICT DO UPDATE` statements that create no new outbox row do not
+wake the relay again. A singleton Durable Object coalesces simultaneous wakes for
+250 ms, then seeds 16 one-message Cloudflare Queue drain lanes. Full 100-row claims
+double their continuation lanes to a hard 128-lane ceiling; small workloads stay at
+the initial footprint. Every lane claims disjoint leases until committed work drains.
+Friend-scoped realtime invalidations are batch-published to at most 100 Ably channels
+per HTTP call; only grouped OS-alert work becomes a per-recipient durable child row.
+Per-source/per-recipient once keys ensure an expansion retry cannot inflate grouped
+friend-completion or reaction counts.
+Profile presentation/stats and badge-progress changes also use identifier-only friend
+batch fanout, so shop/profile/gamification writes do not synchronously expand friends.
 
 ## Economy, profiles, and gamification
 
@@ -487,6 +529,9 @@ confirmed destructive actions.
 - Mutations should feel immediate through safe optimistic UI, then reconcile to the
   server. Avoid technical “offline,” “server confirmation,” or retry explanations
   unless user action is truly required.
+- Comment hearts update their icon and count optimistically, reject overlapping taps
+  for the same comment, roll back on failure, and accept the RPC's authoritative count.
+  Counter maintenance emits no duplicate comment-update socket event.
 
 ## Screen map
 
@@ -539,6 +584,14 @@ notifications, member profiles, post detail, and admin are pushed routes, not ta
 10. Use `utils/time.ts`/the server-clock helpers for database timestamps.
 11. Update this map when a product contract, data flow, route, command, or channel changes.
 
+Database bootstrap and grants are release contracts, not dashboard assumptions. A
+fresh project must apply every migration without a pre-created reviewer account; the
+optional Apple reviewer profile is added only when its Auth identity exists. Default
+function execution is closed, anonymous users cannot execute `security definer`
+functions, and each mobile RPC is explicitly granted to `authenticated`. RLS policies
+cache `auth.uid()`, `auth.role()`, and `auth.jwt()` once per statement so authorization
+does not add a per-row function call to bounded reads.
+
 ## Performance contract
 
 - Cold start may render an account-scoped cached profile and first feed page while the
@@ -546,15 +599,24 @@ notifications, member profiles, post detail, and admin are pushed routes, not ta
   blank transition or onboarding flash is allowed.
 - Realtime reads are single-flight and non-cancelling. A burst is batched and receives
   at most one trailing catch-up; raw global Postgres Changes subscriptions are forbidden.
-- Feed, poll totals, poll voters, comments, leaderboard, bell history, and friend lists
-  are bounded snapshots or paged reads. New collections must not return unbounded history.
+- Feed, poll totals, poll voters, comments, leaderboard, bell history, friends, friend
+  requests, blocked users, reaction voters, and comment likes are bounded snapshots or
+  keyset-paged reads. Count-only surfaces use count RPCs. New collections must not return
+  unbounded history.
+- `get_post_detail` owns post-detail authorization and the nested safe-profile contract;
+  clients do not hydrate wildcard relations or emulate block rules locally.
 - Search input is debounced and backed by an indexed contains-search path. Background
   prefetch and cache serialization wait until interactions finish.
 - Cached content remains visible during refresh. Pull-to-refresh has a bounded visible
   indicator while reconciliation may safely finish behind the UI.
-- A 100k activation must remain bounded: eligibility is prepared at pre-live, activation
-  emits one resumable broadcast command, and push delivery uses keyset pages plus Expo
-  batches. Never restore per-account activation outbox rows.
+- A 100k activation must remain bounded: neither pre-live nor activation scans accounts.
+  Activation creates 128 fixed push-shard rows and one global identifier event.
+  User occurrences materialize lazily inside the authoritative current-state command.
+  Cloudflare Queue drains shards concurrently in 500-account keyset pages, claims each
+  bounded active installation independently, and uses bounded direct-native provider
+  concurrency. Expo is migration fallback only because
+  its 600/s project cap cannot meet the 100k freshness target. Never restore per-account
+  activation outbox rows.
 - Shared poll, community engagement, and occurrence participation totals use 128 write
   shards. Global invalidations are coalesced, and high-volume public channels are only
   subscribed while their owning screen is focused.
@@ -579,5 +641,5 @@ reinstall-persistent dismissals must all be verified on the release build.
 
 Required production monitoring is listed in the realtime architecture. At minimum:
 alert on outbox rows more than 60 seconds past `available_at`, queue dead letters,
-Ably/relay errors, push
+fanout shards still pending 60 seconds after activation, Ably/relay errors, push
 receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.

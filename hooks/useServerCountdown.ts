@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { serverNowMs } from '../lib/serverClock';
 import { parseDate } from '../utils/time';
 
@@ -14,10 +14,10 @@ export function useServerCountdown(
 ): number {
   const onExpireRef = useRef(onExpire);
   const expiryNotifiedRef = useRef(false);
-  const calculate = () => {
+  const calculate = useCallback(() => {
     if (!enabled || !expiresAt) return 0;
     return Math.max(0, Math.ceil((parseDate(expiresAt).getTime() - serverNowMs()) / 1000));
-  };
+  }, [enabled, expiresAt]);
   const [remaining, setRemaining] = useState(calculate);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function useServerCountdown(
     if (!enabled || !expiresAt) return;
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [enabled, expiresAt]);
+  }, [calculate, enabled, expiresAt]);
 
   return remaining;
 }

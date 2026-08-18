@@ -19,7 +19,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "51"
+      "buildNumber": "53"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,19 +28,6 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
-      ],
       "versionCode": 2
     },
     "web": {
@@ -53,14 +40,6 @@
         {
           "cameraPermission": "Doji needs camera access to capture your challenge proof.",
           "microphonePermission": "Doji needs microphone access for video challenges."
-        }
-      ],
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Doji needs photo library access to save your challenge posts.",
-          "savePhotosPermission": "Doji needs permission to save photos.",
-          "isAccessMediaLocationEnabled": true
         }
       ],
       [

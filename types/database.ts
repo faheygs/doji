@@ -32,6 +32,20 @@ export type NotificationDismissal = {
   dismissed_at: string;
 };
 
+export type DevicePushEndpoint = {
+  id: string;
+  user_id: string;
+  installation_id: string;
+  provider: 'apns' | 'fcm';
+  platform: 'ios' | 'android';
+  environment: 'sandbox' | 'production';
+  token: string;
+  active: boolean;
+  created_at: string;
+  last_registered_at: string;
+  invalidated_at: string | null;
+};
+
 export type Profile = {
   id: string;
   username: string;
@@ -262,6 +276,7 @@ export type Reaction = {
   emoji: ReactionEmoji;
   created_at: string;
   profile?: Profile;
+  friendship_status?: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
 };
 
 export type Comment = {
@@ -416,6 +431,12 @@ export type Database = {
         Row: NotificationDismissal;
         Insert: NotificationDismissal;
         Update: Pick<NotificationDismissal, 'dismissed_at'>;
+        Relationships: [];
+      };
+      device_push_endpoints: {
+        Row: DevicePushEndpoint;
+        Insert: Omit<DevicePushEndpoint, 'id' | 'created_at' | 'last_registered_at'>;
+        Update: Partial<Omit<DevicePushEndpoint, 'id' | 'user_id'>>;
         Relationships: [];
       };
       challenges: {
@@ -617,6 +638,20 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      register_native_push_endpoint: {
+        Args: {
+          p_installation_id: string;
+          p_token: string;
+          p_platform: 'ios' | 'android';
+          p_environment: 'sandbox' | 'production';
+          p_expo_token?: string | null;
+        };
+        Returns: boolean;
+      };
+      unregister_push_installation: {
+        Args: { p_installation_id: string; p_expo_token?: string | null };
+        Returns: boolean;
+      };
       friend_count: {
         Args: { p_user_id: string };
         Returns: number;
@@ -730,8 +765,36 @@ export type Database = {
         Args: {
           p_post_id: string;
           p_audience?: 'friends' | 'everyone';
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+          p_limit?: number;
         };
         Returns: Comment[];
+      };
+      search_profiles: {
+        Args: { p_query?: string; p_limit?: number };
+        Returns: Array<Profile & {
+          friendship_status: 'none' | 'friends' | 'pending_out' | 'pending_in' | 'blocked';
+        }>;
+      };
+      search_mentionable_profiles: {
+        Args: { p_query?: string; p_limit?: number };
+        Returns: Profile[];
+      };
+      reserve_doji_media_upload: {
+        Args: {
+          p_user_event_id: string;
+          p_idempotency_key: string;
+          p_slot: 'photo' | 'front' | 'video';
+          p_extension: string;
+          p_content_type: string;
+        };
+        Returns: {
+          id: string;
+          bucket_id: 'post-media';
+          object_path: string;
+          content_type: string;
+        };
       };
       get_leaderboard_snapshot: {
         Args: {
@@ -745,7 +808,7 @@ export type Database = {
         Args: {
           p_profile_user_id: string;
           p_limit?: number;
-          p_offset?: number;
+          p_after_friend_id?: string | null;
         };
         Returns: Array<{
           friend_id: string;
@@ -755,6 +818,72 @@ export type Database = {
           avatar_gradient: string[];
           equipped_border_key: string | null;
         }>;
+      };
+      list_my_friends_page: {
+        Args: {
+          p_before_accepted_at?: string | null;
+          p_before_id?: string | null;
+          p_limit?: number;
+        };
+        Returns: Array<{
+          friendship_id: string;
+          friend_id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          avatar_gradient: string[];
+          current_streak: number;
+          equipped_border_key: string | null;
+          accepted_at: string;
+        }>;
+      };
+      list_blocked_users_page: {
+        Args: {
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+          p_limit?: number;
+        };
+        Returns: Array<{
+          block_id: string;
+          blocked_at: string;
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+          equipped_border_key: string | null;
+        }>;
+      };
+      blocked_user_count: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      list_friend_requests_page: {
+        Args: {
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+          p_limit?: number;
+        };
+        Returns: Array<{
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: string;
+          created_at: string;
+          accepted_at: string | null;
+          requester_username: string;
+          requester_display_name: string;
+          requester_avatar_url: string | null;
+          requester_avatar_gradient: string[];
+          requester_equipped_border_key: string | null;
+        }>;
+      };
+      friend_request_count: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      get_post_detail: {
+        Args: { p_post_id: string };
+        Returns: Post | null;
       };
       get_notification_center_snapshot: {
         Args: {
@@ -828,7 +957,8 @@ export type Database = {
           p_option_id: string;
           p_audience?: 'friends' | 'everyone';
           p_limit?: number;
-          p_offset?: number;
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
         };
         Returns: Array<{
           vote_id: string;
@@ -841,6 +971,40 @@ export type Database = {
           equipped_border_key: string | null;
           like_count: number;
           my_like: boolean;
+          friendship_status: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
+        }>;
+      };
+      get_post_reaction_voters_page: {
+        Args: {
+          p_post_id: string;
+          p_audience?: 'friends' | 'everyone';
+          p_limit?: number;
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+        };
+        Returns: Reaction[];
+      };
+      get_comment_like_voters_page: {
+        Args: {
+          p_comment_id: string;
+          p_limit?: number;
+          p_before_created_at?: string | null;
+          p_before_id?: string | null;
+        };
+        Returns: Array<{
+          id: string;
+          user_id: string;
+          created_at: string;
+          friendship_status: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
+          profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'>;
+        }>;
+      };
+      get_post_reaction_summaries: {
+        Args: { p_post_ids: string[] };
+        Returns: Array<{
+          post_id: string;
+          reaction_breakdown: Record<string, number>;
+          my_reactions: ReactionEmoji[];
         }>;
       };
       submit_poll_vote: {
@@ -969,6 +1133,9 @@ export type Database = {
           p_avatar_gradient: string[];
           p_timezone: string;
           p_app_theme: string;
+          p_birth_date: string;
+          p_bio?: string | null;
+          p_avatar_url?: string | null;
         };
         Returns: Profile;
       };

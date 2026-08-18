@@ -91,32 +91,30 @@ export function useFeed(
   });
 }
 
-export function usePostReactions(postId: string, scopeUserIds?: string[]) {
+export function usePostReactions(postId: string, audience: FeedAudience = 'everyone') {
   const session = useAuthStore((s) => s.session);
-  const scopeKey = scopeUserIds?.slice().sort().join(',') ?? 'all';
 
   return useInfiniteQuery({
-    queryKey: ['reactions', postId, scopeKey],
-    queryFn: async ({ pageParam = 0 }): Promise<Reaction[]> => {
-      let query = supabase
-        .from('reactions')
-        .select('*, profile:profiles(username, avatar_url, equipped_border_key)')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: false })
-        .range(pageParam * 50, (pageParam + 1) * 50 - 1);
-
-      if (scopeUserIds && scopeUserIds.length > 0) {
-        query = query.in('user_id', scopeUserIds);
-      }
-
-      const { data, error } = await query;
+    queryKey: ['reactions', postId, audience],
+    queryFn: async ({ pageParam }): Promise<Reaction[]> => {
+      const { data, error } = await supabase.rpc('get_post_reaction_voters_page', {
+        p_post_id: postId,
+        p_audience: audience,
+        p_limit: 50,
+        p_before_created_at: pageParam?.createdAt ?? null,
+        p_before_id: pageParam?.id ?? null,
+      });
 
       if (error) throw error;
-      return data as Reaction[];
+      return (data ?? []) as Reaction[];
     },
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === 50 ? allPages.length : undefined,
-    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const tail = lastPage.at(-1);
+      return lastPage.length === 50 && tail
+        ? { createdAt: tail.created_at, id: tail.id }
+        : undefined;
+    },
+    initialPageParam: null as { createdAt: string; id: string } | null,
     enabled: !!session?.user?.id && !!postId,
   });
 }
@@ -194,11 +192,9 @@ export function useToggleReaction() {
       if (error) throw error;
       return data;
     },
-    onMutate: async (vars) => {
+    onMutate: (vars) => {
       const uid = session?.user?.id;
       if (!uid) return;
-
-      await queryClient.cancelQueries({ predicate: (q) => q.queryKey[0] === 'feed' });
 
       const previousFeedQueries = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (q) => q.queryKey[0] === 'feed',
@@ -230,7 +226,7 @@ export function useToggleReaction() {
     },
     onSettled: (_data, _error, vars) => {
       if (vars?.postId) {
-        scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions', 'feed', 'post']);
+        scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions', 'post']);
       }
     },
   });

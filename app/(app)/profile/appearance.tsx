@@ -107,8 +107,11 @@ export default function AppearanceScreen() {
   const handleAccent = useCallback(
     (key: AccentThemeKey) => {
       Haptics.selectionAsync();
-      void setAccentTheme(key);
-      if (key !== DEFAULT_ACCENT_THEME && isShopItemOwned(owned, key)) {
+      if (key === DEFAULT_ACCENT_THEME) {
+        void setAccentTheme(key);
+      } else if (isShopItemOwned(owned, key)) {
+        // The equip RPC owns cosmetic authorization and the optimistic profile
+        // patch; do not issue a second profile command for the same choice.
         void equip.mutateAsync(key).catch(() => {});
       }
     },

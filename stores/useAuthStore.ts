@@ -16,10 +16,11 @@ import { createRequestSignal } from '../lib/requestSignal';
 // aborting/restarting it (which previously kept the auth gate busy).
 let activeProfileFetch: { userId: string; requestId: symbol; promise: Promise<void> } | null = null;
 const PROFILE_CACHE_PREFIX = '@doji/profile-cache:';
+const QUERY_CACHE_STORAGE_KEY = 'doji-query-cache-v2';
 const profileCacheKey = (userId: string) => `${PROFILE_CACHE_PREFIX}${userId}`;
 
 function persistProfile(profile: Profile) {
-  void AsyncStorage.setItem(profileCacheKey(profile.id), JSON.stringify(profile));
+  void AsyncStorage.setItem(profileCacheKey(profile.id), JSON.stringify(profile)).catch(() => {});
 }
 
 type AuthState = {
@@ -45,10 +46,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const prevId = get().session?.user?.id;
     const nextId = session?.user?.id;
     if (!session) {
+      queryClient.clear();
+      void AsyncStorage.removeItem(QUERY_CACHE_STORAGE_KEY);
+      if (prevId) void AsyncStorage.removeItem(profileCacheKey(prevId));
       set({ session: null, profile: null, isProfileLoading: false });
       return;
     }
     if (nextId !== prevId) {
+      queryClient.clear();
+      void AsyncStorage.removeItem(QUERY_CACHE_STORAGE_KEY);
+      if (prevId) void AsyncStorage.removeItem(profileCacheKey(prevId));
       set({ session, profile: null, isProfileLoading: true });
       return;
     }
@@ -63,7 +70,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     const signedOutUserId = get().session?.user?.id;
     try {
-      await supabase.rpc('unregister_push_token');
+      const { unregisterCurrentPushInstallation } = await import('../lib/pushNotifications');
+      await unregisterCurrentPushInstallation();
     } catch {
       // Signing out must still succeed if token cleanup is temporarily offline.
       // A later registration atomically transfers ownership away from this user.
@@ -84,7 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           const raw = await AsyncStorage.getItem(profileCacheKey(userId));
           const cached = raw ? JSON.parse(raw) as Profile : null;
-          if (cached?.id === userId) {
+          if (cached?.id === userId && get().session?.user?.id === userId) {
             set({
               profile: {
                 ...cached,
@@ -101,6 +109,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           void AsyncStorage.removeItem(profileCacheKey(userId));
         }
       }
+      if (get().session?.user?.id !== userId) {
+        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
+        return;
+      }
       if (get().profile?.id !== userId) set({ isProfileLoading: true });
       const request = createRequestSignal(undefined, 6_000);
       try {
@@ -110,10 +122,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (error) {
           if (__DEV__) console.warn('[fetchProfile]', error.message);
-          set({ isProfileLoading: false, isLoading: false });
+          if (get().session?.user?.id === userId) {
+            set({ isProfileLoading: false, isLoading: false });
+          }
           return;
         }
 
+      if (get().session?.user?.id !== userId) {
+        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
+        return;
+      }
         if (!data) {
           set({ profile: null });
           return;
@@ -147,12 +165,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         }
 
-        set({ profile });
-        persistProfile(profile);
+        if (get().session?.user?.id === userId) {
+          set({ profile });
+          persistProfile(profile);
+        }
       } finally {
         request.cleanup();
         if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
-        set({ isProfileLoading: false, isLoading: false });
+        if (get().session?.user?.id === userId) {
+          set({ isProfileLoading: false, isLoading: false });
+        }
       }
     });
 
@@ -178,12 +200,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (error) throw error;
     if (!data) throw new Error('Profile update returned no row');
+    if (get().session?.user?.id !== session.user.id) return;
 
     const profile: Profile = {
-        ...data,
-        app_theme: normalizeAppTheme((data as Profile).app_theme),
-        notification_preferences: mergeNotificationPreferences(data.notification_preferences),
-      };
+      ...data,
+      app_theme: normalizeAppTheme((data as Profile).app_theme),
+      notification_preferences: mergeNotificationPreferences(data.notification_preferences),
+    };
     set({ profile });
     persistProfile(profile);
   },

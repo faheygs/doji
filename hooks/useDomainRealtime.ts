@@ -10,6 +10,7 @@ import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
 import { useAuthStore } from '../stores/useAuthStore';
 import { reconcileAppQueries } from '../lib/reconcileQueries';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { realtimeQueryRoots } from '../lib/realtimeQueryRoots';
 /** Ably transport plus authoritative Postgres reconciliation on every connection. */
 export function useDomainRealtime(userId: string | undefined) {
   const queryClient = useQueryClient();
@@ -47,12 +48,12 @@ export function useDomainRealtime(userId: string | undefined) {
       }
 
       if (event.type.startsWith('poll.vote.')) {
-        invalidateRoots('pollVotesCount', 'pollResults', 'pollVotersDetail', 'feed');
+        invalidateRoots(...realtimeQueryRoots(event.type));
         return;
       }
 
       if (event.type.startsWith('poll.vote_like.')) {
-        invalidateRoots('pollVoteLikes');
+        invalidateRoots(...realtimeQueryRoots(event.type));
         return;
       }
 
@@ -80,7 +81,6 @@ export function useDomainRealtime(userId: string | undefined) {
           'friendship',
           'friendCount',
           'profileFriends',
-          'friendshipsBulk',
           'feed',
           'notificationCenter',
         );
@@ -112,7 +112,6 @@ export function useDomainRealtime(userId: string | undefined) {
         }
         invalidateRoots(
           'profile',
-          'profilePosts',
           'searchUsers',
           'friends',
           'friendRequests',
@@ -157,16 +156,8 @@ export function useDomainRealtime(userId: string | undefined) {
         return;
       }
 
-      if (event.type.startsWith('feed.post.')) {
-        invalidateRoots('feed', 'profilePosts', 'post', 'notificationCenter');
-      } else if (event.type.startsWith('feed.reaction.')) {
-        invalidateRoots('feed', 'reactions', 'post', 'notificationCenter');
-      } else if (
-        event.type.startsWith('feed.comment.') ||
-        event.type.startsWith('feed.comment_like.')
-      ) {
-        invalidateRoots('feed', 'comments', 'post', 'notificationCenter');
-      }
+      const feedRoots = realtimeQueryRoots(event.type);
+      if (feedRoots.length > 0) invalidateRoots(...feedRoots);
     };
 
     const channelNames = ['doji:global', `user:${userId}:events`];

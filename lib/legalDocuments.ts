@@ -3,7 +3,7 @@ export type LegalSection = {
   body: string;
 };
 
-export const LEGAL_EFFECTIVE_DATE = 'August 11, 2026';
+export const LEGAL_EFFECTIVE_DATE = 'August 18, 2026';
 export const SUPPORT_EMAIL = 'support@dojipro.com';
 
 export const TERMS_SECTIONS: LegalSection[] = [
@@ -13,7 +13,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   },
   {
     title: '2. Eligibility and Accounts',
-    body: 'You must be at least 13 years old and legally able to agree to these terms. You are responsible for your account, the accuracy of the information you provide, and activity performed through your account.',
+    body: 'You must be at least 13 years old and legally able to agree to these terms. During account setup, Doji uses the birth date you enter only to confirm age eligibility and keeps an age-assurance result rather than your full birth date. You are responsible for your account, the accuracy of the information you provide, and activity performed through your account.',
   },
   {
     title: '3. Daily Challenges',
@@ -25,7 +25,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   },
   {
     title: '5. Reporting, Blocking, and Moderation',
-    body: 'You can report objectionable content and block abusive users from the relevant post, comment, or profile controls. Blocking immediately removes that account and its content from your experience and sends the associated safety report to Doji. We review reports and act on objectionable content within 24 hours, including removing content and suspending or permanently ejecting users when appropriate.',
+    body: 'You can report objectionable content and block abusive users from the relevant post, comment, or profile controls. Reporting sends the relevant content and reason to Doji for moderation. Blocking immediately removes that account and its content from your experience. We review reports and act on objectionable content within 24 hours, including removing content and suspending or permanently ejecting users when appropriate.',
   },
   {
     title: '6. Prohibited Conduct',
@@ -56,7 +56,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '1. Information We Collect',
-    body: 'We collect account information such as your email address, username, optional display name, profile photo, and bio; content and interactions you choose to share; friendships, challenge participation, rewards, badges, and shop activity; device push tokens; and limited device, network, security, and diagnostic information needed to operate Doji.',
+    body: 'We collect account information such as your email address, username, optional display name, profile photo, and bio; an age-assurance result confirming whether you meet the 13+ requirement (we do not retain the birth date entered for this check); content and interactions you choose to share; friendships, challenge participation, rewards, badges, and shop activity; device push tokens; and limited device, network, security, and diagnostic information needed to operate Doji.',
   },
   {
     title: '2. How We Use Information',
@@ -76,7 +76,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '6. Safety and Moderation',
-    body: 'Reports and blocks may include the relevant account, content, reason, and timestamps so we can investigate abuse, enforce our rules, and protect users. We may preserve limited safety records when reasonably necessary to prevent repeated abuse or comply with law.',
+    body: 'Reports may include the relevant account, content, reason, and timestamps so we can investigate abuse, enforce our rules, and protect users. Blocks record the accounts involved so Doji can enforce the user\'s privacy choice. We may preserve limited safety records when reasonably necessary to prevent repeated abuse or comply with law.',
   },
   {
     title: '7. Retention and Account Deletion',

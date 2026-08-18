@@ -14,24 +14,26 @@ Deno.serve(async (request) => {
   const { data: { user }, error } = await database.auth.getUser();
   if (error || !user) return new Response('Unauthorized', { status: 401 });
 
-  const { data: profile } = await database
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .maybeSingle();
+  const { data: isAdmin, error: capabilityError } = await database
+    .rpc('is_current_user_admin');
+  if (capabilityError) {
+    console.error('[realtime-token] capability lookup failed', capabilityError.message);
+    return new Response('Unable to authorize realtime access', { status: 500 });
+  }
 
   const ablyKey = Deno.env.get('ABLY_API_KEY');
   if (!ablyKey) return new Response('Realtime service is not configured', { status: 500 });
 
   const ably = new Rest({ key: ablyKey });
   const capability: Record<string, string[]> = {
-    'doji:global': ['subscribe', 'history'],
-    'feed:public': ['subscribe', 'history'],
-    'leaderboard:global': ['subscribe', 'history'],
-    [`user:${user.id}:events`]: ['subscribe', 'history'],
+    'doji:global': ['subscribe'],
+    'feed:public': ['subscribe'],
+    'post:*': ['subscribe'],
+    'leaderboard:global': ['subscribe'],
+    [`user:${user.id}:events`]: ['subscribe'],
   };
-  if (profile?.is_admin === true) {
-    capability['moderation:global'] = ['subscribe', 'history'];
+  if (isAdmin === true) {
+    capability['moderation:global'] = ['subscribe'];
   }
 
   const tokenRequest = await ably.auth.createTokenRequest({

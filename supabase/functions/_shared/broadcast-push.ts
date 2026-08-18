@@ -134,10 +134,9 @@ export async function processBroadcastPush(
       }),
     );
     if (invalidTokens.length > 0) {
-      const { error: clearError } = await database
-        .from('profiles')
-        .update({ notification_token: null })
-        .in('notification_token', [...new Set(invalidTokens)]);
+      const { error: clearError } = await database.rpc('invalidate_expo_push_tokens', {
+        p_tokens: [...new Set(invalidTokens)],
+      });
       if (clearError) throw new Error(clearError.message);
     }
     await wait(EXPO_BATCH_DELAY_MS);

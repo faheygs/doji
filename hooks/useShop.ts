@@ -10,9 +10,10 @@ export function useShopCatalog() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shop_items')
-        .select('*')
+        .select('key, kind, name, price, sort_order, metadata, is_active, created_at')
         .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .order('sort_order', { ascending: true })
+        .limit(100);
       if (error) throw error;
       return (data ?? []) as ShopItem[];
     },
@@ -27,8 +28,9 @@ export function useOwnedShopItems(userId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_shop_items')
-        .select('*')
-        .eq('user_id', userId!);
+        .select('user_id, item_key, purchased_at')
+        .eq('user_id', userId!)
+        .limit(100);
       if (error) throw error;
       return (data ?? []) as UserShopItem[];
     },

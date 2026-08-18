@@ -1,5 +1,5 @@
-export const TERMS_VERSION = '2026-08-11';
-export const PRIVACY_VERSION = '2026-08-11';
+export const TERMS_VERSION = '2026-08-18';
+export const PRIVACY_VERSION = '2026-08-18';
 
 export function legalAcceptanceMetadata(acceptedAt: string) {
   return {

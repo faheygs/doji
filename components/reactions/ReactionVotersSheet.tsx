@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -22,10 +22,8 @@ import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { usePostReactions } from '../../hooks/useFeed';
-import { getFriendIdsIncludingSelf } from '../../lib/friendGraph';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSendFriendRequest } from '../../hooks/useProfile';
-import { supabase } from '../../lib/supabase';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import type { FeedAudience } from '../../lib/feedAudience';
 import type { Reaction, ReactionEmoji } from '../../types/database';
@@ -60,41 +58,14 @@ export function ReactionVotersSheet({
   const pathname = usePathname();
   const pendingNavigationRef = useRef<null | (() => void)>(null);
   const userId = useAuthStore((s) => s.session?.user?.id);
-  const isFriendsScope = feedAudience === 'friends';
   useDismissOnRouteBlur(visible, onClose);
-
-  const { data: friendIds = [], isFetched: friendIdsReady } = useQuery({
-    queryKey: ['friendIds', userId],
-    queryFn: () => getFriendIdsIncludingSelf(userId!),
-    enabled: visible && !!userId,
-    staleTime: 30_000,
-  });
-
-  // Pending outgoing requests so we can show "Pending" instead of "Add"
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pendingRequests', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      const { data } = await supabase
-        .from('friendships')
-        .select('addressee_id')
-        .eq('requester_id', userId)
-        .eq('status', 'pending');
-      return (data ?? []).map((r) => r.addressee_id as string);
-    },
-    enabled: visible && !!userId,
-    staleTime: 30_000,
-  });
 
   const sendRequest = useSendFriendRequest();
   const queryClient = useQueryClient();
 
-  const scopeUserIds = isFriendsScope ? friendIds : undefined;
-  const scopeReady = !isFriendsScope || friendIdsReady;
-
   const { data, isPending, isFetchingNextPage, fetchNextPage, hasNextPage } = usePostReactions(
-    visible && scopeReady ? postId : '',
-    scopeUserIds,
+    visible ? postId : '',
+    feedAudience,
   );
 
   const allReactions = useMemo(
@@ -209,8 +180,8 @@ export function ReactionVotersSheet({
       const username = item.profile?.username ?? 'unknown';
       const tints = reactionEmojiIconColors(colors);
       const isMe = item.user_id === userId;
-      const isFriend = friendIds.includes(item.user_id);
-      const isPending = pendingRequests.includes(item.user_id);
+      const isFriend = item.friendship_status === 'friends';
+      const isPending = item.friendship_status === 'pending_out';
       const canAdd = !isMe && !isFriend;
 
       return (
@@ -249,7 +220,7 @@ export function ReactionVotersSheet({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 sendRequest.mutate({ addresseeId: item.user_id }, {
                   onSuccess: () => {
-                    scheduleQueryInvalidation(queryClient, ['pendingRequests', 'friendIds']);
+                    scheduleQueryInvalidation(queryClient, ['reactions', 'friendship']);
                   },
                 });
               }}
@@ -269,7 +240,7 @@ export function ReactionVotersSheet({
         </TouchableOpacity>
       );
     },
-    [colors, friendIds, openProfile, pendingRequests, queryClient, sendRequest, styles.addBtn, styles.emojiBadge, styles.row, styles.rowBody, userId],
+    [colors, openProfile, queryClient, sendRequest, styles.addBtn, styles.emojiBadge, styles.row, styles.rowBody, userId],
   );
 
   return (
@@ -302,7 +273,7 @@ export function ReactionVotersSheet({
             {reactions.length === 0 ? (
               <View style={styles.centered}>
                 <Text variant="body" color={colors.textSecondary}>
-                  {isFriendsScope ? 'No reactions from friends yet.' : 'No reactions yet.'}
+                  {feedAudience === 'friends' ? 'No reactions from friends yet.' : 'No reactions yet.'}
                 </Text>
               </View>
             ) : (

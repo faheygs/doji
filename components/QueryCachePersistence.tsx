@@ -6,6 +6,7 @@ import { queryClient } from '../lib/queryClient';
 
 export const QUERY_CACHE_STORAGE_KEY = 'doji-query-cache-v2';
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const HYDRATION_TIMEOUT_MS = 1_200;
 const PERSISTED_ROOTS = new Set([
   'leaderboard',
   'shopCatalog',
@@ -13,7 +14,6 @@ const PERSISTED_ROOTS = new Set([
   'userEvent',
   'feed',
   'pollResults',
-  'friendIds',
   'notificationCenter',
 ]);
 
@@ -65,10 +65,19 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let hydrationTimer: ReturnType<typeof setTimeout> | undefined;
     let persistenceTask: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
     let unsubscribe = () => {};
 
-    void AsyncStorage.getItem(QUERY_CACHE_STORAGE_KEY)
+    const cacheRead = AsyncStorage.getItem(QUERY_CACHE_STORAGE_KEY);
+    const boundedCacheRead = Promise.race([
+      cacheRead,
+      new Promise<null>((resolve) => {
+        hydrationTimer = setTimeout(() => resolve(null), HYDRATION_TIMEOUT_MS);
+      }),
+    ]);
+
+    void boundedCacheRead
       .then((raw) => {
         if (!active || !raw) return;
         const snapshot = JSON.parse(raw) as Snapshot;
@@ -76,6 +85,7 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
       })
       .catch(() => AsyncStorage.removeItem(QUERY_CACHE_STORAGE_KEY))
       .finally(() => {
+        if (hydrationTimer) clearTimeout(hydrationTimer);
         if (!active) return;
         setReady(true);
         unsubscribe = queryClient.getQueryCache().subscribe(() => {
@@ -85,7 +95,10 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
             persistenceTask = InteractionManager.runAfterInteractions(() => {
               if (!active) return;
               const snapshot = boundedSnapshot();
-              void AsyncStorage.setItem(QUERY_CACHE_STORAGE_KEY, JSON.stringify(snapshot));
+              void AsyncStorage.setItem(
+                QUERY_CACHE_STORAGE_KEY,
+                JSON.stringify(snapshot),
+              ).catch(() => {});
             });
           }, 2_000);
         });
@@ -93,6 +106,7 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
 
     return () => {
       active = false;
+      if (hydrationTimer) clearTimeout(hydrationTimer);
       if (timer) clearTimeout(timer);
       persistenceTask?.cancel();
       unsubscribe();

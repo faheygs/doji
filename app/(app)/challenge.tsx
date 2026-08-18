@@ -75,7 +75,7 @@ export default function ChallengeScreen() {
     if (!isCompleted && !isMissed && !isExpiredPending && !notYetLive) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-  }, [isLoading, isCompleted, isMissed, isExpiredPending, notYetLive]);
+  }, [heroScale, isLoading, isCompleted, isMissed, isExpiredPending, notYetLive]);
 
   const handleStartChallenge = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

@@ -2,7 +2,6 @@ import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { newCommandId } from '../lib/idempotency';
-import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 
 type VoterPageRow = { vote_id?: string; like_count?: number; my_like?: boolean };
 
@@ -15,11 +14,17 @@ function patchVoterLike(
   if (!data) return data;
   return {
     ...data,
-    pages: data.pages.map((page) => page.map((row) => row.vote_id === voteId ? {
-      ...row,
-      my_like: active,
-      like_count: count ?? Math.max(0, (row.like_count ?? 0) + (active ? 1 : -1)),
-    } : row)),
+    pages: data.pages.map((page) =>
+      page.map((row) =>
+        row.vote_id === voteId
+          ? {
+              ...row,
+              my_like: active,
+              like_count: count ?? Math.max(0, (row.like_count ?? 0) + (active ? 1 : -1)),
+            }
+          : row,
+      ),
+    ),
   };
 }
 
@@ -38,8 +43,7 @@ export function useTogglePollVoteLike() {
       if (error) throw error;
       return data as { poll_vote_id: string; active: boolean; count: number };
     },
-    onMutate: async ({ pollVoteId, liked }) => {
-      await queryClient.cancelQueries({ queryKey: ['pollVotersDetail'] });
+    onMutate: ({ pollVoteId, liked }) => {
       const previous = queryClient.getQueriesData<InfiniteData<VoterPageRow[]>>({
         queryKey: ['pollVotersDetail'],
       });
@@ -59,9 +63,6 @@ export function useTogglePollVoteLike() {
         { queryKey: ['pollVotersDetail'] },
         (old) => patchVoterLike(old, result.poll_vote_id, result.active, result.count),
       );
-    },
-    onSettled: () => {
-      scheduleQueryInvalidation(queryClient, ['pollVotersDetail']);
     },
   });
 }

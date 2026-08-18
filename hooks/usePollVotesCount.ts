@@ -9,7 +9,7 @@ export function usePollVotesCount(userId: string | undefined) {
       if (!userId) return 0;
       const { count, error } = await supabase
         .from('poll_votes')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('user_id', userId);
       if (error) throw error;
       return count ?? 0;

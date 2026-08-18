@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { Post, Profile } from '../types/database';
+import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 
 type BlockInput = {
@@ -11,7 +11,16 @@ type BlockInput = {
   commandId?: string;
 };
 
-export type BlockedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'>;
+const BLOCKED_USER_PAGE_SIZE = 50;
+export type BlockedUser = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  equipped_border_key: string | null;
+  block_id: string;
+  blocked_at: string;
+};
 
 export function useBlockUser() {
   const queryClient = useQueryClient();
@@ -85,19 +94,41 @@ export function useUnblockUser() {
   });
 }
 
-export function useBlockedUsers() {
+export function useBlockedUsersPaged() {
   const userId = useAuthStore((s) => s.session?.user?.id);
-  return useQuery<BlockedUser[]>({
-    queryKey: ['blockedUsers', userId],
-    queryFn: async (): Promise<BlockedUser[]> => {
+  return useInfiniteQuery({
+    queryKey: ['blockedUsers', userId, 'paged'],
+    queryFn: async ({ pageParam }): Promise<BlockedUser[]> => {
       if (!userId) return [];
-      const { data, error } = await supabase
-        .from('blocks')
-        .select('blocked_id, profile:profiles!blocks_blocked_fkey(id, username, display_name, avatar_url, equipped_border_key)')
-        .eq('blocker_id', userId)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('list_blocked_users_page', {
+        p_before_created_at: pageParam?.createdAt ?? null,
+        p_before_id: pageParam?.id ?? null,
+        p_limit: BLOCKED_USER_PAGE_SIZE,
+      });
       if (error) throw error;
-      return (data ?? []).map((row) => row.profile as unknown as BlockedUser).filter(Boolean);
+      return data ?? [];
+    },
+    initialPageParam: null as { createdAt: string; id: string } | null,
+    getNextPageParam: (lastPage) => {
+      const tail = lastPage.at(-1);
+      return lastPage.length === BLOCKED_USER_PAGE_SIZE && tail
+        ? { createdAt: tail.blocked_at, id: tail.block_id }
+        : undefined;
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
+  });
+}
+
+export function useBlockedUserCount() {
+  const userId = useAuthStore((s) => s.session?.user?.id);
+  return useQuery({
+    queryKey: ['blockedUsers', userId, 'count'],
+    queryFn: async (): Promise<number> => {
+      if (!userId) return 0;
+      const { data, error } = await supabase.rpc('blocked_user_count');
+      if (error) throw error;
+      return data ?? 0;
     },
     enabled: !!userId,
     staleTime: 30_000,

@@ -39,15 +39,13 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { CommentLikesSheet } from './CommentLikesSheet';
 import { ReportSheet } from './ReportSheet';
 import { useAppDialog } from '../../contexts/DialogContext';
-
+import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
 const MAX_LEN = 2000;
 const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
-
 type Row =
   | { kind: 'root'; comment: CommentWithMeta; replyCount: number }
   | { kind: 'reply'; comment: CommentWithMeta; parentUsername?: string }
   | { kind: 'toggle'; parentId: string; replyCount: number; expanded: boolean };
-
 export function buildRows(comments: CommentWithMeta[], expandedComments: Set<string>): Row[] {
   const byId = new Map(comments.map((c) => [c.id, c]));
   const byParent = new Map<string | null, CommentWithMeta[]>();
@@ -58,7 +56,6 @@ export function buildRows(comments: CommentWithMeta[], expandedComments: Set<str
   }
   const sortByTime = (a: CommentWithMeta, b: CommentWithMeta) =>
     parseDate(a.created_at).getTime() - parseDate(b.created_at).getTime();
-
   const tops = (byParent.get(null) ?? []).slice().sort(sortByTime);
   const rows: Row[] = [];
   for (const t of tops) {
@@ -78,7 +75,6 @@ export function buildRows(comments: CommentWithMeta[], expandedComments: Set<str
   }
   return rows;
 }
-
 function stripReplyMention(body: string, parentUsername?: string | null): string {
   if (!parentUsername) return body;
   const prefix = `@${parentUsername}`;
@@ -87,7 +83,6 @@ function stripReplyMention(body: string, parentUsername?: string | null): string
   }
   return body;
 }
-
 function CommentActionSheet({
   visible,
   onClose,
@@ -132,7 +127,6 @@ function CommentActionSheet({
       }),
     [colors, insets.bottom],
   );
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
@@ -192,7 +186,6 @@ function CommentActionSheet({
     </Modal>
   );
 }
-
 function CommentBody({
   body,
   colors,
@@ -225,7 +218,6 @@ function CommentBody({
     </Text>
   );
 }
-
 type CommentRowProps = {
   row: Row & { kind: 'root' | 'reply' };
   me: string | undefined;
@@ -237,7 +229,6 @@ type CommentRowProps = {
   onOpenReport: (c: CommentWithMeta) => void;
   colors: ReturnType<typeof useTheme>['colors'];
 };
-
 function CommentRow({
   row,
   me,
@@ -253,7 +244,6 @@ function CommentRow({
   const u = comment.profile?.username ?? 'unknown';
   const isReply = row.kind === 'reply';
   const isOwn = Boolean(me && comment.user_id === me);
-
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -292,17 +282,14 @@ function CommentRow({
         },
         likeCount: { fontVariant: ['tabular-nums'] },
       }),
-    [colors],
+    [],
   );
-
   const liked = Boolean(comment.my_like);
   const heartColor = liked ? colors.danger : colors.textTertiary;
-
   const showOwnMenu = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onOpenMenu(comment);
   }, [comment, onOpenMenu]);
-
   return (
     <TouchableOpacity
       style={[styles.wrap, isReply && styles.replyWrap]}
@@ -448,10 +435,17 @@ export function PostCommentsThread({
   const pathname = usePathname();
   const me = useAuthStore((s) => s.session?.user?.id);
   const {
-    data: comments = [],
+    data: commentPages,
     isLoading,
     isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useComments(postId, { fetchEnabled, feedAudience });
+  const comments = useMemo(
+    () => commentPages?.pages.flat() ?? [],
+    [commentPages?.pages],
+  );
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
@@ -465,6 +459,7 @@ export function PostCommentsThread({
   const [reportComment, setReportComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
+  const pendingLikeIds = useRef(new Set<string>());
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const composerLocked = commentsDisabled && !isPostOwner;
@@ -518,8 +513,8 @@ export function PostCommentsThread({
 
   const onToggleLike = useCallback(
     (commentId: string, liked: boolean) => {
-      if (!me) return;
-      toggleLike.mutate({ postId, commentId, liked });
+      if (!me || pendingLikeIds.current.has(commentId)) return; pendingLikeIds.current.add(commentId);
+      toggleLike.mutate({ postId, commentId, liked }, { onSettled: () => pendingLikeIds.current.delete(commentId) });
     },
     [me, postId, toggleLike],
   );
@@ -722,9 +717,7 @@ export function PostCommentsThread({
       ]}
     >
       {isLoading ? (
-        <View style={[styles.flex1, styles.centered]}>
-          <ActivityIndicator color={colors.text} />
-        </View>
+        <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : isError ? (
         <View style={[styles.flex1, styles.centered]}>
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
@@ -747,6 +740,15 @@ export function PostCommentsThread({
             maxToRenderPerBatch={8}
             removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={{ flexGrow: 1 }}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+            }}
+            onEndReachedThreshold={0.35}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <ActivityIndicator color={colors.textSecondary} style={{ margin: Spacing.md }} />
+              ) : null
+            }
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Text variant="body" color={colors.textSecondary}>

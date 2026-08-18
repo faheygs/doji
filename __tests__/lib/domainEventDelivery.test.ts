@@ -36,6 +36,14 @@ describe('domain event delivery', () => {
     expect(isPushFresh(event(), Date.parse('2026-08-15T20:00:30.000Z'))).toBe(true);
   });
 
+  it('expires asynchronously fanned-out pushes from the original action time', () => {
+    const delayedChild = event({
+      created_at: '2026-08-15T20:10:00.000Z',
+      payload: { sendPush: true, occurredAt: '2026-08-15T20:00:00.000Z' },
+    });
+    expect(isPushFresh(delayedChild, Date.parse('2026-08-15T20:10:01.000Z'))).toBe(false);
+  });
+
   it('rejects an expired Doji activation even inside the generic age limit', () => {
     const activation = event({
       event_type: 'doji.activated',

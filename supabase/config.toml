@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.orchestrate-doji]
 verify_jwt = false
+
+[functions.fanout-doji-push]
+verify_jwt = false
+
+[functions.run-data-maintenance]
+verify_jwt = false

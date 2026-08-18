@@ -16,7 +16,7 @@ import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
-import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useProfile';
+import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useFriendRequests';
 import { formatRelativeTime } from '../../../utils/time';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
 
@@ -25,7 +25,12 @@ export default function FriendRequestsScreen() {
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
-  const { data: requests = [], isLoading } = useFriendRequests();
+  const requestsQuery = useFriendRequests();
+  const requests = useMemo(
+    () => requestsQuery.data?.pages.flatMap((page) => page) ?? [],
+    [requestsQuery.data?.pages],
+  );
+  const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = requestsQuery;
   const respond = useRespondToFriendRequest();
 
   const styles = useMemo(
@@ -103,6 +108,13 @@ export default function FriendRequestsScreen() {
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+          }}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={
+            isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null
+          }
           renderItem={({ item }) => {
             const requester = item.requester;
             return (

@@ -19,7 +19,6 @@ const legacyLimits = new Map(Object.entries({
   'components/gamification/BadgesGrid.tsx': 471,
   'app/(app)/member/[username].tsx': 469,
   'components/icons/BadgeIcons.tsx': 448,
-  'hooks/useProfile.ts': 439,
   'components/feed/PostCommentsSheet.tsx': 425,
   'app/(app)/notifications.tsx': 411,
   'components/challenge/ChallengeBanner.tsx': 405,
@@ -35,14 +34,12 @@ const legacyLimits = new Map(Object.entries({
   'app/(app)/admin/reports.tsx': 284,
   'hooks/useComments.ts': 282,
   'app/(app)/admin/suggestions.tsx': 280,
-  'hooks/useAppRealtime.ts': 277,
   'app/(auth)/username.tsx': 275,
   'components/feed/CommentLikesSheet.tsx': 269,
   'components/leaderboard/PodiumTopThree.tsx': 268,
   'components/feed/ReactionBar.tsx': 266,
   'app/(app)/format.tsx': 257,
   'app/(app)/friends/index.tsx': 256,
-  'hooks/useDomainRealtime.ts': 256,
 }));
 
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {

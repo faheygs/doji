@@ -74,10 +74,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     void AsyncStorage.setItem(LAST_THEME_STORAGE_KEY, mode).catch(() => {});
     void AsyncStorage.setItem(LAST_ACCENT_STORAGE_KEY, accent).catch(() => {});
   }, [
-    profile?.id,
-    profile?.appearance_mode,
-    profile?.app_theme,
-    profile?.accent_theme,
+    profile,
     ownedThemeKeys,
     ownedFetched,
     userId,
@@ -92,7 +89,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [profile?.id, profile?.accent_theme, ownedThemeKeys, ownedFetched, userId]);
 
   const persistTheme = useCallback(
-    async (mode: ThemePreference, accent: AccentThemeKey) => {
+    async (mode: ThemePreference, accent: AccentThemeKey, persistAccent: boolean) => {
       const { session: s, updateProfile } = useAuthStore.getState();
       setPreferenceState(mode);
       setAccentThemeState(accent);
@@ -102,7 +99,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await updateProfile({
         appearance_mode: mode,
         app_theme: mode,
-        accent_theme: accent,
+        ...(persistAccent ? { accent_theme: accent } : {}),
       });
     },
     [],
@@ -110,14 +107,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setPreference = useCallback(
     async (p: ThemePreference) => {
-      await persistTheme(p, accentTheme);
+      await persistTheme(p, accentTheme, false);
     },
     [accentTheme, persistTheme],
   );
 
   const setAccentTheme = useCallback(
     async (key: AccentThemeKey) => {
-      await persistTheme(preference, key);
+      await persistTheme(preference, key, true);
     },
     [preference, persistTheme],
   );

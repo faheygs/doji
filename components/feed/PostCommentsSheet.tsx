@@ -23,7 +23,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
@@ -39,6 +39,7 @@ import {
   getKeyboardDismissTarget,
 } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { usePostCommentsSheetStyles } from './PostCommentsSheet.styles';
 
 type Props = {
   visible: boolean;
@@ -76,12 +77,15 @@ export function PostCommentsSheet({
   onClose,
 }: Props) {
   const { colors } = useTheme();
+  const styles = usePostCommentsSheetStyles();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.session?.user?.id);
   const toggleCommentsDisabled = useToggleCommentsDisabled();
   const { data: scopedComments } = useComments(postId, { feedAudience, fetchEnabled: visible });
   const displayCommentCount =
-    feedAudience === 'friends' ? (scopedComments?.length ?? 0) : commentCount;
+    feedAudience === 'friends'
+      ? (scopedComments?.pages.reduce((total, page) => total + page.length, 0) ?? 0)
+      : commentCount;
   const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -166,7 +170,7 @@ export function PostCommentsSheet({
     translateY.value = withSpring(closedOffset, SPRING, (finished) => {
       if (finished) runOnJS(fireClose)();
     });
-  }, [closedOffset, fireClose]);
+  }, [closedOffset, fireClose, translateY]);
 
   useEffect(() => {
     if (visible) {
@@ -228,7 +232,16 @@ export function PostCommentsSheet({
             }
           });
         }),
-    [closedOffset, dismissKeyboard, fireClose, halfOffset, keyboardOpen, snapPoints],
+    [
+      closedOffset,
+      dismissKeyboard,
+      fireClose,
+      halfOffset,
+      keyboardOpen,
+      snapPoints,
+      startY,
+      translateY,
+    ],
   );
 
   const sheetStyle = useAnimatedStyle(() => {
@@ -270,72 +283,6 @@ export function PostCommentsSheet({
       thumbColor: colors.surface,
       ios_backgroundColor: colors.surfaceMuted,
     }),
-    [colors],
-  );
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        modalRoot: {
-          flex: 1,
-        },
-        backdrop: {
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          backgroundColor: 'rgba(0,0,0,0.25)',
-        },
-        sheet: {
-          width: '100%',
-          backgroundColor: colors.surface,
-          borderTopLeftRadius: Radius.lg,
-          borderTopRightRadius: Radius.lg,
-          borderWidth: 1,
-          borderBottomWidth: 0,
-          borderColor: colors.border,
-          overflow: 'hidden',
-          flexDirection: 'column',
-          alignSelf: 'stretch',
-        },
-        dragStrip: {
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-        },
-        sheetHandle: {
-          alignSelf: 'center',
-          width: 40,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: colors.textTertiary,
-          opacity: 0.45,
-          marginTop: Spacing.sm,
-          marginBottom: Spacing.xs,
-        },
-        header: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: Spacing.md,
-          paddingBottom: Spacing.sm,
-        },
-        headerTitle: { flex: 1 },
-        headerMeta: {
-          fontVariant: ['tabular-nums'],
-          marginRight: Spacing.sm,
-        },
-        ownerRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
-          paddingBottom: Spacing.sm,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-        },
-        closeHit: { padding: Spacing.xs },
-        body: { flex: 1, minHeight: 0, minWidth: 0 },
-      }),
     [colors],
   );
 

@@ -36,7 +36,6 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
     /* ignore */
   }
 }
-import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -50,6 +49,10 @@ import { AppKeyboardToolbar } from '../components/ui/AppKeyboardToolbar';
 import { AppProviders } from '../components/AppProviders';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { AppThemeHost } from '../components/system/AppThemeHost';
+import {
+  syncPushRegistration,
+  unregisterCurrentPushInstallation,
+} from '../lib/pushNotifications';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -145,9 +148,12 @@ function RootLayoutInner() {
   const session = useAuthStore((s) => s.session);
   const profile = useAuthStore((s) => s.profile);
   const userId = session?.user?.id;
+  const profileId = profile?.id;
+  const profileIsBanned = profile?.is_banned;
+  const profilePushEnabled = profile?.notification_preferences?.push_enabled;
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    if (!userId || !profile || profile.id !== userId) return;
+    if (!userId || profileId !== userId) return;
 
     async function syncPushToken() {
       try {
@@ -156,9 +162,7 @@ function RootLayoutInner() {
           activeProfile?.is_banned !== true &&
           mergeNotificationPreferences(activeProfile?.notification_preferences).push_enabled;
         if (!notificationsEnabled) {
-          if (!activeProfile?.notification_token) return;
-          const { error } = await supabase.rpc('unregister_push_token');
-          if (error) throw error;
+          await unregisterCurrentPushInstallation();
           const current = useAuthStore.getState().profile;
           if (current) useAuthStore.getState().setProfile({ ...current, notification_token: null });
           return;
@@ -166,20 +170,7 @@ function RootLayoutInner() {
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.getPermissionsAsync();
         if (status !== 'granted') return;
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        const { data: token } = await Notifications.getExpoPushTokenAsync(
-          projectId ? { projectId } : undefined,
-        );
-        if (!token) return;
-        const current = useAuthStore.getState().profile?.notification_token;
-        if (current !== token) {
-          const { error } = await supabase.rpc('register_push_token', { p_token: token });
-          if (error) throw error;
-          const profile = useAuthStore.getState().profile;
-          if (profile) {
-            useAuthStore.getState().setProfile({ ...profile, notification_token: token });
-          }
-        }
+        await syncPushRegistration(userId);
       } catch (e) {
         if (__DEV__) console.warn('[pushToken] sync failed', e);
       }
@@ -194,7 +185,12 @@ function RootLayoutInner() {
     });
 
     return () => sub.remove();
-  }, [profile?.id, userId]);
+  }, [
+    profileId,
+    profileIsBanned,
+    profilePushEnabled,
+    userId,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
