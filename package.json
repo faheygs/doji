@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "jest",
     "test:fanout-model": "node scripts/load/fanout-model.mjs",
-    "test:social-fanout-model": "node scripts/load/social-fanout-model.mjs"
+    "test:social-fanout-model": "node scripts/load/social-fanout-model.mjs",
+    "test:scale-bursts": "node scripts/load/social-fanout-model.mjs --burst-seconds=30 && node scripts/load/social-fanout-model.mjs --burst-seconds=60 && node scripts/load/social-fanout-model.mjs --burst-seconds=120"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",

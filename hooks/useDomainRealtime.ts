@@ -25,6 +25,7 @@ export function useDomainRealtime(userId: string | undefined) {
     }
 
     let disposed = false;
+    let hasConnected = false;
     let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribers: Array<() => void> = [];
 
@@ -35,7 +36,7 @@ export function useDomainRealtime(userId: string | undefined) {
       reconcileTimer = setTimeout(() => {
         reconcileTimer = null;
         if (!disposed) void reconcileAppQueries(queryClient, { userId, isAdmin });
-      }, 200);
+      }, 500 + Math.floor(Math.random() * 2_500));
     };
 
     const invalidateRoots = (...roots: string[]) => scheduleQueryInvalidation(queryClient, roots);
@@ -94,6 +95,9 @@ export function useDomainRealtime(userId: string | undefined) {
 
       if (event.type.startsWith('notification.')) {
         const roots = ['notificationCenter'];
+        if (event.type.startsWith('notification.friend_activity.')) {
+          roots.push('pollResults', 'pollVotersDetail', 'feed');
+        }
         if (event.type.startsWith('notification.suggestion.')) {
           roots.push('mySuggestions', 'challengeSuggestionCounts');
         }
@@ -176,7 +180,11 @@ export function useDomainRealtime(userId: string | undefined) {
 
     const removeConnectionListener = onRealtimeConnectionChange((change) => {
       if (change.current === 'connected') {
-        reconcile();
+        // Initial screen queries are already authoritative. Reconciliation is
+        // only needed after a connection recovery, and jitter prevents every
+        // handset from refetching Postgres in the same millisecond.
+        if (hasConnected) reconcile();
+        else hasConnected = true;
       }
     });
 

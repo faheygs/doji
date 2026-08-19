@@ -9,13 +9,17 @@ const users = numberArg('users', 100_000);
 const averageFriends = numberArg('average-friends', 25);
 const actionsPerUser = numberArg('actions-per-user', 2);
 const pushActionsPerUser = numberArg('push-actions-per-user', 1);
-const burstSeconds = numberArg('burst-seconds', 600);
+const burstSeconds = numberArg('burst-seconds', 60);
 const groupBucketSeconds = numberArg('group-bucket-seconds', 30);
 const batchChannels = numberArg('batch-channels', 100);
-const relayLanes = numberArg('relay-lanes', 128);
-const relayWorkersPerLane = numberArg('relay-workers-per-lane', 8);
-const assumedEventLatencyMs = numberArg('event-latency-ms', 250);
-const nativeProviderRate = numberArg('native-provider-rate', 3500);
+const relayConcurrency = numberArg('relay-concurrency', 128);
+const relayBatchSize = numberArg('relay-batch-size', 100);
+const assumedBatchLatencyMs = numberArg('batch-latency-ms', 500);
+const nativeProviderRate = numberArg('native-provider-rate', 5000);
+// These are target capacity contracts, not claims about today's free plans.
+// They become provider/compute settings when scale mode is enabled.
+const ablyMessageRate = numberArg('ably-message-rate', 250000);
+const databaseUpsertRate = numberArg('database-upsert-rate', 250000);
 
 const sourceEvents = users * actionsPerUser;
 const friendDeliveries = sourceEvents * averageFriends;
@@ -27,11 +31,12 @@ const occupiedBucketProbability = 1 - Math.pow(1 - (1 / bucketCount), friendPush
 const durablePushRows = Math.ceil(users * bucketCount * occupiedBucketProbability);
 const sourceEventsPerSecond = sourceEvents / burstSeconds;
 const requiredAblyRequestsPerSecond = ablyRequests / burstSeconds;
+const requiredAblyMessagesPerSecond = friendDeliveries / burstSeconds;
 const requiredPushUpsertsPerSecond = durablePushUpserts / burstSeconds;
 const requiredPushRowsPerSecond = durablePushRows / burstSeconds;
 const totalRelayEventsPerSecond = sourceEventsPerSecond + requiredPushRowsPerSecond;
-const relayConcurrency = relayLanes * relayWorkersPerLane;
-const modeledRelayEventsPerSecond = relayConcurrency * (1000 / assumedEventLatencyMs);
+const modeledRelayEventsPerSecond =
+  relayConcurrency * relayBatchSize * (1000 / assumedBatchLatencyMs);
 
 const report = {
   users,
@@ -45,13 +50,18 @@ const report = {
   durablePushRows,
   sourceEventsPerSecond: Math.ceil(sourceEventsPerSecond),
   requiredAblyRequestsPerSecond: Math.ceil(requiredAblyRequestsPerSecond),
+  requiredAblyMessagesPerSecond: Math.ceil(requiredAblyMessagesPerSecond),
   requiredPushUpsertsPerSecond: Math.ceil(requiredPushUpsertsPerSecond),
   requiredPushRowsPerSecond: Math.ceil(requiredPushRowsPerSecond),
   totalRelayEventsPerSecond: Math.ceil(totalRelayEventsPerSecond),
   modeledRelayEventsPerSecond: Math.floor(modeledRelayEventsPerSecond),
   nativeProviderRate,
+  ablyMessageRate,
+  databaseUpsertRate,
   relayHeadroom: Number((modeledRelayEventsPerSecond / totalRelayEventsPerSecond).toFixed(2)),
   providerHeadroom: Number((nativeProviderRate / requiredPushRowsPerSecond).toFixed(2)),
+  ablyMessageHeadroom: Number((ablyMessageRate / requiredAblyMessagesPerSecond).toFixed(2)),
+  databaseUpsertHeadroom: Number((databaseUpsertRate / requiredPushUpsertsPerSecond).toFixed(2)),
 };
 
 console.log(JSON.stringify(report));
@@ -60,4 +70,10 @@ if (modeledRelayEventsPerSecond < totalRelayEventsPerSecond * 1.25) {
 }
 if (nativeProviderRate < requiredPushRowsPerSecond * 1.25) {
   throw new Error('Modeled native-provider headroom is below the 25% release floor');
+}
+if (ablyMessageRate < requiredAblyMessagesPerSecond * 1.25) {
+  throw new Error('Modeled Ably message headroom is below the 25% release floor');
+}
+if (databaseUpsertRate < requiredPushUpsertsPerSecond * 1.25) {
+  throw new Error('Modeled database upsert headroom is below the 25% release floor');
 }

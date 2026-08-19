@@ -9,11 +9,12 @@ export type DojiRealtimeEvent = {
 };
 
 let client: Realtime | null = null;
+let connectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getClient(): Realtime {
   if (client) return client;
   client = new Realtime({
-    autoConnect: true,
+    autoConnect: false,
     echoMessages: false,
     authCallback: (_params, callback) => {
       supabase.functions
@@ -24,6 +25,14 @@ function getClient(): Realtime {
         );
     },
   });
+  const scheduledClient = client;
+  // Spread cold-start connection attempts across a short window. This is
+  // invisible beside normal feed hydration but prevents a push-open wave from
+  // creating one synchronized token/connection spike.
+  connectTimer = setTimeout(() => {
+    connectTimer = null;
+    if (client === scheduledClient) scheduledClient.connect();
+  }, Math.floor(Math.random() * 2_000));
   return client;
 }
 
@@ -58,6 +67,8 @@ export function onRealtimeConnectionChange(
 }
 
 export function closeRealtimeConnection(): void {
+  if (connectTimer) clearTimeout(connectTimer);
+  connectTimer = null;
   client?.close();
   client = null;
 }

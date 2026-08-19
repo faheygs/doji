@@ -8,12 +8,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "DOJI_EVENT_ALARM", "class_name": "DojiEventAlarm" },
-      { "name": "OUTBOX_RELAY_ALARM", "class_name": "OutboxRelayAlarm" }
+      { "name": "OUTBOX_RELAY_ALARM", "class_name": "OutboxRelayAlarm" },
+      { "name": "DATA_MAINTENANCE_ALARM", "class_name": "DataMaintenanceAlarm" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["DojiEventAlarm"] },
-    { "tag": "v2", "new_sqlite_classes": ["OutboxRelayAlarm"] }
+    { "tag": "v2", "new_sqlite_classes": ["OutboxRelayAlarm"] },
+    { "tag": "v3", "new_sqlite_classes": ["DataMaintenanceAlarm"] }
   ],
   "queues": {
     "producers": [
@@ -39,5 +41,6 @@
       }
     ]
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/1 * * * *"] }
 }

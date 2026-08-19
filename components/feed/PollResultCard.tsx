@@ -30,6 +30,7 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { readThroughScaleGateway } from '../../lib/scaleReadGateway';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
@@ -118,19 +119,20 @@ function PollResultCardImpl({
     queryKey: ['pollResults', dailyEventId, feedAudience, userId],
     queryFn: async ({ signal }): Promise<PollSnapshot> => {
       const request = createRequestSignal(signal);
-      const { data: summaryRows, error } = await (async () => {
-        try {
-          return await supabase
+      const summaryRows = await readThroughScaleGateway<PollSummaryRow[]>(
+        `/v1/polls/${encodeURIComponent(dailyEventId)}/summary?audience=${feedAudience}`,
+        async () => {
+          const { data: directData, error } = await supabase
             .rpc('get_poll_results_summary', {
               p_daily_event_id: dailyEventId,
               p_audience: feedAudience,
             })
             .abortSignal(request.signal);
-        } finally {
-          request.cleanup();
-        }
-      })();
-      if (error) throw error;
+          if (error) throw error;
+          return (directData ?? []) as PollSummaryRow[];
+        },
+        request.signal,
+      ).finally(request.cleanup);
       const snapshotRows = (summaryRows ?? []) as PollSummaryRow[];
       let myVoteOptionId: string | null = null;
       const options: PollRow[] = snapshotRows.map((row) => {

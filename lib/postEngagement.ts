@@ -2,6 +2,7 @@ import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import { mapInfinitePosts } from './postCache';
 import { supabase } from './supabase';
 import type { Post } from '../types/database';
+import { readThroughScaleGateway } from './scaleReadGateway';
 
 type EngagementSnapshot = Pick<
   Post,
@@ -9,10 +10,16 @@ type EngagementSnapshot = Pick<
 > & { post_id: string };
 
 export async function refreshPostEngagement(client: QueryClient, postId: string) {
-  const { data, error } = await supabase.rpc('get_post_engagement_snapshot', {
-    p_post_id: postId,
-  });
-  if (error) throw error;
+  const data = await readThroughScaleGateway<unknown>(
+    `/v1/posts/${encodeURIComponent(postId)}/engagement`,
+    async () => {
+      const { data: directData, error } = await supabase.rpc('get_post_engagement_snapshot', {
+        p_post_id: postId,
+      });
+      if (error) throw error;
+      return directData;
+    },
+  );
   if (!data) return;
   const snapshot = data as EngagementSnapshot;
   const patch = (post: Post): Post => ({

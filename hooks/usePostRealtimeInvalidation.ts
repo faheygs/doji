@@ -5,9 +5,14 @@ import { subscribeToRealtimeChannel } from '../lib/realtimeClient';
 import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
 import { refreshPostEngagement } from '../lib/postEngagement';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import type { FeedAudience } from '../lib/feedAudience';
 
 /** Keep only visible, unlocked feed cards subscribed to their post channel. */
-export function usePostRealtimeInvalidation(postId: string, enabled: boolean) {
+export function usePostRealtimeInvalidation(
+  postId: string,
+  enabled: boolean,
+  feedAudience: FeedAudience = 'everyone',
+) {
   const client = useQueryClient();
   const deduper = useRef(new RealtimeEventDeduper()).current;
   useFocusEffect(useCallback(() => {
@@ -53,7 +58,11 @@ export function usePostRealtimeInvalidation(postId: string, enabled: boolean) {
         scheduleQueryInvalidation(client, ['pollVoteLikes', 'pollVotersDetail']);
         return;
       } else if (event.type.startsWith('poll.vote.')) {
-        scheduleQueryInvalidation(client, ['pollResults', 'pollVotersDetail', 'feed']);
+        // The Friends tab receives a bounded user-channel fanout only when one
+        // of this viewer's friends participates. Ignoring the global post hint
+        // avoids every handset refetching friend-scoped totals for strangers.
+        if (feedAudience === 'friends') return;
+        scheduleQueryInvalidation(client, ['pollResults', 'pollVotersDetail']);
         return;
       } else {
         return;
@@ -67,5 +76,5 @@ export function usePostRealtimeInvalidation(postId: string, enabled: boolean) {
       if (timer) clearTimeout(timer);
       unsubscribe?.();
     };
-  }, [client, deduper, enabled, postId]));
+  }, [client, deduper, enabled, feedAudience, postId]));
 }

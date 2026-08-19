@@ -82,7 +82,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
-  usePostRealtimeInvalidation(post.id, !blurred);
+  usePostRealtimeInvalidation(post.id, !blurred, feedAudience);
 
   useEffect(() => {
     if (initialCommentsOpen) setCommentsOpen(true);

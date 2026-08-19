@@ -272,6 +272,14 @@ counter before the network round trip. Other mounted clients receive canonical
 bounded `get_post_engagement_snapshot` and exact active thread. Counter maintenance
 must not emit `feed.post.*`, because that would turn every engagement action into a
 feed-wide refresh.
+Reaction command results and engagement snapshots sum only the fixed 128 counter
+shards; regrouping the unbounded `reactions` table is forbidden. The Friends poll
+surface ignores global vote hints and reconciles from the viewer's bounded
+friend-activity channel. Everyone remains post-scoped. Mobile reads go through
+`readThroughScaleGateway`: with no URL configured it calls Postgres directly; at scale,
+`EXPO_PUBLIC_SCALE_READ_URL` switches the same query keys to an authenticated aggregate
+cache. A scale gateway must preserve `can_view_full_post`/`can_access_daily_event`
+authorization and must never silently fall back to Postgres during an outage.
 
 ## 100k burst contract
 
@@ -290,8 +298,9 @@ feed-wide refresh.
   provider capacity. It explicitly fails if Expo's documented 600/s limit is treated
   as the 100k scale path. Direct native delivery must sustain the modeled provider-rate
   target in a staging load test before a 100k launch.
-- `npm run test:social-fanout-model` makes the friend-degree and ten-minute burst
-  assumptions explicit. Its output is a required-throughput budget, not evidence that
+- `npm run test:scale-bursts` gates 30-, 60-, and 120-second bursts. Its provider,
+  database, and Ably rates are scale-mode capacity contracts, not claims about the
+  current free plans. Its output is a required-throughput budget, not evidence that
   Supabase or Ably achieved it; staging must exceed the reported Ably request and
   grouped push-row rates with at least 25% relay and direct-provider headroom, and
   Postgres must sustain the reported set-based grouped-upsert rate. The model includes
@@ -304,6 +313,12 @@ feed-wide refresh.
 - Poll and public-feed invalidations coalesce to at most one event per aggregate/type
   per second. Profile invalidations are social-graph scoped; leaderboard invalidations
   coalesce to five-second windows.
+- Authenticated social writes are protected by per-user/action time buckets in
+  Postgres. Deletes are not trigger-throttled so moderation/account cascades cannot be
+  stranded; recreating the deleted resource still consumes the insert budget.
+- Cold socket opens are jittered over two seconds. Initial data queries do not perform
+  a redundant connection reconciliation; recovered connections reconcile after a
+  randomized delay to avoid a synchronized Postgres surge.
 - Push delivery remains an alert, never the authority for eligibility or the ten-minute
   server window. Reconnect/foreground always reconciles Postgres state.
 
@@ -328,11 +343,13 @@ feed-wide refresh.
 
 1. Create the Ably app/key and Cloudflare queues.
 2. Set Worker secrets: `SUPABASE_URL`, `ORCHESTRATOR_SECRET`, `OUTBOX_RELAY_SECRET`.
+   `OPS_ALERT_WEBHOOK_URL` is optional in free mode and becomes the incident destination
+   when one is configured.
 3. Deploy `infra/doji-orchestrator`.
 4. Set Edge secrets: `ABLY_API_KEY`, `OUTBOX_RELAY_SECRET`,
    `DOJI_ORCHESTRATOR_URL`, `DOJI_ORCHESTRATOR_SECRET`.
-5. Deploy `realtime-token`, `relay-domain-events`, `orchestrate-doji`, and
-   `schedule-daily-challenge`.
+5. Deploy `realtime-token`, `relay-domain-events`, `orchestrate-doji`,
+   `schedule-daily-challenge`, `run-data-maintenance`, and `operational-health`.
 6. Apply all migrations in timestamp order and configure the orchestrator Vault values.
 7. Invoke `schedule-daily-challenge` once. Every later alarm chains automatically.
 8. Run a physical two-device test for activation, completion, social actions,
@@ -356,3 +373,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Track Expo push tickets/receipts separately from socket delivery.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
+- The Worker invokes `operational-health` once per minute. It emits an error log for
+  overdue/exhausted outbox work or stale/exhausted push shards and also posts the
+  bounded snapshot to `OPS_ALERT_WEBHOOK_URL` when configured.
+- Retention is a self-draining Durable Object alarm. Each Edge invocation stays bounded,
+  but `hasMore` schedules the next batch until operational and rate-limit backlogs are
+  empty.

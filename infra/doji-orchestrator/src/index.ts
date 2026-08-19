@@ -3,11 +3,13 @@ import { DurableObject } from 'cloudflare:workers';
 interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
   OUTBOX_RELAY_ALARM: DurableObjectNamespace<OutboxRelayAlarm>;
+  DATA_MAINTENANCE_ALARM: DurableObjectNamespace<DataMaintenanceAlarm>;
   DOMAIN_EVENT_QUEUE: Queue<OutboxWake>;
   PUSH_FANOUT_QUEUE: Queue<PushFanoutMessage>;
   SUPABASE_URL: string;
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
+  OPS_ALERT_WEBHOOK_URL?: string;
 }
 
 type AlarmState = {
@@ -112,7 +114,7 @@ async function prepareNextDoji(env: Env): Promise<void> {
   }
 }
 
-async function runDataMaintenance(env: Env): Promise<void> {
+async function runDataMaintenance(env: Env): Promise<{ hasMore: boolean }> {
   const response = await fetch(`${env.SUPABASE_URL}/functions/v1/run-data-maintenance`, {
     method: 'POST',
     headers: {
@@ -121,8 +123,38 @@ async function runDataMaintenance(env: Env): Promise<void> {
     },
     body: '{}',
   });
-  if (!response.ok) {
-    throw new Error(`Data maintenance failed: ${response.status} ${await response.text()}`);
+  const body = await response.text();
+  if (!response.ok) throw new Error(`Data maintenance failed: ${response.status} ${body}`);
+  const result = JSON.parse(body) as { hasMore?: boolean };
+  return { hasMore: result.hasMore === true };
+}
+
+async function scheduleDataMaintenance(env: Env): Promise<void> {
+  const id = env.DATA_MAINTENANCE_ALARM.idFromName('singleton');
+  const response = await env.DATA_MAINTENANCE_ALARM.get(id).fetch(
+    'https://maintenance.internal/wake',
+    { method: 'POST' },
+  );
+  if (!response.ok) throw new Error(`Scheduling data maintenance failed: ${response.status}`);
+}
+
+async function checkOperationalHealth(env: Env): Promise<void> {
+  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/operational-health`, {
+    method: 'POST',
+    headers: { 'x-outbox-secret': env.OUTBOX_RELAY_SECRET },
+  });
+  const body = await response.text();
+  if (!response.ok) throw new Error(`Operational health check failed: ${response.status} ${body}`);
+  const health = JSON.parse(body) as { healthy?: boolean } & Record<string, unknown>;
+  if (health.healthy === true) return;
+  console.error('Doji operational health is degraded', health);
+  if (env.OPS_ALERT_WEBHOOK_URL) {
+    const alert = await fetch(env.OPS_ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: 'doji-orchestrator', ...health }),
+    });
+    if (!alert.ok) throw new Error(`Operational alert webhook failed: ${alert.status}`);
   }
 }
 
@@ -221,7 +253,7 @@ export class DojiEventAlarm extends DurableObject<Env> {
       await prepareNextDoji(this.env);
     }
     this.ctx.waitUntil(
-      runDataMaintenance(this.env).catch((error) => {
+      scheduleDataMaintenance(this.env).catch((error) => {
         console.error('Non-critical data maintenance failed', error);
       }),
     );
@@ -267,6 +299,29 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
   async alarm(): Promise<void> {
     await this.ctx.storage.delete('wake');
     await this.seedDrain();
+  }
+}
+
+/** Continues bounded retention batches until the database reports no backlog. */
+export class DataMaintenanceAlarm extends DurableObject<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    await this.ctx.storage.setAlarm(Date.now());
+    return Response.json({ scheduled: true });
+  }
+
+  async alarm(): Promise<void> {
+    try {
+      const result = await runDataMaintenance(this.env);
+      if (result.hasMore) await this.ctx.storage.setAlarm(Date.now() + 1_000);
+    } catch (error) {
+      console.error('Data maintenance alarm failed', error);
+      await this.ctx.storage.setAlarm(Date.now() + 30_000);
+    }
   }
 }
 
@@ -397,5 +452,9 @@ export default {
       batch.retryAll({ delaySeconds: 2 });
       throw error;
     }
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    await checkOperationalHealth(env);
   },
 } satisfies ExportedHandler<Env, OutboxWake | PushFanoutMessage>;

@@ -641,6 +641,20 @@ those grants makes the policy fail closed.
 - Shared poll, community engagement, and occurrence participation totals use 128 write
   shards. Global invalidations are coalesced, and high-volume public channels are only
   subscribed while their owning screen is focused.
+- Reaction responses and engagement snapshots read those fixed shards; never restore a
+  full reaction-table regroup on the mutation or realtime path. Friend-scoped poll
+  totals refresh from friend activity, not from every stranger's global vote signal.
+- `EXPO_PUBLIC_SCALE_READ_URL` is the paid-capacity boundary for authenticated aggregate
+  reads. It is absent in free mode, and enabling it must not change TanStack Query keys
+  or screen behavior. A configured gateway fails closed instead of falling back into a
+  database stampede.
+- Social write budgets are enforced in Postgres per actor/action. Reconnect attempts and
+  authoritative catch-up are jittered. Bounded retention continues until caught up,
+  and the one-minute operational health contract reports overdue outbox work and stale
+  push shards.
+- `npm run test:scale-bursts` must pass the 30-, 60-, and 120-second modeled budgets.
+  The configured rates describe capacity that must be purchased and load-proven before
+  a large launch; they do not claim the current free tiers provide it.
 
 ## Validation and release
 

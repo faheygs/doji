@@ -16,7 +16,7 @@ export function realtimeQueryRoots(eventType: string): string[] {
     return ['pollVoteLikes', 'pollVotersDetail'];
   }
   if (eventType.startsWith('poll.vote.')) {
-    return ['pollResults', 'pollVotersDetail', 'feed'];
+    return ['pollResults', 'pollVotersDetail'];
   }
   return [];
 }

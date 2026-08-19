@@ -86,6 +86,20 @@ Deno.serve(async (request) => {
     if (deleted < 5000) break;
   }
 
+  let expiredRateLimitBuckets = 0;
+  let rateLimitHasMore = false;
+  for (let batch = 0; batch < 5; batch += 1) {
+    const { data, error } = await database.rpc(
+      'delete_expired_api_rate_limit_buckets',
+      { p_limit: 5000 },
+    );
+    if (error) return new Response(error.message, { status: 500 });
+    const deleted = Number(data ?? 0);
+    expiredRateLimitBuckets += deleted;
+    rateLimitHasMore = deleted >= 5000;
+    if (!rateLimitHasMore) break;
+  }
+
   let deletedPostMedia = 0;
   for (let batch = 0; batch < 5; batch += 1) {
     const { data, error } = await database.rpc('claim_pending_media_deletions', {
@@ -126,7 +140,8 @@ Deno.serve(async (request) => {
     orphaned_media: orphanedMedia,
     committed_media_intents: committedMediaIntents,
     stale_push_endpoints: stalePushEndpoints,
+    expired_rate_limit_buckets: expiredRateLimitBuckets,
     deleted_post_media: deletedPostMedia,
-    hasMore,
+    hasMore: hasMore || rateLimitHasMore,
   });
 });

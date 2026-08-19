@@ -18,6 +18,7 @@ Create `.env.local` from the project dashboard. Never commit secrets.
 | Variable | Use |
 | --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Mobile/web Supabase client |
+| `EXPO_PUBLIC_SCALE_READ_URL` | Optional authenticated aggregate gateway; omit for free-mode direct reads |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | RLS-bound public client key |
 | `EXPO_PUBLIC_SENTRY_DSN` | Optional production error reporting |
 | `EXPO_PUBLIC_APP_ENV` | Optional environment label |
