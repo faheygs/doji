@@ -556,7 +556,6 @@ export function PostCommentsThread({
   const send = useCallback(() => {
     const rawBody = draft.trim();
     if (!rawBody || addComment.isPending || editComment.isPending || composerLocked) return;
-
     if (editingComment) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       editComment.mutate(
@@ -565,10 +564,9 @@ export function PostCommentsThread({
       );
       return;
     }
-
     const body = replyingTo ? stripReplyMention(rawBody, replyingTo.profile?.username) : rawBody;
     if (!body) return;
-
+    const replyTarget = replyingTo;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addComment.mutate(
       {
@@ -577,13 +575,14 @@ export function PostCommentsThread({
         parentId: replyingTo?.id ?? null,
       },
       {
-        onSuccess: cancelComposerState,
         onError: (err: Error) => {
+          setDraft(rawBody); setReplyingTo(replyTarget);
           if (__DEV__) console.warn('[useAddComment] failed:', err);
           Toast.show({ type: 'error', text1: err.message || 'Failed to post comment' });
         },
       },
     );
+    cancelComposerState();
   }, [
     draft,
     addComment,

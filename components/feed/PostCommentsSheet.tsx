@@ -21,6 +21,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Spacing } from '../../constants/theme';
@@ -40,6 +42,7 @@ import {
 } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { usePostCommentsSheetStyles } from './PostCommentsSheet.styles';
+import { Motion } from '../../constants/motion';
 
 type Props = {
   visible: boolean;
@@ -167,7 +170,10 @@ export function PostCommentsSheet({
   }, [onClose]);
 
   const animateToClose = useCallback(() => {
-    translateY.value = withSpring(closedOffset, SPRING, (finished) => {
+    translateY.value = withTiming(closedOffset, {
+      duration: Motion.duration.content,
+      easing: Easing.in(Easing.cubic),
+    }, (finished) => {
       if (finished) runOnJS(fireClose)();
     });
   }, [closedOffset, fireClose, translateY]);
@@ -209,7 +215,10 @@ export function PostCommentsSheet({
           const vy = e.velocityY;
 
           if (vy > 900 || y > closedOffset * 0.9) {
-            translateY.value = withSpring(closedOffset, SPRING, (finished) => {
+            translateY.value = withTiming(closedOffset, {
+              duration: Motion.duration.content,
+              easing: Easing.in(Easing.cubic),
+            }, (finished) => {
               if (finished) runOnJS(fireClose)();
             });
             return;
@@ -219,14 +228,24 @@ export function PostCommentsSheet({
             return;
           }
           if (vy > 700 && y > halfOffset * 0.35) {
-            translateY.value = withSpring(closedOffset, SPRING, (finished) => {
+            translateY.value = withTiming(closedOffset, {
+              duration: Motion.duration.content,
+              easing: Easing.in(Easing.cubic),
+            }, (finished) => {
               if (finished) runOnJS(fireClose)();
             });
             return;
           }
 
           const target = nearestSnap(y, snapPoints);
-          translateY.value = withSpring(target, SPRING, (finished) => {
+          translateY.value = target === closedOffset
+            ? withTiming(target, {
+                duration: Motion.duration.content,
+                easing: Easing.in(Easing.cubic),
+              }, (finished) => {
+                if (finished) runOnJS(fireClose)();
+              })
+            : withSpring(target, SPRING, (finished) => {
             if (finished && Math.abs(target - closedOffset) < 4) {
               runOnJS(fireClose)();
             }

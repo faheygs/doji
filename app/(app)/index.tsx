@@ -207,7 +207,6 @@ export default function FeedScreen() {
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
     if (deepLinkHandledRef.current === pendingPostId) return;
-
     const idx = posts.findIndex((p) => p.id === pendingPostId);
     if (idx >= 0) {
       deepLinkHandledRef.current = pendingPostId;

@@ -37,6 +37,7 @@ import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -63,7 +64,6 @@ export function NotificationSheet({
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const respond = useRespondToFriendRequest();
   useDismissOnRouteBlur(visible, onClose);
-
   const dismissThen = useCallback((action: () => void) => {
     pendingActionRef.current = action;
     onClose();
@@ -81,7 +81,6 @@ export function NotificationSheet({
   React.useEffect(() => {
     if (!visible && Platform.OS !== 'ios') finishDismiss();
   }, [finishDismiss, visible]);
-
   const openFeedPost = useCallback(
     (postId: string, openComments = false, mentionCommentId?: string) => {
       Haptics.selectionAsync();
@@ -302,20 +301,25 @@ export function NotificationSheet({
           break;
         }
         case 'comment_like': {
-          const copy = {
-            title: notificationActorName(item.actor),
-            body: 'Liked your comment',
-          };
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
-                title={copy.title}
-                body={copy.body}
+                title={notificationActorName(item.actor)} body="Liked your comment"
                 sortAt={item.sortAt}
                 onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
               />
             </Card>
+          );
+          break;
+        }
+        case 'comment_likes_group': {
+          card = (
+            <CommentLikeGroupNotificationCard
+              item={item}
+              style={styles.card}
+              onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
+            />
           );
           break;
         }

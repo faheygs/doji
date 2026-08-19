@@ -9,6 +9,7 @@ import type { NotificationCenterItem } from '../lib/notificationCenterTypes';
 import { parseDate } from '../utils/time';
 import { createRequestSignal } from '../lib/requestSignal';
 import { isNotificationVisible } from '../lib/notificationVisibility';
+import { groupNotificationItems } from '../lib/notificationGrouping';
 
 export type { NotificationCenterItem } from '../lib/notificationCenterTypes';
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
@@ -167,7 +168,8 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
 
   const items = useMemo(
     () =>
-      (snapshot.data ?? []).filter((item) => isNotificationVisible(item, clearedAt, dismissedKeys)),
+      groupNotificationItems(snapshot.data ?? [])
+        .filter((item) => isNotificationVisible(item, clearedAt, dismissedKeys)),
     [clearedAt, dismissedKeys, snapshot.data],
   );
   const unreadCount = useMemo(() => {

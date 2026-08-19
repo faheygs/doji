@@ -1,4 +1,5 @@
 import {
+  commentLikeActorsLine,
   notificationActorName,
   notificationActorInitials,
   friendRequestCopy,
@@ -32,6 +33,16 @@ describe('notificationActorInitials', () => {
 
   it('uses username initials when no display name', () => {
     expect(notificationActorInitials({ username: 'zoeleee' })).toBe('ZO');
+  });
+});
+
+describe('commentLikeActorsLine', () => {
+  it('groups repeated likes on one comment into one readable activity', () => {
+    expect(commentLikeActorsLine([
+      { display_name: 'Kira' },
+      { display_name: 'Shannon' },
+      { display_name: 'Todd' },
+    ], 3)).toEqual({ title: 'Kira and 2 others', body: 'Liked your comment' });
   });
 });
 

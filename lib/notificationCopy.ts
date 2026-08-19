@@ -69,6 +69,15 @@ export function reactionActorsLine(
   return { title: `${primaryName} and ${extra} others`, body: 'Reacted to your post' };
 }
 
+export function commentLikeActorsLine(actors: NotificationActor[], count: number): NotificationCopy {
+  const primaryName = notificationActorName(actors[0]);
+  const extra = Math.max(0, count - 1);
+  return {
+    title: extra === 0 ? primaryName : `${primaryName} and ${extra} other${extra === 1 ? '' : 's'}`,
+    body: 'Liked your comment',
+  };
+}
+
 export function friendActivityActorsLine(
   actors: NotificationActor[],
   count: number,

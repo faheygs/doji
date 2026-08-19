@@ -201,6 +201,9 @@ The feed has Friends and Everyone audiences.
   like state arrive in one bounded Postgres read rather than a client waterfall.
 - Reactions, comments, replies, and poll-vote likes update the open card/thread and
   all related counters immediately.
+- The actor sees a reaction or newly submitted comment through optimistic cache
+  state before the RPC completes. The stable comment command ID is replaced by the
+  authoritative row without duplication; failure restores the prior cache and draft.
 - Feed queries are scoped to the authoritative current `daily_event_id`, never the
   device's local calendar. Pre-live immediately changes the active cache identity;
   the prior occurrence's posts, comments, and reactions remain durable but are no
@@ -233,6 +236,9 @@ socket hints cannot create three cache scans or cancel/restart an in-flight read
 High-volume public events additionally map to the exact query families they change:
 a comment heart refreshes the open comment thread, not the feed, poll totals, voter
 pages, and reaction sheets. Unknown events do not trigger a catch-all refetch.
+Mounted cards reconcile `feed.reaction.*` and `feed.comment*` through the bounded
+`get_post_engagement_snapshot` read and the exact open thread. Counter-only updates
+to `posts` never publish a second feed-wide event.
 
 The last authorized home/feed, occurrence, poll result, and notification reads are
 persisted locally for stale-while-revalidate startup. Cached content remains visible
@@ -402,6 +408,8 @@ Native dialogs and sheets remain mounted while their `visible` prop transitions 
 false so iOS/Android can finish dismissal and release the presentation layer. Route
 changes initiated inside a native sheet run after its dismissal callback; never hard-
 unmount a visible native modal or leave an invisible backdrop intercepting touches.
+Bottom-sheet closing motion is bounded to the shared 180 ms content duration; do not
+use a settling spring to decide when the native modal may finally unmount.
 
 Stack Back actions pop existing navigation history before consulting a `returnTo`
 fallback. `returnTo` is only for routes opened without usable history (for example a
@@ -420,6 +428,9 @@ durable 30-second server bucket whose single OS alert arrives 30-60 seconds late
 Related pushes share a platform thread/collapse identity. Changing or re-adding the
 same reaction/like does not create another alert. Foreground devices use the live bell
 and never show a redundant OS banner.
+The Activity Center groups reactions by post, friend participation by Doji, and
+comment likes by comment. Group dismissal stores its timestamp, so only genuinely new
+activity after that timestamp can make the same group visible again.
 
 Push delivery is claimed server-side using immutable event/recipient/installation keys. Native
 APNs/FCM endpoints are private per-installation records and atomically transferred on

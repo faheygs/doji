@@ -29,6 +29,24 @@ export type NotificationCenterItem =
     }
   | { key: string; kind: 'comment'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
   | { key: string; kind: 'comment_like'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
+  | {
+      key: string;
+      kind: 'comment_likes_group';
+      post_id: string;
+      comment_id: string;
+      count: number;
+      actors: Actor[];
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'comment_likes_group';
+      post_id: string;
+      comment_id: string;
+      count: number;
+      actors: Actor[];
+      sortAt: string;
+    }
   | { key: string; kind: 'mention'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
   | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string }
   | {

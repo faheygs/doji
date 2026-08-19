@@ -19,6 +19,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,6 +41,7 @@ import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
 import { createRequestSignal } from '../../lib/requestSignal';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
+import { Motion } from '../../constants/motion';
 
 type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 
@@ -353,7 +356,10 @@ function PollResultCardImpl({
   }, [modalOpen, sheetSlideRange, sheetTranslateY]);
 
   const dismissWithSpring = useCallback(() => {
-    sheetTranslateY.value = withSpring(sheetSlideRange, SPRING, (finished) => {
+    sheetTranslateY.value = withTiming(sheetSlideRange, {
+      duration: Motion.duration.content,
+      easing: Easing.in(Easing.cubic),
+    }, (finished) => {
       if (finished) runOnJS(finalizeClose)();
     });
   }, [finalizeClose, sheetSlideRange, sheetTranslateY]);
@@ -390,7 +396,10 @@ function PollResultCardImpl({
           const threshold = sheetSlideRange * 0.22;
 
           if (vy > 700 || y > threshold) {
-            sheetTranslateY.value = withSpring(sheetSlideRange, SPRING, (finished) => {
+            sheetTranslateY.value = withTiming(sheetSlideRange, {
+              duration: Motion.duration.content,
+              easing: Easing.in(Easing.cubic),
+            }, (finished) => {
               if (finished) runOnJS(finalizeClose)();
             });
             return;

@@ -215,8 +215,8 @@ reconciliation function invalidates all server-owned surfaces on reconnect/foreg
 | User occurrence/completion/buy-in | `user_event.updated`                     | user                    | current Doji, feed                                            |
 | Poll vote/result                  | `poll.vote.*`                            | mounted post            | friend/everyone results, voters, feed                         |
 | Posts                             | `feed.post.*`                            | public or owner/friends | feed, post, profile posts                                     |
-| Reactions                         | `feed.reaction.*`                        | public or owner/friends | counts, voters, feed, post                                    |
-| Comments/replies/likes            | `feed.comment*`                          | public or owner/friends | thread, counts, feed, post                                    |
+| Reactions                         | `feed.reaction.*`                        | mounted post            | targeted engagement snapshot and voters                      |
+| Comments/replies/likes            | `feed.comment*`                          | mounted post            | exact thread and targeted engagement snapshot                |
 | Mentions and social alerts        | `notification.*`                         | recipient               | bell history and remote push                                  |
 | Friendships/blocks                | `social.*`                               | involved users          | graph, counts, feed, requests, open profiles                  |
 | Public profile/avatar/cosmetics   | `profile.presentation.updated`           | owner + friends         | avatar-bearing active queries                                 |
@@ -260,6 +260,12 @@ Opened comment threads use `get_comment_thread_snapshot`, which includes authori
 comments, safe author presentation, friend/everyone and block filtering, and the
 viewer's like state in one query. The client does not fetch comment IDs, likes, and
 the friend graph serially.
+The mutation actor inserts a stable optimistic comment and updates the cached post
+counter before the network round trip. Other mounted clients receive canonical
+`feed.comment.*`/`feed.reaction.*` post-channel hints, then reconcile through the
+bounded `get_post_engagement_snapshot` and exact active thread. Counter maintenance
+must not emit `feed.post.*`, because that would turn every engagement action into a
+feed-wide refresh.
 
 ## 100k burst contract
 

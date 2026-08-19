@@ -1007,6 +1007,16 @@ export type Database = {
           my_reactions: ReactionEmoji[];
         }>;
       };
+      get_post_engagement_snapshot: {
+        Args: { p_post_id: string };
+        Returns: {
+          post_id: string;
+          reaction_count: number;
+          comment_count: number;
+          reaction_breakdown: Record<ReactionEmoji, number>;
+          my_reactions: ReactionEmoji[];
+        } | null;
+      };
       submit_poll_vote: {
         Args: {
           p_user_event_id: string;
