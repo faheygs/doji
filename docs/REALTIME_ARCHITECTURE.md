@@ -80,6 +80,12 @@
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
+- A reaction/comment intent patches the actor's cache synchronously before cancellation
+  acknowledgement or the RPC. The cancellation signal prevents stale reads from
+  overwriting it; the authoritative response and post socket then reconcile counts.
+- Changing a reaction emoji moves its fixed-shard breakdown count in the same database
+  transaction as the base reaction row. Feed snapshots and targeted engagement reads
+  therefore cannot disagree after a reaction switch.
 - Presentation motion never owns server state or delays reconciliation. Cold reads may
   crossfade a shape-matched skeleton into content, while cached reads remain interactive.
   Native sheet dismissal completes before a queued route action is allowed to run.

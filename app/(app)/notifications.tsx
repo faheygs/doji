@@ -25,7 +25,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
-import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { supabase } from '@/lib/supabase';
 import {
   syncPushRegistration,
@@ -300,7 +300,7 @@ export default function NotificationSettingsScreen() {
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
-              goBackWithOptionalReturn(router, returnTo, '/(app)/profile' as Href);
+              goBackToExplicitReturn(router, returnTo, '/(app)/profile/settings' as Href);
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"

@@ -62,12 +62,7 @@ export function useToggleReaction() {
       if (error) throw error;
       return data as ToggleReactionResult;
     },
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({
-        predicate: (query) =>
-          query.queryKey[0] === 'feed' ||
-          (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
-      });
+    onMutate: (variables) => {
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
       });
@@ -75,6 +70,13 @@ export function useToggleReaction() {
         predicate: (query) =>
           query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId,
       });
+      // Abort stale reads synchronously, but never make the first visual update
+      // wait for an in-flight request to acknowledge cancellation.
+      void queryClient.cancelQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'feed' ||
+          (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
+      }, { revert: false, silent: true });
       const patch = (post: Post) => patchReactionToggle(post, variables.emoji, variables.active);
       queryClient.setQueriesData<InfiniteData<Post[]>>(
         { predicate: (query) => query.queryKey[0] === 'feed' },

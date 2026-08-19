@@ -79,3 +79,25 @@ export function goBackWithOptionalReturn(
   }
   safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
 }
+
+/**
+ * Hidden top-level tab routes have tab history that is not the user's screen
+ * history. When one was opened with an explicit origin, return there before
+ * considering Expo's incidental tab stack.
+ */
+export function goBackToExplicitReturn(
+  router: RouterBack,
+  returnToRaw: unknown,
+  fallback: Href,
+): void {
+  const explicit = sanitizeReturnTo(returnToRaw);
+  if (explicit) {
+    safeReplace(router, explicit);
+    return;
+  }
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
+}

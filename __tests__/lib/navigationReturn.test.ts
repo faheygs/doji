@@ -2,6 +2,7 @@ import {
   hrefWithReturnTo,
   sanitizeReturnTo,
   goBackWithOptionalReturn,
+  goBackToExplicitReturn,
   RETURN_TO_QUERY,
 } from '../../lib/navigationReturn';
 import { ROUTES } from '../../lib/routes';
@@ -137,5 +138,33 @@ describe('goBackWithOptionalReturn', () => {
     };
     goBackWithOptionalReturn(router, 'bad-href', '' as Href);
     expect(router.replace).toHaveBeenCalledWith(ROUTES.feed);
+  });
+});
+
+describe('goBackToExplicitReturn', () => {
+  it('uses the explicit origin before incidental tab history', () => {
+    const router = {
+      back: jest.fn(),
+      canGoBack: jest.fn().mockReturnValue(true),
+      replace: jest.fn(),
+    };
+    goBackToExplicitReturn(
+      router,
+      encodeURIComponent('/(app)/profile/settings'),
+      ROUTES.feed,
+    );
+    expect(router.replace).toHaveBeenCalledWith('/(app)/profile/settings');
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('pops history when no explicit origin exists', () => {
+    const router = {
+      back: jest.fn(),
+      canGoBack: jest.fn().mockReturnValue(true),
+      replace: jest.fn(),
+    };
+    goBackToExplicitReturn(router, null, ROUTES.feed);
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

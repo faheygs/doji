@@ -41,16 +41,10 @@ export function useAddComment() {
       if (error) throw error;
       return data as Comment;
     },
-    onMutate: async (variables) => {
+    onMutate: (variables) => {
       const uid = session?.user?.id;
       if (!uid) return undefined;
       variables.commandId ??= newCommandId('comment');
-      await queryClient.cancelQueries({
-        predicate: (query) =>
-          (query.queryKey[0] === 'comments' && query.queryKey[1] === variables.postId) ||
-          query.queryKey[0] === 'feed' ||
-          (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
-      });
       const comments = queryClient.getQueriesData<InfiniteData<Comment[]>>({
         predicate: (query) =>
           query.queryKey[0] === 'comments' && query.queryKey[1] === variables.postId,
@@ -62,6 +56,14 @@ export function useAddComment() {
         predicate: (query) =>
           query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId,
       });
+      // Keep the actor path instant. Cancellation protects the optimistic row
+      // from stale reads, but its promise must not gate rendering or the RPC.
+      void queryClient.cancelQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'comments' && query.queryKey[1] === variables.postId) ||
+          query.queryKey[0] === 'feed' ||
+          (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
+      }, { revert: false, silent: true });
       const optimistic = createOptimisticComment({
         postId: variables.postId, userId: uid, body: variables.body.trim(),
         parentId: variables.parentId ?? null, commandId: variables.commandId, profile,

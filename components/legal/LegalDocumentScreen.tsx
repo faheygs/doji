@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { LEGAL_EFFECTIVE_DATE, type LegalSection } from '@/lib/legalDocuments';
-import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 
 type Props = {
   title: string;
@@ -40,7 +40,7 @@ export function LegalDocumentScreen({ title, sections }: Props) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/profile/settings' as Href)}
+          onPress={() => goBackToExplicitReturn(router, returnTo, '/(app)/profile/settings' as Href)}
           hitSlop={16}
           accessibilityRole="button"
           accessibilityLabel="Back"

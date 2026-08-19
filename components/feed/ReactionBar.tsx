@@ -194,6 +194,7 @@ function ReactionBarImpl({
                 activeOpacity={blurred ? 1 : 0.72}
                 accessibilityRole="button"
                 accessibilityLabel={`${label} reaction, ${count}. ${selected ? 'Selected.' : ''}`}
+                accessibilityState={{ selected, disabled: blurred || toggleReaction.isPending }}
                 hitSlop={2}
                 style={[
                   styles.iconButton,

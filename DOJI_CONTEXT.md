@@ -202,7 +202,8 @@ The feed has Friends and Everyone audiences.
 - Reactions, comments, replies, and poll-vote likes update the open card/thread and
   all related counters immediately.
 - The actor sees a reaction or newly submitted comment through optimistic cache
-  state before the RPC completes. The stable comment command ID is replaced by the
+  state before the RPC completes or an in-flight read acknowledges cancellation.
+  The stable comment command ID is replaced by the
   authoritative row without duplication; failure restores the prior cache and draft.
 - Feed queries are scoped to the authoritative current `daily_event_id`, never the
   device's local calendar. Pre-live immediately changes the active cache identity;
@@ -473,6 +474,13 @@ batch fanout, so shop/profile/gamification writes do not synchronously expand fr
   presentation and must propagate to every other active user immediately.
 - XP, levels, weekly XP, streaks, badge progress, badge tiers, Sparks rewards, and
   streak shields are server-owned consequences of committed actions.
+- Badge tiers are lifetime achievements. Their thresholds come from `badge_tiers` and
+  are evaluated against one canonical metric function: best streak, completions, XP,
+  level, cumulative reactions given, current reactions received across retained posts,
+  poll votes, accepted friends, and submitted/selected ideas. Relevant writes evaluate
+  only their affected category; a backfill repairs missing legitimate tiers.
+- Beloved is cumulative across the account's posts, not per-day: Bronze 100, Silver 500,
+  Gold 1,000. Once a tier is legitimately earned it is not removed by a later unreact.
 - Celebration UI observes authoritative profile/badge changes; it does not award
   anything itself.
 
