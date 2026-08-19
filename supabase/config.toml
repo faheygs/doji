@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.run-data-maintenance]
 verify_jwt = false
+
+[functions.operational-health]
+verify_jwt = false
