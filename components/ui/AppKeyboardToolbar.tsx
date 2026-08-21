@@ -1,17 +1,21 @@
 import React, { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardToolbar, type KeyboardToolbarProps } from 'react-native-keyboard-controller';
+import {
+  KeyboardToolbar,
+  useKeyboardState,
+  type KeyboardToolbarProps,
+} from 'react-native-keyboard-controller';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getKeyboardToolbarOpenedOffset } from '../../lib/keyboardSafeInteraction';
+import {
+  getKeyboardToolbarClosedOffset,
+  getKeyboardToolbarOpenedOffset,
+} from '../../lib/keyboardSafeInteraction';
 
-type Props = {
-  insidePageSheet?: boolean;
-};
-
-export function AppKeyboardToolbar({ insidePageSheet = false }: Props) {
+export function AppKeyboardToolbar() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
 
   const toolbarTheme = useMemo<NonNullable<KeyboardToolbarProps['theme']>>(() => {
     const current = {
@@ -28,8 +32,15 @@ export function AppKeyboardToolbar({ insidePageSheet = false }: Props) {
   return (
     <KeyboardToolbar
       doneText="Done"
+      enabled={keyboardVisible}
+      pointerEvents={keyboardVisible ? 'auto' : 'none'}
+      accessibilityElementsHidden={!keyboardVisible}
+      importantForAccessibility={keyboardVisible ? 'auto' : 'no-hide-descendants'}
       insets={{ left: insets.left, right: insets.right }}
-      offset={{ opened: getKeyboardToolbarOpenedOffset(insidePageSheet) }}
+      offset={{
+        closed: getKeyboardToolbarClosedOffset(insets.bottom),
+        opened: getKeyboardToolbarOpenedOffset(),
+      }}
       theme={toolbarTheme}
     />
   );

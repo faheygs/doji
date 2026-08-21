@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card } from '../ui/Card';
-import { Text } from '../ui/Text';
 import { AvatarStack } from '../ui/AvatarStack';
 import { NotificationActorRow } from './NotificationActorRow';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -38,11 +37,6 @@ export function CommentLikeGroupNotificationCard({
             max={3}
             borderColor={colors.surface}
           />
-        }
-        footer={
-          <Text variant="micro" color={colors.textTertiary}>
-            {item.count} like{item.count === 1 ? '' : 's'}
-          </Text>
         }
       />
     </Card>

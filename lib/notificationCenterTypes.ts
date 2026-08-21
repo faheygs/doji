@@ -14,6 +14,7 @@ export type NotificationCenterItem =
       key: string;
       kind: 'reactions_group';
       post_id: string;
+      is_shared_post?: boolean;
       count: number;
       emojis: string[];
       actors: Actor[];
@@ -27,15 +28,21 @@ export type NotificationCenterItem =
       actors: Actor[];
       sortAt: string;
     }
-  | { key: string; kind: 'comment'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
-  | { key: string; kind: 'comment_like'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
   | {
       key: string;
-      kind: 'comment_likes_group';
+      kind: 'comment';
       post_id: string;
       comment_id: string;
-      count: number;
-      actors: Actor[];
+      is_shared_post?: boolean;
+      actor: Actor | null;
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'comment_like';
+      post_id: string;
+      comment_id: string;
+      actor: Actor | null;
       sortAt: string;
     }
   | {
@@ -47,7 +54,14 @@ export type NotificationCenterItem =
       actors: Actor[];
       sortAt: string;
     }
-  | { key: string; kind: 'mention'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
+  | {
+      key: string;
+      kind: 'mention';
+      post_id: string;
+      comment_id: string;
+      actor: Actor | null;
+      sortAt: string;
+    }
   | { key: string; kind: 'challenge'; userEvent: UserEvent; sortAt: string }
   | {
       key: string;
@@ -66,5 +80,12 @@ export type NotificationCenterItem =
       status: 'approved' | 'rejected';
       sortAt: string;
     }
-  | { key: string; kind: 'comment_reply'; post_id: string; comment_id: string; actor: Actor | null; sortAt: string }
+  | {
+      key: string;
+      kind: 'comment_reply';
+      post_id: string;
+      comment_id: string;
+      actor: Actor | null;
+      sortAt: string;
+    }
   | { key: string; kind: 'poll_vote'; actor: Actor | null; sortAt: string };

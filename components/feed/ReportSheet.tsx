@@ -8,6 +8,7 @@ import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
 import { KeyboardSafeSheet } from '../ui/KeyboardSafeSheet';
 import { useReportContent, type ReportReason } from '../../hooks/useReportContent';
+import { InlineFeedback } from '../ui/InlineFeedback';
 
 const REASONS: { value: ReportReason; label: string; description: string }[] = [
   { value: 'spam',          label: 'Spam',          description: 'Repetitive or unwanted content' },
@@ -73,15 +74,18 @@ function getSubtitle(props: Props): string {
 export function ReportSheet({ visible, reportedUserId, postId, commentId, pollVoteId, onClose }: Props) {
   const { colors } = useTheme();
   const [selected, setSelected] = useState<ReportReason | null>(null);
+  const [submitError, setSubmitError] = useState('');
   const report = useReportContent();
 
   const handleClose = useCallback(() => {
     setSelected(null);
+    setSubmitError('');
     onClose();
   }, [onClose]);
 
   const handleSubmit = useCallback(() => {
     if (!selected) return;
+    setSubmitError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     report.mutate(
       { reportedUserId, postId, commentId, pollVoteId, reason: selected },
@@ -95,7 +99,7 @@ export function ReportSheet({ visible, reportedUserId, postId, commentId, pollVo
           handleClose();
         },
         onError: () => {
-          Toast.show({ type: 'error', text1: 'Could not submit report', text2: 'Please try again.' });
+          setSubmitError('Could not submit this report. Please try again.');
         },
       },
     );
@@ -144,7 +148,10 @@ export function ReportSheet({ visible, reportedUserId, postId, commentId, pollVo
                   backgroundColor: isSelected ? `${colors.primary}12` : colors.surfaceElevated,
                 },
               ]}
-              onPress={() => setSelected(r.value)}
+              onPress={() => {
+                setSelected(r.value);
+                setSubmitError('');
+              }}
               activeOpacity={0.75}
               accessibilityRole="radio"
               accessibilityState={{ checked: isSelected }}
@@ -163,6 +170,7 @@ export function ReportSheet({ visible, reportedUserId, postId, commentId, pollVo
             </TouchableOpacity>
           );
         })}
+        {submitError ? <InlineFeedback message={submitError} /> : null}
       </View>
     </KeyboardSafeSheet>
   );

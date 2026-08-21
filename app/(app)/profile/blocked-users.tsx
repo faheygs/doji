@@ -15,6 +15,7 @@ import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useBlockedUsersPaged, useUnblockUser } from '@/hooks/useBlockUser';
@@ -31,6 +32,7 @@ export default function BlockedUsersScreen() {
   );
   const { isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = blockedQuery;
   const unblock = useUnblockUser();
+  const [actionError, setActionError] = React.useState('');
 
   const styles = useMemo(
     () =>
@@ -67,12 +69,13 @@ export default function BlockedUsersScreen() {
   const handleUnblock = useCallback(
     (userId: string, displayName: string | null) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setActionError('');
       unblock.mutate({ blockedUserId: userId }, {
         onSuccess: () => {
           Toast.show({ type: 'success', text1: `${displayName ?? 'User'} unblocked` });
         },
         onError: () => {
-          Toast.show({ type: 'error', text1: 'Could not unblock. Please try again.' });
+          setActionError('Could not unblock this user. Please try again.');
         },
       });
     },
@@ -110,6 +113,13 @@ export default function BlockedUsersScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
+        <>
+        {actionError ? (
+          <InlineFeedback
+            message={actionError}
+            style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.sm }}
+          />
+        ) : null}
         <FlatList
           style={webScrollParentStyle}
           data={blocked}
@@ -160,6 +170,7 @@ export default function BlockedUsersScreen() {
             </View>
           )}
         />
+        </>
       )}
     </SafeAreaView>
   );

@@ -48,7 +48,7 @@ function parseDismissed(raw: string | null): Dismissed {
       );
     }
   } catch {
-    /* ignore invalid legacy state */
+    /* Ignore corrupt or unsupported persisted dismissal state. */
   }
   return new Map();
 }

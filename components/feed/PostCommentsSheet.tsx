@@ -10,7 +10,6 @@ import {
   Dimensions,
   Keyboard,
   Platform,
-  type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -31,13 +30,12 @@ import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { PostCommentsThread } from './PostCommentsThread';
 import { AppKeyboardToolbar } from '../ui/AppKeyboardToolbar';
-import { KEYBOARD_TOOLBAR_CLEARANCE } from '../ui/AppKeyboardAwareScrollView';
+import { AppKeyboardViewport } from '../ui/AppKeyboardViewport';
 import { useComments, useToggleCommentsDisabled } from '../../hooks/useComments';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { formatCompactCount } from '../../utils/formatCount';
 import type { FeedAudience } from '../../lib/feedAudience';
 import {
-  getKeyboardAvoidanceInset,
   getKeyboardDismissTarget,
 } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
@@ -91,7 +89,6 @@ export function PostCommentsSheet({
       : commentCount;
   const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardVisibleRef = useRef(false);
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const { height: liveWinH } = useWindowDimensions();
@@ -104,21 +101,18 @@ export function PostCommentsSheet({
   useEffect(() => {
     if (!visible) {
       setKeyboardOpen(false);
-      setKeyboardHeight(0);
       keyboardVisibleRef.current = false;
       return;
     }
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = (event: KeyboardEvent) => {
+    const onShow = () => {
       keyboardVisibleRef.current = true;
       setKeyboardOpen(true);
-      setKeyboardHeight(event.endCoordinates.height);
     };
     const onHide = () => {
       keyboardVisibleRef.current = false;
       setKeyboardOpen(false);
-      setKeyboardHeight(0);
     };
     const s = Keyboard.addListener(showEvt, onShow);
     const h = Keyboard.addListener(hideEvt, onHide);
@@ -144,12 +138,6 @@ export function PostCommentsSheet({
   }, [visible]);
 
   const layoutWinH = lockedWinH ?? liveWinH;
-  const keyboardInset = getKeyboardAvoidanceInset({
-    keyboardHeight,
-    initialWindowHeight: layoutWinH,
-    currentWindowHeight: liveWinH,
-  });
-
   /** Max height: sheet top stops at the top safe area (not under status bar). */
   const expandedHeight = layoutWinH - insets.top;
   /** Initial snap: ~3/4 of the window shows the sheet. */
@@ -323,7 +311,7 @@ export function PostCommentsSheet({
               styles.sheet,
               sheetStyle,
               {
-                paddingBottom: insets.bottom + Spacing.sm,
+                paddingBottom: keyboardOpen ? 0 : insets.bottom + Spacing.sm,
                 /** Cap to live window so keyboard resize cannot push sheet off-screen. */
                 maxHeight: Math.min(expandedHeight, liveWinH - insets.top),
               },
@@ -367,7 +355,7 @@ export function PostCommentsSheet({
                 />
               </View>
             ) : null}
-            <View style={styles.body}>
+            <AppKeyboardViewport style={styles.body}>
               <PostCommentsThread
                 postId={postId}
                 postOwnerId={postOwnerId}
@@ -375,14 +363,11 @@ export function PostCommentsSheet({
                 fetchEnabled={visible}
                 feedAudience={feedAudience}
                 embedInSheet
-                keyboardInset={
-                  keyboardInset > 0 ? keyboardInset + KEYBOARD_TOOLBAR_CLEARANCE : 0
-                }
               />
-            </View>
+            </AppKeyboardViewport>
           </Animated.View>
         </View>
-        <AppKeyboardToolbar insidePageSheet />
+        <AppKeyboardToolbar />
       </GestureHandlerRootView>
     </Modal>
   );

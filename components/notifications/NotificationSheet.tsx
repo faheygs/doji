@@ -29,6 +29,7 @@ import {
   friendRequestCopy,
   friendAcceptedCopy,
   reactionActorsLine,
+  commentActivityCopy,
   challengeCopy,
   notificationActorName,
   notificationActorHandle,
@@ -101,7 +102,7 @@ export function NotificationSheet({
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.md,
+          paddingVertical: Spacing.sm,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.hairline,
         },
@@ -112,40 +113,41 @@ export function NotificationSheet({
           flexGrow: 1,
         },
         card: {
-          padding: Spacing.md,
+          paddingHorizontal: Spacing.md,
+          paddingVertical: Spacing.sm,
         },
         actions: {
           flexDirection: 'row',
           gap: Spacing.sm,
         },
         challengeLeading: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: colors.primaryLight,
           alignItems: 'center',
           justifyContent: 'center',
         },
         badgeLeading: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: colors.primaryPale,
           alignItems: 'center',
           justifyContent: 'center',
         },
         suggestionApprovedLeading: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: colors.successLight,
           alignItems: 'center',
           justifyContent: 'center',
         },
         suggestionRejectedLeading: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: colors.chipBackground,
           alignItems: 'center',
           justifyContent: 'center',
@@ -283,10 +285,7 @@ export function NotificationSheet({
           break;
         }
         case 'comment': {
-          const copy = {
-            title: notificationActorName(item.actor),
-            body: 'Commented on your post',
-          };
+          const copy = commentActivityCopy(item.actor, item.is_shared_post);
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
@@ -343,7 +342,7 @@ export function NotificationSheet({
         }
         case 'reactions_group': {
           const shown = item.actors.slice(0, 3);
-          const copy = reactionActorsLine(item.actors);
+          const copy = reactionActorsLine(item.actors, item.is_shared_post);
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow

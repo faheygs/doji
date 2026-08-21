@@ -284,6 +284,7 @@ export type Comment = {
   post_id: string;
   user_id: string;
   parent_id: string | null;
+  reply_to_comment_id: string | null;
   body: string;
   like_count: number;
   created_at: string;
@@ -405,8 +406,14 @@ export type Report = {
   status: ReportStatus;
   notes: string | null;
   created_at: string;
-  reporter?: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
-  reported_user?: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
+  reporter?: Pick<
+    Profile,
+    'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'
+  > | null;
+  reported_user?: Pick<
+    Profile,
+    'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'
+  > | null;
   post?: { caption: string | null; photo_url: string | null } | null;
   comment?: { body: string | null } | null;
   poll_vote?: { custom_text: string | null } | null;
@@ -702,6 +709,10 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: Report[];
       };
+      get_pending_suggestions_snapshot: {
+        Args: { p_limit?: number };
+        Returns: ChallengeSuggestion[];
+      };
       ensure_today_user_event: {
         Args: Record<string, never>;
         Returns: UserEvent | null;
@@ -773,9 +784,11 @@ export type Database = {
       };
       search_profiles: {
         Args: { p_query?: string; p_limit?: number };
-        Returns: Array<Profile & {
-          friendship_status: 'none' | 'friends' | 'pending_out' | 'pending_in' | 'blocked';
-        }>;
+        Returns: Array<
+          Profile & {
+            friendship_status: 'none' | 'friends' | 'pending_out' | 'pending_in' | 'blocked';
+          }
+        >;
       };
       search_mentionable_profiles: {
         Args: { p_query?: string; p_limit?: number };
@@ -996,7 +1009,10 @@ export type Database = {
           user_id: string;
           created_at: string;
           friendship_status: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
-          profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'>;
+          profile: Pick<
+            Profile,
+            'id' | 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'
+          >;
         }>;
       };
       get_post_reaction_summaries: {

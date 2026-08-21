@@ -20,10 +20,10 @@ import { Text } from '../ui/Text';
 import { AppTextInput } from '../ui/AppTextInput';
 import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
-import Toast from 'react-native-toast-message';
+import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { formatCompactCount } from '../../utils/formatCount';
-import { formatCompactRelativeTime, parseDate } from '../../utils/time';
+import { formatCompactRelativeTime } from '../../utils/time';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import {
@@ -40,49 +40,13 @@ import { CommentLikesSheet } from './CommentLikesSheet';
 import { ReportSheet } from './ReportSheet';
 import { useAppDialog } from '../../contexts/DialogContext';
 import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
+import {
+  buildCommentRows,
+  replyRootId,
+  type CommentThreadRow as Row,
+} from '../../lib/commentThread';
 const MAX_LEN = 2000;
 const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
-type Row =
-  | { kind: 'root'; comment: CommentWithMeta; replyCount: number }
-  | { kind: 'reply'; comment: CommentWithMeta; parentUsername?: string }
-  | { kind: 'toggle'; parentId: string; replyCount: number; expanded: boolean };
-export function buildRows(comments: CommentWithMeta[], expandedComments: Set<string>): Row[] {
-  const byId = new Map(comments.map((c) => [c.id, c]));
-  const byParent = new Map<string | null, CommentWithMeta[]>();
-  for (const c of comments) {
-    const k = c.parent_id;
-    if (!byParent.has(k)) byParent.set(k, []);
-    byParent.get(k)!.push(c);
-  }
-  const sortByTime = (a: CommentWithMeta, b: CommentWithMeta) =>
-    parseDate(a.created_at).getTime() - parseDate(b.created_at).getTime();
-  const tops = (byParent.get(null) ?? []).slice().sort(sortByTime);
-  const rows: Row[] = [];
-  for (const t of tops) {
-    const replies = (byParent.get(t.id) ?? []).slice().sort(sortByTime);
-    const replyCount = replies.length;
-    rows.push({ kind: 'root', comment: t, replyCount });
-    if (replyCount > 0) {
-      const expanded = expandedComments.has(t.id);
-      rows.push({ kind: 'toggle', parentId: t.id, replyCount, expanded });
-      if (expanded) {
-        for (const r of replies) {
-          const parent = r.parent_id ? byId.get(r.parent_id) : undefined;
-          rows.push({ kind: 'reply', comment: r, parentUsername: parent?.profile?.username });
-        }
-      }
-    }
-  }
-  return rows;
-}
-function stripReplyMention(body: string, parentUsername?: string | null): string {
-  if (!parentUsername) return body;
-  const prefix = `@${parentUsername}`;
-  if (body.toLowerCase().startsWith(prefix.toLowerCase())) {
-    return body.slice(prefix.length).replace(/^\s+/, '');
-  }
-  return body;
-}
 function CommentActionSheet({
   visible,
   onClose,
@@ -254,7 +218,10 @@ function CommentRow({
           paddingVertical: Spacing.sm,
         },
         replyWrap: {
-          paddingLeft: Spacing.xl,
+          marginLeft: Spacing.xl,
+          paddingLeft: Spacing.md,
+          borderLeftWidth: 2,
+          borderLeftColor: colors.hairline,
         },
         avatarCol: { marginRight: Spacing.sm, marginTop: 1 },
         body: { flex: 1, minWidth: 0 },
@@ -282,7 +249,7 @@ function CommentRow({
         },
         likeCount: { fontVariant: ['tabular-nums'] },
       }),
-    [],
+    [colors.hairline],
   );
   const liked = Boolean(comment.my_like);
   const heartColor = liked ? colors.danger : colors.textTertiary;
@@ -368,7 +335,7 @@ function CommentRow({
               onReply(comment);
             }}
             accessibilityRole="button"
-            accessibilityLabel="Reply"
+            accessibilityLabel={`Reply to ${u}`}
           >
             <Text variant="micro" color={colors.textTertiary} style={{ fontWeight: '600' }}>
               Reply
@@ -414,8 +381,6 @@ type Props = {
   fetchEnabled?: boolean;
   /** Sheet handles safe area; avoid double padding on composer. */
   embedInSheet?: boolean;
-  /** Overlay inset measured by the sheet that owns keyboard avoidance. */
-  keyboardInset?: number;
   feedAudience?: FeedAudience;
 };
 
@@ -425,7 +390,6 @@ export function PostCommentsThread({
   commentsDisabled = false,
   fetchEnabled = true,
   embedInSheet = false,
-  keyboardInset = 0,
   feedAudience = 'everyone',
 }: Props) {
   const { colors } = useTheme();
@@ -442,10 +406,7 @@ export function PostCommentsThread({
     hasNextPage,
     isFetchingNextPage,
   } = useComments(postId, { fetchEnabled, feedAudience });
-  const comments = useMemo(
-    () => commentPages?.pages.flat() ?? [],
-    [commentPages?.pages],
-  );
+  const comments = useMemo(() => commentPages?.pages.flat() ?? [], [commentPages?.pages]);
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
@@ -459,6 +420,7 @@ export function PostCommentsThread({
   const [reportComment, setReportComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
+  const [composerError, setComposerError] = useState('');
   const pendingLikeIds = useRef(new Set<string>());
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
@@ -470,7 +432,10 @@ export function PostCommentsThread({
     }
   }, [fetchEnabled, embedInSheet]);
 
-  const rows = useMemo(() => buildRows(comments, expandedComments), [comments, expandedComments]);
+  const rows = useMemo(
+    () => buildCommentRows(comments, expandedComments),
+    [comments, expandedComments],
+  );
 
   const onProfile = useCallback(
     (username: string) => {
@@ -481,9 +446,11 @@ export function PostCommentsThread({
   );
 
   const onReply = useCallback((c: CommentWithMeta) => {
+    setComposerError('');
     setEditingComment(null);
     setReplyingTo(c);
-    setDraft('');
+    const username = c.profile?.username?.trim();
+    setDraft(username ? `@${username} ` : '');
     setMentionQuery(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
@@ -497,6 +464,7 @@ export function PostCommentsThread({
   }, []);
 
   const onEdit = useCallback((c: CommentWithMeta) => {
+    setComposerError('');
     setReplyingTo(null);
     setEditingComment(c);
     setDraft(c.body);
@@ -513,8 +481,12 @@ export function PostCommentsThread({
 
   const onToggleLike = useCallback(
     (commentId: string, liked: boolean) => {
-      if (!me || pendingLikeIds.current.has(commentId)) return; pendingLikeIds.current.add(commentId);
-      toggleLike.mutate({ postId, commentId, liked }, { onSettled: () => pendingLikeIds.current.delete(commentId) });
+      if (!me || pendingLikeIds.current.has(commentId)) return;
+      pendingLikeIds.current.add(commentId);
+      toggleLike.mutate(
+        { postId, commentId, liked },
+        { onSettled: () => pendingLikeIds.current.delete(commentId) },
+      );
     },
     [me, postId, toggleLike],
   );
@@ -535,6 +507,7 @@ export function PostCommentsThread({
 
   const onChangeDraft = useCallback((text: string) => {
     setDraft(text);
+    setComposerError('');
     const mentionMatch = text.match(/@([a-zA-Z0-9_]*)$/);
     setMentionQuery(mentionMatch ? mentionMatch[1] : null);
   }, []);
@@ -542,6 +515,7 @@ export function PostCommentsThread({
   const onSelectMention = useCallback((username: string) => {
     setDraft((prev) => prev.replace(/@[a-zA-Z0-9_]*$/, `@${username} `));
     setMentionQuery(null);
+    setComposerError('');
     inputRef.current?.focus();
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
@@ -560,25 +534,31 @@ export function PostCommentsThread({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       editComment.mutate(
         { postId, commentId: editingComment.id, body: rawBody },
-        { onSuccess: cancelComposerState },
+        {
+          onSuccess: cancelComposerState,
+          onError: (err: Error) => {
+            setComposerError(err.message || 'Could not save your comment. Try again.');
+          },
+        },
       );
       return;
     }
-    const body = replyingTo ? stripReplyMention(rawBody, replyingTo.profile?.username) : rawBody;
-    if (!body) return;
+    const body = rawBody;
     const replyTarget = replyingTo;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addComment.mutate(
       {
         postId,
         body,
-        parentId: replyingTo?.id ?? null,
+        parentId: replyingTo ? replyRootId(replyingTo) : null,
+        replyToCommentId: replyingTo?.id ?? null,
       },
       {
         onError: (err: Error) => {
-          setDraft(rawBody); setReplyingTo(replyTarget);
+          setDraft(rawBody);
+          setReplyingTo(replyTarget);
           if (__DEV__) console.warn('[useAddComment] failed:', err);
-          Toast.show({ type: 'error', text1: err.message || 'Failed to post comment' });
+          setComposerError(err.message || 'Could not post your comment. Try again.');
         },
       },
     );
@@ -670,7 +650,7 @@ export function PostCommentsThread({
         return (
           <TouchableOpacity
             onPress={() => onToggleReplies(item.parentId)}
-            style={{ paddingLeft: Spacing.xl + 28 + Spacing.sm, paddingVertical: Spacing.xs }}
+            style={{ paddingLeft: Spacing.xl + Spacing.md, paddingVertical: Spacing.xs }}
             accessibilityRole="button"
             accessibilityLabel={label}
           >
@@ -709,12 +689,7 @@ export function PostCommentsThread({
   );
 
   return (
-    <View
-      style={[
-        styles.root,
-        embedInSheet && keyboardInset > 0 ? { paddingBottom: keyboardInset } : null,
-      ]}
-    >
+    <View style={styles.root}>
       {isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : isError ? (
@@ -841,6 +816,9 @@ export function PostCommentsThread({
                 )}
               </TouchableOpacity>
             </View>
+            {composerError ? (
+              <InlineFeedback message={composerError} testID="comment-composer-error" />
+            ) : null}
             <Text
               variant="micro"
               color={draft.length >= MAX_LEN ? colors.error : colors.textTertiary}
@@ -870,7 +848,8 @@ export function PostCommentsThread({
           const target = menuComment;
           if (!target) return;
           showDialog({
-            title: 'Delete comment?', message: 'This cannot be undone.',
+            title: 'Delete comment?',
+            message: 'This cannot be undone.',
             actions: [
               { label: 'Cancel', variant: 'cancel' },
               { label: 'Delete', variant: 'destructive', onPress: () => onDelete(target) },

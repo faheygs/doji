@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle, DEFAULT_ACCENT_THEME } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,6 +24,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { TITLE_CATALOG } from '@/lib/cosmetics';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import type { ShopItem } from '@/types/database';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function ShopScreen() {
   const router = useRouter();
@@ -38,6 +38,8 @@ export default function ShopScreen() {
   const purchase = usePurchaseShopItem();
   const equip = useEquipShopItem();
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
+  const [shopError, setShopError] = useState('');
+  const [purchaseError, setPurchaseError] = useState('');
 
   const themes = catalog.filter((i) => i.kind === 'theme' && i.key !== DEFAULT_ACCENT_THEME);
   const borders = catalog.filter((i) => i.kind === 'border');
@@ -107,10 +109,12 @@ export default function ShopScreen() {
   const handleItemPress = useCallback(
     (item: ShopItem) => {
       Haptics.selectionAsync();
+      setShopError('');
+      setPurchaseError('');
       const ownedItem = isShopItemOwned(owned, item.key);
       if (ownedItem) {
         void equip.mutateAsync(item.key).catch(() => {
-          Toast.show({ type: 'error', text1: 'Could not equip item' });
+          setShopError('Could not equip that item. Try again.');
         });
         return;
       }
@@ -121,12 +125,13 @@ export default function ShopScreen() {
 
   const handlePurchase = async () => {
     if (!confirmItem) return;
+    setPurchaseError('');
     try {
       await purchase.mutateAsync(confirmItem.key);
       setConfirmItem(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Toast.show({ type: 'error', text1: 'Not enough Sparks' });
+      setPurchaseError('Could not complete this purchase. Check your Sparks balance and try again.');
     }
   };
 
@@ -148,6 +153,12 @@ export default function ShopScreen() {
           contentContainerStyle={{ paddingBottom: Spacing.xxl }}
           showsVerticalScrollIndicator={false}
         >
+          {shopError ? (
+            <InlineFeedback
+              message={shopError}
+              style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}
+            />
+          ) : null}
           <View style={styles.intro}>
             <Text variant="headingLarge">Make Doji yours</Text>
             <Text variant="body" color={colors.textSecondary} style={{ lineHeight: 21 }}>
@@ -260,6 +271,7 @@ export default function ShopScreen() {
         onConfirm={handlePurchase}
         onClose={() => setConfirmItem(null)}
         loading={purchase.isPending}
+        error={purchaseError}
       />
     </SafeAreaView>
   );

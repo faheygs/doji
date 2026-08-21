@@ -3,10 +3,11 @@
 # For this project, auth is enforced inside each function (`CRON_SECRET` or user JWT).
 # See CRON_AND_SECRETS.md.
 
-[functions.schedule-daily-challenge]
-verify_jwt = false
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_enforce_minimum_signup_age"
 
-[functions.notify-user]
+[functions.schedule-daily-challenge]
 verify_jwt = false
 
 [functions.realtime-token]

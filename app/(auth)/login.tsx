@@ -1,7 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
 import { formatAuthError, normalizeEmail } from '../../lib/authErrors';
 import {
@@ -18,19 +16,27 @@ import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAware
 import { Button } from '../../components/ui/Button';
 import { legalAcceptanceMetadata } from '../../lib/legal';
 import { AuthModeBackButton } from '../../components/auth/AuthModeBackButton';
+import { AuthLegalLinks } from '../../components/auth/AuthLegalLinks';
+import { LegalConsentCheckbox } from '../../components/auth/LegalConsentCheckbox';
+import { SignupAgeStep } from '../../components/auth/SignupAgeStep';
+import { assessBirthDate } from '../../lib/ageAssurance';
+import { InlineFeedback, type InlineFeedbackData } from '../../components/ui/InlineFeedback';
 
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function LoginScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  const [signupStep, setSignupStep] = useState<'age' | 'credentials'>('age');
+  const [birthDate, setBirthDate] = useState('');
+  const [birthDateTouched, setBirthDateTouched] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<InlineFeedbackData | null>(null);
 
   const styles = useMemo(
     () =>
@@ -56,6 +62,9 @@ export default function LoginScreen() {
           gap: Spacing.md,
           marginTop: Spacing.sm,
         },
+        consents: {
+          gap: 0,
+        },
         switchMode: {
           alignSelf: 'flex-start',
           marginTop: Spacing.sm,
@@ -64,20 +73,6 @@ export default function LoginScreen() {
           paddingTop: Spacing.md,
           paddingBottom: Spacing.xl,
           width: '100%',
-        },
-        tosRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-          marginTop: Spacing.xs,
-        },
-        tosCheckbox: {
-          width: 22,
-          height: 22,
-          borderRadius: 6,
-          borderWidth: 2,
-          alignItems: 'center',
-          justifyContent: 'center',
         },
       }),
     [colors.background],
@@ -92,6 +87,7 @@ export default function LoginScreen() {
     () => validatePasswordMatch(password, confirmPassword),
     [password, confirmPassword],
   );
+  const birthDateAssessment = useMemo(() => assessBirthDate(birthDate), [birthDate]);
 
   const showEmailError = email.length > 0 && !emailValidation.ok;
   const showPasswordError = password.length > 0 && !passwordValidation.ok;
@@ -101,6 +97,7 @@ export default function LoginScreen() {
     emailValidation.ok &&
     passwordValidation.ok &&
     confirmValidation.ok &&
+    birthDateAssessment.ok &&
     tosAccepted &&
     privacyAccepted;
   const signInOk = emailValidation.ok && passwordValidation.ok;
@@ -108,43 +105,72 @@ export default function LoginScreen() {
   const showSignIn = useCallback(() => {
     setMode('signIn');
     setConfirmPassword('');
+    setSignupStep('age');
+    setBirthDate('');
+    setBirthDateTouched(false);
     setTosAccepted(false);
     setPrivacyAccepted(false);
+    setFeedback(null);
   }, []);
 
+  const showSignUp = useCallback(() => {
+    setMode('signUp');
+    setSignupStep('age');
+    setFeedback(null);
+  }, []);
+
+  const handleSignUpBack = useCallback(() => {
+    if (signupStep === 'credentials') setSignupStep('age');
+    else showSignIn();
+  }, [showSignIn, signupStep]);
+
+  const handleAgeContinue = useCallback(() => {
+    setBirthDateTouched(true);
+    if (!birthDateAssessment.ok) {
+      return;
+    }
+    setSignupStep('credentials');
+  }, [birthDateAssessment]);
+
   const handleForgotPassword = async () => {
+    setFeedback(null);
     if (!emailValidation.ok) {
-      Toast.show({ type: 'error', text1: 'Enter your email above first' });
+      setFeedback({ tone: 'error', message: 'Enter a valid email address above first.' });
       return;
     }
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email));
       if (error) throw error;
-      Toast.show({
-        type: 'success',
-        text1: 'Reset email sent',
-        text2: 'Check your inbox for a password reset link.',
+      setFeedback({
+        tone: 'success',
+        title: 'Reset email sent',
+        message: 'Check your inbox for a password reset link.',
       });
     } catch (err: unknown) {
-      Toast.show({
-        type: 'error',
-        text1: 'Could not send reset email',
-        text2: formatAuthError(err),
+      setFeedback({
+        tone: 'error',
+        title: 'Could not send reset email',
+        message: formatAuthError(err),
       });
     }
   };
 
   const handleSubmit = async () => {
+    setFeedback(null);
     if (!emailValidation.ok) {
-      Toast.show({ type: 'error', text1: emailValidation.message });
+      setFeedback({ tone: 'error', message: emailValidation.message });
       return;
     }
     if (!passwordValidation.ok) {
-      Toast.show({ type: 'error', text1: passwordValidation.message });
+      setFeedback({ tone: 'error', message: passwordValidation.message });
       return;
     }
     if (mode === 'signUp' && !confirmValidation.ok) {
-      Toast.show({ type: 'error', text1: confirmValidation.message });
+      setFeedback({ tone: 'error', message: confirmValidation.message });
+      return;
+    }
+    if (mode === 'signUp' && !birthDateAssessment.ok) {
+      setSignupStep('age');
       return;
     }
 
@@ -163,7 +189,12 @@ export default function LoginScreen() {
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
-          options: { data: legalAcceptanceMetadata(acceptedAt) },
+          options: {
+            data: {
+              ...legalAcceptanceMetadata(acceptedAt),
+              birth_date: birthDateAssessment.ok ? birthDateAssessment.isoDate : null,
+            },
+          },
         });
         if (error) throw error;
 
@@ -173,10 +204,10 @@ export default function LoginScreen() {
             password,
           });
           if (signInError) {
-            Toast.show({
-              type: 'info',
-              text1: 'Check your email',
-              text2: 'Confirm your account, then sign in.',
+            setFeedback({
+              tone: 'info',
+              title: 'Check your email',
+              message: 'Confirm your account, then sign in.',
             });
             return;
           }
@@ -184,10 +215,10 @@ export default function LoginScreen() {
       }
       // Session + navigation are handled by onAuthStateChange and Stack.Protected guards.
     } catch (err: unknown) {
-      Toast.show({
-        type: 'error',
-        text1: mode === 'signIn' ? 'Sign in failed' : 'Sign up failed',
-        text2: formatAuthError(err),
+      setFeedback({
+        tone: 'error',
+        title: mode === 'signIn' ? 'Sign in failed' : 'Could not create account',
+        message: formatAuthError(err),
       });
     } finally {
       setLoading(false);
@@ -198,140 +229,102 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.keyboardView}>
         <View style={styles.header}>
-          <AuthModeBackButton mode={mode} onReturnToSignIn={showSignIn} />
+          <AuthModeBackButton mode={mode} onReturnToSignIn={handleSignUpBack} />
         </View>
 
         <AppKeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text variant="displayMedium">
-            {mode === 'signIn' ? 'Welcome back' : 'Create an account'}
-          </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            {mode === 'signIn'
-              ? 'Sign in with your email and password.'
-              : 'Pick an email and password to get started.'}
-          </Text>
-
-          <View style={styles.inputs}>
-            <Input
-              label="Email"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              error={showEmailError ? validationMessage(emailValidation) : undefined}
-              success={emailValidation.ok && email.length > 0 ? 'Looks good' : undefined}
-            />
-            <Input
-              label="Password"
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete={mode === 'signUp' ? 'password-new' : 'password'}
-              textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
-              error={showPasswordError ? validationMessage(passwordValidation) : undefined}
-              hint={
-                password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined
+          {mode === 'signUp' && signupStep === 'age' ? (
+            <SignupAgeStep
+              value={birthDate}
+              onChange={setBirthDate}
+              onBlur={() => setBirthDateTouched(true)}
+              error={
+                birthDateTouched && !birthDateAssessment.ok
+                  ? birthDateAssessment.message
+                  : undefined
               }
             />
-            {mode === 'signUp' ? (
-              <>
+          ) : (
+            <>
+              <Text variant="displayMedium">
+                {mode === 'signIn' ? 'Welcome back' : 'Create an account'}
+              </Text>
+              <Text variant="body" color={colors.textSecondary}>
+                {mode === 'signIn'
+                  ? 'Sign in with your email and password.'
+                  : 'Pick an email and password to get started.'}
+              </Text>
+              <View style={styles.inputs}>
                 <Input
-                  label="Confirm password"
+                  label="Email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    setFeedback(null);
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  error={showEmailError ? validationMessage(emailValidation) : undefined}
+                  success={emailValidation.ok && email.length > 0 ? 'Looks good' : undefined}
+                />
+                <Input
+                  label="Password"
                   placeholder="••••••••"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    setFeedback(null);
+                  }}
                   secureTextEntry
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoComplete="password-new"
-                  textContentType="newPassword"
-                  error={showConfirmError ? validationMessage(confirmValidation) : undefined}
-                  success={
-                    confirmValidation.ok && confirmPassword.length > 0
-                      ? 'Passwords match'
-                      : undefined
-                  }
+                  autoComplete={mode === 'signUp' ? 'password-new' : 'password'}
+                  textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
+                  error={showPasswordError ? validationMessage(passwordValidation) : undefined}
+                  hint={password.length === 0 ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
                 />
-                <TouchableOpacity
-                  onPress={() => setTosAccepted((v) => !v)}
-                  style={styles.tosRow}
-                  activeOpacity={0.7}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: tosAccepted }}
-                >
-                  <View
-                    style={[
-                      styles.tosCheckbox,
-                      {
-                        borderColor: tosAccepted ? colors.primary : colors.border,
-                        backgroundColor: tosAccepted ? colors.primary : 'transparent',
-                      },
-                    ]}
-                  >
-                    {tosAccepted ? (
-                      <Text variant="micro" style={{ color: colors.onPrimary, fontWeight: '700' }}>
-                        ✓
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text variant="bodySmall" color={colors.textSecondary} style={{ flex: 1 }}>
-                    I agree to the{' '}
-                    <Text
-                      variant="bodySmall"
-                      color={colors.link}
-                      onPress={() => router.push('/(auth)/terms')}
-                    >
-                      Terms of Use
-                    </Text>
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setPrivacyAccepted((v) => !v)}
-                  style={styles.tosRow}
-                  activeOpacity={0.7}
-                  accessibilityRole="checkbox"
-                  accessibilityLabel="Agree to the Privacy Policy"
-                  accessibilityState={{ checked: privacyAccepted }}
-                >
-                  <View
-                    style={[
-                      styles.tosCheckbox,
-                      {
-                        borderColor: privacyAccepted ? colors.primary : colors.border,
-                        backgroundColor: privacyAccepted ? colors.primary : 'transparent',
-                      },
-                    ]}
-                  >
-                    {privacyAccepted ? (
-                      <Text variant="micro" style={{ color: colors.onPrimary, fontWeight: '700' }}>
-                        ✓
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text variant="bodySmall" color={colors.textSecondary} style={{ flex: 1 }}>
-                    I have read and agree to the{' '}
-                    <Text
-                      variant="bodySmall"
-                      color={colors.link}
-                      onPress={() => router.push('/(auth)/privacy')}
-                    >
-                      Privacy Policy
-                    </Text>
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-          </View>
+                {mode === 'signUp' ? (
+                  <>
+                    <Input
+                      label="Confirm password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChangeText={(value) => {
+                        setConfirmPassword(value);
+                        setFeedback(null);
+                      }}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="password-new"
+                      textContentType="newPassword"
+                      error={showConfirmError ? validationMessage(confirmValidation) : undefined}
+                      success={confirmValidation.ok && confirmPassword.length > 0 ? 'Passwords match' : undefined}
+                    />
+                    <View style={styles.consents}>
+                      <LegalConsentCheckbox
+                        checked={tosAccepted}
+                        onChange={setTosAccepted}
+                        document="terms"
+                      />
+                      <LegalConsentCheckbox
+                        checked={privacyAccepted}
+                        onChange={setPrivacyAccepted}
+                        document="privacy"
+                      />
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            </>
+          )}
 
           {mode === 'signIn' ? (
             <>
@@ -340,22 +333,15 @@ export default function LoginScreen() {
                   Forgot password?
                 </Text>
               </TouchableOpacity>
-              <Text variant="bodySmall" color={colors.textTertiary} style={styles.switchMode}>
-                By signing in you agree to our{' '}
-                <Text
-                  variant="bodySmall"
-                  color={colors.link}
-                  onPress={() => router.push('/(auth)/terms')}
-                >
-                  Terms of Use
-                </Text>
-              </Text>
+              <View style={styles.switchMode}>
+                <AuthLegalLinks prefix="By signing in you agree to our" />
+              </View>
             </>
           ) : null}
 
           <TouchableOpacity
             onPress={() => {
-              if (mode === 'signIn') setMode('signUp');
+              if (mode === 'signIn') showSignUp();
               else showSignIn();
             }}
             style={styles.switchMode}
@@ -367,15 +353,26 @@ export default function LoginScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
+          {feedback ? <InlineFeedback {...feedback} testID="auth-inline-feedback" /> : null}
           <View style={styles.footer}>
             <Button
-              onPress={handleSubmit}
+              onPress={mode === 'signUp' && signupStep === 'age' ? handleAgeContinue : handleSubmit}
               loading={loading}
               fullWidth
               size="lg"
-              disabled={mode === 'signIn' ? !signInOk : !signUpOk}
+              disabled={
+                mode === 'signIn'
+                  ? !signInOk
+                  : signupStep === 'age'
+                    ? !birthDateAssessment.ok
+                    : !signUpOk
+              }
             >
-              {mode === 'signIn' ? 'Sign in' : 'Create account'}
+              {mode === 'signIn'
+                ? 'Sign in'
+                : signupStep === 'age'
+                  ? 'Continue'
+                  : 'Create account'}
             </Button>
           </View>
         </AppKeyboardAwareScrollView>

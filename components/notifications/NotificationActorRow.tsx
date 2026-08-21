@@ -45,19 +45,19 @@ export function NotificationActorRow({
         row: {
           flexDirection: 'row',
           alignItems: 'flex-start',
-          gap: Spacing.md,
+          gap: Spacing.sm,
         },
         leading: { flexShrink: 0 },
         meta: {
           flex: 1,
-          gap: 3,
+          gap: 1,
           minWidth: 0,
         },
         time: {
-          marginTop: 2,
+          marginTop: 1,
         },
         footer: {
-          marginTop: Spacing.sm,
+          marginTop: Spacing.xs,
         },
       }),
     [],
@@ -70,7 +70,7 @@ export function NotificationActorRow({
       <Avatar
         uri={actor.avatar_url}
         username={handle ?? initials}
-        size={44}
+        size={40}
         borderColor={border?.color}
         borderWidth={border?.width}
       />
@@ -80,7 +80,7 @@ export function NotificationActorRow({
     <View style={[styles.row, style]}>
       {avatar ? <View style={styles.leading}>{avatar}</View> : null}
       <View style={styles.meta}>
-        <Text variant="headingMedium" numberOfLines={2}>
+        <Text variant="body" numberOfLines={2} style={{ fontWeight: '700' }}>
           {title}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2}>

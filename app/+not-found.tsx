@@ -1,9 +1,9 @@
 import { Redirect, usePathname } from 'expo-router';
 import { useAuthStore } from '../stores/useAuthStore';
-import { FEED_TAB_HREF, normalizeHref, ROUTES } from '../lib/routes';
+import { normalizeHref, ROUTES } from '../lib/routes';
 
 /**
- * Safety net: invalid hrefs (e.g. legacy `/(app)/index`) redirect instead of showing Unmatched Route.
+ * Safety net: invalid hrefs (for example `/(app)/index`) redirect instead of showing Unmatched Route.
  */
 export default function NotFoundScreen() {
   const pathname = usePathname();
@@ -15,7 +15,7 @@ export default function NotFoundScreen() {
   }
 
   if (!isLoading && session && profile) {
-    return <Redirect href={FEED_TAB_HREF} />;
+    return <Redirect href={ROUTES.feed} />;
   }
   if (!isLoading && session) {
     return <Redirect href={ROUTES.username} />;

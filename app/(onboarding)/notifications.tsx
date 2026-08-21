@@ -8,14 +8,15 @@ import { Button } from '@/components/ui/Button';
 import { IconBell } from '@/components/icons/Icons';
 import { requestPushPermissionAndRegisterToken } from '@/lib/pushNotifications';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { safeReplace, FEED_TAB_HREF } from '@/lib/routes';
-import Toast from 'react-native-toast-message';
+import { safeReplace, ROUTES } from '@/lib/routes';
 import { mergeNotificationPreferences } from '@/lib/notificationPreferences';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function OnboardingNotificationsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [loading, setLoading] = useState(false);
+  const [setupError, setSetupError] = useState('');
   const updateProfile = useAuthStore((state) => state.updateProfile);
 
   const styles = useMemo(
@@ -52,6 +53,7 @@ export default function OnboardingNotificationsScreen() {
   );
 
   const goNext = async (pushEnabled: boolean) => {
+    setSetupError('');
     try {
       const profile = useAuthStore.getState().profile;
       await updateProfile({
@@ -61,9 +63,9 @@ export default function OnboardingNotificationsScreen() {
           push_enabled: pushEnabled,
         },
       });
-      safeReplace(router, FEED_TAB_HREF);
+      safeReplace(router, ROUTES.feed);
     } catch {
-      Toast.show({ type: 'error', text1: 'Could not finish setup. Try again.' });
+      setSetupError('Could not finish setup. Check your connection and try again.');
     }
   };
 
@@ -92,6 +94,7 @@ export default function OnboardingNotificationsScreen() {
         </Text>
       </ScrollView>
       <View style={styles.footer}>
+        {setupError ? <InlineFeedback message={setupError} /> : null}
         <Button onPress={() => void handleEnable()} loading={loading} fullWidth size="lg">
           Enable Notifications
         </Button>

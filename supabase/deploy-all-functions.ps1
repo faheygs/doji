@@ -22,11 +22,14 @@ if ($LASTEXITCODE -ne 0) {
 
 $functions = @(
   "schedule-daily-challenge",
-  "dispatch-challenge-pushes",
-  "expire-events",
-  "send-push-notifications",
-  "notify-user",
-  "recalculate-streak"
+  "delete-account",
+  "send-admin-email",
+  "realtime-token",
+  "relay-domain-events",
+  "orchestrate-doji",
+  "fanout-doji-push",
+  "run-data-maintenance",
+  "operational-health"
 )
 
 foreach ($fn in $functions) {

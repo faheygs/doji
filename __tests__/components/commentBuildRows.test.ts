@@ -1,4 +1,4 @@
-import { buildRows } from '../../components/feed/PostCommentsThread';
+import { buildCommentRows, replyRootId } from '../../lib/commentThread';
 import type { CommentWithMeta } from '../../hooks/useComments';
 
 function makeComment(overrides: Partial<CommentWithMeta> & { id: string }): CommentWithMeta {
@@ -21,7 +21,7 @@ function makeComment(overrides: Partial<CommentWithMeta> & { id: string }): Comm
 describe('buildRows — collapsible replies', () => {
   it('root comment with no replies produces only a root row', () => {
     const comments = [makeComment({ id: 'c1' })];
-    const rows = buildRows(comments, new Set());
+    const rows = buildCommentRows(comments, new Set());
     expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe('root');
   });
@@ -32,7 +32,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'r1', parent_id: 'c1' }),
       makeComment({ id: 'r2', parent_id: 'c1' }),
     ];
-    const rows = buildRows(comments, new Set());
+    const rows = buildCommentRows(comments, new Set());
     expect(rows).toHaveLength(2);
     expect(rows[0].kind).toBe('root');
     expect(rows[1].kind).toBe('toggle');
@@ -48,7 +48,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'c1' }),
       makeComment({ id: 'r1', parent_id: 'c1' }),
     ];
-    const rows = buildRows(comments, new Set());
+    const rows = buildCommentRows(comments, new Set());
     const replyRows = rows.filter((r) => r.kind === 'reply');
     expect(replyRows).toHaveLength(0);
   });
@@ -60,7 +60,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'r2', parent_id: 'c1' }),
     ];
     const expanded = new Set(['c1']);
-    const rows = buildRows(comments, expanded);
+    const rows = buildCommentRows(comments, expanded);
 
     const replyRows = rows.filter((r) => r.kind === 'reply');
     const toggleRow = rows.find((r) => r.kind === 'toggle');
@@ -76,7 +76,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'r2', parent_id: 'c1' }),
       makeComment({ id: 'r3', parent_id: 'c1' }),
     ];
-    const rows = buildRows(comments, new Set(['c1']));
+    const rows = buildCommentRows(comments, new Set(['c1']));
     const toggle = rows.find((r) => r.kind === 'toggle');
     expect(toggle?.kind === 'toggle' && toggle.replyCount).toBe(3);
     expect(toggle?.kind === 'toggle' && toggle.expanded).toBe(true);
@@ -89,7 +89,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'c2' }),
       makeComment({ id: 'r2', parent_id: 'c2' }),
     ];
-    const rows = buildRows(comments, new Set());
+    const rows = buildCommentRows(comments, new Set());
     const toggleRows = rows.filter((r) => r.kind === 'toggle');
     expect(toggleRows).toHaveLength(2);
   });
@@ -101,7 +101,7 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'c2' }),
       makeComment({ id: 'r2', parent_id: 'c2' }),
     ];
-    const rows = buildRows(comments, new Set(['c1'])); // only c1 expanded
+    const rows = buildCommentRows(comments, new Set(['c1'])); // only c1 expanded
 
     const c1Replies = rows.filter((r) => r.kind === 'reply' && r.comment.parent_id === 'c1');
     const c2Replies = rows.filter((r) => r.kind === 'reply' && r.comment.parent_id === 'c2');
@@ -115,9 +115,16 @@ describe('buildRows — collapsible replies', () => {
       makeComment({ id: 'c1' }),
       makeComment({ id: 'c2' }),
     ];
-    const rows = buildRows(comments, new Set());
+    const rows = buildCommentRows(comments, new Set());
     const toggleRows = rows.filter((r) => r.kind === 'toggle');
     expect(toggleRows).toHaveLength(0);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe('single-level comment reply targets', () => {
+  it('keeps replies to a reply grouped beneath the root', () => {
+    expect(replyRootId(makeComment({ id: 'root' }))).toBe('root');
+    expect(replyRootId(makeComment({ id: 'reply', parent_id: 'root' }))).toBe('root');
   });
 });

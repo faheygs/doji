@@ -20,11 +20,13 @@ export function useChangeProfilePhoto() {
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
 
   const uploadFromUri = useCallback(
     async (uri: string) => {
       const uid = session?.user?.id;
       if (!uid) return;
+      setError('');
       setUploading(true);
       let uploadedUrl: string | null = null;
       try {
@@ -40,7 +42,7 @@ export function useChangeProfilePhoto() {
       } catch (e: unknown) {
         if (uploadedUrl) void removePublicStorageObject('avatars', uploadedUrl);
         const message = e instanceof Error ? e.message : 'Could not upload photo';
-        Toast.show({ type: 'error', text1: message });
+        setError(message);
       } finally {
         setUploading(false);
       }
@@ -51,7 +53,7 @@ export function useChangeProfilePhoto() {
   const pickFromCamera = useCallback(async () => {
     const cam = await ImagePicker.requestCameraPermissionsAsync();
     if (cam.status !== 'granted') {
-      Toast.show({ type: 'error', text1: 'Camera permission denied' });
+      setError('Allow camera access to take a profile photo.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -68,7 +70,7 @@ export function useChangeProfilePhoto() {
   const pickFromLibrary = useCallback(async () => {
     const lib = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (lib.status !== 'granted') {
-      Toast.show({ type: 'error', text1: 'Photo library permission denied' });
+      setError('Allow photo library access to choose a profile photo.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -84,6 +86,7 @@ export function useChangeProfilePhoto() {
 
   const openChangePhotoDialog = useCallback(() => {
     Haptics.selectionAsync();
+    setError('');
     if (Platform.OS === 'web') {
       void pickFromLibrary();
       return;
@@ -91,5 +94,5 @@ export function useChangeProfilePhoto() {
     showProfilePhotoDialog(showDialog, () => void pickFromCamera(), () => void pickFromLibrary());
   }, [pickFromCamera, pickFromLibrary, showDialog]);
 
-  return { openChangePhotoDialog, uploading };
+  return { openChangePhotoDialog, uploading, error, clearError: () => setError('') };
 }

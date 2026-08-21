@@ -19,6 +19,7 @@ import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { ChangePasswordSheet } from '@/components/settings/ChangePasswordSheet';
 import { SettingsRow } from '@/components/settings/SettingsGroup';
 import { useAppDialog } from '@/contexts/DialogContext';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const { data: pendingSuggestions = [], isError: pendingSuggestionsError } = usePendingSuggestions(
     !!profile?.is_admin,
   );
@@ -76,6 +78,7 @@ export default function SettingsScreen() {
   );
 
   const handleDeleteAccount = () => {
+    setDeleteError('');
     showDialog({
       title: 'Delete account',
       message: 'This permanently deletes your account and all its data. This cannot be undone.',
@@ -93,7 +96,7 @@ export default function SettingsScreen() {
               await signOut();
               Toast.show({ type: 'success', text1: 'Account deleted' });
             } catch {
-              Toast.show({ type: 'error', text1: 'Failed to delete account. Contact support.' });
+              setDeleteError('Could not delete your account. Try again or contact support.');
             }
           },
         },
@@ -124,6 +127,13 @@ export default function SettingsScreen() {
             Settings
           </Text>
         </View>
+        {deleteError ? (
+          <InlineFeedback
+            title="Account was not deleted"
+            message={deleteError}
+            style={{ marginHorizontal: Spacing.md }}
+          />
+        ) : null}
 
         <TouchableOpacity
           style={styles.profileCard}

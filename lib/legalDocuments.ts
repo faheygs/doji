@@ -3,7 +3,7 @@ export type LegalSection = {
   body: string;
 };
 
-export const LEGAL_EFFECTIVE_DATE = 'August 18, 2026';
+export const LEGAL_EFFECTIVE_DATE = 'August 20, 2026';
 export const SUPPORT_EMAIL = 'support@dojipro.com';
 
 export const TERMS_SECTIONS: LegalSection[] = [
@@ -13,7 +13,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   },
   {
     title: '2. Eligibility and Accounts',
-    body: 'You must be at least 13 years old and legally able to agree to these terms. During account setup, Doji uses the birth date you enter only to confirm age eligibility and keeps an age-assurance result rather than your full birth date. You are responsible for your account, the accuracy of the information you provide, and activity performed through your account.',
+    body: 'You must be at least 13 years old and legally able to agree to these terms. During account setup, Doji uses and retains the birth date you enter in a private age-assurance record to document the information you provided and the resulting eligibility decision. Your birth date is not displayed on your profile or shared with other users. You are responsible for your account, the accuracy of the information you provide, and activity performed through your account.',
   },
   {
     title: '3. Daily Challenges',
@@ -56,11 +56,11 @@ export const TERMS_SECTIONS: LegalSection[] = [
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '1. Information We Collect',
-    body: 'We collect account information such as your email address, username, optional display name, profile photo, and bio; an age-assurance result confirming whether you meet the 13+ requirement (we do not retain the birth date entered for this check); content and interactions you choose to share; friendships, challenge participation, rewards, badges, and shop activity; device push tokens; and limited device, network, security, and diagnostic information needed to operate Doji.',
+    body: 'We collect account information such as your email address, username, optional display name, profile photo, and bio; the birth date you self-declare during signup and the resulting age-assurance record confirming whether you meet the 13+ requirement; content and interactions you choose to share; friendships, challenge participation, rewards, badges, and shop activity; device push tokens; and limited device, network, security, and diagnostic information needed to operate Doji. Your birth date is private and is not displayed on your profile or shared with other users.',
   },
   {
     title: '2. How We Use Information',
-    body: 'We use information to authenticate your account, deliver daily challenges and notifications, show authorized social content, calculate streaks and rewards, synchronize realtime activity, personalize appearance, prevent abuse, moderate reported content, troubleshoot reliability, provide support, and improve Doji.',
+    body: 'We use information to authenticate your account, verify and document age eligibility, deliver daily challenges and notifications, show authorized social content, calculate streaks and rewards, synchronize realtime activity, personalize appearance, prevent abuse, moderate reported content, troubleshoot reliability, provide support, and improve Doji.',
   },
   {
     title: '3. Content and Social Visibility',
@@ -80,7 +80,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
   {
     title: '7. Retention and Account Deletion',
-    body: 'We retain account information while your account is active and other information only as reasonably necessary to provide and secure the service, meet legal obligations, resolve disputes, and prevent abuse. You can permanently delete your account from Settings. Deletion removes or de-identifies account data subject to reasonable backup, legal, fraud-prevention, and safety retention.',
+    body: 'We retain account information, including the private self-declared birth date and age-assurance record, while your account is active and other information only as reasonably necessary to provide and secure the service, meet legal obligations, resolve disputes, and prevent abuse. You can permanently delete your account from Settings. Deletion removes or de-identifies account data subject to reasonable backup, legal, fraud-prevention, and safety retention.',
   },
   {
     title: '8. Your Choices',

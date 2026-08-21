@@ -2,7 +2,6 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -15,6 +14,7 @@ import { required, validationMessage } from '../../lib/formValidation';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { InlineFeedback } from '../../components/ui/InlineFeedback';
 
 export default function TaskScreen() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function TaskScreen() {
   const { data: userEvent, isLoading, isError, refetch } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
+  const [submitError, setSubmitError] = useState<{ title?: string; message: string } | null>(null);
 
   const challenge = userEvent?.challenge;
   const answerValidation = useMemo(() => required(answer, 'Enter an answer.'), [answer]);
@@ -38,6 +39,7 @@ export default function TaskScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!userEvent || !answer.trim()) return;
+    setSubmitError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
     createPost.mutate(
@@ -57,7 +59,7 @@ export default function TaskScreen() {
         },
         onError: (err: Error) => {
           const copy = dojiSubmissionErrorCopy(err);
-          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
+          setSubmitError({ title: copy.title, message: copy.message });
         },
       },
     );
@@ -153,7 +155,10 @@ export default function TaskScreen() {
               <Input
                 placeholder="Type your answer..."
                 value={answer}
-                onChangeText={setAnswer}
+                onChangeText={(value) => {
+                  setAnswer(value);
+                  setSubmitError(null);
+                }}
                 multiline
                 autoFocus
                 containerStyle={{ flex: 1 }}
@@ -161,6 +166,9 @@ export default function TaskScreen() {
                 error={answer.length > 0 ? validationMessage(answerValidation) : undefined}
               />
             </View>
+            {submitError ? (
+              <InlineFeedback title={submitError.title} message={submitError.message} />
+            ) : null}
             <View style={styles.footer}>
             <TouchableOpacity
               onPress={handleSubmit}

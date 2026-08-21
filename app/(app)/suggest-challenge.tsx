@@ -19,6 +19,7 @@ import { newCommandId } from '@/lib/idempotency';
 import { filterContent } from '@/lib/contentFilter';
 import { minLength, validationMessage } from '@/lib/formValidation';
 import type { AnswerRule } from '@/types/database';
+import { InlineFeedback, type InlineFeedbackData } from '@/components/ui/InlineFeedback';
 
 const BODY_MIN = 8;
 
@@ -62,7 +63,6 @@ const KINDS = [
 
 type KindKey = (typeof KINDS)[number]['key'];
 type FormatRuleKind = 'starts_with_letter' | 'exact_word_count';
-
 function emptyOptionRows(n: number): string[] {
   return Array.from({ length: n }, () => '');
 }
@@ -77,11 +77,10 @@ export default function SuggestChallengeScreen() {
   const [formatLetter, setFormatLetter] = useState('S');
   const [formatWordCount, setFormatWordCount] = useState('2');
   const [saving, setSaving] = useState(false);
-
+  const [submitFeedback, setSubmitFeedback] = useState<InlineFeedbackData | null>(null);
   const needsOptions = kind === 'poll' || kind === 'wyr';
   const needsFormatRule = kind === 'format_question';
   const selectedKind = KINDS.find((k) => k.key === kind) ?? KINDS[0];
-
   const resetOptionsForKind = useCallback((k: KindKey) => {
     if (k === 'poll' || k === 'wyr') {
       setOptionRows(emptyOptionRows(2));
@@ -94,7 +93,6 @@ export default function SuggestChallengeScreen() {
       setFormatWordCount('2');
     }
   }, []);
-
   const buildFormatRule = useCallback((): AnswerRule | null => {
     if (formatRuleKind === 'starts_with_letter') {
       const letter = formatLetter.trim().slice(0, 1).toUpperCase();
@@ -105,7 +103,6 @@ export default function SuggestChallengeScreen() {
     if (!Number.isFinite(count) || count < 1) return null;
     return { type: 'exact_word_count', count };
   }, [formatRuleKind, formatLetter, formatWordCount]);
-
   const bodyValidation = useMemo(() => minLength(body, BODY_MIN), [body]);
   const filledOptions = useMemo(
     () => optionRows.map((o) => o.trim()).filter(Boolean),
@@ -288,15 +285,16 @@ export default function SuggestChallengeScreen() {
   };
 
   const submit = async () => {
+    setSubmitFeedback(null);
     const text = body.trim();
     if (!bodyValidation.ok) {
-      Toast.show({ type: 'error', text1: bodyValidation.message });
+      setSubmitFeedback({ tone: 'error', message: bodyValidation.message });
       return;
     }
 
     const bodyFilter = filterContent(text);
     if (!bodyFilter.ok) {
-      Toast.show({ type: 'error', text1: bodyFilter.reason });
+      setSubmitFeedback({ tone: 'error', message: bodyFilter.reason });
       return;
     }
 
@@ -305,19 +303,19 @@ export default function SuggestChallengeScreen() {
     if (needsOptions) {
       options = filledOptions;
       if (!optionsValidation.ok) {
-        Toast.show({ type: 'error', text1: optionsValidation.message });
+        setSubmitFeedback({ tone: 'error', message: optionsValidation.message });
         return;
       }
       const rejectedOption = options.map(filterContent).find((result) => !result.ok);
       if (rejectedOption && !rejectedOption.ok) {
-        Toast.show({ type: 'error', text1: rejectedOption.reason });
+        setSubmitFeedback({ tone: 'error', message: rejectedOption.reason });
         return;
       }
     }
     if (needsFormatRule) {
       answerRule = buildFormatRule();
       if (!answerRule) {
-        Toast.show({ type: 'error', text1: formatValidation.message });
+        setSubmitFeedback({ tone: 'error', message: formatValidation.message ?? 'Set a valid format rule.' });
         return;
       }
     }
@@ -338,10 +336,10 @@ export default function SuggestChallengeScreen() {
       });
       if (sugErr) {
         if (sugErr.code === '23505') {
-          Toast.show({
-            type: 'info',
-            text1: 'This idea is already in the pool',
-            text2: 'Thanks — we dedupe identical submissions.',
+          setSubmitFeedback({
+            tone: 'info',
+            title: 'This idea is already in the pool',
+            message: 'Thanks — identical submissions are grouped together.',
           });
         } else {
           throw sugErr;
@@ -353,7 +351,7 @@ export default function SuggestChallengeScreen() {
       setBody('');
       resetOptionsForKind(kind);
     } catch {
-      Toast.show({ type: 'error', text1: 'Could not submit — try again later.' });
+      setSubmitFeedback({ tone: 'error', message: 'Could not submit your idea. Try again later.' });
     } finally {
       setSaving(false);
     }
@@ -607,6 +605,8 @@ export default function SuggestChallengeScreen() {
             </>
           ) : null}
         </Card>
+
+        {submitFeedback ? <InlineFeedback {...submitFeedback} /> : null}
 
         <Button
           onPress={() => void submit()}

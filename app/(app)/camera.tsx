@@ -13,7 +13,6 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -29,13 +28,10 @@ import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { required, validationMessage } from '../../lib/formValidation';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { CameraTopControls, CameraZoomControls } from '../../components/challenge/CameraCaptureControls';
-
+import { InlineFeedback } from '../../components/ui/InlineFeedback';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 type FlowStep = 'chooseSource' | 'capturePhoto' | 'captureVideo' | 'preview';
-
 const pickerQuality = 0.85 as const;
-
 export default function CameraScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -48,8 +44,8 @@ export default function CameraScreen() {
   const [caption, setCaption] = useState('');
   const [videoRecording, setVideoRecording] = useState(false);
   const [libraryBusy, setLibraryBusy] = useState(false);
+  const [actionError, setActionError] = useState<{ title?: string; message: string } | null>(null);
   const cameraRef = useRef<CameraView>(null);
-
   const {
     data: userEvent,
     isLoading: userEventLoading,
@@ -66,7 +62,6 @@ export default function CameraScreen() {
     clearCaptures,
   } = useChallengeStore();
   const createPost = useCreatePost();
-
   const challenge = userEvent?.challenge;
   const needPhoto = challenge?.requires_photo ?? true;
   const needVideo = challenge?.requires_video ?? false;
@@ -79,7 +74,6 @@ export default function CameraScreen() {
     if (userEventLoading) return;
     /** Avoid `router.back()` during TanStack refetch (invalidate after submit) when data can flicker. */
     if (!userEvent && !userEventFetching) {
-      Toast.show({ type: 'error', text1: 'No active challenge' });
       backOrHome(router);
       return;
     }
@@ -100,6 +94,7 @@ export default function CameraScreen() {
 
   const handleCapture = async () => {
     if (!cameraRef.current || capturing || !needPhoto) return;
+    setActionError(null);
     setCapturing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -110,7 +105,7 @@ export default function CameraScreen() {
 
       afterPhotoCapture();
     } catch {
-      Toast.show({ type: 'error', text1: 'Capture failed. Try again.' });
+      setActionError({ message: 'Could not capture the photo. Try again.' });
     } finally {
       setCapturing(false);
     }
@@ -118,6 +113,7 @@ export default function CameraScreen() {
 
   const startVideoRecording = useCallback(() => {
     if (!cameraRef.current || videoRecording) return;
+    setActionError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setVideoRecording(true);
     const p = cameraRef.current.recordAsync({ maxDuration: 120 });
@@ -128,7 +124,7 @@ export default function CameraScreen() {
       }
     })
       .catch(() => {
-        Toast.show({ type: 'error', text1: 'Recording failed. Try again.' });
+        setActionError({ message: 'Could not record the video. Try again.' });
       })
       .finally(() => {
         setVideoRecording(false);
@@ -141,11 +137,12 @@ export default function CameraScreen() {
 
   const pickFromLibrary = useCallback(async () => {
     if (!userEvent || libraryBusy) return;
+    setActionError(null);
     setLibraryBusy(true);
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Toast.show({ type: 'error', text1: 'Photo library access is required' });
+        setActionError({ message: 'Allow photo library access to choose your proof.' });
         return;
       }
 
@@ -204,10 +201,11 @@ export default function CameraScreen() {
   ]);
 
   const openCameraCapture = useCallback(async () => {
+    setActionError(null);
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        Toast.show({ type: 'error', text1: 'Camera access is required' });
+        setActionError({ message: 'Allow camera access to capture your proof, or use your library.' });
         return;
       }
     }
@@ -221,21 +219,23 @@ export default function CameraScreen() {
   const handleRetake = () => {
     clearCaptures();
     setCaption('');
+    setActionError(null);
     setFlowStep('chooseSource');
   };
 
   const handlePost = async () => {
     if (!userEvent) return;
+    setActionError(null);
     if (challenge?.requires_photo && !capturedPhoto) {
-      Toast.show({ type: 'error', text1: 'This challenge needs a photo.' });
+      setActionError({ message: 'Add the required photo before sharing.' });
       return;
     }
     if (challenge?.requires_video && !capturedVideoUri) {
-      Toast.show({ type: 'error', text1: 'This challenge needs a video.' });
+      setActionError({ message: 'Add the required video before sharing.' });
       return;
     }
     if (challenge?.requires_text && !caption.trim()) {
-      Toast.show({ type: 'error', text1: 'Add something in the caption for this challenge.' });
+      setActionError({ message: 'Add the required caption before sharing.' });
       return;
     }
 
@@ -256,7 +256,7 @@ export default function CameraScreen() {
         },
         onError: (err: Error) => {
           const copy = dojiSubmissionErrorCopy(err);
-          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
+          setActionError({ title: copy.title, message: copy.message });
         },
       },
     );
@@ -343,6 +343,7 @@ export default function CameraScreen() {
               Choose from library
             </Button>
           </View>
+          {actionError ? <InlineFeedback {...actionError} style={{ width: '100%' }} /> : null}
         </View>
       </SafeAreaView>
     );
@@ -451,12 +452,16 @@ export default function CameraScreen() {
                 captionRequired ? 'Add a caption (required)…' : 'Add a caption... (optional)'
               }
               value={caption}
-              onChangeText={setCaption}
+              onChangeText={(value) => {
+                setCaption(value);
+                setActionError(null);
+              }}
               multiline
               containerStyle={styles.captionInput}
               error={captionRequired ? validationMessage(captionValidation) : undefined}
               hint={captionRequired ? 'Caption required for this challenge' : undefined}
             />
+            {actionError ? <InlineFeedback {...actionError} /> : null}
             <Button
               onPress={handlePost}
               loading={createPost.isPending}
@@ -501,6 +506,8 @@ export default function CameraScreen() {
           onExpire={() => void refetchUserEvent()}
           color={colors.onPrimary}
         />
+
+        {actionError ? <InlineFeedback {...actionError} style={{ marginHorizontal: Spacing.md }} /> : null}
 
         {showPhotoControls || showVideoControls ? (
           <CameraZoomControls zoom={zoom} onChange={setZoom} color={colors.onPrimary} />

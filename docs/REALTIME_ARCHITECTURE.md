@@ -34,14 +34,14 @@
 - Comment mention parsing, notification clear/dismiss state, profile writes, and
   suggestion approval also commit inside their owning command. There are no
   client-side cleanup transactions.
-- Accepted friend circles are server-capped at 500 and outgoing pending requests at
-  100. Accept paths serialize capacity checks with per-account advisory locks, so
+- Accepted friend circles are server-capped at 500 and outgoing pending requests at 100. Accept paths serialize capacity checks with per-account advisory locks, so
   concurrent accepts cannot exceed the bound. Interactive post, completion, community
   reaction, and community-comment transactions enqueue one durable internal command;
   the relay expands that bounded graph only after the source transaction commits.
 - New-account profile creation requires a server-clock 13-plus check. The submitted
-  birth date is never stored; only the result, method, policy version, and timestamp
-  are retained in the owner-only `age_assurances` table.
+  birth date, result, method, policy version, and timestamp are retained only in the
+  access-restricted `age_assurances` audit table. They are excluded from public
+  profiles, client reads, realtime events, and notification payloads.
 
 ## API contract
 
@@ -128,6 +128,11 @@ reconcile authoritative database state.
   recent active installations are retained per account and recipient reads return the
   bounded set rather than silently selecting one device. The unique
   Expo token on `profiles` remains a migration fallback, not the 100k broadcast path.
+- That fallback is only a delivery transport selected by the authoritative outbox
+  relay. There is no direct `notify-user` endpoint, row-trigger HTTP push, recurring
+  push dispatcher, or second notification producer. Historical migrations that
+  created those objects remain immutable; the current hardening migration drops
+  their callable runtime and cron references.
 - The account master `push_enabled` preference gates every push category at delivery.
   Disabling phone alerts also unregisters the current token; startup and foreground
   reconciliation never re-register while the master preference is off.
@@ -221,8 +226,8 @@ reconciliation function invalidates all server-owned surfaces on reconnect/foreg
 | User occurrence/completion/buy-in | `user_event.updated`                     | user                    | current Doji, feed                                            |
 | Poll vote/result                  | `poll.vote.*`                            | mounted post            | friend/everyone results, voters, feed                         |
 | Posts                             | `feed.post.*`                            | public or owner/friends | feed, post, profile posts                                     |
-| Reactions                         | `feed.reaction.*`                        | mounted post            | targeted engagement snapshot and voters                      |
-| Comments/replies/likes            | `feed.comment*`                          | mounted post            | exact thread and targeted engagement snapshot                |
+| Reactions                         | `feed.reaction.*`                        | mounted post            | targeted engagement snapshot and voters                       |
+| Comments/replies/likes            | `feed.comment*`                          | mounted post            | exact thread and targeted engagement snapshot                 |
 | Mentions and social alerts        | `notification.*`                         | recipient               | bell history and remote push                                  |
 | Friendships/blocks                | `social.*`                               | involved users          | graph, counts, feed, requests, open profiles                  |
 | Public profile/avatar/cosmetics   | `profile.presentation.updated`           | owner + friends         | avatar-bearing active queries                                 |
@@ -230,9 +235,17 @@ reconciliation function invalidates all server-owned surfaces on reconnect/foreg
 | Sparks/theme/preferences          | `account.profile.updated`                | user                    | auth profile and account UI                                   |
 | Store ownership                   | `shop.ownership.*`                       | user                    | owned inventory and auth profile                              |
 | Badges                            | `badge.updated` + `notification.badge.*` | global + user           | public profile badges, owner alert/profile                    |
-| XP/rank                           | `leaderboard.updated`                    | global                  | active leaderboard/profile                                    |
-| Suggestions                       | `notification.suggestion.*`              | owner                   | submission state and bell history                             |
-| Moderation                        | `moderation.report.*`                    | admins                  | report queue                                                  |
+
+Post-backed bell snapshot items include the bounded post ownership context used by
+presentation copy. Shared poll/WYR activity is labeled as activity on today's Doji;
+photo and free-text activity is labeled as activity on the recipient's post.
+Reply commands may target a root or an existing reply. Postgres resolves and stores
+the root in `parent_id`, stores the exact target in `reply_to_comment_id`, and routes
+the reply alert to that exact target. Clients optimistically render the reply beneath
+the root and reconcile it through the normal post-scoped comment event.
+| XP/rank | `leaderboard.updated` | global | active leaderboard/profile |
+| Suggestions | `notification.suggestion.*` | owner | submission state and bell history |
+| Moderation | `moderation.report.*` | admins | report queue |
 
 Shared poll/WYR cards have community-wide aggregate state, but social alerts are
 friend-scoped: only accepted friends of the actor receive participation, reaction,
@@ -255,12 +268,25 @@ instead of downloading each collection. `get_post_detail` owns both locked-post/
 authorization and its nested safe profile projection. TanStack Query restores the
 first cached feed page and reference data, then reconciles in place.
 
-Block filtering applies bidirectionally to social content and activity, but not to
-the global leaderboard. `get_public_profile_view` exposes an explicit access state:
+Block filtering and legacy demo markers apply to neither global competition nor its
+visibility; only banned profiles are excluded. `get_leaderboard_snapshot` keeps reads bounded to the top
+result window but always appends the signed-in viewer with their authoritative rank
+when they fall outside it; friends mode is accepted friends plus self.
+`get_public_profile_view` exposes an explicit access state:
 when the target blocked the viewer, it returns no profile fields. Both accounts receive
 the identifier-only block event so an already-open profile reconciles immediately.
-Administrators read pending report evidence through a bounded safe-field snapshot that
-is not suppressed by viewer-relative content blocking.
+Administrators read pending report evidence and pending challenge suggestions through
+bounded safe-field snapshots that are not suppressed by viewer-relative content or
+profile policies. The mobile review queues retain cached rows during background
+reconciliation and reserve blocking error UI for a cold read with no usable data.
+
+New account creation is age-gated before credentials become an auth account. The
+mobile flow collects and locally validates the birth date first, Supabase's
+before-user-created hook enforces 13+ at the auth boundary, and profile creation
+reassesses it using the account timezone. The private assurance retains the exact
+self-declared date with its age band, policy version, method, and timestamp; a
+database trigger removes only the redundant auth-metadata copy after that record
+commits.
 
 Opened comment threads use `get_comment_thread_snapshot`, which includes authorized
 comments, safe author presentation, friend/everyone and block filtering, and the
@@ -272,6 +298,9 @@ counter before the network round trip. Other mounted clients receive canonical
 bounded `get_post_engagement_snapshot` and exact active thread. Counter maintenance
 must not emit `feed.post.*`, because that would turn every engagement action into a
 feed-wide refresh.
+Mutation rejection restores optimistic state and leaves persistent, contextual error
+feedback on the surface that initiated the command. Error toasts must not disappear
+before the user can understand or retry the failed action.
 Reaction command results and engagement snapshots sum only the fixed 128 counter
 shards; regrouping the unbounded `reactions` table is forbidden. The Friends poll
 surface ignores global vote hints and reconciles from the viewer's bounded

@@ -9,6 +9,7 @@ import { SparksPill } from '@/components/economy/SparksPill';
 import { SPARKS_BUY_IN_COST } from '@/constants/sparks';
 import type { Challenge, UserEvent } from '@/types/database';
 import { challengeKindLabel } from '@/lib/challengeDisplay';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 type Props = {
   visible: boolean;
@@ -18,6 +19,7 @@ type Props = {
   onConfirm: () => void;
   onClose: () => void;
   loading?: boolean;
+  error?: string;
 };
 
 export function BuyInSheet({
@@ -28,6 +30,7 @@ export function BuyInSheet({
   onConfirm,
   onClose,
   loading,
+  error,
 }: Props) {
   const { colors } = useTheme();
 
@@ -61,6 +64,7 @@ export function BuyInSheet({
 
   const footer = (
     <View style={styles.actions}>
+      {error ? <InlineFeedback title="Buy-in did not complete" message={error} /> : null}
       <Button onPress={onConfirm} loading={loading} disabled={sparksBalance < SPARKS_BUY_IN_COST}>
         Buy in for {SPARKS_BUY_IN_COST} Sparks
       </Button>

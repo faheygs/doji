@@ -6,6 +6,7 @@ export function createOptimisticComment(input: {
   userId: string;
   body: string;
   parentId: string | null;
+  replyToCommentId?: string | null;
   commandId: string;
   profile?: Profile | null;
   now?: string;
@@ -16,6 +17,7 @@ export function createOptimisticComment(input: {
     post_id: input.postId,
     user_id: input.userId,
     parent_id: input.parentId,
+    reply_to_comment_id: input.replyToCommentId ?? input.parentId,
     body: input.body,
     like_count: 0,
     created_at: now,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { assessBirthDate, formatBirthDateInput } from '../ageAssurance';
+import { assessBirthDate, assessIsoBirthDate, formatBirthDateInput } from '../ageAssurance';
 
 const TODAY = new Date(2026, 7, 18);
 
@@ -28,6 +28,14 @@ describe('assessBirthDate', () => {
       ok: true,
       isoDate: '2000-02-09',
     });
+  });
+
+  it('reassesses the transient ISO signup value', () => {
+    expect(assessIsoBirthDate('2013-08-18', TODAY)).toEqual({
+      ok: true,
+      isoDate: '2013-08-18',
+    });
+    expect(assessIsoBirthDate('2013-08-19', TODAY).ok).toBe(false);
   });
 });
 

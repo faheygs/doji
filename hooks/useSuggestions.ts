@@ -30,14 +30,11 @@ export function usePendingSuggestions(enabled = true) {
   return useQuery<ChallengeSuggestion[]>({
     queryKey: ['pendingSuggestions'],
     queryFn: async (): Promise<ChallengeSuggestion[]> => {
-      const { data, error } = await supabase
-        .from('challenge_suggestions')
-        .select('id, user_id, kind, body, body_hash, options, status, admin_note, selected_at, reviewed_at, reviewed_by, created_at, profile:profiles!challenge_suggestions_user_id_fkey(id, username, display_name, avatar_url, equipped_border_key)')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(100);
+      const { data, error } = await supabase.rpc('get_pending_suggestions_snapshot', {
+        p_limit: 100,
+      });
       if (error) throw error;
-      return (data ?? []) as unknown as ChallengeSuggestion[];
+      return (data ?? []) as ChallengeSuggestion[];
     },
     enabled: !!isAdmin && enabled,
     staleTime: 10_000,

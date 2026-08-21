@@ -36,6 +36,7 @@ import type { BadgeProgressStats } from '@/lib/badgeProgress';
 import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function MyProfileScreen() {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function MyProfileScreen() {
   const profile = useAuthStore((s) => s.profile) as Profile | null;
   const sparks = useSparksBalance();
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
-  const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
+  const { openChangePhotoDialog, uploading, error: photoError } = useChangeProfilePhoto();
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
@@ -165,6 +166,13 @@ export default function MyProfileScreen() {
           onChangePhoto={openChangePhotoDialog}
           photoUploading={uploading}
         />
+        {photoError ? (
+          <InlineFeedback
+            title="Could not update photo"
+            message={photoError}
+            style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.sm }}
+          />
+        ) : null}
 
         <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
           <XPBar xp={profile.xp ?? 0} level={profile.level ?? 1} />

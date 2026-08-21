@@ -1,6 +1,5 @@
 import type { Href, ImperativeRouter } from 'expo-router';
 import {
-  FEED_TAB_HREF,
   ROUTES,
   navigateToFeed,
   normalizeHref,
@@ -8,9 +7,12 @@ import {
   safeReplace,
 } from './routes';
 
-export { FEED_TAB_HREF, ROUTES, navigateToFeed, normalizeHref, pathnameForReturnTo, safeReplace };
+export { ROUTES, navigateToFeed, normalizeHref, pathnameForReturnTo, safeReplace };
 
-/** Same screen as {@link FEED_TAB_HREF}. */
+/** Canonical href for the home feed tab. */
+export const FEED_TAB_HREF = ROUTES.feed;
+
+/** Canonical href for the home feed tab group. */
 export const FEED_GROUP_HREF = ROUTES.feed;
 
 type RouterBackOrHome = {

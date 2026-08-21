@@ -5,7 +5,6 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -18,12 +17,16 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { KeyboardSafeSheet } from '@/components/ui/KeyboardSafeSheet';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { ListRowsSkeleton } from '@/components/ui/LoadingSkeletons';
+import { SkeletonSwap } from '@/components/ui/SkeletonSwap';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { usePendingSuggestions, useReviewSuggestion } from '@/hooks/useSuggestions';
-import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { SuggestionReviewSheet } from '@/components/admin/SuggestionReviewSheet';
 import type { ChallengeSuggestion } from '@/types/database';
 import { SuggestionQueueCard } from '@/components/admin/SuggestionQueueCard';
+import { AdminQueueEmptyState } from '@/components/admin/AdminQueueEmptyState';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 const REJECT_NOTE_MAX = 500;
 
@@ -91,14 +94,15 @@ export default function AdminSuggestionsScreen() {
     data: suggestions = [],
     isLoading,
     isError,
-    error,
     refetch,
     isRefetching,
   } = usePendingSuggestions();
+  const coldError = isError && suggestions.length === 0;
   const review = useReviewSuggestion();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<ChallengeSuggestion | null>(null);
+  const [reviewError, setReviewError] = useState('');
 
   const styles = useMemo(
     () =>
@@ -112,12 +116,6 @@ export default function AdminSuggestionsScreen() {
           gap: Spacing.sm,
         },
         headerText: { flex: 1, gap: 2 },
-        empty: {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: Spacing.xl,
-        },
       }),
     [colors],
   );
@@ -125,6 +123,7 @@ export default function AdminSuggestionsScreen() {
   const handleApprove = useCallback(
     (id: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setReviewError('');
       setActiveReviewId(id);
       review.mutate(
         { id, status: 'approved' },
@@ -132,9 +131,7 @@ export default function AdminSuggestionsScreen() {
           onSuccess: () => {
             Toast.show({ type: 'success', text1: 'Suggestion approved' });
           },
-          onError: () => {
-            Toast.show({ type: 'error', text1: 'Review failed' });
-          },
+          onError: () => setReviewError('Could not approve this suggestion. Try again.'),
           onSettled: () => setActiveReviewId(null),
         },
       );
@@ -146,6 +143,7 @@ export default function AdminSuggestionsScreen() {
     (note: string) => {
       if (!rejectingId) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setReviewError('');
       setActiveReviewId(rejectingId);
       review.mutate(
         { id: rejectingId, status: 'rejected', adminNote: note || null },
@@ -154,9 +152,7 @@ export default function AdminSuggestionsScreen() {
             setRejectingId(null);
             Toast.show({ type: 'success', text1: 'Suggestion rejected' });
           },
-          onError: () => {
-            Toast.show({ type: 'error', text1: 'Review failed' });
-          },
+          onError: () => setReviewError('Could not reject this suggestion. Try again.'),
           onSettled: () => setActiveReviewId(null),
         },
       );
@@ -165,7 +161,11 @@ export default function AdminSuggestionsScreen() {
   );
 
   const handleBack = useCallback(() => {
-    goBackWithOptionalReturn(router, returnTo, '/(app)/profile/settings' as Href);
+    goBackToExplicitReturn(
+      router,
+      returnTo ?? '/(app)/profile/settings',
+      '/(app)/profile/settings' as Href,
+    );
   }, [router, returnTo]);
 
   return (
@@ -176,7 +176,7 @@ export default function AdminSuggestionsScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text variant="headingLarge">Pending suggestions</Text>
-          {!isLoading && !isError ? (
+          {!isLoading && !coldError ? (
             <Text variant="micro" color={colors.textTertiary}>
               {suggestions.length === 0
                 ? 'Queue is empty'
@@ -186,46 +186,51 @@ export default function AdminSuggestionsScreen() {
         </View>
       </View>
 
-      {isLoading && suggestions.length === 0 ? (
-        <View style={styles.empty}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      ) : isError ? (
-        <ErrorState
-          title="Couldn't load suggestions"
-          message={error instanceof Error ? error.message : 'Check your connection and try again.'}
-          onRetry={() => void refetch()}
-        />
-      ) : (
-        <ScrollView
-          style={webScrollParentStyle}
-          contentContainerStyle={{ paddingBottom: Spacing.xxl, flexGrow: 1 }}
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.text} />
-          }
-        >
-          {suggestions.length === 0 ? (
-            <View style={styles.empty}>
-              <Text variant="body" color={colors.textSecondary}>
-                No pending suggestions — you're all caught up.
-              </Text>
-            </View>
-          ) : (
-            suggestions.map((s) => (
-              <SuggestionQueueCard
-                key={s.id}
-                suggestion={s}
-                busy={review.isPending}
-                approving={review.isPending && activeReviewId === s.id && rejectingId !== s.id}
-                rejecting={review.isPending && activeReviewId === s.id && rejectingId === s.id}
-                onOpen={() => setSelectedSuggestion(s)}
-                onReject={() => setRejectingId(s.id)}
-                onApprove={() => handleApprove(s.id)}
+      <SkeletonSwap
+        loading={isLoading && suggestions.length === 0}
+        skeleton={<ListRowsSkeleton rows={3} label="Loading pending suggestions" />}
+      >
+        {coldError ? (
+          <ErrorState
+            title="Couldn't load suggestions"
+            message="We couldn't reach the review queue. Try again in a moment."
+            onRetry={() => void refetch()}
+          />
+        ) : (
+          <ScrollView
+            style={webScrollParentStyle}
+            contentContainerStyle={{ paddingBottom: Spacing.xxl, flexGrow: 1 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.text} />
+            }
+          >
+            {reviewError ? (
+              <InlineFeedback
+                title="Review did not update"
+                message={reviewError}
+                style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}
               />
-            ))
-          )}
-        </ScrollView>
-      )}
+            ) : null}
+            {suggestions.length === 0 ? (
+              <AdminQueueEmptyState
+                title="No suggestions to review"
+                message="New challenge ideas will appear here when someone submits one."
+              />
+            ) : suggestions.map((s) => (
+                <SuggestionQueueCard
+                  key={s.id}
+                  suggestion={s}
+                  busy={review.isPending}
+                  approving={review.isPending && activeReviewId === s.id && rejectingId !== s.id}
+                  rejecting={review.isPending && activeReviewId === s.id && rejectingId === s.id}
+                  onOpen={() => setSelectedSuggestion(s)}
+                  onReject={() => setRejectingId(s.id)}
+                  onApprove={() => handleApprove(s.id)}
+                />
+              ))}
+          </ScrollView>
+        )}
+      </SkeletonSwap>
 
       <RejectSuggestionSheet
         visible={rejectingId !== null}

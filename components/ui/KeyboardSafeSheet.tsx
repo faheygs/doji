@@ -5,11 +5,9 @@ import {
   Pressable,
   Keyboard,
   Platform,
-  ScrollView,
   Dimensions,
-  useWindowDimensions,
-  type KeyboardEvent,
 } from 'react-native';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
@@ -17,13 +15,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from './Text';
 import { IconClose } from '../icons/Icons';
 import { AppKeyboardToolbar } from './AppKeyboardToolbar';
-import { KEYBOARD_TOOLBAR_CLEARANCE } from './AppKeyboardAwareScrollView';
-import {
-  getKeyboardAvoidanceInset,
-  getKeyboardDismissTarget,
-} from '../../lib/keyboardSafeInteraction';
+import { getKeyboardDismissTarget } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { AppSheetModal } from './AppSheetModal';
+import { AppKeyboardViewport } from './AppKeyboardViewport';
+import { AppKeyboardAwareScrollView } from './AppKeyboardAwareScrollView';
 
 type Props = {
   visible: boolean;
@@ -50,28 +46,24 @@ export function KeyboardSafeSheet({
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { height: liveWindowHeight } = useWindowDimensions();
   const [initialWindowHeight, setInitialWindowHeight] = useState(Dimensions.get('window').height);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const keyboardVisibleRef = useRef(false);
   useDismissOnRouteBlur(visible, onClose);
 
   useEffect(() => {
     if (!visible) {
-      setKeyboardHeight(0);
       keyboardVisibleRef.current = false;
       return;
     }
     setInitialWindowHeight(Dimensions.get('window').height);
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = (e: KeyboardEvent) => {
+    const onShow = () => {
       keyboardVisibleRef.current = true;
-      setKeyboardHeight(e.endCoordinates.height);
     };
     const onHide = () => {
       keyboardVisibleRef.current = false;
-      setKeyboardHeight(0);
     };
     const s = Keyboard.addListener(showEvt, onShow);
     const h = Keyboard.addListener(hideEvt, onHide);
@@ -142,16 +134,7 @@ export function KeyboardSafeSheet({
     [colors],
   );
 
-  const keyboardInset = getKeyboardAvoidanceInset({
-    keyboardHeight,
-    initialWindowHeight,
-    currentWindowHeight: liveWindowHeight,
-  });
-  const bottomPad = Math.max(
-    insets.bottom,
-    Spacing.md,
-    keyboardInset > 0 ? keyboardInset + KEYBOARD_TOOLBAR_CLEARANCE : 0,
-  );
+  const bottomPad = keyboardVisible ? 0 : Math.max(insets.bottom, Spacing.md);
   const sheetHeight = initialWindowHeight * Math.min(0.9, Math.max(0.4, heightFraction));
 
   return (
@@ -159,7 +142,7 @@ export function KeyboardSafeSheet({
       visible={visible}
       onClose={tryDismiss}
       sheetStyle={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
-      accessory={<AppKeyboardToolbar insidePageSheet />}
+      accessory={<AppKeyboardToolbar />}
     >
       <View style={styles.grab} />
       {title ? (
@@ -177,16 +160,18 @@ export function KeyboardSafeSheet({
           </Pressable>
         </View>
       ) : null}
-      <ScrollView
-        style={[styles.scroll, { flex: 1 }]}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      <AppKeyboardViewport style={{ flex: 1, minHeight: 0 }}>
+        <AppKeyboardAwareScrollView
+          style={[styles.scroll, { flex: 1 }]}
+          contentContainerStyle={styles.scrollContent}
+          bottomOffset={Spacing.sm}
+          extraKeyboardSpace={Spacing.sm}
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </AppKeyboardAwareScrollView>
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </AppKeyboardViewport>
     </AppSheetModal>
   );
 }

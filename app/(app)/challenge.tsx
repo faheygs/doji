@@ -14,7 +14,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
 import {
   Spacing,
   Radius,
@@ -48,6 +47,7 @@ export default function ChallengeScreen() {
   const sparks = useSparksBalance();
   const { eligible, buyIn, isPending: buyInPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
+  const [buyInError, setBuyInError] = useState('');
 
   const challenge = userEvent?.challenge;
   const challengeType = challenge?.type ?? 'photo';
@@ -87,17 +87,14 @@ export default function ChallengeScreen() {
   }, [router]);
 
   const handleBuyIn = async () => {
+    setBuyInError('');
     try {
       await buyIn();
       setBuyInVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       requestAnimationFrame(handleStartChallenge);
     } catch (e) {
-      Toast.show({
-        type: 'error',
-        text1: 'Buy-in failed',
-        text2: e instanceof Error ? e.message : 'Try again',
-      });
+      setBuyInError(e instanceof Error ? e.message : 'Try again.');
     }
   };
 
@@ -313,7 +310,11 @@ export default function ChallengeScreen() {
               canAffordBuyIn(sparks) ? (
                 <TouchableOpacity
                   style={styles.buyInBtn}
-                  onPress={() => { Haptics.selectionAsync(); setBuyInVisible(true); }}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setBuyInError('');
+                    setBuyInVisible(true);
+                  }}
                   disabled={buyInPending}
                   accessibilityRole="button"
                   accessibilityLabel={`Buy in for ${SPARKS_BUY_IN_COST} Sparks`}
@@ -376,6 +377,7 @@ export default function ChallengeScreen() {
         onConfirm={handleBuyIn}
         onClose={() => setBuyInVisible(false)}
         loading={buyInPending}
+        error={buyInError}
       />
     </SafeAreaView>
   );

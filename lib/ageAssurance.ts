@@ -59,3 +59,13 @@ export function formatBirthDateInput(value: string): string {
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
+
+/** Reassesses the ISO date carried transiently through account creation. */
+export function assessIsoBirthDate(value: unknown, today = new Date()): BirthDateAssessment {
+  if (typeof value !== 'string') {
+    return { ok: false, message: 'Enter your birthday as MM/DD/YYYY.' };
+  }
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return { ok: false, message: 'Enter your birthday as MM/DD/YYYY.' };
+  return assessBirthDate(`${match[2]}/${match[3]}/${match[1]}`, today);
+}

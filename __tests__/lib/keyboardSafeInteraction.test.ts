@@ -2,6 +2,7 @@ import {
   getKeyboardAvoidanceInset,
   getKeyboardDismissTarget,
   getKeyboardStickyFooterOpenedOffset,
+  getKeyboardToolbarClosedOffset,
   getKeyboardToolbarOpenedOffset,
 } from '../../lib/keyboardSafeInteraction';
 
@@ -46,8 +47,13 @@ describe('keyboard-safe interaction', () => {
   });
 
   it('does not double-count the safe area when positioning the keyboard toolbar', () => {
-    expect(getKeyboardToolbarOpenedOffset(false)).toBe(0);
-    expect(getKeyboardToolbarOpenedOffset(true)).toBe(11);
+    expect(getKeyboardToolbarOpenedOffset()).toBe(0);
+  });
+
+  it('fully hides the closed toolbar below rounded-device safe areas', () => {
+    expect(getKeyboardToolbarClosedOffset(34)).toBe(42);
+    expect(getKeyboardToolbarClosedOffset(0)).toBe(8);
+    expect(getKeyboardToolbarClosedOffset(-20)).toBe(8);
   });
 
   it('moves fixed footers above the keyboard toolbar', () => {

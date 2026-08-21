@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, SafeAreaView, Text as RNText, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, SafeAreaView, Text as RNText } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Spacing, BrandWordmark } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
+import { AuthLegalLinks } from '../../components/auth/AuthLegalLinks';
 
 const FEATURES = [
   'Daily challenges on your schedule',
@@ -76,11 +77,6 @@ export default function WelcomeScreen() {
           gap: Spacing.md,
           alignItems: 'center',
         },
-        terms: {
-          textAlign: 'center',
-          lineHeight: 18,
-          paddingHorizontal: Spacing.md,
-        },
       }),
     [colors],
   );
@@ -115,15 +111,9 @@ export default function WelcomeScreen() {
         <Button onPress={() => router.push('/(auth)/login')} fullWidth size="lg">
           Continue
         </Button>
-        <TouchableOpacity onPress={() => router.push('/(auth)/terms')} activeOpacity={0.7}>
-          <Text variant="bodySmall" color={colors.textTertiary} style={styles.terms}>
-            By continuing you agree to our{' '}
-            <Text variant="bodySmall" color={colors.link}>
-              Terms of Use
-            </Text>
-            {' '}and Privacy Policy.
-          </Text>
-        </TouchableOpacity>
+        <View style={{ paddingHorizontal: Spacing.md }}>
+          <AuthLegalLinks prefix="By continuing you agree to our" centered />
+        </View>
       </Animated.View>
     </SafeAreaView>
   );

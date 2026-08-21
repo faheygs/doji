@@ -9,6 +9,7 @@ import { SparkPriceTag } from '@/components/economy/SparkPriceTag';
 import { ShopItemPreview } from '@/components/economy/ShopItemPreview';
 import { TITLE_CATALOG } from '@/lib/cosmetics';
 import type { ShopItem, Profile } from '@/types/database';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 type ProfilePreview = Pick<Profile, 'avatar_url' | 'username' | 'display_name'> | null;
 
@@ -20,6 +21,7 @@ type Props = {
   onConfirm: () => void;
   onClose: () => void;
   loading?: boolean;
+  error?: string;
 };
 
 export function PurchaseConfirmSheet({
@@ -30,6 +32,7 @@ export function PurchaseConfirmSheet({
   onConfirm,
   onClose,
   loading,
+  error,
 }: Props) {
   const { colors } = useTheme();
   const price = item?.price ?? 0;
@@ -97,6 +100,7 @@ export function PurchaseConfirmSheet({
       </View>
 
       <View style={styles.actions}>
+        {error ? <InlineFeedback message={error} /> : null}
         <Button onPress={onConfirm} loading={loading} disabled={sparksBalance < price}>
           Buy for {price.toLocaleString()} Sparks
         </Button>

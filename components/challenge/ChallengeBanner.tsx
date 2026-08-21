@@ -3,7 +3,6 @@ import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
@@ -38,6 +37,7 @@ export function ChallengeBanner({ userEvent }: Props) {
   const sparks = useSparksBalance();
   const { eligible, buyIn, isPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
+  const [buyInError, setBuyInError] = useState('');
   const challenge = userEvent?.challenge;
   const challengeType = (challenge?.type ?? 'photo') as ChallengeType;
 
@@ -154,6 +154,7 @@ export function ChallengeBanner({ userEvent }: Props) {
   }, [router]);
 
   const handleBuyIn = useCallback(async () => {
+    setBuyInError('');
     try {
       await buyIn();
       setBuyInVisible(false);
@@ -163,16 +164,13 @@ export function ChallengeBanner({ userEvent }: Props) {
       const msg =
         e instanceof Error ? e.message : ((e as { message?: string })?.message ?? 'Unknown error');
       if (__DEV__) console.error('[BuyIn] failed:', e);
-      Toast.show({
-        type: 'error',
-        text1: 'Buy-in failed',
-        text2: msg,
-      });
+      setBuyInError(msg);
     }
   }, [buyIn, challengeType, router]);
 
   const handleOpenBuyIn = useCallback(() => {
     Haptics.selectionAsync();
+    setBuyInError('');
     setBuyInVisible(true);
   }, []);
 
@@ -254,6 +252,7 @@ export function ChallengeBanner({ userEvent }: Props) {
           onConfirm={handleBuyIn}
           onClose={() => setBuyInVisible(false)}
           loading={isPending}
+          error={buyInError}
         />
       </>
     );

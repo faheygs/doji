@@ -54,19 +54,29 @@ export function friendAcceptedCopy(actor: NotificationActor | null | undefined):
 
 export function reactionActorsLine(
   actors: NotificationActor[],
+  isSharedPost = false,
 ): { title: string; body: string } {
   const shown = actors.slice(0, 3);
   const primary = shown[0];
   const extra = Math.max(0, actors.length - 1);
   const primaryName = notificationActorName(primary);
 
-  if (extra === 0) {
-    return { title: primaryName, body: 'Reacted to your post' };
-  }
+  const body = isSharedPost ? "Reacted to today's Doji" : 'Reacted to your post';
+  if (extra === 0) return { title: primaryName, body };
   if (extra === 1) {
-    return { title: `${primaryName} and 1 other`, body: 'Reacted to your post' };
+    return { title: `${primaryName} and 1 other`, body };
   }
-  return { title: `${primaryName} and ${extra} others`, body: 'Reacted to your post' };
+  return { title: `${primaryName} and ${extra} others`, body };
+}
+
+export function commentActivityCopy(
+  actor: NotificationActor | null | undefined,
+  isSharedPost = false,
+): NotificationCopy {
+  return {
+    title: notificationActorName(actor),
+    body: isSharedPost ? "Commented on today's Doji" : 'Commented on your post',
+  };
 }
 
 export function commentLikeActorsLine(actors: NotificationActor[], count: number): NotificationCopy {

@@ -53,7 +53,8 @@ See [docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md).
 ## Required server deployments
 
 Supabase Edge Functions: `schedule-daily-challenge`, `orchestrate-doji`,
-`relay-domain-events`, `realtime-token`, `notify-user`, and `delete-account`.
+`relay-domain-events`, `fanout-doji-push`, `realtime-token`, `delete-account`,
+`send-admin-email`, `run-data-maintenance`, and `operational-health`.
 
 Cloudflare Worker: `infra/doji-orchestrator`.
 
@@ -69,8 +70,10 @@ exactly 10 minutes after activation; the server rejects participation after clos
 ## Notifications
 
 Connected clients receive Ably events immediately. Background/killed clients receive
-Expo push from the same committed outbox event. Foreground/reconnect always reconcile
-authoritative state, so correctness never depends on OS push delivery.
+APNs/FCM push from the same committed outbox event. Expo is a bounded transport
+fallback for older installed builds only; it is not a separate notification producer.
+Foreground/reconnect always reconcile authoritative state, so correctness never
+depends on OS push delivery.
 
 ## Media
 

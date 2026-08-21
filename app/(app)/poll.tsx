@@ -9,7 +9,6 @@ import {
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
@@ -26,6 +25,7 @@ import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { occurrenceCommandId } from '../../lib/idempotency';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
+import { InlineFeedback } from '../../components/ui/InlineFeedback';
 
 export default function PollScreen() {
   const router = useRouter();
@@ -39,6 +39,7 @@ export default function PollScreen() {
   const pollVote = usePollVote();
   const [selected, setSelected] = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
+  const [submitError, setSubmitError] = useState<{ title?: string; message: string } | null>(null);
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const submitLockRef = useRef(false);
 
@@ -78,9 +79,10 @@ export default function PollScreen() {
 
   const handleVote = useCallback(async () => {
     if (submitLockRef.current) return;
+    setSubmitError(null);
     if (!selected || !challengeId || !userEvent) return;
     if (isOtherSelected && !otherText.trim()) {
-      Toast.show({ type: 'error', text1: 'Enter your answer', text2: 'Type something for Other.' });
+      setSubmitError({ message: 'Type an answer for Other.' });
       return;
     }
     const optionIndex = visibleOptions.findIndex((o) => o.id === selected);
@@ -104,7 +106,7 @@ export default function PollScreen() {
         },
         onError: (err: Error) => {
           const copy = dojiSubmissionErrorCopy(err);
-          Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
+          setSubmitError({ title: copy.title, message: copy.message });
         },
         onSettled: () => {
           submitLockRef.current = false;
@@ -260,6 +262,7 @@ export default function PollScreen() {
                   onPress={() => {
                     Haptics.selectionAsync();
                     setSelected(opt.id);
+                    setSubmitError(null);
                     if (!opt.is_other) setOtherText('');
                   }}
                   activeOpacity={0.85}
@@ -285,7 +288,10 @@ export default function PollScreen() {
               <View style={{ width: '100%' }}>
                 <AppTextInput
                   value={otherText}
-                  onChangeText={setOtherText}
+                  onChangeText={(value) => {
+                    setOtherText(value);
+                    setSubmitError(null);
+                  }}
                   placeholder="Type your answer…"
                   placeholderTextColor={colors.textTertiary}
                   style={[
@@ -312,6 +318,9 @@ export default function PollScreen() {
               </View>
             ) : null}
           </View>
+          {submitError ? (
+            <InlineFeedback title={submitError.title} message={submitError.message} />
+          ) : null}
           <View style={styles.footer}>
             <TouchableOpacity
               onPress={handleVote}

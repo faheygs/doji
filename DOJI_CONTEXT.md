@@ -34,6 +34,10 @@ user directly to the feed; there is no success interstitial.
   because every feed read is keyed by the authoritative occurrence. The app shows the coming-soon banner
   from that authoritative state; it does not reveal the challenge early.
 - A completed write and its realtime/push events commit together.
+- The transactional domain-event outbox is the only notification producer. Retired
+  direct `pg_net` push endpoints and recurring dispatch/expiry workers do not exist
+  in the runtime. APNs/FCM is primary delivery; Expo may only be selected as a
+  transport fallback by the same authoritative outbox relay for an older install.
 - A failed submission cannot create a completion notification.
 - Retrying the same command cannot create a second post, vote, reaction, comment,
   reward, or notification.
@@ -61,8 +65,14 @@ user directly to the feed; there is no success interstitial.
 - Cleared or dismissed notifications are durable account state and never return
   after reinstall or sign-in on another device.
 - Light and dark themes must both meet contrast and state-visibility requirements.
-- Text-entry screens use the shared keyboard components. Focused fields scroll
-  fully above the keyboard and toolbar, and keyboard movement is synchronized.
+- Corrective errors are persistent and contextual: field validation sits under the
+  affected field, while command/permission failures render within the active form,
+  sheet, card, or page. Global top toasts are reserved for brief success confirmation,
+  never for an error the user must understand or fix.
+- Text-entry screens use `AppKeyboardAwareScrollView`; native modal forms use
+  `AppKeyboardViewport` plus the same `AppKeyboardToolbar` configuration. Focused
+  fields remain visible without screen-local keyboard-height padding, and keyboard
+  movement and toolbar spacing stay synchronized.
 
 ## End-to-end user journey
 
@@ -74,7 +84,7 @@ flowchart LR
   C --> E[Authenticated session]
   D --> E
   E --> F{Profile exists?}
-  F -- No --> G[Confirm age 13+, choose username and optional photo, display name, bio]
+  F -- No --> G[Choose username and optional photo, display name, bio]
   F -- Yes --> H{New user onboarding complete?}
   G --> H
   H -- No --> I[How Doji works]
@@ -86,10 +96,12 @@ flowchart LR
 
 Product requirement: account creation presents two independent, initially
 unchecked consents—Terms of Use and Privacy Policy. Each label links to its own
-readable document. Date of birth and username are required on the single profile-setup
-page; photo, display name, and bio are optional. The date is evaluated by the server
-clock, is never stored, and only a versioned 13-plus assurance result is retained.
-There is no separate profile screen or “skip for now” detour.
+readable document. A self-declared date of birth is required before credentials;
+username is required during profile setup, while photo, display name, and bio are
+optional. The date is evaluated at both the Auth boundary and profile transaction,
+then retained only in the private `age_assurances` audit record with the versioned
+13-plus result, method, and assessment timestamp. It is never part of a public
+profile or realtime event. There is no “skip for now” detour.
 
 Routing is enforced in `app/_layout.tsx`, `hooks/useAuthGate.ts`,
 `lib/authRoute.ts`, and `lib/onboardingGate.ts`. The root layout owns session
@@ -310,15 +322,15 @@ Validation, authorization, uniqueness, and business-rule errors are not retried.
 
 Representative commands:
 
-| Domain              | Commands                                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Domain              | Commands                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Profile/auth        | `create_own_profile`, `get_own_profile`, `update_own_profile`, `register_native_push_endpoint`, `unregister_push_installation` |
-| Participation       | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today`                                    |
-| Conversation        | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like` |
-| Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report`  |
-| Economy             | `purchase_shop_item`, `equip_shop_item`                                                                                    |
-| Notifications       | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened`                                    |
-| Suggestions/admin   | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report`                                            |
+| Participation       | `get_current_doji_state`, `complete_doji_with_post`, `submit_poll_vote`, `buy_in_today`                                        |
+| Conversation        | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like`     |
+| Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report`      |
+| Economy             | `purchase_shop_item`, `equip_shop_item`                                                                                        |
+| Notifications       | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened`                                        |
+| Suggestions/admin   | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report`                                                |
 
 ## Realtime read path
 
@@ -420,6 +432,13 @@ Community poll notification rule: global aggregate data does not imply global so
 noise. Only accepted friends receive participation, reaction, and comment alerts for
 shared poll content. Normal posts alert the appropriate post owner, replier, mentioned
 user, or accepted friend. A single action must not alert the same recipient twice.
+The bounded Activity Center snapshot carries `is_shared_post` for post-backed items.
+Shared Doji copy says "today's Doji"; only individually owned photo/text content says
+"your post". The handset must not infer ownership or issue a second post lookup.
+Comment replies use a flattened one-level thread. `parent_id` always identifies the
+top-level root, while `reply_to_comment_id` identifies the exact comment/user being
+answered. The server resolves this atomically; the UI shows the target as an
+`@username` prefix and never creates deeper visual indentation.
 
 Notification delivery has three product tiers. Doji activation is time-sensitive and
 immediate. Direct human actions (comments, replies, mentions, friend requests, and
@@ -495,19 +514,29 @@ must preserve Apple's required protections:
 - blocking hides the content immediately without creating a moderation report;
 - blocking is bidirectional for posts, comments, reactions, alerts, and profile
   access. A blocked viewer sees only “This user has blocked you” on the blocker’s
-  profile. The global leaderboard remains competition-neutral; the friends board
-  still follows the accepted-friend graph;
+  profile. The global leaderboard remains competition-neutral and includes every
+  non-banned profile regardless of blocks or obsolete demo markers; the friends board
+  still follows the accepted-friend graph. Both leaderboard audiences always include
+  the signed-in viewer; bounded reads return the top result window plus the viewer's
+  authoritative row when they rank outside that window;
 - persistent admin report queue and developer response workflow;
 - Terms of Use acceptance before account creation;
 - separate Privacy Policy consent and document;
+- signup asks for a self-declared birth date before credentials. The client blocks
+  under-13 progression, the Supabase before-user-created hook rejects missing or
+  ineligible dates before an auth row exists, and `create_own_profile` performs the
+  final timezone-aware check. The asserted date is retained in the access-restricted
+  `age_assurances` audit record and removed from duplicate auth metadata afterward;
 - action on valid objectionable-content reports within 24 hours.
 
 Reports and blocks are separate safety actions. Both use their atomic RPCs and
 reconcile the feed/friend graph and any open profile immediately, but only an explicit
-report creates moderation work. Admin report reads use the bounded security-definer
-evidence snapshot so a later block cannot hide explicitly reported content from
-moderation. Report cards distinguish reporter, reported account, evidence, and
-confirmed destructive actions.
+report creates moderation work. Admin report and challenge-suggestion queues use
+bounded, admin-only security-definer snapshots with explicit safe profile fields;
+viewer-relative profile policies cannot hide or break review evidence. Queue screens
+preserve cached rows during background reconciliation and distinguish initial loading,
+empty, retryable error, and populated states. Report cards distinguish reporter,
+reported account, evidence, and confirmed destructive actions.
 
 ## UI and interaction system
 
@@ -527,6 +556,8 @@ confirmed destructive actions.
   appropriate.
 - Focus must auto-scroll the entire field above both keyboard and toolbar.
 - The toolbar and keyboard animate together; do not add JS-delayed keyboard bars.
+- A closed keyboard toolbar clears the device bottom safe-area and disables pointer
+  events so no floating remnant can outlive a dismissed sheet or block the active page.
 - Up/down toolbar controls follow visual field order. Done dismisses the keyboard.
 - Ten-minute timers derive every tick from the synchronized server clock and the
   occurrence's authoritative expiry; backgrounding never pauses or extends a window.

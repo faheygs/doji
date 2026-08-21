@@ -5,6 +5,7 @@ import {
   friendRequestCopy,
   friendAcceptedCopy,
   reactionActorsLine,
+  commentActivityCopy,
   friendActivityActorsLine,
   challengeCopy,
   normalizeEmbeddedProfile,
@@ -38,11 +39,12 @@ describe('notificationActorInitials', () => {
 
 describe('commentLikeActorsLine', () => {
   it('groups repeated likes on one comment into one readable activity', () => {
-    expect(commentLikeActorsLine([
-      { display_name: 'Kira' },
-      { display_name: 'Shannon' },
-      { display_name: 'Todd' },
-    ], 3)).toEqual({ title: 'Kira and 2 others', body: 'Liked your comment' });
+    expect(
+      commentLikeActorsLine(
+        [{ display_name: 'Kira' }, { display_name: 'Shannon' }, { display_name: 'Todd' }],
+        3,
+      ),
+    ).toEqual({ title: 'Kira and 2 others', body: 'Liked your comment' });
   });
 });
 
@@ -66,9 +68,10 @@ describe('friend notification copy', () => {
 
 describe('reactionActorsLine', () => {
   it('single actor', () => {
-    expect(
-      reactionActorsLine([{ display_name: 'Alex', username: 'alex' }]),
-    ).toEqual({ title: 'Alex', body: 'Reacted to your post' });
+    expect(reactionActorsLine([{ display_name: 'Alex', username: 'alex' }])).toEqual({
+      title: 'Alex',
+      body: 'Reacted to your post',
+    });
   });
 
   it('multiple actors', () => {
@@ -80,13 +83,34 @@ describe('reactionActorsLine', () => {
       ]),
     ).toEqual({ title: 'Alex and 2 others', body: 'Reacted to your post' });
   });
+
+  it('labels shared Doji reactions without claiming post ownership', () => {
+    expect(reactionActorsLine([{ display_name: 'Alex' }], true)).toEqual({
+      title: 'Alex',
+      body: "Reacted to today's Doji",
+    });
+  });
+});
+
+describe('commentActivityCopy', () => {
+  it('uses owned-post copy only for individual posts', () => {
+    expect(commentActivityCopy({ display_name: 'Heather' }, false)).toEqual({
+      title: 'Heather',
+      body: 'Commented on your post',
+    });
+  });
+
+  it('uses shared Doji copy for community posts', () => {
+    expect(commentActivityCopy({ display_name: 'Heather' }, true)).toEqual({
+      title: 'Heather',
+      body: "Commented on today's Doji",
+    });
+  });
 });
 
 describe('friendActivityActorsLine', () => {
   it('uses the exact grouped count even when actor previews are bounded', () => {
-    expect(
-      friendActivityActorsLine([{ display_name: 'Kira', username: 'kira' }], 20),
-    ).toEqual({
+    expect(friendActivityActorsLine([{ display_name: 'Kira', username: 'kira' }], 20)).toEqual({
       title: 'Kira and 19 other friends',
       body: "Completed today's Doji",
     });
@@ -104,8 +128,9 @@ describe('challengeCopy', () => {
 
 describe('normalizeEmbeddedProfile', () => {
   it('unwraps single-element arrays from Supabase embeds', () => {
-    expect(
-      normalizeEmbeddedProfile([{ username: 'alex', display_name: 'Alex' }]),
-    ).toEqual({ username: 'alex', display_name: 'Alex' });
+    expect(normalizeEmbeddedProfile([{ username: 'alex', display_name: 'Alex' }])).toEqual({
+      username: 'alex',
+      display_name: 'Alex',
+    });
   });
 });

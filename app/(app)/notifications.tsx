@@ -9,13 +9,13 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAppDialog } from '@/contexts/DialogContext';
 import { Text } from '@/components/ui/Text';
+import { InlineFeedback, type InlineFeedbackTone } from '@/components/ui/InlineFeedback';
 import { Card } from '@/components/ui/Card';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -97,6 +97,10 @@ export default function NotificationSettingsScreen() {
   );
   const [permStatus, setPermStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [pageFeedback, setPageFeedback] = useState<{
+    tone: InlineFeedbackTone;
+    message: string;
+  } | null>(null);
 
   const refreshPermStatus = useCallback(() => {
     if (Platform.OS === 'web') return;
@@ -188,6 +192,7 @@ export default function NotificationSettingsScreen() {
   const persistCategories = useCallback(
     async (patch: Partial<NotificationPreferences>, changedKey: string) => {
       if (!profile?.id) return;
+      setPageFeedback(null);
       setSavingKey(changedKey);
       const base = mergeNotificationPreferences(profile.notification_preferences);
       const next: NotificationPreferences = { ...base, ...patch };
@@ -196,7 +201,7 @@ export default function NotificationSettingsScreen() {
         await updateProfile({ notification_preferences: next });
         return true;
       } catch {
-        Toast.show({ type: 'error', text1: 'Could not save notification settings' });
+        setPageFeedback({ tone: 'error', message: 'Could not save that notification setting. Try again.' });
         setPrefs(mergeNotificationPreferences(profile.notification_preferences));
         return false;
       } finally {
@@ -220,7 +225,7 @@ export default function NotificationSettingsScreen() {
 
   const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
-      Toast.show({ type: 'info', text1: 'Notifications are not available on web.' });
+      setPageFeedback({ tone: 'info', message: 'Phone notifications are available in the mobile app.' });
       return;
     }
     try {
@@ -235,7 +240,7 @@ export default function NotificationSettingsScreen() {
         await registerTokenIfGranted();
         const saved = await persistCategories({ push_enabled: true }, 'push_enabled');
         if (!saved) return;
-        Toast.show({ type: 'success', text1: 'Alerts enabled for this device' });
+        setPageFeedback({ tone: 'success', message: 'Alerts are enabled on this phone.' });
       } else {
         setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
         showDialog({
@@ -249,7 +254,7 @@ export default function NotificationSettingsScreen() {
       }
     } catch {
       setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
-      Toast.show({ type: 'error', text1: 'Could not enable alerts' });
+      setPageFeedback({ tone: 'error', message: 'Could not enable alerts on this phone. Try again.' });
     }
   }, [persistCategories, registerTokenIfGranted, showDialog]);
 
@@ -263,7 +268,7 @@ export default function NotificationSettingsScreen() {
     } catch (error) {
       if (__DEV__) console.warn('[notifications] token cleanup failed', error);
     }
-    Toast.show({ type: 'success', text1: 'Phone alerts turned off' });
+    setPageFeedback({ tone: 'success', message: 'Phone alerts are turned off.' });
   }, [persistCategories]);
 
   const onMasterSystemSwitch = useCallback(
@@ -271,7 +276,7 @@ export default function NotificationSettingsScreen() {
       Haptics.selectionAsync();
       setPrefs((current) => ({ ...current, push_enabled: value }));
       if (Platform.OS === 'web') {
-        Toast.show({ type: 'info', text1: 'Use the mobile app for system alerts.' });
+        setPageFeedback({ tone: 'info', message: 'Use the mobile app to manage phone alerts.' });
         return;
       }
       if (value) {
@@ -312,6 +317,14 @@ export default function NotificationSettingsScreen() {
             Notifications
           </Text>
         </View>
+
+        {pageFeedback ? (
+          <InlineFeedback
+            tone={pageFeedback.tone}
+            message={pageFeedback.message}
+            style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}
+          />
+        ) : null}
 
         <View style={styles.section}>
           {Platform.OS !== 'web' ? (

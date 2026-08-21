@@ -13,8 +13,9 @@
 ## Apple user-generated-content requirements
 
 - Present separate Terms of Use and Privacy Policy checkboxes before authentication.
-- Require a date of birth during profile setup, reject users under 13 on both the
-  client and server, and retain only the private age-assurance result (not the date).
+- Require a date of birth before credentials, reject users under 13 on both the
+  client and server, and retain the self-declared date only in the private
+  age-assurance audit record.
 - Keep links to both complete documents before acceptance and in Settings.
 - Filter objectionable text and enforce server moderation policies.
 - Provide report actions for posts, comments, and poll answers.
@@ -39,8 +40,8 @@
 - Keep the privacy label inclusive of account identity, names/email, photos/video,
   audio captured with video, free-form user content, device push identifiers,
   product interactions, virtual shop ownership, crash data, and performance data.
-  These are linked to the account/device and used for App Functionality; Doji does
-  not track users or use data for advertising.
+  birth date and age-assurance record. These are linked to the account/device and
+  used for App Functionality; Doji does not track users or use data for advertising.
 - Use `https://dojipro.com/privacy/#choices` as the optional privacy-choices URL.
 - Select only the newest verified production build and use manual release.
 - Do not advertise a demo mode. The reviewer account must use the production flow
@@ -58,8 +59,9 @@
 - Disconnect/reconnect and foreground recovery reconcile without duplicate actions.
 - Repeated taps and simulated response loss do not create duplicate rows.
 - Notification dismiss/clear remains gone after reinstall and on a second device.
-- A date exactly 13 years ago is accepted, tomorrow's 13th birthday is rejected, and
-  no birth-date field exists on the resulting profile or public profile response.
+- A date exactly 13 years ago is accepted, tomorrow's 13th birthday is rejected, the
+  submitted date exists in the private assurance row, and no birth-date field exists
+  on the resulting profile or public profile response.
 
 ## Production verification
 

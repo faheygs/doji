@@ -1,14 +1,14 @@
 import type { ReactionEmoji } from '@/types/database';
 
-const LEGACY_MAP: Record<string, ReactionEmoji> = {
+const PREVIOUS_REACTION_KEYS: Record<string, ReactionEmoji> = {
   dead: 'dislike',
   goat: 'like',
   love: 'heart',
 };
 
-/** Map legacy DB/UI keys to the current reaction set. */
+/** Normalize reaction keys written by currently supported and earlier app builds. */
 export function normalizeReactionEmoji(value: string): ReactionEmoji | null {
-  const mapped = LEGACY_MAP[value] ?? value;
+  const mapped = PREVIOUS_REACTION_KEYS[value] ?? value;
   if (
     mapped === 'fire' ||
     mapped === 'like' ||

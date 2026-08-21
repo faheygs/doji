@@ -37,4 +37,23 @@ describe('100k hardening contracts', () => {
     expect(gateway).toContain('EXPO_PUBLIC_SCALE_READ_URL');
     expect(gateway).toContain('if (!scaleReadUrl) return directRead()');
   });
+
+  it('keeps leaderboard reads bounded without ever dropping the viewer', () => {
+    const migration = read(
+      'supabase/migrations/20260818340000_always_include_viewer_in_leaderboard.sql',
+    ).toLowerCase();
+    expect(migration).toContain("p_audience = 'everyone' or profile.id = uid");
+    expect(migration).toContain('select * from viewer_row viewer');
+    expect(migration).toContain('not exists (select 1 from top_rows');
+  });
+
+  it('keeps Everyone standings symmetric instead of honoring obsolete demo markers', () => {
+    const migration = read(
+      'supabase/migrations/20260820040000_symmetric_leaderboard_visibility.sql',
+    ).toLowerCase();
+    expect(migration).toContain("p_audience = 'everyone' or profile.id = uid");
+    expect(migration).toContain('coalesce(profile.is_banned, false) = false');
+    expect(migration).not.toContain('and coalesce(profile.is_demo_account, false) = false');
+    expect(migration).toContain("and lower(username) <> 'reviewer'");
+  });
 });

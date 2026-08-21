@@ -27,9 +27,6 @@ export function challengeEntryHref(type: string | null | undefined): Href {
   return ROUTES.camera;
 }
 
-/** @deprecated Use ROUTES.feed — kept for existing imports. */
-export const FEED_TAB_HREF = ROUTES.feed;
-
 const FEED_ALIASES = new Set([
   '/',
   '/index',
@@ -47,7 +44,7 @@ type RouterLike = {
 };
 
 /**
- * Map legacy / mistaken paths to real Expo Router hrefs.
+ * Map previously-issued and mistaken paths to real Expo Router hrefs.
  * `app/(app)/index.tsx` resolves to `/(app)`, never `/(app)/index`.
  */
 export function normalizeHref(raw: string | Href | null | undefined): Href | null {
@@ -63,7 +60,7 @@ export function normalizeHref(raw: string | Href | null | undefined): Href | nul
     return ROUTES.feed;
   }
 
-  // Catch mistyped feed paths from older builds or deep links.
+  // Catch feed paths issued by earlier builds or malformed deep links.
   if (/^\/\(app\)\/index\/?$/i.test(pathOnly)) {
     return ROUTES.feed;
   }

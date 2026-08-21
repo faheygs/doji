@@ -1,5 +1,5 @@
 import type { Href } from 'expo-router';
-import { FEED_TAB_HREF, normalizeHref } from './routes';
+import { normalizeHref, ROUTES } from './routes';
 
 export type FeedPostDeepLinkOptions = {
   openComments?: boolean;
@@ -11,7 +11,7 @@ export function feedPostHref(postId: string, options?: FeedPostDeepLinkOptions):
   const params = new URLSearchParams({ postId });
   if (options?.openComments) params.set('openComments', '1');
   if (options?.mentionCommentId) params.set('mentionCommentId', options.mentionCommentId);
-  return `${FEED_TAB_HREF}?${params.toString()}` as Href;
+  return `${ROUTES.feed}?${params.toString()}` as Href;
 }
 
 /** Resolve push / in-app notification payload to an in-app route. */
@@ -30,8 +30,8 @@ export function notificationHrefFromData(data: unknown): Href | null {
   if (type === 'FRIEND_ACCEPTED') {
     return '/(app)/friends';
   }
-  if (type === 'FRIEND_POST') return FEED_TAB_HREF;
-  if (type === 'POLL_VOTE') return FEED_TAB_HREF;
+  if (type === 'FRIEND_POST') return ROUTES.feed;
+  if (type === 'POLL_VOTE') return ROUTES.feed;
   if (type === 'SUGGESTION_APPROVED' || type === 'SUGGESTION_REJECTED') {
     return '/(app)/profile' as Href;
   }
@@ -59,7 +59,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
   // a validated URL only for forward-compatible/unknown payloads.
   const url = rec.url;
   if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
-    return normalizeHref(url) ?? FEED_TAB_HREF;
+    return normalizeHref(url) ?? ROUTES.feed;
   }
 
   return null;

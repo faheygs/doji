@@ -21,6 +21,13 @@ type Props = TextInputProps & {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
+const NUMERIC_PAD_KEYBOARDS = new Set<TextInputProps['keyboardType']>([
+  'number-pad',
+  'numeric',
+  'decimal-pad',
+  'phone-pad',
+]);
+
 export const Input = forwardRef<TextInput, Props>(
   (
     {
@@ -79,6 +86,10 @@ export const Input = forwardRef<TextInput, Props>(
       : success
         ? colors.success
         : colors.textTertiary;
+    const usesNumericPad = NUMERIC_PAD_KEYBOARDS.has(rest.keyboardType);
+    const resolvedReturnKeyType = multiline
+      ? returnKeyType
+      : returnKeyType ?? (usesNumericPad ? undefined : 'done');
 
     return (
       <View style={[styles.container, containerStyle]}>
@@ -93,7 +104,10 @@ export const Input = forwardRef<TextInput, Props>(
             ref={ref}
             style={[styles.input, error ? styles.inputError : undefined, style]}
             multiline={multiline}
-            returnKeyType={multiline ? returnKeyType : (returnKeyType ?? 'done')}
+            // iOS can add a second floating Done control when a numeric pad is
+            // given returnKeyType="done". Numeric pads use the one shared app
+            // toolbar; text keyboards keep their normal return key.
+            returnKeyType={resolvedReturnKeyType}
             blurOnSubmit={multiline ? blurOnSubmit : (blurOnSubmit ?? true)}
             onSubmitEditing={(e) => {
               if (!multiline) Keyboard.dismiss();

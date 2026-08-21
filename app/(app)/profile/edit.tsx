@@ -22,6 +22,7 @@ import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
 import { useUsernameAvailability, normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import { maxLength, validationMessage } from '@/lib/formValidation';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 const BIO_MAX = 150;
 
@@ -31,11 +32,12 @@ export default function EditProfileScreen() {
   const { colors } = useTheme();
   const profile = useAuthStore((state) => state.profile);
   const updateProfile = useAuthStore((state) => state.updateProfile);
-  const { openChangePhotoDialog, uploading } = useChangeProfilePhoto();
+  const { openChangePhotoDialog, uploading, error: photoError } = useChangeProfilePhoto();
   const [username, setUsername] = useState(profile?.username ?? '');
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     setUsername(profile?.username ?? '');
@@ -59,6 +61,7 @@ export default function EditProfileScreen() {
 
   const save = async () => {
     if (!canSave) return;
+    setSaveError('');
     setSaving(true);
     try {
       const handle = normalizeUsernameInput(username);
@@ -70,7 +73,7 @@ export default function EditProfileScreen() {
       Toast.show({ type: 'success', text1: 'Profile updated' });
       goBack();
     } catch {
-      Toast.show({ type: 'error', text1: 'Could not save — username may already be taken' });
+      setSaveError('Could not save your changes. Check the fields above and try again.');
     } finally {
       setSaving(false);
     }
@@ -116,11 +119,21 @@ export default function EditProfileScreen() {
             )}
           </View>
         </TouchableOpacity>
+        {photoError ? (
+          <InlineFeedback
+            title="Could not update photo"
+            message={photoError}
+            style={{ marginHorizontal: Spacing.md }}
+          />
+        ) : null}
         <View style={[styles.form, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <Input
             label="Username"
             value={username}
-            onChangeText={(value) => setUsername(normalizeUsernameInput(value))}
+            onChangeText={(value) => {
+              setUsername(normalizeUsernameInput(value));
+              setSaveError('');
+            }}
             autoCapitalize="none"
             autoCorrect={false}
             error={
@@ -132,17 +145,24 @@ export default function EditProfileScreen() {
           <Input
             label="Display name (optional)"
             value={displayName}
-            onChangeText={setDisplayName}
+            onChangeText={(value) => {
+              setDisplayName(value);
+              setSaveError('');
+            }}
           />
           <Input
             label="Bio (optional)"
             value={bio}
-            onChangeText={(value) => setBio(value.slice(0, BIO_MAX))}
+            onChangeText={(value) => {
+              setBio(value.slice(0, BIO_MAX));
+              setSaveError('');
+            }}
             multiline
             numberOfLines={3}
             hint={`${bio.length}/${BIO_MAX}`}
             error={validationMessage(bioValidation)}
           />
+          {saveError ? <InlineFeedback message={saveError} testID="edit-profile-error" /> : null}
           <Button onPress={() => void save()} loading={saving} disabled={!canSave}>
             Save changes
           </Button>

@@ -29,12 +29,18 @@ export function getKeyboardDismissTarget(
   return keyboardAwareDismiss && keyboardVisible ? 'keyboard' : 'sheet';
 }
 
+/** Keep the controller's native rounded-keyboard gap on every app surface. */
+export function getKeyboardToolbarOpenedOffset(): number {
+  return 0;
+}
+
 /**
- * The controller already accounts for the rounded iOS keyboard gap. Page
- * sheets need to neutralize that built-in gap; full-screen routes do not.
+ * KeyboardToolbar adds its own height to the closed translation. Rounded
+ * iPhones can retain the home-indicator inset in the native keyboard height,
+ * so clear that inset plus a small shadow buffer as well.
  */
-export function getKeyboardToolbarOpenedOffset(insidePageSheet: boolean): number {
-  return insidePageSheet ? 11 : 0;
+export function getKeyboardToolbarClosedOffset(bottomInset: number): number {
+  return Math.max(0, bottomInset) + 8;
 }
 
 /** Moves a fixed footer above the keyboard toolbar instead of into the keyboard. */

@@ -1,5 +1,4 @@
 import {
-  FEED_TAB_HREF,
   ROUTES,
   normalizeHref,
   pathnameForReturnTo,
@@ -7,8 +6,7 @@ import {
 } from '../../lib/routes';
 
 describe('routes', () => {
-  it('FEED_TAB_HREF is the canonical feed route', () => {
-    expect(FEED_TAB_HREF).toBe('/(app)');
+  it('uses one canonical feed route', () => {
     expect(ROUTES.feed).toBe('/(app)');
   });
 
