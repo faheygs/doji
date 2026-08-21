@@ -51,7 +51,9 @@ describe('mobile data architecture', () => {
     const token = read('supabase/functions/realtime-token/index.ts');
     expect(migration).toContain("'post:' || post_id::text");
     expect(migration).toContain("effective_available_at := date_trunc('second'");
-    expect(token).toContain("'post:*': ['subscribe']");
+    expect(token).toContain("capability[`post:${postId}`] = ['subscribe']");
+    expect(token).toContain(".from('posts')");
+    expect(token).not.toContain("'post:*': ['subscribe']");
     expect(token).not.toContain("['subscribe', 'history']");
     const postHook = read('hooks/usePostRealtimeInvalidation.ts');
     expect(postHook).toContain("{ rewind: '10s' }");

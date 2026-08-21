@@ -362,7 +362,10 @@ authorization and must never silently fall back to Postgres during an outage.
 
 ## Security boundaries
 
-- Mobile clients receive short-lived, capability-scoped Ably tokens.
+- Mobile clients receive 15-minute, capability-scoped Ably tokens. Global and
+  user channels are fixed; mounted post UUIDs are sent to `realtime-token`,
+  authorized through the caller's post RLS, and added as exact `post:<uuid>`
+  capabilities. Authenticated clients never receive a `post:*` wildcard.
 - Only administrators receive the `moderation:global` capability.
 - Cloudflare holds narrow orchestration and relay secrets, never the Supabase
   service-role key.
@@ -381,8 +384,8 @@ authorization and must never silently fall back to Postgres during an outage.
 
 1. Create the Ably app/key and Cloudflare queues.
 2. Set Worker secrets: `SUPABASE_URL`, `ORCHESTRATOR_SECRET`, `OUTBOX_RELAY_SECRET`.
-   `OPS_ALERT_WEBHOOK_URL` is optional in free mode and becomes the incident destination
-   when one is configured.
+   The Worker uses the relay secret to deliver operational alerts through the protected
+   `send-admin-email` Edge Function; it never needs a third-party webhook credential.
 3. Deploy `infra/doji-orchestrator`.
 4. Set Edge secrets: `ABLY_API_KEY`, `OUTBOX_RELAY_SECRET`,
    `DOJI_ORCHESTRATOR_URL`, `DOJI_ORCHESTRATOR_SECRET`.
@@ -411,9 +414,10 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Track Expo push tickets/receipts separately from socket delivery.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
-- The Worker invokes `operational-health` once per minute. It emits an error log for
-  overdue/exhausted outbox work or stale/exhausted push shards and also posts the
-  bounded snapshot to `OPS_ALERT_WEBHOOK_URL` when configured.
+- The Worker invokes `operational-health` once per minute. Degraded snapshots and final
+  queue-retry failures call the protected `send-admin-email` Edge Function. Resend
+  delivers the incident to the administrator, while private database receipts
+  deduplicate each issue family to one email per hour.
 - Retention is a self-draining Durable Object alarm. Each Edge invocation stays bounded,
   but `hasMore` schedules the next batch until operational and rate-limit backlogs are
   empty.

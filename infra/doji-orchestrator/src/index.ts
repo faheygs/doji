@@ -9,7 +9,6 @@ interface Env {
   SUPABASE_URL: string;
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
-  OPS_ALERT_WEBHOOK_URL?: string;
 }
 
 type AlarmState = {
@@ -148,14 +147,29 @@ async function checkOperationalHealth(env: Env): Promise<void> {
   const health = JSON.parse(body) as { healthy?: boolean } & Record<string, unknown>;
   if (health.healthy === true) return;
   console.error('Doji operational health is degraded', health);
-  if (env.OPS_ALERT_WEBHOOK_URL) {
-    const alert = await fetch(env.OPS_ALERT_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ source: 'doji-orchestrator', ...health }),
-    });
-    if (!alert.ok) throw new Error(`Operational alert webhook failed: ${alert.status}`);
-  }
+  await sendOperationalAlert(env, 'health-degraded', health);
+}
+
+async function sendOperationalAlert(
+  env: Env,
+  issueFamily: string,
+  details: Record<string, unknown>,
+): Promise<void> {
+  const alert = await fetch(`${env.SUPABASE_URL}/functions/v1/send-admin-email`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-outbox-secret': env.OUTBOX_RELAY_SECRET,
+    },
+    body: JSON.stringify({
+      event: 'operational_health',
+      issue_family: issueFamily,
+      source: 'doji-orchestrator',
+      observed_at: new Date().toISOString(),
+      ...details,
+    }),
+  });
+  if (!alert.ok) throw new Error(`Operational alert delivery failed: ${alert.status}`);
 }
 
 export class DojiEventAlarm extends DurableObject<Env> {
@@ -423,6 +437,18 @@ export default {
               typeof (error as { retryAfterSeconds?: unknown }).retryAfterSeconds === 'number'
                 ? (error as { retryAfterSeconds: number }).retryAfterSeconds
                 : 2;
+            if (queued.attempts >= 8) {
+              try {
+                await sendOperationalAlert(env, 'push-fanout-final-retry', {
+                  attempts: queued.attempts,
+                  dailyEventId: message.dailyEventId,
+                  shard: message.shard,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              } catch (alertError) {
+                console.error('Unable to deliver push fanout alert', alertError);
+              }
+            }
             queued.retry({ delaySeconds: Math.max(1, retryAfterSeconds) });
           }
         }),
@@ -449,6 +475,17 @@ export default {
       }
       batch.ackAll();
     } catch (error) {
+      const attempts = Math.max(...batch.messages.map((message) => message.attempts));
+      if (attempts >= 10) {
+        try {
+          await sendOperationalAlert(env, 'domain-relay-final-retry', {
+            attempts,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        } catch (alertError) {
+          console.error('Unable to deliver domain relay alert', alertError);
+        }
+      }
       batch.retryAll({ delaySeconds: 2 });
       throw error;
     }

@@ -25,6 +25,7 @@ There is no due-event poll, recurring dispatcher, or recurring expiration sweep.
 | `DOJI_ORCHESTRATOR_URL` | Event preparation and outbox wake configuration |
 | `DOJI_ORCHESTRATOR_SECRET` | `schedule-daily-challenge`, `orchestrate-doji`, Worker |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Edge Functions only |
+| `RESEND_API_KEY` / `ADMIN_FROM_EMAIL` | Moderation and operational alert email |
 
 ## Cloudflare Worker secrets
 
@@ -35,6 +36,11 @@ There is no due-event poll, recurring dispatcher, or recurring expiration sweep.
 | `OUTBOX_RELAY_SECRET` | Queue-to-relay authentication |
 
 Cloudflare must never receive the Supabase service-role key.
+
+The Worker sends degraded health and final queue-retry alerts to the protected
+`send-admin-email` Edge Function using its existing `OUTBOX_RELAY_SECRET`.
+`operational_alert_deliveries` deduplicates each issue family to one email per hour;
+no separate third-party webhook secret is required.
 
 ## Verification
 

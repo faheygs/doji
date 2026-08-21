@@ -373,6 +373,9 @@ Channels:
   channel-attach race; normal reconnect uses Ably continuity plus reconciliation.
   Subscription references are counted, and the channel detaches/releases after its
   final mounted consumer leaves so virtualization also bounds transport resources.
+  `realtime-token` authorizes each mounted UUID through the caller's post RLS and
+  grants an exact 15-minute capability; authenticated clients never receive a
+  blanket `post:*` capability.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.
@@ -693,7 +696,8 @@ those grants makes the policy fail closed.
 - Social write budgets are enforced in Postgres per actor/action. Reconnect attempts and
   authoritative catch-up are jittered. Bounded retention continues until caught up,
   and the one-minute operational health contract reports overdue outbox work and stale
-  push shards.
+  push shards. Degraded health and final queue retries send a protected Resend-backed
+  admin email; private hourly receipts deduplicate each issue family.
 - `npm run test:scale-bursts` must pass the 30-, 60-, and 120-second modeled budgets.
   The configured rates describe capacity that must be purchased and load-proven before
   a large launch; they do not claim the current free tiers provide it.
