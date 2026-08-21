@@ -10,6 +10,8 @@ export type DojiRealtimeEvent = {
 
 let client: Realtime | null = null;
 let connectTimer: ReturnType<typeof setTimeout> | null = null;
+const subscriptionCounts = new Map<string, number>();
+const releaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function getClient(): Realtime {
   if (client) return client;
@@ -29,10 +31,13 @@ function getClient(): Realtime {
   // Spread cold-start connection attempts across a short window. This is
   // invisible beside normal feed hydration but prevents a push-open wave from
   // creating one synchronized token/connection spike.
-  connectTimer = setTimeout(() => {
-    connectTimer = null;
-    if (client === scheduledClient) scheduledClient.connect();
-  }, Math.floor(Math.random() * 2_000));
+  connectTimer = setTimeout(
+    () => {
+      connectTimer = null;
+      if (client === scheduledClient) scheduledClient.connect();
+    },
+    Math.floor(Math.random() * 2_000),
+  );
   return client;
 }
 
@@ -49,12 +54,46 @@ function eventFromMessage(message: Message): DojiRealtimeEvent {
 export async function subscribeToRealtimeChannel(
   channelName: string,
   onEvent: (event: DojiRealtimeEvent) => void,
+  options?: { rewind?: string },
 ): Promise<() => void> {
-  const channel = getClient().channels.get(channelName);
+  const realtime = getClient();
+  const pendingRelease = releaseTimers.get(channelName);
+  if (pendingRelease) clearTimeout(pendingRelease);
+  releaseTimers.delete(channelName);
+  const channel = realtime.channels.get(
+    channelName,
+    options?.rewind ? { params: { rewind: options.rewind } } : undefined,
+  );
   const listener = (message: Message) => onEvent(eventFromMessage(message));
   await channel.subscribe(listener);
+  subscriptionCounts.set(channelName, (subscriptionCounts.get(channelName) ?? 0) + 1);
+  let removed = false;
   return () => {
-    void channel.unsubscribe(listener);
+    if (removed) return;
+    removed = true;
+    channel.unsubscribe(listener);
+    const remaining = Math.max(0, (subscriptionCounts.get(channelName) ?? 1) - 1);
+    if (remaining > 0) {
+      subscriptionCounts.set(channelName, remaining);
+      return;
+    }
+    subscriptionCounts.delete(channelName);
+    // Defer one task so a same-transition remount can retain the attachment.
+    // Otherwise detach immediately; keeping an empty attached channel would
+    // both leak transport resources and create an unreplayable listener gap.
+    const timer = setTimeout(() => {
+      releaseTimers.delete(channelName);
+      if (subscriptionCounts.has(channelName) || client !== realtime) return;
+      void channel
+        .detach()
+        .catch(() => undefined)
+        .finally(() => {
+          if (!subscriptionCounts.has(channelName) && client === realtime) {
+            realtime.channels.release(channelName);
+          }
+        });
+    }, 0);
+    releaseTimers.set(channelName, timer);
   };
 }
 
@@ -68,6 +107,9 @@ export function onRealtimeConnectionChange(
 
 export function closeRealtimeConnection(): void {
   if (connectTimer) clearTimeout(connectTimer);
+  for (const timer of releaseTimers.values()) clearTimeout(timer);
+  releaseTimers.clear();
+  subscriptionCounts.clear();
   connectTimer = null;
   client?.close();
   client = null;

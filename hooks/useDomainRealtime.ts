@@ -11,6 +11,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { reconcileAppQueries } from '../lib/reconcileQueries';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { realtimeQueryRoots } from '../lib/realtimeQueryRoots';
+import { refreshActivePostEngagement } from '../lib/postEngagement';
 /** Ably transport plus authoritative Postgres reconciliation on every connection. */
 export function useDomainRealtime(userId: string | undefined) {
   const queryClient = useQueryClient();
@@ -33,10 +34,13 @@ export function useDomainRealtime(userId: string | undefined) {
       if (reconcileTimer) clearTimeout(reconcileTimer);
       // Ably can emit multiple connected/update transitions during recovery.
       // Coalesce them into one authoritative catch-up instead of a query burst.
-      reconcileTimer = setTimeout(() => {
-        reconcileTimer = null;
-        if (!disposed) void reconcileAppQueries(queryClient, { userId, isAdmin });
-      }, 500 + Math.floor(Math.random() * 2_500));
+      reconcileTimer = setTimeout(
+        () => {
+          reconcileTimer = null;
+          if (!disposed) void reconcileAppQueries(queryClient, { userId, isAdmin });
+        },
+        500 + Math.floor(Math.random() * 2_500),
+      );
     };
 
     const invalidateRoots = (...roots: string[]) => scheduleQueryInvalidation(queryClient, roots);
@@ -95,6 +99,39 @@ export function useDomainRealtime(userId: string | undefined) {
 
       if (event.type.startsWith('notification.')) {
         const roots = ['notificationCenter'];
+        const postId = typeof event.payload.postId === 'string' ? event.payload.postId : undefined;
+        const isPostReaction = event.type.startsWith('notification.reaction');
+        const isPostComment =
+          event.type.startsWith('notification.comment.') ||
+          event.type.startsWith('notification.comment_reply.');
+        const isCommentLike = event.type.startsWith('notification.comment_like');
+        // Owner/friend notifications can arrive before the coalesced post hint.
+        // Reconcile only the mounted post and its active audience, never the feed.
+        if (postId && (isPostReaction || isPostComment)) {
+          void refreshActivePostEngagement(queryClient, postId).catch((error) => {
+            if (__DEV__) console.warn('[realtime] engagement refresh failed', postId, error);
+          });
+        }
+        if (postId && (isPostComment || isCommentLike)) {
+          void queryClient.invalidateQueries(
+            {
+              predicate: (query) =>
+                query.queryKey[0] === 'comments' && query.queryKey[1] === postId,
+              refetchType: 'active',
+            },
+            { cancelRefetch: false },
+          );
+        }
+        if (postId && isPostReaction) {
+          void queryClient.invalidateQueries(
+            {
+              predicate: (query) =>
+                query.queryKey[0] === 'reactions' && query.queryKey[1] === postId,
+              refetchType: 'active',
+            },
+            { cancelRefetch: false },
+          );
+        }
         if (event.type.startsWith('notification.friend_activity.')) {
           roots.push('pollResults', 'pollVotersDetail', 'feed');
         }

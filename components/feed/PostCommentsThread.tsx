@@ -474,9 +474,9 @@ export function PostCommentsThread({
 
   const onDelete = useCallback(
     (c: CommentWithMeta) => {
-      deleteComment.mutate({ postId, commentId: c.id });
+      deleteComment.mutate({ postId, commentId: c.id, feedAudience });
     },
-    [deleteComment, postId],
+    [deleteComment, feedAudience, postId],
   );
 
   const onToggleLike = useCallback(
@@ -552,6 +552,7 @@ export function PostCommentsThread({
         body,
         parentId: replyingTo ? replyRootId(replyingTo) : null,
         replyToCommentId: replyingTo?.id ?? null,
+        feedAudience,
       },
       {
         onError: (err: Error) => {
@@ -567,6 +568,7 @@ export function PostCommentsThread({
     draft,
     addComment,
     editComment,
+    feedAudience,
     postId,
     replyingTo,
     editingComment,

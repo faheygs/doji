@@ -31,7 +31,7 @@ import { IconClose } from '../icons/Icons';
 import { PostCommentsThread } from './PostCommentsThread';
 import { AppKeyboardToolbar } from '../ui/AppKeyboardToolbar';
 import { AppKeyboardViewport } from '../ui/AppKeyboardViewport';
-import { useComments, useToggleCommentsDisabled } from '../../hooks/useComments';
+import { useToggleCommentsDisabled } from '../../hooks/useComments';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { formatCompactCount } from '../../utils/formatCount';
 import type { FeedAudience } from '../../lib/feedAudience';
@@ -82,11 +82,9 @@ export function PostCommentsSheet({
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.session?.user?.id);
   const toggleCommentsDisabled = useToggleCommentsDisabled();
-  const { data: scopedComments } = useComments(postId, { feedAudience, fetchEnabled: visible });
-  const displayCommentCount =
-    feedAudience === 'friends'
-      ? (scopedComments?.pages.reduce((total, page) => total + page.length, 0) ?? 0)
-      : commentCount;
+  // The feed post carries the complete audience-scoped total. The infinite
+  // comment query only contains pages loaded so far and is not a counter.
+  const displayCommentCount = commentCount;
   const [localDisabled, setLocalDisabled] = useState(commentsDisabled);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const keyboardVisibleRef = useRef(false);

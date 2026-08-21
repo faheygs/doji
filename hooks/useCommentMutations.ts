@@ -6,17 +6,29 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Comment } from '../types/database';
+import { refreshPostEngagement } from '../lib/postEngagement';
+import type { FeedAudience } from '../lib/feedAudience';
 
 export function useEditComment() {
-  const client = useQueryClient(); const uid = useAuthStore((s) => s.session?.user?.id);
+  const client = useQueryClient();
+  const uid = useAuthStore((s) => s.session?.user?.id);
   return useMutation({
-    mutationFn: async (vars: { postId: string; commentId: string; body: string; commandId?: string }) => {
+    mutationFn: async (vars: {
+      postId: string;
+      commentId: string;
+      body: string;
+      commandId?: string;
+    }) => {
       if (!uid) throw new Error('Not authenticated');
-      const body = vars.body.trim(); if (!body) throw new Error('Comment cannot be empty');
-      const check = filterContent(body); if (!check.ok) throw new Error(check.reason);
+      const body = vars.body.trim();
+      if (!body) throw new Error('Comment cannot be empty');
+      const check = filterContent(body);
+      if (!check.ok) throw new Error(check.reason);
       vars.commandId ??= newCommandId('comment-edit');
       const { error } = await supabase.rpc('edit_comment', {
-        p_comment_id: vars.commentId, p_body: body, p_idempotency_key: vars.commandId,
+        p_comment_id: vars.commentId,
+        p_body: body,
+        p_idempotency_key: vars.commandId,
       });
       if (error) throw error;
     },
@@ -27,32 +39,57 @@ export function useEditComment() {
 }
 
 export function useDeleteComment() {
-  const client = useQueryClient(); const uid = useAuthStore((s) => s.session?.user?.id);
+  const client = useQueryClient();
+  const uid = useAuthStore((s) => s.session?.user?.id);
   return useMutation({
-    mutationFn: async (vars: { postId: string; commentId: string; commandId?: string }) => {
+    mutationFn: async (vars: {
+      postId: string;
+      commentId: string;
+      feedAudience: FeedAudience;
+      commandId?: string;
+    }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('comment-delete');
       const { error } = await supabase.rpc('delete_comment', {
-        p_comment_id: vars.commentId, p_idempotency_key: vars.commandId,
+        p_comment_id: vars.commentId,
+        p_idempotency_key: vars.commandId,
       });
       if (error) throw error;
     },
-    onSettled: (_data, _error, vars) => {
-      if (vars?.postId) scheduleQueryInvalidation(client, ['comments', 'feed', 'post']);
+    onSuccess: (_data, vars) => {
+      void refreshPostEngagement(client, vars.postId, vars.feedAudience).catch((error) => {
+        if (__DEV__) console.warn('[comments] delete reconciliation failed', error);
+      });
+      void client.invalidateQueries(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+          refetchType: 'active',
+        },
+        { cancelRefetch: false },
+      );
     },
   });
 }
 
 export function useToggleCommentLike() {
-  const client = useQueryClient(); const uid = useAuthStore((s) => s.session?.user?.id);
+  const client = useQueryClient();
+  const uid = useAuthStore((s) => s.session?.user?.id);
   return useMutation({
-    mutationFn: async (vars: { postId: string; commentId: string; liked: boolean; commandId?: string }) => {
+    mutationFn: async (vars: {
+      postId: string;
+      commentId: string;
+      liked: boolean;
+      commandId?: string;
+    }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('comment-like');
       const { data, error } = await supabase.rpc('toggle_comment_like', {
-        p_comment_id: vars.commentId, p_idempotency_key: vars.commandId,
+        p_comment_id: vars.commentId,
+        p_idempotency_key: vars.commandId,
       });
-      if (error) throw error; return data;
+      if (error) throw error;
+      return data;
     },
     onMutate: (vars) => {
       const previous = client.getQueriesData<InfiniteData<Comment[]>>({
@@ -78,13 +115,16 @@ export function useToggleCommentLike() {
 }
 
 export function useToggleCommentsDisabled() {
-  const client = useQueryClient(); const uid = useAuthStore((s) => s.session?.user?.id);
+  const client = useQueryClient();
+  const uid = useAuthStore((s) => s.session?.user?.id);
   return useMutation({
     mutationFn: async (vars: { postId: string; disabled: boolean; commandId?: string }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('post-comments');
       const { error } = await supabase.rpc('set_post_comments_disabled', {
-        p_post_id: vars.postId, p_disabled: vars.disabled, p_idempotency_key: vars.commandId,
+        p_post_id: vars.postId,
+        p_disabled: vars.disabled,
+        p_idempotency_key: vars.commandId,
       });
       if (error) throw error;
     },

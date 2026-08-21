@@ -53,6 +53,12 @@ describe('mobile data architecture', () => {
     expect(migration).toContain("effective_available_at := date_trunc('second'");
     expect(token).toContain("'post:*': ['subscribe']");
     expect(token).not.toContain("['subscribe', 'history']");
+    const postHook = read('hooks/usePostRealtimeInvalidation.ts');
+    expect(postHook).toContain("{ rewind: '10s' }");
+    const client = read('lib/realtimeClient.ts');
+    expect(client).toContain('subscriptionCounts');
+    expect(client).toContain('.detach()');
+    expect(client).toContain('realtime.channels.release(channelName)');
   });
 
   it('authorizes admin realtime without exposing private profile columns', () => {
@@ -66,12 +72,8 @@ describe('mobile data architecture', () => {
   });
 
   it('keeps authenticated RLS helpers executable after function hardening', () => {
-    const grants = read(
-      'supabase/migrations/20260818240000_restore_policy_helper_execute.sql',
-    );
-    expect(grants).toContain(
-      'grant execute on function public.can_access_daily_event(uuid, uuid)',
-    );
+    const grants = read('supabase/migrations/20260818240000_restore_policy_helper_execute.sql');
+    expect(grants).toContain('grant execute on function public.can_access_daily_event(uuid, uuid)');
     expect(grants).toContain(
       'grant execute on function public.can_view_full_post(uuid, uuid, uuid, uuid, boolean)',
     );

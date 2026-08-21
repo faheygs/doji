@@ -226,8 +226,8 @@ reconciliation function invalidates all server-owned surfaces on reconnect/foreg
 | User occurrence/completion/buy-in | `user_event.updated`                     | user                    | current Doji, feed                                            |
 | Poll vote/result                  | `poll.vote.*`                            | mounted post            | friend/everyone results, voters, feed                         |
 | Posts                             | `feed.post.*`                            | public or owner/friends | feed, post, profile posts                                     |
-| Reactions                         | `feed.reaction.*`                        | mounted post            | targeted engagement snapshot and voters                       |
-| Comments/replies/likes            | `feed.comment*`                          | mounted post            | exact thread and targeted engagement snapshot                 |
+| Reactions                         | `feed.reaction.*`                        | mounted post            | audience-scoped engagement snapshot and voters                |
+| Comments/replies/likes            | `feed.comment*`                          | mounted post            | exact thread and audience-scoped engagement snapshot          |
 | Mentions and social alerts        | `notification.*`                         | recipient               | bell history and remote push                                  |
 | Friendships/blocks                | `social.*`                               | involved users          | graph, counts, feed, requests, open profiles                  |
 | Public profile/avatar/cosmetics   | `profile.presentation.updated`           | owner + friends         | avatar-bearing active queries                                 |
@@ -295,9 +295,16 @@ the friend graph serially.
 The mutation actor inserts a stable optimistic comment and updates the cached post
 counter before the network round trip. Other mounted clients receive canonical
 `feed.comment.*`/`feed.reaction.*` post-channel hints, then reconcile through the
-bounded `get_post_engagement_snapshot` and exact active thread. Counter maintenance
-must not emit `feed.post.*`, because that would turn every engagement action into a
-feed-wide refresh.
+bounded `get_post_engagement_snapshot_v2` and exact active thread. The RPC receives
+the feed audience: Everyone sums fixed shards and subtracts blocked actors, while
+Friends reads only the bounded accepted-friend-plus-self graph. Loaded infinite-query
+pages are never used as engagement totals. Private notification events that carry a
+`postId` provide a second targeted invalidation path because their alert may arrive
+before the one-second coalesced post hint; concurrent reads for the same post and
+audience share one in-flight promise. An authoritative snapshot patches only its own
+audience and marks any cached alternate audience stale. Counter maintenance must not
+emit `feed.post.*`, because that would turn every engagement action into a feed-wide
+refresh.
 Mutation rejection restores optimistic state and leaves persistent, contextual error
 feedback on the surface that initiated the command. Error toasts must not disappear
 before the user can understand or retry the failed action.
@@ -346,8 +353,10 @@ authorization and must never silently fall back to Postgres during an outage.
   Postgres. Deletes are not trigger-throttled so moderation/account cascades cannot be
   stranded; recreating the deleted resource still consumes the insert budget.
 - Cold socket opens are jittered over two seconds. Initial data queries do not perform
-  a redundant connection reconciliation; recovered connections reconcile after a
-  randomized delay to avoid a synchronized Postgres surge.
+  a redundant connection reconciliation. Mounted post channels rewind ten seconds of
+  identifier-only hints on their first attachment to close the read/attach race, then
+  the per-post batcher and in-flight snapshot dedupe collapse replayed work. Recovered
+  connections reconcile after a randomized delay to avoid a synchronized Postgres surge.
 - Push delivery remains an alert, never the authority for eligibility or the ten-minute
   server window. Reconnect/foreground always reconciles Postgres state.
 

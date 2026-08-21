@@ -6,7 +6,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { REACTION_CONTROLS, IconComment } from '../icons/Icons';
 import { useToggleReaction } from '../../hooks/useFeed';
-import { useComments } from '../../hooks/useComments';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { formatCompactCount } from '../../utils/formatCount';
 import { ReactionVotersSheet } from '../reactions/ReactionVotersSheet';
@@ -47,18 +46,10 @@ function ReactionBarImpl({
   const { colors } = useTheme();
   const toggleReaction = useToggleReaction();
   const myReactions = useMemo(() => post.my_reactions ?? [], [post.my_reactions]);
-  const { data: scopedComments } = useComments(post.id, {
-    feedAudience,
-    // Do not download every comment thread just to render the feed counter.
-    // When the sheet is opened it fills this same cache key and the scoped
-    // count updates automatically.
-    fetchEnabled: false,
-  });
-  const commentDisplayCount =
-    feedAudience === 'friends'
-      ? (scopedComments?.pages.reduce((total, page) => total + page.length, 0) ??
-        post.comment_count)
-      : post.comment_count;
+  // Feed hydration and targeted realtime reconciliation already provide the
+  // authoritative audience-scoped count. Loaded comment pages are partial and
+  // must never be treated as a total.
+  const commentDisplayCount = post.comment_count;
   const emojiTints = useMemo(() => reactionEmojiIconColors(colors), [colors]);
   const [votersOpen, setVotersOpen] = useState(false);
   const [votersEmoji, setVotersEmoji] = useState<ReactionEmoji | null>(null);
@@ -146,9 +137,9 @@ function ReactionBarImpl({
       if (blurred || toggleReaction.isPending) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const active = myReactions.includes(emoji);
-      toggleReaction.mutate({ postId: post.id, emoji, active });
+      toggleReaction.mutate({ postId: post.id, emoji, active, feedAudience });
     },
-    [blurred, myReactions, post.id, toggleReaction],
+    [blurred, feedAudience, myReactions, post.id, toggleReaction],
   );
 
   const openComments = useCallback(() => {

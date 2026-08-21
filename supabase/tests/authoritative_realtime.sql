@@ -1,6 +1,6 @@
 begin;
 
-select plan(117);
+select plan(118);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -14,6 +14,10 @@ select has_function(
 select has_function(
   'public', 'mark_domain_events_realtime_published', array['jsonb'],
   'relay durably separates realtime publication from optional push delivery'
+);
+select has_function(
+  'public', 'get_post_engagement_snapshot_v2', array['uuid', 'text'],
+  'targeted post reconciliation preserves the active feed audience'
 );
 select has_table(
   'public', 'notification_once_keys',

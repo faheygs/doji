@@ -1033,6 +1033,16 @@ export type Database = {
           my_reactions: ReactionEmoji[];
         } | null;
       };
+      get_post_engagement_snapshot_v2: {
+        Args: { p_post_id: string; p_audience?: 'friends' | 'everyone' };
+        Returns: {
+          post_id: string;
+          reaction_count: number;
+          comment_count: number;
+          reaction_breakdown: Record<ReactionEmoji, number>;
+          my_reactions: ReactionEmoji[];
+        } | null;
+      };
       submit_poll_vote: {
         Args: {
           p_user_event_id: string;

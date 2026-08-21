@@ -5,12 +5,15 @@ import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, ReactionEmoji } from '../types/database';
+import { refreshPostEngagement } from '../lib/postEngagement';
+import type { FeedAudience } from '../lib/feedAudience';
 
 type ToggleReactionVars = {
   postId: string;
   emoji: ReactionEmoji;
   active: boolean;
   commandId?: string;
+  feedAudience: FeedAudience;
 };
 
 type ToggleReactionResult = {
@@ -72,11 +75,14 @@ export function useToggleReaction() {
       });
       // Abort stale reads synchronously, but never make the first visual update
       // wait for an in-flight request to acknowledge cancellation.
-      void queryClient.cancelQueries({
-        predicate: (query) =>
-          query.queryKey[0] === 'feed' ||
-          (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
-      }, { revert: false, silent: true });
+      void queryClient.cancelQueries(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'feed' ||
+            (query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId),
+        },
+        { revert: false, silent: true },
+      );
       const patch = (post: Post) => patchReactionToggle(post, variables.emoji, variables.active);
       queryClient.setQueriesData<InfiniteData<Post[]>>(
         { predicate: (query) => query.queryKey[0] === 'feed' },
@@ -99,8 +105,6 @@ export function useToggleReaction() {
       if (!result) return;
       const patch = (post: Post): Post => ({
         ...post,
-        reaction_count: result.count,
-        reaction_breakdown: result.reaction_breakdown ?? post.reaction_breakdown,
         my_reactions: result.active ? [variables.emoji] : [],
       });
       queryClient.setQueriesData<InfiniteData<Post[]>>(
@@ -113,6 +117,11 @@ export function useToggleReaction() {
             query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId,
         },
         (old) => (old ? patch(old) : old),
+      );
+      void refreshPostEngagement(queryClient, variables.postId, variables.feedAudience).catch(
+        (error) => {
+          if (__DEV__) console.warn('[reactions] engagement refresh failed', error);
+        },
       );
     },
     onSettled: (_data, _error, variables) => {

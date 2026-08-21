@@ -213,6 +213,8 @@ The feed has Friends and Everyone audiences.
   like state arrive in one bounded Postgres read rather than a client waterfall.
 - Reactions, comments, replies, and poll-vote likes update the open card/thread and
   all related counters immediately.
+- Card counters always come from the complete audience-scoped post snapshot. Infinite
+  comment pages are partial transport state and must never be summed as a total.
 - The actor sees a reaction or newly submitted comment through optimistic cache
   state before the RPC completes or an in-flight read acknowledges cancellation.
   The stable comment command ID is replaced by the
@@ -249,9 +251,14 @@ socket hints cannot create three cache scans or cancel/restart an in-flight read
 High-volume public events additionally map to the exact query families they change:
 a comment heart refreshes the open comment thread, not the feed, poll totals, voter
 pages, and reaction sheets. Unknown events do not trigger a catch-all refetch.
-Mounted cards reconcile `feed.reaction.*` and `feed.comment*` through the bounded
-`get_post_engagement_snapshot` read and the exact open thread. Counter-only updates
-to `posts` never publish a second feed-wide event.
+Mounted cards reconcile `feed.reaction.*` and `feed.comment*` through the bounded,
+audience-aware `get_post_engagement_snapshot_v2` read and the exact open thread.
+Friends snapshots scan only the bounded friend graph; Everyone snapshots sum fixed
+counter shards and subtract blocked actors. A recipient notification carrying a
+`postId` also refreshes that mounted post as an ordering safety net because the
+private alert can precede the coalesced post-channel hint. Other cached audiences are
+marked stale rather than overwritten with totals from the wrong scope. Counter-only
+updates to `posts` never publish a second feed-wide event.
 
 The last authorized home/feed, occurrence, poll result, and notification reads are
 persisted locally for stale-while-revalidate startup. Cached content remains visible
@@ -361,7 +368,11 @@ Channels:
 - `feed:public`: coalesced public/community post membership changes only.
 - `post:{postId}`: reactions, comments, comment likes, poll votes, and vote likes
   for a mounted, unlocked card or open thread. List virtualization bounds active
-  subscriptions instead of sending every engagement event to every handset.
+  subscriptions instead of sending every engagement event to every handset. Initial
+  attachment rewinds ten seconds of identifier-only hints to close the feed-read to
+  channel-attach race; normal reconnect uses Ably continuity plus reconciliation.
+  Subscription references are counted, and the channel detaches/releases after its
+  final mounted consumer leaves so virtualization also bounds transport resources.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.

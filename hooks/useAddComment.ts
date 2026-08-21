@@ -11,6 +11,7 @@ import { refreshPostEngagement } from '../lib/postEngagement';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Comment, Post } from '../types/database';
+import type { FeedAudience } from '../lib/feedAudience';
 
 type AddCommentVars = {
   postId: string;
@@ -18,6 +19,7 @@ type AddCommentVars = {
   parentId?: string | null;
   replyToCommentId?: string | null;
   commandId?: string;
+  feedAudience: FeedAudience;
 };
 
 export function useAddComment() {
@@ -121,7 +123,11 @@ export function useAddComment() {
         },
         (old) => replaceOptimisticComment(old, variables.commandId!, authoritative),
       );
-      void refreshPostEngagement(queryClient, variables.postId);
+      void refreshPostEngagement(queryClient, variables.postId, variables.feedAudience).catch(
+        (error) => {
+          if (__DEV__) console.warn('[comments] engagement refresh failed', error);
+        },
+      );
       void queryClient.invalidateQueries(
         {
           predicate: (query) =>
