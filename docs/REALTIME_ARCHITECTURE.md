@@ -188,9 +188,10 @@ reconcile authoritative database state.
   from republishing or delaying the corresponding socket event.
 - Doji-live pushes prefer direct APNs or FCM, with Expo as a transitional fallback
   until an installation has registered its native endpoint. This avoids Expo's 600/s
-  project cap. Required secrets are `APNS_KEY_ID`, `APNS_TEAM_ID`,
-  `APNS_PRIVATE_KEY`, `APNS_BUNDLE_ID`, `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and
-  `FCM_PRIVATE_KEY`. Doji pushes use high priority and iOS time-sensitive interruption. Direct
+  project cap. iOS production requires `APNS_KEY_ID`, `APNS_TEAM_ID`,
+  `APNS_PRIVATE_KEY`, and `APNS_BUNDLE_ID`; Android production requires
+  `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. Doji pushes use high
+  priority and iOS time-sensitive interruption. Direct
   social pushes are active; grouped social pushes use normal transport priority.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
@@ -383,7 +384,8 @@ authorization and must never silently fall back to Postgres during an outage.
 ## Deployment order
 
 1. Create the Ably app/key and Cloudflare queues.
-2. Set Worker secrets: `SUPABASE_URL`, `ORCHESTRATOR_SECRET`, `OUTBOX_RELAY_SECRET`.
+2. Set Worker secrets: `SUPABASE_URL`, `ORCHESTRATOR_SECRET`, `OUTBOX_RELAY_SECRET`,
+   and `SENTRY_DSN`.
    The Worker uses the relay secret to deliver operational alerts through the protected
    `send-admin-email` Edge Function; it never needs a third-party webhook credential.
 3. Deploy `infra/doji-orchestrator`.

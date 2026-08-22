@@ -11,13 +11,18 @@ let mockAuthCallback:
 const mockAuthorize = jest.fn(
   () =>
     new Promise((resolve, reject) => {
-      mockAuthCallback?.({}, (error, token) => error ? reject(new Error(error)) : resolve(token));
+      mockAuthCallback?.({}, (error, token) => (error ? reject(new Error(error)) : resolve(token)));
     }),
 );
 const mockInvoke = jest.fn().mockResolvedValue({
   data: {
-    keyName: 'key', ttl: 1, capability: '{}', clientId: 'user',
-    timestamp: 1, nonce: 'nonce', mac: 'mac',
+    keyName: 'key',
+    ttl: 1,
+    capability: '{}',
+    clientId: 'user',
+    timestamp: 1,
+    nonce: 'nonce',
+    mac: 'mac',
   },
   error: null,
 });
@@ -37,11 +42,9 @@ jest.mock('ably', () => ({
 jest.mock('../../lib/supabase', () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => mockInvoke(...args) } },
 }));
+jest.mock('../../lib/telemetry', () => ({ reportRealtimeFailure: jest.fn() }));
 
-import {
-  closeRealtimeConnection,
-  subscribeToRealtimeChannel,
-} from '../../lib/realtimeClient';
+import { closeRealtimeConnection, subscribeToRealtimeChannel } from '../../lib/realtimeClient';
 
 describe('realtime channel lifecycle', () => {
   beforeEach(() => {

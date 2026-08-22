@@ -75,3 +75,30 @@
 6. Confirm there are no recurring `doji_*` pg_cron jobs.
 7. Confirm outbox rows publish promptly and the dead-letter queue remains empty.
 8. Run the complete physical-device matrix before submitting.
+
+## Required before public production
+
+Automated and infrastructure gates:
+
+- [x] Production migrations match the repository and database lint is clean.
+- [x] Required Supabase Edge Functions and the Cloudflare orchestrator are deployed.
+- [x] Cloudflare primary and dead-letter queues are bound to the production worker.
+- [x] Resend-backed operational health alerts are enabled and hourly-deduplicated.
+- [x] Sentry DSN/source-map credentials are present in EAS production; realtime
+      authentication, connection, and subscription failures are captured without PII.
+- [x] Direct APNs credentials are installed for the iOS release. FCM remains an
+      Android-release gate and does not block the current iPhone-only App Store release.
+- [x] EAS production contains only the current Supabase/Sentry configuration; retired
+      Railway, R2, Typesense, Google-auth, and legacy socket variables are removed.
+- [x] The checked-in 30/60/120-second 100k burst capacity model passes.
+- [x] The production database enforces that no recurring `doji_*` pg_cron jobs remain.
+- [x] Full validation commands and the production Expo export pass on this release
+      candidate; the production dependency audit has zero high or critical findings.
+
+Exact release-build gates (cannot be inferred from unit tests):
+
+- [ ] Install the candidate through TestFlight on at least two physical iPhones.
+- [ ] Complete the realtime/push device matrix above, including background and
+      reconnect recovery, notification deduplication, and the close boundary.
+- [ ] Confirm the candidate registers a production native APNs endpoint.
+- [ ] Record Apple's physical-device UGC review video and attach it to Review Notes.

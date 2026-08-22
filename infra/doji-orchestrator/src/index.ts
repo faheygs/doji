@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { captureWorkerException } from './sentry';
 
 interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
@@ -9,6 +10,7 @@ interface Env {
   SUPABASE_URL: string;
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
+  SENTRY_DSN?: string;
 }
 
 type AlarmState = {
@@ -34,10 +36,10 @@ function isPushFanoutMessage(
 ): value is PushFanoutMessage {
   return Boolean(
     value &&
-      'dailyEventId' in value &&
-      typeof value.dailyEventId === 'string' &&
-      'shard' in value &&
-      Number.isInteger(value.shard),
+    'dailyEventId' in value &&
+    typeof value.dailyEventId === 'string' &&
+    'shard' in value &&
+    Number.isInteger(value.shard),
   );
 }
 
@@ -46,9 +48,7 @@ async function enqueueDojiPushFanout(env: Env, dailyEventId: string): Promise<vo
     body: { dailyEventId, shard },
   }));
   for (let index = 0; index < messages.length; index += QUEUE_SEND_BATCH_SIZE) {
-    await env.PUSH_FANOUT_QUEUE.sendBatch(
-      messages.slice(index, index + QUEUE_SEND_BATCH_SIZE),
-    );
+    await env.PUSH_FANOUT_QUEUE.sendBatch(messages.slice(index, index + QUEUE_SEND_BATCH_SIZE));
   }
 }
 
@@ -190,11 +190,12 @@ export class DojiEventAlarm extends DurableObject<Env> {
       closeAction?: 'close' | 'close_targeted';
     }>();
     const phase = input.phase ?? 'prelive';
-    const alarmAt = phase === 'close'
-      ? input.closesAt
-      : phase === 'prelive'
-        ? new Date(Date.parse(input.firesAt) - 20 * 60 * 1000).toISOString()
-        : input.firesAt;
+    const alarmAt =
+      phase === 'close'
+        ? input.closesAt
+        : phase === 'prelive'
+          ? new Date(Date.parse(input.firesAt) - 20 * 60 * 1000).toISOString()
+          : input.firesAt;
     const alarmTime = alarmAt ? Date.parse(alarmAt) : Number.NaN;
     if (!input.dailyEventId || !Number.isFinite(alarmTime)) {
       return new Response('Invalid event alarm', { status: 400 });
@@ -256,11 +257,7 @@ export class DojiEventAlarm extends DurableObject<Env> {
       return;
     }
 
-    await orchestrateDoji<number>(
-      this.env,
-      state.closeAction ?? 'close',
-      state.dailyEventId,
-    );
+    await orchestrateDoji<number>(this.env, state.closeAction ?? 'close', state.dailyEventId);
     if (state.chainNext !== false) {
       // Chain the next one-shot alarm from the production event only. Targeted
       // test events close independently and never alter the production chain.
@@ -402,10 +399,9 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/outbox/wake') {
       const id = env.OUTBOX_RELAY_ALARM.idFromName('singleton');
-      const response = await env.OUTBOX_RELAY_ALARM.get(id).fetch(
-        'https://alarm.internal/wake',
-        { method: 'POST' },
-      );
+      const response = await env.OUTBOX_RELAY_ALARM.get(id).fetch('https://alarm.internal/wake', {
+        method: 'POST',
+      });
       return new Response(response.body, {
         status: response.status,
         headers: { 'content-type': 'application/json' },
@@ -423,6 +419,7 @@ export default {
   async queue(
     batch: MessageBatch<OutboxWake | PushFanoutMessage>,
     env: Env,
+    ctx: ExecutionContext,
   ): Promise<void> {
     if (isPushFanoutMessage(batch.messages[0]?.body)) {
       await Promise.all(
@@ -438,6 +435,12 @@ export default {
                 ? (error as { retryAfterSeconds: number }).retryAfterSeconds
                 : 2;
             if (queued.attempts >= 8) {
+              ctx.waitUntil(
+                captureWorkerException(env.SENTRY_DSN, 'push_fanout_final_retry', error, {
+                  attempts: queued.attempts,
+                  shard: message.shard,
+                }),
+              );
               try {
                 await sendOperationalAlert(env, 'push-fanout-final-retry', {
                   attempts: queued.attempts,
@@ -462,9 +465,8 @@ export default {
         const wake = batch.messages[0]?.body as OutboxWake | undefined;
         const generation = Math.max(0, wake?.generation ?? 0);
         const nextGeneration = Math.min(generation + 1, OUTBOX_MAX_SCALE_GENERATION);
-        const continuationCount = result.examined >= 100 && generation < OUTBOX_MAX_SCALE_GENERATION
-          ? 2
-          : 1;
+        const continuationCount =
+          result.examined >= 100 && generation < OUTBOX_MAX_SCALE_GENERATION ? 2 : 1;
         await env.DOMAIN_EVENT_QUEUE.sendBatch(
           Array.from({ length: continuationCount }, () => ({
             body: { requestedAt: new Date().toISOString(), generation: nextGeneration },
@@ -477,6 +479,11 @@ export default {
     } catch (error) {
       const attempts = Math.max(...batch.messages.map((message) => message.attempts));
       if (attempts >= 10) {
+        ctx.waitUntil(
+          captureWorkerException(env.SENTRY_DSN, 'domain_relay_final_retry', error, {
+            attempts,
+          }),
+        );
         try {
           await sendOperationalAlert(env, 'domain-relay-final-retry', {
             attempts,

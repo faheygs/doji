@@ -44,4 +44,13 @@ describe('retired notification runtime', () => {
     );
     expect(migration).toContain("'%/functions/v1/notify-user%'");
   });
+
+  it('removes every recurring Doji cron job regardless of its legacy name', () => {
+    const migration = read(
+      'supabase/migrations/20260821150000_remove_recurring_doji_cron_jobs.sql',
+    );
+
+    expect(migration).toContain("jobname like 'doji\\_%' escape '\\'");
+    expect(migration).toContain('perform cron.unschedule(job.jobid)');
+  });
 });

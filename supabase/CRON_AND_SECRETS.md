@@ -18,22 +18,23 @@ There is no due-event poll, recurring dispatcher, or recurring expiration sweep.
 
 ## Supabase Edge secrets
 
-| Secret | Used by |
-| --- | --- |
-| `ABLY_API_KEY` | `realtime-token`, `relay-domain-events` |
-| `OUTBOX_RELAY_SECRET` | Edge relay and Cloudflare queue consumer |
-| `DOJI_ORCHESTRATOR_URL` | Event preparation and outbox wake configuration |
-| `DOJI_ORCHESTRATOR_SECRET` | `schedule-daily-challenge`, `orchestrate-doji`, Worker |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Edge Functions only |
-| `RESEND_API_KEY` / `ADMIN_FROM_EMAIL` | Moderation and operational alert email |
+| Secret                                | Used by                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| `ABLY_API_KEY`                        | `realtime-token`, `relay-domain-events`                |
+| `OUTBOX_RELAY_SECRET`                 | Edge relay and Cloudflare queue consumer               |
+| `DOJI_ORCHESTRATOR_URL`               | Event preparation and outbox wake configuration        |
+| `DOJI_ORCHESTRATOR_SECRET`            | `schedule-daily-challenge`, `orchestrate-doji`, Worker |
+| `SUPABASE_SERVICE_ROLE_KEY`           | Supabase Edge Functions only                           |
+| `RESEND_API_KEY` / `ADMIN_FROM_EMAIL` | Moderation and operational alert email                 |
 
 ## Cloudflare Worker secrets
 
-| Secret | Use |
-| --- | --- |
-| `SUPABASE_URL` | Edge Function base URL |
-| `ORCHESTRATOR_SECRET` | Durable alarm registration endpoint |
-| `OUTBOX_RELAY_SECRET` | Queue-to-relay authentication |
+| Secret                | Use                                              |
+| --------------------- | ------------------------------------------------ |
+| `SUPABASE_URL`        | Edge Function base URL                           |
+| `ORCHESTRATOR_SECRET` | Durable alarm registration endpoint              |
+| `OUTBOX_RELAY_SECRET` | Queue-to-relay authentication                    |
+| `SENTRY_DSN`          | Final Cloudflare queue/relay failure diagnostics |
 
 Cloudflare must never receive the Supabase service-role key.
 

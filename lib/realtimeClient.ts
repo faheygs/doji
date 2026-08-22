@@ -1,5 +1,6 @@
 import { Realtime, type ConnectionStateChange, type Message, type TokenRequest } from 'ably';
 import { supabase } from './supabase';
+import { reportRealtimeFailure } from './telemetry';
 
 export type DojiRealtimeEvent = {
   eventId?: string;
@@ -46,13 +47,21 @@ function getClient(): Realtime {
       supabase.functions
         .invoke<TokenRequest>('realtime-token', { body: { postIds: requestedPostIds() } })
         .then(({ data, error }) => {
+          if (error || !data) {
+            reportRealtimeFailure('token_request', error ?? new Error('Empty token response'));
+          }
           if (!error && data) grantedPostChannels = requestedSnapshot;
           callback(error?.message ?? null, data ?? null);
         })
-        .catch((error: unknown) =>
-          callback(error instanceof Error ? error.message : 'Realtime authentication failed', null),
-        );
+        .catch((error: unknown) => {
+          reportRealtimeFailure('token_request', error);
+          callback(error instanceof Error ? error.message : 'Realtime authentication failed', null);
+        });
     },
+  });
+  client.connection.on((change) => {
+    if (change.current !== 'failed' && change.current !== 'suspended') return;
+    reportRealtimeFailure('connection_state', change.reason, { state: change.current });
   });
   const scheduledClient = client;
   // Spread cold-start connection attempts across a short window. This is
@@ -107,6 +116,7 @@ export async function subscribeToRealtimeChannel(
     if (isPostChannel) await ensurePostCapability(realtime, channelName);
   } catch (error) {
     if (isPostChannel) releasePostChannel(channelName);
+    reportRealtimeFailure('post_authorization', error, { channelScope: 'post' });
     throw error;
   }
   const pendingRelease = releaseTimers.get(channelName);
@@ -121,6 +131,9 @@ export async function subscribeToRealtimeChannel(
     await channel.subscribe(listener);
   } catch (error) {
     if (isPostChannel) releasePostChannel(channelName);
+    reportRealtimeFailure('channel_subscribe', error, {
+      channelScope: isPostChannel ? 'post' : 'app',
+    });
     throw error;
   }
   subscriptionCounts.set(channelName, (subscriptionCounts.get(channelName) ?? 0) + 1);

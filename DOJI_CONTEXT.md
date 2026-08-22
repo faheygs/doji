@@ -471,8 +471,10 @@ APNs/FCM endpoints are private per-installation records and atomically transferr
 account change. The five most recent active installations are independently delivered
 and independently idempotent; no account silently receives alerts on only its newest
 phone. Direct APNs and FCM are the scale paths and the unique Expo token is a
-temporary migration fallback. Production requires APNs key/team/bundle secrets and
-FCM project/client-email/private-key secrets before the readiness load gate.
+temporary migration fallback. An iOS production release requires APNs
+key/team/bundle secrets; an Android production release requires FCM
+project/client-email/private-key secrets. A platform is not enabled publicly until
+its native provider is configured and verified on its exact release build.
 The first claim is terminal before provider handoff; conflicts never reopen it, and
 an ambiguous provider timeout is not resent. Provider tickets and outcomes are telemetry
 only and cannot authorize delivery. This intentionally favors a rare missed OS alert
@@ -710,6 +712,7 @@ Before a client build:
 npx tsc --noEmit
 npm run lint
 npm test -- --runInBand
+npm run test:scale-bursts
 npx supabase db lint --linked
 ```
 
