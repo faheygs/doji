@@ -307,7 +307,7 @@ Deno.serve(async (request) => {
             const deliveryKey = claimedByEndpoint.get(`native:${endpoint.installationId}`);
             if (!deliveryKey) continue;
             const push = endpoint.provider === 'apns'
-              ? await sendApnsMessage({
+              ? await sendApnsMessage(database, {
                 token: endpoint.token,
                 environment: endpoint.environment ?? 'production',
                 title,

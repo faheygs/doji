@@ -475,6 +475,11 @@ temporary migration fallback. An iOS production release requires APNs
 key/team/bundle secrets; an Android production release requires FCM
 project/client-email/private-key secrets. A platform is not enabled publicly until
 its native provider is configured and verified on its exact release build.
+All APNs senders resolve one service-role-only shared provider JWT. A database lease
+allows exactly one Edge isolate to rotate it after 45 minutes while every other isolate
+and both push functions reuse the same token; the permanent Apple signing key remains
+only in Edge secrets. Provider credential rejections degrade operational health and are
+deduplicated into the `apns-provider-credentials` alert family.
 The first claim is terminal before provider handoff; conflicts never reopen it, and
 an ambiguous provider timeout is not resent. Provider tickets and outcomes are telemetry
 only and cannot authorize delivery. This intentionally favors a rare missed OS alert

@@ -147,7 +147,12 @@ async function checkOperationalHealth(env: Env): Promise<void> {
   const health = JSON.parse(body) as { healthy?: boolean } & Record<string, unknown>;
   if (health.healthy === true) return;
   console.error('Doji operational health is degraded', health);
-  await sendOperationalAlert(env, 'health-degraded', health);
+  const providerCredentialErrors = Number(health.apns_provider_credential_errors ?? 0);
+  await sendOperationalAlert(
+    env,
+    providerCredentialErrors > 0 ? 'apns-provider-credentials' : 'health-degraded',
+    health,
+  );
 }
 
 async function sendOperationalAlert(

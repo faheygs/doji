@@ -223,7 +223,7 @@ Deno.serve(async (request) => {
     });
 
     const apnsResults = await mapConcurrent(apnsTargets, 50, async (target) => {
-      const push = await sendApnsMessage({
+      const push = await sendApnsMessage(database, {
         token: target.endpoint.token,
         environment: target.endpoint.environment ?? 'production',
         title: claim.title ?? 'It\'s time to Doji!',

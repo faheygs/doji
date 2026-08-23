@@ -195,6 +195,13 @@ reconcile authoritative database state.
   social pushes are active; grouped social pushes use normal transport priority.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
+- APNs provider authentication is coordinated across Edge isolates. Both direct push
+  functions reuse the same service-role-only short-lived JWT; one atomic database lease
+  rotates it after 45 minutes, while the permanent `.p8` signing key stays exclusively
+  in Edge secrets. Local module caching is single-flight, so concurrent sends inside one
+  isolate cannot mint competing tokens. A concrete APNs credential rejection may retry
+  once only if reconciliation finds a different already-published canonical token;
+  ambiguous transport failures are never retried.
 
 These constraints prevent three historic amplification paths: multiple profiles owning
 the same physical-device token, duplicate producers for one action, and a provider
@@ -414,6 +421,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
   after activation, any failed shard, or acceptance materially below claimed delivery.
 - Track Ably connection failures and Edge Function relay errors in Sentry.
 - Track Expo push tickets/receipts separately from socket delivery.
+- Alert on any recent APNs `TooManyProviderTokenUpdates`, `InvalidProviderToken`, or
+  `ExpiredProviderToken` outcome. These provider-wide credential failures use the
+  hourly-deduplicated `apns-provider-credentials` operational alert family.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
 - The Worker invokes `operational-health` once per minute. Degraded snapshots and final
