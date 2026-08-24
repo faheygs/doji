@@ -16,7 +16,12 @@
 - Challenge pre-live, activation, and close use one durable Cloudflare alarm chain per `daily_event`.
   There is no recurring "look for due events" job.
 - Every committed live change writes `domain_event_outbox` in the same transaction.
-- The outbox immediately wakes a Cloudflare Queue with retries and a dead-letter queue.
+- Authenticated mobile commands pass through an explicit Cloudflare RPC allowlist.
+  The gateway preserves the caller's Supabase JWT/RLS context and immediately wakes the
+  singleton 250 ms burst coalescer after the atomic RPC commits. The coalescer seeds
+  bounded parallel Queue drains, preventing one relay invocation per tap at scale.
+  Database `pg_net` remains a second, durable wake path rather than the latency-critical
+  path.
 - Ably provides connection recovery. The app also reconciles Postgres whenever it
   connects or returns to foreground. The handset does not open Supabase Postgres
   Changes subscriptions; using two socket transports duplicated invalidation and
@@ -142,7 +147,7 @@ reconcile authoritative database state.
   write one recipient event. Burst-prone friend participation, reactions, and comments
   write one internal command; the asynchronous expansion batch-publishes lightweight
   friend invalidations and creates delayed grouped push rows where appropriate.
-- Multiple outbox inserts in one business transaction enqueue one `pg_net` relay wake.
+- Multiple outbox inserts in one business transaction enqueue one `pg_net` recovery wake.
   Statement-level conflict updates with no inserted transition rows enqueue none.
   The singleton Durable Object collapses simultaneous transaction wakes into 16
   initial drain lanes. Repeated full claims scale geometrically to a hard 128-lane
@@ -184,7 +189,8 @@ reconcile authoritative database state.
   server delivery claim.
 - Push backlog never sits in front of live app state. The
   relay publishes the full ordered Ably channel batch first and only then performs
-  slower Expo side effects. A durable `realtimePublished` marker prevents a relay retry
+  slower push side effects. Push-recipient reads start concurrently and are not awaited
+  by the Ably publication. A durable `realtimePublished` marker prevents a relay retry
   from republishing or delaying the corresponding socket event.
 - Doji-live pushes prefer direct APNs or FCM, with Expo as a transitional fallback
   until an installation has registered its native endpoint. This avoids Expo's 600/s
@@ -386,13 +392,16 @@ authorization and must never silently fall back to Postgres during an outage.
   `authenticated` execute grants; revoking those grants makes the policy fail closed.
 - A clean database bootstrap does not require an existing Apple reviewer Auth user;
   reviewer profile setup is an optional, idempotent post-bootstrap action.
+- Release preparation may raise only `@reviewer` to the documented review balance
+  through one idempotent `app_review_credit` ledger row. It does not open an
+  occurrence, seed social content, or bypass the normal buy-in command.
 - Socket payloads do not bypass RLS; clients always refetch Postgres rows.
 
 ## Deployment order
 
 1. Create the Ably app/key and Cloudflare queues.
-2. Set Worker secrets: `SUPABASE_URL`, `ORCHESTRATOR_SECRET`, `OUTBOX_RELAY_SECRET`,
-   and `SENTRY_DSN`.
+2. Set Worker secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ORCHESTRATOR_SECRET`,
+   `OUTBOX_RELAY_SECRET`, and `SENTRY_DSN`.
    The Worker uses the relay secret to deliver operational alerts through the protected
    `send-admin-email` Edge Function; it never needs a third-party webhook credential.
 3. Deploy `infra/doji-orchestrator`.
@@ -401,6 +410,8 @@ authorization and must never silently fall back to Postgres during an outage.
 5. Deploy `realtime-token`, `relay-domain-events`, `orchestrate-doji`,
    `schedule-daily-challenge`, `run-data-maintenance`, and `operational-health`.
 6. Apply all migrations in timestamp order and configure the orchestrator Vault values.
+   Set `EXPO_PUBLIC_COMMAND_GATEWAY_URL` to the production Worker URL for every release
+   build; production build validation fails closed when it is absent.
 7. Invoke `schedule-daily-challenge` once. Every later alarm chains automatically.
 8. Run a physical two-device test for activation, completion, social actions,
    friend/block/report actions, reconnect recovery, and close-boundary rejection.
@@ -420,6 +431,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Alert when `get_doji_push_fanout_health` reports pending/processing shards 60 seconds
   after activation, any failed shard, or acceptance materially below claimed delivery.
 - Track Ably connection failures and Edge Function relay errors in Sentry.
+- Track `realtime_p95_ms_5m`; three events taking more than five seconds from
+  `available_at` to `realtime_published_at` degrade the operational health snapshot.
+  The operating target is p95 below one second and p99 below two seconds.
 - Track Expo push tickets/receipts separately from socket delivery.
 - Alert on any recent APNs `TooManyProviderTokenUpdates`, `InvalidProviderToken`, or
   `ExpiredProviderToken` outcome. These provider-wide credential failures use the

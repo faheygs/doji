@@ -6,6 +6,7 @@ import { FALLBACK_AVATAR_GRADIENT } from '../constants/theme';
 import { normalizeUsernameInput } from './useUsernameAvailability';
 import type { Profile, Post, Friendship } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
+import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { parsePublicProfileView } from '../lib/publicProfileView';
 function parseProfileRow(data: unknown): Profile | null {
@@ -126,7 +127,7 @@ export function useSendFriendRequest() {
       const requesterId = session?.user?.id;
       if (!requesterId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('friend-request');
-      const { error } = await supabase.rpc('request_friendship', {
+      const { error } = await executeCommand('request_friendship', {
         p_addressee_id: addresseeId,
         p_idempotency_key: variables.commandId,
       });
@@ -176,7 +177,7 @@ export function useRemoveFriend() {
     mutationFn: async (variables: { friendshipId: string; commandId?: string }) => {
       const { friendshipId } = variables;
       variables.commandId ??= newCommandId('friend-remove');
-      const { error } = await supabase.rpc('remove_friendship', {
+      const { error } = await executeCommand('remove_friendship', {
         p_friendship_id: friendshipId,
         p_idempotency_key: variables.commandId,
       });

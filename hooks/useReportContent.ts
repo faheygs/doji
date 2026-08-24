@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { ReportReason } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
@@ -23,7 +23,7 @@ export function useReportContent() {
       const { reportedUserId, postId, commentId, pollVoteId, reason } = variables;
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('content-report');
-      const { error } = await supabase.rpc('submit_content_report', {
+      const { error } = await executeCommand('submit_content_report', {
         p_reported_user_id: reportedUserId,
         p_post_id: postId ?? null,
         p_comment_id: commentId ?? null,

@@ -1,5 +1,4 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { mapInfinitePosts } from '../lib/postCache';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
@@ -7,6 +6,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, ReactionEmoji } from '../types/database';
 import { refreshPostEngagement } from '../lib/postEngagement';
 import type { FeedAudience } from '../lib/feedAudience';
+import { executeCommand } from '../lib/commandGateway';
 
 type ToggleReactionVars = {
   postId: string;
@@ -57,7 +57,7 @@ export function useToggleReaction() {
     mutationFn: async (variables: ToggleReactionVars) => {
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('reaction');
-      const { data, error } = await supabase.rpc('toggle_post_reaction', {
+      const { data, error } = await executeCommand('toggle_post_reaction', {
         p_post_id: variables.postId,
         p_emoji: variables.emoji,
         p_idempotency_key: variables.commandId,

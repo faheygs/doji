@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Report } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
@@ -45,7 +46,7 @@ export function useModerateReport() {
       action,
       } = variables;
       variables.commandId ??= newCommandId('moderate-report');
-      const { error } = await supabase.rpc('moderate_report', {
+      const { error } = await executeCommand('moderate_report', {
         p_report_id: reportId,
         p_action: action,
         p_idempotency_key: variables.commandId,

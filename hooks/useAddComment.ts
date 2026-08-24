@@ -8,10 +8,10 @@ import {
 import { newCommandId } from '../lib/idempotency';
 import { mapInfinitePosts } from '../lib/postCache';
 import { refreshPostEngagement } from '../lib/postEngagement';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Comment, Post } from '../types/database';
 import type { FeedAudience } from '../lib/feedAudience';
+import { executeCommand } from '../lib/commandGateway';
 
 type AddCommentVars = {
   postId: string;
@@ -35,7 +35,7 @@ export function useAddComment() {
       const check = filterContent(body);
       if (!check.ok) throw new Error(check.reason);
       variables.commandId ??= newCommandId('comment');
-      const { data, error } = await supabase.rpc('submit_comment', {
+      const { data, error } = await executeCommand('submit_comment', {
         p_post_id: variables.postId,
         p_body: body,
         p_parent_id: variables.replyToCommentId ?? variables.parentId ?? null,

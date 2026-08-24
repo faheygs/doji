@@ -210,7 +210,9 @@ export type SparkLedgerReason =
   | 'post'
   | 'poll_vote'
   | 'friend_request'
-  | 'friend_accept';
+  | 'friend_accept'
+  | 'suggestion_approved'
+  | 'app_review_credit';
 
 export type SparkLedgerEntry = {
   id: string;

@@ -9,6 +9,7 @@ import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { createRequestSignal } from '../lib/requestSignal';
 import { getCommittedPostReceipt } from '../lib/dojiWriteReceipt';
+import { executeCommand } from '../lib/commandGateway';
 
 export function useUserEvent() {
   const session = useAuthStore((s) => s.session);
@@ -77,7 +78,7 @@ export function useCreatePost() {
             : Promise.resolve(null),
         ]);
 
-        const { data: post, error: postError } = await supabase.rpc('complete_doji_with_post', {
+        const { data: post, error: postError } = await executeCommand('complete_doji_with_post', {
           p_user_event_id: payload.userEventId,
           p_post_type: payload.postType ?? 'photo',
           p_caption: payload.caption,

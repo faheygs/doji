@@ -4,6 +4,7 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
+import { executeCommand } from '../lib/commandGateway';
 
 type BlockInput = {
   blockedUserId: string;
@@ -31,7 +32,7 @@ export function useBlockUser() {
       const { blockedUserId } = variables;
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('block-user');
-      const { error } = await supabase.rpc('block_user', {
+      const { error } = await executeCommand('block_user', {
         p_blocked_user_id: blockedUserId,
         p_idempotency_key: variables.commandId,
       });
@@ -80,7 +81,7 @@ export function useUnblockUser() {
       const { blockedUserId } = variables;
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('unblock-user');
-      const { error } = await supabase.rpc('unblock_user', {
+      const { error } = await executeCommand('unblock_user', {
         p_blocked_user_id: blockedUserId,
         p_idempotency_key: variables.commandId,
       });

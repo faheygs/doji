@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { NotificationCenterState, NotificationDismissal } from '../types/database';
 import type { NotificationCenterItem } from '../lib/notificationCenterTypes';
@@ -129,7 +130,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
           [storageKey(KEYS.opened, userId), mergedOpened ?? ''],
           [storageKey(KEYS.dismissed, userId), serializeDismissed(mergedDismissed)],
         ]);
-        void supabase.rpc('sync_notification_center_state', {
+        void executeCommand('sync_notification_center_state', {
           p_cleared_at: mergedCleared,
           p_last_opened_at: mergedOpened,
           p_dismissals: Object.fromEntries(mergedDismissed),
@@ -183,7 +184,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     setLastOpenedAt(iso);
     await Promise.all([
       AsyncStorage.setItem(storageKey(KEYS.opened, userId), iso),
-      supabase.rpc('mark_notification_center_opened', { p_opened_at: iso }),
+      executeCommand('mark_notification_center_opened', { p_opened_at: iso }),
     ]);
     if (Platform.OS !== 'web') {
       try {
@@ -202,7 +203,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
       const next = new Map(dismissedRef.current).set(key, at);
       dismissedRef.current = next;
       setDismissedKeys(next);
-      const { error } = await supabase.rpc('dismiss_notification', {
+      const { error } = await executeCommand('dismiss_notification', {
         p_notification_key: key,
         p_dismissed_at: at,
       });
@@ -227,7 +228,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     dismissedRef.current = new Map();
     setDismissedKeys(new Map());
     try {
-      const { error } = await supabase.rpc('clear_notification_history', { p_cleared_at: iso });
+      const { error } = await executeCommand('clear_notification_history', { p_cleared_at: iso });
       if (error) throw error;
       void AsyncStorage.multiSet([
         [storageKey(KEYS.cleared, userId), iso],

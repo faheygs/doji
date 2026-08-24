@@ -39,7 +39,7 @@ describe('mobile data architecture', () => {
     const fanout = read('supabase/functions/fanout-doji-push/index.ts');
     const schema = read('supabase/migrations/20260818160000_native_push_endpoints.sql');
     expect(client).toContain('getDevicePushTokenAsync');
-    expect(client).toContain("rpc('register_native_push_endpoint'");
+    expect(client).toContain("executeCommand('register_native_push_endpoint'");
     expect(schema).toContain('create table public.device_push_endpoints');
     expect(fanout).toContain('sendApnsMessage');
     expect(fanout).toContain('sendFcmMessage');

@@ -126,6 +126,24 @@ type ClaimedPushTarget = {
   endpoint_key: string;
 };
 
+function logRealtimeLatency(events: RelayEvent[]): void {
+  if (events.length === 0) return;
+  const now = Date.now();
+  const delays = events.map((event) => {
+    const readyAt = Math.max(Date.parse(event.created_at), Date.parse(event.available_at));
+    return Math.max(0, now - readyAt);
+  });
+  const maxMs = Math.max(...delays);
+  const record = JSON.stringify({
+    metric: 'domain_realtime_publish',
+    count: events.length,
+    maxMs,
+    topic: events[0].topic,
+  });
+  if (maxMs > 5_000) console.warn(record);
+  else console.log(record);
+}
+
 async function runTopicWorkers(
   groups: RelayEvent[][],
   worker: (group: RelayEvent[]) => Promise<void>,
@@ -169,13 +187,16 @@ Deno.serve(async (request) => {
         .map((event) => String(event.payload.targetUserId)),
     ),
   ];
-  const profilesById = new Map<string, PushProfile>();
-  if (targetUserIds.length > 0) {
+  // Resolve push recipients concurrently with Ably publication. Push profile
+  // reads must never sit in front of a live feed/comment/reaction invalidation.
+  const profilesByIdPromise = (async () => {
+    const profilesById = new Map<string, PushProfile>();
+    if (targetUserIds.length === 0) return { profilesById, error: null };
     const { data: profiles, error: profilesError } = await database.rpc(
       'get_push_recipients',
       { p_user_ids: targetUserIds },
     );
-    if (profilesError) return new Response(profilesError.message, { status: 500 });
+    if (profilesError) return { profilesById, error: profilesError };
     for (const profile of profiles ?? []) {
       profilesById.set(String(profile.user_id), {
         notification_token: profile.notification_token,
@@ -188,7 +209,8 @@ Deno.serve(async (request) => {
           : [],
       });
     }
-  }
+    return { profilesById, error: null };
+  })();
 
   const byTopic = new Map<string, RelayEvent[]>();
   for (const event of claimedEvents) {
@@ -231,7 +253,9 @@ Deno.serve(async (request) => {
 
       if (!broadcast.handled && event.payload?.sendPush === true && event.payload?.targetUserId) {
         const targetUserId = String(event.payload.targetUserId);
-        const profile = profilesById.get(targetUserId);
+        const profileState = await profilesByIdPromise;
+        if (profileState.error) throw profileState.error;
+        const profile = profileState.profilesById.get(targetUserId);
 
         const token = profile?.notification_token?.trim();
         const preferenceKey = event.payload.preferenceKey
@@ -472,6 +496,7 @@ Deno.serve(async (request) => {
           throw markedError ?? new Error('One or more event leases were lost after publish');
         }
         for (const event of unpublished) event.payload.realtimePublished = true;
+        logRealtimeLatency(unpublished);
       }
     } catch (publishError) {
       failed += group.length;

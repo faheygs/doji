@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types/database';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
@@ -147,7 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (shouldAutoCompleteOnboarding(profile)) {
         const completedAt = profile.created_at ?? new Date().toISOString();
-        const { data: patched, error: patchErr } = await supabase.rpc('update_own_profile', {
+        const { data: patched, error: patchErr } = await executeCommand('update_own_profile', {
           p_patch: { onboarding_completed_at: completedAt },
           p_idempotency_key: newCommandId('profile-onboarding'),
         });
@@ -193,7 +194,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!result.ok) throw new Error(result.reason);
     }
 
-    const { data, error } = await supabase.rpc('update_own_profile', {
+    const { data, error } = await executeCommand('update_own_profile', {
       p_patch: updates,
       p_idempotency_key: newCommandId('profile-update'),
     });

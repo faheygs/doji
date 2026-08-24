@@ -11,7 +11,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "development"
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev"
       }
     },
     "preview": {
@@ -20,7 +21,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "preview"
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev"
       }
     },
     "production": {
@@ -29,7 +31,8 @@
         "resourceClass": "m-medium"
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev"
       }
     }
   },

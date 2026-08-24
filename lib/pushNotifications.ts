@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { newCommandId } from './idempotency';
-import { supabase } from './supabase';
+import { executeCommand } from './commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 
 const INSTALLATION_KEY = '@doji/push-installation-id';
@@ -39,7 +39,7 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
   const nativeToken = typeof native.data === 'string' ? native.data : JSON.stringify(native.data);
   if (!nativeToken || !expo.data) return false;
 
-  const { error } = await supabase.rpc('register_native_push_endpoint', {
+  const { error } = await executeCommand('register_native_push_endpoint', {
     p_installation_id: await installationId(),
     p_token: nativeToken,
     p_platform: Platform.OS,
@@ -60,7 +60,7 @@ export async function unregisterCurrentPushInstallation(): Promise<void> {
   const id = await AsyncStorage.getItem(INSTALLATION_KEY);
   if (!id) return;
   const expoToken = useAuthStore.getState().profile?.notification_token ?? null;
-  const { error } = await supabase.rpc('unregister_push_installation', {
+  const { error } = await executeCommand('unregister_push_installation', {
     p_installation_id: id,
     p_expo_token: expoToken,
   });

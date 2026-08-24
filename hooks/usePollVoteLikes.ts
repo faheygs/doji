@@ -1,7 +1,7 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { newCommandId } from '../lib/idempotency';
+import { executeCommand } from '../lib/commandGateway';
 
 type VoterPageRow = { vote_id?: string; like_count?: number; my_like?: boolean };
 
@@ -36,7 +36,7 @@ export function useTogglePollVoteLike() {
     mutationFn: async (variables: { pollVoteId: string; liked: boolean; commandId?: string }) => {
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('poll-vote-like');
-      const { data, error } = await supabase.rpc('toggle_poll_vote_like', {
+      const { data, error } = await executeCommand('toggle_poll_vote_like', {
         p_poll_vote_id: variables.pollVoteId,
         p_idempotency_key: variables.commandId,
       });

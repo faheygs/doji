@@ -312,13 +312,15 @@ and stable notification delivery claims.
 flowchart LR
   UI[UI intent] --> Hook[Mutation hook]
   Hook --> Key[Stable idempotency key]
-  Key --> RPC[Security-definer RPC]
+  Key --> Gateway[Authenticated Cloudflare command gateway]
+  Gateway --> RPC[Security-definer RPC under the user JWT]
   RPC --> Lock[Auth checks + advisory lock]
   Lock --> Tx[Single Postgres transaction]
   Tx --> Rows[Business rows and rewards]
   Tx --> Outbox[Domain event outbox]
   Rows --> Result[Authoritative result]
-  Outbox --> Queue[Cloudflare Queue]
+  Gateway --> Queue[Immediate Cloudflare Queue wake after commit]
+  Outbox -. durable pg_net fallback .-> Queue
   Queue --> Ably[Ably channels]
   Queue --> Push[Expo Push claim/delivery]
 ```
@@ -326,6 +328,13 @@ flowchart LR
 Never replace an atomic RPC with multiple client writes. Mutation retries are off by
 default. A command may retry only if the same stable idempotency key is reused.
 Validation, authorization, uniqueness, and business-rule errors are not retried.
+Production clients require `EXPO_PUBLIC_COMMAND_GATEWAY_URL`. The gateway exposes an
+explicit RPC allowlist, forwards the caller's Supabase JWT so database authorization
+and `auth.uid()` remain unchanged, and wakes the relay only after PostgREST confirms
+the transaction committed. Successful commands pass through the singleton 250 ms
+Durable Object coalescer so a burst does not create one relay drain per tap. A failed
+immediate wake never converts a committed command into a client error: the transactional
+statement trigger independently wakes the same idempotent relay as its recovery path.
 
 Representative commands:
 
@@ -345,7 +354,9 @@ Ably is the only handset socket transport. Postgres is still authoritative: each
 committed command writes its domain event in the same transaction, and reconnect or
 foreground reconciliation refetches authorized state if any event was missed.
 
-1. The mutation commits application rows and outbox rows together.
+1. The mutation commits application rows and outbox rows together. The command gateway
+   immediately wakes the 250 ms burst coalescer, which seeds parallel drain lanes;
+   database-originated lifecycle alarms can enqueue their bounded drain directly.
 2. Cloudflare Queue claims critical activation and realtime-only rows ahead of
    push-only backlog and relays them with retry/dead-letter behavior.
 3. Ably atomically publishes each ordered channel batch of ID-only events. The relay
@@ -492,8 +503,10 @@ App correctness never depends on OS push delivery; foreground/reconnect reconcil
 must still reveal the committed state.
 Nested outbox inserts issue one post-commit relay wake per database transaction.
 `INSERT ... ON CONFLICT DO UPDATE` statements that create no new outbox row do not
-wake the relay again. A singleton Durable Object coalesces simultaneous wakes for
-250 ms, then seeds 16 one-message Cloudflare Queue drain lanes. Full 100-row claims
+wake the relay again. This `pg_net` path is the durable fallback for commands that did
+not traverse the gateway or whose immediate coalescer wake failed. The same singleton
+Durable Object coalesces both fast-path bursts and fallback wakes for 250 ms, then seeds
+16 one-message Cloudflare Queue drain lanes. Full 100-row claims
 double their continuation lanes to a hard 128-lane ceiling; small workloads stay at
 the initial footprint. Every lane claims disjoint leases until committed work drains.
 Friend-scoped realtime invalidations are batch-published to at most 100 Ably channels
@@ -502,12 +515,20 @@ Per-source/per-recipient once keys ensure an expansion retry cannot inflate grou
 friend-completion or reaction counts.
 Profile presentation/stats and badge-progress changes also use identifier-only friend
 batch fanout, so shop/profile/gamification writes do not synchronously expand friends.
+Push-recipient reads begin concurrently and are not awaited before an Ably batch is
+published. `realtime_published_at` measures socket latency from the later of
+`created_at` and `available_at`; delayed grouped alerts therefore do not pollute the
+live-data service objective.
 
 ## Economy, profiles, and gamification
 
 - Sparks are server-owned. Rewards use idempotent ledger entries; purchases and
   buy-ins are atomic debits. Client constants in `constants/sparks.ts` describe UI
   values but the database authorizes balances and awards.
+- The dedicated Apple reviewer account may receive one idempotent, ledger-backed
+  `app_review_credit` so App Review can exercise the normal missed-Doji buy-in flow.
+  The credit targets only `@reviewer`; it does not bypass participation or alter the
+  public economy.
 - Shop catalog rows define current items/prices. Ownership is permanent. Purchase
   and equip are distinct concepts, though purchase may equip immediately.
 - Equipped theme affects the owner UI. Equipped avatar frame/title are public
@@ -657,8 +678,11 @@ notifications, member profiles, post detail, and admin are pushed routes, not ta
 
 Database bootstrap and grants are release contracts, not dashboard assumptions. A
 fresh project must apply every migration without a pre-created reviewer account; the
-optional Apple reviewer profile is added only when its Auth identity exists. Default
-function execution is closed, anonymous users cannot execute `security definer`
+optional Apple reviewer profile is added only when its Auth identity exists. Release
+preparation that credits the reviewer account must fail closed when that
+profile is absent and must use an idempotent Sparks ledger entry rather than directly
+editing its balance. Default function execution is closed, anonymous users cannot
+execute `security definer`
 functions, and each mobile RPC is explicitly granted to `authenticated`. RLS policies
 cache `auth.uid()`, `auth.role()`, and `auth.jwt()` once per statement so authorization
 does not add a per-row function call to bounded reads. Security-definer helpers called

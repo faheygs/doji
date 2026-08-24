@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Profile, ShopItem, UserShopItem } from '../types/database';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
@@ -123,7 +124,7 @@ export function usePurchaseShopItem() {
 
   return useMutation({
     mutationFn: async (itemKey: string) => {
-      const { data, error } = await supabase.rpc('purchase_shop_item', {
+      const { data, error } = await executeCommand('purchase_shop_item', {
         p_item_key: itemKey,
       });
       if (error) throw error;
@@ -160,7 +161,7 @@ export function useEquipShopItem() {
 
   return useMutation({
     mutationFn: async (itemKey: string) => {
-      const { data, error } = await supabase.rpc('equip_shop_item', {
+      const { data, error } = await executeCommand('equip_shop_item', {
         p_item_key: itemKey,
       });
       if (error) throw error;

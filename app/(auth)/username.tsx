@@ -3,6 +3,7 @@ import { ActivityIndicator, TouchableOpacity, View, SafeAreaView } from 'react-n
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { executeCommand } from '../../lib/commandGateway';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { ROUTES } from '../../lib/routes';
 import { DEFAULT_APP_THEME } from '../../constants/theme';
@@ -90,7 +91,7 @@ export default function UsernameScreen() {
     try {
       if (avatarUri) uploadedAvatarUrl = await uploadAvatar(userId, avatarUri);
 
-      const { data: createdProfile, error } = await supabase.rpc('create_own_profile', {
+      const { data: createdProfile, error } = await executeCommand('create_own_profile', {
         p_username: handle,
         p_display_name: displayName.trim() || handle,
         p_avatar_gradient: [colors.xpGradientStart, colors.xpGradientEnd],

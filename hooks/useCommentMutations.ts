@@ -3,11 +3,11 @@ import { filterContent } from '../lib/contentFilter';
 import { patchInfiniteCommentLike } from '../lib/commentLikeOptimism';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Comment } from '../types/database';
 import { refreshPostEngagement } from '../lib/postEngagement';
 import type { FeedAudience } from '../lib/feedAudience';
+import { executeCommand } from '../lib/commandGateway';
 
 export function useEditComment() {
   const client = useQueryClient();
@@ -25,7 +25,7 @@ export function useEditComment() {
       const check = filterContent(body);
       if (!check.ok) throw new Error(check.reason);
       vars.commandId ??= newCommandId('comment-edit');
-      const { error } = await supabase.rpc('edit_comment', {
+      const { error } = await executeCommand('edit_comment', {
         p_comment_id: vars.commentId,
         p_body: body,
         p_idempotency_key: vars.commandId,
@@ -50,7 +50,7 @@ export function useDeleteComment() {
     }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('comment-delete');
-      const { error } = await supabase.rpc('delete_comment', {
+      const { error } = await executeCommand('delete_comment', {
         p_comment_id: vars.commentId,
         p_idempotency_key: vars.commandId,
       });
@@ -84,7 +84,7 @@ export function useToggleCommentLike() {
     }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('comment-like');
-      const { data, error } = await supabase.rpc('toggle_comment_like', {
+      const { data, error } = await executeCommand('toggle_comment_like', {
         p_comment_id: vars.commentId,
         p_idempotency_key: vars.commandId,
       });
@@ -121,7 +121,7 @@ export function useToggleCommentsDisabled() {
     mutationFn: async (vars: { postId: string; disabled: boolean; commandId?: string }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('post-comments');
-      const { error } = await supabase.rpc('set_post_comments_disabled', {
+      const { error } = await executeCommand('set_post_comments_disabled', {
         p_post_id: vars.postId,
         p_disabled: vars.disabled,
         p_idempotency_key: vars.commandId,

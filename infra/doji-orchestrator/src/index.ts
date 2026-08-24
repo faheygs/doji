@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { captureWorkerException } from './sentry';
+import { handleCommandGateway } from './command-gateway';
 
 interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
@@ -8,6 +9,7 @@ interface Env {
   DOMAIN_EVENT_QUEUE: Queue<OutboxWake>;
   PUSH_FANOUT_QUEUE: Queue<PushFanoutMessage>;
   SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
   SENTRY_DSN?: string;
@@ -30,6 +32,13 @@ const QUEUE_SEND_BATCH_SIZE = 100;
 const OUTBOX_INITIAL_DRAIN_LANES = 16;
 const OUTBOX_MAX_SCALE_GENERATION = 3;
 const OUTBOX_WAKE_COALESCE_MS = 250;
+
+async function wakeDomainRelayNow(env: Env): Promise<void> {
+  await env.DOMAIN_EVENT_QUEUE.send({
+    requestedAt: new Date().toISOString(),
+    generation: 0,
+  });
+}
 
 function isPushFanoutMessage(
   value: OutboxWake | PushFanoutMessage | undefined,
@@ -237,6 +246,7 @@ export class DojiEventAlarm extends DurableObject<Env> {
 
     if (state.phase === 'prelive') {
       await orchestrateDoji(this.env, 'prelive', state.dailyEventId);
+      await wakeDomainRelayNow(this.env);
       const next: AlarmState = { ...state, phase: 'activate' };
       await this.ctx.storage.put('event', next);
       await this.ctx.storage.setAlarm(Math.max(Date.now(), Date.parse(state.firesAt)));
@@ -248,6 +258,7 @@ export class DojiEventAlarm extends DurableObject<Env> {
         activated_at: string;
         closes_at: string;
       }>(this.env, 'activate', state.dailyEventId);
+      await wakeDomainRelayNow(this.env);
       // Queue partition seeding is idempotent at the database delivery-key and
       // shard-lease boundaries. If this alarm retries after a partial enqueue,
       // duplicate messages cannot produce duplicate user notifications.
@@ -263,6 +274,7 @@ export class DojiEventAlarm extends DurableObject<Env> {
     }
 
     await orchestrateDoji<number>(this.env, state.closeAction ?? 'close', state.dailyEventId);
+    await wakeDomainRelayNow(this.env);
     if (state.chainNext !== false) {
       // Chain the next one-shot alarm from the production event only. Targeted
       // test events close independently and never alter the production chain.
@@ -399,6 +411,8 @@ async function scheduleRelayWake(env: Env, nextWakeAt: string | null): Promise<v
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const commandResponse = await handleCommandGateway(request, env);
+    if (commandResponse) return commandResponse;
     if (!isAuthorized(request, env)) return new Response('Unauthorized', { status: 401 });
     const url = new URL(request.url);
 

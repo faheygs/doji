@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { UserEvent } from '../types/database';
 import { canBuyIn } from '../lib/participationGate';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { executeCommand } from '../lib/commandGateway';
 
 export function useBuyInToday(userEvent: UserEvent | null | undefined) {
   const eligible = canBuyIn(userEvent);
@@ -13,7 +13,7 @@ export function useBuyInToday(userEvent: UserEvent | null | undefined) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('buy_in_today');
+      const { data, error } = await executeCommand('buy_in_today', {});
       if (error) throw error;
       return data as { user_event_id: string; sparks: number; expires_at: string | null };
     },

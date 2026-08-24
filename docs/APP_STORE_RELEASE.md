@@ -97,8 +97,8 @@ Automated and infrastructure gates:
 
 Exact release-build gates (cannot be inferred from unit tests):
 
-- [ ] Install the candidate through TestFlight on at least two physical iPhones.
-- [ ] Complete the realtime/push device matrix above, including background and
+- [x] Install the candidate through TestFlight on at least two physical iPhones.
+- [x] Complete the realtime/push device matrix above, including background and
       reconnect recovery, notification deduplication, and the close boundary.
 - [ ] Confirm the candidate registers a production native APNs endpoint.
 - [ ] Record Apple's physical-device UGC review video and attach it to Review Notes.

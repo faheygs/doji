@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { UserEvent } from '../types/database';
 import { filterContent } from '../lib/contentFilter';
 import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { executeCommand } from '../lib/commandGateway';
 
 type VoteArgs = {
   challengeId: string;
@@ -31,7 +31,7 @@ export function usePollVote() {
           const check = filterContent(customText);
           if (!check.ok) throw new Error(check.reason);
         }
-        const { error: voteErr } = await supabase.rpc('submit_poll_vote', {
+        const { error: voteErr } = await executeCommand('submit_poll_vote', {
           p_user_event_id: userEventId,
           p_option_id: optionId,
           p_custom_text: customText?.trim() || null,

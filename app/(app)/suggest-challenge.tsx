@@ -12,7 +12,7 @@ import { AppTextInput } from '@/components/ui/AppTextInput';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconPlus, IconClose, IconCamera, IconComment, IconUsers } from '@/components/icons/Icons';
 import { IcnBarChart } from '@/components/icons/BadgeIcons';
-import { supabase } from '@/lib/supabase';
+import { executeCommand } from '@/lib/commandGateway';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { hashSuggestionBody } from '@/lib/hashString';
 import { newCommandId } from '@/lib/idempotency';
@@ -327,7 +327,7 @@ export default function SuggestChallengeScreen() {
         needsFormatRule && answerRule ? { answer_rule: answerRule } : options;
       const hashPayload = JSON.stringify({ kind, body: text, options: suggestionOptions });
       const bodyHash = hashSuggestionBody(hashPayload);
-      const { error: sugErr } = await supabase.rpc('submit_challenge_suggestion', {
+      const { error: sugErr } = await executeCommand('submit_challenge_suggestion', {
         p_kind: kind,
         p_body: text,
         p_body_hash: bodyHash,

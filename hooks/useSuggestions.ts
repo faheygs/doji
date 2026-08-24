@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { ChallengeSuggestion, ChallengeSuggestionStatus } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
@@ -59,7 +60,7 @@ export function useReviewSuggestion() {
       const reviewerId = session?.user?.id;
       if (!reviewerId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('suggestion-review');
-      const { error } = await supabase.rpc('review_challenge_suggestion', {
+      const { error } = await executeCommand('review_challenge_suggestion', {
         p_suggestion_id: id,
         p_status: status,
         p_admin_note: adminNote ?? null,

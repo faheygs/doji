@@ -5,6 +5,7 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile } from '../types/database';
 import { invalidateFriendCountQueries } from './useProfile';
+import { executeCommand } from '../lib/commandGateway';
 
 const PAGE_SIZE = 50;
 
@@ -73,7 +74,7 @@ export function useRespondToFriendRequest() {
       commandId?: string;
     }) => {
       variables.commandId ??= newCommandId('friend-response');
-      const { error } = await supabase.rpc('respond_to_friendship', {
+      const { error } = await executeCommand('respond_to_friendship', {
         p_friendship_id: variables.friendshipId,
         p_accept: variables.accept,
         p_idempotency_key: variables.commandId,
