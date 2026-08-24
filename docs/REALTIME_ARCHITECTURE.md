@@ -82,6 +82,11 @@
   `post:{postId}` and subscribed only while an unlocked card/thread is mounted.
   Friend-feed membership is routed to the author and accepted friends' private
   channels. This removes the previous all-users-by-all-actions amplification.
+- The handset Ably client is bound to one authenticated account and is closed before
+  an account identity changes. Post-capability requests share an in-flight batch;
+  posts mounted after that batch's snapshot receive one trailing authorization pass.
+  The client verifies the returned token capability instead of assuming every
+  requested post passed RLS authorization.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
@@ -380,6 +385,9 @@ authorization and must never silently fall back to Postgres during an outage.
   user channels are fixed; mounted post UUIDs are sent to `realtime-token`,
   authorized through the caller's post RLS, and added as exact `post:<uuid>`
   capabilities. Authenticated clients never receive a `post:*` wildcard.
+- An Ably connection is never reused across account identities. A token refresh for
+  the same account preserves the socket, while sign-out or an account switch closes
+  it before a token bearing a different `clientId` can be authorized.
 - Only administrators receive the `moderation:global` capability.
 - Cloudflare holds narrow orchestration and relay secrets, never the Supabase
   service-role key.

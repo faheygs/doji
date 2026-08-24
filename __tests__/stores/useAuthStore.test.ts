@@ -2,8 +2,10 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { supabase } from '../../lib/supabase';
 import { mergeNotificationPreferences } from '../../lib/notificationPreferences';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { closeRealtimeConnection } from '../../lib/realtimeClient';
 
 jest.mock('../../lib/supabase');
+jest.mock('../../lib/realtimeClient', () => ({ closeRealtimeConnection: jest.fn() }));
 
 const mockFrom = supabase.from as jest.Mock;
 const mockRpc = supabase.rpc as jest.Mock;
@@ -40,6 +42,23 @@ describe('useAuthStore', () => {
       const mockSession = { user: { id: 'user-1' }, access_token: 'token' } as any;
       useAuthStore.getState().setSession(mockSession);
       expect(useAuthStore.getState().session).toBe(mockSession);
+      expect(closeRealtimeConnection).toHaveBeenCalledTimes(1);
+    });
+
+    it('recreates realtime when the authenticated account changes', () => {
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
+
+      useAuthStore.getState().setSession({ user: { id: 'user-2' } } as any);
+
+      expect(closeRealtimeConnection).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps realtime connected when only the session token refreshes', () => {
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
+
+      useAuthStore.getState().setSession({ user: { id: 'user-1' } } as any);
+
+      expect(closeRealtimeConnection).not.toHaveBeenCalled();
     });
 
     it('sets session to null', () => {

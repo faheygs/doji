@@ -386,7 +386,10 @@ Channels:
   final mounted consumer leaves so virtualization also bounds transport resources.
   `realtime-token` authorizes each mounted UUID through the caller's post RLS and
   grants an exact 15-minute capability; authenticated clients never receive a
-  blanket `post:*` capability.
+  blanket `post:*` capability. The mobile Ably client is account-bound and closes on
+  identity changes. Mounted posts share authorization work, with one trailing pass
+  for a post added after an in-flight snapshot, and the returned capability is
+  verified before subscription.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.

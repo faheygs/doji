@@ -11,6 +11,7 @@ import { filterContent } from '../lib/contentFilter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '../lib/queryClient';
 import { createRequestSignal } from '../lib/requestSignal';
+import { closeRealtimeConnection } from '../lib/realtimeClient';
 
 // Startup, foreground reconciliation, and both realtime transports can all ask
 // for the same profile at once. Share that request instead of repeatedly
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session) => {
     const prevId = get().session?.user?.id;
     const nextId = session?.user?.id;
+    if (nextId !== prevId) closeRealtimeConnection();
     if (!session) {
       queryClient.clear();
       void AsyncStorage.removeItem(QUERY_CACHE_STORAGE_KEY);
@@ -70,6 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     const signedOutUserId = get().session?.user?.id;
+    closeRealtimeConnection();
     try {
       const { unregisterCurrentPushInstallation } = await import('../lib/pushNotifications');
       await unregisterCurrentPushInstallation();

@@ -14,18 +14,26 @@ const mockAuthorize = jest.fn(
       mockAuthCallback?.({}, (error, token) => (error ? reject(new Error(error)) : resolve(token)));
     }),
 );
-const mockInvoke = jest.fn().mockResolvedValue({
-  data: {
-    keyName: 'key',
-    ttl: 1,
-    capability: '{}',
-    clientId: 'user',
-    timestamp: 1,
-    nonce: 'nonce',
-    mac: 'mac',
-  },
-  error: null,
-});
+function tokenResponse(postIds: string[]) {
+  return {
+    data: {
+      keyName: 'key',
+      ttl: 1,
+      capability: JSON.stringify(
+        Object.fromEntries(postIds.map((postId) => [`post:${postId}`, ['subscribe']])),
+      ),
+      clientId: 'user',
+      timestamp: 1,
+      nonce: 'nonce',
+      mac: 'mac',
+    },
+    error: null,
+  };
+}
+const mockInvoke = jest.fn(
+  (_name: string, options: { body: { postIds: string[] } }) =>
+    Promise.resolve(tokenResponse(options.body.postIds)),
+);
 
 jest.mock('ably', () => ({
   Realtime: jest.fn().mockImplementation((options) => {
@@ -90,5 +98,49 @@ describe('realtime channel lifecycle', () => {
       body: { postIds: [postId] },
     });
     remove();
+  });
+
+  it('reauthorizes for a post retained after an authorization snapshot', async () => {
+    const firstId = '11111111-1111-4111-8111-111111111111';
+    const secondId = '22222222-2222-4222-8222-222222222222';
+    let finishFirst: ((value: ReturnType<typeof tokenResponse>) => void) | undefined;
+    mockInvoke
+      .mockImplementationOnce(
+        (_name: string, options: { body: { postIds: string[] } }) =>
+          new Promise((resolve) => {
+            finishFirst = () => resolve(tokenResponse(options.body.postIds));
+          }),
+      )
+      .mockImplementation(
+        (_name: string, options: { body: { postIds: string[] } }) =>
+          Promise.resolve(tokenResponse(options.body.postIds)),
+      );
+
+    const firstSubscription = subscribeToRealtimeChannel(`post:${firstId}`, jest.fn());
+    await Promise.resolve();
+    await Promise.resolve();
+    const secondSubscription = subscribeToRealtimeChannel(`post:${secondId}`, jest.fn());
+    finishFirst?.(tokenResponse([firstId]));
+
+    const [removeFirst, removeSecond] = await Promise.all([
+      firstSubscription,
+      secondSubscription,
+    ]);
+
+    expect(mockAuthorize).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenLastCalledWith('realtime-token', {
+      body: { postIds: [firstId, secondId] },
+    });
+    removeFirst();
+    removeSecond();
+  });
+
+  it('rejects a post omitted from the authorized capability', async () => {
+    const postId = '33333333-3333-4333-8333-333333333333';
+    mockInvoke.mockResolvedValueOnce(tokenResponse([]));
+
+    await expect(
+      subscribeToRealtimeChannel(`post:${postId}`, jest.fn()),
+    ).rejects.toThrow('Realtime access to this post is unavailable');
   });
 });

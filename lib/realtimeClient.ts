@@ -11,12 +11,22 @@ export type DojiRealtimeEvent = {
 
 let client: Realtime | null = null;
 let connectTimer: ReturnType<typeof setTimeout> | null = null;
-let authorizationPromise: Promise<void> | null = null;
+let authorizationTask: { realtime: Realtime; promise: Promise<void> } | null = null;
 const subscriptionCounts = new Map<string, number>();
 const releaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const postConsumerCounts = new Map<string, number>();
 const requestedPostChannels = new Set<string>();
 let grantedPostChannels = new Set<string>();
+let lastAuthorizationRequestedChannels = new Set<string>();
+
+function grantedPostChannelsFromToken(token: TokenRequest): Set<string> {
+  try {
+    const capability = JSON.parse(token.capability) as Record<string, unknown>;
+    return new Set(Object.keys(capability).filter((channelName) => channelName.startsWith('post:')));
+  } catch {
+    return new Set();
+  }
+}
 
 function requestedPostIds(): string[] {
   return [...requestedPostChannels].map((channelName) => channelName.slice('post:'.length));
@@ -39,7 +49,8 @@ function releasePostChannel(channelName: string): void {
 
 function getClient(): Realtime {
   if (client) return client;
-  client = new Realtime({
+  let createdClient: Realtime | null = null;
+  const realtime = new Realtime({
     autoConnect: false,
     echoMessages: false,
     authCallback: (_params, callback) => {
@@ -50,7 +61,10 @@ function getClient(): Realtime {
           if (error || !data) {
             reportRealtimeFailure('token_request', error ?? new Error('Empty token response'));
           }
-          if (!error && data) grantedPostChannels = requestedSnapshot;
+          if (!error && data && client === createdClient) {
+            lastAuthorizationRequestedChannels = requestedSnapshot;
+            grantedPostChannels = grantedPostChannelsFromToken(data);
+          }
           callback(error?.message ?? null, data ?? null);
         })
         .catch((error: unknown) => {
@@ -59,6 +73,8 @@ function getClient(): Realtime {
         });
     },
   });
+  createdClient = realtime;
+  client = realtime;
   client.connection.on((change) => {
     if (change.current !== 'failed' && change.current !== 'suspended') return;
     reportRealtimeFailure('connection_state', change.reason, { state: change.current });
@@ -78,19 +94,30 @@ function getClient(): Realtime {
 }
 
 async function ensurePostCapability(realtime: Realtime, channelName: string): Promise<void> {
-  if (grantedPostChannels.has(channelName)) return;
-  if (!authorizationPromise) {
-    // One task batches the mounted FlatList window into one token request.
-    authorizationPromise = Promise.resolve()
-      .then(() => realtime.auth.authorize())
-      .then(() => undefined)
-      .finally(() => {
-        authorizationPromise = null;
-      });
-  }
-  await authorizationPromise;
-  if (!grantedPostChannels.has(channelName)) {
-    throw new Error('Realtime access to this post is unavailable');
+  while (!grantedPostChannels.has(channelName)) {
+    let task = authorizationTask;
+    if (!task || task.realtime !== realtime) {
+      // Mounted cards share one authorization. If another card arrives after
+      // its post set was captured, the loop performs one trailing request that
+      // includes the late card instead of treating it as denied.
+      let promise: Promise<void>;
+      promise = Promise.resolve()
+        .then(() => realtime.auth.authorize())
+        .then(() => undefined)
+        .finally(() => {
+          if (authorizationTask?.promise === promise) authorizationTask = null;
+        });
+      task = { realtime, promise };
+      authorizationTask = task;
+    }
+    await task.promise;
+    if (client !== realtime) throw new Error('Realtime connection changed');
+    if (
+      !grantedPostChannels.has(channelName) &&
+      lastAuthorizationRequestedChannels.has(channelName)
+    ) {
+      throw new Error('Realtime access to this post is unavailable');
+    }
   }
 }
 
@@ -184,7 +211,8 @@ export function closeRealtimeConnection(): void {
   postConsumerCounts.clear();
   requestedPostChannels.clear();
   grantedPostChannels = new Set();
-  authorizationPromise = null;
+  lastAuthorizationRequestedChannels = new Set();
+  authorizationTask = null;
   connectTimer = null;
   client?.close();
   client = null;
