@@ -31,17 +31,22 @@ export function buildAblyMessages(events: DeliveryEvent[]) {
 export function isPushFresh(event: DeliveryEvent, nowMs = Date.now()): boolean {
   if (event.payload.sendPush !== true && event.payload.broadcastPush !== true) return true;
 
+  const expiresAtMs = getPushExpiresAtMs(event, nowMs);
+  return expiresAtMs !== null && nowMs < expiresAtMs;
+}
+
+export function getPushExpiresAtMs(event: DeliveryEvent, nowMs = Date.now()): number | null {
+
   // Asynchronous friend fanout creates child outbox rows after the original
   // action. Freshness follows the source action so a backlog can never turn an
   // old reaction/comment into a new phone alert.
   const createdMs = dateMs(event.payload.occurredAt) ?? dateMs(event.created_at);
-  if (createdMs === null || createdMs > nowMs + 30_000) return false;
+  if (createdMs === null || createdMs > nowMs + 30_000) return null;
 
   if (event.event_type === 'doji.activated') {
     const closesMs = dateMs(event.payload.closesAt);
-    if (closesMs !== null && nowMs >= closesMs) return false;
-    return nowMs - createdMs <= DOJI_PUSH_MAX_AGE_MS;
+    return Math.min(createdMs + DOJI_PUSH_MAX_AGE_MS, closesMs ?? Number.POSITIVE_INFINITY);
   }
 
-  return nowMs - createdMs <= SOCIAL_PUSH_MAX_AGE_MS;
+  return createdMs + SOCIAL_PUSH_MAX_AGE_MS;
 }

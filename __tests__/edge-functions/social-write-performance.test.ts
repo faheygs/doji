@@ -81,8 +81,8 @@ describe('interactive social write performance policy', () => {
       path.join(process.cwd(), 'infra/doji-orchestrator/wrangler.jsonc'),
       'utf8',
     );
-    expect(worker).toContain('OUTBOX_INITIAL_DRAIN_LANES = 16');
-    expect(worker).toContain('OUTBOX_MAX_SCALE_GENERATION = 3');
+    expect(worker).toContain('OUTBOX_INITIAL_DRAIN_LANES = 1');
+    expect(worker).toContain('OUTBOX_MAX_SCALE_GENERATION = 7');
     expect(worker).toContain('continuationCount');
     expect(worker).toContain('OUTBOX_WAKE_COALESCE_MS = 250');
     expect(worker).toContain("'https://alarm.internal/wake'");

@@ -2,12 +2,12 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View,
   FlatList,
-  StyleSheet,
   RefreshControl,
   SafeAreaView,
   TouchableOpacity,
   Platform,
   InteractionManager,
+  type ViewToken,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +35,7 @@ import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
+import { useFeedScreenStyles } from '../../components/feed/useFeedScreenStyles';
 export default function FeedScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -51,6 +52,7 @@ export default function FeedScreen() {
     return val === '1' || val === 'true';
   }, [params.openComments]);
   const { colors } = useTheme();
+  const styles = useFeedScreenStyles();
   const [audience, setAudience] = useState<FeedAudience>('friends');
   useFocusedRealtimeInvalidation(
     'feed:public',
@@ -58,6 +60,7 @@ export default function FeedScreen() {
     audience === 'everyone',
   );
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
+  const [visiblePostIds, setVisiblePostIds] = useState<ReadonlySet<string>>(() => new Set());
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
@@ -88,97 +91,6 @@ export default function FeedScreen() {
     isLoading: notificationsLoading,
     isClearing: notificationsClearing,
   } = useNotificationCenterContext();
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
-          flex: 1,
-          backgroundColor: colors.background,
-        },
-        listHeader: {
-          gap: Spacing.sm,
-          paddingBottom: Spacing.xs,
-        },
-        feedTopBar: {
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-          paddingBottom: Spacing.sm,
-        },
-        feedTopInner: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
-          paddingTop: Spacing.xs,
-        },
-        topActions: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-        },
-        actionHit: {
-          paddingVertical: Spacing.sm,
-          paddingHorizontal: Spacing.xs,
-        },
-        bellWrap: {
-          position: 'relative',
-        },
-        badge: {
-          position: 'absolute',
-          top: 2,
-          right: -2,
-          minWidth: 18,
-          height: 18,
-          borderRadius: 9,
-          paddingHorizontal: 5,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.error,
-          pointerEvents: 'none',
-        },
-        badgeText: {
-          color: colors.onPrimary,
-          fontSize: 11,
-          fontWeight: '700',
-        },
-        list: {
-          paddingBottom: Spacing.xxl,
-        },
-        empty: {
-          alignItems: 'center',
-          paddingTop: Spacing.xxl * 2,
-          gap: Spacing.md,
-          paddingHorizontal: Spacing.xl,
-        },
-        emptyText: {
-          textAlign: 'center',
-          lineHeight: 22,
-        },
-        audienceWrap: {
-          flexDirection: 'row',
-          marginHorizontal: Spacing.md,
-          marginBottom: Spacing.xs,
-          padding: 3,
-          borderRadius: Radius.md,
-          backgroundColor: colors.chipBackground,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        audienceSeg: {
-          flex: 1,
-          paddingVertical: Spacing.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: Radius.sm,
-        },
-        audienceSegActive: {
-          backgroundColor: colors.surfaceElevated,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-      }),
-    [colors],
-  );
   const outerStyle = useMemo(() => [styles.container, webScrollParentStyle], [styles.container]);
   const [refreshing, setRefreshing] = useState(false);
   const refreshWorkRef = useRef<Promise<unknown> | null>(null);
@@ -282,12 +194,28 @@ export default function FeedScreen() {
       <PostCard
         post={item}
         blurred={shouldBlur}
+        realtimeActive={visiblePostIds.has(item.id)}
         feedAudience={audience}
         initialCommentsOpen={focusPostId === item.id && focusOpenComments}
       />
     ),
-    [shouldBlur, audience, focusPostId, focusOpenComments],
+    [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds],
   );
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken<Post>[] }) => {
+      const next = new Set(
+        viewableItems
+          .filter((token) => token.isViewable && token.item?.id)
+          .map((token) => token.item.id),
+      );
+      setVisiblePostIds((current) => {
+        if (current.size === next.size && [...current].every((id) => next.has(id))) return current;
+        return next;
+      });
+    },
+  ).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 15 }).current;
 
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
@@ -467,6 +395,8 @@ export default function FeedScreen() {
           data={posts}
           keyExtractor={keyExtractorPost}
           renderItem={renderPost}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           onScrollToIndexFailed={handleScrollToIndexFailed}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmptyComponent}

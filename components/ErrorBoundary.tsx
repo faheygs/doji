@@ -27,6 +27,8 @@ function ErrorFallback({ onRetry }: { onRetry: () => void }) {
         style={[styles.button, { backgroundColor: colors.primary }]}
         onPress={onRetry}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Try loading Doji again"
       >
         <Text style={[styles.buttonText, { color: colors.onPrimary }]}>Try Again</Text>
       </TouchableOpacity>

@@ -1,6 +1,45 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+async function listObjectPaths(
+  database: ReturnType<typeof createClient>,
+  bucketId: string,
+  folder: string,
+): Promise<string[]> {
+  const paths: string[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await database.storage.from(bucketId).list(folder, {
+      limit: 100,
+      offset,
+      sortBy: { column: 'name', order: 'asc' },
+    });
+    if (error) throw new Error(`${bucketId} list failed: ${error.message}`);
+    if (!data?.length) break;
+    for (const item of data) {
+      const path = `${folder}/${item.name}`;
+      if (item.id) paths.push(path);
+      else paths.push(...(await listObjectPaths(database, bucketId, path)));
+    }
+    if (data.length < 100) break;
+  }
+  return paths;
+}
+
+async function removeAccountMedia(
+  database: ReturnType<typeof createClient>,
+  userId: string,
+) {
+  for (const bucketId of ['avatars', 'post-media']) {
+    const paths = await listObjectPaths(database, bucketId, userId);
+    for (let index = 0; index < paths.length; index += 100) {
+      const { error } = await database.storage
+        .from(bucketId)
+        .remove(paths.slice(index, index + 100));
+      if (error) throw new Error(`${bucketId} removal failed: ${error.message}`);
+    }
+  }
+}
+
 Deno.serve(async (request) => {
   const expectedSecret = Deno.env.get('OUTBOX_RELAY_SECRET');
   if (!expectedSecret || request.headers.get('x-outbox-secret') !== expectedSecret) {
@@ -135,6 +174,35 @@ Deno.serve(async (request) => {
     if (pending.length < 500) break;
   }
 
+  let deletedAccountMedia = 0;
+  for (let batch = 0; batch < 5; batch += 1) {
+    const { data, error } = await database.rpc('claim_account_deletion_cleanup', {
+      p_limit: 100,
+    });
+    if (error) return new Response(error.message, { status: 500 });
+    const claims = (data ?? []) as Array<{ user_id: string; claim_token: string }>;
+    if (!claims.length) break;
+    for (const claim of claims) {
+      let cleanupError: string | null = null;
+      try {
+        await removeAccountMedia(database, claim.user_id);
+        deletedAccountMedia += 1;
+      } catch (claimError) {
+        cleanupError = claimError instanceof Error ? claimError.message : 'Storage cleanup failed';
+      }
+      const { error: finishError } = await database.rpc(
+        'finish_account_deletion_cleanup',
+        {
+          p_user_id: claim.user_id,
+          p_claim_token: claim.claim_token,
+          p_error: cleanupError,
+        },
+      );
+      if (finishError) return new Response(finishError.message, { status: 500 });
+    }
+    if (claims.length < 100) break;
+  }
+
   return Response.json({
     totals,
     orphaned_media: orphanedMedia,
@@ -142,6 +210,7 @@ Deno.serve(async (request) => {
     stale_push_endpoints: stalePushEndpoints,
     expired_rate_limit_buckets: expiredRateLimitBuckets,
     deleted_post_media: deletedPostMedia,
+    deleted_account_media: deletedAccountMedia,
     hasMore: hasMore || rateLimitHasMore,
   });
 });

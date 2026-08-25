@@ -3,8 +3,10 @@ import { dehydrate, hydrate } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { queryClient } from '../lib/queryClient';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../stores/useAuthStore';
+import { queryCacheStorageKey } from '../lib/queryPersistence';
 
-export const QUERY_CACHE_STORAGE_KEY = 'doji-query-cache-v2';
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const HYDRATION_TIMEOUT_MS = 1_200;
 const PERSISTED_ROOTS = new Set([
@@ -18,6 +20,27 @@ const PERSISTED_ROOTS = new Set([
 ]);
 
 type Snapshot = { savedAt: number; state: ReturnType<typeof dehydrate> };
+
+type PersistedPost = {
+  photo_url?: unknown;
+  front_photo_url?: unknown;
+  video_url?: unknown;
+  [key: string]: unknown;
+};
+
+function stripExpiringMedia(page: unknown): unknown {
+  if (!Array.isArray(page)) return page;
+  return page.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const post = item as PersistedPost;
+    return {
+      ...post,
+      photo_url: post.photo_url ? null : post.photo_url,
+      front_photo_url: post.front_photo_url ? null : post.front_photo_url,
+      video_url: post.video_url ? null : post.video_url,
+    };
+  });
+}
 
 function isSafeReferenceQuery(queryKey: readonly unknown[]) {
   return typeof queryKey[0] === 'string' && PERSISTED_ROOTS.has(queryKey[0]);
@@ -44,7 +67,10 @@ function boundedSnapshot(): Snapshot {
             ...query.state,
             data: {
               ...data,
-              pages: data.pages.slice(0, 1),
+              // Signed media URLs are short-lived bearer capabilities. Never
+              // persist them beyond their authorization window; the first
+              // background reconciliation signs currently authorized objects.
+              pages: data.pages.slice(0, 1).map(stripExpiringMedia),
               pageParams: data.pageParams?.slice(0, 1),
             },
           },
@@ -68,22 +94,44 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
     let hydrationTimer: ReturnType<typeof setTimeout> | undefined;
     let persistenceTask: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
     let unsubscribe = () => {};
+    let cacheUserId: string | undefined;
 
-    const cacheRead = AsyncStorage.getItem(QUERY_CACHE_STORAGE_KEY);
+    const cacheRead = supabase.auth.getSession().then(async ({ data }) => {
+      const userId = data.session?.user?.id;
+      cacheUserId = userId;
+      return {
+        userId,
+        raw: userId ? await AsyncStorage.getItem(queryCacheStorageKey(userId)) : null,
+      };
+    });
     const boundedCacheRead = Promise.race([
       cacheRead,
-      new Promise<null>((resolve) => {
-        hydrationTimer = setTimeout(() => resolve(null), HYDRATION_TIMEOUT_MS);
+      new Promise<{ userId: undefined; raw: null }>((resolve) => {
+        hydrationTimer = setTimeout(
+          () => resolve({ userId: undefined, raw: null }),
+          HYDRATION_TIMEOUT_MS,
+        );
       }),
     ]);
 
     void boundedCacheRead
-      .then((raw) => {
+      .then(({ userId, raw }) => {
         if (!active || !raw) return;
         const snapshot = JSON.parse(raw) as Snapshot;
-        if (Date.now() - snapshot.savedAt <= MAX_AGE_MS) hydrate(queryClient, snapshot.state);
+        if (Date.now() - snapshot.savedAt <= MAX_AGE_MS) {
+          hydrate(queryClient, snapshot.state);
+          // Persisted data is a warm visual baseline, never authorization or
+          // occurrence truth. Mark it stale before screens mount so each active
+          // surface reconciles in the background without flashing empty UI.
+          void queryClient.invalidateQueries({
+            predicate: (query) => isSafeReferenceQuery(query.queryKey),
+            refetchType: 'none',
+          });
+        }
       })
-      .catch(() => AsyncStorage.removeItem(QUERY_CACHE_STORAGE_KEY))
+      .catch(() => {
+        if (cacheUserId) return AsyncStorage.removeItem(queryCacheStorageKey(cacheUserId));
+      })
       .finally(() => {
         if (hydrationTimer) clearTimeout(hydrationTimer);
         if (!active) return;
@@ -94,9 +142,11 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
             persistenceTask?.cancel();
             persistenceTask = InteractionManager.runAfterInteractions(() => {
               if (!active) return;
+              const userId = useAuthStore.getState().session?.user?.id;
+              if (!userId) return;
               const snapshot = boundedSnapshot();
               void AsyncStorage.setItem(
-                QUERY_CACHE_STORAGE_KEY,
+                queryCacheStorageKey(userId),
                 JSON.stringify(snapshot),
               ).catch(() => {});
             });

@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 const FRIEND_PAGE_SIZE = 50;
 export type FriendListRow = {
@@ -19,13 +20,13 @@ export function useFriendsPaged() {
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useInfiniteQuery({
     queryKey: ['friends', userId, 'paged'],
-    queryFn: async ({ pageParam }): Promise<FriendListRow[]> => {
+    queryFn: async ({ pageParam, signal }): Promise<FriendListRow[]> => {
       if (!userId) return [];
-      const { data, error } = await supabase.rpc('list_my_friends_page', {
+      const { data, error } = await runAbortableQuery(supabase.rpc('list_my_friends_page', {
         p_before_accepted_at: pageParam?.acceptedAt ?? null,
         p_before_id: pageParam?.id ?? null,
         p_limit: FRIEND_PAGE_SIZE,
-      });
+      }), signal);
       if (error) throw error;
       return (data ?? []).map((row) => ({
         id: row.friend_id,

@@ -89,6 +89,8 @@ export default function FriendRequestsScreen() {
         <TouchableOpacity
           onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}
           hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
           <IconChevronLeft size={24} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -128,6 +130,8 @@ export default function FriendRequestsScreen() {
                   }}
                   style={styles.userInfo}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${requester?.display_name ?? requester?.username ?? 'requester'} profile`}
                 >
                   <ProfileAvatar profile={requester} size={44} />
                   <View style={styles.nameContainer}>
@@ -145,6 +149,7 @@ export default function FriendRequestsScreen() {
                     }}
                     size="sm"
                     loading={respond.isPending}
+                    accessibilityLabel={`Accept friend request from ${requester?.display_name ?? requester?.username ?? 'this user'}`}
                   >
                     Accept
                   </Button>
@@ -153,6 +158,7 @@ export default function FriendRequestsScreen() {
                     size="sm"
                     variant="ghost"
                     loading={respond.isPending}
+                    accessibilityLabel={`Decline friend request from ${requester?.display_name ?? requester?.username ?? 'this user'}`}
                   >
                     Decline
                   </Button>

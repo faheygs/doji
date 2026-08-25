@@ -1,29 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   closeRealtimeConnection,
   onRealtimeConnectionChange,
-  subscribeToRealtimeChannel,
   type DojiRealtimeEvent,
 } from '../lib/realtimeClient';
 import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
 import { useAuthStore } from '../stores/useAuthStore';
 import { reconcileAppQueries } from '../lib/reconcileQueries';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { realtimeQueryRoots } from '../lib/realtimeQueryRoots';
-import { refreshActivePostEngagement } from '../lib/postEngagement';
+import { handleDomainRealtimeEvent } from '../lib/domainRealtimeHandler';
+import { startResilientRealtimeSubscription } from '../lib/resilientRealtimeSubscription';
 /** Ably transport plus authoritative Postgres reconciliation on every connection. */
 export function useDomainRealtime(userId: string | undefined) {
   const queryClient = useQueryClient();
   const isAdmin = useAuthStore((state) => state.profile?.is_admin === true);
   const [deduper] = useState(() => new RealtimeEventDeduper());
+  const realtimeUserRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!userId) {
+      realtimeUserRef.current = undefined;
       deduper.clear();
       closeRealtimeConnection();
       return;
     }
+    if (realtimeUserRef.current && realtimeUserRef.current !== userId) {
+      deduper.clear();
+      closeRealtimeConnection();
+    }
+    realtimeUserRef.current = userId;
 
     let disposed = false;
     let hasConnected = false;
@@ -42,177 +48,24 @@ export function useDomainRealtime(userId: string | undefined) {
         500 + Math.floor(Math.random() * 2_500),
       );
     };
-
     const invalidateRoots = (...roots: string[]) => scheduleQueryInvalidation(queryClient, roots);
-
     const handleEvent = (event: DojiRealtimeEvent) => {
       if (!deduper.shouldProcess(event.eventId)) return;
-      if (event.type.startsWith('doji.')) {
-        invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'notificationCenter');
-        return;
-      }
-
-      if (event.type.startsWith('poll.vote.')) {
-        invalidateRoots(...realtimeQueryRoots(event.type));
-        return;
-      }
-
-      if (event.type.startsWith('poll.vote_like.')) {
-        invalidateRoots(...realtimeQueryRoots(event.type));
-        return;
-      }
-
-      if (event.type.startsWith('user_event.')) {
-        invalidateRoots('userEvent', 'feed');
-        return;
-      }
-
-      if (event.type.startsWith('shop.ownership.')) {
-        invalidateRoots('ownedShopItems');
-        void useAuthStore.getState().fetchProfile(userId);
-        return;
-      }
-
-      if (event.type.startsWith('account.profile.')) {
-        void useAuthStore.getState().fetchProfile(userId);
-        invalidateRoots('profile');
-        return;
-      }
-
-      if (event.type.startsWith('social.friendship.')) {
-        invalidateRoots(
-          'friends',
-          'friendRequests',
-          'friendship',
-          'friendCount',
-          'profileFriends',
-          'feed',
-          'notificationCenter',
-        );
-        return;
-      }
-
-      if (event.type.startsWith('social.block.')) {
-        invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'feed');
-        return;
-      }
-
-      if (event.type.startsWith('notification.')) {
-        const roots = ['notificationCenter'];
-        const postId = typeof event.payload.postId === 'string' ? event.payload.postId : undefined;
-        const isPostReaction = event.type.startsWith('notification.reaction');
-        const isPostComment =
-          event.type.startsWith('notification.comment.') ||
-          event.type.startsWith('notification.comment_reply.');
-        const isCommentLike = event.type.startsWith('notification.comment_like');
-        // Owner/friend notifications can arrive before the coalesced post hint.
-        // Reconcile only the mounted post and its active audience, never the feed.
-        if (postId && (isPostReaction || isPostComment)) {
-          void refreshActivePostEngagement(queryClient, postId).catch((error) => {
-            if (__DEV__) console.warn('[realtime] engagement refresh failed', postId, error);
-          });
-        }
-        if (postId && (isPostComment || isCommentLike)) {
-          void queryClient.invalidateQueries(
-            {
-              predicate: (query) =>
-                query.queryKey[0] === 'comments' && query.queryKey[1] === postId,
-              refetchType: 'active',
-            },
-            { cancelRefetch: false },
-          );
-        }
-        if (postId && isPostReaction) {
-          void queryClient.invalidateQueries(
-            {
-              predicate: (query) =>
-                query.queryKey[0] === 'reactions' && query.queryKey[1] === postId,
-              refetchType: 'active',
-            },
-            { cancelRefetch: false },
-          );
-        }
-        if (event.type.startsWith('notification.friend_activity.')) {
-          roots.push('pollResults', 'pollVotersDetail', 'feed');
-        }
-        if (event.type.startsWith('notification.suggestion.')) {
-          roots.push('mySuggestions', 'challengeSuggestionCounts');
-        }
-        if (event.type.startsWith('notification.badge.')) {
-          roots.push('userBadges', 'userBadgeProgress', 'profile');
-        }
-        invalidateRoots(...roots);
-        return;
-      }
-
-      if (event.type === 'profile.updated' || event.type.startsWith('profile.presentation.')) {
-        const changedUserId =
-          typeof event.payload.userId === 'string' ? event.payload.userId : undefined;
-        if (changedUserId === userId) {
-          void useAuthStore.getState().fetchProfile(userId);
-        }
-        invalidateRoots(
-          'profile',
-          'searchUsers',
-          'friends',
-          'friendRequests',
-          'profileFriends',
-          'pollVotersDetail',
-          'leaderboard',
-          'comments',
-          'reactions',
-          'notificationCenter',
-          'feed',
-        );
-        return;
-      }
-
-      if (event.type.startsWith('profile.stats.')) {
-        const changedUserId =
-          typeof event.payload.userId === 'string' ? event.payload.userId : undefined;
-        if (changedUserId === userId) {
-          void useAuthStore.getState().fetchProfile(userId);
-        }
-        invalidateRoots('profile', 'friends', 'leaderboard');
-        return;
-      }
-
-      if (event.type === 'badge.updated') {
-        const changedUserId =
-          typeof event.payload.userId === 'string' ? event.payload.userId : undefined;
-        invalidateRoots('userBadges', 'userBadgeProgress', 'profile');
-        if (changedUserId === userId) {
-          void useAuthStore.getState().fetchProfile(userId);
-        }
-        return;
-      }
-
-      if (event.type === 'leaderboard.updated') {
-        invalidateRoots('leaderboard');
-        return;
-      }
-
-      if (event.type.startsWith('moderation.report.')) {
-        invalidateRoots('admin');
-        return;
-      }
-
-      const feedRoots = realtimeQueryRoots(event.type);
-      if (feedRoots.length > 0) invalidateRoots(...feedRoots);
+      handleDomainRealtimeEvent({ event, userId, queryClient, invalidateRoots });
     };
 
     const channelNames = ['doji:global', `user:${userId}:events`];
     if (isAdmin) channelNames.push('moderation:global');
 
     for (const channelName of channelNames) {
-      void subscribeToRealtimeChannel(channelName, handleEvent)
-        .then((unsubscribe) => {
-          if (disposed) unsubscribe();
-          else unsubscribers.push(unsubscribe);
-        })
-        .catch((error) => {
-          if (__DEV__) console.warn('[realtime] subscribe failed', channelName, error);
-        });
+      unsubscribers.push(startResilientRealtimeSubscription(channelName, handleEvent, {
+        // Initial reads and channel attachment are separate network operations.
+        // Rewind closes that race without a second cold-start query waterfall.
+        // These channels are deliberately low-volume (global Doji state,
+        // viewer-scoped events, and admin moderation), so two minutes is bounded.
+        rewind: '2m',
+        scope: channelName === 'moderation:global' ? 'public' : 'app',
+      }));
     }
 
     const removeConnectionListener = onRealtimeConnectionChange((change) => {

@@ -8,6 +8,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { QueryCachePersistence } from './QueryCachePersistence';
 import { QueryLifecycle } from './QueryLifecycle';
 import { NotificationCenterProvider } from '../contexts/NotificationCenterContext';
+import { KeyboardToolbarProvider } from '../contexts/KeyboardToolbarContext';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -17,10 +18,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <DialogProvider>
             <ErrorBoundary>
               <KeyboardProvider>
-                <NotificationCenterProvider>
-                  <QueryLifecycle />
-                  {children}
-                </NotificationCenterProvider>
+                <KeyboardToolbarProvider>
+                  <NotificationCenterProvider>
+                    <QueryLifecycle />
+                    {children}
+                  </NotificationCenterProvider>
+                </KeyboardToolbarProvider>
               </KeyboardProvider>
             </ErrorBoundary>
           </DialogProvider>

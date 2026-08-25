@@ -40,11 +40,11 @@ export function usePollVote() {
         if (voteErr) throw voteErr;
       });
     },
-    onMutate: async () => {
+    onMutate: () => {
       if (!userId) return;
       const key = ['userEvent', 'today', userId] as const;
-      await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<UserEvent | null>(key);
+      void qc.cancelQueries({ queryKey: key }, { revert: false, silent: true });
       if (prev) {
         qc.setQueryData<UserEvent>(key, {
           ...prev,
@@ -56,7 +56,7 @@ export function usePollVote() {
     },
     onError: (_err, _vars, ctx) => {
       if (!ctx?.prev || !ctx?.key) return;
-      qc.setQueryData(ctx.key as any, ctx.prev);
+      qc.setQueryData(ctx.key, ctx.prev);
     },
     onSuccess: () => {
       if (userId) {

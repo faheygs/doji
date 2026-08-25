@@ -135,9 +135,15 @@ export function ChallengeReveal({
         ? "Let's Do It"
         : 'Open Camera';
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
-      <View style={styles.backdrop}>
+      <View
+        style={styles.backdrop}
+        accessibilityViewIsModal
+        accessibilityLabel={`${TYPE_LABEL[challenge.type] ?? 'Challenge'}: ${challenge.title}`}
+      >
         <Animated.View
           style={[
             styles.card,
@@ -193,11 +199,18 @@ export function ChallengeReveal({
             onPress={onCTA}
             style={[styles.ctaBtn, { backgroundColor: colors.primary }]}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`${ctaLabel}: ${challenge.title}`}
           >
             <Text variant="subhead" color={colors.onPrimary}>{ctaLabel}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onDismiss} style={styles.dismissBtn}>
+          <TouchableOpacity
+            onPress={onDismiss}
+            style={styles.dismissBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss challenge"
+          >
             <Text variant="caption" color={colors.textTertiary}>Maybe later</Text>
           </TouchableOpacity>
         </Animated.View>

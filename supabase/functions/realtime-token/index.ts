@@ -2,6 +2,62 @@
 import { Rest } from 'npm:ably@2.26.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const MAX_REQUEST_BYTES = 16 * 1024;
+const UPSTREAM_TIMEOUT_MS = 8_000;
+
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+}
+
+async function withTimeout<T>(operation: Promise<T>, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), UPSTREAM_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([operation, deadline]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function readBoundedJson(request: Request): Promise<{ postIds?: unknown }> {
+  const contentLength = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    throw new RangeError('Realtime token request is too large');
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return {};
+
+  const decoder = new TextDecoder();
+  let body = '';
+  let byteLength = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        throw new RangeError('Realtime token request is too large');
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  body += decoder.decode();
+  if (!body.trim()) return {};
+
+  const parsed: unknown = JSON.parse(body);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  return parsed as { postIds?: unknown };
+}
+
 Deno.serve(async (request) => {
   const authorization = request.headers.get('authorization');
   if (!authorization) return new Response('Unauthorized', { status: 401 });
@@ -9,24 +65,28 @@ Deno.serve(async (request) => {
   const database = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authorization } } },
+    {
+      global: {
+        headers: { Authorization: authorization },
+        fetch: fetchWithTimeout,
+      },
+    },
   );
-  const { data: { user }, error } = await database.auth.getUser();
-  if (error || !user) return new Response('Unauthorized', { status: 401 });
-
-  const { data: isAdmin, error: capabilityError } = await database
-    .rpc('is_current_user_admin');
-  if (capabilityError) {
-    console.error('[realtime-token] capability lookup failed', capabilityError.message);
-    return new Response('Unable to authorize realtime access', { status: 500 });
-  }
-
   const ablyKey = Deno.env.get('ABLY_API_KEY');
   if (!ablyKey) return new Response('Realtime service is not configured', { status: 500 });
 
-  const requestBody = request.method === 'POST'
-    ? await request.json().catch(() => ({})) as { postIds?: unknown }
-    : {};
+  let requestBody: { postIds?: unknown } = {};
+  if (request.method === 'POST') {
+    try {
+      requestBody = await readBoundedJson(request);
+    } catch (error) {
+      const status = error instanceof RangeError ? 413 : 400;
+      return new Response(
+        status === 413 ? 'Realtime token request is too large' : 'Invalid request body',
+        { status },
+      );
+    }
+  }
   const requestedPostIds = Array.isArray(requestBody.postIds)
     ? [...new Set(requestBody.postIds.filter(
       (value): value is string =>
@@ -38,42 +98,54 @@ Deno.serve(async (request) => {
     return new Response('Too many realtime post subscriptions', { status: 400 });
   }
 
-  let authorizedPostIds: string[] = [];
-  if (requestedPostIds.length > 0) {
-    // The request uses the caller's JWT, so normal post RLS is the capability
-    // authority. A guessed, blocked, or no-longer-visible post simply does not
-    // appear and never reaches the Ably token.
-    const { data: visiblePosts, error: postAccessError } = await database
-      .from('posts')
-      .select('id')
-      .in('id', requestedPostIds);
-    if (postAccessError) {
-      console.error('[realtime-token] post capability lookup failed', postAccessError.message);
-      return new Response('Unable to authorize realtime access', { status: 500 });
-    }
-    authorizedPostIds = (visiblePosts ?? []).map((post) => post.id);
+  const { data: capabilityData, error: capabilityError } = await database.rpc(
+    'get_realtime_token_capabilities',
+    { p_post_ids: requestedPostIds },
+  );
+  if (capabilityError || !capabilityData) {
+    console.error(
+      '[realtime-token] capability lookup failed',
+      capabilityError?.message ?? 'empty capability response',
+    );
+    return new Response('Unable to authorize realtime access', { status: 500 });
   }
+  const capabilityInput = capabilityData as {
+    userId?: unknown;
+    isAdmin?: unknown;
+    authorizedPostIds?: unknown;
+  };
+  const userId = typeof capabilityInput.userId === 'string' ? capabilityInput.userId : null;
+  if (!userId) return new Response('Unauthorized', { status: 401 });
+  const isAdmin = capabilityInput.isAdmin === true;
+  const authorizedPostIds = Array.isArray(capabilityInput.authorizedPostIds)
+    ? capabilityInput.authorizedPostIds.filter(
+      (value): value is string => typeof value === 'string',
+    )
+    : [];
 
   const ably = new Rest({ key: ablyKey });
   const capability: Record<string, string[]> = {
     'doji:global': ['subscribe'],
     'feed:public': ['subscribe'],
     'leaderboard:global': ['subscribe'],
-    [`user:${user.id}:events`]: ['subscribe'],
+    [`user:${userId}:events`]: ['subscribe'],
   };
   for (const postId of authorizedPostIds) {
     capability[`post:${postId}`] = ['subscribe'];
   }
-  if (isAdmin === true) {
+  if (isAdmin) {
     capability['moderation:global'] = ['subscribe'];
   }
 
-  const tokenRequest = await ably.auth.createTokenRequest({
-    clientId: user.id,
-    // Short renewal bounds stale access after a friendship/block/privacy
-    // change while still avoiding a token request per socket message.
-    ttl: 15 * 60 * 1000,
-    capability: JSON.stringify(capability),
-  });
+  const tokenRequest = await withTimeout(
+    ably.auth.createTokenRequest({
+      clientId: userId,
+      // Short renewal bounds stale access after a friendship/block/privacy
+      // change while still avoiding a token request per socket message.
+      ttl: 15 * 60 * 1000,
+      capability: JSON.stringify(capability),
+    }),
+    'Realtime provider authorization timed out',
+  );
   return Response.json(tokenRequest);
 });

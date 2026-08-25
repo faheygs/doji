@@ -131,6 +131,8 @@ export default function TaskScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={{ padding: Spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close challenge"
           >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -170,25 +172,28 @@ export default function TaskScreen() {
               <InlineFeedback title={submitError.title} message={submitError.message} />
             ) : null}
             <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              activeOpacity={0.85}
-              style={[
-                styles.submitButton,
-                {
-                  backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
-                },
-              ]}
-            >
-              {createPost.isPending ? (
-                <ActivityIndicator color={colors.onPrimary} />
-              ) : (
-                <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
-                  Submit Answer
-                </Text>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Submit answer"
+                accessibilityState={{ disabled: !canSubmit, busy: createPost.isPending }}
+                style={[
+                  styles.submitButton,
+                  {
+                    backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+                  },
+                ]}
+              >
+                {createPost.isPending ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
+                    Submit Answer
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </AppKeyboardAwareScrollView>

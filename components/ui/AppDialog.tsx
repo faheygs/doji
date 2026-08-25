@@ -36,11 +36,13 @@ export function AppDialog({
   const { colors } = useTheme();
   const stacked = layout === 'stacked' || actions.length > 2;
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={dismissible ? onDismiss : undefined}
     >

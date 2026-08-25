@@ -1,11 +1,11 @@
 import { useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { subscribeToRealtimeChannel } from '../lib/realtimeClient';
 import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
 import { refreshPostEngagement } from '../lib/postEngagement';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import type { FeedAudience } from '../lib/feedAudience';
+import { startResilientRealtimeSubscription } from '../lib/resilientRealtimeSubscription';
 
 /** Keep only visible, unlocked feed cards subscribed to their post channel. */
 export function usePostRealtimeInvalidation(
@@ -18,8 +18,6 @@ export function usePostRealtimeInvalidation(
   useFocusEffect(
     useCallback(() => {
       if (!enabled) return undefined;
-      let disposed = false;
-      let unsubscribe: (() => void) | undefined;
       let timer: ReturnType<typeof setTimeout> | null = null;
       let inFlight = false;
       let refreshEngagement = false;
@@ -61,7 +59,7 @@ export function usePostRealtimeInvalidation(
           if (refreshEngagement || refreshComments || refreshReactions) arm();
         });
       };
-      void subscribeToRealtimeChannel(
+      const unsubscribe = startResilientRealtimeSubscription(
         `post:${postId}`,
         (event) => {
           if (!deduper.shouldProcess(event.eventId)) return;
@@ -90,16 +88,11 @@ export function usePostRealtimeInvalidation(
         },
         // Close the read-to-subscribe race without a database read per mounted
         // card. Replayed IDs still pass through the same deduper and 80 ms batch.
-        { rewind: '10s' },
-      )
-        .then((remove) => (disposed ? remove() : (unsubscribe = remove)))
-        .catch((error) => {
-          if (__DEV__) console.warn('[realtime] post subscription failed', postId, error);
-        });
+        { rewind: '10s', scope: 'post' },
+      );
       return () => {
-        disposed = true;
         if (timer) clearTimeout(timer);
-        unsubscribe?.();
+        unsubscribe();
       };
     }, [client, deduper, enabled, feedAudience, postId]),
   );

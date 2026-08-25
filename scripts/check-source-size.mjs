@@ -40,11 +40,16 @@ const legacyLimits = new Map(Object.entries({
   'components/feed/ReactionBar.tsx': 266,
   'app/(app)/format.tsx': 257,
   'app/(app)/friends/index.tsx': 256,
+  'infra/doji-orchestrator/src/index.ts': 620,
+  'supabase/functions/relay-domain-events/index.ts': 560,
+  'supabase/functions/fanout-doji-push/index.ts': 430,
 }));
 
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
   encoding: 'utf8',
-}).split(/\r?\n/).filter((file) => /^(app|components|hooks|lib|stores|contexts|utils)\/.+\.tsx?$/.test(file));
+}).split(/\r?\n/).filter((file) =>
+  /^(app|components|hooks|lib|stores|contexts|utils|constants|contracts|infra\/doji-orchestrator\/src|supabase\/functions)\/.+\.tsx?$/.test(file),
+);
 
 const failures = [];
 for (const file of files) {

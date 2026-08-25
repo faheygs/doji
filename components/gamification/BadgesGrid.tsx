@@ -253,7 +253,7 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
         <Modal
           visible
           transparent
-          animationType="fade"
+          animationType="none"
           onRequestClose={handleClose}
         >
           <View style={sheetStyles.backdrop}>

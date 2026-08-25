@@ -22,6 +22,7 @@ type ToggleReactionResult = {
   active: boolean;
   count: number;
   reaction_breakdown?: Post['reaction_breakdown'];
+  current_emoji?: ReactionEmoji | null;
 };
 
 export function patchReactionToggle(post: Post, emoji: ReactionEmoji, active: boolean): Post {
@@ -57,9 +58,10 @@ export function useToggleReaction() {
     mutationFn: async (variables: ToggleReactionVars) => {
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('reaction');
-      const { data, error } = await executeCommand('toggle_post_reaction', {
+      const { data, error } = await executeCommand('set_post_reaction', {
         p_post_id: variables.postId,
         p_emoji: variables.emoji,
+        p_active: !variables.active,
         p_idempotency_key: variables.commandId,
       });
       if (error) throw error;
@@ -103,20 +105,39 @@ export function useToggleReaction() {
     },
     onSuccess: (result, variables) => {
       if (!result) return;
-      const patch = (post: Post): Post => ({
+      const patchGlobal = (post: Post): Post => ({
         ...post,
-        my_reactions: result.active ? [variables.emoji] : [],
+        reaction_count: result.count,
+        reaction_breakdown: result.reaction_breakdown ?? post.reaction_breakdown,
+        my_reactions: result.current_emoji ? [result.current_emoji] : [],
       });
-      queryClient.setQueriesData<InfiniteData<Post[]>>(
-        { predicate: (query) => query.queryKey[0] === 'feed' },
-        (old) => mapInfinitePosts(old, variables.postId, patch),
-      );
+      const patchViewerState = (post: Post): Post => ({
+        ...post,
+        my_reactions: result.current_emoji ? [result.current_emoji] : [],
+      });
+      // The command receipt carries global totals. Applying those totals to a
+      // Friends feed would briefly leak the Everyone count and then snap back
+      // when the scoped snapshot arrives. Keep the optimistic friend-scoped
+      // aggregate and only reconcile the viewer's selected reaction there.
+      for (const [key, old] of queryClient.getQueriesData<InfiniteData<Post[]>>({
+        predicate: (query) => query.queryKey[0] === 'feed',
+      })) {
+        const audience = key[2];
+        queryClient.setQueryData(
+          key,
+          mapInfinitePosts(
+            old,
+            variables.postId,
+            audience === 'everyone' ? patchGlobal : patchViewerState,
+          ),
+        );
+      }
       queryClient.setQueriesData<Post | null>(
         {
           predicate: (query) =>
             query.queryKey[0] === 'post' && query.queryKey[1] === variables.postId,
         },
-        (old) => (old ? patch(old) : old),
+        (old) => (old ? patchGlobal(old) : old),
       );
       void refreshPostEngagement(queryClient, variables.postId, variables.feedAudience).catch(
         (error) => {

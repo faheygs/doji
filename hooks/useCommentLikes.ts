@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Profile } from '../types/database';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 const PAGE_SIZE = 30;
 
@@ -18,13 +19,13 @@ export type CommentLikeRow = {
 export function useCommentLikes(commentId: string, enabled = true) {
   return useInfiniteQuery({
     queryKey: ['commentLikes', commentId],
-    queryFn: async ({ pageParam }): Promise<CommentLikeRow[]> => {
-      const { data, error } = await supabase.rpc('get_comment_like_voters_page', {
+    queryFn: async ({ pageParam, signal }): Promise<CommentLikeRow[]> => {
+      const { data, error } = await runAbortableQuery(supabase.rpc('get_comment_like_voters_page', {
         p_comment_id: commentId,
         p_limit: PAGE_SIZE,
         p_before_created_at: pageParam?.createdAt ?? null,
         p_before_id: pageParam?.id ?? null,
-      });
+      }), signal);
       if (error) throw error;
       return (data ?? []) as unknown as CommentLikeRow[];
     },

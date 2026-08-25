@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 type BlockInput = {
   blockedUserId: string;
@@ -38,11 +39,14 @@ export function useBlockUser() {
       });
       if (error) throw error;
     },
-    onMutate: async ({ blockedUserId }) => {
-      await queryClient.cancelQueries({ predicate: (query) => query.queryKey[0] === 'feed' });
+    onMutate: ({ blockedUserId }) => {
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
       });
+      void queryClient.cancelQueries(
+        { predicate: (query) => query.queryKey[0] === 'feed' },
+        { revert: false, silent: true },
+      );
       queryClient.setQueriesData<InfiniteData<Post[]>>(
         { predicate: (query) => query.queryKey[0] === 'feed' },
         (old) => old
@@ -99,13 +103,13 @@ export function useBlockedUsersPaged() {
   const userId = useAuthStore((s) => s.session?.user?.id);
   return useInfiniteQuery({
     queryKey: ['blockedUsers', userId, 'paged'],
-    queryFn: async ({ pageParam }): Promise<BlockedUser[]> => {
+    queryFn: async ({ pageParam, signal }): Promise<BlockedUser[]> => {
       if (!userId) return [];
-      const { data, error } = await supabase.rpc('list_blocked_users_page', {
+      const { data, error } = await runAbortableQuery(supabase.rpc('list_blocked_users_page', {
         p_before_created_at: pageParam?.createdAt ?? null,
         p_before_id: pageParam?.id ?? null,
         p_limit: BLOCKED_USER_PAGE_SIZE,
-      });
+      }), signal);
       if (error) throw error;
       return data ?? [];
     },
@@ -125,9 +129,9 @@ export function useBlockedUserCount() {
   const userId = useAuthStore((s) => s.session?.user?.id);
   return useQuery({
     queryKey: ['blockedUsers', userId, 'count'],
-    queryFn: async (): Promise<number> => {
+    queryFn: async ({ signal }): Promise<number> => {
       if (!userId) return 0;
-      const { data, error } = await supabase.rpc('blocked_user_count');
+      const { data, error } = await runAbortableQuery(supabase.rpc('blocked_user_count'), signal);
       if (error) throw error;
       return data ?? 0;
     },
@@ -140,13 +144,13 @@ export function useIsBlockedByMe(targetUserId?: string) {
   const userId = useAuthStore((s) => s.session?.user?.id);
   return useQuery<boolean>({
     queryKey: ['isBlocked', userId, targetUserId],
-    queryFn: async (): Promise<boolean> => {
+    queryFn: async ({ signal }): Promise<boolean> => {
       if (!userId || !targetUserId) return false;
-      const { count, error } = await supabase
+      const { count, error } = await runAbortableQuery(supabase
         .from('blocks')
         .select('id', { count: 'exact', head: true })
         .eq('blocker_id', userId)
-        .eq('blocked_id', targetUserId);
+        .eq('blocked_id', targetUserId), signal);
       if (error) throw error;
       return (count ?? 0) > 0;
     },

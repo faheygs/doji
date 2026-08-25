@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius, Shadows, webScrollParentStyle } from '@/constants/theme';
+import { webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -17,11 +17,15 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { hashSuggestionBody } from '@/lib/hashString';
 import { newCommandId } from '@/lib/idempotency';
 import { filterContent } from '@/lib/contentFilter';
-import { minLength, validationMessage } from '@/lib/formValidation';
+import { minLength, maxLength, validationMessage } from '@/lib/formValidation';
 import type { AnswerRule } from '@/types/database';
 import { InlineFeedback, type InlineFeedbackData } from '@/components/ui/InlineFeedback';
+import { useSuggestChallengeStyles } from '@/components/challenge/useSuggestChallengeStyles';
 
 const BODY_MIN = 8;
+const BODY_MAX = 500;
+const OPTION_MAX = 100;
+const POLL_OPTION_MAX = 8;
 
 const KINDS = [
   {
@@ -69,6 +73,7 @@ function emptyOptionRows(n: number): string[] {
 
 export default function SuggestChallengeScreen() {
   const { colors } = useTheme();
+  const styles = useSuggestChallengeStyles();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const [kind, setKind] = useState<KindKey>('poll');
   const [body, setBody] = useState('');
@@ -100,22 +105,34 @@ export default function SuggestChallengeScreen() {
       return { type: 'starts_with_letter', letter };
     }
     const count = parseInt(formatWordCount, 10);
-    if (!Number.isFinite(count) || count < 1) return null;
+    if (!Number.isFinite(count) || count < 1 || count > 20) return null;
     return { type: 'exact_word_count', count };
   }, [formatRuleKind, formatLetter, formatWordCount]);
-  const bodyValidation = useMemo(() => minLength(body, BODY_MIN), [body]);
+  const bodyValidation = useMemo(() => {
+    const minimum = minLength(body, BODY_MIN);
+    return minimum.ok ? maxLength(body.trim(), BODY_MAX) : minimum;
+  }, [body]);
   const filledOptions = useMemo(
     () => optionRows.map((o) => o.trim()).filter(Boolean),
     [optionRows],
   );
   const optionsValidation = useMemo(() => {
     if (!needsOptions) return { ok: true as const };
+    if (kind === 'wyr' && filledOptions.length !== 2) {
+      return { ok: false as const, message: 'Would you rather needs exactly two choices.' };
+    }
+    if (filledOptions.length > POLL_OPTION_MAX) {
+      return { ok: false as const, message: `Use no more than ${POLL_OPTION_MAX} choices.` };
+    }
+    if (filledOptions.some((option) => option.length > OPTION_MAX)) {
+      return { ok: false as const, message: `Keep each choice under ${OPTION_MAX} characters.` };
+    }
     if (filledOptions.length >= 2) return { ok: true as const };
     return {
       ok: false as const,
       message: `Add at least two choices (${filledOptions.length}/2).`,
     };
-  }, [needsOptions, filledOptions.length]);
+  }, [needsOptions, kind, filledOptions]);
   const formatValidation = useMemo(() => {
     if (!needsFormatRule) return { ok: true as const };
     return buildFormatRule()
@@ -128,147 +145,7 @@ export default function SuggestChallengeScreen() {
   const bodyHint =
     body.trim().length === 0
       ? `At least ${BODY_MIN} characters`
-      : `${body.trim().length}/${BODY_MIN} min`;
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
-        scrollContent: {
-          paddingHorizontal: Spacing.lg,
-          paddingBottom: Spacing.xxl,
-          gap: Spacing.lg,
-        },
-        header: {
-          paddingTop: Spacing.md,
-          alignItems: 'center',
-          gap: Spacing.xs,
-        },
-        headerTitle: { textAlign: 'center', letterSpacing: -0.5 },
-        headerSubtitle: { textAlign: 'center', lineHeight: 18, maxWidth: 300 },
-        formCard: {
-          gap: Spacing.lg,
-          ...Shadows.card,
-        },
-        typeHero: {
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          alignItems: 'center',
-          justifyContent: 'center',
-          alignSelf: 'center',
-        },
-        typeChipScroll: {
-          flexGrow: 1,
-          justifyContent: 'center',
-          gap: Spacing.sm,
-          paddingVertical: 2,
-        },
-        typeChip: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          paddingVertical: 8,
-          paddingHorizontal: Spacing.md,
-          borderRadius: Radius.full,
-          borderWidth: 1.5,
-        },
-        typeHint: {
-          textAlign: 'center',
-          lineHeight: 18,
-          paddingHorizontal: Spacing.sm,
-        },
-        sectionBlock: { gap: Spacing.sm },
-        sectionLabel: { textAlign: 'center' },
-        sectionHint: { textAlign: 'center', lineHeight: 18 },
-        divider: {
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.border,
-          marginVertical: -Spacing.xs,
-        },
-        bodyInput: {
-          minHeight: 120,
-          textAlignVertical: 'top',
-          backgroundColor: colors.background,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: Radius.md,
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.md,
-        },
-        optionRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-        },
-        optionInput: {
-          flex: 1,
-          borderRadius: Radius.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm + 2,
-          color: colors.text,
-          backgroundColor: colors.background,
-        },
-        ruleRow: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: Spacing.sm,
-        },
-        ruleChip: {
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
-          borderRadius: Radius.full,
-          borderWidth: 1.5,
-        },
-        formatControl: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Spacing.sm,
-          flexWrap: 'wrap',
-        },
-        letterInput: {
-          width: 52,
-          height: 52,
-          borderRadius: Radius.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          color: colors.text,
-          backgroundColor: colors.background,
-          textAlign: 'center',
-          fontSize: 22,
-          fontWeight: '700',
-        },
-        stepperBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: Radius.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.background,
-        },
-        addOptionBtn: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Spacing.xs,
-          paddingVertical: Spacing.xs,
-        },
-        iconBtn: {
-          padding: Spacing.sm,
-        },
-        tipCard: {
-          ...Shadows.card,
-        },
-        tipText: { textAlign: 'center', lineHeight: 20 },
-      }),
-    [colors],
-  );
+      : `${body.trim().length}/${BODY_MAX}`;
 
   const addOption = () => {
     Haptics.selectionAsync();
@@ -447,6 +324,7 @@ export default function SuggestChallengeScreen() {
               }
               multiline
               editable={!saving}
+              maxLength={BODY_MAX}
               style={styles.bodyInput}
               error={body.trim().length > 0 ? validationMessage(bodyValidation) : undefined}
               hint={bodyHint}
@@ -475,6 +353,7 @@ export default function SuggestChallengeScreen() {
                       placeholder={`Option ${i + 1}`}
                       placeholderTextColor={colors.textTertiary}
                       editable={!saving}
+                      maxLength={OPTION_MAX}
                     />
                     {optionRows.length > 2 ? (
                       <TouchableOpacity
@@ -489,16 +368,20 @@ export default function SuggestChallengeScreen() {
                     )}
                   </View>
                 ))}
-                <TouchableOpacity
-                  onPress={addOption}
-                  style={styles.addOptionBtn}
-                  activeOpacity={0.85}
-                >
-                  <IconPlus size={20} color={colors.primary} />
-                  <Text variant="label" color={colors.primary}>
-                    Add option
-                  </Text>
-                </TouchableOpacity>
+                {kind === 'poll' && optionRows.length < POLL_OPTION_MAX ? (
+                  <TouchableOpacity
+                    onPress={addOption}
+                    style={styles.addOptionBtn}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add poll option"
+                  >
+                    <IconPlus size={20} color={colors.primary} />
+                    <Text variant="label" color={colors.primary}>
+                      Add option
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </>
           ) : null}

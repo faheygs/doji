@@ -1,5 +1,7 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
+import { readOptionalJsonBody } from '../_shared/json-body.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -14,7 +16,7 @@ async function registerDurableAlarm(dailyEventId: string, firesAt: string) {
   if (!orchestratorUrl || !orchestratorSecret) {
     throw new Error('Durable Doji orchestrator is not configured');
   }
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${orchestratorUrl.replace(/\/$/, '')}/events/${dailyEventId}/alarm`,
     {
       method: 'PUT',
@@ -148,7 +150,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json().catch(() => ({})) as { forceNextDay?: boolean };
+    const requestBody = await readOptionalJsonBody<{ forceNextDay?: boolean }>(
+      req,
+      {},
+    );
     const forceNextDay = requestBody.forceNextDay === true;
 
     const proposedFiresAt = randomFiresAt(new Date(), forceNextDay);

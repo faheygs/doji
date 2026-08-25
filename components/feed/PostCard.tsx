@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter, usePathname } from 'expo-router';
-import { Spacing, Radius, Shadows } from '../../constants/theme';
+import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { Text } from '../ui/Text';
@@ -23,10 +23,12 @@ import { getEquippedBorder } from '../../lib/cosmetics';
 import type { FeedAudience } from '../../lib/feedAudience';
 import { AppVideo } from '../ui/AppVideo';
 import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalidation';
+import { usePostCardStyles } from './usePostCardStyles';
 
 type Props = {
   post: Post;
   blurred: boolean;
+  realtimeActive?: boolean;
   feedAudience?: FeedAudience;
   initialCommentsOpen?: boolean;
 };
@@ -71,10 +73,17 @@ export function postsVisuallyEqual(a: Post, b: Post): boolean {
   return true;
 }
 
-function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialCommentsOpen = false }: Props) {
+function PostCardImpl({
+  post,
+  blurred,
+  realtimeActive = true,
+  feedAudience = 'everyone',
+  initialCommentsOpen = false,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
+  const styles = usePostCardStyles();
   const meId = useAuthStore((s) => s.session?.user?.id);
   const isOwnPost = meId != null && post.user_id === meId;
   const equippedBorder = getEquippedBorder(post.profile);
@@ -82,7 +91,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
   const hasVideo = Boolean(post.video_url && !blurred);
-  usePostRealtimeInvalidation(post.id, !blurred, feedAudience);
+  usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
 
   useEffect(() => {
     if (initialCommentsOpen) setCommentsOpen(true);
@@ -90,118 +99,6 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
 
   const openComments = useCallback(() => setCommentsOpen(true), []);
   const closeComments = useCallback(() => setCommentsOpen(false), []);
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        card: {
-          backgroundColor: colors.surfaceElevated,
-          borderRadius: Radius.lg,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.hairline,
-          marginBottom: Spacing.lg,
-          marginHorizontal: Spacing.md,
-          overflow: 'hidden',
-          ...Shadows.card,
-        },
-        youPill: {
-          paddingHorizontal: Spacing.sm,
-          paddingVertical: 3,
-          borderRadius: Radius.full,
-          backgroundColor: `${colors.primary}22`,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: `${colors.primary}55`,
-        },
-        header: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm + 2,
-        },
-        userInfo: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-          flex: 1,
-        },
-        nameContainer: {
-          flex: 1,
-          justifyContent: 'center',
-        },
-        challengeGlyphCircle: {
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.hairline,
-        },
-        imageTap: {
-          position: 'relative',
-        },
-        media: {
-          width: '100%' as const,
-          alignSelf: 'stretch',
-          aspectRatio: 1,
-          backgroundColor: colors.surfaceElevated,
-        },
-        videoMedia: {
-          width: '100%' as const,
-          alignSelf: 'stretch',
-          aspectRatio: 16 / 9,
-          backgroundColor: colors.mediaLetterbox,
-        },
-        frontThumbnailContainer: {
-          position: 'absolute',
-          bottom: Spacing.sm,
-          right: Spacing.sm,
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.background,
-        },
-        frontThumbnail: {
-          width: 72,
-          height: 72,
-        },
-        lockMessage: {
-          textAlign: 'center',
-          lineHeight: 20,
-        },
-        lateBadge: {
-          position: 'absolute',
-          top: Spacing.sm,
-          left: Spacing.sm,
-          backgroundColor: `${colors.warning}26`,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: `${colors.warning}73`,
-          paddingHorizontal: Spacing.sm,
-          paddingVertical: 4,
-          borderRadius: 6,
-        },
-        captionPlain: {
-          marginHorizontal: Spacing.md,
-          marginTop: Spacing.sm,
-          marginBottom: Spacing.xs,
-        },
-        lockedBody: {
-          width: '100%' as const,
-          alignSelf: 'stretch',
-          aspectRatio: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.background,
-          gap: Spacing.xs,
-        },
-        pollBodyWrap: {
-          position: 'relative',
-        },
-      }),
-    [colors],
-  );
 
   const handleProfilePress = useCallback(() => {
     Haptics.selectionAsync();
@@ -466,6 +363,7 @@ function PostCardImpl({ post, blurred, feedAudience = 'everyone', initialComment
 
 export const PostCard = React.memo(PostCardImpl, (prev, next) => {
   if (prev.blurred !== next.blurred) return false;
+  if (prev.realtimeActive !== next.realtimeActive) return false;
   if (prev.feedAudience !== next.feedAudience) return false;
   if (prev.initialCommentsOpen !== next.initialCommentsOpen) return false;
   return postsVisuallyEqual(prev.post, next.post);

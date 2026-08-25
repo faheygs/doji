@@ -62,6 +62,19 @@ function CommentActionSheet({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const pendingActionRef = useRef<null | (() => void)>(null);
+  const runAfterClose = useCallback((action: () => void) => {
+    pendingActionRef.current = action;
+    onClose();
+    // Let React synchronously remove this native modal window before another
+    // dialog/sheet is opened. Swapping two native modals in the same render can
+    // leave an invisible touch-intercepting window on iOS.
+    requestAnimationFrame(() => {
+      const pending = pendingActionRef.current;
+      pendingActionRef.current = null;
+      pending?.();
+    });
+  }, [onClose]);
   const sheetStyles = useMemo(
     () =>
       StyleSheet.create({
@@ -91,17 +104,15 @@ function CommentActionSheet({
       }),
     [colors, insets.bottom],
   );
+  if (!visible) return null;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
           {onEdit ? (
             <TouchableOpacity
               style={sheetStyles.row}
-              onPress={() => {
-                onClose();
-                onEdit();
-              }}
+              onPress={() => runAfterClose(onEdit)}
               accessibilityRole="button"
               accessibilityLabel="Edit comment"
             >
@@ -113,10 +124,7 @@ function CommentActionSheet({
           {onDelete ? (
             <TouchableOpacity
               style={sheetStyles.row}
-              onPress={() => {
-                onClose();
-                onDelete();
-              }}
+              onPress={() => runAfterClose(onDelete)}
               accessibilityRole="button"
               accessibilityLabel="Delete comment"
             >
@@ -128,10 +136,7 @@ function CommentActionSheet({
           {onReport ? (
             <TouchableOpacity
               style={sheetStyles.row}
-              onPress={() => {
-                onClose();
-                onReport();
-              }}
+              onPress={() => runAfterClose(onReport)}
               accessibilityRole="button"
               accessibilityLabel="Report comment"
             >

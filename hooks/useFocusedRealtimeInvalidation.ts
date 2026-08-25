@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { subscribeToRealtimeChannel } from '../lib/realtimeClient';
 import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { startResilientRealtimeSubscription } from '../lib/resilientRealtimeSubscription';
 
 type QueryRoots = readonly string[] | ((eventType: string) => readonly string[]);
 
@@ -24,25 +24,21 @@ export function useFocusedRealtimeInvalidation(
   useFocusEffect(
     useCallback(() => {
       if (!enabled) return undefined;
-      let disposed = false;
-      let unsubscribe: (() => void) | undefined;
-      void subscribeToRealtimeChannel(channelName, (event) => {
-        if (!deduper.shouldProcess(event.eventId)) return;
-        const configuredRoots = queryRootsRef.current;
-        const roots =
-          typeof configuredRoots === 'function' ? configuredRoots(event.type) : configuredRoots;
-        if (roots.length > 0) scheduleQueryInvalidation(queryClient, roots);
-      })
-        .then((remove) => {
-          if (disposed) remove();
-          else unsubscribe = remove;
-        })
-        .catch((error) => {
-          if (__DEV__) console.warn('[realtime] focused subscribe failed', channelName, error);
-        });
+      const unsubscribe = startResilientRealtimeSubscription(
+        channelName,
+        (event) => {
+          if (!deduper.shouldProcess(event.eventId)) return;
+          const configuredRoots = queryRootsRef.current;
+          const roots =
+            typeof configuredRoots === 'function' ? configuredRoots(event.type) : configuredRoots;
+          if (roots.length > 0) scheduleQueryInvalidation(queryClient, roots);
+        },
+        // Public feeds can be high-volume. Ten seconds is enough to close the
+        // screen read-to-subscribe race without replaying an unbounded burst.
+        { rewind: '10s', scope: 'public' },
+      );
       return () => {
-        disposed = true;
-        unsubscribe?.();
+        unsubscribe();
       };
     }, [channelName, deduper, enabled, queryClient]),
   );

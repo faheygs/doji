@@ -21,11 +21,15 @@ export function isAuthRoutingPending(
   isProfileLoading: boolean,
   session: Session | null,
   profile: Profile | null,
+  profileLoadState: 'idle' | 'loading' | 'ready' | 'missing' | 'error' = 'idle',
 ): boolean {
-  // Wait for the first owner-profile read after sign-in so an existing account
-  // cannot be mistaken for a new account. Once a profile exists, later refreshes
-  // keep the protected app group mounted.
-  return isLoading || (!!session && !profile && isProfileLoading);
+  // A persisted profile is presentation cache, not authorization truth. Wait
+  // for the first owner-profile read of this session even when cached data is
+  // available, so a newly banned account cannot enter the protected app.
+  return isLoading || (
+    !!session &&
+    (isProfileLoading || profileLoadState === 'idle' || profileLoadState === 'loading')
+  );
 }
 
 export type AuthGate = {
@@ -38,6 +42,7 @@ export type AuthGate = {
   canUseApp: boolean;
   /** Signed in but still on welcome/login/username/onboarding screens. */
   canUseAuthGroup: boolean;
+  profileLoadFailed: boolean;
 };
 
 export function getAuthGate(
@@ -45,8 +50,16 @@ export function getAuthGate(
   isProfileLoading: boolean,
   session: Session | null,
   profile: Profile | null,
+  profileLoadState: 'idle' | 'loading' | 'ready' | 'missing' | 'error' = 'idle',
 ): AuthGate {
-  const ready = !isAuthRoutingPending(isLoading, isProfileLoading, session, profile);
+  const profileLoadFailed = !!session && profileLoadState === 'error';
+  const ready = !profileLoadFailed && !isAuthRoutingPending(
+    isLoading,
+    isProfileLoading,
+    session,
+    profile,
+    profileLoadState,
+  );
   const signedIn = ready && !!session;
   const hasProfile = signedIn && !!profile;
   const isBanned = hasProfile && profile.is_banned === true;
@@ -64,5 +77,6 @@ export function getAuthGate(
     mustFinishOnboarding,
     canUseApp,
     canUseAuthGroup,
+    profileLoadFailed,
   };
 }

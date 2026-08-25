@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -21,12 +21,25 @@ const KEYS = {
   dismissed: '@doit/dismissed-notif-keys',
 };
 type Dismissed = Map<string, string>;
+type NotificationBootstrap = {
+  state: NotificationCenterState | null;
+  dismissals: NotificationDismissal[];
+  items: NotificationCenterItem[];
+};
 const storageKey = (key: string, uid?: string) => (uid ? `${key}:${uid}` : key);
 
 function latestIso(a: string | null, b: string | null) {
   if (!a) return b;
   if (!b) return a;
   return parseDate(a).getTime() >= parseDate(b).getTime() ? a : b;
+}
+
+function commandTimestamp(value: unknown, key: string, fallback: string): string {
+  if (!value || typeof value !== 'object') return fallback;
+  const timestamp = (value as Record<string, unknown>)[key];
+  return typeof timestamp === 'string' && Number.isFinite(parseDate(timestamp).getTime())
+    ? timestamp
+    : fallback;
 }
 
 function parseDismissed(raw: string | null): Dismissed {
@@ -65,10 +78,14 @@ function mergeDismissed(local: Dismissed, remote: NotificationDismissal[]) {
 
 function lowerSinceIso(clearedAt: string | null) {
   const clearedMs = clearedAt ? parseDate(clearedAt).getTime() : 0;
-  return new Date(Math.max(clearedMs, Date.now() - HISTORY_DAYS * 86_400_000)).toISOString();
+  const historyFloor = Math.floor(
+    (Date.now() - HISTORY_DAYS * 86_400_000) / 60_000,
+  ) * 60_000;
+  return new Date(Math.max(clearedMs, historyFloor)).toISOString();
 }
 
 export function useNotificationCenter(_options: { deferInitialLoad?: boolean } = {}) {
+  const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user?.id);
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const [lastOpenedAt, setLastOpenedAt] = useState<string | null>(null);
@@ -90,35 +107,39 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
       return;
     }
     let cancelled = false;
+    const request = createRequestSignal(undefined, 8_000);
     setPrefsHydrated(false);
-    const horizon = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString();
-    void Promise.all([
-      AsyncStorage.multiGet([
+    void (async () => {
+      const entries = await AsyncStorage.multiGet([
         storageKey(KEYS.cleared, userId),
         storageKey(KEYS.opened, userId),
         storageKey(KEYS.dismissed, userId),
-      ]),
-      supabase
-        .from('notification_center_state')
-        .select('user_id, cleared_at, last_opened_at, updated_at')
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase
-        .from('notification_dismissals')
-        .select('user_id, notification_key, dismissed_at')
-        .eq('user_id', userId)
-        .gte('dismissed_at', horizon)
-        .order('dismissed_at', { ascending: false })
-        .limit(2000),
-    ])
-      .then(([entries, stateResult, dismissalsResult]) => {
+      ]);
+      const localCleared = entries[0][1] || null;
+      const localOpened = entries[1][1] || null;
+      const localDismissed = parseDismissed(entries[2][1]);
+      try {
+        const { data, error } = await supabase
+          .rpc('get_notification_center_bootstrap', {
+            p_local_cleared_at: localCleared,
+            p_local_last_opened_at: localOpened,
+            p_local_dismissals: Object.fromEntries(localDismissed),
+            p_limit: 200,
+          })
+          .abortSignal(request.signal);
+        if (error) throw error;
         if (cancelled) return;
-        const remote = stateResult.data as NotificationCenterState | null;
-        const mergedCleared = latestIso(entries[0][1], remote?.cleared_at ?? null);
-        const mergedOpened = latestIso(entries[1][1], remote?.last_opened_at ?? null);
+        const bootstrap = data as unknown as NotificationBootstrap;
+        const remote = bootstrap.state;
+        const mergedCleared = latestIso(localCleared, remote?.cleared_at ?? null);
+        const mergedOpened = latestIso(localOpened, remote?.last_opened_at ?? null);
         const mergedDismissed = mergeDismissed(
-          parseDismissed(entries[2][1]),
-          (dismissalsResult.data ?? []) as NotificationDismissal[],
+          localDismissed,
+          bootstrap.dismissals ?? [],
+        );
+        queryClient.setQueryData(
+          [NOTIFICATION_CENTER_PREFIX, 'snapshot', userId, lowerSinceIso(mergedCleared)],
+          bootstrap.items ?? [],
         );
         setClearedAt(mergedCleared);
         setLastOpenedAt(mergedOpened);
@@ -130,19 +151,24 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
           [storageKey(KEYS.opened, userId), mergedOpened ?? ''],
           [storageKey(KEYS.dismissed, userId), serializeDismissed(mergedDismissed)],
         ]);
-        void executeCommand('sync_notification_center_state', {
-          p_cleared_at: mergedCleared,
-          p_last_opened_at: mergedOpened,
-          p_dismissals: Object.fromEntries(mergedDismissed),
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setPrefsHydrated(true);
-      });
+      } catch {
+        if (cancelled) return;
+        setClearedAt(localCleared);
+        setLastOpenedAt(localOpened);
+        dismissedRef.current = localDismissed;
+        setDismissedKeys(localDismissed);
+        setPrefsHydrated(true);
+      } finally {
+        request.cleanup();
+      }
+    })().catch(() => {
+      if (!cancelled) setPrefsHydrated(true);
+    });
     return () => {
       cancelled = true;
+      request.cancel(new Error('Notification bootstrap unmounted'));
     };
-  }, [userId]);
+  }, [queryClient, userId]);
 
   const sinceIso = useMemo(() => lowerSinceIso(clearedAt), [clearedAt]);
   const snapshot = useQuery({
@@ -180,12 +206,19 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
 
   const markBellOpened = useCallback(async () => {
     if (!userId) return;
-    const iso = new Date().toISOString();
-    setLastOpenedAt(iso);
-    await Promise.all([
-      AsyncStorage.setItem(storageKey(KEYS.opened, userId), iso),
-      executeCommand('mark_notification_center_opened', { p_opened_at: iso }),
-    ]);
+    const optimisticAt = new Date().toISOString();
+    const previous = lastOpenedAt;
+    setLastOpenedAt(optimisticAt);
+    const { data, error } = await executeCommand('mark_notification_center_opened', {
+      p_opened_at: optimisticAt,
+    });
+    if (error) {
+      setLastOpenedAt(previous);
+      return;
+    }
+    const openedAt = commandTimestamp(data, 'last_opened_at', optimisticAt);
+    setLastOpenedAt(openedAt);
+    await AsyncStorage.setItem(storageKey(KEYS.opened, userId), openedAt);
     if (Platform.OS !== 'web') {
       try {
         await (await import('expo-notifications')).setBadgeCountAsync(0);
@@ -193,7 +226,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
         /* unsupported */
       }
     }
-  }, [userId]);
+  }, [lastOpenedAt, userId]);
 
   const dismissItem = useCallback(
     async (key: string) => {
@@ -203,7 +236,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
       const next = new Map(dismissedRef.current).set(key, at);
       dismissedRef.current = next;
       setDismissedKeys(next);
-      const { error } = await executeCommand('dismiss_notification', {
+      const { data, error } = await executeCommand('dismiss_notification', {
         p_notification_key: key,
         p_dismissed_at: at,
       });
@@ -212,7 +245,14 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
         setDismissedKeys(previous);
         throw error;
       }
-      void AsyncStorage.setItem(storageKey(KEYS.dismissed, userId), serializeDismissed(next));
+      const dismissedAt = commandTimestamp(data, 'dismissed_at', at);
+      const confirmed = new Map(next).set(key, dismissedAt);
+      dismissedRef.current = confirmed;
+      setDismissedKeys(confirmed);
+      void AsyncStorage.setItem(
+        storageKey(KEYS.dismissed, userId),
+        serializeDismissed(confirmed),
+      );
     },
     [userId],
   );
@@ -228,10 +268,14 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     dismissedRef.current = new Map();
     setDismissedKeys(new Map());
     try {
-      const { error } = await executeCommand('clear_notification_history', { p_cleared_at: iso });
+      const { data, error } = await executeCommand('clear_notification_history', {
+        p_cleared_at: iso,
+      });
       if (error) throw error;
+      const confirmedAt = commandTimestamp(data, 'cleared_at', iso);
+      setClearedAt(confirmedAt);
       void AsyncStorage.multiSet([
-        [storageKey(KEYS.cleared, userId), iso],
+        [storageKey(KEYS.cleared, userId), confirmedAt],
         [storageKey(KEYS.dismissed, userId), serializeDismissed(new Map())],
       ]);
     } catch (error) {

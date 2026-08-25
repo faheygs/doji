@@ -8,6 +8,7 @@ import { type FeedAudience } from '../lib/feedAudience';
 import { fetchFeedPostsPage, nextFeedPage, type FeedPageParam } from '../lib/feedQueries';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction } from '../types/database';
+import { runAbortableQuery } from '../lib/requestSignal';
 export { useToggleReaction } from './useToggleReaction';
 export type { FeedAudience };
 type FeedQueryArgs = {
@@ -93,14 +94,14 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
 
   return useInfiniteQuery({
     queryKey: ['reactions', postId, audience],
-    queryFn: async ({ pageParam }): Promise<Reaction[]> => {
-      const { data, error } = await supabase.rpc('get_post_reaction_voters_page', {
+    queryFn: async ({ pageParam, signal }): Promise<Reaction[]> => {
+      const { data, error } = await runAbortableQuery(supabase.rpc('get_post_reaction_voters_page', {
         p_post_id: postId,
         p_audience: audience,
         p_limit: 50,
         p_before_created_at: pageParam?.createdAt ?? null,
         p_before_id: pageParam?.id ?? null,
-      });
+      }), signal);
 
       if (error) throw error;
       return (data ?? []) as Reaction[];

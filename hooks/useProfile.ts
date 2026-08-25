@@ -9,6 +9,8 @@ import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { parsePublicProfileView } from '../lib/publicProfileView';
+import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
+import { signPostMedia } from '../lib/postMedia';
 function parseProfileRow(data: unknown): Profile | null {
   if (!data || typeof data !== 'object') return null;
   const row = data as Profile;
@@ -23,11 +25,11 @@ export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
   const query = useQuery({
     queryKey: ['profile', normalized],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!normalized) return { status: 'not_found' as const, profile: null };
-      const { data, error } = await supabase.rpc('get_public_profile_view', {
+      const { data, error } = await runAbortableQuery(supabase.rpc('get_public_profile_view', {
         p_username: normalized,
-      });
+      }), signal);
       if (error) {
         if (__DEV__) console.warn('[useProfile]', error.message);
         throw error;
@@ -51,16 +53,19 @@ export function usePost(postId?: string) {
   const me = session?.user?.id;
   return useQuery({
     queryKey: ['post', postId, me],
-    queryFn: async (): Promise<Post | null> => {
+    queryFn: async ({ signal }): Promise<Post | null> => {
       if (!postId) return null;
-      const { data, error } = await supabase.rpc('get_post_detail', { p_post_id: postId });
+      const { data, error } = await runAbortableQuery(
+        supabase.rpc('get_post_detail', { p_post_id: postId }),
+        signal,
+      );
 
       if (error) throw error;
       if (!data) return null;
 
-      const mapped = data as Post;
+      const [mapped] = await signPostMedia([data as Post]);
 
-      const [withReaction] = await attachReactionFields([mapped], me);
+      const [withReaction] = await attachReactionFields([mapped], me, signal);
       return withReaction as Post;
     },
     enabled: !!postId,
@@ -73,15 +78,25 @@ export function useFriendship(targetUserId?: string) {
   const userId = session?.user?.id;
   return useQuery({
     queryKey: ['friendship', userId, targetUserId],
-    queryFn: async (): Promise<Friendship | null> => {
+    queryFn: async ({ signal }): Promise<Friendship | null> => {
       if (!userId || !targetUserId) return null;
-      const { data, error } = await supabase
-        .from('friendships')
-        .select('id, requester_id, addressee_id, status, created_at, accepted_at')
-        .or(
-          `and(requester_id.eq.${userId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${userId})`,
-        )
-        .maybeSingle();
+      const request = createRequestSignal(signal);
+      let data: Friendship | null;
+      let error: { message: string } | null;
+      try {
+        const result = await supabase
+          .from('friendships')
+          .select('id, requester_id, addressee_id, status, created_at, accepted_at')
+          .or(
+            `and(requester_id.eq.${userId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${userId})`,
+          )
+          .abortSignal(request.signal)
+          .maybeSingle();
+        data = result.data as Friendship | null;
+        error = result.error;
+      } finally {
+        request.cleanup();
+      }
 
       if (error) throw error;
       return data as Friendship | null;
@@ -146,9 +161,12 @@ export function useSendFriendRequest() {
 export function useFriendCount(targetUserId?: string) {
   return useQuery({
     queryKey: ['friendCount', targetUserId],
-    queryFn: async (): Promise<number> => {
+    queryFn: async ({ signal }): Promise<number> => {
       if (!targetUserId) return 0;
-      const { data, error } = await supabase.rpc('friend_count', { p_user_id: targetUserId });
+      const { data, error } = await runAbortableQuery(
+        supabase.rpc('friend_count', { p_user_id: targetUserId }),
+        signal,
+      );
       if (error) throw error;
       if (typeof data === 'number' && Number.isFinite(data)) return Math.max(0, Math.floor(data));
       const n = Number(data);
@@ -202,11 +220,11 @@ export type SearchProfile = Pick<
 export function useSearchUsers(query: string) {
   return useQuery({
     queryKey: ['searchUsers', query || '__browse__'],
-    queryFn: async (): Promise<SearchProfile[]> => {
-      const { data, error } = await supabase.rpc('search_profiles', {
+    queryFn: async ({ signal }): Promise<SearchProfile[]> => {
+      const { data, error } = await runAbortableQuery(supabase.rpc('search_profiles', {
         p_query: query,
         p_limit: 20,
-      });
+      }), signal);
       if (error) throw error;
       return (data ?? []) as SearchProfile[];
     },

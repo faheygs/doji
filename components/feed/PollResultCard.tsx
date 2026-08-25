@@ -19,8 +19,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +40,6 @@ import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
 import { createRequestSignal } from '../../lib/requestSignal';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
-import { Motion } from '../../constants/motion';
 
 type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 
@@ -329,24 +326,22 @@ function PollResultCardImpl({
 
   const sheetTranslateY = useSharedValue(sheetSlideRange);
   const panStartY = useSharedValue(0);
-  const finishVoterDismiss = useCallback(() => {
-    const pendingReport = pendingReportRef.current; pendingReportRef.current = null;
-    setVoterModal(null);
-    if (pendingReport) {
-      setReportVote(pendingReport); setReportVisible(true);
-    }
-  }, []);
-  const finalizeClose = useCallback(() => {
+  const closeVoters = useCallback(() => {
     Haptics.selectionAsync();
     setVoterVisible(false);
+    setVoterModal(null);
+    const pendingReport = pendingReportRef.current;
+    pendingReportRef.current = null;
+    if (pendingReport) {
+      requestAnimationFrame(() => {
+        setReportVote(pendingReport);
+        setReportVisible(true);
+      });
+    }
   }, []);
   const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
     setVoterModal({ optionId, label, isOther, count }); setVoterVisible(true);
   }, []);
-
-  useEffect(() => {
-    if (!voterVisible && voterModal && Platform.OS !== 'ios') finishVoterDismiss();
-  }, [finishVoterDismiss, voterModal, voterVisible]);
 
   useEffect(() => {
     if (modalOpen) {
@@ -356,15 +351,6 @@ function PollResultCardImpl({
       sheetTranslateY.value = sheetSlideRange;
     }
   }, [modalOpen, sheetSlideRange, sheetTranslateY]);
-
-  const dismissWithSpring = useCallback(() => {
-    sheetTranslateY.value = withTiming(sheetSlideRange, {
-      duration: Motion.duration.content,
-      easing: Easing.in(Easing.cubic),
-    }, (finished) => {
-      if (finished) runOnJS(finalizeClose)();
-    });
-  }, [finalizeClose, sheetSlideRange, sheetTranslateY]);
 
   const backdropOpacityStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -398,18 +384,13 @@ function PollResultCardImpl({
           const threshold = sheetSlideRange * 0.22;
 
           if (vy > 700 || y > threshold) {
-            sheetTranslateY.value = withTiming(sheetSlideRange, {
-              duration: Motion.duration.content,
-              easing: Easing.in(Easing.cubic),
-            }, (finished) => {
-              if (finished) runOnJS(finalizeClose)();
-            });
+            runOnJS(closeVoters)();
             return;
           }
 
           sheetTranslateY.value = withSpring(0, SPRING);
         }),
-    [finalizeClose, panStartY, sheetSlideRange, sheetTranslateY],
+    [closeVoters, panStartY, sheetSlideRange, sheetTranslateY],
   );
 
   const modalVoters = voterPages.data?.pages.flat() ?? [];
@@ -523,8 +504,7 @@ function PollResultCardImpl({
         transparent
         animationType="none"
         statusBarTranslucent={Platform.OS === 'android'}
-        onRequestClose={dismissWithSpring}
-        onDismiss={finishVoterDismiss}
+        onRequestClose={closeVoters}
       >
         <GestureHandlerRootView style={styles.modalGestureRoot}>
           <Animated.View
@@ -533,7 +513,7 @@ function PollResultCardImpl({
           >
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={dismissWithSpring}
+              onPress={closeVoters}
               accessibilityRole="button"
               accessibilityLabel="Dismiss voter list"
             />
@@ -659,7 +639,7 @@ function PollResultCardImpl({
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                              pendingReportRef.current = { voteId: item.vote_id!, userId: item.user_id };
-                             dismissWithSpring();
+                             closeVoters();
                           }}
                           hitSlop={8}
                           accessibilityRole="button"

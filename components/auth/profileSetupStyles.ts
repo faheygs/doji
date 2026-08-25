@@ -28,6 +28,6 @@ export function createProfileSetupStyles(colors: { background: string; primary: 
       borderWidth: 2,
       borderColor: colors.background,
     },
-    footer: { marginTop: 'auto' as any, paddingTop: Spacing.xl },
+    footer: { marginTop: 'auto', paddingTop: Spacing.xl },
   });
 }

@@ -142,7 +142,7 @@ export function KeyboardSafeSheet({
       visible={visible}
       onClose={tryDismiss}
       sheetStyle={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
-      accessory={<AppKeyboardToolbar />}
+      accessory={<AppKeyboardToolbar owner="overlay" />}
     >
       <View style={styles.grab} />
       {title ? (

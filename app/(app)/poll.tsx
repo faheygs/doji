@@ -205,6 +205,8 @@ export default function PollScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={{ padding: Spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close poll"
           >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -232,6 +234,8 @@ export default function PollScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={{ padding: Spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close poll"
           >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -266,6 +270,9 @@ export default function PollScreen() {
                     if (!opt.is_other) setOtherText('');
                   }}
                   activeOpacity={0.85}
+                  accessibilityRole="radio"
+                  accessibilityLabel={opt.text}
+                  accessibilityState={{ checked: isSelected }}
                   style={[
                     styles.option,
                     {
@@ -326,6 +333,9 @@ export default function PollScreen() {
               onPress={handleVote}
               disabled={!canSubmit}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={selected ? 'Submit vote' : 'Pick an option before submitting'}
+              accessibilityState={{ disabled: !canSubmit, busy: pollVote.isPending }}
               style={[
                 styles.voteButton,
                 {

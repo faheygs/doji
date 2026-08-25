@@ -1,6 +1,11 @@
-import { Realtime, type ConnectionStateChange, type Message, type TokenRequest } from 'ably';
-import { supabase } from './supabase';
-import { reportRealtimeFailure } from './telemetry';
+import { Realtime, type ConnectionStateChange, type Message } from 'ably';
+import { recordRealtimeFailure, reportRealtimeFailure } from './telemetry';
+import {
+  ensurePostCapability,
+  requestRealtimeToken,
+  resetRealtimeAuthorization,
+  isRealtimeAccessUnavailable,
+} from './realtimeAuthorization';
 
 export type DojiRealtimeEvent = {
   eventId?: string;
@@ -11,25 +16,18 @@ export type DojiRealtimeEvent = {
 
 let client: Realtime | null = null;
 let connectTimer: ReturnType<typeof setTimeout> | null = null;
-let authorizationTask: { realtime: Realtime; promise: Promise<void> } | null = null;
+let failedReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let consecutiveConnectionFailures = 0;
 const subscriptionCounts = new Map<string, number>();
 const releaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const postConsumerCounts = new Map<string, number>();
 const requestedPostChannels = new Set<string>();
-let grantedPostChannels = new Set<string>();
-let lastAuthorizationRequestedChannels = new Set<string>();
+const SUBSCRIBE_ATTEMPTS = 4;
 
-function grantedPostChannelsFromToken(token: TokenRequest): Set<string> {
-  try {
-    const capability = JSON.parse(token.capability) as Record<string, unknown>;
-    return new Set(Object.keys(capability).filter((channelName) => channelName.startsWith('post:')));
-  } catch {
-    return new Set();
-  }
-}
-
-function requestedPostIds(): string[] {
-  return [...requestedPostChannels].map((channelName) => channelName.slice('post:'.length));
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function retainPostChannel(channelName: string): void {
@@ -53,31 +51,45 @@ function getClient(): Realtime {
   const realtime = new Realtime({
     autoConnect: false,
     echoMessages: false,
+    realtimeRequestTimeout: 20_000,
     authCallback: (_params, callback) => {
-      const requestedSnapshot = new Set(requestedPostChannels);
-      supabase.functions
-        .invoke<TokenRequest>('realtime-token', { body: { postIds: requestedPostIds() } })
-        .then(({ data, error }) => {
-          if (error || !data) {
-            reportRealtimeFailure('token_request', error ?? new Error('Empty token response'));
-          }
-          if (!error && data && client === createdClient) {
-            lastAuthorizationRequestedChannels = requestedSnapshot;
-            grantedPostChannels = grantedPostChannelsFromToken(data);
-          }
-          callback(error?.message ?? null, data ?? null);
-        })
-        .catch((error: unknown) => {
-          reportRealtimeFailure('token_request', error);
-          callback(error instanceof Error ? error.message : 'Realtime authentication failed', null);
-        });
+      const expected = createdClient ?? realtime;
+      requestRealtimeToken(
+        expected,
+        requestedPostChannels,
+        () => client === expected,
+        callback,
+      );
     },
   });
   createdClient = realtime;
   client = realtime;
   client.connection.on((change) => {
+    if (change.current === 'connected') {
+      consecutiveConnectionFailures = 0;
+      if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
+      failedReconnectTimer = null;
+      return;
+    }
     if (change.current !== 'failed' && change.current !== 'suspended') return;
-    reportRealtimeFailure('connection_state', change.reason, { state: change.current });
+    recordRealtimeFailure('connection_state', change.reason, { state: change.current });
+    if (change.current !== 'failed' || client !== realtime) return;
+
+    consecutiveConnectionFailures += 1;
+    if (consecutiveConnectionFailures >= 3) {
+      reportRealtimeFailure('connection_recovery_exhausted', change.reason, {
+        state: change.current,
+        attempt: consecutiveConnectionFailures,
+      });
+    }
+    if (failedReconnectTimer) return;
+    const delay = Math.min(30_000, 1_000 * 2 ** Math.min(4, consecutiveConnectionFailures - 1));
+    failedReconnectTimer = setTimeout(() => {
+      failedReconnectTimer = null;
+      if (client !== realtime) return;
+      resetRealtimeAuthorization();
+      realtime.connect();
+    }, delay + Math.floor(Math.random() * 750));
   });
   const scheduledClient = client;
   // Spread cold-start connection attempts across a short window. This is
@@ -91,34 +103,6 @@ function getClient(): Realtime {
     Math.floor(Math.random() * 2_000),
   );
   return client;
-}
-
-async function ensurePostCapability(realtime: Realtime, channelName: string): Promise<void> {
-  while (!grantedPostChannels.has(channelName)) {
-    let task = authorizationTask;
-    if (!task || task.realtime !== realtime) {
-      // Mounted cards share one authorization. If another card arrives after
-      // its post set was captured, the loop performs one trailing request that
-      // includes the late card instead of treating it as denied.
-      let promise: Promise<void>;
-      promise = Promise.resolve()
-        .then(() => realtime.auth.authorize())
-        .then(() => undefined)
-        .finally(() => {
-          if (authorizationTask?.promise === promise) authorizationTask = null;
-        });
-      task = { realtime, promise };
-      authorizationTask = task;
-    }
-    await task.promise;
-    if (client !== realtime) throw new Error('Realtime connection changed');
-    if (
-      !grantedPostChannels.has(channelName) &&
-      lastAuthorizationRequestedChannels.has(channelName)
-    ) {
-      throw new Error('Realtime access to this post is unavailable');
-    }
-  }
 }
 
 function eventFromMessage(message: Message): DojiRealtimeEvent {
@@ -139,13 +123,6 @@ export async function subscribeToRealtimeChannel(
   const isPostChannel = channelName.startsWith('post:');
   if (isPostChannel) retainPostChannel(channelName);
   const realtime = getClient();
-  try {
-    if (isPostChannel) await ensurePostCapability(realtime, channelName);
-  } catch (error) {
-    if (isPostChannel) releasePostChannel(channelName);
-    reportRealtimeFailure('post_authorization', error, { channelScope: 'post' });
-    throw error;
-  }
   const pendingRelease = releaseTimers.get(channelName);
   if (pendingRelease) clearTimeout(pendingRelease);
   releaseTimers.delete(channelName);
@@ -154,14 +131,38 @@ export async function subscribeToRealtimeChannel(
     options?.rewind ? { params: { rewind: options.rewind } } : undefined,
   );
   const listener = (message: Message) => onEvent(eventFromMessage(message));
-  try {
-    await channel.subscribe(listener);
-  } catch (error) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= SUBSCRIBE_ATTEMPTS; attempt += 1) {
+    try {
+      if (isPostChannel) {
+        await ensurePostCapability(realtime, channelName, () => client === realtime);
+      }
+      await channel.subscribe(listener);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      channel.unsubscribe(listener);
+      if (isRealtimeAccessUnavailable(error)) {
+        recordRealtimeFailure('channel_access_changed', error, { channelScope: 'post' });
+        break;
+      }
+      recordRealtimeFailure('channel_subscribe_retry', error, {
+        channelScope: isPostChannel ? 'post' : 'app',
+        attempt,
+      });
+      if (client !== realtime || attempt === SUBSCRIBE_ATTEMPTS) break;
+      await wait(500 * 2 ** (attempt - 1) + Math.floor(Math.random() * 350));
+    }
+  }
+  if (lastError) {
     if (isPostChannel) releasePostChannel(channelName);
-    reportRealtimeFailure('channel_subscribe', error, {
-      channelScope: isPostChannel ? 'post' : 'app',
-    });
-    throw error;
+    if (!isRealtimeAccessUnavailable(lastError)) {
+      reportRealtimeFailure('channel_subscribe_exhausted', lastError, {
+        channelScope: isPostChannel ? 'post' : 'app',
+      });
+    }
+    throw lastError;
   }
   subscriptionCounts.set(channelName, (subscriptionCounts.get(channelName) ?? 0) + 1);
   let removed = false;
@@ -205,15 +206,16 @@ export function onRealtimeConnectionChange(
 
 export function closeRealtimeConnection(): void {
   if (connectTimer) clearTimeout(connectTimer);
+  if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
   for (const timer of releaseTimers.values()) clearTimeout(timer);
   releaseTimers.clear();
   subscriptionCounts.clear();
   postConsumerCounts.clear();
   requestedPostChannels.clear();
-  grantedPostChannels = new Set();
-  lastAuthorizationRequestedChannels = new Set();
-  authorizationTask = null;
+  resetRealtimeAuthorization();
   connectTimer = null;
+  failedReconnectTimer = null;
+  consecutiveConnectionFailures = 0;
   client?.close();
   client = null;
 }

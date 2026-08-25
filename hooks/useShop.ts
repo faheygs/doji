@@ -4,17 +4,19 @@ import { executeCommand } from '../lib/commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Profile, ShopItem, UserShopItem } from '../types/database';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { newCommandId } from '../lib/idempotency';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 export function useShopCatalog() {
   return useQuery({
     queryKey: ['shopCatalog'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async ({ signal }) => {
+      const { data, error } = await runAbortableQuery(supabase
         .from('shop_items')
         .select('key, kind, name, price, sort_order, metadata, is_active, created_at')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
-        .limit(100);
+        .limit(100), signal);
       if (error) throw error;
       return (data ?? []) as ShopItem[];
     },
@@ -26,12 +28,12 @@ export function useOwnedShopItems(userId: string | undefined) {
   return useQuery({
     queryKey: ['ownedShopItems', userId],
     enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async ({ signal }) => {
+      const { data, error } = await runAbortableQuery(supabase
         .from('user_shop_items')
         .select('user_id, item_key, purchased_at')
         .eq('user_id', userId!)
-        .limit(100);
+        .limit(100), signal);
       if (error) throw error;
       return (data ?? []) as UserShopItem[];
     },
@@ -163,6 +165,7 @@ export function useEquipShopItem() {
     mutationFn: async (itemKey: string) => {
       const { data, error } = await executeCommand('equip_shop_item', {
         p_item_key: itemKey,
+        p_idempotency_key: newCommandId('shop-equip'),
       });
       if (error) throw error;
       return data as { item_key: string };

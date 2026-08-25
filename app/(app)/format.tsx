@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
@@ -14,9 +14,11 @@ import { formatRuleHint, parseAnswerRule, validateAnswerRule } from '../../lib/a
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
+import { useFormatScreenStyles } from '../../components/challenge/useFormatScreenStyles';
 export default function FormatScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const styles = useFormatScreenStyles();
   const { data: userEvent, isLoading, refetch } = useUserEvent();
   const createPost = useCreatePost();
   const [answer, setAnswer] = useState('');
@@ -80,47 +82,6 @@ export default function FormatScreen() {
     validation?.ok === true &&
     !createPost.isPending;
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
-        header: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.lg,
-          paddingTop: Spacing.sm,
-        },
-        scroll: { flexGrow: 1, paddingBottom: Spacing.lg },
-        content: {
-          paddingHorizontal: Spacing.lg,
-          paddingTop: Spacing.xl,
-          gap: Spacing.lg,
-        },
-        title: { textAlign: 'center' },
-        ruleBanner: {
-          borderRadius: Radius.md,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: `${colors.primary}55`,
-          backgroundColor: `${colors.primary}12`,
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
-        },
-        inputWrap: { minHeight: 120 },
-        validationOk: { color: colors.success },
-        validationErr: { color: colors.error },
-        footer: { width: '100%', paddingVertical: Spacing.lg },
-        submitButton: {
-          width: '100%',
-          height: 52,
-          borderRadius: Radius.md,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-      }),
-    [colors],
-  );
-
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -140,6 +101,8 @@ export default function FormatScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={{ padding: Spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close challenge"
           >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -166,6 +129,8 @@ export default function FormatScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={{ padding: Spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Close challenge"
           >
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -229,25 +194,28 @@ export default function FormatScreen() {
             </View>
             {submitError ? <InlineFeedback {...submitError} /> : null}
             <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              activeOpacity={0.85}
-              style={[
-                styles.submitButton,
-                {
-                  backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
-                },
-              ]}
-            >
-              {createPost.isPending ? (
-                <ActivityIndicator color={colors.onPrimary} />
-              ) : (
-                <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
-                  Submit Answer
-                </Text>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Submit answer"
+                accessibilityState={{ disabled: !canSubmit, busy: createPost.isPending }}
+                style={[
+                  styles.submitButton,
+                  {
+                    backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+                  },
+                ]}
+              >
+                {createPost.isPending ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text variant="label" color={canSubmit ? colors.onPrimary : colors.textTertiary}>
+                    Submit Answer
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </AppKeyboardAwareScrollView>

@@ -20,8 +20,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Spacing } from '../../constants/theme';
@@ -40,7 +38,7 @@ import {
 } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { usePostCommentsSheetStyles } from './PostCommentsSheet.styles';
-import { Motion } from '../../constants/motion';
+import { useKeyboardToolbarHost } from '../../contexts/KeyboardToolbarContext';
 
 type Props = {
   visible: boolean;
@@ -79,6 +77,7 @@ export function PostCommentsSheet({
 }: Props) {
   const { colors } = useTheme();
   const styles = usePostCommentsSheetStyles();
+  const { registerOverlayOwner } = useKeyboardToolbarHost();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.session?.user?.id);
   const toggleCommentsDisabled = useToggleCommentsDisabled();
@@ -91,6 +90,11 @@ export function PostCommentsSheet({
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
   const { height: liveWinH } = useWindowDimensions();
   useDismissOnRouteBlur(visible, onClose);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    return registerOverlayOwner();
+  }, [registerOverlayOwner, visible]);
 
   useEffect(() => {
     setLocalDisabled(commentsDisabled);
@@ -156,13 +160,11 @@ export function PostCommentsSheet({
   }, [onClose]);
 
   const animateToClose = useCallback(() => {
-    translateY.value = withTiming(closedOffset, {
-      duration: Motion.duration.content,
-      easing: Easing.in(Easing.cubic),
-    }, (finished) => {
-      if (finished) runOnJS(fireClose)();
-    });
-  }, [closedOffset, fireClose, translateY]);
+    // A native Modal blocks the underlying screen until it is unmounted. Do
+    // not leave it mounted for an exit animation after the user dismisses it.
+    // The next open still animates in from the closed position.
+    fireClose();
+  }, [fireClose]);
 
   useEffect(() => {
     if (visible) {
@@ -201,12 +203,7 @@ export function PostCommentsSheet({
           const vy = e.velocityY;
 
           if (vy > 900 || y > closedOffset * 0.9) {
-            translateY.value = withTiming(closedOffset, {
-              duration: Motion.duration.content,
-              easing: Easing.in(Easing.cubic),
-            }, (finished) => {
-              if (finished) runOnJS(fireClose)();
-            });
+            runOnJS(fireClose)();
             return;
           }
           if (vy < -700) {
@@ -214,28 +211,16 @@ export function PostCommentsSheet({
             return;
           }
           if (vy > 700 && y > halfOffset * 0.35) {
-            translateY.value = withTiming(closedOffset, {
-              duration: Motion.duration.content,
-              easing: Easing.in(Easing.cubic),
-            }, (finished) => {
-              if (finished) runOnJS(fireClose)();
-            });
+            runOnJS(fireClose)();
             return;
           }
 
           const target = nearestSnap(y, snapPoints);
-          translateY.value = target === closedOffset
-            ? withTiming(target, {
-                duration: Motion.duration.content,
-                easing: Easing.in(Easing.cubic),
-              }, (finished) => {
-                if (finished) runOnJS(fireClose)();
-              })
-            : withSpring(target, SPRING, (finished) => {
-            if (finished && Math.abs(target - closedOffset) < 4) {
-              runOnJS(fireClose)();
-            }
-          });
+          if (target === closedOffset) {
+            runOnJS(fireClose)();
+          } else {
+            translateY.value = withSpring(target, SPRING);
+          }
         }),
     [
       closedOffset,
@@ -290,6 +275,8 @@ export function PostCommentsSheet({
     }),
     [colors],
   );
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}>
@@ -365,7 +352,7 @@ export function PostCommentsSheet({
             </AppKeyboardViewport>
           </Animated.View>
         </View>
-        <AppKeyboardToolbar />
+        <AppKeyboardToolbar owner="overlay" />
       </GestureHandlerRootView>
     </Modal>
   );

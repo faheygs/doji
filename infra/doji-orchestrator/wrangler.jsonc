@@ -9,38 +9,16 @@
     "bindings": [
       { "name": "DOJI_EVENT_ALARM", "class_name": "DojiEventAlarm" },
       { "name": "OUTBOX_RELAY_ALARM", "class_name": "OutboxRelayAlarm" },
+      { "name": "PUSH_FANOUT_ALARM", "class_name": "PushFanoutAlarm" },
       { "name": "DATA_MAINTENANCE_ALARM", "class_name": "DataMaintenanceAlarm" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["DojiEventAlarm"] },
     { "tag": "v2", "new_sqlite_classes": ["OutboxRelayAlarm"] },
-    { "tag": "v3", "new_sqlite_classes": ["DataMaintenanceAlarm"] }
+    { "tag": "v3", "new_sqlite_classes": ["DataMaintenanceAlarm"] },
+    { "tag": "v4", "new_sqlite_classes": ["PushFanoutAlarm"] }
   ],
-  "queues": {
-    "producers": [
-      { "binding": "DOMAIN_EVENT_QUEUE", "queue": "doji-domain-events" },
-      { "binding": "PUSH_FANOUT_QUEUE", "queue": "doji-push-fanout" }
-    ],
-    "consumers": [
-      {
-        "queue": "doji-domain-events",
-        "max_batch_size": 1,
-        "max_batch_timeout": 1,
-        "max_retries": 10,
-        "max_concurrency": 128,
-        "dead_letter_queue": "doji-domain-events-dead-letter"
-      },
-      {
-        "queue": "doji-push-fanout",
-        "max_batch_size": 4,
-        "max_batch_timeout": 1,
-        "max_retries": 8,
-        "max_concurrency": 16,
-        "dead_letter_queue": "doji-push-fanout-dead-letter"
-      }
-    ]
-  },
   "observability": { "enabled": true },
   "triggers": { "crons": ["*/1 * * * *"] }
 }

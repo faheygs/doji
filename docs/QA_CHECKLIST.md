@@ -128,7 +128,8 @@ Mark each box when verified.
 - [ ] **RLS** — unauthenticated requests to tables are blocked
 - [ ] **Edge Functions** — realtime-token, relay-domain-events, orchestrate-doji, and schedule-daily-challenge are deployed
 - [ ] **Durable alarms** — exact activation/close fires once; close chains the next event; no recurring Doji cron jobs exist
-- [ ] **Outbox** — committed events publish promptly and the dead-letter queue is empty
+- [ ] **Outbox** — committed events publish promptly; no overdue rows, expired push
+      shards, or repairable one-shot alarms remain
 - [ ] **Streak calculation** — completing a challenge increments streak; missing resets it
 
 ---

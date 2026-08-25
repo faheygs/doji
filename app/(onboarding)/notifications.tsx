@@ -73,6 +73,10 @@ export default function OnboardingNotificationsScreen() {
     setLoading(true);
     try {
       const result = await requestPushPermissionAndRegisterToken();
+      if (result === 'error') {
+        setSetupError('Could not connect this phone to alerts. Check your connection and try again.');
+        return;
+      }
       await goNext(result === 'granted');
     } finally {
       setLoading(false);

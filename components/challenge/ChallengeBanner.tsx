@@ -180,6 +180,7 @@ export function ChallengeBanner({ userEvent }: Props) {
 
   const xpReward = challenge?.xp_reward ?? 50;
   const participants = challenge?.participant_count ?? 0;
+  const challengeTitle = challenge?.title ?? 'today\'s Doji';
 
   if (userEvent.status === 'completed' || userEvent.status === 'late') {
     return null;
@@ -187,7 +188,13 @@ export function ChallengeBanner({ userEvent }: Props) {
 
   if (showSignupDayGraceBanner(userEvent)) {
     return (
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={0.92}
+        style={styles.wrapper}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${challengeTitle}. Free on your first day`}
+      >
         <LinearGradient
           colors={[colors.xpGradientStart, colors.xpGradientEnd]}
           start={GRADIENT_START}
@@ -212,7 +219,13 @@ export function ChallengeBanner({ userEvent }: Props) {
 
   if (userEvent.status === 'buy_in_open') {
     return (
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={0.92}
+        style={styles.wrapper}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${challengeTitle}. Buy-in active`}
+      >
         <LinearGradient
           colors={[colors.xpGradientStart, colors.xpGradientEnd]}
           start={GRADIENT_START}
@@ -299,7 +312,13 @@ export function ChallengeBanner({ userEvent }: Props) {
   }
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.92} style={styles.wrapper}>
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.92}
+      style={styles.wrapper}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${challengeTitle}. ${formatMinutesSecondsCountdown(secondsLeft)} remaining`}
+    >
       <LinearGradient
         colors={[colors.xpGradientStart, colors.xpGradientEnd]}
         start={GRADIENT_START}

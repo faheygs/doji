@@ -80,11 +80,41 @@ Deno.serve(async (request: Request) => {
   });
 
   try {
-    // Storage is not covered by auth.users foreign-key cascades. Delete it first;
-    // if auth deletion transiently fails, this endpoint is safe to retry.
-    await removeUserStorage(admin, data.user.id);
+    // Storage is not covered by auth.users cascades. Persist the cleanup intent
+    // before removing the identity, so a Storage outage can never strand an
+    // active account or permanently orphan its media.
+    const { error: cleanupIntentError } = await admin
+      .from('account_deletion_cleanup')
+      .upsert({
+        user_id: data.user.id,
+        requested_at: new Date().toISOString(),
+        retry_at: new Date().toISOString(),
+        claim_token: null,
+        claimed_at: null,
+        last_error: null,
+      }, { onConflict: 'user_id' });
+    if (cleanupIntentError) {
+      throw new Error(`Cleanup intent failed: ${cleanupIntentError.message}`);
+    }
+
     const { error: deleteError } = await admin.auth.admin.deleteUser(data.user.id, false);
     if (deleteError) throw new Error(`Identity deletion failed: ${deleteError.message}`);
+
+    // Best effort keeps the common path immediate. Failure is deliberately not
+    // surfaced to the deleted user; run-data-maintenance owns durable retries.
+    try {
+      await removeUserStorage(admin, data.user.id);
+      await admin.from('account_deletion_cleanup').delete().eq('user_id', data.user.id);
+    } catch (cleanupError) {
+      const cleanupMessage = cleanupError instanceof Error
+        ? cleanupError.message
+        : 'Storage cleanup failed';
+      console.error('[delete-account-cleanup]', { userId: data.user.id, cleanupMessage });
+      await admin
+        .from('account_deletion_cleanup')
+        .update({ last_error: cleanupMessage, retry_at: new Date().toISOString() })
+        .eq('user_id', data.user.id);
+    }
     return json(200, { ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Account deletion failed';

@@ -19,7 +19,7 @@
 - Authenticated mobile commands pass through an explicit Cloudflare RPC allowlist.
   The gateway preserves the caller's Supabase JWT/RLS context and immediately wakes the
   singleton 250 ms burst coalescer after the atomic RPC commits. The coalescer seeds
-  bounded parallel Queue drains, preventing one relay invocation per tap at scale.
+  bounded parallel leased outbox drains, preventing one relay invocation per tap at scale.
   Database `pg_net` remains a second, durable wake path rather than the latency-critical
   path.
 - Ably provides connection recovery. The app also reconciles Postgres whenever it
@@ -112,8 +112,8 @@
    authoritative times, creates 128 fixed push partitions, and writes one global event.
    Eligible `user_events` materialize lazily when an account requests current state.
 4. The outbox wakes a singleton Cloudflare Durable Object. It coalesces a 250 ms burst
-   and seeds 16 one-message Queue drain lanes; full 100-row claims double their
-   continuation lanes up to 128, while small backlogs remain at the initial footprint.
+   and seeds one Queue drain lane. A full 100-row claim proves backlog and doubles its
+   continuation lanes geometrically up to 128; small backlogs cost one queue message.
 5. The relay claims critical activation and realtime-only rows ahead of push-only
    backlog, explicitly orders each claim, and atomically publishes each channel batch
    to Ably. It durably records that publication before optional push work begins.
@@ -154,8 +154,8 @@ reconcile authoritative database state.
   friend invalidations and creates delayed grouped push rows where appropriate.
 - Multiple outbox inserts in one business transaction enqueue one `pg_net` recovery wake.
   Statement-level conflict updates with no inserted transition rows enqueue none.
-  The singleton Durable Object collapses simultaneous transaction wakes into 16
-  initial drain lanes. Repeated full claims scale geometrically to a hard 128-lane
+  The singleton Durable Object collapses simultaneous transaction wakes into one
+  initial drain lane. Repeated full claims scale geometrically to a hard 128-lane
   ceiling; the transactional outbox rows remain durable.
 - Grouped pushes use fixed 30-second buckets delivered at bucket start + 60 seconds,
   so a recipient gets one aggregate alert 30-60 seconds after the action. The outbox
@@ -184,8 +184,9 @@ reconcile authoritative database state.
   alert is safer than a duplicate-notification storm.
 - Every claimed outbox row includes its immutable `created_at`. Doji pushes are
   rejected after two minutes or after `closesAt`, whichever comes first; all other
-  pushes are rejected after five minutes. This freshness gate runs before delivery
-  claims and before Expo TTL is assigned, so old backlog can drain without alerting.
+  pushes are rejected after five minutes. APNs, FCM, and Expo expiration is anchored
+  to that original deadline rather than relay time, so old backlog can drain without
+  alerting and a late relay cannot extend an alert's lifetime.
 - Outbox push keys use the immutable outbox event ID, recipient, and installation. Legacy direct
   events use their immutable entity ID; payloads without an entity ID are collapsed
   into a five-minute retry window.
@@ -330,11 +331,18 @@ before the user can understand or retry the failed action.
 Reaction command results and engagement snapshots sum only the fixed 128 counter
 shards; regrouping the unbounded `reactions` table is forbidden. The Friends poll
 surface ignores global vote hints and reconciles from the viewer's bounded
-friend-activity channel. Everyone remains post-scoped. Mobile reads go through
-`readThroughScaleGateway`: with no URL configured it calls Postgres directly; at scale,
-`EXPO_PUBLIC_SCALE_READ_URL` switches the same query keys to an authenticated aggregate
-cache. A scale gateway must preserve `can_view_full_post`/`can_access_daily_event`
-authorization and must never silently fall back to Postgres during an outage.
+friend-activity channel. Everyone remains post-scoped. Hot post-engagement and poll
+summary reads can go through `readThroughScaleGateway`: with no URL configured they call
+Postgres directly; at scale, `EXPO_PUBLIC_SCALE_READ_URL` switches those query keys to an
+authenticated aggregate cache. A scale gateway must preserve
+`can_view_full_post`/`can_access_daily_event` authorization and must never silently fall
+back to Postgres during an outage.
+
+The repository currently contains this fail-closed client boundary for those two hot
+aggregates, but not a deployed aggregate-cache implementation or equivalent feed/profile
+read tier. Direct Postgres reads are the supported small-launch configuration. A 100k
+launch remains blocked until the authenticated read tier is implemented, load-qualified,
+configured in the production build, and monitored.
 
 ## 100k burst contract
 
@@ -345,10 +353,11 @@ authorization and must never silently fall back to Postgres during an outage.
   authorized occurrence. Push delivery and participation correctness are independent.
 - Each deterministic shard is independently leased. Recipients are keyset-paged in
   500-account windows, their bounded active installations are terminally claimed in
-  one batch, and delivery uses bounded
-  native-provider concurrency. Cloudflare Queue runs up to 16 shard messages
-  concurrently and enqueues continuations until completion or expiry. Expo batches
-  are used only for installations not yet migrated.
+  one batch, and delivery uses bounded native-provider concurrency. A singleton
+  Cloudflare Durable Object alarm advances only the active shards with bounded
+  concurrency and resumable continuations until completion or the two-minute launch
+  expiry. Expiry with unfinished shards is a monitored incident. Expo batches are used
+  only for installations not yet migrated.
 - The checked-in launch model separately models database/queue orchestration and
   provider capacity. It explicitly fails if Expo's documented 600/s limit is treated
   as the 100k scale path. Direct native delivery must sustain the modeled provider-rate
@@ -383,8 +392,12 @@ authorization and must never silently fall back to Postgres during an outage.
 
 - Mobile clients receive 15-minute, capability-scoped Ably tokens. Global and
   user channels are fixed; mounted post UUIDs are sent to `realtime-token`,
-  authorized through the caller's post RLS, and added as exact `post:<uuid>`
-  capabilities. Authenticated clients never receive a `post:*` wildcard.
+  authorized through the caller's post visibility contract in one bounded RPC,
+  and added as exact `post:<uuid>` capabilities. PostgREST verifies the bearer token
+  for that authenticated-only RPC and returns its user ID with the capability inputs,
+  eliminating a separate Auth-server request. Mobile token requests are serialized and use
+  a 20-second transport timeout so cold starts do not create an auth-request storm.
+  Authenticated clients never receive a `post:*` wildcard.
 - An Ably connection is never reused across account identities. A token refresh for
   the same account preserves the socket, while sign-out or an account switch closes
   it before a token bearing a different `clientId` can be authorized.
@@ -407,14 +420,15 @@ authorization and must never silently fall back to Postgres during an outage.
 
 ## Deployment order
 
-1. Create the Ably app/key and Cloudflare queues.
+1. Create the Ably app/key and Cloudflare Worker account.
 2. Set Worker secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ORCHESTRATOR_SECRET`,
    `OUTBOX_RELAY_SECRET`, and `SENTRY_DSN`.
    The Worker uses the relay secret to deliver operational alerts through the protected
    `send-admin-email` Edge Function; it never needs a third-party webhook credential.
 3. Deploy `infra/doji-orchestrator`.
 4. Set Edge secrets: `ABLY_API_KEY`, `OUTBOX_RELAY_SECRET`,
-   `DOJI_ORCHESTRATOR_URL`, `DOJI_ORCHESTRATOR_SECRET`.
+   `DOJI_ORCHESTRATOR_URL`, `DOJI_ORCHESTRATOR_SECRET`, `RESEND_API_KEY`,
+   `ADMIN_FROM_EMAIL`, and `ADMIN_ALERT_EMAIL`.
 5. Deploy `realtime-token`, `relay-domain-events`, `orchestrate-doji`,
    `schedule-daily-challenge`, `run-data-maintenance`, and `operational-health`.
 6. Apply all migrations in timestamp order and configure the orchestrator Vault values.
@@ -424,16 +438,14 @@ authorization and must never silently fall back to Postgres during an outage.
 8. Run a physical two-device test for activation, completion, social actions,
    friend/block/report actions, reconnect recovery, and close-boundary rejection.
 
-The checked-in `wrangler.staging.jsonc` uses a separate worker, queues, dead-letter
-queues, Durable Object namespace, Supabase project, and credentials. Never point the
-production worker at a staging database or reuse production delivery queues for a gate.
+Any staging deployment must use a separate worker, Durable Object namespace, Supabase
+project, and credentials. Never point the production worker at a staging database.
 
 `schedule-daily-challenge` is an internal preparation endpoint despite its legacy name.
 It accepts only the orchestrator secret and is not attached to pg_cron.
 
 ## Required monitoring
 
-- Alert on non-empty `doji-domain-events-dead-letter`.
 - Alert on unpublished `domain_event_outbox` rows whose `available_at` is more
   than 60 seconds overdue; future grouped alerts are healthy, not backlog.
 - Alert when `get_doji_push_fanout_health` reports pending/processing shards 60 seconds
@@ -449,9 +461,14 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
 - The Worker invokes `operational-health` once per minute. Degraded snapshots and final
-  queue-retry failures call the protected `send-admin-email` Edge Function. Resend
-  delivers the incident to the administrator, while private database receipts
-  deduplicate each issue family to one email per hour.
+  durable-alarm retry failures call the protected `send-admin-email` Edge Function. Resend
+  delivers the incident to the administrator, while a locked private database claim
+  applies a true rolling 60-minute cooldown per issue family. If the snapshot finds
+  genuinely overdue durable outbox work, the same check submits one recovery wake;
+  this repairs a failed wake or relay period after service recovery.
+- Realtime latency is degraded only with a representative five-minute sample of at
+  least 20 events whose p95 exceeds five seconds, or when any event exceeds 30 seconds.
+  This prevents a handful of low-traffic samples from paging as a system incident.
 - Retention is a self-draining Durable Object alarm. Each Edge invocation stays bounded,
   but `hasMore` schedules the next batch until operational and rate-limit backlogs are
   empty.

@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, TouchableOpacity } from 'react-native';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Spacing, Radius, BADGE_TIER_COLORS } from '../../constants/theme';
+import { Spacing, BADGE_TIER_COLORS } from '../../constants/theme';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { IcnCrown } from '../icons/BadgeIcons';
@@ -10,6 +10,11 @@ import { getRankBorderColor } from '../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../types/database';
+import {
+  PODIUM_AVATAR_SIZES,
+  usePodiumGhostStyles,
+  usePodiumSlotStyles,
+} from './usePodiumStyles';
 
 function podiumColor(rank: 1 | 2 | 3): string {
   if (rank === 1) return BADGE_TIER_COLORS.gold;
@@ -18,8 +23,6 @@ function podiumColor(rank: 1 | 2 | 3): string {
 }
 
 const PODIUM_ORDER = [2, 1, 3] as const;
-const BLOCK_HEIGHTS: Record<1 | 2 | 3, number> = { 1: 130, 2: 100, 3: 80 };
-const AVATAR_SIZES: Record<1 | 2 | 3, number> = { 1: 50, 2: 42, 3: 42 };
 const PODIUM_SHELL_MIN_HEIGHT = 248;
 
 type PodiumSlotProps = {
@@ -38,73 +41,7 @@ function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
     entry.profile.display_name || entry.profile.username || 'Player';
   const rankBorderColor = getRankBorderColor(entry.profile.level ?? 1, colors);
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        slot: {
-          flex: 1,
-          alignItems: 'center',
-          gap: 6,
-        },
-        avatarWrap: {
-          position: 'relative',
-        },
-        rankBadge: {
-          position: 'absolute',
-          bottom: -4,
-          right: -4,
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          backgroundColor: color,
-          borderWidth: 2,
-          borderColor: colors.background,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        rankBadgeText: {
-          fontSize: 9,
-          fontWeight: '800',
-          color: rank === 2 ? '#FFFFFF' : '#000',
-        },
-        nameBlock: {
-          alignItems: 'center',
-          gap: 2,
-          paddingHorizontal: 2,
-          minHeight: 32,
-        },
-        nameRow: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-        },
-        block: {
-          width: '100%',
-          height: BLOCK_HEIGHTS[rank],
-          backgroundColor: `${color}30`,
-          borderWidth: 2,
-          borderColor: color,
-          borderBottomWidth: 0,
-          borderTopLeftRadius: Radius.sm,
-          borderTopRightRadius: Radius.sm,
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: 6,
-        },
-        blockRank: {
-          fontSize: 16,
-          fontWeight: '900',
-          color,
-        },
-        youPill: {
-          paddingHorizontal: 6,
-          paddingVertical: 1,
-          borderRadius: Radius.full,
-          backgroundColor: colors.primaryPale,
-        },
-      }),
-    [colors, color, rank],
-  );
+  const styles = usePodiumSlotStyles(colors, color, rank);
 
   const handlePress = () => {
     if (isMe) {
@@ -115,13 +52,19 @@ function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
   };
 
   return (
-    <TouchableOpacity style={styles.slot} onPress={handlePress} activeOpacity={0.75}>
+    <TouchableOpacity
+      style={styles.slot}
+      onPress={handlePress}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={`${entry.profile.display_name || entry.profile.username}, rank ${rank}, ${entry.xp} XP`}
+    >
       {rank === 1 ? <IcnCrown size={20} color={BADGE_TIER_COLORS.gold} /> : <View style={{ height: 20 }} />}
       <View style={styles.avatarWrap}>
         <Avatar
           uri={entry.profile.avatar_url}
           username={displayName}
-          size={AVATAR_SIZES[rank]}
+          size={PODIUM_AVATAR_SIZES[rank]}
           borderColor={resolveAvatarBorderColor(entry.profile, rankBorderColor)}
           borderWidth={resolveAvatarBorderWidth(entry.profile)}
         />
@@ -161,60 +104,7 @@ function PodiumGhostSlot({ rank }: { rank: 1 | 2 | 3 }) {
   const { colors } = useTheme();
   const color = podiumColor(rank);
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        slot: {
-          flex: 1,
-          alignItems: 'center',
-          gap: 6,
-        },
-        avatarPlaceholder: {
-          width: AVATAR_SIZES[rank],
-          height: AVATAR_SIZES[rank],
-          borderRadius: AVATAR_SIZES[rank] / 2,
-          backgroundColor: colors.surfaceMuted,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        namePlaceholder: {
-          width: '70%',
-          height: 10,
-          borderRadius: 4,
-          backgroundColor: colors.surfaceMuted,
-        },
-        xpPlaceholder: {
-          width: '50%',
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: colors.surfaceMuted,
-        },
-        nameBlock: {
-          alignItems: 'center',
-          gap: 4,
-          minHeight: 32,
-        },
-        block: {
-          width: '100%',
-          height: BLOCK_HEIGHTS[rank],
-          backgroundColor: `${color}12`,
-          borderWidth: 1,
-          borderColor: `${color}40`,
-          borderBottomWidth: 0,
-          borderTopLeftRadius: Radius.sm,
-          borderTopRightRadius: Radius.sm,
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: 6,
-        },
-        blockRank: {
-          fontSize: 16,
-          fontWeight: '900',
-          color: `${color}80`,
-        },
-      }),
-    [colors, color, rank],
-  );
+  const styles = usePodiumGhostStyles(colors, color, rank);
 
   return (
     <View style={styles.slot} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './fetch-timeout.ts';
+
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 export type ExpoMessage = {
@@ -71,7 +73,7 @@ export async function sendExpoPushMessages(messages: ExpoMessage[]): Promise<Exp
 
   let res: Response;
   try {
-    res = await fetch(EXPO_PUSH_URL, {
+    res = await fetchWithTimeout(EXPO_PUSH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(messages),

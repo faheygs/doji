@@ -27,3 +27,9 @@ verify_jwt = false
 
 [functions.operational-health]
 verify_jwt = false
+
+# Called by pg_net and the Cloudflare health worker. The function validates the
+# dedicated cron/outbox secret itself; Supabase JWT verification would reject
+# those non-user service credentials before the handler can authorize them.
+[functions.send-admin-email]
+verify_jwt = false

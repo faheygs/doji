@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
-  StyleSheet,
   TouchableOpacity,
   SafeAreaView,
-  Dimensions,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -13,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
@@ -29,7 +27,7 @@ import { required, validationMessage } from '../../lib/formValidation';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { CameraTopControls, CameraZoomControls } from '../../components/challenge/CameraCaptureControls';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { cameraScreenStyles as styles } from '../../components/challenge/cameraScreenStyles';
 type FlowStep = 'chooseSource' | 'capturePhoto' | 'captureVideo' | 'preview';
 const pickerQuality = 0.85 as const;
 export default function CameraScreen() {
@@ -305,6 +303,8 @@ export default function CameraScreen() {
             onPress={() => backOrHome(router)}
             hitSlop={16}
             style={styles.headerButtonDark}
+            accessibilityRole="button"
+            accessibilityLabel="Close camera"
           >
             <IconClose size={26} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -403,7 +403,13 @@ export default function CameraScreen() {
         >
           <SafeAreaView>
             <View style={styles.previewHeader}>
-              <TouchableOpacity onPress={handleRetake} hitSlop={16} style={styles.previewHeaderBtn}>
+              <TouchableOpacity
+                onPress={handleRetake}
+                hitSlop={16}
+                style={styles.previewHeaderBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Retake media"
+              >
                 <IconChevronLeft size={22} color={colors.textSecondary} />
                 <Text variant="headingMedium" color={colors.textSecondary}>
                   Retake
@@ -537,6 +543,9 @@ export default function CameraScreen() {
                   capturing && styles.captureButtonCapturing,
                 ]}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Take photo"
+                accessibilityState={{ disabled: capturing, busy: capturing }}
               >
                 <View style={[styles.captureButtonInner, { backgroundColor: colors.onPrimary }]} />
               </TouchableOpacity>
@@ -570,6 +579,9 @@ export default function CameraScreen() {
                   },
                 ]}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={videoRecording ? 'Stop recording video' : 'Start recording video'}
+                accessibilityState={{ selected: videoRecording }}
               >
                 <View
                   style={[
@@ -586,152 +598,3 @@ export default function CameraScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  chooseRoot: {
-    flex: 1,
-  },
-  chooseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-  },
-  headerButtonDark: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chooseBody: {
-    flex: 1,
-    paddingHorizontal: Spacing.xl,
-    justifyContent: 'center',
-    gap: Spacing.md,
-    alignItems: 'center',
-  },
-  chooseTitle: {
-    textAlign: 'center',
-  },
-  chooseSub: {
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  chooseButtons: {
-    width: '100%',
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraOverlay: {
-    position: 'absolute',
-    inset: 0,
-    justifyContent: 'space-between',
-  },
-  captureHint: {
-    paddingHorizontal: Spacing.xl,
-  },
-  cameraFooter: {
-    paddingBottom: Spacing.xxl,
-    alignItems: 'center',
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButtonCapturing: {
-    opacity: 0.6,
-    transform: [{ scale: 0.95 }],
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  recordOuter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  recordInnerSquare: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-  },
-  permissionContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.lg,
-  },
-  previewContent: {
-    flexGrow: 1,
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  previewHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dualPhotoContainer: {
-    position: 'relative',
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
-  },
-  mainPreview: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
-  },
-  frontPreviewContainer: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    right: Spacing.md,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
-    borderWidth: 3,
-  },
-  frontPreview: {
-    width: 90,
-    height: 90,
-  },
-  videoPreviewWrap: {
-    width: SCREEN_WIDTH,
-    marginTop: Spacing.sm,
-  },
-  videoPreview: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.5625,
-  },
-  previewFooter: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  captionInput: {
-    flex: 1,
-  },
-});

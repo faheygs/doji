@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { type FeedAudience } from './feedAudience';
 import { createRequestSignal } from './requestSignal';
 import type { Post } from '../types/database';
+import { signPostMedia } from './postMedia';
 
 export const FEED_PAGE_SIZE = 20;
 export type FeedPageParam = {
@@ -54,7 +55,7 @@ export async function fetchFeedPostsPage(
         .abortSignal(request.signal);
       if (error) throw error;
 
-      return (Array.isArray(data) ? data : []) as Post[];
+      return signPostMedia((Array.isArray(data) ? data : []) as Post[]);
     }
 
     const { data, error } = await supabase
@@ -67,7 +68,7 @@ export async function fetchFeedPostsPage(
       })
       .abortSignal(request.signal);
     if (error) throw error;
-    return (Array.isArray(data) ? data : []) as Post[];
+    return signPostMedia((Array.isArray(data) ? data : []) as Post[]);
   } finally {
     request.cleanup();
   }

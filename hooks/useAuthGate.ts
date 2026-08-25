@@ -7,9 +7,10 @@ export function useAuthGate() {
   const profile = useAuthStore((s) => s.profile);
   const isLoading = useAuthStore((s) => s.isLoading);
   const isProfileLoading = useAuthStore((s) => s.isProfileLoading);
+  const profileLoadState = useAuthStore((s) => s.profileLoadState);
 
   return useMemo(
-    () => getAuthGate(isLoading, isProfileLoading, session, profile),
-    [isLoading, isProfileLoading, session, profile],
+    () => getAuthGate(isLoading, isProfileLoading, session, profile, profileLoadState),
+    [isLoading, isProfileLoading, session, profile, profileLoadState],
   );
 }

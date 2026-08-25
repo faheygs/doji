@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 export type ChallengeSuggestionCounts = {
   /** Rows you submitted (any state). */
@@ -14,19 +15,19 @@ export type ChallengeSuggestionCounts = {
 export function useChallengeSuggestionCounts(userId: string | undefined) {
   return useQuery({
     queryKey: ['challengeSuggestionCounts', userId],
-    queryFn: async (): Promise<ChallengeSuggestionCounts> => {
+    queryFn: async ({ signal }): Promise<ChallengeSuggestionCounts> => {
       if (!userId) return { submitted: 0, picked: 0 };
 
       const [subRes, pickedRes] = await Promise.all([
-        supabase
+        runAbortableQuery(supabase
           .from('challenge_suggestions')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId),
-        supabase
+          .eq('user_id', userId), signal),
+        runAbortableQuery(supabase
           .from('challenge_suggestions')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .not('selected_at', 'is', null),
+          .not('selected_at', 'is', null), signal),
       ]);
 
       if (subRes.error) throw subRes.error;

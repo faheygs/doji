@@ -11,11 +11,17 @@ import {
   getKeyboardToolbarClosedOffset,
   getKeyboardToolbarOpenedOffset,
 } from '../../lib/keyboardSafeInteraction';
+import { useKeyboardToolbarHost } from '../../contexts/KeyboardToolbarContext';
 
-export function AppKeyboardToolbar() {
+type Props = {
+  owner?: 'root' | 'overlay';
+};
+
+export function AppKeyboardToolbar({ owner = 'root' }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  const { overlayOwnerCount } = useKeyboardToolbarHost();
 
   const toolbarTheme = useMemo<NonNullable<KeyboardToolbarProps['theme']>>(() => {
     const current = {
@@ -27,7 +33,7 @@ export function AppKeyboardToolbar() {
     return { light: current, dark: current };
   }, [colors]);
 
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web' || (owner === 'root' && overlayOwnerCount > 0)) return null;
 
   return (
     <KeyboardToolbar

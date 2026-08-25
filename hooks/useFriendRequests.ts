@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile } from '../types/database';
 import { invalidateFriendCountQueries } from './useProfile';
 import { executeCommand } from '../lib/commandGateway';
+import { runAbortableQuery } from '../lib/requestSignal';
 
 const PAGE_SIZE = 50;
 
@@ -13,13 +14,13 @@ export function useFriendRequests(enabled = true) {
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useInfiniteQuery({
     queryKey: ['friendRequests', userId, 'paged'],
-    queryFn: async ({ pageParam }): Promise<FriendshipWithRequester[]> => {
+    queryFn: async ({ pageParam, signal }): Promise<FriendshipWithRequester[]> => {
       if (!userId) return [];
-      const { data, error } = await supabase.rpc('list_friend_requests_page', {
+      const { data, error } = await runAbortableQuery(supabase.rpc('list_friend_requests_page', {
         p_before_created_at: pageParam?.createdAt ?? null,
         p_before_id: pageParam?.id ?? null,
         p_limit: PAGE_SIZE,
-      });
+      }), signal);
       if (error) throw error;
       return (data ?? []).map((row) => ({
         id: row.id,
@@ -54,9 +55,9 @@ export function useFriendRequestCount(enabled = true) {
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useQuery({
     queryKey: ['friendRequests', userId, 'count'],
-    queryFn: async (): Promise<number> => {
+    queryFn: async ({ signal }): Promise<number> => {
       if (!userId) return 0;
-      const { data, error } = await supabase.rpc('friend_request_count');
+      const { data, error } = await runAbortableQuery(supabase.rpc('friend_request_count'), signal);
       if (error) throw error;
       return data ?? 0;
     },

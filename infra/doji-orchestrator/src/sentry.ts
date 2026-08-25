@@ -44,6 +44,7 @@ export async function captureWorkerException(
   try {
     const response = await fetch(target.endpoint, {
       method: 'POST',
+      signal: AbortSignal.timeout(5_000),
       headers: {
         'content-type': 'application/x-sentry-envelope',
         'x-sentry-auth': `Sentry sentry_version=7,sentry_key=${target.publicKey}`,

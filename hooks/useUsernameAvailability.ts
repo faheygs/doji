@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { createRequestSignal } from '../lib/requestSignal';
 
 /** Matches settings save validation (DB allows up to 30; client caps at 20). */
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -29,7 +30,7 @@ type Options = {
 };
 
 export function useUsernameAvailability(input: string, options: Options = {}) {
-  const { treatAsUnchangedIfMatches, ownUserId, debounceMs = 0 } = options;
+  const { treatAsUnchangedIfMatches, ownUserId, debounceMs = 300 } = options;
 
   const normalized = useMemo(() => normalizeUsernameInput(input), [input]);
   const unchangedBaseline = useMemo(() => {
@@ -75,12 +76,24 @@ export function useUsernameAvailability(input: string, options: Options = {}) {
     setErrorMessage('');
 
     const req = ++reqRef.current;
+    const request = createRequestSignal(undefined, 6_000);
     const timer = setTimeout(async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', normalized)
-        .maybeSingle();
+      let data: boolean | null = null;
+      let error: { message: string } | null = null;
+      try {
+        const result = await supabase.rpc('is_username_available', {
+          p_username: normalized,
+        }).abortSignal(request.signal);
+        data = result.data;
+        error = result.error;
+      } catch (requestError) {
+        if (request.signal.aborted) return;
+        error = {
+          message: requestError instanceof Error ? requestError.message : 'Username check failed',
+        };
+      } finally {
+        request.cleanup();
+      }
 
       if (req !== reqRef.current) return;
 
@@ -91,7 +104,7 @@ export function useUsernameAvailability(input: string, options: Options = {}) {
         return;
       }
 
-      const conflict = Boolean(data && (!ownUserId || data.id !== ownUserId));
+      const conflict = data !== true;
       if (conflict) {
         knownTakenRef.current.add(normalized);
         setStatus('taken');
@@ -103,7 +116,10 @@ export function useUsernameAvailability(input: string, options: Options = {}) {
       }
     }, debounceMs);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      request.cancel(new Error('Username changed'));
+    };
   }, [input, normalized, unchangedBaseline, ownUserId, debounceMs]);
 
   const isOkForSubmit = Boolean(

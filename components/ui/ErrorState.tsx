@@ -27,7 +27,12 @@ export function ErrorState({
             {message}
           </Text>
           {onRetry && (
-            <TouchableOpacity onPress={onRetry} hitSlop={8}>
+            <TouchableOpacity
+              onPress={onRetry}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Retry"
+            >
               <Text variant="label" color={colors.error}>
                 Retry
               </Text>
@@ -51,6 +56,8 @@ export function ErrorState({
           onPress={onRetry}
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
         >
           <Text variant="label" color={colors.onPrimary}>
             Try Again

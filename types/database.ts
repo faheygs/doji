@@ -639,6 +639,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: Profile;
       };
+      is_username_available: {
+        Args: { p_username: string };
+        Returns: boolean;
+      };
       register_push_token: {
         Args: { p_token: string };
         Returns: boolean;
@@ -688,12 +692,12 @@ export type Database = {
         Args: { p_item_key: string };
         Returns: { item_key: string; sparks: number };
       };
-      equip_shop_item: {
-        Args: { p_item_key: string };
-        Returns: { item_key: string };
-      };
+       equip_shop_item: {
+         Args: { p_item_key: string; p_idempotency_key: string };
+         Returns: { item_key: string };
+       };
       buy_in_today: {
-        Args: Record<string, never>;
+        Args: { p_idempotency_key: string };
         Returns: { user_event_id: string; sparks: number; expires_at: string };
       };
       get_profile_by_username: {
@@ -1071,12 +1075,50 @@ export type Database = {
         Args: { p_post_id: string; p_emoji: string; p_idempotency_key: string };
         Returns: { post_id: string; emoji: string; active: boolean; count: number };
       };
+      set_post_reaction: {
+        Args: {
+          p_post_id: string;
+          p_emoji: string;
+          p_active: boolean;
+          p_idempotency_key: string;
+        };
+        Returns: {
+          post_id: string;
+          emoji: string;
+          active: boolean;
+          current_emoji: string | null;
+          count: number;
+          reaction_breakdown: Record<string, number>;
+        };
+      };
       toggle_comment_like: {
         Args: { p_comment_id: string; p_idempotency_key: string };
         Returns: { comment_id: string; active: boolean; count: number };
       };
+      set_comment_like: {
+        Args: { p_comment_id: string; p_active: boolean; p_idempotency_key: string };
+        Returns: { comment_id: string; active: boolean; count: number };
+      };
       toggle_poll_vote_like: {
         Args: { p_poll_vote_id: string; p_idempotency_key: string };
+        Returns: { poll_vote_id: string; active: boolean; count: number };
+      };
+      get_notification_center_bootstrap: {
+        Args: {
+          p_local_cleared_at: string | null;
+          p_local_last_opened_at: string | null;
+          p_local_dismissals: Record<string, string>;
+          p_limit: number;
+        };
+        Returns: {
+          server_now: string;
+          state: NotificationCenterState | null;
+          dismissals: NotificationDismissal[];
+          items: Record<string, unknown>[];
+        };
+      };
+      set_poll_vote_like: {
+        Args: { p_poll_vote_id: string; p_active: boolean; p_idempotency_key: string };
         Returns: { poll_vote_id: string; active: boolean; count: number };
       };
       request_friendship: {

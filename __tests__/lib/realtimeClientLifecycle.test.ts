@@ -5,6 +5,7 @@ const mockChannel = {
 };
 const mockRelease = jest.fn();
 const mockClose = jest.fn();
+let mockRealtimeOptions: Record<string, unknown> | undefined;
 let mockAuthCallback:
   | ((params: unknown, callback: (error: string | null, token: unknown) => void) => void)
   | undefined;
@@ -37,6 +38,7 @@ const mockInvoke = jest.fn(
 
 jest.mock('ably', () => ({
   Realtime: jest.fn().mockImplementation((options) => {
+    mockRealtimeOptions = options;
     mockAuthCallback = options.authCallback;
     return {
       channels: { get: jest.fn(() => mockChannel), release: mockRelease },
@@ -87,6 +89,12 @@ describe('realtime channel lifecycle', () => {
 
     removeSecond();
     expect(mockChannel.detach).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows one cold token endpoint enough time to respond', async () => {
+    const remove = await subscribeToRealtimeChannel('doji:global', jest.fn());
+    expect(mockRealtimeOptions?.realtimeRequestTimeout).toBe(20_000);
+    remove();
   });
 
   it('requests an exact capability before attaching a post channel', async () => {

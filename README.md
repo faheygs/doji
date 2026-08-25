@@ -1,7 +1,7 @@
 # Doji
 
 Expo/React Native app backed by Supabase Postgres/Storage/Edge Functions,
-Cloudflare Durable Objects/Queues, and Ably realtime Pub/Sub.
+Cloudflare Durable Objects, and Ably realtime Pub/Sub.
 
 ## Start here
 
@@ -41,11 +41,13 @@ Postgres owns all state. Ably messages announce committed changes and never repl
 RLS-authorized reads. Core mutations are serialized, transactional, and idempotent.
 
 - A one-shot Cloudflare Durable Object alarm activates each Doji at its exact time.
-- Activation creates eligible `user_events`, stamps the 10-minute close time,
-  publishes socket events, and queues push work in one transaction.
+- Activation stamps the 10-minute close time, publishes socket events, and creates
+  128 fixed push-shard records in one transaction. Per-account `user_events` are
+  materialized lazily by authoritative reads or participation commands.
 - A second one-shot alarm closes the event and chains preparation of the next one.
 - There is no recurring cron dispatcher, due-event poller, or expiration sweep.
-- Cloudflare Queue relays transactional outbox records to Ably immediately.
+- A singleton Durable Object relay drains transactional outbox records to Ably
+  immediately and schedules the next exact retry from durable database state.
 - Launch, foreground, and socket reconnect reconcile Postgres through React Query.
 
 See [docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md).

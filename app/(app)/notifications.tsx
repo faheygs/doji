@@ -28,7 +28,7 @@ import {
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { supabase } from '@/lib/supabase';
 import {
-  syncPushRegistration,
+  requestPushPermissionAndRegisterToken,
   unregisterCurrentPushInstallation,
 } from '@/lib/pushNotifications';
 
@@ -219,28 +219,21 @@ export default function NotificationSettingsScreen() {
     [persistCategories],
   );
 
-  const registerTokenIfGranted = useCallback(async () => {
-    await syncPushRegistration(profile?.id);
-  }, [profile?.id]);
-
   const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
       setPageFeedback({ tone: 'info', message: 'Phone notifications are available in the mobile app.' });
       return;
     }
     try {
-      const Notifications = await import('expo-notifications');
-      const currentPermission = await Notifications.getPermissionsAsync();
-      const { status } =
-        currentPermission.status === 'granted'
-          ? currentPermission
-          : await Notifications.requestPermissionsAsync();
-      setPermStatus(status === 'granted' ? 'granted' : 'denied');
-      if (status === 'granted') {
-        await registerTokenIfGranted();
+      const result = await requestPushPermissionAndRegisterToken(profile?.id);
+      setPermStatus(result === 'granted' ? 'granted' : 'denied');
+      if (result === 'granted') {
         const saved = await persistCategories({ push_enabled: true }, 'push_enabled');
         if (!saved) return;
         setPageFeedback({ tone: 'success', message: 'Alerts are enabled on this phone.' });
+      } else if (result === 'error') {
+        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
+        setPageFeedback({ tone: 'error', message: 'Could not connect this phone to alerts. Try again.' });
       } else {
         setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
         showDialog({
@@ -256,7 +249,7 @@ export default function NotificationSettingsScreen() {
       setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
       setPageFeedback({ tone: 'error', message: 'Could not enable alerts on this phone. Try again.' });
     }
-  }, [persistCategories, registerTokenIfGranted, showDialog]);
+  }, [persistCategories, profile?.id, showDialog]);
 
   const disableSystemAlerts = useCallback(async () => {
     const saved = await persistCategories({ push_enabled: false }, 'push_enabled');

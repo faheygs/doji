@@ -7,6 +7,7 @@ import {
 } from '../_shared/push-delivery.ts';
 import { apnsConfigured, sendApnsMessage } from '../_shared/apns-push.ts';
 import { fcmConfigured, sendFcmMessage } from '../_shared/fcm-push.ts';
+import { readJsonBody } from '../_shared/json-body.ts';
 
 const PAGE_SIZE = 500;
 const EXPO_BATCH_SIZE = 100;
@@ -89,18 +90,26 @@ Deno.serve(async (request) => {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const { dailyEventId, shard } = await request.json() as {
+  const { dailyEventId, shard } = await readJsonBody<{
     dailyEventId?: string;
     shard?: number;
-  };
-  if (!dailyEventId || !Number.isInteger(shard) || shard! < 0 || shard! > 127) {
-    return new Response('Invalid fanout partition', { status: 400 });
-  }
+  }>(request);
+  if (!dailyEventId) return new Response('Missing dailyEventId', { status: 400 });
 
   const database = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  if (shard === undefined) {
+    const { data, error } = await database.rpc('list_doji_push_fanout_shards', {
+      p_daily_event_id: dailyEventId,
+    });
+    if (error) return new Response(error.message, { status: 500 });
+    return Response.json({ shards: Array.isArray(data) ? data : [] });
+  }
+  if (!Number.isInteger(shard) || shard < 0 || shard > 127) {
+    return new Response('Invalid fanout partition', { status: 400 });
+  }
   const { data: claimData, error: claimError } = await database.rpc(
     'claim_doji_push_fanout_shard',
     { p_daily_event_id: dailyEventId, p_shard: shard },
@@ -315,6 +324,7 @@ Deno.serve(async (request) => {
         return {
           accepted: push.tickets.filter((ticket) => ticket.status === 'ok').length,
           invalidTokens,
+          transportErrors: push.httpOk ? 0 : batch.length,
         };
       }),
     );
@@ -335,6 +345,15 @@ Deno.serve(async (request) => {
         p_tokens: invalidNativeTokens,
       });
       if (error) throw error;
+    }
+
+    const transportErrorCount = [...apnsResults, ...fcmResults]
+      .filter(({ push }) => push.outcome === 'transport_error').length +
+      results.reduce((sum, result) => sum + result.transportErrors, 0);
+    if (transportErrorCount > 0) {
+      // Keep this shard on the same page. Bounded claim retries only resend
+      // endpoints whose provider handoff was not confirmed.
+      throw new Error(`Push provider transport failed for ${transportErrorCount} endpoint(s)`);
     }
 
     const hasMore = recipients.length === PAGE_SIZE;

@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 import type { Post } from '../types/database';
 import { readThroughScaleGateway } from './scaleReadGateway';
 import type { FeedAudience } from './feedAudience';
+import { runAbortableQuery } from './requestSignal';
 
 type EngagementSnapshot = Pick<
   Post,
@@ -19,10 +20,12 @@ function readSnapshot(postId: string, audience: FeedAudience) {
   const request = readThroughScaleGateway<unknown>(
     `/v1/posts/${encodeURIComponent(postId)}/engagement?audience=${audience}`,
     async () => {
-      const { data: directData, error } = await supabase.rpc('get_post_engagement_snapshot_v2', {
-        p_post_id: postId,
-        p_audience: audience,
-      });
+      const { data: directData, error } = await runAbortableQuery(
+        supabase.rpc('get_post_engagement_snapshot_v2', {
+          p_post_id: postId,
+          p_audience: audience,
+        }),
+      );
       if (error) throw error;
       return directData;
     },

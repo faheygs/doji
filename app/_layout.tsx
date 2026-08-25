@@ -2,19 +2,21 @@ import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enabled: !__DEV__,
-  tracesSampleRate: 0.2,
+  enabled: !__DEV__ && !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  // Enough performance telemetry to spot regressions without adding material
+  // client overhead or exhausting observability quotas during a traffic spike.
+  tracesSampleRate: 0.02,
   environment: process.env.EXPO_PUBLIC_APP_ENV,
 });
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Stack, type Href, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, StyleSheet, View, AppState } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { webRootViewStyle, webScrollParentStyle } from '../constants/theme';
 import { useFonts } from 'expo-font';
 import { Sora_800ExtraBold } from '@expo-google-fonts/sora/800ExtraBold';
@@ -41,18 +43,13 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { buildToastConfig } from '../components/ui/toastTheme';
 import { AppIconBadgeSync } from '../components/notifications/AppIconBadgeSync';
-import { notificationHrefFromData } from '../lib/notificationHref';
-import { safeReplace } from '../lib/routes';
 import { isAuthRoutingPending } from '../lib/authRoute';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { AppKeyboardToolbar } from '../components/ui/AppKeyboardToolbar';
 import { AppProviders } from '../components/AppProviders';
-import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { AppThemeHost } from '../components/system/AppThemeHost';
-import {
-  syncPushRegistration,
-  unregisterCurrentPushInstallation,
-} from '../lib/pushNotifications';
+import { ErrorState } from '../components/ui/ErrorState';
+import { useNativeNotifications } from '../hooks/useNativeNotifications';
 
 function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const [fontsLoaded, fontError] = useFonts({
@@ -68,16 +65,33 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
   const isProfileLoading = useAuthStore((s) => s.isProfileLoading);
   const session = useAuthStore((s) => s.session);
   const profile = useAuthStore((s) => s.profile);
+  const profileLoadState = useAuthStore((s) => s.profileLoadState);
   const splashHidden = useRef(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
     if (!fontsLoaded && !fontError) return;
-    if (isAuthRoutingPending(isLoading, isProfileLoading, session, profile)) return;
+    if (
+      isAuthRoutingPending(
+        isLoading,
+        isProfileLoading,
+        session,
+        profile,
+        profileLoadState,
+      )
+    ) return;
     if (splashHidden.current) return;
     splashHidden.current = true;
     SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError, isLoading, isProfileLoading, session, profile]);
+  }, [
+    fontsLoaded,
+    fontError,
+    isLoading,
+    isProfileLoading,
+    session,
+    profile,
+    profileLoadState,
+  ]);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -88,9 +102,9 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
 
 function RootLayoutInner() {
   const { setSession, setLoading, fetchProfile } = useAuthStore();
-  const router = useRouter();
   const { colors, isDark } = useTheme();
   const gate = useAuthGate();
+  useNativeNotifications(gate.canUseApp);
 
   const toastConfig = useMemo(() => buildToastConfig(colors, isDark), [colors, isDark]);
 
@@ -128,105 +142,26 @@ function RootLayoutInner() {
     };
   }, [fetchProfile, setLoading, setSession]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    import('expo-notifications').then((Notifications) => {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          // Foreground: receive silently — the in-app bell is the source of truth.
-          // Background/killed-app pushes are unaffected by this handler and always show the OS banner.
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-          shouldShowBanner: false,
-          shouldShowList: false,
-        }),
-      });
-    });
-  }, []);
-
-  const session = useAuthStore((s) => s.session);
-  const profile = useAuthStore((s) => s.profile);
-  const userId = session?.user?.id;
-  const profileId = profile?.id;
-  const profileIsBanned = profile?.is_banned;
-  const profilePushEnabled = profile?.notification_preferences?.push_enabled;
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (!userId || profileId !== userId) return;
-
-    async function syncPushToken() {
-      try {
-        const activeProfile = useAuthStore.getState().profile;
-        const notificationsEnabled =
-          activeProfile?.is_banned !== true &&
-          mergeNotificationPreferences(activeProfile?.notification_preferences).push_enabled;
-        if (!notificationsEnabled) {
-          await unregisterCurrentPushInstallation();
-          const current = useAuthStore.getState().profile;
-          if (current) useAuthStore.getState().setProfile({ ...current, notification_token: null });
-          return;
-        }
-        const Notifications = await import('expo-notifications');
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status !== 'granted') return;
-        await syncPushRegistration(userId);
-      } catch (e) {
-        if (__DEV__) console.warn('[pushToken] sync failed', e);
-      }
-    }
-
-    void syncPushToken();
-
-    // Re-sync whenever the app comes back to the foreground — iOS silently rotates
-    // APNs tokens while the app is backgrounded, so we can't rely on cold-start only.
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void syncPushToken();
-    });
-
-    return () => sub.remove();
-  }, [
-    profileId,
-    profileIsBanned,
-    profilePushEnabled,
-    userId,
-  ]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (!gate.canUseApp) return;
-
-    let cancelled = false;
-    let subscription: { remove: () => void } | undefined;
-
-    import('expo-notifications').then((Notifications) => {
-      if (cancelled) return;
-
-      void (async () => {
-        try {
-          const last = await Notifications.getLastNotificationResponseAsync();
-          if (cancelled) return;
-          const href = notificationHrefFromData(last?.notification.request.content.data);
-          if (href) {
-            safeReplace(router, href);
-            await Notifications.clearLastNotificationResponseAsync();
-          }
-        } catch {
-          /* ignore */
-        }
-      })();
-
-      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const href = notificationHrefFromData(response.notification.request.content.data);
-        if (href) safeReplace(router, href);
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      subscription?.remove();
-    };
-  }, [router, gate.canUseApp]);
+  if (gate.profileLoadFailed) {
+    return (
+      <AppThemeHost>
+        <GestureHandlerRootView
+          style={[styles.flex, { backgroundColor: colors.background }, webRootViewStyle]}
+        >
+          <SafeAreaProvider style={[styles.flex, { backgroundColor: colors.background }]}>
+            <ErrorState
+              title="Couldn't load your account"
+              message="Your account is still safe. Check your connection and try again."
+              onRetry={() => {
+                const userId = useAuthStore.getState().session?.user?.id;
+                if (userId) void useAuthStore.getState().fetchProfile(userId);
+              }}
+            />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </AppThemeHost>
+    );
+  }
 
   if (!gate.ready) {
     return null;

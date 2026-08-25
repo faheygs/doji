@@ -8,13 +8,11 @@ export type ApnsMessage = {
   interruptionLevel?: 'passive' | 'active' | 'time-sensitive';
   data: Record<string, unknown>;
 };
-
 export type ApnsResult = {
   outcome: 'accepted' | 'invalid_token' | 'rejected' | 'transport_error';
   providerId?: string;
   error?: string;
 };
-
 type RpcClient = {
   rpc: (
     name: string,
@@ -24,7 +22,6 @@ type RpcClient = {
     error: { message: string } | null;
   }>;
 };
-
 type ProviderToken = { value: string; issuedAt: number };
 type ProviderTokenClaim = {
   state?: 'ready' | 'refresh' | 'wait';

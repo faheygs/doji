@@ -70,9 +70,15 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
     }
   }, [opacity, scale, visible]);
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} transparent animationType="none">
-      <View style={styles.backdrop}>
+      <View
+        style={styles.backdrop}
+        accessibilityViewIsModal
+        accessibilityLabel={`Challenge submitted. ${xpEarned} XP earned`}
+      >
         <Animated.View
           style={[
             styles.card,
@@ -98,6 +104,8 @@ export function SubmittedOverlay({ visible, xpEarned, onDone }: Props) {
             onPress={onDone}
             style={[styles.doneBtn, { backgroundColor: colors.primary }]}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Back to feed"
           >
             <Text variant="subhead" color={colors.onPrimary}>Back to Feed</Text>
           </TouchableOpacity>

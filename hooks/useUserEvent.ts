@@ -97,12 +97,12 @@ export function useCreatePost() {
         return post;
       });
     },
-    onMutate: async () => {
+    onMutate: () => {
       const userId = session?.user?.id;
       if (!userId) return;
       const key = ['userEvent', 'today', userId] as const;
-      await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<UserEvent | null>(key);
+      void queryClient.cancelQueries({ queryKey: key }, { revert: false, silent: true });
       if (prev) {
         queryClient.setQueryData<UserEvent>(key, {
           ...prev,
@@ -114,7 +114,7 @@ export function useCreatePost() {
     },
     onError: (_err, _vars, ctx) => {
       if (!ctx?.prev || !ctx?.key) return;
-      queryClient.setQueryData(ctx.key as any, ctx.prev);
+      queryClient.setQueryData(ctx.key, ctx.prev);
     },
     onSuccess: () => {
       const uid = session?.user?.id;

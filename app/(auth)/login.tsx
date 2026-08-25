@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { formatAuthError, normalizeEmail } from '../../lib/authErrors';
 import {
@@ -8,7 +8,6 @@ import {
   validatePasswordMatch,
   validationMessage,
 } from '../../lib/formValidation';
-import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
@@ -21,6 +20,7 @@ import { LegalConsentCheckbox } from '../../components/auth/LegalConsentCheckbox
 import { SignupAgeStep } from '../../components/auth/SignupAgeStep';
 import { assessBirthDate } from '../../lib/ageAssurance';
 import { InlineFeedback, type InlineFeedbackData } from '../../components/ui/InlineFeedback';
+import { useLoginScreenStyles } from '../../components/auth/useLoginScreenStyles';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -37,46 +37,7 @@ export default function LoginScreen() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<InlineFeedbackData | null>(null);
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
-          flex: 1,
-          backgroundColor: colors.background,
-        },
-        keyboardView: {
-          flex: 1,
-        },
-        header: {
-          paddingHorizontal: Spacing.lg,
-          paddingTop: Spacing.md,
-        },
-        scrollContent: {
-          paddingHorizontal: Spacing.lg,
-          paddingTop: Spacing.xl,
-          paddingBottom: Spacing.md,
-          gap: Spacing.lg,
-        },
-        inputs: {
-          gap: Spacing.md,
-          marginTop: Spacing.sm,
-        },
-        consents: {
-          gap: 0,
-        },
-        switchMode: {
-          alignSelf: 'flex-start',
-          marginTop: Spacing.sm,
-        },
-        footer: {
-          paddingTop: Spacing.md,
-          paddingBottom: Spacing.xl,
-          width: '100%',
-        },
-      }),
-    [colors.background],
-  );
+  const styles = useLoginScreenStyles();
 
   const emailValidation = useMemo(() => validateEmailField(email), [email]);
   const passwordValidation = useMemo(
@@ -171,6 +132,13 @@ export default function LoginScreen() {
     }
     if (mode === 'signUp' && !birthDateAssessment.ok) {
       setSignupStep('age');
+      return;
+    }
+    if (mode === 'signUp' && (!tosAccepted || !privacyAccepted)) {
+      setFeedback({
+        tone: 'error',
+        message: 'Accept both the Terms of Use and Privacy Policy to create your account.',
+      });
       return;
     }
 
@@ -328,7 +296,12 @@ export default function LoginScreen() {
 
           {mode === 'signIn' ? (
             <>
-              <TouchableOpacity onPress={handleForgotPassword} style={styles.switchMode}>
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                style={styles.switchMode}
+                accessibilityRole="button"
+                accessibilityLabel="Forgot password"
+              >
                 <Text variant="body" color={colors.link}>
                   Forgot password?
                 </Text>
@@ -345,6 +318,8 @@ export default function LoginScreen() {
               else showSignIn();
             }}
             style={styles.switchMode}
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'signIn' ? 'Sign up' : 'Sign in'}
           >
             <Text variant="body" color={colors.textSecondary}>
               {mode === 'signIn' ? 'Need an account? ' : 'Already have an account? '}

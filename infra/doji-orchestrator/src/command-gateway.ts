@@ -1,3 +1,5 @@
+import { AUTHENTICATED_COMMAND_NAMES } from '../../../contracts/authenticatedCommands';
+
 type CommandGatewayEnv = {
   OUTBOX_RELAY_ALARM: {
     idFromName(name: string): DurableObjectId;
@@ -10,40 +12,11 @@ type CommandGatewayEnv = {
 };
 
 const MAX_COMMAND_BYTES = 128 * 1024;
+const UPSTREAM_TIMEOUT_MS = 12_000;
 
 // Commands are deliberately explicit. The gateway is not a general PostgREST
 // proxy and cannot be used to invoke read or privileged service-role RPCs.
-const AUTHENTICATED_COMMANDS = new Set([
-  'block_user',
-  'buy_in_today',
-  'clear_notification_history',
-  'complete_doji_with_post',
-  'create_own_profile',
-  'delete_comment',
-  'dismiss_notification',
-  'edit_comment',
-  'equip_shop_item',
-  'mark_notification_center_opened',
-  'moderate_report',
-  'purchase_shop_item',
-  'register_native_push_endpoint',
-  'remove_friendship',
-  'request_friendship',
-  'respond_to_friendship',
-  'review_challenge_suggestion',
-  'set_post_comments_disabled',
-  'submit_challenge_suggestion',
-  'submit_comment',
-  'submit_content_report',
-  'submit_poll_vote',
-  'sync_notification_center_state',
-  'toggle_comment_like',
-  'toggle_poll_vote_like',
-  'toggle_post_reaction',
-  'unblock_user',
-  'unregister_push_installation',
-  'update_own_profile',
-]);
+const AUTHENTICATED_COMMANDS = new Set<string>(AUTHENTICATED_COMMAND_NAMES);
 
 function responseHeaders(contentType = 'application/json'): Headers {
   return new Headers({
@@ -65,6 +38,35 @@ function jsonError(status: number, message: string): Response {
 function commandName(pathname: string): string | null {
   const match = pathname.match(/^\/commands\/rpc\/([a-z0-9_]+)$/);
   return match?.[1] ?? null;
+}
+
+async function readBoundedBody(request: Request): Promise<string> {
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_COMMAND_BYTES) {
+    throw new Error('payload-too-large');
+  }
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_COMMAND_BYTES) throw new Error('payload-too-large');
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 /**
@@ -90,9 +92,14 @@ export async function handleCommandGateway(
     return jsonError(503, 'Command service is not configured');
   }
 
-  const body = await request.text();
-  if (new TextEncoder().encode(body).byteLength > MAX_COMMAND_BYTES) {
-    return jsonError(413, 'Command payload is too large');
+  let body: string;
+  try {
+    body = await readBoundedBody(request);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'payload-too-large') {
+      return jsonError(413, 'Command payload is too large');
+    }
+    return jsonError(400, 'Command payload could not be read');
   }
   try {
     const parsed = body ? JSON.parse(body) : {};
@@ -103,21 +110,28 @@ export async function handleCommandGateway(
     return jsonError(400, 'Command payload is not valid JSON');
   }
 
-  const upstream = await fetch(
-    `${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/${rpcName}`,
-    {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        apikey: env.SUPABASE_ANON_KEY,
-        authorization,
-        'content-profile': 'public',
-        'content-type': 'application/json',
-        'x-client-info': request.headers.get('x-client-info') ?? 'doji-command-gateway/1.0',
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/${rpcName}`,
+      {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          apikey: env.SUPABASE_ANON_KEY,
+          authorization,
+          'content-profile': 'public',
+          'content-type': 'application/json',
+          'x-client-info': request.headers.get('x-client-info') ?? 'doji-command-gateway/1.0',
+        },
+        body: body || '{}',
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       },
-      body: body || '{}',
-    },
-  );
+    );
+  } catch (error) {
+    console.error('Command upstream request failed', { rpcName, error });
+    return jsonError(504, 'Doji could not finish that request in time');
+  }
   const upstreamBody = await upstream.arrayBuffer();
 
   if (upstream.ok) {

@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/useAuthStore';
 import type { Report } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { runAbortableQuery } from '../lib/requestSignal';
+import { signReportMedia } from '../lib/postMedia';
 
 export type { Report };
 
@@ -13,13 +15,13 @@ export function usePendingReports(enabled = true) {
 
   return useQuery<Report[]>({
     queryKey: ['admin', 'reports', 'pending'],
-    queryFn: async (): Promise<Report[]> => {
-      const { data, error } = await supabase.rpc('get_pending_reports_snapshot', {
+    queryFn: async ({ signal }): Promise<Report[]> => {
+      const { data, error } = await runAbortableQuery(supabase.rpc('get_pending_reports_snapshot', {
         p_limit: 100,
-      });
+      }), signal);
 
       if (error) throw error;
-      return (data ?? []) as Report[];
+      return signReportMedia((data ?? []) as Report[]);
     },
     enabled: !!isAdmin && enabled,
     staleTime: 30_000,

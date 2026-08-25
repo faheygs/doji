@@ -1,5 +1,6 @@
 import { sendExpoPushMessages, type ExpoMessage } from './expo-push.ts';
 import { recordPushDeliveryResults, type PushDeliveryOutcome } from './push-delivery.ts';
+import { getPushExpiresAtMs, type DeliveryEvent } from './domain-event-delivery.ts';
 
 const PAGE_SIZE = 1000;
 const EXPO_BATCH_SIZE = 100;
@@ -20,7 +21,7 @@ type DatabaseClient = {
   };
 };
 
-type BroadcastEvent = {
+type BroadcastEvent = DeliveryEvent & {
   id: string;
   aggregate_id: string | null;
   event_type: string;
@@ -42,13 +43,17 @@ const wait = (milliseconds: number) =>
   });
 
 function messageFor(event: BroadcastEvent, token: string): ExpoMessage {
+  const expiresAtMs = getPushExpiresAtMs(event);
+  const ttl = expiresAtMs === null
+    ? 1
+    : Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000));
   return {
     to: token,
     title: String(event.payload.title ?? 'Doji'),
     body: String(event.payload.body ?? ''),
     sound: 'default',
     badge: 1,
-    ttl: 120,
+    ttl,
     priority: 'high',
     interruptionLevel: 'time-sensitive',
     threadId: `doji-live:${String(event.payload.dailyEventId ?? event.id)}`,
@@ -133,6 +138,9 @@ export async function processBroadcastPush(
         };
       }),
     );
+    if (!result.httpOk) {
+      throw new Error(result.transportError ?? 'Push provider transport failed');
+    }
     if (invalidTokens.length > 0) {
       const { error: clearError } = await database.rpc('invalidate_expo_push_tokens', {
         p_tokens: [...new Set(invalidTokens)],

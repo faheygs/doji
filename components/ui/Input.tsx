@@ -41,6 +41,7 @@ export const Input = forwardRef<TextInput, Props>(
       returnKeyType,
       blurOnSubmit,
       onSubmitEditing,
+      accessibilityLabel,
       ...rest
     },
     ref,
@@ -102,6 +103,8 @@ export const Input = forwardRef<TextInput, Props>(
           <AppTextInput
             key="field"
             ref={ref}
+            accessibilityLabel={accessibilityLabel ?? label}
+            accessibilityState={{ disabled: rest.editable === false }}
             style={[styles.input, error ? styles.inputError : undefined, style]}
             multiline={multiline}
             // iOS can add a second floating Done control when a numeric pad is

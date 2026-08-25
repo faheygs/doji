@@ -117,7 +117,7 @@ as a new account. Refreshing an already loaded profile keeps the app group mount
 sequenceDiagram
   participant Alarm as Cloudflare Durable Object
   participant DB as Supabase Postgres
-  participant Relay as Cloudflare Queue / Edge relay
+  participant Relay as Cloudflare Durable Object / Edge relay
   participant Live as Ably and Expo Push
   participant App as Mobile app
 
@@ -274,6 +274,15 @@ TUS uploads. Completion accepts only reserved objects from the same idempotent c
 Uncommitted objects are removed after 24 hours. A deleted/moderated post durably queues
 its physical objects for removal; committed reservation metadata expires after the post
 is gone and 30 days have elapsed, without deleting media still referenced by a post.
+The `post-media` bucket is private. Authorized feed, detail, moderation, and command
+receipt reads resolve short-lived signed URLs in bounded batches. Signed URLs are never
+persisted in the long-lived query cache. Deploying the private-bucket migration therefore
+requires a coordinated mobile release containing the signed-media read path.
+
+Challenge suggestions are untrusted UGC. The database owns their canonical hash,
+allowed kind, per-field size limits, option cardinality, answer-rule shape, and content
+filtering. A client-provided hash is accepted only as a backwards-compatible RPC
+argument and is never authoritative.
 
 ## Core data relationships
 
@@ -319,10 +328,10 @@ flowchart LR
   Tx --> Rows[Business rows and rewards]
   Tx --> Outbox[Domain event outbox]
   Rows --> Result[Authoritative result]
-  Gateway --> Queue[Immediate Cloudflare Queue wake after commit]
-  Outbox -. durable pg_net fallback .-> Queue
-  Queue --> Ably[Ably channels]
-  Queue --> Push[Expo Push claim/delivery]
+  Gateway --> Relay[Immediate Durable Object wake after commit]
+  Outbox -. durable pg_net fallback .-> Relay
+  Relay --> Ably[Ably channels]
+  Relay --> Push[Native push claim/delivery]
 ```
 
 Never replace an atomic RPC with multiple client writes. Mutation retries are off by
@@ -357,8 +366,9 @@ foreground reconciliation refetches authorized state if any event was missed.
 1. The mutation commits application rows and outbox rows together. The command gateway
    immediately wakes the 250 ms burst coalescer, which seeds parallel drain lanes;
    database-originated lifecycle alarms can enqueue their bounded drain directly.
-2. Cloudflare Queue claims critical activation and realtime-only rows ahead of
-   push-only backlog and relays them with retry/dead-letter behavior.
+2. The singleton Cloudflare Durable Object alarm claims critical activation and
+   realtime-only rows ahead of push-only backlog and relays bounded pages with durable
+   retry state. Postgres leases and delivery keys make every continuation idempotent.
 3. Ably atomically publishes each ordered channel batch of ID-only events. The relay
    durably marks realtime publication before slower push delivery begins.
 4. `hooks/useDomainRealtime.ts` deduplicates event IDs and invalidates targeted
@@ -500,22 +510,32 @@ only and cannot authorize delivery. This intentionally favors a rare missed OS a
 over any possibility of a notification storm because Postgres, Ably, and foreground
 reconciliation remain authoritative.
 The relay carries the immutable outbox creation time and rejects Doji pushes older
-than two minutes and other pushes older than five minutes. Provider TTL begins only
-after this freshness check; a retry can never give a day-old action a new lifetime.
+than two minutes and other pushes older than five minutes. APNs, FCM, and Expo expiry
+is fixed to the original action deadline; a retry can never give an old action a new
+lifetime. Realtime health email requires a representative five-minute sample unless
+one event exceeds 30 seconds, and each issue family has a rolling 60-minute cooldown.
 App correctness never depends on OS push delivery; foreground/reconnect reconciliation
 must still reveal the committed state.
 Nested outbox inserts issue one post-commit relay wake per database transaction.
 `INSERT ... ON CONFLICT DO UPDATE` statements that create no new outbox row do not
 wake the relay again. This `pg_net` path is the durable fallback for commands that did
 not traverse the gateway or whose immediate coalescer wake failed. The same singleton
-Durable Object coalesces both fast-path bursts and fallback wakes for 250 ms, then seeds
-16 one-message Cloudflare Queue drain lanes. Full 100-row claims
-double their continuation lanes to a hard 128-lane ceiling; small workloads stay at
-the initial footprint. Every lane claims disjoint leases until committed work drains.
+Durable Object coalesces both fast-path bursts and fallback wakes for 250 ms, then
+drains up to eight bounded relay pages per alarm. Remaining work immediately schedules
+the next durable alarm; every page claims disjoint Postgres leases until committed work
+drains.
+The existing once-per-minute operational health check submits one recovery wake only
+when durable outbox work is overdue. This repairs failed wake or relay periods after
+service recovery; it is not the primary delivery trigger or a challenge timer.
 Friend-scoped realtime invalidations are batch-published to at most 100 Ably channels
 per HTTP call; only grouped OS-alert work becomes a per-recipient durable child row.
 Per-source/per-recipient once keys ensure an expansion retry cannot inflate grouped
 friend-completion or reaction counts.
+Realtime token authorization relies on PostgREST's bearer-token verification and uses
+one bounded database RPC for caller identity, administrator, and mounted-post
+capabilities. Mobile token requests are serialized with a 20-second transport timeout
+so a cold Edge start cannot create overlapping authorization requests or let an older
+token win the race.
 Profile presentation/stats and badge-progress changes also use identifier-only friend
 batch fanout, so shop/profile/gamification writes do not synchronously expand friends.
 Push-recipient reads begin concurrently and are not awaited before an Ably batch is
@@ -660,7 +680,7 @@ notifications, member profiles, post detail, and admin are pushed routes, not ta
 | `types/database.ts`             | Client database/RPC types                                         |
 | `supabase/migrations/`          | Authoritative schema, RLS, RPCs, triggers, outbox producers       |
 | `supabase/functions/`           | Privileged edge integrations                                      |
-| `infra/doji-orchestrator/`      | Durable alarms, queue wakeups, retries, dead-letter handling      |
+| `infra/doji-orchestrator/`      | Durable alarms, coalesced relay wakeups, retries, health recovery |
 | `docs/REALTIME_ARCHITECTURE.md` | Realtime guarantees, channels, deployment, monitoring             |
 | `docs/QA_CHECKLIST.md`          | Release/device test matrix                                        |
 | `docs/APP_STORE_RELEASE.md`     | Apple review and submission evidence                              |
@@ -712,9 +732,10 @@ those grants makes the policy fail closed.
 - A 100k activation must remain bounded: neither pre-live nor activation scans accounts.
   Activation creates 128 fixed push-shard rows and one global identifier event.
   User occurrences materialize lazily inside the authoritative current-state command.
-  Cloudflare Queue drains shards concurrently in 500-account keyset pages, claims each
-  bounded active installation independently, and uses bounded direct-native provider
-  concurrency. Expo is migration fallback only because
+  A singleton Cloudflare Durable Object alarm drains active shards with bounded
+  concurrency in 500-account keyset pages, claims each bounded active installation
+  independently, and retries resumable continuations only inside the launch lifetime.
+  Unfinished shards at expiry raise an operational incident. Expo is migration fallback only because
   its 600/s project cap cannot meet the 100k freshness target. Never restore per-account
   activation outbox rows.
 - Shared poll, community engagement, and occurrence participation totals use 128 write
@@ -723,14 +744,15 @@ those grants makes the policy fail closed.
 - Reaction responses and engagement snapshots read those fixed shards; never restore a
   full reaction-table regroup on the mutation or realtime path. Friend-scoped poll
   totals refresh from friend activity, not from every stranger's global vote signal.
-- `EXPO_PUBLIC_SCALE_READ_URL` is the paid-capacity boundary for authenticated aggregate
-  reads. It is absent in free mode, and enabling it must not change TanStack Query keys
-  or screen behavior. A configured gateway fails closed instead of falling back into a
-  database stampede.
+- `EXPO_PUBLIC_SCALE_READ_URL` is the paid-capacity boundary currently wired for hot
+  engagement and poll-summary aggregates. It is absent in free mode, and enabling it must
+  not change TanStack Query keys or screen behavior. A configured gateway fails closed
+  instead of falling back into a database stampede. The authenticated implementation and
+  a complete 100k feed/profile read tier are release-scale work, not present-tense claims.
 - Social write budgets are enforced in Postgres per actor/action. Reconnect attempts and
   authoritative catch-up are jittered. Bounded retention continues until caught up,
   and the one-minute operational health contract reports overdue outbox work and stale
-  push shards. Degraded health and final queue retries send a protected Resend-backed
+  push shards. Degraded health and final durable-alarm retries send a protected Resend-backed
   admin email; private hourly receipts deduplicate each issue family.
 - `npm run test:scale-bursts` must pass the 30-, 60-, and 120-second modeled budgets.
   The configured rates describe capacity that must be purchased and load-proven before
@@ -756,6 +778,6 @@ deduplication, profile/frame propagation, Sparks, badges, background/reconnect, 
 reinstall-persistent dismissals must all be verified on the release build.
 
 Required production monitoring is listed in the realtime architecture. At minimum:
-alert on outbox rows more than 60 seconds past `available_at`, queue dead letters,
-fanout shards still pending 60 seconds after activation, Ably/relay errors, push
+alert on outbox rows more than 60 seconds past `available_at`, exhausted or expired
+fanout shards, fanout shards still pending 60 seconds after activation, Ably/relay errors, push
 receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.

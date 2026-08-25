@@ -42,7 +42,13 @@ export function PollScreen({ challenge, options, onVote, onBack, existingVoteOpt
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={16}>
+      <TouchableOpacity
+        onPress={onBack}
+        style={styles.backBtn}
+        hitSlop={16}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
         <IconChevronLeft size={24} color={colors.textSecondary} />
       </TouchableOpacity>
 
@@ -72,6 +78,9 @@ export function PollScreen({ challenge, options, onVote, onBack, existingVoteOpt
                 key={opt.id}
                 onPress={() => handleVote(opt.id, idx)}
                 disabled={hasVoted}
+                accessibilityRole="radio"
+                accessibilityLabel={opt.text}
+                accessibilityState={{ selected: isSelected, disabled: hasVoted }}
                 style={[
                   styles.option,
                   {

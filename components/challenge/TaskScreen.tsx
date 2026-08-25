@@ -44,7 +44,13 @@ export function TaskScreen({
         { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={16}>
+      <TouchableOpacity
+        onPress={onBack}
+        style={styles.backBtn}
+        hitSlop={16}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
         <IconChevronLeft size={24} color={colors.textSecondary} />
       </TouchableOpacity>
 
@@ -85,6 +91,9 @@ export function TaskScreen({
             <TouchableOpacity
               onPress={handleComplete}
               disabled={submitting}
+              accessibilityRole="button"
+              accessibilityLabel="Complete task"
+              accessibilityState={{ disabled: submitting, busy: submitting }}
               style={[styles.ctaBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.85}
             >
@@ -101,6 +110,8 @@ export function TaskScreen({
               onPress={onTakeProofPhoto}
               style={[styles.secondaryBtn, { borderColor: colors.border }]}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Take an optional proof photo"
             >
               <IconCamera size={18} color={colors.textSecondary} />
               <Text variant="body" color={colors.textSecondary} style={{ marginLeft: 8 }}>

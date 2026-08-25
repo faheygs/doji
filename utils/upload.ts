@@ -1,5 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../lib/supabase';
+import { executeCommand } from '../lib/commandGateway';
 import { resumableStorageUpload } from './resumableUpload';
 
 /** CDN + disk cache reuse the same object path (`…/avatar.jpg`). Cache-busting keeps avatars visually fresh everywhere. */
@@ -111,7 +112,7 @@ async function reservePostMedia(
   extension: string,
   contentType: string,
 ): Promise<string> {
-  const { data, error } = await supabase.rpc('reserve_doji_media_upload', {
+  const { data, error } = await executeCommand('reserve_doji_media_upload', {
     p_user_event_id: userEventId,
     p_idempotency_key: commandId,
     p_slot: slot,

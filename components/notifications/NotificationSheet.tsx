@@ -1,16 +1,9 @@
-import React, { useMemo, useCallback, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Modal,
-  Platform,
-} from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { View, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
@@ -39,6 +32,7 @@ import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
+import { useNotificationSheetStyles } from './useNotificationSheetStyles';
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -61,6 +55,7 @@ export function NotificationSheet({
   const pathname = usePathname();
   const { colors } = useTheme();
   const [actionError, setActionError] = useState(false);
+  const styles = useNotificationSheetStyles();
   const pendingActionRef = useRef<(() => void) | null>(null);
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const respond = useRespondToFriendRequest();
@@ -79,8 +74,10 @@ export function NotificationSheet({
     if (action) requestAnimationFrame(action);
   }, []);
 
+  const wasVisibleRef = useRef(visible);
   React.useEffect(() => {
-    if (!visible && Platform.OS !== 'ios') finishDismiss();
+    if (wasVisibleRef.current && !visible) finishDismiss();
+    wasVisibleRef.current = visible;
   }, [finishDismiss, visible]);
   const openFeedPost = useCallback(
     (postId: string, openComments = false, mentionCommentId?: string) => {
@@ -88,109 +85,6 @@ export function NotificationSheet({
       dismissThen(() => navigateToFeedPost(router, postId, { openComments, mentionCommentId }));
     },
     [dismissThen, router],
-  );
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        flex: {
-          flex: 1,
-          backgroundColor: colors.background,
-        },
-        header: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-        },
-        list: {
-          padding: Spacing.md,
-          paddingBottom: Spacing.sm,
-          gap: Spacing.sm,
-          flexGrow: 1,
-        },
-        card: {
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
-        },
-        actions: {
-          flexDirection: 'row',
-          gap: Spacing.sm,
-        },
-        challengeLeading: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.primaryLight,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        badgeLeading: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.primaryPale,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        suggestionApprovedLeading: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.successLight,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        suggestionRejectedLeading: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.chipBackground,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        empty: {
-          alignItems: 'center',
-          paddingTop: Spacing.xxl * 2,
-          paddingHorizontal: Spacing.xl,
-          gap: Spacing.sm,
-        },
-        emptySub: {
-          textAlign: 'center',
-          lineHeight: 20,
-        },
-        footer: {
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.hairline,
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.md,
-          paddingBottom: Spacing.lg,
-        },
-        footerBtn: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Spacing.sm,
-          paddingVertical: Spacing.sm,
-        },
-        dismissAction: {
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: 80,
-          marginBottom: Spacing.sm,
-          borderRadius: Radius.md,
-          backgroundColor: colors.error,
-        },
-        dismissActionText: {
-          color: colors.onPrimary,
-          fontWeight: '600',
-          fontSize: 13,
-        },
-      }),
-    [colors],
   );
 
   const openProfile = useCallback(
@@ -522,14 +416,16 @@ export function NotificationSheet({
       styles.suggestionRejectedLeading,
     ],
   );
+  if (!visible) return null;
 
   return (
     <Modal
+      // Close atomically; native page sheets keep intercepting touches while
+      // iOS finishes their dismissal animation.
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType="none"
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
-      onDismiss={finishDismiss}
     >
       <View style={styles.flex}>
         <View style={styles.header}>

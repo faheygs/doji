@@ -3,14 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile } from '../types/database';
-import { createRequestSignal } from '../lib/requestSignal';
+import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
 export { useAddComment } from './useAddComment';
 export {
   useDeleteComment,
   useEditComment,
-  useToggleCommentLike,
-  useToggleCommentsDisabled,
 } from './useCommentMutations';
+export { useToggleCommentLike, useToggleCommentsDisabled } from './useCommentControls';
 
 export type CommentWithMeta = Comment;
 
@@ -69,13 +68,13 @@ export function useMentionSearch(query: string, options?: { enabled?: boolean })
 
   return useQuery({
     queryKey: ['mentionSearch', viewerId, query],
-    queryFn: async (): Promise<Profile[]> => {
+    queryFn: async ({ signal }): Promise<Profile[]> => {
       if (!viewerId) return [];
       const trimmed = query.trim();
-      const { data, error } = await supabase.rpc('search_mentionable_profiles', {
+      const { data, error } = await runAbortableQuery(supabase.rpc('search_mentionable_profiles', {
         p_query: trimmed,
         p_limit: 8,
-      });
+      }), signal);
       if (error) throw error;
       return (data ?? []) as Profile[];
     },

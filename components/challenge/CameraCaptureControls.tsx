@@ -28,7 +28,7 @@ export function CameraTopControls({
 }: TopProps) {
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.iconButton} accessibilityLabel="Close camera">
+      <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Close camera">
         <IconClose size={26} color={color} />
       </TouchableOpacity>
       <View style={styles.headerActions}>
@@ -37,10 +37,12 @@ export function CameraTopControls({
           disabled={!flashAvailable}
           style={[styles.iconButton, !flashAvailable && styles.disabled]}
           accessibilityLabel={flashEnabled ? 'Turn flash off' : 'Turn flash on'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !flashAvailable, selected: flashEnabled }}
         >
           <IconBolt size={22} color={flashEnabled ? '#FFD43B' : color} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onFlip} style={styles.iconButton} accessibilityLabel="Flip camera">
+        <TouchableOpacity onPress={onFlip} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Flip camera">
           <IconFlipCamera size={24} color={color} />
         </TouchableOpacity>
         <ChallengeTimer expiresAt={expiresAt} onExpire={onExpire} />
@@ -62,11 +64,11 @@ export function CameraZoomControls({
   const increase = () => onChange(Math.min(1, Number((zoom + 0.1).toFixed(1))));
   return (
     <View style={styles.zoomRow} accessibilityLabel={`Camera zoom ${Math.round(zoom * 100)} percent`}>
-      <TouchableOpacity onPress={decrease} disabled={zoom <= 0} style={styles.zoomButton} accessibilityLabel="Zoom out">
+      <TouchableOpacity onPress={decrease} disabled={zoom <= 0} style={styles.zoomButton} accessibilityRole="button" accessibilityLabel="Zoom out" accessibilityState={{ disabled: zoom <= 0 }}>
         <Text variant="headingMedium" color={color}>−</Text>
       </TouchableOpacity>
       <Text variant="label" color={color}>{zoom === 0 ? '1×' : `${(1 + zoom * 2).toFixed(1)}×`}</Text>
-      <TouchableOpacity onPress={increase} disabled={zoom >= 1} style={styles.zoomButton} accessibilityLabel="Zoom in">
+      <TouchableOpacity onPress={increase} disabled={zoom >= 1} style={styles.zoomButton} accessibilityRole="button" accessibilityLabel="Zoom in" accessibilityState={{ disabled: zoom >= 1 }}>
         <Text variant="headingMedium" color={color}>+</Text>
       </TouchableOpacity>
     </View>

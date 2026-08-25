@@ -17,6 +17,7 @@ import { IconChevronLeft } from '../../../../components/icons/Icons';
 import { usePost } from '../../../../hooks/useProfile';
 import { useUserEvent } from '../../../../hooks/useUserEvent';
 import { hasUnlockedFeed } from '../../../../lib/participationGate';
+import { backOrHome } from '../../../../lib/navigationReturn';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,7 +52,7 @@ export default function PostDetailScreen() {
     <SafeAreaView style={[styles.container, webScrollParentStyle]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => backOrHome(router)}
           hitSlop={16}
           style={styles.backHit}
           accessibilityRole="button"

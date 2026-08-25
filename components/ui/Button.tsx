@@ -26,6 +26,7 @@ type Props = {
   fullWidth?: boolean;
   /** Shown to the left of the label (hidden while loading). */
   leftIcon?: ReactNode;
+  accessibilityLabel?: string;
 };
 
 export function Button({
@@ -38,6 +39,7 @@ export function Button({
   style,
   fullWidth = false,
   leftIcon,
+  accessibilityLabel,
 }: Props) {
   const { colors } = useTheme();
 
@@ -87,6 +89,9 @@ export function Button({
       onPress={handlePress}
       activeOpacity={0.85}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       style={[
         styles.base,
         variantStyle,

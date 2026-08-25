@@ -39,8 +39,8 @@
   the product blocks users under 13; that answer describes the control, not eligibility.
 - Keep the privacy label inclusive of account identity, names/email, photos/video,
   audio captured with video, free-form user content, device push identifiers,
-  product interactions, virtual shop ownership, crash data, and performance data.
-  birth date and age-assurance record. These are linked to the account/device and
+  product interactions, virtual shop ownership, crash data, performance data,
+  birth date, and the age-assurance record. These are linked to the account/device and
   used for App Functionality; Doji does not track users or use data for advertising.
 - Use `https://dojipro.com/privacy/#choices` as the optional privacy-choices URL.
 - Select only the newest verified production build and use manual release.
@@ -71,9 +71,11 @@
    `schedule-daily-challenge`, `fanout-doji-push`, and `run-data-maintenance`.
 4. Configure and verify the production APNs key/team/bundle secrets. Confirm a new
    production build registers a native endpoint before testing a global launch.
-5. Deploy `infra/doji-orchestrator` and verify queue/dead-letter bindings.
+5. Deploy `infra/doji-orchestrator` and verify all four Durable Object bindings and
+   the one-minute health trigger.
 6. Confirm there are no recurring `doji_*` pg_cron jobs.
-7. Confirm outbox rows publish promptly and the dead-letter queue remains empty.
+7. Confirm outbox rows publish promptly, push shards finish before expiry, and the
+   alarm-repair count remains zero.
 8. Run the complete physical-device matrix before submitting.
 
 ## Required before public production
@@ -82,7 +84,8 @@ Automated and infrastructure gates:
 
 - [x] Production migrations match the repository and database lint is clean.
 - [x] Required Supabase Edge Functions and the Cloudflare orchestrator are deployed.
-- [x] Cloudflare primary and dead-letter queues are bound to the production worker.
+- [ ] All four Cloudflare Durable Objects are bound to the production worker and
+      production health shows no overdue outbox, expired shard, or alarm-repair work.
 - [x] Resend-backed operational health alerts are enabled and hourly-deduplicated.
 - [x] Sentry DSN/source-map credentials are present in EAS production; realtime
       authentication, connection, and subscription failures are captured without PII.
@@ -90,15 +93,18 @@ Automated and infrastructure gates:
       Android-release gate and does not block the current iPhone-only App Store release.
 - [x] EAS production contains only the current Supabase/Sentry configuration; retired
       Railway, R2, Typesense, Google-auth, and legacy socket variables are removed.
-- [x] The checked-in 30/60/120-second 100k burst capacity model passes.
+- [ ] The checked-in 30/60/120-second capacity model is reviewed and a production-like
+      load environment has demonstrated the required provider, database, and Ably
+      headroom. A model alone is not load proof.
 - [x] The production database enforces that no recurring `doji_*` pg_cron jobs remain.
-- [x] Full validation commands and the production Expo export pass on this release
-      candidate; the production dependency audit has zero high or critical findings.
+- [ ] Full validation commands and the production Expo export pass on this exact
+      release candidate; the production dependency audit has zero high or critical
+      findings.
 
 Exact release-build gates (cannot be inferred from unit tests):
 
-- [x] Install the candidate through TestFlight on at least two physical iPhones.
-- [x] Complete the realtime/push device matrix above, including background and
+- [ ] Install the exact candidate through TestFlight on at least two physical iPhones.
+- [ ] Complete the realtime/push device matrix above, including background and
       reconnect recovery, notification deduplication, and the close boundary.
 - [ ] Confirm the candidate registers a production native APNs endpoint.
 - [ ] Record Apple's physical-device UGC review video and attach it to Review Notes.

@@ -1,13 +1,17 @@
 import { DurableObject } from 'cloudflare:workers';
 import { captureWorkerException } from './sentry';
 import { handleCommandGateway } from './command-gateway';
+import {
+  checkOperationalHealth,
+  sendOperationalAlert,
+  type EventAlarmRepair,
+} from './operational-health';
 
 interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
   OUTBOX_RELAY_ALARM: DurableObjectNamespace<OutboxRelayAlarm>;
+  PUSH_FANOUT_ALARM: DurableObjectNamespace<PushFanoutAlarm>;
   DATA_MAINTENANCE_ALARM: DurableObjectNamespace<DataMaintenanceAlarm>;
-  DOMAIN_EVENT_QUEUE: Queue<OutboxWake>;
-  PUSH_FANOUT_QUEUE: Queue<PushFanoutMessage>;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   ORCHESTRATOR_SECRET: string;
@@ -24,48 +28,85 @@ type AlarmState = {
   closeAction?: 'close' | 'close_targeted';
 };
 
-type OutboxWake = { requestedAt: string; generation?: number };
 type PushFanoutMessage = { dailyEventId: string; shard: number };
 
-const PUSH_SHARD_COUNT = 128;
-const QUEUE_SEND_BATCH_SIZE = 100;
-const OUTBOX_INITIAL_DRAIN_LANES = 16;
-const OUTBOX_MAX_SCALE_GENERATION = 3;
 const OUTBOX_WAKE_COALESCE_MS = 250;
+const OUTBOX_MAX_PAGES_PER_ALARM = 8;
+const PUSH_FANOUT_CONCURRENCY = 8;
+const PUSH_FANOUT_LIFETIME_MS = 2 * 60 * 1000;
+const UPSTREAM_TIMEOUT_MS = 12_000;
 
-async function wakeDomainRelayNow(env: Env): Promise<void> {
-  await env.DOMAIN_EVENT_QUEUE.send({
-    requestedAt: new Date().toISOString(),
-    generation: 0,
+function fetchUpstream(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 }
 
-function isPushFanoutMessage(
-  value: OutboxWake | PushFanoutMessage | undefined,
-): value is PushFanoutMessage {
-  return Boolean(
-    value &&
-    'dailyEventId' in value &&
-    typeof value.dailyEventId === 'string' &&
-    'shard' in value &&
-    Number.isInteger(value.shard),
-  );
+async function wakeDomainRelayNow(env: Env): Promise<void> {
+  const id = env.OUTBOX_RELAY_ALARM.idFromName('singleton');
+  const response = await env.OUTBOX_RELAY_ALARM.get(id).fetch('https://alarm.internal/wake', {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error(`Scheduling outbox relay failed: ${response.status}`);
 }
 
 async function enqueueDojiPushFanout(env: Env, dailyEventId: string): Promise<void> {
-  const messages = Array.from({ length: PUSH_SHARD_COUNT }, (_, shard) => ({
-    body: { dailyEventId, shard },
+  const id = env.PUSH_FANOUT_ALARM.idFromName(dailyEventId);
+  const response = await env.PUSH_FANOUT_ALARM.get(id).fetch('https://push.internal/start', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyEventId }),
+  });
+  if (!response.ok) throw new Error(`Scheduling Doji push fanout failed: ${response.status}`);
+}
+
+async function repairEventAlarms(env: Env, repairs: EventAlarmRepair[]): Promise<void> {
+  const outcomes = await Promise.allSettled(repairs.map(async (repair) => {
+    const id = env.DOJI_EVENT_ALARM.idFromName(repair.dailyEventId);
+    const response = await env.DOJI_EVENT_ALARM.get(id).fetch(
+      `https://alarm.internal/events/${repair.dailyEventId}/repair`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(repair),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Repairing event alarm failed: ${response.status}`);
+    }
   }));
-  for (let index = 0; index < messages.length; index += QUEUE_SEND_BATCH_SIZE) {
-    await env.PUSH_FANOUT_QUEUE.sendBatch(messages.slice(index, index + QUEUE_SEND_BATCH_SIZE));
+  const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
+  if (rejected.length > 0) {
+    throw new Error(`${rejected.length} event alarm repair(s) failed`);
   }
+}
+
+async function listDojiPushFanoutShards(env: Env, dailyEventId: string): Promise<number[]> {
+  const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/fanout-doji-push`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-outbox-secret': env.OUTBOX_RELAY_SECRET,
+    },
+    body: JSON.stringify({ dailyEventId }),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`Listing Doji push shards failed: ${response.status} ${body}`);
+  }
+  const parsed = JSON.parse(body) as { shards?: unknown };
+  if (!Array.isArray(parsed.shards)) throw new Error('Invalid Doji push shard response');
+  return parsed.shards.filter(
+    (shard): shard is number => Number.isInteger(shard) && shard >= 0 && shard <= 127,
+  );
 }
 
 async function processPushFanout(
   env: Env,
   message: PushFanoutMessage,
 ): Promise<{ continued: boolean; retryAfterSeconds?: number }> {
-  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/fanout-doji-push`, {
+  const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/fanout-doji-push`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -94,7 +135,7 @@ async function orchestrateDoji<T>(
   action: 'prelive' | 'activate' | 'close' | 'close_targeted',
   dailyEventId: string,
 ): Promise<T> {
-  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/orchestrate-doji`, {
+  const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/orchestrate-doji`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -109,7 +150,7 @@ async function orchestrateDoji<T>(
 }
 
 async function prepareNextDoji(env: Env): Promise<void> {
-  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/schedule-daily-challenge`, {
+  const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/schedule-daily-challenge`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -123,7 +164,7 @@ async function prepareNextDoji(env: Env): Promise<void> {
 }
 
 async function runDataMaintenance(env: Env): Promise<{ hasMore: boolean }> {
-  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/run-data-maintenance`, {
+  const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/run-data-maintenance`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -144,46 +185,6 @@ async function scheduleDataMaintenance(env: Env): Promise<void> {
     { method: 'POST' },
   );
   if (!response.ok) throw new Error(`Scheduling data maintenance failed: ${response.status}`);
-}
-
-async function checkOperationalHealth(env: Env): Promise<void> {
-  const response = await fetch(`${env.SUPABASE_URL}/functions/v1/operational-health`, {
-    method: 'POST',
-    headers: { 'x-outbox-secret': env.OUTBOX_RELAY_SECRET },
-  });
-  const body = await response.text();
-  if (!response.ok) throw new Error(`Operational health check failed: ${response.status} ${body}`);
-  const health = JSON.parse(body) as { healthy?: boolean } & Record<string, unknown>;
-  if (health.healthy === true) return;
-  console.error('Doji operational health is degraded', health);
-  const providerCredentialErrors = Number(health.apns_provider_credential_errors ?? 0);
-  await sendOperationalAlert(
-    env,
-    providerCredentialErrors > 0 ? 'apns-provider-credentials' : 'health-degraded',
-    health,
-  );
-}
-
-async function sendOperationalAlert(
-  env: Env,
-  issueFamily: string,
-  details: Record<string, unknown>,
-): Promise<void> {
-  const alert = await fetch(`${env.SUPABASE_URL}/functions/v1/send-admin-email`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-outbox-secret': env.OUTBOX_RELAY_SECRET,
-    },
-    body: JSON.stringify({
-      event: 'operational_health',
-      issue_family: issueFamily,
-      source: 'doji-orchestrator',
-      observed_at: new Date().toISOString(),
-      ...details,
-    }),
-  });
-  if (!alert.ok) throw new Error(`Operational alert delivery failed: ${alert.status}`);
 }
 
 export class DojiEventAlarm extends DurableObject<Env> {
@@ -259,9 +260,9 @@ export class DojiEventAlarm extends DurableObject<Env> {
         closes_at: string;
       }>(this.env, 'activate', state.dailyEventId);
       await wakeDomainRelayNow(this.env);
-      // Queue partition seeding is idempotent at the database delivery-key and
-      // shard-lease boundaries. If this alarm retries after a partial enqueue,
-      // duplicate messages cannot produce duplicate user notifications.
+      // Durable fanout seeding is idempotent at the database delivery-key and
+      // shard-lease boundaries. If this alarm retries after partial progress,
+      // duplicate work cannot produce duplicate user notifications.
       await enqueueDojiPushFanout(this.env, state.dailyEventId);
       const next: AlarmState = {
         ...state,
@@ -305,14 +306,6 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Math.max(Date.now(), wakeTime));
   }
 
-  private async seedDrain(): Promise<void> {
-    await this.env.DOMAIN_EVENT_QUEUE.sendBatch(
-      Array.from({ length: OUTBOX_INITIAL_DRAIN_LANES }, () => ({
-        body: { requestedAt: new Date().toISOString(), generation: 0 },
-      })),
-    );
-  }
-
   async fetch(request: Request): Promise<Response> {
     if (request.method === 'POST') {
       await this.schedule(new Date(Date.now() + OUTBOX_WAKE_COALESCE_MS).toISOString());
@@ -326,7 +319,177 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     await this.ctx.storage.delete('wake');
-    await this.seedDrain();
+    try {
+      for (let page = 0; page < OUTBOX_MAX_PAGES_PER_ALARM; page += 1) {
+        const result = await relayResult(await relayDomainEvents(this.env));
+        if (result.hasMore) continue;
+        await this.ctx.storage.delete('failures');
+        await scheduleRelayWake(this.env, result.nextWakeAt);
+        return;
+      }
+      await this.schedule(new Date().toISOString());
+    } catch (error) {
+      const failures = (await this.ctx.storage.get<number>('failures') ?? 0) + 1;
+      await this.ctx.storage.put('failures', failures);
+      if (failures === 10) {
+        await Promise.allSettled([
+          captureWorkerException(this.env.SENTRY_DSN, 'domain_relay_repeated_failure', error, {
+            failures,
+          }),
+          sendOperationalAlert(this.env, 'domain-relay-repeated-failure', {
+            failures,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        ]);
+      }
+      const delayMs = Math.min(30_000, 1_000 * 2 ** Math.min(failures - 1, 5));
+      await this.schedule(new Date(Date.now() + delayMs).toISOString());
+    }
+  }
+}
+
+type PushFanoutTask = {
+  shard: number;
+  attempts: number;
+  availableAt: number;
+};
+
+type PushFanoutState = {
+  dailyEventId: string;
+  expiresAt: number;
+  tasks: PushFanoutTask[];
+  alerted: boolean;
+};
+
+/**
+ * Delivers one Doji launch without paying a queue operation for every shard.
+ * Postgres owns leases and provider delivery keys; this object only advances the
+ * bounded list of shards that actually contain eligible recipients.
+ */
+export class PushFanoutAlarm extends DurableObject<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    const input = await request.json<{ dailyEventId?: string }>();
+    if (!input.dailyEventId) return new Response('Missing dailyEventId', { status: 400 });
+
+    const existing = await this.ctx.storage.get<PushFanoutState>('fanout');
+    if (existing?.dailyEventId === input.dailyEventId && existing.tasks.length > 0) {
+      await this.ctx.storage.setAlarm(Date.now());
+      return Response.json({ scheduled: true, shards: existing.tasks.length });
+    }
+
+    const shards = await listDojiPushFanoutShards(this.env, input.dailyEventId);
+    if (shards.length === 0) {
+      await this.ctx.storage.delete('fanout');
+      return Response.json({ scheduled: false, shards: 0 });
+    }
+    const state: PushFanoutState = {
+      dailyEventId: input.dailyEventId,
+      expiresAt: Date.now() + PUSH_FANOUT_LIFETIME_MS,
+      tasks: shards.map((shard) => ({ shard, attempts: 0, availableAt: Date.now() })),
+      alerted: false,
+    };
+    await this.ctx.storage.put('fanout', state);
+    await this.ctx.storage.setAlarm(Date.now());
+    return Response.json({ scheduled: true, shards: shards.length });
+  }
+
+  async alarm(): Promise<void> {
+    const state = await this.ctx.storage.get<PushFanoutState>('fanout');
+    if (!state) return;
+    if (Date.now() >= state.expiresAt) {
+      if (state.tasks.length > 0) {
+        await Promise.allSettled([
+          captureWorkerException(
+            this.env.SENTRY_DSN,
+            'push_fanout_expired',
+            new Error('Push fanout expired with unfinished shards'),
+            {
+              dailyEventId: state.dailyEventId,
+              unfinishedShards: state.tasks.map((task) => task.shard).join(','),
+            },
+          ),
+          sendOperationalAlert(this.env, 'push-fanout-expired', {
+            dailyEventId: state.dailyEventId,
+            unfinishedShards: state.tasks.map((task) => task.shard),
+            attemptsByShard: Object.fromEntries(
+              state.tasks.map((task) => [task.shard, task.attempts]),
+            ),
+          }),
+        ]);
+      }
+      await this.ctx.storage.delete('fanout');
+      return;
+    }
+
+    const now = Date.now();
+    const due = state.tasks
+      .filter((task) => task.availableAt <= now)
+      .slice(0, PUSH_FANOUT_CONCURRENCY);
+    if (due.length === 0) {
+      await this.ctx.storage.setAlarm(Math.min(...state.tasks.map((task) => task.availableAt)));
+      return;
+    }
+
+    const dueShards = new Set(due.map((task) => task.shard));
+    const remaining = state.tasks.filter((task) => !dueShards.has(task.shard));
+    const results = await Promise.allSettled(
+      due.map((task) => processPushFanout(this.env, {
+        dailyEventId: state.dailyEventId,
+        shard: task.shard,
+      })),
+    );
+
+    let shouldAlert = false;
+    results.forEach((result, index) => {
+      const task = due[index];
+      if (result.status === 'fulfilled') {
+        if (result.value.continued) {
+          remaining.push({ shard: task.shard, attempts: 0, availableAt: Date.now() });
+        }
+        return;
+      }
+      const attempts = task.attempts + 1;
+      shouldAlert ||= attempts >= 8;
+      const requestedDelay = (result.reason as { retryAfterSeconds?: unknown })
+        ?.retryAfterSeconds;
+      const delaySeconds = typeof requestedDelay === 'number'
+        ? requestedDelay
+        : Math.min(15, 2 ** Math.min(attempts, 4));
+      remaining.push({
+        shard: task.shard,
+        attempts,
+        availableAt: Date.now() + Math.max(1, delaySeconds) * 1_000,
+      });
+    });
+
+    if (shouldAlert && !state.alerted) {
+      state.alerted = true;
+      await Promise.allSettled([
+        captureWorkerException(
+          this.env.SENTRY_DSN,
+          'push_fanout_repeated_failure',
+          new Error('One or more push shards repeatedly failed'),
+          { dailyEventId: state.dailyEventId },
+        ),
+        sendOperationalAlert(this.env, 'push-fanout-repeated-failure', {
+          dailyEventId: state.dailyEventId,
+          failedShards: remaining.filter((task) => task.attempts >= 8).map((task) => task.shard),
+        }),
+      ]);
+    }
+
+    state.tasks = remaining;
+    if (remaining.length === 0) {
+      await this.ctx.storage.delete('fanout');
+      return;
+    }
+    await this.ctx.storage.put('fanout', state);
+    await this.ctx.storage.setAlarm(Math.min(...remaining.map((task) => task.availableAt)));
   }
 }
 
@@ -359,7 +522,7 @@ function isAuthorized(request: Request, env: Env): boolean {
 }
 
 async function relayDomainEvents(env: Env): Promise<Response> {
-  return fetch(`${env.SUPABASE_URL}/functions/v1/relay-domain-events`, {
+  return fetchUpstream(`${env.SUPABASE_URL}/functions/v1/relay-domain-events`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -435,89 +598,21 @@ export default {
     return new Response('Not found', { status: 404 });
   },
 
-  async queue(
-    batch: MessageBatch<OutboxWake | PushFanoutMessage>,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
-    if (isPushFanoutMessage(batch.messages[0]?.body)) {
-      await Promise.all(
-        batch.messages.map(async (queued) => {
-          const message = queued.body as PushFanoutMessage;
-          try {
-            const result = await processPushFanout(env, message);
-            if (result.continued) await env.PUSH_FANOUT_QUEUE.send(message);
-            queued.ack();
-          } catch (error) {
-            const retryAfterSeconds =
-              typeof (error as { retryAfterSeconds?: unknown }).retryAfterSeconds === 'number'
-                ? (error as { retryAfterSeconds: number }).retryAfterSeconds
-                : 2;
-            if (queued.attempts >= 8) {
-              ctx.waitUntil(
-                captureWorkerException(env.SENTRY_DSN, 'push_fanout_final_retry', error, {
-                  attempts: queued.attempts,
-                  shard: message.shard,
-                }),
-              );
-              try {
-                await sendOperationalAlert(env, 'push-fanout-final-retry', {
-                  attempts: queued.attempts,
-                  dailyEventId: message.dailyEventId,
-                  shard: message.shard,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              } catch (alertError) {
-                console.error('Unable to deliver push fanout alert', alertError);
-              }
-            }
-            queued.retry({ delaySeconds: Math.max(1, retryAfterSeconds) });
-          }
-        }),
-      );
-      return;
-    }
-
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
     try {
-      const result = await relayResult(await relayDomainEvents(env));
-      if (result.hasMore) {
-        const wake = batch.messages[0]?.body as OutboxWake | undefined;
-        const generation = Math.max(0, wake?.generation ?? 0);
-        const nextGeneration = Math.min(generation + 1, OUTBOX_MAX_SCALE_GENERATION);
-        const continuationCount =
-          result.examined >= 100 && generation < OUTBOX_MAX_SCALE_GENERATION ? 2 : 1;
-        await env.DOMAIN_EVENT_QUEUE.sendBatch(
-          Array.from({ length: continuationCount }, () => ({
-            body: { requestedAt: new Date().toISOString(), generation: nextGeneration },
-          })),
-        );
-      } else {
-        await scheduleRelayWake(env, result.nextWakeAt);
-      }
-      batch.ackAll();
+      await checkOperationalHealth(
+        env,
+        () => wakeDomainRelayNow(env),
+        (repairs) => repairEventAlarms(env, repairs),
+      );
     } catch (error) {
-      const attempts = Math.max(...batch.messages.map((message) => message.attempts));
-      if (attempts >= 10) {
-        ctx.waitUntil(
-          captureWorkerException(env.SENTRY_DSN, 'domain_relay_final_retry', error, {
-            attempts,
-          }),
-        );
-        try {
-          await sendOperationalAlert(env, 'domain-relay-final-retry', {
-            attempts,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        } catch (alertError) {
-          console.error('Unable to deliver domain relay alert', alertError);
-        }
-      }
-      batch.retryAll({ delaySeconds: 2 });
+      await Promise.allSettled([
+        captureWorkerException(env.SENTRY_DSN, 'operational_health_check', error),
+        sendOperationalAlert(env, 'operational-health-check-failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      ]);
       throw error;
     }
   },
-
-  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    await checkOperationalHealth(env);
-  },
-} satisfies ExportedHandler<Env, OutboxWake | PushFanoutMessage>;
+} satisfies ExportedHandler<Env>;

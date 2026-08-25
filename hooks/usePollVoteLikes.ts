@@ -36,8 +36,9 @@ export function useTogglePollVoteLike() {
     mutationFn: async (variables: { pollVoteId: string; liked: boolean; commandId?: string }) => {
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('poll-vote-like');
-      const { data, error } = await executeCommand('toggle_poll_vote_like', {
+      const { data, error } = await executeCommand('set_poll_vote_like', {
         p_poll_vote_id: variables.pollVoteId,
+        p_active: !variables.liked,
         p_idempotency_key: variables.commandId,
       });
       if (error) throw error;
@@ -47,6 +48,10 @@ export function useTogglePollVoteLike() {
       const previous = queryClient.getQueriesData<InfiniteData<VoterPageRow[]>>({
         queryKey: ['pollVotersDetail'],
       });
+      void queryClient.cancelQueries(
+        { queryKey: ['pollVotersDetail'] },
+        { revert: false, silent: true },
+      );
       queryClient.setQueriesData<InfiniteData<VoterPageRow[]>>(
         { queryKey: ['pollVotersDetail'] },
         (old) => patchVoterLike(old, pollVoteId, !liked),

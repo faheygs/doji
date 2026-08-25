@@ -1,5 +1,6 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { readJsonBody } from '../_shared/json-body.ts';
 
 type OrchestrationRequest = {
   action?: 'prelive' | 'activate' | 'close' | 'close_targeted';
@@ -14,7 +15,7 @@ Deno.serve(async (request) => {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const input = await request.json() as OrchestrationRequest;
+  const input = await readJsonBody<OrchestrationRequest>(request);
   if (
     !input.action ||
     !['prelive', 'activate', 'close', 'close_targeted'].includes(input.action) ||

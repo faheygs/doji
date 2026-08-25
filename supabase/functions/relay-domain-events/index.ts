@@ -11,9 +11,11 @@ import { apnsConfigured, sendApnsMessage } from '../_shared/apns-push.ts';
 import { fcmConfigured, sendFcmMessage } from '../_shared/fcm-push.ts';
 import {
   buildAblyMessages,
+  getPushExpiresAtMs,
   isPushFresh,
   type DeliveryEvent,
 } from '../_shared/domain-event-delivery.ts';
+import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
 
 const MAX_TOPIC_WORKERS = 8;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
@@ -27,7 +29,7 @@ async function publishAblyEvents(
   if (events.length === 0) return;
   for (let index = 0; index < events.length; index += MAX_ABLY_MESSAGES_PER_REQUEST) {
     const chunk = events.slice(index, index + MAX_ABLY_MESSAGES_PER_REQUEST);
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://rest.ably.io/channels/${encodeURIComponent(topic)}/messages`,
       {
         method: 'POST',
@@ -75,7 +77,7 @@ async function publishFriendFanoutBatch(
 
   for (let index = 0; index < topics.length; index += MAX_ABLY_BATCH_CHANNELS) {
     const channels = topics.slice(index, index + MAX_ABLY_BATCH_CHANNELS);
-    const response = await fetch('https://main.realtime.ably.net/messages', {
+    const response = await fetchWithTimeout('https://main.realtime.ably.net/messages', {
       method: 'POST',
       headers: {
         Authorization: `Basic ${btoa(apiKey)}`,
@@ -299,7 +301,9 @@ Deno.serve(async (request) => {
             return;
           }
 
-          const ttl = event.event_type === 'doji.activated' ? 120 : 300;
+          const pushExpiresAtMs = getPushExpiresAtMs(event);
+          if (pushExpiresAtMs === null) throw new Error('Push expiration is invalid');
+          const ttl = Math.max(1, Math.ceil((pushExpiresAtMs - Date.now()) / 1000));
           const title = String(event.payload.title ?? 'Doji');
           const body = String(event.payload.body ?? '');
           const collapseKey = String(event.payload.collapseId ?? event.payload.threadId ?? event.id);
@@ -337,7 +341,7 @@ Deno.serve(async (request) => {
                 title,
                 body,
                 collapseId: collapseKey,
-                expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + ttl,
+                expiresAtEpochSeconds: Math.floor(pushExpiresAtMs / 1000),
                 interruptionLevel:
                   event.payload.interruptionLevel === 'passive'
                     ? 'passive'
@@ -400,6 +404,11 @@ Deno.serve(async (request) => {
             await database.rpc('invalidate_native_push_tokens', {
               p_tokens: invalidNativeTokens,
             });
+          }
+          if (results.some((result) => result.outcome === 'transport_error')) {
+            // Release the event lease. Only transport-failed endpoint claims are
+            // reclaimable; accepted/rejected claims remain terminal.
+            throw new Error('Push provider transport failed before confirmed handoff');
           }
         }
       }

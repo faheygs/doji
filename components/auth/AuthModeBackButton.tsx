@@ -28,7 +28,12 @@ export function AuthModeBackButton({ mode, onReturnToSignIn }: Props) {
   return (
     <>
       <Stack.Screen options={{ gestureEnabled: mode === 'signIn' }} />
-      <TouchableOpacity onPress={goBack} hitSlop={16} accessibilityLabel="Back">
+      <TouchableOpacity
+        onPress={goBack}
+        hitSlop={16}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
         <IconChevronLeft size={24} color={colors.textSecondary} />
       </TouchableOpacity>
     </>

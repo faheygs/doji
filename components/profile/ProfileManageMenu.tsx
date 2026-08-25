@@ -1,13 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
-import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '../../constants/theme';
+import { Motion } from '../../constants/motion';
 import { useTheme } from '../../contexts/ThemeContext';
 import { IconMoreVertical } from '../icons/Icons';
 import { Text } from '../ui/Text';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
-import { useModalPresence } from '../../hooks/useModalPresence';
 
 type Props = {
   isBlocked: boolean;
@@ -55,8 +60,7 @@ export function ProfileManageMenu({ isBlocked, busy, onBlock, onUnblock, onRepor
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const pendingActionRef = useRef<null | (() => void)>(null);
-  const wasPresented = useRef(false);
-  const { presented, progress } = useModalPresence(open);
+  const progress = useSharedValue(0);
   const closeMenu = useCallback(() => setOpen(false), []);
   useDismissOnRouteBlur(open, closeMenu);
 
@@ -68,18 +72,18 @@ export function ProfileManageMenu({ isBlocked, busy, onBlock, onUnblock, onRepor
     ],
   }));
 
-  useEffect(() => {
-    if (wasPresented.current && !presented) {
-      const action = pendingActionRef.current;
-      pendingActionRef.current = null;
-      action?.();
-    }
-    wasPresented.current = presented;
-  }, [presented]);
+  React.useEffect(() => {
+    progress.value = open ? withTiming(1, { duration: Motion.duration.sheet }) : 0;
+  }, [open, progress]);
 
   const run = (action: () => void) => {
     pendingActionRef.current = action;
     setOpen(false);
+    requestAnimationFrame(() => {
+      const pending = pendingActionRef.current;
+      pendingActionRef.current = null;
+      pending?.();
+    });
   };
 
   return (
@@ -95,13 +99,13 @@ export function ProfileManageMenu({ isBlocked, busy, onBlock, onUnblock, onRepor
         <IconMoreVertical size={20} color={colors.text} />
       </TouchableOpacity>
 
-      <Modal
-        visible={presented}
+      {open ? <Modal
+        visible={open}
         transparent
         animationType="none"
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.overlay} pointerEvents={open ? 'auto' : 'none'}>
+        <View style={styles.overlay}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close manage menu"
@@ -143,7 +147,7 @@ export function ProfileManageMenu({ isBlocked, busy, onBlock, onUnblock, onRepor
             ) : null}
           </Animated.View>
         </View>
-      </Modal>
+      </Modal> : null}
     </>
   );
 }

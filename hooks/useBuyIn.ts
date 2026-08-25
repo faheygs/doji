@@ -4,6 +4,7 @@ import type { UserEvent } from '../types/database';
 import { canBuyIn } from '../lib/participationGate';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { executeCommand } from '../lib/commandGateway';
+import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 
 export function useBuyInToday(userEvent: UserEvent | null | undefined) {
   const eligible = canBuyIn(userEvent);
@@ -13,9 +14,15 @@ export function useBuyInToday(userEvent: UserEvent | null | undefined) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await executeCommand('buy_in_today', {});
-      if (error) throw error;
-      return data as { user_event_id: string; sparks: number; expires_at: string | null };
+      if (!userEvent?.id) throw new Error('No Doji is available to reopen');
+      const commandId = occurrenceCommandId('buy-in', userEvent.id);
+      return runSingleFlight(commandId, async () => {
+        const { data, error } = await executeCommand('buy_in_today', {
+          p_idempotency_key: commandId,
+        });
+        if (error) throw error;
+        return data as { user_event_id: string; sparks: number; expires_at: string | null };
+      });
     },
     onSuccess: (data) => {
       if (!userId) return;

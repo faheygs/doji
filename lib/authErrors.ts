@@ -6,7 +6,7 @@ export function formatAuthError(error: unknown): string {
 
     const lower = msg.toLowerCase();
     if (lower.includes('email') && lower.includes('confirm')) {
-      return 'Confirm your email, or disable “Confirm email” under Supabase → Authentication → Providers → Email.';
+      return 'Check your email and confirm your account, then try again.';
     }
     if (
       lower.includes('email') &&
@@ -15,7 +15,7 @@ export function formatAuthError(error: unknown): string {
         lower.includes('not enabled') ||
         lower.includes('signups'))
     ) {
-      return 'Email sign-in is not allowed yet. In Supabase: Authentication → Providers → Email → enable sign-in.';
+      return 'Email sign-in is temporarily unavailable. Please try again later.';
     }
     if (lower.includes('invalid') && lower.includes('email')) {
       return 'Invalid email address.';
@@ -30,13 +30,19 @@ export function formatAuthError(error: unknown): string {
     if (lower.includes('user already registered') || lower.includes('already been registered')) {
       return 'An account with this email already exists. Try signing in.';
     }
-    return msg;
+    if (lower.includes('rate limit') || lower.includes('too many')) {
+      return 'Too many attempts. Wait a moment and try again.';
+    }
+    if (lower.includes('network') || lower.includes('fetch')) {
+      return 'Could not connect to Doji. Check your connection and try again.';
+    }
+    return 'Something went wrong. Please try again.';
   }
   return defaultHint();
 }
 
 function defaultHint(): string {
-  return 'Something went wrong. Check Supabase Auth → Email provider and rate limits.';
+  return 'Something went wrong. Please try again.';
 }
 
 export function normalizeEmail(raw: string): string {

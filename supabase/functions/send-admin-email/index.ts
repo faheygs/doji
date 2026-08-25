@@ -1,6 +1,8 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { assertCronAuthorized } from '../_shared/cron-auth.ts';
+import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
+import { readJsonBody } from '../_shared/json-body.ts';
 
 // Prerequisites (set in Supabase Dashboard → Edge Functions → Secrets):
 //   RESEND_API_KEY = re_...         (from resend.com)
@@ -11,7 +13,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const ADMIN_EMAIL = 'faheygs@gmail.com';
+const ADMIN_EMAIL = Deno.env.get('ADMIN_ALERT_EMAIL') ?? 'faheygs@gmail.com';
 const FROM_EMAIL = Deno.env.get('ADMIN_FROM_EMAIL') ?? 'Doji <noreply@doji.app>';
 
 function escapeHtml(value: unknown): string {
@@ -26,20 +28,24 @@ function escapeHtml(value: unknown): string {
 Deno.serve(async (req) => {
   let operationalReceiptKey: string | null = null;
   try {
-    const payload = (await req.json()) as Record<string, unknown>;
+    const expectedSecret = Deno.env.get('OUTBOX_RELAY_SECRET');
+    const outboxAuthorized = Boolean(expectedSecret) &&
+      req.headers.get('x-outbox-secret') === expectedSecret;
+    const cronDenied = assertCronAuthorized(req);
+    if (!outboxAuthorized && cronDenied) return cronDenied;
+
+    const payload = await readJsonBody<Record<string, unknown>>(req);
     const event = payload.event as string;
 
     if (event === 'operational_health') {
-      const expectedSecret = Deno.env.get('OUTBOX_RELAY_SECRET');
-      if (!expectedSecret || req.headers.get('x-outbox-secret') !== expectedSecret) {
+      if (!outboxAuthorized) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' },
         });
       }
     } else {
-      const denied = assertCronAuthorized(req);
-      if (denied) return denied;
+      if (cronDenied) return cronDenied;
     }
 
     const resendKey = Deno.env.get('RESEND_API_KEY');
@@ -92,22 +98,17 @@ Deno.serve(async (req) => {
       const issueFamily = String(payload.issue_family ?? 'health-degraded')
         .replace(/[^a-z0-9:_-]/gi, '-')
         .slice(0, 120);
-      const hourBucket = new Date();
-      hourBucket.setUTCMinutes(0, 0, 0);
-      operationalReceiptKey = `ops:${hourBucket.toISOString()}:${issueFamily}`;
-      const { error: receiptError } = await supabase
-        .from('operational_alert_deliveries')
-        .insert({
-          idempotency_key: operationalReceiptKey,
-          issue_family: issueFamily,
-          payload,
-        });
-      if (receiptError?.code === '23505') {
+      const { data: claimedReceipt, error: receiptError } = await supabase.rpc(
+        'claim_operational_alert_delivery',
+        { p_issue_family: issueFamily, p_payload: payload },
+      );
+      if (receiptError) throw new Error(`Operational alert receipt failed: ${receiptError.message}`);
+      operationalReceiptKey = typeof claimedReceipt === 'string' ? claimedReceipt : null;
+      if (!operationalReceiptKey) {
         return new Response(JSON.stringify({ ok: true, deduplicated: true }), {
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      if (receiptError) throw new Error(`Operational alert receipt failed: ${receiptError.message}`);
 
       const safeFamily = escapeHtml(issueFamily);
       const safeSnapshot = escapeHtml(JSON.stringify(payload, null, 2));
@@ -119,7 +120,7 @@ Deno.serve(async (req) => {
         </p>
         <pre style="white-space:pre-wrap;background:#f5f5f5;padding:16px;border-radius:8px;font-size:12px">${safeSnapshot}</pre>
         <p style="font-family:sans-serif;font-size:13px;color:#666">
-          This issue is deduplicated to one email per issue family per hour.
+          This issue is deduplicated to one email per issue family per rolling hour.
         </p>
       `;
     } else {
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${resendKey}`,

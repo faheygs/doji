@@ -48,11 +48,16 @@ describe('mobile data architecture', () => {
 
   it('routes engagement to mounted post channels without granting history access', () => {
     const migration = read('supabase/migrations/20260818170000_post_scoped_realtime.sql');
+    const capabilityContract = read(
+      'supabase/migrations/20260824231500_single_round_trip_realtime_auth.sql',
+    );
     const token = read('supabase/functions/realtime-token/index.ts');
     expect(migration).toContain("'post:' || post_id::text");
     expect(migration).toContain("effective_available_at := date_trunc('second'");
     expect(token).toContain("capability[`post:${postId}`] = ['subscribe']");
-    expect(token).toContain(".from('posts')");
+    expect(token).toContain("'get_realtime_token_capabilities'");
+    expect(capabilityContract).toContain('and public.can_view_full_post(post_id, uid)');
+    expect(capabilityContract).toContain('requested_count > 64');
     expect(token).not.toContain("'post:*': ['subscribe']");
     expect(token).not.toContain("['subscribe', 'history']");
     const postHook = read('hooks/usePostRealtimeInvalidation.ts');
@@ -65,12 +70,14 @@ describe('mobile data architecture', () => {
 
   it('authorizes admin realtime without exposing private profile columns', () => {
     const token = read('supabase/functions/realtime-token/index.ts');
-    const profileContract = read(
-      'supabase/migrations/20260818090000_profile_privacy_and_age_assurance.sql',
+    const capabilityContract = read(
+      'supabase/migrations/20260824231500_single_round_trip_realtime_auth.sql',
     );
-    expect(token).toContain("rpc('is_current_user_admin')");
+    expect(token).toContain("'get_realtime_token_capabilities'");
     expect(token).not.toContain("select('is_admin')");
-    expect(profileContract).toContain('create or replace function public.is_current_user_admin()');
+    expect(capabilityContract).toContain('select coalesce(profile.is_admin, false)');
+    expect(capabilityContract).toContain("'userId', uid");
+    expect(capabilityContract).toContain("'isAdmin', coalesce(is_admin, false)");
   });
 
   it('keeps authenticated RLS helpers executable after function hardening', () => {
