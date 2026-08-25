@@ -1,8 +1,8 @@
 /// <reference path="../deno.d.ts" />
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 async function listObjectPaths(
-  database: ReturnType<typeof createClient>,
+  database: SupabaseClient,
   bucketId: string,
   folder: string,
 ): Promise<string[]> {
@@ -26,7 +26,7 @@ async function listObjectPaths(
 }
 
 async function removeAccountMedia(
-  database: ReturnType<typeof createClient>,
+  database: SupabaseClient,
   userId: string,
 ) {
   for (const bucketId of ['avatars', 'post-media']) {
