@@ -16,8 +16,8 @@ declare
 begin
   if uid is null then raise exception 'not_authenticated'; end if;
 
-  select occurrence, event
-  into participant, event_row
+  select occurrence.*
+  into participant
   from public.user_events occurrence
   join public.daily_events event on event.id = occurrence.daily_event_id
   where occurrence.user_id = uid
@@ -25,6 +25,13 @@ begin
            event.created_at desc
   limit 1
   for update of occurrence;
+
+  if not found then raise exception 'no_buy_in_available'; end if;
+
+  select event.*
+  into event_row
+  from public.daily_events event
+  where event.id = participant.daily_event_id;
 
   if not found then raise exception 'no_buy_in_available'; end if;
 
