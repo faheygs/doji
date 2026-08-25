@@ -72,7 +72,7 @@ describe('interactive social write performance policy', () => {
     expect(presentationFanout).toContain("'realtimeOnly', true");
   });
 
-  it('coalesces write bursts into bounded parallel outbox drain lanes', () => {
+  it('coalesces write bursts into bounded durable outbox alarm pages', () => {
     const worker = fs.readFileSync(
       path.join(process.cwd(), 'infra/doji-orchestrator/src/index.ts'),
       'utf8',
@@ -81,22 +81,22 @@ describe('interactive social write performance policy', () => {
       path.join(process.cwd(), 'infra/doji-orchestrator/wrangler.jsonc'),
       'utf8',
     );
-    expect(worker).toContain('OUTBOX_INITIAL_DRAIN_LANES = 1');
-    expect(worker).toContain('OUTBOX_MAX_SCALE_GENERATION = 7');
-    expect(worker).toContain('continuationCount');
+    expect(worker).toContain('OUTBOX_MAX_PAGES_PER_ALARM = 8');
     expect(worker).toContain('OUTBOX_WAKE_COALESCE_MS = 250');
+    expect(worker).toContain('export class OutboxRelayAlarm');
     expect(worker).toContain("'https://alarm.internal/wake'");
-    expect(config).toContain('"max_concurrency": 128');
-    expect(config).toContain('"max_batch_size": 1');
+    expect(config).toContain('"name": "OUTBOX_RELAY_ALARM"');
   });
 
-  it('routes typed queue payloads independently of environment-specific queue names', () => {
+  it('runs push fanout from durable tasks instead of account-limited queues', () => {
     const worker = fs.readFileSync(
       path.join(process.cwd(), 'infra/doji-orchestrator/src/index.ts'),
       'utf8',
     );
-    expect(worker).toContain('isPushFanoutMessage(batch.messages[0]?.body)');
-    expect(worker).not.toContain("batch.queue === 'doji-push-fanout'");
+    expect(worker).toContain('export class PushFanoutAlarm');
+    expect(worker).toContain('PUSH_FANOUT_CONCURRENCY = 8');
+    expect(worker).toContain('tasks: PushFanoutTask[]');
+    expect(worker).not.toContain('MessageBatch');
   });
 
   it('routes pushes by user_id and claims every installation independently', () => {

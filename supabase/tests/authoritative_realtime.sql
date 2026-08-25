@@ -138,18 +138,18 @@ select has_function(
 );
 select alike(
   pg_get_functiondef('public.claim_push_delivery(text,uuid,text,text)'::regprocedure),
-  '%on conflict (delivery_key) do nothing%',
-  'direct push claims are terminal on first insert'
+  '%outcome = ''transport_error''%',
+  'direct push claims reopen only after an unconfirmed transport failure'
 );
 select alike(
   pg_get_functiondef('public.claim_push_deliveries_batch(uuid,jsonb,text,text)'::regprocedure),
-  '%on conflict (delivery_key) do nothing%',
-  'broadcast push claims are terminal on first insert'
+  '%attempts < 3%',
+  'broadcast push transport retries are bounded'
 );
-select unalike(
+select alike(
   pg_get_functiondef('public.claim_push_delivery(text,uuid,text,text)'::regprocedure),
-  '%attempts =%',
-  'direct delivery claims cannot be reopened for retry'
+  '%attempts < 3%',
+  'direct push transport retries are bounded'
 );
 select has_table('public', 'age_assurances', 'minimum-data age assurance is durable');
 select has_table('public', 'media_upload_intents', 'media uploads are server-reserved');

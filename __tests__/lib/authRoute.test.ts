@@ -86,12 +86,12 @@ describe('isAuthRoutingPending', () => {
   });
 
   it('does not become pending during an existing profile refresh', () => {
-    expect(isAuthRoutingPending(false, true, mockSession(), mockProfile())).toBe(false);
+    expect(isAuthRoutingPending(false, false, mockSession(), mockProfile(), 'ready')).toBe(false);
   });
 
   it('is ready when signed out or profile hydration has finished', () => {
     expect(isAuthRoutingPending(false, false, null, null)).toBe(false);
-    expect(isAuthRoutingPending(false, false, mockSession(), null)).toBe(false);
+    expect(isAuthRoutingPending(false, false, mockSession(), null, 'missing')).toBe(false);
   });
 });
 
@@ -110,7 +110,7 @@ describe('getAuthGate', () => {
   });
 
   it('allows auth group for session without profile', () => {
-    const gate = getAuthGate(false, false, mockSession(), null);
+    const gate = getAuthGate(false, false, mockSession(), null, 'missing');
     expect(gate.canUseAuthGroup).toBe(true);
     expect(gate.mustFinishOnboarding).toBe(false);
     expect(gate.canUseApp).toBe(false);
@@ -123,19 +123,20 @@ describe('getAuthGate', () => {
     expect(gate.canUseApp).toBe(false);
   });
 
-  it('keeps the app active while an existing profile refreshes', () => {
+  it('keeps the auth gate closed while an existing profile is re-authorized', () => {
     const gate = getAuthGate(
       false,
       true,
       mockSession(),
       mockProfile({ onboarding_completed_at: new Date().toISOString() }),
+      'ready',
     );
-    expect(gate.ready).toBe(true);
-    expect(gate.canUseApp).toBe(true);
+    expect(gate.ready).toBe(false);
+    expect(gate.canUseApp).toBe(false);
   });
 
   it('allows onboarding for new profiles', () => {
-    const gate = getAuthGate(false, false, mockSession(), mockProfile());
+    const gate = getAuthGate(false, false, mockSession(), mockProfile(), 'ready');
     expect(gate.mustFinishOnboarding).toBe(true);
     expect(gate.canUseApp).toBe(false);
     expect(gate.canUseAuthGroup).toBe(false);
@@ -147,6 +148,7 @@ describe('getAuthGate', () => {
       false,
       mockSession(),
       mockProfile({ onboarding_completed_at: new Date().toISOString() }),
+      'ready',
     );
     expect(gate.canUseApp).toBe(true);
     expect(gate.mustFinishOnboarding).toBe(false);
@@ -159,6 +161,7 @@ describe('getAuthGate', () => {
       false,
       mockSession(),
       mockProfile({ is_banned: true, onboarding_completed_at: new Date().toISOString() }),
+      'ready',
     );
     expect(gate.isBanned).toBe(true);
     expect(gate.canUseBannedScreen).toBe(true);

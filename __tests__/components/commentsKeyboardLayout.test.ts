@@ -13,7 +13,7 @@ describe('comments keyboard layout', () => {
     );
 
     expect(sheet).toContain('<AppKeyboardViewport');
-    expect(sheet).toContain('<AppKeyboardToolbar />');
+    expect(sheet).toContain('<AppKeyboardToolbar owner="overlay" />');
     expect(sheet).not.toContain('insidePageSheet');
     expect(thread).not.toContain('keyboardInset');
   });

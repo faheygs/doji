@@ -10,7 +10,7 @@ describe('shared keyboard and admin navigation contracts', () => {
     expect(toolbar).not.toContain('insidePageSheet');
     expect(safeSheet).toContain('<AppKeyboardViewport');
     expect(safeSheet).toContain('<AppKeyboardAwareScrollView');
-    expect(safeSheet).toContain('<AppKeyboardToolbar />');
+    expect(safeSheet).toContain('<AppKeyboardToolbar owner="overlay" />');
   });
 
   it('does not ask iOS numeric pads to render a second Done control', () => {

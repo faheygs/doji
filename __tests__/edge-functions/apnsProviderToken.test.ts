@@ -41,7 +41,7 @@ describe('shared APNs provider-token contract', () => {
     expect(migration).toContain('InvalidProviderToken');
     expect(migration).toContain('ExpiredProviderToken');
     expect(migration).toContain("interval '5 minutes'");
-    expect(source('infra/doji-orchestrator/src/index.ts')).toContain(
+    expect(source('infra/doji-orchestrator/src/operational-health.ts')).toContain(
       "'apns-provider-credentials'",
     );
   });

@@ -7,7 +7,8 @@ describe('Doji write receipt reconciliation', () => {
   it('returns a committed post after an ambiguous RPC response', async () => {
     const post = { id: 'post-1', user_event_id: 'event-1' };
     const maybeSingle = jest.fn().mockResolvedValue({ data: post, error: null });
-    const eq = jest.fn().mockReturnValue({ maybeSingle });
+    const abortSignal = jest.fn().mockReturnValue({ maybeSingle });
+    const eq = jest.fn().mockReturnValue({ abortSignal });
     const select = jest.fn().mockReturnValue({ eq });
     (supabase.from as jest.Mock).mockReturnValue({ select });
 
@@ -18,7 +19,8 @@ describe('Doji write receipt reconciliation', () => {
 
   it('returns null when no committed receipt exists', async () => {
     const maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
-    const eq = jest.fn().mockReturnValue({ maybeSingle });
+    const abortSignal = jest.fn().mockReturnValue({ maybeSingle });
+    const eq = jest.fn().mockReturnValue({ abortSignal });
     const select = jest.fn().mockReturnValue({ eq });
     (supabase.from as jest.Mock).mockReturnValue({ select });
 

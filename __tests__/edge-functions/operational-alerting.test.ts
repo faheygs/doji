@@ -6,15 +6,23 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('operational alerting contract', () => {
   it('emails degraded health and final queue retries through the protected relay path', () => {
     const worker = read('infra/doji-orchestrator/src/index.ts');
-    expect(worker).toContain("event: 'operational_health'");
-    expect(worker).toContain("'x-outbox-secret': env.OUTBOX_RELAY_SECRET");
-    expect(worker).toContain("'push-fanout-final-retry'");
-    expect(worker).toContain("'domain-relay-final-retry'");
-    expect(worker).toContain("captureWorkerException(env.SENTRY_DSN, 'push_fanout_final_retry'");
-    expect(worker).toContain("captureWorkerException(env.SENTRY_DSN, 'domain_relay_final_retry'");
-    expect(worker).toContain('Number(health.outbox_overdue ?? 0) > 0');
-    expect(worker).toContain('await wakeDomainRelayNow(env)');
+    const health = read('infra/doji-orchestrator/src/operational-health.ts');
+    expect(health).toContain("event: 'operational_health'");
+    expect(health).toContain("'x-outbox-secret': env.OUTBOX_RELAY_SECRET");
+    expect(worker).toContain("'push-fanout-repeated-failure'");
+    expect(worker).toContain("'domain-relay-repeated-failure'");
+    expect(worker).toContain("'push_fanout_repeated_failure'");
+    expect(worker).toContain("'domain_relay_repeated_failure'");
+    expect(health).toContain('Number(health.outbox_overdue ?? 0) > 0');
+    expect(worker).toContain('() => wakeDomainRelayNow(env)');
     expect(worker).not.toContain('OPS_ALERT_WEBHOOK_URL');
+  });
+
+  it('retries one transient health timeout before paging the administrator', () => {
+    const health = read('infra/doji-orchestrator/src/operational-health.ts');
+    expect(health).toContain('HEALTH_ATTEMPTS = 2');
+    expect(health).toContain('HEALTH_TIMEOUT_MS = 20_000');
+    expect(health).toContain('attempt < HEALTH_ATTEMPTS');
   });
 
   it('keeps server diagnostics non-blocking and free of provider secrets', () => {

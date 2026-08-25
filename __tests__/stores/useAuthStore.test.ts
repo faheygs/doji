@@ -114,7 +114,8 @@ describe('useAuthStore', () => {
       await Promise.resolve();
       await Promise.resolve();
       expect(useAuthStore.getState().profile).toMatchObject({ id: 'user-1', username: 'cached' });
-      expect(useAuthStore.getState().isLoading).toBe(false);
+      expect(useAuthStore.getState().profileLoadState).toBe('loading');
+      expect(useAuthStore.getState().isProfileLoading).toBe(true);
 
       finishRequest?.({ data: { ...cached, username: 'fresh' }, error: null });
       await pending;

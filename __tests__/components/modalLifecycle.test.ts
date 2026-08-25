@@ -17,10 +17,10 @@ const sharedSheetConsumers = [
 ];
 
 describe('native modal lifecycle', () => {
-  it.each(controlledModals)('%s stays mounted while native dismissal completes', (file) => {
+  it.each(controlledModals)('%s unmounts immediately so dismissal cannot block touches', (file) => {
     const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-    expect(source).not.toMatch(/if \(!visible\) return null/);
-    expect(source).toMatch(/<Modal[\s\S]{0,100}?visible=\{visible\}/);
+    expect(source).toMatch(/if \(!visible\) return null/);
+    expect(source).toMatch(/<Modal[\s\S]{0,300}?visible=\{visible\}/);
   });
 
   it.each(sharedSheetConsumers)('%s delegates dismissal to the shared sheet host', (file) => {
@@ -29,13 +29,13 @@ describe('native modal lifecycle', () => {
     expect(source).toContain('<AppSheetModal');
   });
 
-  it('keeps the shared sheet mounted through its closing motion', () => {
+  it('unmounts the shared sheet atomically when it closes', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'components/ui/AppSheetModal.tsx'),
       'utf8',
     );
-    expect(source).toContain('visible={presented}');
-    expect(source).toContain("pointerEvents={visible ? 'auto' : 'none'}");
+    expect(source).toContain('if (!visible) return null');
+    expect(source).toContain('visible={visible}');
     expect(source).toContain('useModalPresence(visible)');
   });
 
@@ -44,7 +44,8 @@ describe('native modal lifecycle', () => {
       path.join(process.cwd(), 'components/notifications/NotificationSheet.tsx'),
       'utf8',
     );
-    expect(source).toContain('onDismiss={finishDismiss}');
+    expect(source).toContain('wasVisibleRef.current && !visible');
+    expect(source).toContain('finishDismiss()');
     expect(source).toContain('pendingActionRef.current = action');
   });
 
@@ -53,7 +54,8 @@ describe('native modal lifecycle', () => {
       path.join(process.cwd(), 'components/feed/PollResultCard.tsx'),
       'utf8',
     );
-    expect(source).toContain('onDismiss={finishVoterDismiss}');
+    expect(source).toContain('setVoterVisible(false)');
+    expect(source).toContain('setVoterModal(null)');
     expect(source).toContain('pendingReportRef.current =');
     expect(source).toContain('visible={reportVisible}');
   });

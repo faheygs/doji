@@ -460,7 +460,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
   hourly-deduplicated `apns-provider-credentials` operational alert family.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
-- The Worker invokes `operational-health` once per minute. Degraded snapshots and final
+- The Worker invokes `operational-health` once per minute. A monitor transport timeout
+  receives one bounded retry with a fresh 20-second request budget so an isolated Edge
+  Function cold start does not page the administrator. Degraded snapshots and final
   durable-alarm retry failures call the protected `send-admin-email` Edge Function. Resend
   delivers the incident to the administrator, while a locked private database claim
   applies a true rolling 60-minute cooldown per issue family. If the snapshot finds

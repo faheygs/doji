@@ -46,15 +46,17 @@ describe('refreshPostEngagement', () => {
     const everyoneKey = ['feed', 'day-1', 'everyone', 'me', 'full'];
     client.setQueryData(friendsKey, feed(post(0, 0)));
     client.setQueryData(everyoneKey, feed(post(9, 7)));
-    rpc.mockResolvedValueOnce({
-      data: {
-        post_id: 'post-1',
-        comment_count: 2,
-        reaction_count: 3,
-        reaction_breakdown: { FIRE: 3 },
-        my_reactions: [],
-      },
-      error: null,
+    rpc.mockReturnValueOnce({
+      abortSignal: jest.fn().mockResolvedValue({
+        data: {
+          post_id: 'post-1',
+          comment_count: 2,
+          reaction_count: 3,
+          reaction_breakdown: { FIRE: 3 },
+          my_reactions: [],
+        },
+        error: null,
+      }),
     });
 
     await refreshPostEngagement(client, 'post-1', 'friends');

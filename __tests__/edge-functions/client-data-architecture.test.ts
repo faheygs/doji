@@ -9,7 +9,7 @@ describe('mobile data architecture', () => {
     const realtime = read('hooks/useDomainRealtime.ts');
     expect(layout).toContain('useDomainRealtime(session?.user?.id)');
     expect(layout).not.toContain('useAppRealtime');
-    expect(realtime).toContain('subscribeToRealtimeChannel');
+    expect(realtime).toContain('startResilientRealtimeSubscription');
     expect(realtime).toContain('reconcileAppQueries');
   });
 
@@ -61,7 +61,7 @@ describe('mobile data architecture', () => {
     expect(token).not.toContain("'post:*': ['subscribe']");
     expect(token).not.toContain("['subscribe', 'history']");
     const postHook = read('hooks/usePostRealtimeInvalidation.ts');
-    expect(postHook).toContain("{ rewind: '10s' }");
+    expect(postHook).toContain("{ rewind: '10s', scope: 'post' }");
     const client = read('lib/realtimeClient.ts');
     expect(client).toContain('subscriptionCounts');
     expect(client).toContain('.detach()');

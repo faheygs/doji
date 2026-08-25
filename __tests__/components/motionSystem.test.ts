@@ -27,7 +27,8 @@ describe('motion system', () => {
   it('defers popover actions until its native modal is gone', () => {
     const menu = source('components/profile/ProfileManageMenu.tsx');
     expect(menu).toContain('pendingActionRef.current = action');
-    expect(menu).toContain('!presented');
+    expect(menu).toContain('{open ? <Modal');
+    expect(menu).toContain('requestAnimationFrame');
     expect(menu).toContain('useDismissOnRouteBlur');
   });
 });

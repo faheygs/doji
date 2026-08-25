@@ -26,7 +26,9 @@ describe('terminal push delivery policy', () => {
   });
 
   it('uses bounded provider lifetimes', () => {
-    expect(relay).toContain("event.event_type === 'doji.activated' ? 120 : 300");
-    expect(broadcast).toContain('ttl: 120');
+    expect(relay).toContain('getPushExpiresAtMs(event)');
+    expect(broadcast).toContain('getPushExpiresAtMs(event)');
+    expect(relay).toContain('Math.ceil((pushExpiresAtMs - Date.now()) / 1000)');
+    expect(broadcast).toContain('Math.ceil((expiresAtMs - Date.now()) / 1000)');
   });
 });

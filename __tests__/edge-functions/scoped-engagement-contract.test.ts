@@ -26,12 +26,12 @@ describe('audience-scoped engagement contract', () => {
 
   it('does not write global reaction command totals into every feed scope', () => {
     const mutation = read('hooks/useToggleReaction.ts');
-    expect(mutation).not.toContain('reaction_count: result.count');
+    expect(mutation).toContain("audience === 'everyone' ? patchGlobal : patchViewerState");
     expect(mutation).toContain('variables.feedAudience');
   });
 
   it('uses a notification post id as a targeted ordering safety net', () => {
-    const domainRealtime = read('hooks/useDomainRealtime.ts');
+    const domainRealtime = read('lib/domainRealtimeHandler.ts');
     expect(domainRealtime).toContain('refreshActivePostEngagement(queryClient, postId)');
     expect(domainRealtime).toContain('query.queryKey[1] === postId');
   });

@@ -25,9 +25,10 @@ describe('auth signup flow contract', () => {
 
   it('keeps the two legal consents in one compact group', () => {
     const login = source('app/(auth)/login.tsx');
+    const styles = source('components/auth/useLoginScreenStyles.ts');
     expect(login).toContain('<View style={styles.consents}>');
-    expect(login).toContain('consents:');
-    expect(login).toContain('gap: 0');
+    expect(styles).toContain('consents:');
+    expect(styles).toContain('gap: 0');
   });
 
   it('uses signup metadata during normal profile setup and only shows legacy fallback', () => {

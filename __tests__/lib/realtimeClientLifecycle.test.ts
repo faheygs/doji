@@ -52,7 +52,10 @@ jest.mock('ably', () => ({
 jest.mock('../../lib/supabase', () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => mockInvoke(...args) } },
 }));
-jest.mock('../../lib/telemetry', () => ({ reportRealtimeFailure: jest.fn() }));
+jest.mock('../../lib/telemetry', () => ({
+  reportRealtimeFailure: jest.fn(),
+  recordRealtimeFailure: jest.fn(),
+}));
 
 import { closeRealtimeConnection, subscribeToRealtimeChannel } from '../../lib/realtimeClient';
 
@@ -149,6 +152,6 @@ describe('realtime channel lifecycle', () => {
 
     await expect(
       subscribeToRealtimeChannel(`post:${postId}`, jest.fn()),
-    ).rejects.toThrow('Realtime access to this post is unavailable');
+    ).rejects.toThrow(`Realtime access is unavailable for post:${postId}`);
   });
 });
