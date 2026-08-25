@@ -120,8 +120,9 @@
    Independent channels drain with bounded concurrency.
 6. Connected devices update immediately. Background devices receive remote push.
 7. The same Durable Object wakes at `closes_at` and calls `close_daily_event`.
-8. After close, that one-shot alarm prepares and registers the next Doji. There is no
-   recurring scheduler.
+8. After close, that one-shot alarm prepares and registers the next Doji before it
+   attempts the recoverable realtime relay wake. A relay outage therefore cannot break
+   the daily event chain. There is no recurring scheduler.
 
 Re-registering the same event phase always re-arms the Durable Object alarm; stored
 phase state is not proof that an alarm is still pending after a failed invocation.

@@ -275,12 +275,14 @@ export class DojiEventAlarm extends DurableObject<Env> {
     }
 
     await orchestrateDoji<number>(this.env, state.closeAction ?? 'close', state.dailyEventId);
-    await wakeDomainRelayNow(this.env);
     if (state.chainNext !== false) {
       // Chain the next one-shot alarm from the production event only. Targeted
       // test events close independently and never alter the production chain.
+      // Prepare the next occurrence before the relay wake: realtime delivery is
+      // recoverable, but a failed wake must never interrupt the daily event chain.
       await prepareNextDoji(this.env);
     }
+    await wakeDomainRelayNow(this.env);
     this.ctx.waitUntil(
       scheduleDataMaintenance(this.env).catch((error) => {
         console.error('Non-critical data maintenance failed', error);
