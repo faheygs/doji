@@ -54,8 +54,9 @@ and observing it under representative traffic.
 
 ## Release blockers not provable by source review
 
-- The migrations and infrastructure changes in the working tree are not deployed merely
-  because this audit exists. Deployment status must be verified independently.
+- The 2026-08-25 production deployment is recorded below, but deployment alone does not
+  prove provider delivery, physical-device behavior, or capacity under representative
+  traffic. Those runtime gates must still be observed independently.
 - The exact release candidate has not been physically exercised by this audit. The user
   explicitly deferred runtime tests, so no runtime-pass claim is made here.
 - A 100k launch is not yet capacity-proven. The client has a fail-closed scale-read
@@ -106,5 +107,25 @@ The 2026-08-24 audit completed these non-runtime gates successfully:
 - `npm audit --omit=dev --audit-level=moderate` (0 vulnerabilities)
 - `git diff --check`
 
-No Jest, device, provider, migration-deployment, or load tests are represented by this
-snapshot. Passing static gates does not override the release blockers above.
+No Jest, device, provider, or load tests are represented by this snapshot. Passing static
+gates does not override the release blockers above.
+
+## 2026-08-25 production deployment record
+
+- Git `main`: release implementation `1b819c6`, iOS build-number commit `c0fc433`,
+  corrected buy-in migration `7bc7c73`, and post-deploy database repair `947acca`.
+- EAS iOS Build 65: `58afaa8e-3b31-4290-ac34-986bc05601a2`, finished.
+- App Store Connect/TestFlight submission:
+  `13716f0d-08f4-4b19-9d00-ed4606890002`, finished. This does not submit the build for
+  public App Review.
+- Cloudflare Worker `doji-orchestrator`: version
+  `aae8fc41-3074-42bf-a589-db07c5ff55e8`, with all four Durable Object bindings and the
+  one-minute trigger. The retired Queues have zero producers and zero consumers.
+- Supabase Edge Functions: all repository functions deployed active.
+- Supabase database: migrations applied through
+  `20260825009000_fix_post_deploy_lint.sql`; linked database lint returned no schema
+  errors. Four `warning extra` findings remain for backward-compatible parameters that
+  are intentionally ignored so timestamps and integrity state stay server-owned.
+
+TestFlight physical-device validation and representative load/capacity validation remain
+explicit go/no-go gates. This deployment record is not a claim that either has passed.
