@@ -348,8 +348,9 @@ configured in the production build, and monitored.
 ## 100k burst contract
 
 - Pre-live and activation are constant-time with respect to account count. Activation
-  commits one Ably identifier event and exactly 128 resumable push-shard rows; it never
-  inserts one occurrence or outbox row per account.
+  commits one Ably identifier event and never inserts one occurrence, recipient, or push
+  row per account. After commit, the fanout planner inserts only the physical hash
+  partitions that contain eligible recipients, from zero through the 128-partition ceiling.
 - Current-state reads lazily and idempotently materialize the requesting account's
   authorized occurrence. Push delivery and participation correctness are independent.
 - Each deterministic shard is independently leased. Recipients are keyset-paged in
@@ -449,8 +450,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 
 - Alert on unpublished `domain_event_outbox` rows whose `available_at` is more
   than 60 seconds overdue; future grouped alerts are healthy, not backlog.
-- Alert when `get_doji_push_fanout_health` reports pending/processing shards 60 seconds
-  after activation, any failed shard, or acceptance materially below claimed delivery.
+- Active push partitions remain telemetry while the durable fanout owner retries them.
+  The owner pages on repeated partition failure or immutable launch expiry and first
+  terminalizes unfinished database rows so they cannot create permanent stale alarms.
 - Track Ably connection failures and Edge Function relay errors in Sentry.
 - Track `realtime_p95_ms_5m`; three events taking more than five seconds from
   `available_at` to `realtime_published_at` degrade the operational health snapshot.
@@ -461,8 +463,9 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
   hourly-deduplicated `apns-provider-credentials` operational alert family.
 - Alert when a token ownership transfer clears more than one prior profile or when
   duplicate push claims spike; both indicate a client/account or producer regression.
-- The Worker invokes `operational-health` once per minute. A monitor transport timeout
-  receives one bounded retry with a fresh 20-second request budget so an isolated Edge
+- The Worker invokes `operational-health` once per minute through a singleton durable
+  health monitor. A monitor transport timeout receives one bounded retry with a fresh
+  20-second request budget. Three consecutive monitor failures page once; an isolated Edge
   Function cold start does not page the administrator. Degraded snapshots and final
   durable-alarm retry failures call the protected `send-admin-email` Edge Function. Resend
   delivers the incident to the administrator, while a locked private database claim

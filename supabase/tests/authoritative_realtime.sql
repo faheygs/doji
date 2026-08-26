@@ -1,6 +1,6 @@
 begin;
 
-select plan(118);
+select plan(121);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -92,7 +92,7 @@ select has_table('public', 'poll_vote_count_shards', 'poll totals use fixed shar
 select has_table('public', 'post_engagement_shards', 'post totals use fixed shards');
 select has_table('public', 'post_reaction_count_shards', 'reaction types use fixed shards');
 select has_table('public', 'daily_participant_shards', 'participation uses fixed shards');
-select has_table('public', 'push_fanout_shards', 'push fanout uses fixed durable partitions');
+select has_table('public', 'push_fanout_shards', 'push fanout uses durable physical partitions');
 select has_function(
   'public', 'get_doji_push_recipients_shard_page',
   array['uuid', 'smallint', 'uuid', 'integer'],
@@ -106,6 +106,20 @@ select unalike(
   pg_get_functiondef('public.activate_daily_event(uuid)'::regprocedure),
   '%insert into public.user_events%',
   'activation does not scan or materialize every account'
+);
+select unalike(
+  pg_get_functiondef('public.activate_daily_event(uuid)'::regprocedure),
+  '%generate_series(0, 127)%',
+  'activation does not seed empty push partitions'
+);
+select alike(
+  pg_get_functiondef('public.list_doji_push_fanout_shards(uuid)'::regprocedure),
+  '%insert into public.push_fanout_shards%',
+  'push planning materializes only occupied partitions after activation'
+);
+select has_function(
+  'public', 'expire_doji_push_fanout', array['uuid', 'text'],
+  'durable fanout expiry terminalizes unfinished database work'
 );
 select unalike(
   pg_get_functiondef('public.begin_daily_event_prelive(uuid)'::regprocedure),

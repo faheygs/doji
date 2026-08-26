@@ -47,6 +47,7 @@ describe('native modal lifecycle', () => {
     expect(source).toContain('wasVisibleRef.current && !visible');
     expect(source).toContain('finishDismiss()');
     expect(source).toContain('pendingActionRef.current = action');
+    expect(source).toContain("<SafeAreaView style={styles.flex} edges={['top', 'bottom']}");
   });
 
   it('dismisses poll voters before presenting the report sheet', () => {

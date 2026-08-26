@@ -99,6 +99,35 @@ describe('interactive social write performance policy', () => {
     expect(worker).not.toContain('MessageBatch');
   });
 
+  it('plans only occupied push partitions and terminalizes expired work', () => {
+    const migration = fs.readFileSync(
+      path.join(process.cwd(), 'supabase/migrations/20260826010000_adaptive_push_fanout.sql'),
+      'utf8',
+    );
+    const worker = fs.readFileSync(
+      path.join(process.cwd(), 'infra/doji-orchestrator/src/index.ts'),
+      'utf8',
+    );
+    expect(migration).toContain('array_agg(distinct profile.push_shard');
+    expect(migration).not.toContain('generate_series(0, 127)');
+    expect(migration).toContain('expire_doji_push_fanout');
+    expect(worker).toContain('expirePushFanout(this.env, state.dailyEventId)');
+  });
+
+  it('pages only sustained health degradation through one durable monitor', () => {
+    const worker = fs.readFileSync(
+      path.join(process.cwd(), 'infra/doji-orchestrator/src/index.ts'),
+      'utf8',
+    );
+    const monitor = fs.readFileSync(
+      path.join(process.cwd(), 'infra/doji-orchestrator/src/health-monitor.ts'),
+      'utf8',
+    );
+    expect(monitor).toContain('export class HealthMonitor');
+    expect(monitor).toContain('HEALTH_SUSTAINED_CHECKS = 3');
+    expect(worker).toContain("env.HEALTH_MONITOR.idFromName('singleton')");
+  });
+
   it('routes pushes by user_id and claims every installation independently', () => {
     const endpoints = fs.readFileSync(
       path.join(

@@ -3,6 +3,16 @@ type OperationalEnv = {
   OUTBOX_RELAY_SECRET: string;
 };
 
+export type OperationalHealth = {
+  healthy?: boolean;
+  alarm_repairs?: EventAlarmRepair[];
+} & Record<string, unknown>;
+
+export type OperationalIssue = {
+  family: string;
+  immediate: boolean;
+};
+
 export type EventAlarmRepair = {
   dailyEventId: string;
   firesAt: string;
@@ -85,14 +95,11 @@ export async function checkOperationalHealth(
   env: OperationalEnv,
   wakeDomainRelay: () => Promise<void>,
   repairEventAlarms: (repairs: EventAlarmRepair[]) => Promise<void>,
-): Promise<void> {
+): Promise<OperationalHealth> {
   // Supabase Edge Functions may incur an isolated cold start. Retry one bounded
   // health read before treating the monitor itself as unavailable; durable Doji
   // alarms and outbox correctness never depend on this diagnostic request.
-  const health = await fetchOperationalHealth(env) as {
-    healthy?: boolean;
-    alarm_repairs?: EventAlarmRepair[];
-  } & Record<string, unknown>;
+  const health = await fetchOperationalHealth(env) as OperationalHealth;
   if (Array.isArray(health.alarm_repairs) && health.alarm_repairs.length > 0) {
     await repairEventAlarms(health.alarm_repairs);
   }
@@ -105,12 +112,34 @@ export async function checkOperationalHealth(
       console.error('Unable to enqueue overdue outbox recovery wake', error);
     }
   }
-  if (health.healthy === true) return;
-  console.error('Doji operational health is degraded', health);
-  const credentialErrors = Number(health.apns_provider_credential_errors ?? 0);
-  await sendOperationalAlert(
-    env,
-    credentialErrors > 0 ? 'apns-provider-credentials' : 'health-degraded',
-    health,
-  );
+  return health;
+}
+
+/**
+ * Returns only conditions that should page a person. Repairable alarm drift and
+ * in-flight push rows are owned by their Durable Objects and remain telemetry.
+ */
+export function actionableOperationalIssue(health: OperationalHealth): OperationalIssue | null {
+  if (Number(health.apns_provider_credential_errors ?? 0) > 0) {
+    return { family: 'apns-provider-credentials', immediate: true };
+  }
+  if (Number(health.outbox_exhausted ?? 0) > 0) {
+    return { family: 'domain-outbox-exhausted', immediate: true };
+  }
+  if (Number(health.push_exhausted_shards ?? 0) > 0) {
+    return { family: 'push-fanout-exhausted', immediate: true };
+  }
+  if (Number(health.outbox_overdue ?? 0) > 0) {
+    return { family: 'domain-outbox-delayed', immediate: false };
+  }
+  if (
+    Number(health.realtime_max_ms_5m ?? 0) > 30_000 ||
+    (
+      Number(health.realtime_sample_count_5m ?? 0) >= 20 &&
+      Number(health.realtime_p95_ms_5m ?? 0) > 5_000
+    )
+  ) {
+    return { family: 'realtime-delivery-degraded', immediate: false };
+  }
+  return null;
 }

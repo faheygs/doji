@@ -90,9 +90,10 @@ Deno.serve(async (request) => {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const { dailyEventId, shard } = await readJsonBody<{
+  const { dailyEventId, shard, expire } = await readJsonBody<{
     dailyEventId?: string;
     shard?: number;
+    expire?: boolean;
   }>(request);
   if (!dailyEventId) return new Response('Missing dailyEventId', { status: 400 });
 
@@ -100,6 +101,14 @@ Deno.serve(async (request) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  if (expire === true) {
+    const { data, error } = await database.rpc('expire_doji_push_fanout', {
+      p_daily_event_id: dailyEventId,
+      p_error: 'Push launch lifetime expired before every partition completed',
+    });
+    if (error) return new Response(error.message, { status: 500 });
+    return Response.json({ expired: Number(data ?? 0) });
+  }
   if (shard === undefined) {
     const { data, error } = await database.rpc('list_doji_push_fanout_shards', {
       p_daily_event_id: dailyEventId,

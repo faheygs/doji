@@ -6,11 +6,12 @@ interface __BaseEnv_Env {
   OUTBOX_RELAY_ALARM: DurableObjectNamespace<import('./src/index').OutboxRelayAlarm>;
   PUSH_FANOUT_ALARM: DurableObjectNamespace<import('./src/index').PushFanoutAlarm>;
   DATA_MAINTENANCE_ALARM: DurableObjectNamespace<import('./src/index').DataMaintenanceAlarm>;
+  HEALTH_MONITOR: DurableObjectNamespace<import('./src/index').HealthMonitor>;
 }
 declare namespace Cloudflare {
   interface GlobalProps {
     mainModule: typeof import('./src/index');
-    durableNamespaces: 'DojiEventAlarm' | 'OutboxRelayAlarm' | 'PushFanoutAlarm' | 'DataMaintenanceAlarm';
+    durableNamespaces: 'DojiEventAlarm' | 'OutboxRelayAlarm' | 'PushFanoutAlarm' | 'DataMaintenanceAlarm' | 'HealthMonitor';
   }
   interface Env extends __BaseEnv_Env {}
 }

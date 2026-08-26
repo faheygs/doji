@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -427,7 +428,7 @@ export function NotificationSheet({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={styles.flex}>
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text variant="headingLarge">Notifications</Text>
           <TouchableOpacity
@@ -471,7 +472,7 @@ export function NotificationSheet({
             </Button>
           ) : null}
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

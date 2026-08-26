@@ -4,9 +4,10 @@ import path from 'node:path';
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
 describe('operational alerting contract', () => {
-  it('emails degraded health and final queue retries through the protected relay path', () => {
+  it('emails sustained health failures and final relay retries through the protected path', () => {
     const worker = read('infra/doji-orchestrator/src/index.ts');
     const health = read('infra/doji-orchestrator/src/operational-health.ts');
+    const monitor = read('infra/doji-orchestrator/src/health-monitor.ts');
     expect(health).toContain("event: 'operational_health'");
     expect(health).toContain("'x-outbox-secret': env.OUTBOX_RELAY_SECRET");
     expect(worker).toContain("'push-fanout-repeated-failure'");
@@ -14,7 +15,9 @@ describe('operational alerting contract', () => {
     expect(worker).toContain("'push_fanout_repeated_failure'");
     expect(worker).toContain("'domain_relay_repeated_failure'");
     expect(health).toContain('Number(health.outbox_overdue ?? 0) > 0');
-    expect(worker).toContain('() => wakeDomainRelayNow(env)');
+    expect(monitor).toContain('() => wakeDomainRelay(this.env)');
+    expect(monitor).toContain('HEALTH_SUSTAINED_CHECKS = 3');
+    expect(monitor).toContain('HEALTH_CHECK_FAILURE_THRESHOLD = 3');
     expect(worker).not.toContain('OPS_ALERT_WEBHOOK_URL');
   });
 

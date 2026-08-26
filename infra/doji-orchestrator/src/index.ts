@@ -1,17 +1,18 @@
 import { DurableObject } from 'cloudflare:workers';
 import { captureWorkerException } from './sentry';
 import { handleCommandGateway } from './command-gateway';
-import {
-  checkOperationalHealth,
-  sendOperationalAlert,
-  type EventAlarmRepair,
-} from './operational-health';
+import { sendOperationalAlert, type EventAlarmRepair } from './operational-health';
+import { HealthMonitor } from './health-monitor';
+import { expirePushFanout } from './push-fanout-lifecycle';
 
-interface Env {
+export { HealthMonitor };
+
+export interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
   OUTBOX_RELAY_ALARM: DurableObjectNamespace<OutboxRelayAlarm>;
   PUSH_FANOUT_ALARM: DurableObjectNamespace<PushFanoutAlarm>;
   DATA_MAINTENANCE_ALARM: DurableObjectNamespace<DataMaintenanceAlarm>;
+  HEALTH_MONITOR: DurableObjectNamespace<HealthMonitor>;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   ORCHESTRATOR_SECRET: string;
@@ -404,6 +405,7 @@ export class PushFanoutAlarm extends DurableObject<Env> {
     const state = await this.ctx.storage.get<PushFanoutState>('fanout');
     if (!state) return;
     if (Date.now() >= state.expiresAt) {
+      await expirePushFanout(this.env, state.dailyEventId);
       if (state.tasks.length > 0) {
         await Promise.allSettled([
           captureWorkerException(
@@ -601,20 +603,9 @@ export default {
   },
 
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    try {
-      await checkOperationalHealth(
-        env,
-        () => wakeDomainRelayNow(env),
-        (repairs) => repairEventAlarms(env, repairs),
-      );
-    } catch (error) {
-      await Promise.allSettled([
-        captureWorkerException(env.SENTRY_DSN, 'operational_health_check', error),
-        sendOperationalAlert(env, 'operational-health-check-failed', {
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      ]);
-      throw error;
-    }
+    const id = env.HEALTH_MONITOR.idFromName('singleton');
+    await env.HEALTH_MONITOR.get(id).fetch('https://health.internal/check', {
+      method: 'POST',
+    });
   },
 } satisfies ExportedHandler<Env>;

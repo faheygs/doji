@@ -125,10 +125,10 @@ sequenceDiagram
   DB->>DB: stamp prelive_at; write doji.pre_live event
   Live-->>App: Doji coming soon
   Alarm->>DB: activate_daily_event(event_id) 20 minutes later
-  DB->>DB: stamp fires_at and closes_at; seed 128 push shards
+  DB->>DB: stamp fires_at and closes_at
   DB->>DB: write one global identifier event
   DB-->>Alarm: committed activation
-  DB->>Relay: wake outbox relay
+  DB->>Relay: wake outbox relay; plan only occupied push partitions
   Relay->>Live: publish sockets and claim push delivery
   Live-->>App: Doji is live
   App->>DB: get_current_doji_state()
@@ -777,7 +777,8 @@ feed visibility, poll totals, reaction/comment/reply/mention delivery, notificat
 deduplication, profile/frame propagation, Sparks, badges, background/reconnect, and
 reinstall-persistent dismissals must all be verified on the release build.
 
-Required production monitoring is listed in the realtime architecture. At minimum:
-alert on outbox rows more than 60 seconds past `available_at`, exhausted or expired
-fanout shards, fanout shards still pending 60 seconds after activation, Ably/relay errors, push
-receipt failures, duplicate delivery-claim spikes, and unusual push-token transfers.
+Required production monitoring is listed in the realtime architecture. The health monitor
+repairs alarm drift and wakes recoverable outbox work without paging. It pages only terminal
+provider/outbox/fanout failures immediately, or sustained realtime/outbox degradation after
+three consecutive checks. Active fanout is planned from occupied recipient partitions (up to
+128), and the durable fanout owner terminalizes and alerts unfinished work at launch expiry.
