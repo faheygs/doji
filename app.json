@@ -19,7 +19,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "66"
+      "buildNumber": "67"
     },
     "android": {
       "adaptiveIcon": {

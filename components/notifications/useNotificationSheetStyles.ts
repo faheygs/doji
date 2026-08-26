@@ -14,6 +14,9 @@ export function useNotificationSheetStyles() {
           paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
           borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline,
         },
+        closeButton: {
+          width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+        },
         list: { padding: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm, flexGrow: 1 },
         card: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
         actions: { flexDirection: 'row', gap: Spacing.sm },

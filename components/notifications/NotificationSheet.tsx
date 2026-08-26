@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -55,6 +55,13 @@ export function NotificationSheet({
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  // A native full-screen Modal is hosted in a separate iOS window. The native
+  // SafeAreaView inside that window can briefly report zero, placing this
+  // header underneath the status bar. Read the provider's current insets before
+  // entering the modal and retain the launch metrics as a cold-open fallback.
+  const modalTopInset = Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0);
+  const modalBottomInset = Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0);
   const [actionError, setActionError] = useState(false);
   const styles = useNotificationSheetStyles();
   const pendingActionRef = useRef<(() => void) | null>(null);
@@ -428,12 +435,18 @@ export function NotificationSheet({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+      <View
+        style={[
+          styles.flex,
+          { paddingTop: modalTopInset, paddingBottom: modalBottomInset },
+        ]}
+      >
         <View style={styles.header}>
           <Text variant="headingLarge">Notifications</Text>
           <TouchableOpacity
             onPress={onClose}
-            hitSlop={16}
+            hitSlop={8}
+            style={styles.closeButton}
             accessibilityRole="button"
             accessibilityLabel="Close notifications"
           >
@@ -472,7 +485,7 @@ export function NotificationSheet({
             </Button>
           ) : null}
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

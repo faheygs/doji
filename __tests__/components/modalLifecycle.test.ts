@@ -39,7 +39,7 @@ describe('native modal lifecycle', () => {
     expect(source).toContain('useModalPresence(visible)');
   });
 
-  it('defers notification navigation until the page sheet reports dismissal', () => {
+  it('defers notification navigation and owns full-screen modal safe-area spacing', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'components/notifications/NotificationSheet.tsx'),
       'utf8',
@@ -47,7 +47,11 @@ describe('native modal lifecycle', () => {
     expect(source).toContain('wasVisibleRef.current && !visible');
     expect(source).toContain('finishDismiss()');
     expect(source).toContain('pendingActionRef.current = action');
-    expect(source).toContain("<SafeAreaView style={styles.flex} edges={['top', 'bottom']}");
+    expect(source).toContain('useSafeAreaInsets()');
+    expect(source).toContain('initialWindowMetrics?.insets.top');
+    expect(source).toContain('paddingTop: modalTopInset');
+    expect(source).toContain('paddingBottom: modalBottomInset');
+    expect(source).not.toContain('<SafeAreaView');
   });
 
   it('dismisses poll voters before presenting the report sheet', () => {
