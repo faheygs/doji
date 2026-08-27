@@ -39,6 +39,12 @@ There is no due-event poll, recurring dispatcher, or recurring expiration sweep.
 
 Cloudflare must never receive the Supabase service-role key.
 
+`ORCHESTRATOR_SECRET`, `DOJI_ORCHESTRATOR_SECRET`, and the Postgres Vault value
+`doji_orchestrator_secret` are one credential with three registrations. Rotate them
+together with `scripts/sync-production-orchestrator-secret.ps1`; the command fails
+unless both the direct Worker wake and the exact Vault-backed `pg_net` wake return
+HTTP 200. Never update only one registration.
+
 The Worker sends degraded health and final durable-retry alerts to the protected
 `send-admin-email` Edge Function using its existing `OUTBOX_RELAY_SECRET`.
 `operational_alert_deliveries` deduplicates each issue family to one email per hour;
@@ -49,6 +55,7 @@ no separate third-party webhook secret is required.
 ```powershell
 npx supabase db lint --linked --level warning
 npx supabase db push --linked --dry-run
+./scripts/sync-production-orchestrator-secret.ps1
 ```
 
 Verify no `doji_*` jobs remain in `cron.job`, outbox rows publish promptly, no shard

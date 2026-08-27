@@ -436,6 +436,9 @@ configured in the production build, and monitored.
 6. Apply all migrations in timestamp order and configure the orchestrator Vault values.
    Set `EXPO_PUBLIC_COMMAND_GATEWAY_URL` to the production Worker URL for every release
    build; production build validation fails closed when it is absent.
+   Rotate the shared orchestrator credential only through
+   `scripts/sync-production-orchestrator-secret.ps1`, which updates Cloudflare, Edge,
+   and Vault together and proves both wake paths before reporting success.
 7. Invoke `schedule-daily-challenge` once. Every later alarm chains automatically.
 8. Run a physical two-device test for activation, completion, social actions,
    friend/block/report actions, reconnect recovery, and close-boundary rejection.
