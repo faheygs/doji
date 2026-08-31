@@ -16,8 +16,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
-import { Spacing, webRootViewStyle, webScrollParentStyle } from '../constants/theme';
+import { Platform, StyleSheet, View } from 'react-native';
+import { webRootViewStyle, webScrollParentStyle } from '../constants/theme';
 import { useFonts } from 'expo-font';
 import { Sora_800ExtraBold } from '@expo-google-fonts/sora/800ExtraBold';
 import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
@@ -51,6 +51,7 @@ import { ErrorState } from '../components/ui/ErrorState';
 import { useNativeNotifications } from '../hooks/useNativeNotifications';
 import { Text } from '../components/ui/Text';
 import { initialSessionBootstrap, observeSessionBootstrap } from '../lib/initialSessionBootstrap';
+import { StartupBrandScreen } from '../components/branding/StartupBrandScreen';
 
 const FONT_BOOTSTRAP_DEADLINE_MS = 2_500;
 const SESSION_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -194,16 +195,7 @@ function RootLayoutInner() {
   }
 
   if (!gate.ready) {
-    return (
-      <StartupFrame backgroundColor={colors.background}>
-        <View style={styles.startupLoading} accessibilityLiveRegion="polite">
-          <Text variant="display" color={colors.text}>
-            Doji
-          </Text>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="Loading Doji" />
-        </View>
-      </StartupFrame>
-    );
+    return <StartupBrandScreen />;
   }
 
   return (
@@ -278,11 +270,5 @@ export default Sentry.wrap(RootLayout);
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  startupLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.md,
   },
 });

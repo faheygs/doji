@@ -92,9 +92,12 @@
   requested post passed RLS authorization.
 - Cold start has one shared persisted-session restoration request. Cache hydration and
   font loading are bounded, and the native splash never waits indefinitely on the auth
-  storage lock or a profile network read. A timeout reveals a retryable in-app surface
-  while the original session request remains observed for automatic recovery; no
-  concurrent retry is allowed to queue behind the same Supabase auth lock.
+  storage lock or a profile network read. Its React handoff uses the same bundled logo,
+  explicit 100-point size, centered placement, and white background as the native launch
+  screen, so the two technical phases present as one continuous surface. A timeout reveals
+  a retryable in-app surface while the original session request remains observed for
+  automatic recovery; no concurrent retry is allowed to queue behind the same Supabase
+  auth lock.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.

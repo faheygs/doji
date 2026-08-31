@@ -724,8 +724,11 @@ those grants makes the policy fail closed.
 - Cold start may render an account-scoped cached profile and first feed page while the
   authoritative reads reconcile. Query-cache hydration and font loading are bounded,
   and all startup consumers share one persisted-session restoration request. The native
-  splash releases independently of network/auth completion into a branded React loading
-  or retry surface, so a stalled auth-storage lock cannot trap the app or flash onboarding.
+  splash releases independently of network/auth completion into a pixel-matched React
+  loading surface with the same bundled logo, 100-point size, centered placement, and
+  white background. The transition therefore remains visually continuous while a stalled
+  auth-storage lock still cannot trap the app or flash onboarding; a genuine timeout moves
+  to the separate retry surface.
   A delayed session result continues to be observed and recovers automatically.
 - Realtime reads are single-flight and non-cancelling. A burst is batched and receives
   at most one trailing catch-up; raw global Postgres Changes subscriptions are forbidden.
