@@ -274,6 +274,9 @@ profile/account fields are owner-only through `get_own_profile` and
 `update_own_profile`. Never restore `profiles(*)` to public or embedded queries.
 Post media uses server-reserved, user/occurrence-scoped object paths and resumable
 TUS uploads. Completion accepts only reserved objects from the same idempotent command.
+Storage may return or resume an object before completion through a narrow SELECT policy
+covering only the authenticated owner's exact uncommitted reservation; after the post
+commits, the normal authorized post-media read contract takes over.
 Uncommitted objects are removed after 24 hours. A deleted/moderated post durably queues
 its physical objects for removal; committed reservation metadata expires after the post
 is gone and 30 days have elapsed, without deleting media still referenced by a post.

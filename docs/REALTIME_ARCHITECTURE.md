@@ -417,6 +417,10 @@ configured in the production build, and monitored.
   the post, the subscription ends without background retries and invalidates the
   active feed/post queries so Postgres removes stale content. Repeated provider
   rejection after Postgres grants access remains an operational error.
+- Private post-media uploads use an owner-scoped pre-commit SELECT bridge for the exact
+  uncommitted server reservation. This permits Storage's INSERT-returning and resumable
+  upsert steps without exposing unrelated media; committed reads still require normal
+  post visibility authorization.
 - An Ably connection is never reused across account identities. A token refresh for
   the same account preserves the socket, while sign-out or an account switch closes
   it before a token bearing a different `clientId` can be authorized.

@@ -1,6 +1,6 @@
 begin;
 
-select plan(122);
+select plan(123);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -177,6 +177,20 @@ select like(
   pg_get_functiondef('public.enforce_reserved_post_media()'::regprocedure),
   '%intent.object_path = resolved_object_path%',
   'owned-media validation uses an unambiguous resolved object path'
+);
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'post_media_read_own_reserved_upload'
+      and cmd = 'SELECT'
+      and with_check is null
+      and qual like '%media_upload_intents%'
+      and qual like '%committed_at IS NULL%'
+  ),
+  'reserved post-media uploads have a pre-commit SELECT bridge'
 );
 select alike(
   pg_get_functiondef('public.complete_doji_with_post(uuid,text,text,text,text,text,text,text)'::regprocedure),
