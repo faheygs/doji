@@ -1,10 +1,13 @@
 const mockChannel = {
+  state: 'initialized',
   subscribe: jest.fn().mockResolvedValue(undefined),
   unsubscribe: jest.fn(),
   detach: jest.fn().mockResolvedValue(undefined),
 };
+const mockChannelsGet = jest.fn(() => mockChannel);
 const mockRelease = jest.fn();
 const mockClose = jest.fn();
+const mockReport = jest.fn();
 let mockRealtimeOptions: Record<string, unknown> | undefined;
 let mockAuthCallback:
   | ((params: unknown, callback: (error: string | null, token: unknown) => void) => void)
@@ -31,9 +34,8 @@ function tokenResponse(postIds: string[]) {
     error: null,
   };
 }
-const mockInvoke = jest.fn(
-  (_name: string, options: { body: { postIds: string[] } }) =>
-    Promise.resolve(tokenResponse(options.body.postIds)),
+const mockInvoke = jest.fn((_name: string, options: { body: { postIds: string[] } }) =>
+  Promise.resolve(tokenResponse(options.body.postIds)),
 );
 
 jest.mock('ably', () => ({
@@ -41,7 +43,7 @@ jest.mock('ably', () => ({
     mockRealtimeOptions = options;
     mockAuthCallback = options.authCallback;
     return {
-      channels: { get: jest.fn(() => mockChannel), release: mockRelease },
+      channels: { get: mockChannelsGet, release: mockRelease },
       auth: { authorize: mockAuthorize },
       connection: { on: jest.fn(), off: jest.fn() },
       connect: jest.fn(),
@@ -53,7 +55,7 @@ jest.mock('../../lib/supabase', () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => mockInvoke(...args) } },
 }));
 jest.mock('../../lib/telemetry', () => ({
-  reportRealtimeFailure: jest.fn(),
+  reportRealtimeFailure: (...args: unknown[]) => mockReport(...args),
   recordRealtimeFailure: jest.fn(),
 }));
 
@@ -63,6 +65,21 @@ describe('realtime channel lifecycle', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockChannel.state = 'initialized';
+    mockChannel.subscribe.mockResolvedValue(undefined);
+    mockChannel.detach.mockResolvedValue(undefined);
+    mockChannelsGet.mockImplementation(() => mockChannel);
+    mockAuthorize.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          mockAuthCallback?.({}, (error, token) =>
+            error ? reject(new Error(error)) : resolve(token),
+          );
+        }),
+    );
+    mockInvoke.mockImplementation((_name: string, options: { body: { postIds: string[] } }) =>
+      Promise.resolve(tokenResponse(options.body.postIds)),
+    );
   });
 
   afterEach(() => {
@@ -122,9 +139,8 @@ describe('realtime channel lifecycle', () => {
             finishFirst = () => resolve(tokenResponse(options.body.postIds));
           }),
       )
-      .mockImplementation(
-        (_name: string, options: { body: { postIds: string[] } }) =>
-          Promise.resolve(tokenResponse(options.body.postIds)),
+      .mockImplementation((_name: string, options: { body: { postIds: string[] } }) =>
+        Promise.resolve(tokenResponse(options.body.postIds)),
       );
 
     const firstSubscription = subscribeToRealtimeChannel(`post:${firstId}`, jest.fn());
@@ -133,10 +149,7 @@ describe('realtime channel lifecycle', () => {
     const secondSubscription = subscribeToRealtimeChannel(`post:${secondId}`, jest.fn());
     finishFirst?.(tokenResponse([firstId]));
 
-    const [removeFirst, removeSecond] = await Promise.all([
-      firstSubscription,
-      secondSubscription,
-    ]);
+    const [removeFirst, removeSecond] = await Promise.all([firstSubscription, secondSubscription]);
 
     expect(mockAuthorize).toHaveBeenCalledTimes(2);
     expect(mockInvoke).toHaveBeenLastCalledWith('realtime-token', {
@@ -150,8 +163,63 @@ describe('realtime channel lifecycle', () => {
     const postId = '33333333-3333-4333-8333-333333333333';
     mockInvoke.mockResolvedValueOnce(tokenResponse([]));
 
-    await expect(
-      subscribeToRealtimeChannel(`post:${postId}`, jest.fn()),
-    ).rejects.toThrow(`Realtime access is unavailable for post:${postId}`);
+    await expect(subscribeToRealtimeChannel(`post:${postId}`, jest.fn())).rejects.toThrow(
+      `Realtime access is unavailable for post:${postId}`,
+    );
+  });
+
+  it('reauthorizes and recreates a provider-failed post channel once', async () => {
+    const postId = '44444444-4444-4444-8444-444444444444';
+    const capabilityError = Object.assign(
+      new Error('Channel operation failed as state is failed'),
+      {
+        cause: new Error(
+          `Channel denied access based on given capability; channelId = post:${postId}`,
+        ),
+      },
+    );
+    const deniedChannel = {
+      state: 'failed',
+      subscribe: jest.fn().mockRejectedValue(capabilityError),
+      unsubscribe: jest.fn(),
+      detach: jest.fn().mockResolvedValue(undefined),
+    };
+    const recoveredChannel = {
+      state: 'initialized',
+      subscribe: jest.fn().mockResolvedValue(undefined),
+      unsubscribe: jest.fn(),
+      detach: jest.fn().mockResolvedValue(undefined),
+    };
+    mockChannelsGet.mockReturnValueOnce(deniedChannel).mockReturnValue(recoveredChannel);
+
+    const remove = await subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+
+    expect(mockAuthorize).toHaveBeenCalledTimes(2);
+    expect(mockRelease).toHaveBeenCalledWith(`post:${postId}`);
+    expect(recoveredChannel.subscribe).toHaveBeenCalledTimes(1);
+    remove();
+  });
+
+  it('stops cleanly when refreshed authorization confirms post access was revoked', async () => {
+    const postId = '55555555-5555-4555-8555-555555555555';
+    const capabilityError = Object.assign(
+      new Error('Channel operation failed as state is failed'),
+      {
+        errorReason: new Error(
+          `Channel denied access based on given capability; channelId = post:${postId}`,
+        ),
+      },
+    );
+    mockChannel.state = 'failed';
+    mockChannel.subscribe.mockRejectedValueOnce(capabilityError);
+    mockInvoke
+      .mockResolvedValueOnce(tokenResponse([postId]))
+      .mockResolvedValueOnce(tokenResponse([]));
+
+    await expect(subscribeToRealtimeChannel(`post:${postId}`, jest.fn())).rejects.toThrow(
+      `Realtime access is unavailable for post:${postId}`,
+    );
+    expect(mockAuthorize).toHaveBeenCalledTimes(2);
+    expect(mockReport).not.toHaveBeenCalled();
   });
 });

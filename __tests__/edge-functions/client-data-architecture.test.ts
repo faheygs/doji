@@ -61,7 +61,9 @@ describe('mobile data architecture', () => {
     expect(token).not.toContain("'post:*': ['subscribe']");
     expect(token).not.toContain("['subscribe', 'history']");
     const postHook = read('hooks/usePostRealtimeInvalidation.ts');
-    expect(postHook).toContain("{ rewind: '10s', scope: 'post' }");
+    expect(postHook).toContain("rewind: '10s'");
+    expect(postHook).toContain("scope: 'post'");
+    expect(postHook).toContain('onAccessUnavailable');
     const client = read('lib/realtimeClient.ts');
     expect(client).toContain('subscriptionCounts');
     expect(client).toContain('.detach()');

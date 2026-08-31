@@ -21,6 +21,10 @@ export function isRealtimeAccessUnavailable(error: unknown): boolean {
   return error instanceof RealtimeAccessUnavailableError;
 }
 
+export function invalidatePostCapability(channelName: string): void {
+  grantedPostChannels.delete(channelName);
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(

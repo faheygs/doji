@@ -27,6 +27,7 @@ import type { ChallengeSuggestion } from '@/types/database';
 import { SuggestionQueueCard } from '@/components/admin/SuggestionQueueCard';
 import { AdminQueueEmptyState } from '@/components/admin/AdminQueueEmptyState';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { useManualRefresh } from '@/hooks/useManualRefresh';
 
 const REJECT_NOTE_MAX = 500;
 
@@ -95,8 +96,8 @@ export default function AdminSuggestionsScreen() {
     isLoading,
     isError,
     refetch,
-    isRefetching,
   } = usePendingSuggestions();
+  const { refreshing, handleRefresh } = useManualRefresh(refetch);
   const coldError = isError && suggestions.length === 0;
   const review = useReviewSuggestion();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -201,7 +202,7 @@ export default function AdminSuggestionsScreen() {
             style={webScrollParentStyle}
             contentContainerStyle={{ paddingBottom: Spacing.xxl, flexGrow: 1 }}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.text} />
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
             }
           >
             {reviewError ? (

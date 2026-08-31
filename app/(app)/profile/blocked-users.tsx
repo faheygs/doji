@@ -20,6 +20,7 @@ import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useBlockedUsersPaged, useUnblockUser } from '@/hooks/useBlockUser';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { useManualRefresh } from '@/hooks/useManualRefresh';
 
 export default function BlockedUsersScreen() {
   const router = useRouter();
@@ -30,7 +31,8 @@ export default function BlockedUsersScreen() {
     () => blockedQuery.data?.pages.flatMap((page) => page) ?? [],
     [blockedQuery.data?.pages],
   );
-  const { isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = blockedQuery;
+  const { isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = blockedQuery;
+  const { refreshing, handleRefresh } = useManualRefresh(refetch);
   const unblock = useUnblockUser();
   const [actionError, setActionError] = React.useState('');
 
@@ -133,8 +135,8 @@ export default function BlockedUsersScreen() {
           }
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={() => void refetch()}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
               tintColor={colors.text}
             />
           }

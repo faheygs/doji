@@ -31,6 +31,9 @@ export async function uploadPostMedia(
     objectPath: filePath,
     uri: compressed,
     contentType: 'image/jpeg',
+    // The occurrence command reuses one reserved object path. A retry after an
+    // ambiguous completion must be able to resume/replace that same owned object.
+    upsert: true,
   });
 
   const { data } = supabase.storage.from('post-media').getPublicUrl(filePath);
@@ -70,6 +73,7 @@ export async function uploadPostVideo(
     objectPath: filePath,
     uri,
     contentType,
+    upsert: true,
   });
 
   const { data } = supabase.storage.from('post-media').getPublicUrl(filePath);

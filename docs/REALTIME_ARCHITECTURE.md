@@ -58,6 +58,9 @@
 - Every replayable command carries a stable idempotency key. PostgreSQL takes a
   transaction-scoped advisory lock for that user/key before checking the durable
   receipt, so two simultaneous requests cannot both perform the action.
+- Media submission retries reuse and upsert the exact actor-owned object path reserved
+  for the occurrence command. The atomic completion RPC remains the only operation that
+  commits participation, content, rewards, and the outbox event.
 - Global mutation retries are disabled. Queries retry only transport, timeout,
   rate-limit, and 5xx failures with bounded exponential jitter. An individual
   atomic command may opt into retry only when it reuses its original key.
@@ -87,6 +90,11 @@
   posts mounted after that batch's snapshot receive one trailing authorization pass.
   The client verifies the returned token capability instead of assuming every
   requested post passed RLS authorization.
+- Cold start has one shared persisted-session restoration request. Cache hydration and
+  font loading are bounded, and the native splash never waits indefinitely on the auth
+  storage lock or a profile network read. A timeout reveals a retryable in-app surface
+  while the original session request remains observed for automatic recovery; no
+  concurrent retry is allowed to queue behind the same Supabase auth lock.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
@@ -400,6 +408,12 @@ configured in the production build, and monitored.
   eliminating a separate Auth-server request. Mobile token requests are serialized and use
   a 20-second transport timeout so cold starts do not create an auth-request storm.
   Authenticated clients never receive a `post:*` wildcard.
+- A provider capability rejection receives one bounded recovery attempt: invalidate
+  the cached exact-post grant, mint a fresh capability set, release the failed Ably
+  channel object, and attach a new one. When the refreshed server capability omits
+  the post, the subscription ends without background retries and invalidates the
+  active feed/post queries so Postgres removes stale content. Repeated provider
+  rejection after Postgres grants access remains an operational error.
 - An Ably connection is never reused across account identities. A token refresh for
   the same account preserves the socket, while sign-out or an account switch closes
   it before a token bearing a different `clientId` can be authorized.

@@ -5,7 +5,9 @@ import {
   requestRealtimeToken,
   resetRealtimeAuthorization,
   isRealtimeAccessUnavailable,
+  invalidatePostCapability,
 } from './realtimeAuthorization';
+import { isRealtimeCapabilityDenied } from './realtimeChannelErrors';
 
 export type DojiRealtimeEvent = {
   eventId?: string;
@@ -54,12 +56,7 @@ function getClient(): Realtime {
     realtimeRequestTimeout: 20_000,
     authCallback: (_params, callback) => {
       const expected = createdClient ?? realtime;
-      requestRealtimeToken(
-        expected,
-        requestedPostChannels,
-        () => client === expected,
-        callback,
-      );
+      requestRealtimeToken(expected, requestedPostChannels, () => client === expected, callback);
     },
   });
   createdClient = realtime;
@@ -84,12 +81,15 @@ function getClient(): Realtime {
     }
     if (failedReconnectTimer) return;
     const delay = Math.min(30_000, 1_000 * 2 ** Math.min(4, consecutiveConnectionFailures - 1));
-    failedReconnectTimer = setTimeout(() => {
-      failedReconnectTimer = null;
-      if (client !== realtime) return;
-      resetRealtimeAuthorization();
-      realtime.connect();
-    }, delay + Math.floor(Math.random() * 750));
+    failedReconnectTimer = setTimeout(
+      () => {
+        failedReconnectTimer = null;
+        if (client !== realtime) return;
+        resetRealtimeAuthorization();
+        realtime.connect();
+      },
+      delay + Math.floor(Math.random() * 750),
+    );
   });
   const scheduledClient = client;
   // Spread cold-start connection attempts across a short window. This is
@@ -126,12 +126,15 @@ export async function subscribeToRealtimeChannel(
   const pendingRelease = releaseTimers.get(channelName);
   if (pendingRelease) clearTimeout(pendingRelease);
   releaseTimers.delete(channelName);
-  const channel = realtime.channels.get(
-    channelName,
-    options?.rewind ? { params: { rewind: options.rewind } } : undefined,
-  );
+  const getChannel = () =>
+    realtime.channels.get(
+      channelName,
+      options?.rewind ? { params: { rewind: options.rewind } } : undefined,
+    );
+  let channel = getChannel();
   const listener = (message: Message) => onEvent(eventFromMessage(message));
   let lastError: unknown;
+  let refreshedDeniedCapability = false;
   for (let attempt = 1; attempt <= SUBSCRIBE_ATTEMPTS; attempt += 1) {
     try {
       if (isPostChannel) {
@@ -143,6 +146,16 @@ export async function subscribeToRealtimeChannel(
     } catch (error) {
       lastError = error;
       channel.unsubscribe(listener);
+      const capabilityDenied =
+        isRealtimeCapabilityDenied(error) || isRealtimeCapabilityDenied(channel.errorReason);
+      if (isPostChannel && capabilityDenied && !refreshedDeniedCapability) {
+        refreshedDeniedCapability = true;
+        invalidatePostCapability(channelName);
+        recordRealtimeFailure('channel_capability_refresh', error, { channelScope: 'post' });
+        if (channel.state === 'failed') realtime.channels.release(channelName);
+        channel = getChannel();
+        continue;
+      }
       if (isRealtimeAccessUnavailable(error)) {
         recordRealtimeFailure('channel_access_changed', error, { channelScope: 'post' });
         break;
@@ -152,6 +165,10 @@ export async function subscribeToRealtimeChannel(
         attempt,
       });
       if (client !== realtime || attempt === SUBSCRIBE_ATTEMPTS) break;
+      if (channel.state === 'failed') {
+        realtime.channels.release(channelName);
+        channel = getChannel();
+      }
       await wait(500 * 2 ** (attempt - 1) + Math.floor(Math.random() * 350));
     }
   }

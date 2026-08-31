@@ -192,7 +192,10 @@ authoritative occurrence.
 Uploads may finish before the command, but participation is not complete until the
 atomic RPC commits. The client uses stable occurrence command IDs and single-flight
 guards. It may optimistically unlock navigation, but it rolls back on failure and
-immediately refetches authoritative state on success.
+immediately refetches authoritative state on success. Retrying the same occurrence
+command reuses and upserts the exact actor-owned, server-reserved object path before
+replaying the same idempotent RPC; an uploaded object from an ambiguous prior attempt
+must not turn the retry into a duplicate-object failure.
 
 ## Social feed behavior
 
@@ -399,7 +402,11 @@ Channels:
   blanket `post:*` capability. The mobile Ably client is account-bound and closes on
   identity changes. Mounted posts share authorization work, with one trailing pass
   for a post added after an in-flight snapshot, and the returned capability is
-  verified before subscription.
+  verified before subscription. If Ably rejects an attach because the installed
+  token is stale, mobile invalidates its local grant, reauthorizes once, releases
+  the terminally failed channel object, and attaches a fresh channel. If Postgres
+  then omits the post, the client stops retrying and immediately reconciles the
+  authoritative feed; expected access loss is not reported as a transport outage.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.
@@ -715,8 +722,11 @@ those grants makes the policy fail closed.
 ## Performance contract
 
 - Cold start may render an account-scoped cached profile and first feed page while the
-  authoritative reads reconcile. The native splash is held before React mounts, so no
-  blank transition or onboarding flash is allowed.
+  authoritative reads reconcile. Query-cache hydration and font loading are bounded,
+  and all startup consumers share one persisted-session restoration request. The native
+  splash releases independently of network/auth completion into a branded React loading
+  or retry surface, so a stalled auth-storage lock cannot trap the app or flash onboarding.
+  A delayed session result continues to be observed and recovers automatically.
 - Realtime reads are single-flight and non-cancelling. A burst is batched and receives
   at most one trailing catch-up; raw global Postgres Changes subscriptions are forbidden.
 - Feed, poll totals, poll voters, comments, leaderboard, bell history, friends, friend

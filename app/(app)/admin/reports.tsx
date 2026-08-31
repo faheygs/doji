@@ -21,6 +21,7 @@ import {
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { AdminQueueEmptyState } from '@/components/admin/AdminQueueEmptyState';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { useManualRefresh } from '@/hooks/useManualRefresh';
 
 const ACTION_LABEL: Record<ModerateAction, string> = {
   dismiss: 'Report dismissed',
@@ -33,8 +34,9 @@ export default function AdminReportsScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
-  const { data: reports = [], isLoading, isError, refetch, isRefetching } =
+  const { data: reports = [], isLoading, isError, refetch } =
     usePendingReports();
+  const { refreshing, handleRefresh } = useManualRefresh(refetch);
   const coldError = isError && reports.length === 0;
   const moderate = useModerateReport();
   const [active, setActive] = useState<{ reportId: string; action: ModerateAction } | null>(null);
@@ -118,7 +120,7 @@ export default function AdminReportsScreen() {
             contentContainerStyle={styles.content}
             refreshControl={
               <RefreshControl
-                refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.text}
+                refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text}
               />
             }
           >

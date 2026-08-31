@@ -22,6 +22,7 @@ import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib
 import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import type { LeaderboardEntry } from '../../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../../hooks/useFocusedRealtimeInvalidation';
+import { useManualRefresh } from '../../../hooks/useManualRefresh';
 
 const MODE_LABELS: Record<LeaderboardMode, string> = {
   weekly: 'This week',
@@ -201,8 +202,8 @@ export default function LeaderboardScreen() {
     isLoading,
     isError,
     refetch,
-    isRefetching,
   } = useLeaderboard(mode, audience);
+  const { refreshing, handleRefresh } = useManualRefresh(refetch);
 
   const restEntries = useMemo(() => (entries ?? []).filter((e) => e.rank > 3), [entries]);
 
@@ -309,8 +310,8 @@ export default function LeaderboardScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
               tintColor={colors.primary}
             />
           }

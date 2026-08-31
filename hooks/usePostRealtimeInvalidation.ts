@@ -88,7 +88,13 @@ export function usePostRealtimeInvalidation(
         },
         // Close the read-to-subscribe race without a database read per mounted
         // card. Replayed IDs still pass through the same deduper and 80 ms batch.
-        { rewind: '10s', scope: 'post' },
+        {
+          rewind: '10s',
+          scope: 'post',
+          onAccessUnavailable: () => {
+            scheduleQueryInvalidation(client, ['feed', 'post', 'comments', 'reactions']);
+          },
+        },
       );
       return () => {
         if (timer) clearTimeout(timer);

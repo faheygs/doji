@@ -1,7 +1,5 @@
-import {
-  subscribeToRealtimeChannel,
-  type DojiRealtimeEvent,
-} from './realtimeClient';
+import { subscribeToRealtimeChannel, type DojiRealtimeEvent } from './realtimeClient';
+import { isRealtimeAccessUnavailable } from './realtimeAuthorization';
 import { recordRealtimeFailure } from './telemetry';
 
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -9,6 +7,7 @@ const MAX_RETRY_DELAY_MS = 30_000;
 type Options = {
   rewind?: string;
   scope?: 'app' | 'post' | 'public';
+  onAccessUnavailable?: () => void;
 };
 
 /**
@@ -38,16 +37,26 @@ export function startResilientRealtimeSubscription(
       }
     } catch (error) {
       if (disposed) return;
+      if (isRealtimeAccessUnavailable(error)) {
+        recordRealtimeFailure('subscription_access_changed', error, {
+          channelScope: options.scope ?? 'post',
+        });
+        options.onAccessUnavailable?.();
+        return;
+      }
       failures += 1;
       recordRealtimeFailure('subscription_recovery', error, {
         channelScope: options.scope ?? 'app',
         attempt: failures,
       });
       const delay = Math.min(MAX_RETRY_DELAY_MS, 1_000 * 2 ** Math.min(failures - 1, 5));
-      retryTimer = setTimeout(() => {
-        retryTimer = null;
-        if (!disposed) void connect();
-      }, delay + Math.floor(Math.random() * 750));
+      retryTimer = setTimeout(
+        () => {
+          retryTimer = null;
+          if (!disposed) void connect();
+        },
+        delay + Math.floor(Math.random() * 750),
+      );
     }
   };
 

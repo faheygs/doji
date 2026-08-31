@@ -56,6 +56,7 @@ describe('uploadPostMedia', () => {
         bucketId: 'post-media',
         objectPath: 'user-123/events/event-1/upload-photo.jpg',
         contentType: 'image/jpeg',
+        upsert: true,
       }),
     );
     expect(url).toContain('/storage/v1/object/public/post-media/');
@@ -77,7 +78,7 @@ describe('uploadPostVideo', () => {
 
     expect(mockStorageFrom).toHaveBeenCalledWith('post-media');
     expect(resumableStorageUpload).toHaveBeenCalledWith(
-      expect.objectContaining({ contentType: 'video/mp4' }),
+      expect.objectContaining({ contentType: 'video/mp4', upsert: true }),
     );
     expect(url).toContain('/storage/v1/object/public/post-media/');
   });

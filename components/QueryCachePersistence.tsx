@@ -3,9 +3,9 @@ import { dehydrate, hydrate } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { queryClient } from '../lib/queryClient';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import { queryCacheStorageKey } from '../lib/queryPersistence';
+import { initialSessionBootstrap } from '../lib/initialSessionBootstrap';
 
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const HYDRATION_TIMEOUT_MS = 1_200;
@@ -57,9 +57,7 @@ function boundedSnapshot(): Snapshot {
       ...state,
       queries: state.queries.map((query) => {
         if (query.queryKey[0] !== 'feed') return query;
-        const data = query.state.data as
-          | { pages?: unknown[]; pageParams?: unknown[] }
-          | undefined;
+        const data = query.state.data as { pages?: unknown[]; pageParams?: unknown[] } | undefined;
         if (!data?.pages) return query;
         return {
           ...query,
@@ -96,8 +94,8 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
     let unsubscribe = () => {};
     let cacheUserId: string | undefined;
 
-    const cacheRead = supabase.auth.getSession().then(async ({ data }) => {
-      const userId = data.session?.user?.id;
+    const cacheRead = initialSessionBootstrap.get().then(async (session) => {
+      const userId = session?.user?.id;
       cacheUserId = userId;
       return {
         userId,
