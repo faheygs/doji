@@ -1,6 +1,6 @@
 begin;
 
-select plan(123);
+select plan(125);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -186,11 +186,33 @@ select ok(
       and tablename = 'objects'
       and policyname = 'post_media_read_own_reserved_upload'
       and cmd = 'SELECT'
+      and roles = array['authenticated']::name[]
       and with_check is null
+      and qual like '%owner_id%'
+      and qual like '%storage.foldername%'
       and qual like '%media_upload_intents%'
+      and qual like '%intent.object_path = objects.name%'
       and qual like '%committed_at IS NULL%'
   ),
-  'reserved post-media uploads have a pre-commit SELECT bridge'
+  'reserved post-media uploads have an exact owner-only pre-commit SELECT bridge'
+);
+select is(
+  (select public from storage.buckets where id = 'post-media'),
+  false,
+  'the post-media bucket remains private'
+);
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'post_media_read_authorized'
+      and cmd = 'SELECT'
+      and roles = array['authenticated']::name[]
+      and qual like '%can_read_post_media%'
+  ),
+  'committed post-media reads still require post authorization'
 );
 select alike(
   pg_get_functiondef('public.complete_doji_with_post(uuid,text,text,text,text,text,text,text)'::regprocedure),
