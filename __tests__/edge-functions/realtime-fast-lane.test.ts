@@ -8,6 +8,9 @@ describe('realtime command fast lane', () => {
   const gateway = read('infra/doji-orchestrator/src/command-gateway.ts');
   const relay = read('supabase/functions/relay-domain-events/index.ts');
   const migration = read('supabase/migrations/20260823140000_realtime_delivery_slo.sql');
+  const dueWakeMigration = read(
+    'supabase/migrations/20260902210000_rearm_due_outbox_wake.sql',
+  );
 
   it('preserves user JWT authorization and uses an explicit command allowlist', () => {
     expect(gateway).toContain('const AUTHENTICATED_COMMANDS = new Set');
@@ -45,6 +48,12 @@ describe('realtime command fast lane', () => {
     expect(migration).toContain("'realtime_p95_ms_5m'");
     expect(migration).toContain("'realtime_over_5s_5m'");
     expect(migration).toContain('realtime.slow < 3');
+  });
+
+  it('immediately re-arms when delayed work crosses its availability boundary', () => {
+    expect(dueWakeMigration).toContain('min(event.available_at) as next_at');
+    expect(dueWakeMigration).toContain('event.published_at is null');
+    expect(dueWakeMigration).toContain('greatest(clock_timestamp(), next_event.next_at)');
   });
 
   it('routes core interactive mutations through one client command helper', () => {

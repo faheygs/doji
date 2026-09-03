@@ -1,6 +1,6 @@
 begin;
 
-select plan(125);
+select plan(126);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -10,6 +10,11 @@ select has_column(
 select has_function(
   'public', 'next_domain_event_available_at', array[]::text[],
   'relay can schedule the next one-shot delayed wake'
+);
+select alike(
+  pg_get_functiondef('public.next_domain_event_available_at()'::regprocedure),
+  '%greatest(clock_timestamp(), next_event.next_at)%',
+  'relay immediately re-arms when a delayed event becomes due during a drain'
 );
 select has_function(
   'public', 'mark_domain_events_realtime_published', array['jsonb'],

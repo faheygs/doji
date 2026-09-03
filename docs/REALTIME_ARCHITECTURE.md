@@ -173,8 +173,11 @@ reconcile authoritative database state.
   so a recipient gets one aggregate alert 30-60 seconds after the action. The outbox
   `available_at` gate and a singleton Cloudflare Durable Object alarm are durable
   one-shot delivery, not recurring polling. The alarm retains only the earliest
-  pending wake, so a large social burst cannot create duplicate timers. Bell history
-  remains immediate and authoritative.
+  pending wake, so a large social burst cannot create duplicate timers. If an event
+  becomes due while a relay drain is in flight, the next-wake contract returns the
+  current time and immediately re-arms the durable alarm instead of ignoring that
+  newly due row until an unrelated later timer. Bell history remains immediate and
+  authoritative.
 - Social recipient fanout is set-based and asynchronous. One action creates one relay
   wakeup and one internal outbox command rather than blocking the user write or making
   one database HTTP wakeup per friend. Lightweight friend invalidations use Ably's

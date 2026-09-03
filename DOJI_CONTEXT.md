@@ -533,7 +533,9 @@ not traverse the gateway or whose immediate coalescer wake failed. The same sing
 Durable Object coalesces both fast-path bursts and fallback wakes for 250 ms, then
 drains up to eight bounded relay pages per alarm. Remaining work immediately schedules
 the next durable alarm; every page claims disjoint Postgres leases until committed work
-drains.
+drains. The next-wake query returns an immediate timestamp when claimable work became
+due while the preceding drain was running; short coalescing delays cannot fall through
+the future-only timer boundary and wait for an unrelated later notification.
 The existing once-per-minute operational health check submits one recovery wake only
 when durable outbox work is overdue. This repairs failed wake or relay periods after
 service recovery; it is not the primary delivery trigger or a challenge timer.
