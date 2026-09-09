@@ -719,6 +719,7 @@ notifications, member profiles, post detail, and admin are pushed routes, not ta
 | `infra/doji-orchestrator/`      | Durable alarms, coalesced relay wakeups, retries, health recovery |
 | `docs/REALTIME_ARCHITECTURE.md` | Realtime guarantees, channels, deployment, monitoring             |
 | `docs/QA_CHECKLIST.md`          | Release/device test matrix                                        |
+| `docs/PRODUCT_BACKLOG.md`       | Persistent future work and unresolved regression checks           |
 | `docs/APP_STORE_RELEASE.md`     | Apple review and submission evidence                              |
 
 ## Engineering rules
