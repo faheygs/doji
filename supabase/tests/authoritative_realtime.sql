@@ -180,7 +180,7 @@ select has_function(
 
 select alike(
   pg_get_functiondef('public.enforce_reserved_post_media()'::regprocedure),
-  'intent[.]object_path = resolved_object_path',
+  '%intent.object_path = resolved_object_path%',
   'owned-media validation uses an unambiguous resolved object path'
 );
 select ok(
