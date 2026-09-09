@@ -90,6 +90,21 @@ Priority: P2 regression verification
 - Add a regression test for repeated realtime invalidations while the leaderboard is
   focused.
 
+### FW-008 — Profile Reactions consistently means reactions given
+
+Priority: P2
+
+- The top profile stat beside Friends and Responses represents reactions the person
+  has given, on both the owner profile and profiles viewed by other people.
+- Keep reactions received as the separate metric behind the Beloved badge; do not
+  silently substitute it into the top profile strip.
+- Replace the member-profile use of `reactions_received` with the authoritative
+  `reactions_given` value already exposed by the safe public-profile contract.
+- Reconcile the owner and member-profile caches after a reaction so the count changes
+  without a pull-to-refresh, route change, or app restart.
+- Add a regression test proving the same user shows the same Reactions total when
+  viewed by themselves and by a friend.
+
 ## Completed
 
 ### September 9, 2026 — Android release stabilization
