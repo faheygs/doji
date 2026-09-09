@@ -3,12 +3,13 @@ import {
   View,
   FlatList,
   RefreshControl,
-  SafeAreaView,
+
   TouchableOpacity,
   Platform,
   InteractionManager,
   type ViewToken,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';

@@ -7,13 +7,9 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from './telemetry';
 
 const INSTALLATION_KEY = '@doji/push-installation-id';
+export const ANDROID_NOTIFICATION_CHANNEL_ID = 'doji-alerts';
 
-export type PushPermissionResult =
-  | 'granted'
-  | 'denied'
-  | 'undetermined'
-  | 'unsupported'
-  | 'error';
+export type PushPermissionResult = 'granted' | 'denied' | 'undetermined' | 'unsupported' | 'error';
 
 async function installationId(): Promise<string> {
   const existing = await AsyncStorage.getItem(INSTALLATION_KEY);
@@ -27,6 +23,20 @@ function pushEnvironment(): 'sandbox' | 'production' {
   return process.env.EXPO_PUBLIC_APP_ENV === 'production' ? 'production' : 'sandbox';
 }
 
+/** Android 13+ will not grant or return a push token until a channel exists. */
+export async function ensureAndroidNotificationChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  const Notifications = await import('expo-notifications');
+  await Notifications.setNotificationChannelAsync(ANDROID_NOTIFICATION_CHANNEL_ID, {
+    name: 'Doji alerts',
+    description: 'Daily Doji openings and activity from your friends',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#F97316',
+    sound: 'default',
+  });
+}
+
 /**
  * Register the native scale endpoint. Expo is an optional migration fallback:
  * a temporary Expo outage must never discard a valid APNs/FCM endpoint.
@@ -37,6 +47,7 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
   if (!uid) return false;
 
   const Notifications = await import('expo-notifications');
+  await ensureAndroidNotificationChannel();
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return false;
 
@@ -47,9 +58,7 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
 
   let expoToken: string | null = null;
   try {
-    const expo = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
+    const expo = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     expoToken = expo.data?.trim() || null;
   } catch (error) {
     // Native APNs/FCM is the production path. Preserve it and record that the
@@ -93,10 +102,10 @@ export async function requestPushPermissionAndRegisterToken(
 
   try {
     const Notifications = await import('expo-notifications');
+    await ensureAndroidNotificationChannel();
     const { status: existing } = await Notifications.getPermissionsAsync();
-    const { status } = existing === 'granted'
-      ? { status: existing }
-      : await Notifications.requestPermissionsAsync();
+    const { status } =
+      existing === 'granted' ? { status: existing } : await Notifications.requestPermissionsAsync();
     if (status !== 'granted') {
       return status === 'undetermined' ? 'undetermined' : 'denied';
     }

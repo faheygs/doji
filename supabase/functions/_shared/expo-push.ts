@@ -8,6 +8,7 @@ export type ExpoMessage = {
   body: string;
   data?: Record<string, unknown>;
   sound?: 'default';
+  channelId?: string;
   badge?: number;
   priority?: 'default' | 'normal' | 'high';
   interruptionLevel?: 'active' | 'critical' | 'passive' | 'time-sensitive';

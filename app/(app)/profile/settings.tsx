@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Linking, View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { Linking, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';

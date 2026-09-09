@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppDialog } from '../contexts/DialogContext';
 import { showProfilePhotoDialog } from '../lib/profilePhotoDialog';
+import { selectedImageUri } from '../lib/imagePickerRecovery';
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   allowsEditing: true,
@@ -17,14 +18,32 @@ export function useProfilePhotoPicker(
 ) {
   const { showDialog } = useAppDialog();
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let active = true;
+    void ImagePicker.getPendingResultAsync()
+      .then((result) => {
+        const uri = selectedImageUri(result);
+        if (active && uri) onSelected(uri);
+      })
+      .catch(() => {
+        if (active) onError?.('The cropped photo could not be opened. Please try again.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [onError, onSelected]);
+
   const fromLibrary = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== 'granted') {
-      onError?.('Allow photo library access to choose a profile photo.');
-      return;
+    if (Platform.OS !== 'android') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        onError?.('Allow photo library access to choose a profile photo.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
-    const uri = !result.canceled ? result.assets[0]?.uri : null;
+    const uri = selectedImageUri(result);
     if (uri) onSelected(uri);
   }, [onError, onSelected]);
 
@@ -35,12 +54,16 @@ export function useProfilePhotoPicker(
       return;
     }
     const result = await ImagePicker.launchCameraAsync(PICKER_OPTIONS);
-    const uri = !result.canceled ? result.assets[0]?.uri : null;
+    const uri = selectedImageUri(result);
     if (uri) onSelected(uri);
   }, [onError, onSelected]);
 
   return useCallback(() => {
     if (Platform.OS === 'web') return void fromLibrary();
-    showProfilePhotoDialog(showDialog, () => void fromCamera(), () => void fromLibrary());
+    showProfilePhotoDialog(
+      showDialog,
+      () => void fromCamera(),
+      () => void fromLibrary(),
+    );
   }, [fromCamera, fromLibrary, showDialog]);
 }

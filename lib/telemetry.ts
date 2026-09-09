@@ -7,7 +7,13 @@ const lastReportAt = new Map<string, number>();
 
 function errorDetails(error: unknown): Record<string, TelemetryValue> {
   if (error instanceof Error) {
-    return { errorName: error.name, errorMessage: error.message };
+    const value = error as Error & { code?: unknown; statusCode?: unknown };
+    return {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: typeof value.code === 'number' ? value.code : undefined,
+      statusCode: typeof value.statusCode === 'number' ? value.statusCode : undefined,
+    };
   }
   if (error && typeof error === 'object') {
     const value = error as Record<string, unknown>;

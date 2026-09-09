@@ -2,13 +2,14 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
+
   ScrollView,
   Switch,
   TouchableOpacity,
   Platform,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';

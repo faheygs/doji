@@ -7,7 +7,7 @@ import {
   isRealtimeAccessUnavailable,
   invalidatePostCapability,
 } from './realtimeAuthorization';
-import { isRealtimeCapabilityDenied } from './realtimeChannelErrors';
+import { isRealtimeCapabilityDenied, isRealtimeTransportUnavailable } from './realtimeChannelErrors';
 
 export type DojiRealtimeEvent = {
   eventId?: string;
@@ -174,7 +174,7 @@ export async function subscribeToRealtimeChannel(
   }
   if (lastError) {
     if (isPostChannel) releasePostChannel(channelName);
-    if (!isRealtimeAccessUnavailable(lastError)) {
+    if (!isRealtimeAccessUnavailable(lastError) && !isRealtimeTransportUnavailable(lastError)) {
       reportRealtimeFailure('channel_subscribe_exhausted', lastError, {
         channelScope: isPostChannel ? 'post' : 'app',
       });

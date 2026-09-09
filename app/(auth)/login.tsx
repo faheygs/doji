@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { formatAuthError, normalizeEmail } from '../../lib/authErrors';
 import {

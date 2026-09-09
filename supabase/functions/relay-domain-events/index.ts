@@ -367,7 +367,7 @@ Deno.serve(async (request) => {
           const expoDeliveryKey = claimedByEndpoint.get('expo');
           if (expoDeliveryKey && token) {
             const pushResult = await sendExpoPushMessages([{
-              to: token, title, body, sound: 'default', badge: 1, ttl,
+              to: token, title, body, sound: 'default', channelId: 'doji-alerts', badge: 1, ttl,
               priority: event.payload.priority === 'normal' ? 'normal' : 'high',
               interruptionLevel:
                 event.payload.interruptionLevel === 'passive'

@@ -2,10 +2,11 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import {
   View,
   StyleSheet,
-  SafeAreaView,
+
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';

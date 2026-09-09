@@ -10,8 +10,10 @@
 - Privacy policy: `https://dojipro.com/privacy/`
 - Terms: `https://dojipro.com/terms/`
 - Community guidelines: `https://dojipro.com/community-guidelines/`
+- Child safety standards: `https://dojipro.com/child-safety/`
 - Support: `https://dojipro.com/support/`
 - Account deletion: `https://dojipro.com/delete-account/`
+- Specific data deletion: `https://dojipro.com/delete-data/`
 
 ## Store listing draft
 
@@ -60,8 +62,9 @@ Recommended category: Social. Do not keyword-stuff the title or descriptions.
 - Declare social features and third-party/user-generated content.
 - Complete the content-rating questionnaire for user interaction, comments, media,
   and user-generated content.
-- Provide a working production reviewer account and exact sign-in instructions under
-  App access. Re-enable a hidden reviewer account before submission if necessary.
+- Provide the dedicated `google-reviewer@doji.app` production reviewer account and
+  exact sign-in instructions under App access. The profile remains enabled for review
+  but hidden from normal product surfaces through `is_demo_account`.
 - Confirm reporting for posts/comments/poll answers, blocking from profiles, the text
   filter, moderation escalation, and account deletion before review.
 - The privacy policy and Data safety form must agree. Doji does not sell data, serve
@@ -118,4 +121,3 @@ deletion paths.
 Google Play submission currently requires new apps and updates to target Android 16
 (API level 36) or higher. Reconfirm the requirement immediately before submission:
 `https://developer.android.com/google/play/requirements/target-sdk`.
-

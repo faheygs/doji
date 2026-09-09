@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { invalidateQueryRoots } from '../lib/queryInvalidationBatcher';
 import { useAppDialog } from '../contexts/DialogContext';
 import { showProfilePhotoDialog } from '../lib/profilePhotoDialog';
+import { selectedImageUri } from '../lib/imagePickerRecovery';
 
 const PICKER_QUALITY = 0.85 as const;
 
@@ -50,6 +51,22 @@ export function useChangeProfilePhoto() {
     [session?.user?.id, currentAvatarUrl, updateProfile, queryClient],
   );
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let active = true;
+    void ImagePicker.getPendingResultAsync()
+      .then((result) => {
+        const uri = selectedImageUri(result);
+        if (active && uri) void uploadFromUri(uri);
+      })
+      .catch(() => {
+        if (active) setError('The cropped photo could not be opened. Please try again.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [uploadFromUri]);
+
   const pickFromCamera = useCallback(async () => {
     const cam = await ImagePicker.requestCameraPermissionsAsync();
     if (cam.status !== 'granted') {
@@ -62,16 +79,17 @@ export function useChangeProfilePhoto() {
       quality: PICKER_QUALITY,
       mediaTypes: ['images'],
     });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await uploadFromUri(result.assets[0].uri);
-    }
+    const uri = selectedImageUri(result);
+    if (uri) await uploadFromUri(uri);
   }, [uploadFromUri]);
 
   const pickFromLibrary = useCallback(async () => {
-    const lib = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (lib.status !== 'granted') {
-      setError('Allow photo library access to choose a profile photo.');
-      return;
+    if (Platform.OS !== 'android') {
+      const lib = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (lib.status !== 'granted') {
+        setError('Allow photo library access to choose a profile photo.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
@@ -79,9 +97,8 @@ export function useChangeProfilePhoto() {
       quality: PICKER_QUALITY,
       mediaTypes: ['images'],
     });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await uploadFromUri(result.assets[0].uri);
-    }
+    const uri = selectedImageUri(result);
+    if (uri) await uploadFromUri(uri);
   }, [uploadFromUri]);
 
   const openChangePhotoDialog = useCallback(() => {
@@ -91,7 +108,11 @@ export function useChangeProfilePhoto() {
       void pickFromLibrary();
       return;
     }
-    showProfilePhotoDialog(showDialog, () => void pickFromCamera(), () => void pickFromLibrary());
+    showProfilePhotoDialog(
+      showDialog,
+      () => void pickFromCamera(),
+      () => void pickFromLibrary(),
+    );
   }, [pickFromCamera, pickFromLibrary, showDialog]);
 
   return { openChangePhotoDialog, uploading, error, clearError: () => setError('') };

@@ -272,6 +272,10 @@ already-running authoritative fetch.
 Public profile reads use the explicit allowlist in `lib/profileFields.ts`. Full
 profile/account fields are owner-only through `get_own_profile` and
 `update_own_profile`. Never restore `profiles(*)` to public or embedded queries.
+Android image-library selection uses the system Photo Picker without requesting broad
+media-library access. Because Android may destroy `MainActivity` while its crop UI is
+open, both onboarding and profile editing recover `ImagePicker.getPendingResultAsync`
+and pass the recovered URI through the same upload path as an immediate result.
 Post media uses server-reserved, user/occurrence-scoped object paths and resumable
 TUS uploads. Completion accepts only reserved objects from the same idempotent command.
 Storage may return or resume an object before completion through a narrow SELECT policy
@@ -410,6 +414,10 @@ Channels:
   the terminally failed channel object, and attaches a fresh channel. If Postgres
   then omits the post, the client stops retrying and immediately reconciles the
   authoritative feed; expected access loss is not reported as a transport outage.
+  Recoverable handset transport loss is also breadcrumb-only: resilient subscriptions
+  retry with bounded jitter and foreground reconciliation repairs authoritative reads.
+  Unexpected authentication, capability, protocol, and provider failures remain
+  reportable production incidents.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
 - `leaderboard:global`: XP/rank invalidation.
@@ -460,6 +468,10 @@ Turning the device-alert switch off persists the master `push_enabled` opt-out a
 unregisters that installation's token. Turning it on requests OS permission when
 needed, registers the token, and persists the opt-in. Both push relays enforce the
 master setting before any category preference; bell history remains available.
+On Android, the `doji-alerts` notification channel is created before any permission or
+token request. Direct FCM and the Expo migration fallback both target that same channel;
+the Android 13 permission prompt and native token must never depend on a channel that
+has not yet been registered locally.
 
 Server-backed screens use shared, non-interactive skeletons only when there is no
 cached content to show. Background refreshes keep the last successful content visible
@@ -630,6 +642,10 @@ reported account, evidence, and confirmed destructive actions.
   theme states. `AppDialog` owns app confirmations and choice prompts; native system
   UI is reserved for operating-system permissions and other OS-owned surfaces.
 - `Avatar`/`AvatarStack` resolve equipped frames consistently.
+- Full-screen app surfaces use `react-native-safe-area-context`, never React Native's
+  iOS-only `SafeAreaView`, so status-bar cutouts and gesture/three-button navigation do
+  not cover content on Android. The Android launcher uses a transparent, padded adaptive
+  foreground layer; the status-bar notification glyph is a separate monochrome asset.
 - Input screens use `AppTextInput`, `AppKeyboardAwareScrollView`,
   `AppKeyboardStickyFooter`, `AppKeyboardToolbar`, or `KeyboardSafeSheet` as
   appropriate.
@@ -725,6 +741,13 @@ cache `auth.uid()`, `auth.role()`, and `auth.jwt()` once per statement so author
 does not add a per-row function call to bounded reads. Security-definer helpers called
 by authenticated RLS policies retain explicit `authenticated` execute grants; revoking
 those grants makes the policy fail closed.
+
+Google Play uses a separate `google-reviewer@doji.app` Auth identity. Its profile is
+provisioned by migration as a non-banned `is_demo_account` with completed onboarding,
+so it can exercise production flows while remaining excluded from normal discovery,
+feed-author, profile, and leaderboard surfaces. Platform review identities use explicit
+`review_account_provisioned` age/legal audit methods; consumer accounts must still pass
+the normal 13+ gate and separately accept the current Terms and Privacy Policy.
 
 ## Performance contract
 

@@ -2,11 +2,11 @@ import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';

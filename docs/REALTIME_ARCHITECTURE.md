@@ -150,6 +150,10 @@ reconcile authoritative database state.
   recent active installations are retained per account and recipient reads return the
   bounded set rather than silently selecting one device. The unique
   Expo token on `profiles` remains a migration fallback, not the 100k broadcast path.
+- Android creates the stable `doji-alerts` notification channel before requesting
+  permission or reading either native/Expo tokens. Direct FCM and Expo fallback payloads
+  both select that channel, so Android 13+ registration and display use one channel
+  contract across transports.
 - That fallback is only a delivery transport selected by the authoritative outbox
   relay. There is no direct `notify-user` endpoint, row-trigger HTTP push, recurring
   push dispatcher, or second notification producer. Historical migrations that
@@ -482,7 +486,11 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Active push partitions remain telemetry while the durable fanout owner retries them.
   The owner pages on repeated partition failure or immutable launch expiry and first
   terminalizes unfinished database rows so they cannot create permanent stale alarms.
-- Track Ably connection failures and Edge Function relay errors in Sentry.
+- Track unexpected Ably authentication, capability, protocol, and provider failures and
+  Edge Function relay errors in Sentry. Expected handset transport loss (for example,
+  a cellular network becoming unreachable) remains a diagnostic breadcrumb while the
+  resilient subscription and foreground reconciliation paths recover; it is not an
+  application incident or an administrator page.
 - Track `realtime_p95_ms_5m`; three events taking more than five seconds from
   `available_at` to `realtime_published_at` degrade the operational health snapshot.
   The operating target is p95 below one second and p99 below two seconds.

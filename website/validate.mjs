@@ -7,8 +7,10 @@ const pages = [
   'privacy/index.html',
   'terms/index.html',
   'community-guidelines/index.html',
+  'child-safety/index.html',
   'support/index.html',
   'delete-account/index.html',
+  'delete-data/index.html',
 ];
 
 let failures = 0;

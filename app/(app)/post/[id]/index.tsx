@@ -2,12 +2,12 @@ import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';

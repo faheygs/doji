@@ -2,11 +2,12 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
+
   ScrollView,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';

@@ -2,11 +2,12 @@ import React, { useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
+
   ScrollView,
   TouchableOpacity,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {

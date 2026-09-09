@@ -52,6 +52,7 @@ function messageFor(
     title,
     body,
     sound: 'default',
+    channelId: 'doji-alerts',
     badge: 1,
     ttl,
     priority: 'high',

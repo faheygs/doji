@@ -24,7 +24,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.doit.challengeapp",
@@ -53,8 +53,9 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#0A0A0A"
+          "icon": "./assets/notification-icon.png",
+          "color": "#F97316",
+          "defaultChannel": "doji-alerts"
         }
       ],
       "expo-font",

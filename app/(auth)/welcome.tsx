@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, SafeAreaView, Text as RNText } from 'react-native';
+import { View, StyleSheet, Text as RNText } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Spacing, BrandWordmark } from '../../constants/theme';
