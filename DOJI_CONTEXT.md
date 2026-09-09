@@ -505,7 +505,9 @@ APNs/FCM endpoints are private per-installation records and atomically transferr
 account change. The five most recent active installations are independently delivered
 and independently idempotent; no account silently receives alerts on only its newest
 phone. Direct APNs and FCM are the scale paths and the unique Expo token is a
-temporary migration fallback. An iOS production release requires APNs
+temporary migration fallback. A failed handset refresh of that optional Expo token is
+kept as a Sentry breadcrumb; native endpoint registration failures remain reportable.
+An iOS production release requires APNs
 key/team/bundle secrets; an Android production release requires FCM
 project/client-email/private-key secrets. A platform is not enabled publicly until
 its native provider is configured and verified on its exact release build.

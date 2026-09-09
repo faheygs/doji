@@ -215,7 +215,9 @@ reconcile authoritative database state.
   from republishing or delaying the corresponding socket event.
 - Doji-live pushes prefer direct APNs or FCM, with Expo as a transitional fallback
   until an installation has registered its native endpoint. This avoids Expo's 600/s
-  project cap. iOS production requires `APNS_KEY_ID`, `APNS_TEAM_ID`,
+  project cap. A failed handset refresh of the optional Expo token is recorded as a
+  diagnostic breadcrumb rather than a production incident; failure to register the
+  native endpoint remains reportable. iOS production requires `APNS_KEY_ID`, `APNS_TEAM_ID`,
   `APNS_PRIVATE_KEY`, and `APNS_BUNDLE_ID`; Android production requires
   `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. Doji pushes use high
   priority and iOS time-sensitive interruption. Direct

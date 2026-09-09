@@ -27,5 +27,7 @@ create policy "post_media_read_own_reserved_upload"
     )
   );
 
-comment on policy "post_media_read_own_reserved_upload" on storage.objects is
-  'Allows Storage to return or upsert an actor-owned reserved object before the atomic post completion commits.';
+-- Do not COMMENT ON POLICY here. Supabase owns storage.objects with its internal
+-- storage role, while local migration replay intentionally runs as postgres.
+-- COMMENT requires relation ownership even though policy DDL is permitted, so
+-- keeping the description above avoids making a clean bootstrap environment-specific.

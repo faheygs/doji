@@ -40,6 +40,8 @@ describe('mobile data architecture', () => {
     const schema = read('supabase/migrations/20260818160000_native_push_endpoints.sql');
     expect(client).toContain('getDevicePushTokenAsync');
     expect(client).toContain("executeCommand('register_native_push_endpoint'");
+    expect(client).toContain("recordOperationalFailure('push', 'expo-token-fallback'");
+    expect(client).not.toContain("reportOperationalFailure('push', 'expo-token-fallback'");
     expect(schema).toContain('create table public.device_push_endpoints');
     expect(fanout).toContain('sendApnsMessage');
     expect(fanout).toContain('sendFcmMessage');
@@ -91,5 +93,13 @@ describe('mobile data architecture', () => {
     expect(grants).toContain('grant execute on function public.is_current_user_admin()');
     expect(grants).toContain('drop policy if exists posts_read_own');
     expect(grants).toContain('drop policy if exists posts_read_friends');
+  });
+
+  it('replays the reserved-upload policy without requiring storage table ownership', () => {
+    const migration = read(
+      'supabase/migrations/20260831235500_allow_reserved_post_media_upload_reads.sql',
+    );
+    expect(migration).toContain('create policy "post_media_read_own_reserved_upload"');
+    expect(migration).not.toContain('comment on policy "post_media_read_own_reserved_upload"');
   });
 });

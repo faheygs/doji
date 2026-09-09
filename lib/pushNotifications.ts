@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { newCommandId } from './idempotency';
 import { executeCommand } from './commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
-import { reportOperationalFailure } from './telemetry';
+import { recordOperationalFailure, reportOperationalFailure } from './telemetry';
 
 const INSTALLATION_KEY = '@doji/push-installation-id';
 
@@ -54,7 +54,7 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
   } catch (error) {
     // Native APNs/FCM is the production path. Preserve it and record that the
     // migration fallback could not be refreshed on this attempt.
-    reportOperationalFailure('push', 'expo-token-fallback', error);
+    recordOperationalFailure('push', 'expo-token-fallback', error);
   }
 
   const { error } = await executeCommand('register_native_push_endpoint', {

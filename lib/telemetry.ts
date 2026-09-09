@@ -33,6 +33,21 @@ export function recordRealtimeFailure(
   });
 }
 
+/** Keep expected/recoverable operational failures as diagnostic breadcrumbs. */
+export function recordOperationalFailure(
+  area: string,
+  operation: string,
+  error: unknown,
+  context: Record<string, TelemetryValue> = {},
+): void {
+  Sentry.addBreadcrumb({
+    category: area,
+    level: 'warning',
+    message: operation,
+    data: { ...context, ...errorDetails(error) },
+  });
+}
+
 export function reportRealtimeFailure(
   operation: string,
   error: unknown,
@@ -70,7 +85,7 @@ export function reportOperationalFailure(
 ): void {
   const details = errorDetails(error);
   const data = { ...context, ...details };
-  Sentry.addBreadcrumb({ category: area, level: 'warning', message: operation, data });
+  recordOperationalFailure(area, operation, error, context);
   if (__DEV__) return;
 
   const reportKey = `${area}:${operation}:${String(details.errorCode ?? details.statusCode ?? '')}`;
