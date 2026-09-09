@@ -228,6 +228,12 @@ reconcile authoritative database state.
   social pushes are active; grouped social pushes use normal transport priority.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
+- The Firebase Android app and its Android API-key application restrictions include
+  Google Play's active deployment-certificate SHA-1 for `com.doit.challengeapp`.
+  The upload key and Play's hybrid/post-quantum certificate are not substitutes for
+  the certificate that signs installed production APKs. Validate this exact
+  package/certificate pair against Firebase Installations after any Play signing-key
+  change; an OS-level permission grant alone does not prove FCM registration works.
 - APNs provider authentication is coordinated across Edge isolates. Both direct push
   functions reuse the same service-role-only short-lived JWT; one atomic database lease
   rotates it after 45 minutes, while the permanent `.p8` signing key stays exclusively

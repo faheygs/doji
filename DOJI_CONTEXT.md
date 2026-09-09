@@ -523,6 +523,12 @@ An iOS production release requires APNs
 key/team/bundle secrets; an Android production release requires FCM
 project/client-email/private-key secrets. A platform is not enabled publicly until
 its native provider is configured and verified on its exact release build.
+The Firebase Android app and its auto-created Android API key must include the SHA-1
+fingerprint of Google Play's active deployment certificate for
+`com.doit.challengeapp`. Do not substitute the Play hybrid/post-quantum certificate
+or upload-key certificate: the installed Play build is signed by the deployment
+certificate, and a mismatched application restriction causes Firebase Installations
+to reject FCM token registration even though Android notification permission is granted.
 All APNs senders resolve one service-role-only shared provider JWT. A database lease
 allows exactly one Edge isolate to rotate it after 45 minutes while every other isolate
 and both push functions reuse the same token; the permanent Apple signing key remains
