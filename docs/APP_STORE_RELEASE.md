@@ -89,15 +89,17 @@ Automated and infrastructure gates:
 - [x] Resend-backed operational health alerts are enabled and hourly-deduplicated.
 - [x] Sentry DSN/source-map credentials are present in EAS production; realtime
       authentication, connection, and subscription failures are captured without PII.
-- [x] Direct APNs credentials are installed for the iOS release. FCM remains an
-      Android-release gate and does not block the current iPhone-only App Store release.
+- [x] Direct APNs credentials are installed for iOS. The Android Firebase app,
+      `google-services.json`, Supabase FCM sender secrets, EAS FCM V1 credential, and
+      Android signing keystore are configured; physical Android delivery validation
+      remains required before the Google Play production release.
 - [x] EAS production contains only the current Supabase/Sentry configuration; retired
       Railway, R2, Typesense, Google-auth, and legacy socket variables are removed.
 - [ ] The checked-in 30/60/120-second capacity model is reviewed and a production-like
       load environment has demonstrated the required provider, database, and Ably
       headroom. A model alone is not load proof.
 - [x] The production database enforces that no recurring `doji_*` pg_cron jobs remain.
-- [ ] Full validation commands and the production Expo export pass on this exact
+- [x] Full validation commands and the production Expo export pass on this exact
       release candidate; the production dependency audit has zero high or critical
       findings.
 

@@ -22,13 +22,14 @@
       "buildNumber": "71"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/icon.png"

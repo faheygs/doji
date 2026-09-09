@@ -64,8 +64,9 @@ and observing it under representative traffic.
   contain a deployed authenticated aggregate cache or a complete feed/profile read tier.
   Direct Postgres reads are appropriate only for the bounded initial launch until measured
   production headroom says otherwise.
-- Direct Android push requires production FCM credentials and device validation before an
-  Android release. iOS APNs configuration does not establish Android readiness.
+- Direct Android push credentials are installed in Supabase and EAS for the Firebase
+  project registered to `com.doit.challengeapp`. Physical Android delivery validation
+  remains required before an Android production release.
 - Text UGC has a server filter and all UGC has report/block/admin workflows. Automated
   image/video classification is not implemented; operating the required human moderation
   SLA remains an organizational responsibility.
