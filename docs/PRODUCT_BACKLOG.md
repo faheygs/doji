@@ -52,6 +52,14 @@ Priority: P2
 - A grouped friend-completion/reaction alert must not reach the OS later when the
   recipient already viewed or interacted with that activity in the app before the
   delayed push was claimed.
+- Persist a bounded, server-owned per-user **has-seen** marker scoped to the subject
+  of the delayed alert: daily event for friend completions, post for reactions, and
+  comment for comment likes.
+- Record the marker only after the relevant feed card or conversation is actually
+  visible; merely foregrounding the app or opening an unrelated screen is not enough.
+- At delivery time, the relay checks that durable marker before claiming any device
+  endpoint. A matching marker suppresses only the redundant OS alert, never the
+  authoritative Activity Center entry.
 - The live bell remains authoritative and foreground OS banners remain suppressed.
 - Delivery-time suppression must use durable server state and must not depend on a
   handset timer.
