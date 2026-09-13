@@ -3,9 +3,34 @@ import {
   mergeNotificationPreferences,
   wantsCategoryEnabled,
   wantsPushForKind,
+  phoneAlertPreferencePatch,
 } from '../../lib/notificationPreferences';
 
 describe('mergeNotificationPreferences', () => {
+  it('defaults the four phone-alert categories to true', () => {
+    expect(mergeNotificationPreferences(null)).toMatchObject({
+      doji_live: true,
+      friend_requests: true,
+      mentions_replies: true,
+      reviews_account: true,
+    });
+  });
+
+  it('carries legacy opt-outs into the new categories', () => {
+    expect(mergeNotificationPreferences({ doji_start: false }).doji_live).toBe(false);
+    expect(mergeNotificationPreferences({ friend_request: false }).friend_requests).toBe(false);
+    expect(mergeNotificationPreferences({ mention: false }).mentions_replies).toBe(false);
+    expect(mergeNotificationPreferences({ suggestion: false }).reviews_account).toBe(false);
+  });
+
+  it('dual-writes settings for already-installed clients', () => {
+    expect(phoneAlertPreferencePatch('mentions_replies', false)).toEqual({
+      mentions_replies: false,
+      mention: false,
+      comment_reply: false,
+    });
+  });
+
   it('defaults friend_request and friend_accepted to true', () => {
     expect(mergeNotificationPreferences(null).friend_request).toBe(true);
     expect(mergeNotificationPreferences(null).friend_accepted).toBe(true);

@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -44,7 +44,7 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
   const friends = useMemo(() => friendsQuery.data?.pages.flat() ?? [], [friendsQuery.data?.pages]);
   const { isPending, fetchNextPage, hasNextPage, isFetchingNextPage } = friendsQuery;
 
-  const winH = Dimensions.get('window').height;
+  const { height: winH } = useWindowDimensions();
   const sheetHeight = winH * SHEET_HEIGHT_RATIO;
 
   const styles = useMemo(

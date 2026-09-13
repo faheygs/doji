@@ -147,7 +147,7 @@ export function useToggleReaction() {
     },
     onSettled: (_data, _error, variables) => {
       if (variables?.postId) {
-        scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions']);
+        scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions', 'profile']);
       }
     },
   });

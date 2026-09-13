@@ -9,8 +9,10 @@ const IDEMPOTENT_WITHOUT_COMMAND_KEY = new Set<string>([
   'clear_notification_history',
   'dismiss_notification',
   'mark_notification_center_opened',
+  'mark_notification_attention_seen',
   'purchase_shop_item',
   'register_native_push_endpoint',
+  'register_native_push_endpoint_v2',
   'sync_notification_center_state',
   'unregister_push_installation',
 ]);

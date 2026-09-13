@@ -46,7 +46,10 @@ Mark each box when verified.
 ## 5. Camera & Post Flow
 
 - [ ] **Camera permission** — prompts if not granted, shows fallback if denied
-- [ ] **Take photo** — captures back camera, then auto-takes front camera
+- [ ] **Phone camera** — opens the device camera UI; lens, zoom, focus, exposure,
+      flash, and front/back controls behave like the phone camera
+- [ ] **Captured quality** — uploaded photo retains useful detail at the 2048 px /
+      0.92 JPEG boundary and has correct orientation on iPhone and Galaxy
 - [ ] **Choose from library** — opens image picker, selects photo
 - [ ] **Video recording** — records, stops, shows preview
 - [ ] **Preview screen** — shows photo/video, front inset, timer, caption input
@@ -67,20 +70,26 @@ Mark each box when verified.
 
 - [ ] **Friends list** — shows accepted friends with streak counts
 - [ ] **Add friends** — search by username, send request
+- [ ] **Immediate request state** — every visible Add friend control changes to
+      Requested before the network round trip and rolls back with inline feedback on failure
 - [ ] **Friend requests** — pending requests show in notification center + friends screen banner
 - [ ] **Accept request** — moves to friends list, feed updates to include their posts
+- [ ] **Prospective activity** — after accepting a new friend, their older completions,
+      reactions, and comments do not flood Activity Center; later activity appears normally
 - [ ] **Decline request** — removes from pending list
 
 ## 8. Notifications
 
 - [ ] **Enable notifications** in Settings → saves push token to profile
-- [ ] **Foreground notification** — friend requests and activity update the bell without a redundant OS banner or app toast
-- [ ] **Remote push** — direct alerts arrive once; Doji-live is time-sensitive; foreground use updates the bell without a duplicate OS banner
+- [ ] **Foreground notification** — all activity updates the bell without a redundant OS banner or app toast
+- [ ] **Remote push allowlist** — only Doji live, friend requests, explicit mentions/direct replies, and review/account alerts reach the phone tray
+- [ ] **Immediate delivery** — every allowlisted alert is handed to APNs/FCM without an application delay; Doji-live is time-sensitive
 - [ ] **Terminal delivery claim** — simulate a lost Expo response or failed outcome write; the same event/recipient key is never handed to Expo again
-- [ ] **Grouped social push** — multiple friend completions, reactions on one post, or hearts on one comment within a 30-second bucket produce one alert 30–60 seconds later with the correct count
-- [ ] **Push threads** — later grouped alerts for the same Doji/post/comment reuse the same iOS thread and Android replacement tag
-- [ ] **Reaction changes** — changing, removing, or re-adding a reaction does not create another alert
-- [ ] **Deep links** — challenge alerts open the Doji; comment/reaction alerts open the relevant feed item/thread
+- [ ] **Ambient activity stays in-app** — completions, posts, reactions, ordinary comments, comment likes, friend acceptance, badges, XP/streak, and polls never create phone alerts
+- [ ] **Seen suppression** — open an eligible subject before a transport retry; no later phone alert is claimed, and the Activity Center item remains
+- [ ] **Tray cleanup** — viewing an eligible Activity Center row or opening its push removes only that matching delivered OS alert
+- [ ] **Push threads** — repeated eligible alerts reuse the correct iOS thread and Android replacement tag
+- [ ] **Deep links** — challenge alerts open the Doji; mention/reply alerts open the relevant feed thread; friend requests and reviews open their canonical screens
 - [ ] **Notification center** — bell icon opens sheet with all notification types
 - [ ] **Unread badge** — badge count shows on bell icon
 - [ ] **Mark as read** — closing notification sheet resets watermark
@@ -91,6 +100,8 @@ Mark each box when verified.
 - [ ] **Change photo** — tap camera FAB → pick/take photo → avatar updates
 - [ ] **Other user profile** — tap username in feed → shows their profile + posts
 - [ ] **Stats** — current streak, best streak, completion rate, total completions
+- [ ] **Reaction semantics** — the same account shows the same reactions-given total in
+      its owner and member profile; Beloved progress continues to use reactions received
 
 ## 10. Settings
 
@@ -117,6 +128,12 @@ Mark each box when verified.
 - [ ] **Sheet lifecycle** — rapidly open/close every sheet, swipe or tap outside, then verify the underlying screen accepts touches immediately
 - [ ] **Deferred sheet navigation** — opening a profile from a voters/likes/friends sheet dismisses the sheet before the route push and leaves no invisible overlay
 - [ ] **Skeleton transition** — cold feed, leaderboard, shop, friends, search, and notifications loads preserve layout and crossfade once; cached refreshes keep content interactive
+- [ ] **Challenge skeletons** — Poll/WYR shows one shared placeholder; photo/video and
+      text/task/format feeds show five scrollable, correctly shaped post placeholders
+- [ ] **Leaderboard soak** — remain scrolled in the board while other users react and
+      complete actions; unrelated profile activity does not bounce or reset the list
+- [ ] **Android windows** — rotate a phone, resize a tablet/foldable or emulator window,
+      and test cutout plus gesture/three-button navigation without clipped controls
 - [ ] **Reduce Motion** — with the OS setting enabled, sheets and skeleton swaps settle without decorative movement while remaining fully operable
 - [ ] **Long caption** — text wraps properly in post card
 - [ ] **Very long username** — truncates with ellipsis
@@ -145,7 +162,8 @@ Mark each box when verified.
 7. Open challenge → Capture proof → Post
 8. Verify post appears in both accounts' feeds
 9. React to the post from the second account
-10. Verify reaction shows up + notification appears
+10. Verify the reaction appears in the Activity Center with no phone alert
+11. Mention the first account in a comment and verify one immediate background phone alert
 
 ---
 

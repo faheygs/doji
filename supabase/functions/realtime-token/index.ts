@@ -59,6 +59,7 @@ async function readBoundedJson(request: Request): Promise<{ postIds?: unknown }>
 }
 
 Deno.serve(async (request) => {
+  const startedAt = Date.now();
   const authorization = request.headers.get('authorization');
   if (!authorization) return new Response('Unauthorized', { status: 401 });
 
@@ -98,16 +99,36 @@ Deno.serve(async (request) => {
     return new Response('Too many realtime post subscriptions', { status: 400 });
   }
 
-  const { data: capabilityData, error: capabilityError } = await database.rpc(
-    'get_realtime_token_capabilities',
-    { p_post_ids: requestedPostIds },
-  );
-  if (capabilityError || !capabilityData) {
-    console.error(
-      '[realtime-token] capability lookup failed',
-      capabilityError?.message ?? 'empty capability response',
+  let capabilityData: unknown;
+  try {
+    const result = await database.rpc(
+      'get_realtime_token_capabilities',
+      { p_post_ids: requestedPostIds },
     );
-    return new Response('Unable to authorize realtime access', { status: 500 });
+    capabilityData = result.data;
+    if (result.error || !capabilityData) {
+      console.error('[realtime-token] capability lookup failed', JSON.stringify({
+        stage: 'capability',
+        durationMs: Date.now() - startedAt,
+        requestedPostCount: requestedPostIds.length,
+        error: result.error?.message ?? 'empty capability response',
+      }));
+      return Response.json(
+        { code: 'CAPABILITY_UNAVAILABLE', message: 'Realtime authorization is temporarily unavailable', retryable: true },
+        { status: 503 },
+      );
+    }
+  } catch (error) {
+    console.error('[realtime-token] capability request failed', JSON.stringify({
+      stage: 'capability',
+      durationMs: Date.now() - startedAt,
+      requestedPostCount: requestedPostIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return Response.json(
+      { code: 'CAPABILITY_TIMEOUT', message: 'Realtime authorization is temporarily unavailable', retryable: true },
+      { status: 503 },
+    );
   }
   const capabilityInput = capabilityData as {
     userId?: unknown;
@@ -137,15 +158,36 @@ Deno.serve(async (request) => {
     capability['moderation:global'] = ['subscribe'];
   }
 
-  const tokenRequest = await withTimeout(
-    ably.auth.createTokenRequest({
-      clientId: userId,
-      // Short renewal bounds stale access after a friendship/block/privacy
-      // change while still avoiding a token request per socket message.
-      ttl: 15 * 60 * 1000,
-      capability: JSON.stringify(capability),
-    }),
-    'Realtime provider authorization timed out',
-  );
-  return Response.json(tokenRequest);
+  try {
+    const providerStartedAt = Date.now();
+    const tokenRequest = await withTimeout(
+      ably.auth.createTokenRequest({
+        clientId: userId,
+        // Short renewal bounds stale access after a friendship/block/privacy
+        // change while still avoiding a token request per socket message.
+        ttl: 15 * 60 * 1000,
+        capability: JSON.stringify(capability),
+      }),
+      'Realtime provider authorization timed out',
+    );
+    console.info('[realtime-token] issued', JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      providerDurationMs: Date.now() - providerStartedAt,
+      requestedPostCount: requestedPostIds.length,
+      authorizedPostCount: authorizedPostIds.length,
+    }));
+    return Response.json(tokenRequest);
+  } catch (error) {
+    console.error('[realtime-token] provider request failed', JSON.stringify({
+      stage: 'provider',
+      durationMs: Date.now() - startedAt,
+      requestedPostCount: requestedPostIds.length,
+      authorizedPostCount: authorizedPostIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return Response.json(
+      { code: 'PROVIDER_UNAVAILABLE', message: 'Realtime provider is temporarily unavailable', retryable: true },
+      { status: 503 },
+    );
+  }
 });

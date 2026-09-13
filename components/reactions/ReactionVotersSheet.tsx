@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -83,7 +83,7 @@ export function ReactionVotersSheet({
     });
   }, [allReactions, emojiFilter]);
 
-  const winH = Dimensions.get('window').height; // used for sheet height only
+  const { height: winH } = useWindowDimensions();
 
   const handleClose = useCallback(() => {
     Haptics.selectionAsync();

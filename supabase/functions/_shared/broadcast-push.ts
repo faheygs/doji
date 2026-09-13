@@ -55,6 +55,7 @@ function messageFor(event: BroadcastEvent, token: string): ExpoMessage {
     badge: 1,
     ttl,
     priority: 'high',
+    channelId: 'doji-alerts',
     interruptionLevel: 'time-sensitive',
     threadId: `doji-live:${String(event.payload.dailyEventId ?? event.id)}`,
     collapseId: `doji-live:${String(event.payload.dailyEventId ?? event.id)}`,
@@ -72,7 +73,7 @@ export async function processBroadcastPush(
   database: DatabaseClient,
   event: BroadcastEvent,
 ): Promise<BroadcastResult> {
-  if (event.payload.broadcastPush !== true) {
+  if (event.event_type !== 'doji.activated' || event.payload.broadcastPush !== true) {
     return { handled: false, continued: false, sent: 0 };
   }
 
@@ -91,12 +92,18 @@ export async function processBroadcastPush(
   const recipients = (data ?? []) as Recipient[];
 
   const { data: claimedData, error: claimError } = await database.rpc(
-    'claim_push_deliveries_batch',
+    'claim_push_delivery_targets_batch_v2',
     {
       p_event_id: event.id,
-      p_target_user_ids: recipients.map((recipient) => recipient.user_id),
-      p_category: String(event.payload.preferenceKey ?? event.event_type),
+      p_targets: recipients.map((recipient) => ({
+        userId: recipient.user_id,
+        endpointKey: 'expo',
+      })),
+      p_category: 'doji_live',
       p_aggregate_id: String(event.aggregate_id ?? event.id),
+      p_scope_kind: 'daily_event',
+      p_scope_id: dailyEventId,
+      p_occurred_at: String(event.payload.occurredAt ?? event.created_at),
     },
   );
   if (claimError) throw new Error(claimError.message);
@@ -131,7 +138,7 @@ export async function processBroadcastPush(
               ? 'rejected'
               : 'transport_error';
         return {
-          deliveryKey: `outbox-push:${event.id}:${recipient.user_id}`,
+          deliveryKey: `outbox-push:${event.id}:${recipient.user_id}:expo`,
           outcome,
           providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
           error: ticket?.status === 'error' ? ticket.message : result.transportError,

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -12,8 +12,6 @@ import { Text } from '@/components/ui/Text';
 import { IconDoc } from '@/components/icons/Icons';
 import type { Post } from '@/types/database';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 type Props = {
   posts: Post[];
   emptyHint: string;
@@ -22,10 +20,11 @@ type Props = {
 
 export function ProfilePostsGrid({ posts, emptyHint, onPostPress }: Props) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
 
   const GRID_SIZE = useMemo(
-    () => Math.floor((SCREEN_WIDTH - Spacing.lg * 2 - Spacing.xs * 2) / 3),
-    [],
+    () => Math.floor((width - Spacing.lg * 2 - Spacing.xs * 2) / 3),
+    [width],
   );
 
   const styles = useMemo(

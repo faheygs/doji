@@ -11,6 +11,12 @@ import { parseDate } from '../utils/time';
 import { createRequestSignal } from '../lib/requestSignal';
 import { isNotificationVisible } from '../lib/notificationVisibility';
 import { groupNotificationItems } from '../lib/notificationGrouping';
+import {
+  attentionReceiptsForItems,
+  dismissPresentedNotificationsForReceipts,
+  type NotificationAttentionScope,
+} from '../lib/notificationAttention';
+import type { NotificationAttentionReceipt } from '../types/database';
 
 export type { NotificationCenterItem } from '../lib/notificationCenterTypes';
 export const NOTIFICATION_CENTER_PREFIX = 'notificationCenter' as const;
@@ -94,6 +100,8 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
   const clearingRef = useRef(false);
   const [prefsHydrated, setPrefsHydrated] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const pendingAttentionRef = useRef<Map<string, NotificationAttentionReceipt>>(new Map());
+  const attentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -204,6 +212,70 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     return items.filter((item) => parseDate(item.sortAt).getTime() > openedMs).length;
   }, [items, lastOpenedAt]);
 
+  const flushAttentionReceipts = useCallback(async () => {
+    if (!userId || pendingAttentionRef.current.size === 0) return;
+    const receipts = [...pendingAttentionRef.current.values()].slice(0, 100);
+    for (const receipt of receipts) {
+      pendingAttentionRef.current.delete(`${receipt.scope_kind}:${receipt.scope_id}`);
+    }
+    const { error } = await executeCommand('mark_notification_attention_seen', {
+      p_receipts: receipts,
+    });
+    if (error) {
+      for (const receipt of receipts) {
+        pendingAttentionRef.current.set(`${receipt.scope_kind}:${receipt.scope_id}`, receipt);
+      }
+      return;
+    }
+    try {
+      await dismissPresentedNotificationsForReceipts(receipts);
+    } catch {
+      /* OS notification cleanup is best effort; the durable seen state succeeded. */
+    }
+    if (pendingAttentionRef.current.size > 0 && !attentionTimerRef.current) {
+      attentionTimerRef.current = setTimeout(() => {
+        attentionTimerRef.current = null;
+        void flushAttentionReceipts();
+      }, 400);
+    }
+  }, [userId]);
+
+  const queueAttentionReceipts = useCallback((receipts: NotificationAttentionReceipt[]) => {
+    if (!userId || receipts.length === 0) return;
+    for (const receipt of receipts) {
+      pendingAttentionRef.current.set(`${receipt.scope_kind}:${receipt.scope_id}`, receipt);
+    }
+    if (attentionTimerRef.current) return;
+    attentionTimerRef.current = setTimeout(() => {
+      attentionTimerRef.current = null;
+      void flushAttentionReceipts();
+    }, 400);
+  }, [flushAttentionReceipts, userId]);
+
+  const markItemsSeen = useCallback((visibleItems: readonly NotificationCenterItem[]) => {
+    queueAttentionReceipts(attentionReceiptsForItems(visibleItems));
+  }, [queueAttentionReceipts]);
+
+  const markScopesSeen = useCallback((scopes: readonly NotificationAttentionScope[]) => {
+    const seenAt = new Date().toISOString();
+    queueAttentionReceipts(scopes
+      .filter((scope) => Boolean(scope.scope_id))
+      .map((scope) => ({ ...scope, seen_at: seenAt })));
+  }, [queueAttentionReceipts]);
+
+  useEffect(() => {
+    const pendingAttention = pendingAttentionRef.current;
+    pendingAttention.clear();
+    if (attentionTimerRef.current) {
+      clearTimeout(attentionTimerRef.current);
+      attentionTimerRef.current = null;
+    }
+    return () => {
+      pendingAttention.clear();
+      if (attentionTimerRef.current) clearTimeout(attentionTimerRef.current);
+    };
+  }, [userId]);
+
   const markBellOpened = useCallback(async () => {
     if (!userId) return;
     const optimisticAt = new Date().toISOString();
@@ -296,6 +368,8 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     isLoading: !prefsHydrated || snapshot.isLoading,
     isClearing,
     markBellOpened,
+    markItemsSeen,
+    markScopesSeen,
     dismissItem,
     clearNotificationHistory,
     prefsHydrated,

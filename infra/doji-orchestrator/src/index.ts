@@ -4,8 +4,10 @@ import { handleCommandGateway } from './command-gateway';
 import { sendOperationalAlert, type EventAlarmRepair } from './operational-health';
 import { HealthMonitor } from './health-monitor';
 import { expirePushFanout } from './push-fanout-lifecycle';
+import { OutboxRelayAlarm } from './outbox-relay';
 
 export { HealthMonitor };
+export { OutboxRelayAlarm };
 
 export interface Env {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
@@ -31,8 +33,6 @@ type AlarmState = {
 
 type PushFanoutMessage = { dailyEventId: string; shard: number };
 
-const OUTBOX_WAKE_COALESCE_MS = 250;
-const OUTBOX_MAX_PAGES_PER_ALARM = 8;
 const PUSH_FANOUT_CONCURRENCY = 8;
 const PUSH_FANOUT_LIFETIME_MS = 2 * 60 * 1000;
 const UPSTREAM_TIMEOUT_MS = 12_000;
@@ -293,64 +293,6 @@ export class DojiEventAlarm extends DurableObject<Env> {
   }
 }
 
-type RelayAlarmState = { nextWakeAt: string };
-
-export class OutboxRelayAlarm extends DurableObject<Env> {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-  }
-
-  private async schedule(nextWakeAt: string): Promise<void> {
-    const wakeTime = Date.parse(nextWakeAt);
-    if (!Number.isFinite(wakeTime)) throw new Error('Invalid outbox relay wake time');
-    const existing = await this.ctx.storage.get<RelayAlarmState>('wake');
-    if (existing && Date.parse(existing.nextWakeAt) <= wakeTime) return;
-    await this.ctx.storage.put('wake', { nextWakeAt });
-    await this.ctx.storage.setAlarm(Math.max(Date.now(), wakeTime));
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    if (request.method === 'POST') {
-      await this.schedule(new Date(Date.now() + OUTBOX_WAKE_COALESCE_MS).toISOString());
-      return Response.json({ scheduled: true });
-    }
-    if (request.method !== 'PUT') return new Response('Method not allowed', { status: 405 });
-    const input = await request.json<RelayAlarmState>();
-    await this.schedule(input.nextWakeAt);
-    return Response.json({ scheduled: true, nextWakeAt: input.nextWakeAt });
-  }
-
-  async alarm(): Promise<void> {
-    await this.ctx.storage.delete('wake');
-    try {
-      for (let page = 0; page < OUTBOX_MAX_PAGES_PER_ALARM; page += 1) {
-        const result = await relayResult(await relayDomainEvents(this.env));
-        if (result.hasMore) continue;
-        await this.ctx.storage.delete('failures');
-        await scheduleRelayWake(this.env, result.nextWakeAt);
-        return;
-      }
-      await this.schedule(new Date().toISOString());
-    } catch (error) {
-      const failures = (await this.ctx.storage.get<number>('failures') ?? 0) + 1;
-      await this.ctx.storage.put('failures', failures);
-      if (failures === 10) {
-        await Promise.allSettled([
-          captureWorkerException(this.env.SENTRY_DSN, 'domain_relay_repeated_failure', error, {
-            failures,
-          }),
-          sendOperationalAlert(this.env, 'domain-relay-repeated-failure', {
-            failures,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        ]);
-      }
-      const delayMs = Math.min(30_000, 1_000 * 2 ** Math.min(failures - 1, 5));
-      await this.schedule(new Date(Date.now() + delayMs).toISOString());
-    }
-  }
-}
-
 type PushFanoutTask = {
   shard: number;
   attempts: number;
@@ -523,57 +465,6 @@ export class DataMaintenanceAlarm extends DurableObject<Env> {
 function isAuthorized(request: Request, env: Env): boolean {
   const authorization = request.headers.get('authorization');
   return Boolean(env.ORCHESTRATOR_SECRET) && authorization === `Bearer ${env.ORCHESTRATOR_SECRET}`;
-}
-
-async function relayDomainEvents(env: Env): Promise<Response> {
-  return fetchUpstream(`${env.SUPABASE_URL}/functions/v1/relay-domain-events`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-outbox-secret': env.OUTBOX_RELAY_SECRET,
-    },
-    body: '{}',
-  });
-}
-
-async function relayResult(response: Response): Promise<{
-  body: string;
-  examined: number;
-  hasMore: boolean;
-  nextWakeAt: string | null;
-}> {
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`Outbox relay failed: ${response.status} ${body}`);
-  }
-  try {
-    const parsed = JSON.parse(body) as {
-      examined?: unknown;
-      hasMore?: boolean;
-      nextWakeAt?: unknown;
-    };
-    return {
-      body,
-      examined: typeof parsed.examined === 'number' ? parsed.examined : 0,
-      hasMore: parsed.hasMore === true,
-      nextWakeAt: typeof parsed.nextWakeAt === 'string' ? parsed.nextWakeAt : null,
-    };
-  } catch {
-    return { body, examined: 0, hasMore: false, nextWakeAt: null };
-  }
-}
-
-async function scheduleRelayWake(env: Env, nextWakeAt: string | null): Promise<void> {
-  if (!nextWakeAt) return;
-  const wakeTime = Date.parse(nextWakeAt);
-  if (!Number.isFinite(wakeTime)) throw new Error('Relay returned an invalid nextWakeAt');
-  const id = env.OUTBOX_RELAY_ALARM.idFromName('singleton');
-  const response = await env.OUTBOX_RELAY_ALARM.get(id).fetch('https://alarm.internal/schedule', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ nextWakeAt: new Date(wakeTime).toISOString() }),
-  });
-  if (!response.ok) throw new Error(`Scheduling outbox relay wake failed: ${response.status}`);
 }
 
 export default {

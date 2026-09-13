@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types/database';
-import { mergeNotificationPreferences } from '../lib/notificationPreferences';
-import { normalizeAppTheme } from '../constants/theme';
 import { shouldAutoCompleteOnboarding } from '../lib/onboardingGate';
 import { newCommandId } from '../lib/idempotency';
 import { filterContent } from '../lib/contentFilter';
@@ -13,26 +11,20 @@ import { queryClient } from '../lib/queryClient';
 import { createRequestSignal } from '../lib/requestSignal';
 import { closeRealtimeConnection } from '../lib/realtimeClient';
 import { queryCacheStorageKey } from '../lib/queryPersistence';
+import {
+  isNonRetryableProfileError,
+  normalizeProfile,
+  persistProfile,
+  PROFILE_FETCH_ATTEMPTS,
+  profileCacheKey,
+  waitForProfileRetry,
+} from '../lib/profileFetchPolicy';
 
 // Startup, foreground reconciliation, and both realtime transports can all ask
 // for the same profile at once. Share that request instead of repeatedly
 // aborting/restarting it (which previously kept the auth gate busy).
 let activeProfileFetch: { userId: string; requestId: symbol; promise: Promise<void> } | null = null;
-const PROFILE_CACHE_PREFIX = '@doji/profile-cache:';
-const profileCacheKey = (userId: string) => `${PROFILE_CACHE_PREFIX}${userId}`;
-
-function persistProfile(profile: Profile) {
-  void AsyncStorage.setItem(profileCacheKey(profile.id), JSON.stringify(profile)).catch(() => {});
-}
-
-function normalizeProfile(profile: Profile): Profile {
-  return {
-    ...profile,
-    app_theme: normalizeAppTheme(profile.app_theme),
-    notification_preferences: mergeNotificationPreferences(profile.notification_preferences),
-  };
-}
-
+const PROFILE_REQUEST_TIMEOUT_MS = 3_000;
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
@@ -122,6 +114,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const requestId = Symbol(userId);
     const promise = Promise.resolve().then(async () => {
+      // A profile that reached `ready` was already checked against the server
+      // during this session. Transient foreground/realtime refresh failures
+      // must not eject that person from the mounted app.
+      const hadVerifiedProfile =
+        get().profile?.id === userId && get().profileLoadState === 'ready';
       if (get().profile?.id !== userId) {
         try {
           const raw = await AsyncStorage.getItem(profileCacheKey(userId));
@@ -147,16 +144,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (get().profile?.id !== userId) {
         set({ isProfileLoading: true, profileLoadState: 'loading' });
       }
-      const request = createRequestSignal(undefined, 6_000);
       try {
-        const { data, error } = await supabase
-          .rpc('get_own_profile')
-          .abortSignal(request.signal);
+        let data: unknown = null;
+        let error: { message?: string; status?: number; code?: string } | null = null;
+        for (let attempt = 0; attempt < PROFILE_FETCH_ATTEMPTS; attempt += 1) {
+          const request = createRequestSignal(undefined, PROFILE_REQUEST_TIMEOUT_MS);
+          try {
+            const result = await supabase
+              .rpc('get_own_profile')
+              .abortSignal(request.signal);
+            data = result.data;
+            error = result.error;
+          } catch (caught) {
+            error = caught instanceof Error ? { message: caught.message } : { message: String(caught) };
+          } finally {
+            request.cleanup();
+          }
+          if (!error || isNonRetryableProfileError(error) || attempt === PROFILE_FETCH_ATTEMPTS - 1) {
+            break;
+          }
+          await waitForProfileRetry(attempt);
+          if (get().session?.user?.id !== userId) return;
+        }
 
         if (error) {
           if (__DEV__) console.warn('[fetchProfile]', error.message);
           if (get().session?.user?.id === userId) {
-            set({ profileLoadState: 'error' });
+            set({ profileLoadState: hadVerifiedProfile ? 'ready' : 'error' });
           }
           return;
         }
@@ -185,7 +199,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           persistProfile(profile);
         }
       } finally {
-        request.cleanup();
         if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
         if (get().session?.user?.id === userId) {
           set({ isProfileLoading: false, isLoading: false });

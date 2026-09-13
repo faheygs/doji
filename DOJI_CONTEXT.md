@@ -55,6 +55,9 @@ user directly to the feed; there is no success interstitial.
 - Selecting a person opens their profile. The relationship control handles add,
   accept, sent, and unfriend states; its adjacent menu contains block and report.
   Neither duplicates “View profile.”
+- Friend-request and acceptance controls update every mounted viewer-relative row
+  optimistically, roll back on command failure, and then reconcile from the atomic
+  friendship RPC plus private realtime invalidation.
 - Whenever a name or username is shown, show that user's avatar and equipped frame.
 - Blocking immediately removes the person and their content from the viewer's UI
   and removes the friendship. It does not create moderation work; only an explicit
@@ -109,7 +112,10 @@ restoration, profile hydration, protected route groups, fonts, theme, keyboard
 provider, push-token registration, notification deep links, and global toasts.
 After authentication, protected-route selection waits for the initial owner
 profile read to finish: a session whose profile is still hydrating is not treated
-as a new account. Refreshing an already loaded profile keeps the app group mounted.
+as a new account. The initial owner read retries transient transport failures while
+remaining fail-closed for ban/onboarding authority. Refreshing a profile already
+verified during the session keeps the app mounted during a temporary network/provider
+failure; a presentation refresh can never become a full-screen account lockout.
 
 ## Daily Doji lifecycle
 
@@ -284,10 +290,12 @@ commits, the normal authorized post-media read contract takes over.
 Uncommitted objects are removed after 24 hours. A deleted/moderated post durably queues
 its physical objects for removal; committed reservation metadata expires after the post
 is gone and 30 days have elapsed, without deleting media still referenced by a post.
-The `post-media` bucket is private. Authorized feed, detail, moderation, and command
-receipt reads resolve short-lived signed URLs in bounded batches. Signed URLs are never
-persisted in the long-lived query cache. Deploying the private-bucket migration therefore
-requires a coordinated mobile release containing the signed-media read path.
+The `post-media` bucket is private. Feed queries return authorized social records and
+stable private object references without waiting for Storage. Only visible unlocked
+cards resolve short-lived signed URLs, and concurrently mounted cards coalesce their
+paths into one bounded signing request. The query cache may persist stable object
+references, but never signed bearer URLs. Detail, moderation, and command-receipt reads
+use the same bounded signer.
 
 Challenge suggestions are untrusted UGC. The database owns their canonical hash,
 allowed kind, per-field size limits, option cardinality, answer-rule shape, and content
@@ -364,7 +372,7 @@ Representative commands:
 | Conversation        | `toggle_post_reaction`, `submit_comment`, `edit_comment`, `delete_comment`, `toggle_comment_like`, `toggle_poll_vote_like`     |
 | Friend graph/safety | `request_friendship`, `respond_to_friendship`, `remove_friendship`, `block_user`, `unblock_user`, `submit_content_report`      |
 | Economy             | `purchase_shop_item`, `equip_shop_item`                                                                                        |
-| Notifications       | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened`                                        |
+| Notifications       | `dismiss_notification`, `clear_notification_history`, `mark_notification_center_opened`, `mark_notification_attention_seen`    |
 | Suggestions/admin   | `submit_challenge_suggestion`, `review_challenge_suggestion`, `moderate_report`                                                |
 
 ## Realtime read path
@@ -374,11 +382,11 @@ committed command writes its domain event in the same transaction, and reconnect
 foreground reconciliation refetches authorized state if any event was missed.
 
 1. The mutation commits application rows and outbox rows together. The command gateway
-   immediately wakes the 250 ms burst coalescer, which seeds parallel drain lanes;
-   database-originated lifecycle alarms can enqueue their bounded drain directly.
-2. The singleton Cloudflare Durable Object alarm claims critical activation and
-   realtime-only rows ahead of push-only backlog and relays bounded pages with durable
-   retry state. Postgres leases and delivery keys make every continuation idempotent.
+   immediately wakes the singleton relay object, which starts the first bounded drain
+   in the request lifetime. Its 30-second alarm is crash recovery, not normal dispatch.
+2. The relay claims critical activation and realtime-only rows ahead of push-only
+   backlog and drains bounded pages with durable retry state. Postgres leases and
+   delivery keys make every continuation idempotent.
 3. Ably atomically publishes each ordered channel batch of ID-only events. The relay
    durably marks realtime publication before slower push delivery begins.
 4. `hooks/useDomainRealtime.ts` deduplicates event IDs and invalidates targeted
@@ -407,8 +415,8 @@ Channels:
   `realtime-token` authorizes each mounted UUID through the caller's post RLS and
   grants an exact 15-minute capability; authenticated clients never receive a
   blanket `post:*` capability. The mobile Ably client is account-bound and closes on
-  identity changes. Mounted posts share authorization work, with one trailing pass
-  for a post added after an in-flight snapshot, and the returned capability is
+  identity changes. Mounted posts share an 80 ms initial authorization batch, with at
+  most one trailing pass for posts added after an in-flight snapshot, and the capability is
   verified before subscription. If Ably rejects an attach because the installed
   token is stale, mobile invalidates its local grant, reauthorizes once, releases
   the terminally failed channel object, and attaches a fresh channel. If Postgres
@@ -420,7 +428,8 @@ Channels:
   reportable production incidents.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
   the owner/friend private channels; there is no all-account profile channel.
-- `leaderboard:global`: XP/rank invalidation.
+- `leaderboard:global`: XP/rank and rendered-profile-field invalidation only; reactions,
+  streak bookkeeping, and unrelated counters do not refresh a focused leaderboard.
 - `user:{id}:events`: private occurrence, account, store ownership, friendship,
   block, badge, suggestion, and notification changes.
 - `moderation:global`: admin-only report queue.
@@ -468,14 +477,20 @@ Turning the device-alert switch off persists the master `push_enabled` opt-out a
 unregisters that installation's token. Turning it on requests OS permission when
 needed, registers the token, and persists the opt-in. Both push relays enforce the
 master setting before any category preference; bell history remains available.
-On Android, the `doji-alerts` notification channel is created before any permission or
-token request. Direct FCM and the Expo migration fallback both target that same channel;
-the Android 13 permission prompt and native token must never depend on a channel that
-has not yet been registered locally.
+On Android, the `doji-live`, `direct-activity`, and `reviews-account` notification
+channels are created before any permission or token request. Direct FCM and the Expo
+migration fallback select the same category channel; the Android 13 permission prompt
+and native token must never depend on a channel that has not yet been registered locally.
+Endpoint registration records notification contract version 2. During rollout, contract
+1 installations continue receiving the legacy `doji-alerts` channel so a backend deploy
+cannot make alerts disappear on an older installed Android build.
 
 Server-backed screens use shared, non-interactive skeletons only when there is no
 cached content to show. Background refreshes keep the last successful content visible
 and must never place a loading overlay above usable controls.
+Feed cold loads use the active challenge shape: a poll/Would You Rather occurrence has
+one shared-card placeholder, while photo/video and text/task/format occurrences render
+five scrollable per-person post placeholders.
 
 Native dialogs and sheets remain mounted while their `visible` prop transitions to
 false so iOS/Android can finish dismissal and release the presentation layer. Route
@@ -500,17 +515,26 @@ top-level root, while `reply_to_comment_id` identifies the exact comment/user be
 answered. The server resolves this atomically; the UI shows the target as an
 `@username` prefix and never creates deeper visual indentation.
 
-Notification delivery has three product tiers. Doji activation is time-sensitive and
-immediate. Direct human actions (comments, replies, mentions, friend requests, and
-moderation results) are immediate active alerts. Burst-prone social proof (friend
-participation, reactions, and comment likes) updates the bell immediately but uses a
-durable 30-second server bucket whose single OS alert arrives 30-60 seconds later.
-Related pushes share a platform thread/collapse identity. Changing or re-adding the
-same reaction/like does not create another alert. Foreground devices use the live bell
-and never show a redundant OS banner.
+Phone alerts are a strict server allowlist: Doji activation, friend requests, explicit
+mentions/direct comment replies, and challenge-review/account actions. These alerts are
+handed to APNs/FCM immediately and use stable platform collapse identities. Friend
+completions, posts, reactions, ordinary comments, comment likes, accepted friendships,
+badges, XP/streak changes, and poll activity remain realtime Activity Center items only.
+The database downgrades unapproved producer payloads and the relay independently refuses
+them, so a client or trigger flag cannot expand the phone-alert contract. Foreground
+devices use the live Activity Center and never show a redundant OS banner.
+`notification_attention_state` stores bounded server-owned subject visibility receipts.
+Receipts are written only when the matching row/content is actually visible or its push
+is opened. The final endpoint claim suppresses stale retries for an already-seen daily
+event, friendship request, comment, or suggestion. A successful receipt also dismisses
+the matching delivered OS notification on that handset; it never removes Activity Center
+history.
 The Activity Center groups reactions by post, friend participation by Doji, and
 comment likes by comment. Group dismissal stores its timestamp, so only genuinely new
 activity after that timestamp can make the same group visible again.
+Friend-scoped Activity Center rows are prospective: completion, shared-poll reaction,
+and shared-poll comment timestamps must be at or after that friendship's `accepted_at`.
+Accepting someone never makes their earlier activity appear as new.
 
 Push delivery is claimed server-side using immutable event/recipient/installation keys. Native
 APNs/FCM endpoints are private per-installation records and atomically transferred on
@@ -549,31 +573,31 @@ must still reveal the committed state.
 Nested outbox inserts issue one post-commit relay wake per database transaction.
 `INSERT ... ON CONFLICT DO UPDATE` statements that create no new outbox row do not
 wake the relay again. This `pg_net` path is the durable fallback for commands that did
-not traverse the gateway or whose immediate coalescer wake failed. The same singleton
-Durable Object coalesces both fast-path bursts and fallback wakes for 250 ms, then
-drains up to eight bounded relay pages per alarm. Remaining work immediately schedules
-the next durable alarm; every page claims disjoint Postgres leases until committed work
-drains. The next-wake query returns an immediate timestamp when claimable work became
-due while the preceding drain was running; short coalescing delays cannot fall through
-the future-only timer boundary and wait for an unrelated later notification.
+not traverse the gateway. Every POST wake starts the singleton's in-memory-deduplicated
+drain immediately and installs a 30-second recovery alarm before returning. Concurrent
+wakes share that drain. It processes up to eight bounded relay pages, then immediately
+continues or arms the database-provided future wake. Each accepted wake returns a drain
+correlation ID and logs wake-to-first-claim latency.
 The existing once-per-minute operational health check submits one recovery wake only
 when durable outbox work is overdue. This repairs failed wake or relay periods after
 service recovery; it is not the primary delivery trigger or a challenge timer.
 Friend-scoped realtime invalidations are batch-published to at most 100 Ably channels
-per HTTP call; only grouped OS-alert work becomes a per-recipient durable child row.
-Per-source/per-recipient once keys ensure an expansion retry cannot inflate grouped
-friend-completion or reaction counts.
+per HTTP call. Ambient social fanout does not create push-delivery work; its Activity
+Center state remains query-backed and its identifier events only invalidate authorized
+reads.
 Realtime token authorization relies on PostgREST's bearer-token verification and uses
 one bounded database RPC for caller identity, administrator, and mounted-post
-capabilities. Mobile token requests are serialized with a 20-second transport timeout
-so a cold Edge start cannot create overlapping authorization requests or let an older
-token win the race.
+capabilities. Initially visible subscriptions collect for 80 ms before one shared
+authorization, with at most one trailing pass for later additions. Mobile token requests
+remain serialized with a 20-second transport timeout so an older token cannot win the
+race. The Edge function logs database/provider durations and returns a structured,
+retryable 503 instead of an unhandled 500 when an upstream is unavailable.
 Profile presentation/stats and badge-progress changes also use identifier-only friend
 batch fanout, so shop/profile/gamification writes do not synchronously expand friends.
 Push-recipient reads begin concurrently and are not awaited before an Ably batch is
 published. `realtime_published_at` measures socket latency from the later of
-`created_at` and `available_at`; delayed grouped alerts therefore do not pollute the
-live-data service objective.
+`created_at` and `available_at`; phone-alert work never sits in front of the live-data
+service objective.
 
 ## Economy, profiles, and gamification
 
@@ -616,6 +640,9 @@ must preserve Apple's required protections:
   still follows the accepted-friend graph. Both leaderboard audiences always include
   the signed-in viewer; bounded reads return the top result window plus the viewer's
   authoritative row when they rank outside that window;
+- the top profile-strip Reactions value always means reactions that profile has given,
+  for both owner and member views. Reactions received remain the separate Beloved badge
+  metric;
 - persistent admin report queue and developer response workflow;
 - Terms of Use acceptance before account creation;
 - separate Privacy Policy consent and document;
@@ -652,6 +679,9 @@ reported account, evidence, and confirmed destructive actions.
   iOS-only `SafeAreaView`, so status-bar cutouts and gesture/three-button navigation do
   not cover content on Android. The Android launcher uses a transparent, padded adaptive
   foreground layer; the status-bar notification glyph is a separate monochrome asset.
+- Android is edge-to-edge and resizable without a portrait activity lock so Android 16,
+  tablets, foldables, cutouts, and multi-window modes can use the available window. The
+  iPhone product remains portrait-only through its iOS-specific orientation contract.
 - Input screens use `AppTextInput`, `AppKeyboardAwareScrollView`,
   `AppKeyboardStickyFooter`, `AppKeyboardToolbar`, or `KeyboardSafeSheet` as
   appropriate.
@@ -669,6 +699,10 @@ reported account, evidence, and confirmed destructive actions.
 - Cold server reads use `SkeletonSwap` to preserve final layout and crossfade into
   content. Cached content remains mounted during reconciliation; background refreshes
   never restore a skeleton or a touch-blocking loading layer.
+- Photo/video proof capture launches the operating system's camera UI so physical lens,
+  focus, exposure, flash, and zoom controls come from the phone. The server-authorized
+  challenge deadline remains decisive while that UI is open. Captured proof is encoded
+  at up to 2048 px and JPEG quality 0.92 before the existing resumable upload.
 - Shop item cards lead with the item name and consistently formatted Sparks price;
   previews and owned/equipped state follow beneath that header.
 - Admin review sheets use a tall, scrollable detail body with persistent moderation

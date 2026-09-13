@@ -2,8 +2,8 @@
   "expo": {
     "name": "Doji",
     "slug": "doit-challenge-app",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "1.0.1",
+    "orientation": "default",
     "icon": "./assets/icon-ios.png",
     "scheme": "doit",
     "userInterfaceStyle": "automatic",
@@ -11,6 +11,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.doit.challengeapp",
       "infoPlist": {
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait"
+        ],
         "NSCameraUsageDescription": "Doji needs camera access to capture your challenge proof.",
         "NSMicrophoneUsageDescription": "Doji needs microphone access for video challenges.",
         "NSPhotoLibraryUsageDescription": "Doji uses your photo library for challenge proof and your profile picture.",
@@ -19,9 +22,10 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "71"
+      "buildNumber": "73"
     },
     "android": {
+      "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -29,7 +33,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/icon.png"
@@ -55,7 +59,7 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#F97316",
-          "defaultChannel": "doji-alerts"
+          "defaultChannel": "direct-activity"
         }
       ],
       "expo-font",

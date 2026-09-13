@@ -24,6 +24,7 @@ import type { FeedAudience } from '../../lib/feedAudience';
 import { AppVideo } from '../ui/AppVideo';
 import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalidation';
 import { usePostCardStyles } from './usePostCardStyles';
+import { usePostMedia } from '../../hooks/usePostMedia';
 
 type Props = {
   post: Post;
@@ -90,7 +91,8 @@ function PostCardImpl({
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
-  const hasVideo = Boolean(post.video_url && !blurred);
+  const media = usePostMedia(post, !blurred && realtimeActive);
+  const hasVideo = Boolean(media.video_url && !blurred);
   usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
 
   useEffect(() => {
@@ -108,18 +110,18 @@ function PostCardImpl({
   }, [router, post.profile?.username, pathname]);
 
   const handleImageToggle = useCallback(() => {
-    if (post.front_photo_url && !hasVideo) {
+    if (media.front_photo_url && !hasVideo) {
       Haptics.selectionAsync();
       setShowFront((v) => !v);
     }
-  }, [post.front_photo_url, hasVideo]);
+  }, [media.front_photo_url, hasVideo]);
 
   const displayUri =
-    showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
+    showFront && media.front_photo_url ? media.front_photo_url : media.photo_url;
   const mainImageSource = useMemo(() => ({ uri: displayUri ?? '' }), [displayUri]);
   const thumbImageSource = useMemo(
-    () => ({ uri: showFront ? post.photo_url ?? '' : post.front_photo_url ?? '' }),
-    [showFront, post.photo_url, post.front_photo_url],
+    () => ({ uri: showFront ? media.photo_url ?? '' : media.front_photo_url ?? '' }),
+    [showFront, media.photo_url, media.front_photo_url],
   );
 
   const hasPhotoLayer = Boolean(displayUri);
@@ -128,7 +130,8 @@ function PostCardImpl({
     post.challenge?.type === 'task' ||
     post.challenge?.type === 'format';
   const isPhotoPost = post.type === 'photo';
-  const showMedia = hasPhotoLayer || hasVideo;
+  const expectsMedia = !blurred && Boolean(post.photo_url || post.front_photo_url || post.video_url);
+  const showMedia = expectsMedia || hasPhotoLayer || hasVideo;
 
   const isPollVotePost = post.type === 'poll_vote' && post.challenge;
 
@@ -277,8 +280,8 @@ function PostCardImpl({
               {hasPhotoLayer ? (
                 <TouchableOpacity
                   onPress={handleImageToggle}
-                  activeOpacity={post.front_photo_url && !hasVideo ? 0.95 : 1}
-                  disabled={!post.front_photo_url || hasVideo}
+                  activeOpacity={media.front_photo_url && !hasVideo ? 0.95 : 1}
+                  disabled={!media.front_photo_url || hasVideo}
                   style={{ position: 'relative' }}
                 >
                   <Image
@@ -288,7 +291,7 @@ function PostCardImpl({
                     cachePolicy="memory-disk"
                     recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
                   />
-                  {post.front_photo_url && !hasVideo ? (
+                  {media.front_photo_url && !hasVideo ? (
                     <View style={styles.frontThumbnailContainer}>
                       <Image
                         source={thumbImageSource}
@@ -302,9 +305,13 @@ function PostCardImpl({
                 </TouchableOpacity>
               ) : null}
 
+              {!hasPhotoLayer && !hasVideo && expectsMedia ? (
+                <View style={styles.media} accessibilityLabel="Photo loading" />
+              ) : null}
+
               {hasVideo ? (
                 <AppVideo
-                  uri={post.video_url!}
+                  uri={media.video_url!}
                   style={styles.videoMedia}
                   nativeControls
                   contentFit="contain"

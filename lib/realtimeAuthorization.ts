@@ -3,10 +3,13 @@ import { supabase } from './supabase';
 import { recordRealtimeFailure } from './telemetry';
 
 const AUTH_REQUEST_TIMEOUT_MS = 15_000;
+const AUTHORIZATION_BATCH_MS = 80;
 let authorizationTask: { realtime: Realtime; promise: Promise<void> } | null = null;
 let tokenRequestTail: Promise<void> = Promise.resolve();
 let grantedPostChannels = new Set<string>();
 let lastRequestedChannels = new Set<string>();
+let authorizationFailureCount = 0;
+let authorizationRetryAt = 0;
 
 export class RealtimeAccessUnavailableError extends Error {
   readonly code = 'REALTIME_ACCESS_UNAVAILABLE';
@@ -53,6 +56,12 @@ function grantedChannels(token: TokenRequest): Set<string> {
   }
 }
 
+function waitForAuthorizationBatch(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, AUTHORIZATION_BATCH_MS);
+  });
+}
+
 export function requestRealtimeToken(
   expectedClient: Realtime,
   requestedChannels: Set<string>,
@@ -93,8 +102,31 @@ export async function ensurePostCapability(
     if (!task || task.realtime !== realtime) {
       let promise: Promise<void>;
       promise = Promise.resolve()
+        // FlatList mounts visible cards over several React effects. Give that
+        // render pass one short window to collect every requested post channel
+        // into a single provider token instead of authorizing once per card.
+        .then(() => waitForAuthorizationBatch())
+        .then(async () => {
+          const remaining = authorizationRetryAt - Date.now();
+          if (remaining > 0) {
+            await new Promise((resolve) => {
+              setTimeout(resolve, remaining);
+            });
+          }
+        })
         .then(() => realtime.auth.authorize())
-        .then(() => undefined)
+        .then(() => {
+          authorizationFailureCount = 0;
+          authorizationRetryAt = 0;
+        })
+        .catch((error) => {
+          authorizationFailureCount += 1;
+          authorizationRetryAt = Date.now() + Math.min(
+            5_000,
+            500 * 2 ** Math.min(authorizationFailureCount - 1, 3),
+          );
+          throw error;
+        })
         .finally(() => {
           if (authorizationTask?.promise === promise) authorizationTask = null;
         });
@@ -117,4 +149,6 @@ export function resetRealtimeAuthorization(): void {
   lastRequestedChannels = new Set();
   authorizationTask = null;
   tokenRequestTail = Promise.resolve();
+  authorizationFailureCount = 0;
+  authorizationRetryAt = 0;
 }

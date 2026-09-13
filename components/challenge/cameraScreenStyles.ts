@@ -1,7 +1,5 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Radius, Spacing } from '../../constants/theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const cameraScreenStyles = StyleSheet.create({
   container: { flex: 1 },
@@ -29,37 +27,6 @@ export const cameraScreenStyles = StyleSheet.create({
   chooseTitle: { textAlign: 'center' },
   chooseSub: { textAlign: 'center', lineHeight: 22 },
   chooseButtons: { width: '100%', marginTop: Spacing.lg, gap: Spacing.sm },
-  camera: { flex: 1 },
-  cameraOverlay: { position: 'absolute', inset: 0, justifyContent: 'space-between' },
-  captureHint: { paddingHorizontal: Spacing.xl },
-  cameraFooter: { paddingBottom: Spacing.xxl, alignItems: 'center' },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButtonCapturing: { opacity: 0.6, transform: [{ scale: 0.95 }] },
-  captureButtonInner: { width: 60, height: 60, borderRadius: 30 },
-  recordOuter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordInner: { width: 52, height: 52, borderRadius: 26 },
-  recordInnerSquare: { width: 32, height: 32, borderRadius: 6 },
-  permissionContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.lg,
-  },
   previewContent: { flexGrow: 1 },
   previewHeader: {
     flexDirection: 'row',
@@ -71,10 +38,10 @@ export const cameraScreenStyles = StyleSheet.create({
   previewHeaderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dualPhotoContainer: {
     position: 'relative',
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
+    width: '100%',
+    aspectRatio: 1,
   },
-  mainPreview: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
+  mainPreview: { width: '100%', height: '100%' },
   frontPreviewContainer: {
     position: 'absolute',
     bottom: Spacing.md,
@@ -84,8 +51,8 @@ export const cameraScreenStyles = StyleSheet.create({
     borderWidth: 3,
   },
   frontPreview: { width: 90, height: 90 },
-  videoPreviewWrap: { width: SCREEN_WIDTH, marginTop: Spacing.sm },
-  videoPreview: { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.5625 },
+  videoPreviewWrap: { width: '100%', marginTop: Spacing.sm },
+  videoPreview: { width: '100%', aspectRatio: 16 / 9 },
   previewFooter: { padding: Spacing.lg, gap: Spacing.md },
   captionInput: { flex: 1 },
 });

@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { View, FlatList, TouchableOpacity, Modal, type ViewToken } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
@@ -42,6 +42,7 @@ type Props = {
   isClearing?: boolean;
   onDismissItem?: (key: string) => void | Promise<void>;
   onClearHistory?: () => void | Promise<void>;
+  onItemsVisible?: (items: readonly NotificationCenterItem[]) => void;
 };
 export function NotificationSheet({
   visible,
@@ -51,6 +52,7 @@ export function NotificationSheet({
   isClearing = false,
   onDismissItem,
   onClearHistory,
+  onItemsVisible,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -65,6 +67,18 @@ export function NotificationSheet({
   const [actionError, setActionError] = useState(false);
   const styles = useNotificationSheetStyles();
   const pendingActionRef = useRef<(() => void) | null>(null);
+  const onItemsVisibleRef = useRef(onItemsVisible);
+  onItemsVisibleRef.current = onItemsVisible;
+  const handleViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken<NotificationCenterItem>[] }) => {
+      onItemsVisibleRef.current?.(
+        viewableItems
+          .filter((token) => token.isViewable && token.item)
+          .map((token) => token.item),
+      );
+    },
+  ).current;
+  const attentionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const respond = useRespondToFriendRequest();
   useDismissOnRouteBlur(visible, onClose);
@@ -463,6 +477,8 @@ export function NotificationSheet({
             keyExtractor={(i) => i.key}
             contentContainerStyle={styles.list}
             renderItem={renderItem}
+            onViewableItemsChanged={handleViewableItemsChanged}
+            viewabilityConfig={attentionViewabilityConfig}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={

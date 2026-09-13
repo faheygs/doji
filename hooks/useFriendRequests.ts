@@ -1,10 +1,17 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile } from '../types/database';
 import { invalidateFriendCountQueries } from './useProfile';
+import { patchCachedFriendshipStatus } from '../lib/friendshipCache';
 import { executeCommand } from '../lib/commandGateway';
 import { runAbortableQuery } from '../lib/requestSignal';
 
@@ -68,6 +75,7 @@ export function useFriendRequestCount(enabled = true) {
 
 export function useRespondToFriendRequest() {
   const queryClient = useQueryClient();
+  const userId = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
     mutationFn: async (variables: {
       friendshipId: string;
@@ -82,9 +90,115 @@ export function useRespondToFriendRequest() {
       });
       if (error) throw error;
     },
+    onMutate: async (variables) => {
+      variables.commandId ??= newCommandId('friend-response');
+      const friendshipQueries = queryClient.getQueriesData<Friendship | null>({
+        predicate: (query) => query.queryKey[0] === 'friendship',
+      });
+      const requestQueries = queryClient.getQueriesData<InfiniteData<FriendshipWithRequester[]>>({
+        predicate: (query) =>
+          query.queryKey[0] === 'friendRequests' && query.queryKey[2] === 'paged',
+      });
+      const matchedRequest = requestQueries
+        .flatMap(([, data]) => data?.pages.flat() ?? [])
+        .find((request) => request.id === variables.friendshipId);
+      const relativeQueries = matchedRequest
+        ? queryClient.getQueriesData({
+            predicate: (query) => [
+              'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
+            ].includes(String(query.queryKey[0])),
+          })
+        : [];
+      const matchedQueryKey = userId && matchedRequest
+        ? ['friendship', userId, matchedRequest.requester_id] as const
+        : null;
+      const previousMatchedFriendship = matchedQueryKey
+        ? queryClient.getQueryData<Friendship | null>(matchedQueryKey)
+        : undefined;
+      await queryClient.cancelQueries(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'friendship' || query.queryKey[0] === 'friendRequests',
+        },
+        { silent: true },
+      );
+      if (variables.accept) {
+        queryClient.setQueriesData<Friendship | null>(
+          { predicate: (query) => query.queryKey[0] === 'friendship' },
+          (current) => current?.id === variables.friendshipId
+            ? { ...current, status: 'accepted', accepted_at: new Date().toISOString() }
+            : current,
+        );
+        if (matchedRequest && matchedQueryKey) {
+          queryClient.setQueryData<Friendship>(
+            matchedQueryKey,
+            {
+              ...matchedRequest,
+              status: 'accepted',
+              accepted_at: new Date().toISOString(),
+            },
+          );
+          queryClient.setQueriesData(
+            {
+              predicate: (query) => [
+                'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
+              ].includes(String(query.queryKey[0])),
+            },
+            (current) => patchCachedFriendshipStatus(
+              current,
+              matchedRequest.requester_id,
+              'friends',
+            ),
+          );
+        }
+      }
+      queryClient.setQueriesData<InfiniteData<FriendshipWithRequester[]>>(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'friendRequests' && query.queryKey[2] === 'paged',
+        },
+        (current) => current
+          ? {
+              ...current,
+              pages: current.pages.map((page) =>
+                page.filter((request) => request.id !== variables.friendshipId),
+              ),
+            }
+          : current,
+      );
+      return {
+        friendshipQueries,
+        requestQueries,
+        relativeQueries,
+        matchedQueryKey,
+        previousMatchedFriendship,
+      };
+    },
+    onError: (_error, _variables, context) => {
+      for (const [key, data] of context?.friendshipQueries ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+      for (const [key, data] of context?.requestQueries ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+      for (const [key, data] of context?.relativeQueries ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+      if (context?.matchedQueryKey) {
+        if (context.previousMatchedFriendship === undefined) {
+          queryClient.removeQueries({ queryKey: context.matchedQueryKey, exact: true });
+        } else {
+          queryClient.setQueryData(
+            context.matchedQueryKey,
+            context.previousMatchedFriendship,
+          );
+        }
+      }
+    },
     onSuccess: () => {
       scheduleQueryInvalidation(queryClient, [
         'friendRequests', 'friends', 'feed', 'friendship', 'notificationCenter',
+        'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
       ]);
       invalidateFriendCountQueries(queryClient);
     },

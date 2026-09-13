@@ -87,7 +87,10 @@
   channels. This removes the previous all-users-by-all-actions amplification.
 - The handset Ably client is bound to one authenticated account and is closed before
   an account identity changes. Post-capability requests share an in-flight batch;
-  posts mounted after that batch's snapshot receive one trailing authorization pass.
+  initially visible cards collect for 80 ms, and posts mounted after that batch's
+  snapshot receive at most one trailing authorization pass. Token issuance logs the
+  database/provider stage duration and returns a retryable structured 503 when either
+  upstream is temporarily unavailable.
   The client verifies the returned token capability instead of assuming every
   requested post passed RLS authorization.
 - Cold start has one shared persisted-session restoration request. Cache hydration and
@@ -98,6 +101,13 @@
   a retryable in-app surface while the original session request remains observed for
   automatic recovery; no concurrent retry is allowed to queue behind the same Supabase
   auth lock.
+- The first owner-profile authorization read retries bounded transient failures. Once
+  that read has verified the active session, a later presentation refresh failure leaves
+  protected routes mounted and reconciles later instead of showing a global account error.
+- Feed RPCs return authorized records and stable private-media references immediately.
+  Visible unlocked cards batch signed-URL resolution across one render pass; stable
+  references, but never signed bearer URLs, may be persisted. Photo/video feeds do not
+  prefetch the hidden audience while visible media is hydrating.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
@@ -107,8 +117,13 @@
 - Changing a reaction emoji moves its fixed-shard breakdown count in the same database
   transaction as the base reaction row. Feed snapshots and targeted engagement reads
   therefore cannot disagree after a reaction switch.
+- Friendship request/accept commands likewise patch the relationship and every mounted
+  viewer-relative search/voter row synchronously, then roll back on RPC failure and
+  reconcile through the private friendship event.
 - Presentation motion never owns server state or delays reconciliation. Cold reads may
-  crossfade a shape-matched skeleton into content, while cached reads remain interactive.
+  crossfade a challenge-shaped skeleton into content, while cached reads remain interactive.
+  Shared polls render one placeholder; per-user post types render five scrollable
+  placeholders that match their photo/video or text card geometry.
   Native sheet dismissal completes before a queued route action is allowed to run.
 
 ## Runtime flow
@@ -122,9 +137,11 @@
 3. At `fires_at`, the alarm calls `activate_daily_event`. One transaction stamps
    authoritative times, creates 128 fixed push partitions, and writes one global event.
    Eligible `user_events` materialize lazily when an account requests current state.
-4. The outbox wakes a singleton Cloudflare Durable Object. It coalesces a 250 ms burst
-   and seeds one Queue drain lane. A full 100-row claim proves backlog and doubles its
-   continuation lanes geometrically up to 128; small backlogs cost one queue message.
+4. The outbox wakes a singleton Cloudflare Durable Object. Each POST starts one
+   in-memory-deduplicated drain immediately and first arms a 30-second crash-recovery
+   alarm. Concurrent wakes share that drain; Postgres leases preserve idempotent
+   continuation without making normal delivery wait for an alarm. The wake response
+   carries a drain ID and the worker logs wake-to-first-claim latency under that ID.
 5. The relay claims critical activation and realtime-only rows ahead of push-only
    backlog, explicitly orders each claim, and atomically publishes each channel batch
    to Ably. It durably records that publication before optional push work begins.
@@ -150,10 +167,12 @@ reconcile authoritative database state.
   recent active installations are retained per account and recipient reads return the
   bounded set rather than silently selecting one device. The unique
   Expo token on `profiles` remains a migration fallback, not the 100k broadcast path.
-- Android creates the stable `doji-alerts` notification channel before requesting
+- Android creates `doji-live`, `direct-activity`, and `reviews-account` before requesting
   permission or reading either native/Expo tokens. Direct FCM and Expo fallback payloads
-  both select that channel, so Android 13+ registration and display use one channel
+  select the same category channel, so Android 13+ registration and display use one
   contract across transports.
+  Endpoint registration advertises notification contract version 2; contract 1
+  installations keep the legacy `doji-alerts` channel during a rolling store upgrade.
 - That fallback is only a delivery transport selected by the authoritative outbox
   relay. There is no direct `notify-user` endpoint, row-trigger HTTP push, recurring
   push dispatcher, or second notification producer. Historical migrations that
@@ -164,31 +183,27 @@ reconcile authoritative database state.
   reconciliation never re-register while the master preference is off.
 - Installed legacy clients are protected by `profiles_transfer_push_token`; direct
   profile updates use the same atomic ownership transfer.
-- A social action never calls a push provider from the row trigger. Direct alerts
-  write one recipient event. Burst-prone friend participation, reactions, and comments
-  write one internal command; the asynchronous expansion batch-publishes lightweight
-  friend invalidations and creates delayed grouped push rows where appropriate.
+- A social action never calls a push provider from the row trigger. The database and
+  relay independently enforce the only phone-alert categories: Doji live, friend
+  requests, explicit mentions/direct replies, and challenge-review/account actions.
+  All other social activity remains query-backed and realtime in the Activity Center.
 - Multiple outbox inserts in one business transaction enqueue one `pg_net` recovery wake.
   Statement-level conflict updates with no inserted transition rows enqueue none.
   The singleton Durable Object collapses simultaneous transaction wakes into one
-  initial drain lane. Repeated full claims scale geometrically to a hard 128-lane
-  ceiling; the transactional outbox rows remain durable.
-- Grouped pushes use fixed 30-second buckets delivered at bucket start + 60 seconds,
-  so a recipient gets one aggregate alert 30-60 seconds after the action. The outbox
-  `available_at` gate and a singleton Cloudflare Durable Object alarm are durable
-  one-shot delivery, not recurring polling. The alarm retains only the earliest
-  pending wake, so a large social burst cannot create duplicate timers. If an event
-  becomes due while a relay drain is in flight, the next-wake contract returns the
-  current time and immediately re-arms the durable alarm instead of ignoring that
-  newly due row until an unrelated later timer. Bell history remains immediate and
-  authoritative.
+  immediate drain and processes at most eight bounded pages per turn. Its alarm is a
+  recovery/continuation mechanism; the transactional outbox rows remain durable.
+- Approved phone alerts are handed to APNs/FCM immediately; there is no intentional
+  handset-notification delay. Provider/OS display remains best effort and correctness
+  stays with Postgres, realtime invalidation, and foreground/reconnect reconciliation.
+  `notification_attention_state` stores subject-level visibility receipts only after
+  matching content is visible or a push is opened. Endpoint claims reject already-seen
+  subjects and stale retries, while Activity Center history remains intact.
 - Social recipient fanout is set-based and asynchronous. One action creates one relay
   wakeup and one internal outbox command rather than blocking the user write or making
   one database HTTP wakeup per friend. Lightweight friend invalidations use Ably's
   multi-channel batch endpoint in bounded 100-channel requests and client event-ID
-  deduplication; the database creates per-recipient child rows only for durable grouped
-  phone alerts. Per-source/per-recipient once keys prevent a retried expansion from
-  incrementing a grouped alert twice, and idempotent child keys make relay retries safe.
+  deduplication. Ambient friend activity does not create per-recipient phone-alert rows;
+  idempotent source commands and client query invalidation keep retries safe.
 - Profile presentation/stats and badge-progress triggers use the same identifier-only
   batch fanout. Buying/equipping a frame or earning a badge never inserts one outbox
   row per friend in the interactive transaction.
@@ -224,8 +239,9 @@ reconcile authoritative database state.
   native endpoint remains reportable. iOS production requires `APNS_KEY_ID`, `APNS_TEAM_ID`,
   `APNS_PRIVATE_KEY`, and `APNS_BUNDLE_ID`; Android production requires
   `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`. Doji pushes use high
-  priority and iOS time-sensitive interruption. Direct
-  social pushes are active; grouped social pushes use normal transport priority.
+  priority and iOS time-sensitive interruption. Friend-request, mention/reply, and
+  review/account pushes use active interruption and their category-specific Android
+  channels.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
 - The Firebase Android app and its Android API-key application restrictions include
@@ -253,8 +269,9 @@ handoff being repeated when its database acknowledgement failed.
   the feed is focused. Engagement and poll-vote changes use mounted post channels.
 - `profiles:global`: retired; profile changes fan out to the account and accepted
   friends instead of every connected device.
-- `leaderboard:global`: five-second-coalesced XP/rank hints; subscribed only while
-  the leaderboard is focused.
+- `leaderboard:global`: five-second-coalesced XP/rank and rendered-profile-field hints;
+  subscribed only while the leaderboard is focused. Reaction/streak/badge bookkeeping
+  does not emit this event.
 - `user:{id}:events`: private friendship, block, badge, suggestion, and notification state.
 - `moderation:global`: report queue changes; granted only to administrator tokens.
 
@@ -394,9 +411,8 @@ configured in the production build, and monitored.
   database, and Ably rates are scale-mode capacity contracts, not claims about the
   current free plans. Its output is a required-throughput budget, not evidence that
   Supabase or Ably achieved it; staging must exceed the reported Ably request and
-  grouped push-row rates with at least 25% relay and direct-provider headroom, and
-  Postgres must sustain the reported set-based grouped-upsert rate. The model includes
-  both internal source commands and their grouped push children.
+  provider and realtime rates with at least 25% relay and direct-provider headroom.
+  Ambient Activity Center traffic is modeled independently from OS push delivery.
 - Poll, community reaction, comment, and occurrence-participant counters use 128
   deterministic database shards. No launch burst may serialize on a single option,
   post, or reusable challenge row.
@@ -404,7 +420,9 @@ configured in the production build, and monitored.
   Friends-view totals scan only the viewer's bounded social graph.
 - Poll and public-feed invalidations coalesce to at most one event per aggregate/type
   per second. Profile invalidations are social-graph scoped; leaderboard invalidations
-  coalesce to five-second windows.
+  coalesce to five-second windows and are emitted only for board-relevant fields.
+- Activity Center friend scopes join against `friendships.accepted_at`; accepting a new
+  friend cannot expose their earlier completions or community interactions as new rows.
 - Authenticated social writes are protected by per-user/action time buckets in
   Postgres. Deletes are not trigger-throttled so moderation/account cascades cannot be
   stranded; recreating the deleted resource still consumes the insert budget.
@@ -488,7 +506,8 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 ## Required monitoring
 
 - Alert on unpublished `domain_event_outbox` rows whose `available_at` is more
-  than 60 seconds overdue; future grouped alerts are healthy, not backlog.
+  than 60 seconds overdue. Approved phone alerts are immediate, so future-dated social
+  push rows are a policy regression rather than healthy queued work.
 - Active push partitions remain telemetry while the durable fanout owner retries them.
   The owner pages on repeated partition failure or immutable launch expiry and first
   terminalizes unfinished database rows so they cannot create permanent stale alarms.

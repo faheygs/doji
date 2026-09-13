@@ -20,8 +20,7 @@ type Recipient = {
 type NativeEndpoint = {
   installationId: string;
   token: string;
-  provider: 'apns' | 'fcm';
-  environment: 'sandbox' | 'production';
+  provider: 'apns' | 'fcm'; environment: 'sandbox' | 'production'; notificationContractVersion?: number;
 };
 type NativeTarget = {
   recipient: Recipient;
@@ -34,8 +33,7 @@ type Claim = {
   lease_id?: string;
   after_user_id?: string | null;
   push_expires_at?: string;
-  title?: string;
-  body?: string;
+  title?: string; body?: string;
   retry_after_seconds?: number;
 };
 
@@ -52,7 +50,8 @@ function messageFor(
     title,
     body,
     sound: 'default',
-    channelId: 'doji-alerts',
+    channelId: recipient.native_endpoints.some((endpoint) =>
+      (endpoint.notificationContractVersion ?? 1) >= 2) ? 'doji-live' : 'doji-alerts',
     badge: 1,
     ttl,
     priority: 'high',
@@ -64,6 +63,7 @@ function messageFor(
       type: 'CHALLENGE',
       daily_event_id: dailyEventId,
       url: '/(app)/challenge',
+      notificationScopeKind: 'daily_event', notificationScopeId: dailyEventId,
     },
   };
 }
@@ -202,12 +202,14 @@ Deno.serve(async (request) => {
         : [];
     });
     const { data: claimedData, error: deliveryClaimError } = await database.rpc(
-      'claim_push_delivery_targets_batch',
+      'claim_push_delivery_targets_batch_v2',
       {
         p_event_id: dailyEventId,
         p_targets: targets,
-        p_category: 'doji_start',
+        p_category: 'doji_live',
         p_aggregate_id: dailyEventId,
+        p_scope_kind: 'daily_event', p_scope_id: dailyEventId,
+        p_occurred_at: null,
       },
     );
     if (deliveryClaimError) throw deliveryClaimError;
@@ -249,10 +251,12 @@ Deno.serve(async (request) => {
         body: claim.body ?? 'You have 10 minutes.',
         collapseId: `doji-live:${dailyEventId}`,
         expiresAtEpochSeconds: Math.floor(Date.parse(claim.push_expires_at!) / 1000),
+        interruptionLevel: 'time-sensitive',
         data: {
           type: 'CHALLENGE',
           daily_event_id: dailyEventId,
           url: '/(app)/challenge',
+          notificationScopeKind: 'daily_event', notificationScopeId: dailyEventId,
         },
       });
       return { target, push };
@@ -273,10 +277,13 @@ Deno.serve(async (request) => {
         body: claim.body ?? 'You have 10 minutes.',
         collapseKey: `doji-live:${dailyEventId}`,
         ttlSeconds: Math.max(1, remainingSeconds),
+        channelId: (target.endpoint.notificationContractVersion ?? 1) >= 2
+          ? 'doji-live' : 'doji-alerts',
         data: {
           type: 'CHALLENGE',
           daily_event_id: dailyEventId,
           url: '/(app)/challenge',
+          notificationScopeKind: 'daily_event', notificationScopeId: dailyEventId,
         },
       });
       return { target, push };

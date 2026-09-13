@@ -2,24 +2,15 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase';
 import { attachReactionFields } from '../lib/postReactions';
 import { useAuthStore } from '../stores/useAuthStore';
-import { FALLBACK_AVATAR_GRADIENT } from '../constants/theme';
 import { normalizeUsernameInput } from './useUsernameAvailability';
 import type { Profile, Post, Friendship } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { parsePublicProfileView } from '../lib/publicProfileView';
+import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
 import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
 import { signPostMedia } from '../lib/postMedia';
-function parseProfileRow(data: unknown): Profile | null {
-  if (!data || typeof data !== 'object') return null;
-  const row = data as Profile;
-  if (!row.id || !row.username) return null;
-  if (!Array.isArray(row.avatar_gradient) || row.avatar_gradient.length < 2) {
-    row.avatar_gradient = [...FALLBACK_AVATAR_GRADIENT];
-  }
-  return row;
-}
+import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
@@ -35,7 +26,7 @@ export function useProfile(username?: string) {
         throw error;
       }
       const view = parsePublicProfileView(data);
-      return { ...view, profile: parseProfileRow(view.profile) };
+      return { ...view, profile: normalizePublicProfile(view.profile) };
     },
     enabled: !!normalized,
     staleTime: 30_000,
@@ -148,9 +139,24 @@ export function useSendFriendRequest() {
       });
       if (error) throw error;
     },
+    onMutate: async (variables) => {
+      const requesterId = session?.user?.id;
+      if (!requesterId) return undefined;
+      variables.commandId ??= newCommandId('friend-request');
+      return optimisticallyRequestFriendship(
+        queryClient,
+        requesterId,
+        variables.addresseeId,
+        variables.commandId,
+      );
+    },
+    onError: (_error, _variables, context) => {
+      rollbackOptimisticFriendRequest(queryClient, context);
+    },
     onSuccess: () => {
       scheduleQueryInvalidation(queryClient, [
         'friendship', 'friendRequests', 'friends', 'feed', 'notificationCenter',
+        'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
       ]);
       invalidateFriendCountQueries(queryClient);
     },

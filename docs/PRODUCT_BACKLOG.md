@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 9, 2026
+Last updated: September 10, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -13,6 +13,8 @@ verified on a physical device.
 
 Priority: P1
 
+Implementation staged for version 1.0.1 build 73; physical two-account verification remains.
+
 - Tapping **Add friend** changes the control to **Requested** immediately.
 - Accepting a request changes both accounts to the authoritative **Friends** state
   immediately without a refresh, route change, or app restart.
@@ -23,6 +25,9 @@ Priority: P1
 ### FW-002 — New friendships do not backfill old notifications
 
 Priority: P1
+
+Server migration and regression contract deployed to production on September 10, 2026;
+physical two-account verification remains.
 
 - Accepting a friendship must not make the new friend's historical posts,
   completions, reactions, or comments appear as new Activity Center items.
@@ -35,6 +40,8 @@ Priority: P1
 
 Priority: P2
 
+Implementation and automated shape coverage staged for version 1.0.1 build 73; device verification remains.
+
 - The loading skeleton matches the active challenge's final card shape and content
   type rather than using one generic card.
 - Poll and Would You Rather challenges show the single shared-community card shape.
@@ -45,16 +52,15 @@ Priority: P2
 - Cached content remains visible during background refresh; skeletons are cold-load
   placeholders only.
 
-### FW-004 — Suppress delayed phone alerts after activity was already viewed
+### FW-004 — Verify the focused phone-alert policy and seen suppression
 
 Priority: P2
 
-- A grouped friend-completion/reaction alert must not reach the OS later when the
-  recipient already viewed or interacted with that activity in the app before the
-  delayed push was claimed.
+- Phone alerts are limited to Doji live, friend requests, explicit mentions/direct
+  replies, and challenge-review/account actions; all other activity stays realtime in
+  the Activity Center only.
 - Persist a bounded, server-owned per-user **has-seen** marker scoped to the subject
-  of the delayed alert: daily event for friend completions, post for reactions, and
-  comment for comment likes.
+  of an eligible alert: daily event, friendship, comment, or suggestion.
 - Record the marker only after the relevant feed card or conversation is actually
   visible; merely foregrounding the app or opening an unrelated screen is not enough.
 - At delivery time, the relay checks that durable marker before claiming any device
@@ -64,11 +70,20 @@ Priority: P2
 - Delivery-time suppression must use durable server state and must not depend on a
   handset timer.
 - Verify the reported flow: view and react to friends' posts, remain in the app,
-  then ensure no redundant "completed today's Doji" phone alert arrives later.
+  and ensure no completion/reaction/comment-like phone alert is sent at all.
+- Verify on physical iOS and Android devices that each of the four allowed categories
+  arrives promptly in the background, stays silent in the foreground, and disappears
+  from the OS tray after its matching content is opened.
+- The server migration, `relay-domain-events` v37, and `fanout-doji-push` v17 were
+  deployed to production on September 10, 2026. Keep this item queued until both
+  store builds and the physical-device flows are verified.
 
 ### FW-005 — Native-quality camera capture and controls
 
 Priority: P2
+
+System-camera capture and higher-resolution media encoding are staged for version 1.0.1 build 73;
+physical iPhone/Galaxy quality verification remains.
 
 - Investigate current capture resolution, compression, lens selection, and zoom
   mapping on recent iPhone and Galaxy devices.
@@ -83,6 +98,9 @@ Priority: P2
 
 Priority: P2
 
+Edge-to-edge, resizable, orientation, and safe-area configuration changes are staged for
+Android build 5; Google Play and device verification remain.
+
 - Remove deprecated edge-to-edge/window APIs flagged by Google Play for build 4.
 - Audit orientation and resizability behavior for Android 16, tablets, and foldables.
 - Preserve safe-area handling on cutout, gesture-navigation, and three-button devices.
@@ -91,6 +109,9 @@ Priority: P2
 ### FW-007 — Intermittent leaderboard refresh bounce
 
 Priority: P2 regression verification
+
+The overbroad server invalidation source was corrected and deployed to production on
+September 10, 2026; focused-device soak verification remains.
 
 - Reproduce the reported random vertical bounce occurring every few seconds.
 - Confirm background reconciliation keeps existing rows mounted and does not reset
@@ -101,6 +122,9 @@ Priority: P2 regression verification
 ### FW-008 — Profile Reactions consistently means reactions given
 
 Priority: P2
+
+Owner/member rendering and reaction cache reconciliation are staged for version 1.0.1 build 73;
+two-account device verification remains.
 
 - The top profile stat beside Friends and Responses represents reactions the person
   has given, on both the owner profile and profiles viewed by other people.

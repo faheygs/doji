@@ -49,7 +49,9 @@ describe('mobile data architecture', () => {
     expect(schema).toContain('create table public.device_push_endpoints');
     expect(fanout).toContain('sendApnsMessage');
     expect(fanout).toContain('sendFcmMessage');
-    expect(fanout).toContain("channelId: 'doji-alerts'");
+    expect(fanout).toContain('notificationContractVersion');
+    expect(fanout).toContain("? 'doji-live'");
+    expect(fanout).toContain(": 'doji-alerts'");
     expect(fanout).toContain('expoFallback');
   });
 

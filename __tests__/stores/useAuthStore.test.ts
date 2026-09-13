@@ -152,10 +152,53 @@ describe('useAuthStore', () => {
     });
 
     it('does not throw on error, logs in dev', async () => {
-      mockRpc.mockReturnValue(makeRpcChain(null, { message: 'connection failed' }));
+      mockRpc.mockReturnValue(makeRpcChain(null, { message: 'Unauthorized', status: 401 }));
       useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       await expect(useAuthStore.getState().fetchProfile('user-1')).resolves.not.toThrow();
+    });
+
+    it('keeps a previously verified profile usable when a refresh fails', async () => {
+      const existing = {
+        id: 'user-1',
+        username: 'verified',
+        onboarding_completed_at: new Date().toISOString(),
+      } as any;
+      mockRpc.mockReturnValue(makeRpcChain(null, { message: 'Unauthorized', status: 401 }));
+      useAuthStore.setState({
+        session: { user: { id: 'user-1' } } as any,
+        profile: existing,
+        profileLoadState: 'ready',
+      });
+
+      await useAuthStore.getState().fetchProfile('user-1');
+
+      expect(useAuthStore.getState().profile).toBe(existing);
+      expect(useAuthStore.getState().profileLoadState).toBe('ready');
+      expect(useAuthStore.getState().isProfileLoading).toBe(false);
+    });
+
+    it('retries transient initial failures and authorizes the session when service recovers', async () => {
+      jest.useFakeTimers();
+      const fresh = {
+        id: 'user-1',
+        username: 'recovered',
+        onboarding_completed_at: new Date().toISOString(),
+      };
+      mockRpc
+        .mockReturnValueOnce(makeRpcChain(null, { message: 'fetch failed', status: 503 }))
+        .mockReturnValueOnce(makeRpcChain(null, { message: 'network lost', status: 503 }))
+        .mockReturnValueOnce(makeRpcChain(fresh));
+      useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
+
+      const pending = useAuthStore.getState().fetchProfile('user-1');
+      await jest.advanceTimersByTimeAsync(1_100);
+      await pending;
+
+      expect(mockRpc).toHaveBeenCalledTimes(3);
+      expect(useAuthStore.getState().profile).toMatchObject({ username: 'recovered' });
+      expect(useAuthStore.getState().profileLoadState).toBe('ready');
+      jest.useRealTimers();
     });
   });
 

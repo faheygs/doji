@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from './telemetry';
 
 const INSTALLATION_KEY = '@doji/push-installation-id';
-export const ANDROID_NOTIFICATION_CHANNEL_ID = 'doji-alerts';
+export const ANDROID_NOTIFICATION_CHANNEL_ID = 'direct-activity';
 
 export type PushPermissionResult = 'granted' | 'denied' | 'undetermined' | 'unsupported' | 'error';
 
@@ -27,12 +27,33 @@ function pushEnvironment(): 'sandbox' | 'production' {
 export async function ensureAndroidNotificationChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   const Notifications = await import('expo-notifications');
-  await Notifications.setNotificationChannelAsync(ANDROID_NOTIFICATION_CHANNEL_ID, {
-    name: 'Doji alerts',
-    description: 'Daily Doji openings and activity from your friends',
+  await Notifications.setNotificationChannelAsync('doji-live', {
+    name: 'Doji goes live',
+    description: 'Time-sensitive alerts when the daily Doji opens',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#F97316',
+    sound: 'default',
+  });
+  await Notifications.setNotificationChannelAsync(ANDROID_NOTIFICATION_CHANNEL_ID, {
+    name: 'Friend requests, mentions & replies',
+    description: 'Direct activity that needs your attention',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    lightColor: '#F97316',
+    sound: 'default',
+  });
+  await Notifications.setNotificationChannelAsync('reviews-account', {
+    name: 'Reviews & account',
+    description: 'Challenge review, moderation, and important account updates',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    lightColor: '#F97316',
+    sound: 'default',
+  });
+  // Retain the old channel so Android keeps existing user-level settings while
+  // any already-accepted provider messages expire.
+  await Notifications.setNotificationChannelAsync('doji-alerts', {
+    name: 'Legacy Doji alerts',
+    importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default',
   });
 }
@@ -66,13 +87,20 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
     recordOperationalFailure('push', 'expo-token-fallback', error);
   }
 
-  const { error } = await executeCommand('register_native_push_endpoint', {
+  const registration = {
     p_installation_id: await installationId(),
     p_token: nativeToken,
     p_platform: Platform.OS,
     p_environment: pushEnvironment(),
     p_expo_token: expoToken,
+  } as const;
+  let { error } = await executeCommand('register_native_push_endpoint_v2', {
+    ...registration,
+    p_notification_contract_version: 2,
   });
+  if (error?.code === 'DOJI_COMMAND_404' || error?.code === 'PGRST202') {
+    ({ error } = await executeCommand('register_native_push_endpoint', registration));
+  }
   if (error) throw error;
 
   const profile = useAuthStore.getState().profile;

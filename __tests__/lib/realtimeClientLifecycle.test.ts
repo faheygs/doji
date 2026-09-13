@@ -62,6 +62,12 @@ jest.mock('../../lib/telemetry', () => ({
 import { closeRealtimeConnection, subscribeToRealtimeChannel } from '../../lib/realtimeClient';
 
 describe('realtime channel lifecycle', () => {
+  async function advanceAuthorizationBatch() {
+    await Promise.resolve();
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(1_200);
+  }
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -119,13 +125,32 @@ describe('realtime channel lifecycle', () => {
 
   it('requests an exact capability before attaching a post channel', async () => {
     const postId = 'c71e8d02-9733-4042-aa14-1ecfbc870512';
-    const remove = await subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    const pending = subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    await advanceAuthorizationBatch();
+    const remove = await pending;
 
     expect(mockAuthorize).toHaveBeenCalledTimes(1);
     expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
       body: { postIds: [postId] },
     });
     remove();
+  });
+
+  it('authorizes concurrently mounted visible post channels in one batch', async () => {
+    const firstId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const secondId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const first = subscribeToRealtimeChannel(`post:${firstId}`, jest.fn());
+    const second = subscribeToRealtimeChannel(`post:${secondId}`, jest.fn());
+
+    await advanceAuthorizationBatch();
+    const [removeFirst, removeSecond] = await Promise.all([first, second]);
+
+    expect(mockAuthorize).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
+      body: { postIds: [firstId, secondId] },
+    });
+    removeFirst();
+    removeSecond();
   });
 
   it('reauthorizes for a post retained after an authorization snapshot', async () => {
@@ -144,10 +169,10 @@ describe('realtime channel lifecycle', () => {
       );
 
     const firstSubscription = subscribeToRealtimeChannel(`post:${firstId}`, jest.fn());
-    await Promise.resolve();
-    await Promise.resolve();
+    await advanceAuthorizationBatch();
     const secondSubscription = subscribeToRealtimeChannel(`post:${secondId}`, jest.fn());
     finishFirst?.(tokenResponse([firstId]));
+    await advanceAuthorizationBatch();
 
     const [removeFirst, removeSecond] = await Promise.all([firstSubscription, secondSubscription]);
 
@@ -163,9 +188,12 @@ describe('realtime channel lifecycle', () => {
     const postId = '33333333-3333-4333-8333-333333333333';
     mockInvoke.mockResolvedValueOnce(tokenResponse([]));
 
-    await expect(subscribeToRealtimeChannel(`post:${postId}`, jest.fn())).rejects.toThrow(
+    const pending = subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    const rejection = expect(pending).rejects.toThrow(
       `Realtime access is unavailable for post:${postId}`,
     );
+    await advanceAuthorizationBatch();
+    await rejection;
   });
 
   it('reauthorizes and recreates a provider-failed post channel once', async () => {
@@ -192,7 +220,10 @@ describe('realtime channel lifecycle', () => {
     };
     mockChannelsGet.mockReturnValueOnce(deniedChannel).mockReturnValue(recoveredChannel);
 
-    const remove = await subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    const pending = subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    await advanceAuthorizationBatch();
+    await advanceAuthorizationBatch();
+    const remove = await pending;
 
     expect(mockAuthorize).toHaveBeenCalledTimes(2);
     expect(mockRelease).toHaveBeenCalledWith(`post:${postId}`);
@@ -216,9 +247,13 @@ describe('realtime channel lifecycle', () => {
       .mockResolvedValueOnce(tokenResponse([postId]))
       .mockResolvedValueOnce(tokenResponse([]));
 
-    await expect(subscribeToRealtimeChannel(`post:${postId}`, jest.fn())).rejects.toThrow(
+    const pending = subscribeToRealtimeChannel(`post:${postId}`, jest.fn());
+    const rejection = expect(pending).rejects.toThrow(
       `Realtime access is unavailable for post:${postId}`,
     );
+    await advanceAuthorizationBatch();
+    await advanceAuthorizationBatch();
+    await rejection;
     expect(mockAuthorize).toHaveBeenCalledTimes(2);
     expect(mockReport).not.toHaveBeenCalled();
   });

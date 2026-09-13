@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,25 +26,17 @@ import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navi
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { required, validationMessage } from '../../lib/formValidation';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
-import { CameraTopControls, CameraZoomControls } from '../../components/challenge/CameraCaptureControls';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 import { cameraScreenStyles as styles } from '../../components/challenge/cameraScreenStyles';
-type FlowStep = 'chooseSource' | 'capturePhoto' | 'captureVideo' | 'preview';
-const pickerQuality = 0.85 as const;
+type FlowStep = 'chooseSource' | 'preview';
+const pickerQuality = 1 as const;
 export default function CameraScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<'back' | 'front'>('back');
-  const [zoom, setZoom] = useState(0);
-  const [flashEnabled, setFlashEnabled] = useState(false);
-  const [capturing, setCapturing] = useState(false);
   const [flowStep, setFlowStep] = useState<FlowStep>('chooseSource');
   const [caption, setCaption] = useState('');
-  const [videoRecording, setVideoRecording] = useState(false);
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [actionError, setActionError] = useState<{ title?: string; message: string } | null>(null);
-  const cameraRef = useRef<CameraView>(null);
   const {
     data: userEvent,
     isLoading: userEventLoading,
@@ -82,57 +74,6 @@ export default function CameraScreen() {
       router.replace('/(app)/challenge');
     }
   }, [userEvent, userEventLoading, userEventFetching, router]);
-
-  const afterPhotoCapture = useCallback(() => {
-    if (needVideo) {
-      setFlowStep('captureVideo');
-    } else {
-      setFlowStep('preview');
-    }
-  }, [needVideo]);
-
-  const handleCapture = async () => {
-    if (!cameraRef.current || capturing || !needPhoto) return;
-    setActionError(null);
-    setCapturing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
-      setCapturedPhoto(photo?.uri ?? null);
-      setCapturedFrontPhoto(null);
-
-      afterPhotoCapture();
-    } catch {
-      setActionError({ message: 'Could not capture the photo. Try again.' });
-    } finally {
-      setCapturing(false);
-    }
-  };
-
-  const startVideoRecording = useCallback(() => {
-    if (!cameraRef.current || videoRecording) return;
-    setActionError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setVideoRecording(true);
-    const p = cameraRef.current.recordAsync({ maxDuration: 120 });
-    p.then((vid) => {
-      if (vid?.uri) {
-        setCapturedVideoUri(vid.uri);
-        setFlowStep('preview');
-      }
-    })
-      .catch(() => {
-        setActionError({ message: 'Could not record the video. Try again.' });
-      })
-      .finally(() => {
-        setVideoRecording(false);
-      });
-  }, [setCapturedVideoUri, videoRecording]);
-
-  const stopVideoRecording = useCallback(() => {
-    cameraRef.current?.stopRecording();
-  }, []);
 
   const pickFromLibrary = useCallback(async () => {
     if (!userEvent || libraryBusy) return;
@@ -200,20 +141,70 @@ export default function CameraScreen() {
   ]);
 
   const openCameraCapture = useCallback(async () => {
+    if (!userEvent || libraryBusy) return;
     setActionError(null);
-    if (!permission?.granted) {
-      const res = await requestPermission();
-      if (!res.granted) {
+    setLibraryBusy(true);
+    try {
+      let photoReady = Boolean(capturedPhoto);
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!cameraPermission.granted) {
         setActionError({ message: 'Allow camera access to capture your proof, or use your library.' });
         return;
       }
+      if (needVideo) {
+        const microphonePermission = await Camera.requestMicrophonePermissionsAsync();
+        if (!microphonePermission.granted) {
+          setActionError({ message: 'Allow microphone access to record challenge video.' });
+          return;
+        }
+      }
+
+      if (needPhoto && !capturedPhoto) {
+        const image = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: pickerQuality,
+          allowsEditing: false,
+        });
+        if (image.canceled || !image.assets?.[0]?.uri) return;
+        setCapturedPhoto(image.assets[0].uri);
+        setCapturedFrontPhoto(null);
+        photoReady = true;
+      }
+
+      if (needVideo && !capturedVideoUri) {
+        const video = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['videos'],
+          videoMaxDuration: 120,
+          allowsEditing: false,
+        });
+        if (video.canceled || !video.assets?.[0]?.uri) {
+          if (needPhoto && photoReady) {
+            setActionError({ message: 'Your photo is saved here. Add the required video to continue.' });
+          }
+          return;
+        }
+        setCapturedVideoUri(video.assets[0].uri);
+      } else if (!needVideo) {
+        setCapturedVideoUri(null);
+      }
+
+      setFlowStep('preview');
+    } catch {
+      setActionError({ message: 'The phone camera could not open. Try again or use your library.' });
+    } finally {
+      setLibraryBusy(false);
     }
-    if (!needPhoto && needVideo) {
-      setFlowStep('captureVideo');
-      return;
-    }
-    setFlowStep('capturePhoto');
-  }, [permission?.granted, requestPermission, needPhoto, needVideo]);
+  }, [
+    libraryBusy,
+    capturedPhoto,
+    capturedVideoUri,
+    needPhoto,
+    needVideo,
+    setCapturedFrontPhoto,
+    setCapturedPhoto,
+    setCapturedVideoUri,
+    userEvent,
+  ]);
 
   const handleRetake = () => {
     clearCaptures();
@@ -329,8 +320,14 @@ export default function CameraScreen() {
           </Text>
           <View style={styles.chooseButtons}>
             {Platform.OS !== 'web' ? (
-              <Button onPress={() => void openCameraCapture()} fullWidth size="lg">
-                Use camera
+              <Button
+                onPress={() => void openCameraCapture()}
+                fullWidth
+                size="lg"
+                loading={libraryBusy}
+                disabled={libraryBusy}
+              >
+                Use phone camera
               </Button>
             ) : null}
             <Button
@@ -345,50 +342,6 @@ export default function CameraScreen() {
             </Button>
           </View>
           {actionError ? <InlineFeedback {...actionError} style={{ width: '100%' }} /> : null}
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if ((flowStep === 'capturePhoto' || flowStep === 'captureVideo') && permission === null) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: colors.mediaLetterbox,
-          },
-        ]}
-      >
-        <ActivityIndicator color={colors.onPrimary} />
-      </View>
-    );
-  }
-
-  if (
-    (flowStep === 'capturePhoto' || flowStep === 'captureVideo') &&
-    permission &&
-    !permission.granted
-  ) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.permissionContainer}>
-          <IconCamera size={56} color={colors.textSecondary} />
-          <Text variant="headingLarge" style={{ textAlign: 'center' }}>
-            Camera access required
-          </Text>
-          <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-            Camera is needed to capture your challenge proof. You can always use your photo library
-            instead—go back and choose library.
-          </Text>
-          <Button onPress={requestPermission} fullWidth size="lg">
-            Allow camera
-          </Button>
-          <Button onPress={() => setFlowStep('chooseSource')} variant="ghost" fullWidth>
-            Back
-          </Button>
         </View>
       </SafeAreaView>
     );
@@ -484,118 +437,5 @@ export default function CameraScreen() {
     );
   }
 
-  const showPhotoControls = flowStep === 'capturePhoto' && needPhoto;
-  const showVideoControls = flowStep === 'captureVideo' && needVideo;
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.mediaLetterbox }]}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={facing}
-        zoom={zoom}
-        flash={flashEnabled && facing === 'back' ? 'on' : 'off'}
-        mode={showVideoControls ? 'video' : 'picture'}
-        mute
-      />
-
-      <SafeAreaView style={styles.cameraOverlay}>
-        <CameraTopControls
-          flashEnabled={flashEnabled}
-          flashAvailable={facing === 'back'}
-          expiresAt={userEvent.status === 'buy_in_open' ? null : userEvent.expires_at}
-          onClose={() => setFlowStep('chooseSource')}
-          onFlip={() => {
-            setFacing((current) => (current === 'back' ? 'front' : 'back'));
-            setFlashEnabled(false);
-          }}
-          onToggleFlash={() => setFlashEnabled((enabled) => !enabled)}
-          onExpire={() => void refetchUserEvent()}
-          color={colors.onPrimary}
-        />
-
-        {actionError ? <InlineFeedback {...actionError} style={{ marginHorizontal: Spacing.md }} /> : null}
-
-        {showPhotoControls || showVideoControls ? (
-          <CameraZoomControls zoom={zoom} onChange={setZoom} color={colors.onPrimary} />
-        ) : null}
-
-        {showPhotoControls ? (
-          <>
-            <View style={styles.captureHint}>
-              <Text
-                variant="bodySmall"
-                color={colors.onPrimary}
-                style={{ textAlign: 'center', opacity: 0.7 }}
-              >
-                Tap to capture your photo
-              </Text>
-            </View>
-            <View style={styles.cameraFooter}>
-              <TouchableOpacity
-                onPress={handleCapture}
-                disabled={capturing}
-                style={[
-                  styles.captureButton,
-                  {
-                    borderColor: colors.onPrimary,
-                    backgroundColor: `${colors.onPrimary}4D`,
-                  },
-                  capturing && styles.captureButtonCapturing,
-                ]}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Take photo"
-                accessibilityState={{ disabled: capturing, busy: capturing }}
-              >
-                <View style={[styles.captureButtonInner, { backgroundColor: colors.onPrimary }]} />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : null}
-
-        {showVideoControls ? (
-          <>
-            <View style={styles.captureHint}>
-              <Text
-                variant="bodySmall"
-                color={colors.onPrimary}
-                style={{ textAlign: 'center', opacity: 0.7 }}
-              >
-                {videoRecording
-                  ? 'Tap stop when you are done.'
-                  : 'Tap record to capture your clip (up to 2 min).'}
-              </Text>
-            </View>
-            <View style={styles.cameraFooter}>
-              <TouchableOpacity
-                onPress={videoRecording ? stopVideoRecording : startVideoRecording}
-                style={[
-                  styles.recordOuter,
-                  {
-                    borderColor: videoRecording ? colors.danger : colors.onPrimary,
-                    backgroundColor: videoRecording
-                      ? `${colors.danger}40`
-                      : `${colors.onPrimary}40`,
-                  },
-                ]}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={videoRecording ? 'Stop recording video' : 'Start recording video'}
-                accessibilityState={{ selected: videoRecording }}
-              >
-                <View
-                  style={[
-                    styles.recordInner,
-                    { backgroundColor: colors.danger },
-                    videoRecording && styles.recordInnerSquare,
-                  ]}
-                />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : null}
-      </SafeAreaView>
-    </View>
-  );
+  return null;
 }

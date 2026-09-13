@@ -72,18 +72,28 @@ describe('interactive social write performance policy', () => {
     expect(presentationFanout).toContain("'realtimeOnly', true");
   });
 
-  it('coalesces write bursts into bounded durable outbox alarm pages', () => {
+  it('starts write bursts immediately with a durable recovery alarm and bounded pages', () => {
     const worker = fs.readFileSync(
       path.join(process.cwd(), 'infra/doji-orchestrator/src/index.ts'),
+      'utf8',
+    );
+    const outboxRelay = fs.readFileSync(
+      path.join(process.cwd(), 'infra/doji-orchestrator/src/outbox-relay.ts'),
       'utf8',
     );
     const config = fs.readFileSync(
       path.join(process.cwd(), 'infra/doji-orchestrator/wrangler.jsonc'),
       'utf8',
     );
-    expect(worker).toContain('OUTBOX_MAX_PAGES_PER_ALARM = 8');
-    expect(worker).toContain('OUTBOX_WAKE_COALESCE_MS = 250');
-    expect(worker).toContain('export class OutboxRelayAlarm');
+    expect(outboxRelay).toContain('OUTBOX_MAX_PAGES_PER_ALARM = 8');
+    expect(outboxRelay).toContain('OUTBOX_RECOVERY_ALARM_MS = 30_000');
+    expect(outboxRelay).toContain('this.ctx.waitUntil(this.startDrain(');
+    expect(outboxRelay).toContain('if (this.drainTask) return this.drainTask');
+    expect(outboxRelay).toContain('wakeToClaimMs: Date.now() - acceptedAt');
+    expect(outboxRelay).toContain('drainId');
+    expect(outboxRelay).toContain("await this.ctx.storage.delete('wake');");
+    expect(outboxRelay).toContain('export class OutboxRelayAlarm');
+    expect(worker).toContain("export { OutboxRelayAlarm }");
     expect(worker).toContain("'https://alarm.internal/wake'");
     expect(config).toContain('"name": "OUTBOX_RELAY_ALARM"');
   });

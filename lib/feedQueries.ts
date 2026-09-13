@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 import { type FeedAudience } from './feedAudience';
 import { createRequestSignal } from './requestSignal';
 import type { Post } from '../types/database';
-import { signPostMedia } from './postMedia';
 
 export const FEED_PAGE_SIZE = 20;
 export type FeedPageParam = {
@@ -55,7 +54,7 @@ export async function fetchFeedPostsPage(
         .abortSignal(request.signal);
       if (error) throw error;
 
-      return signPostMedia((Array.isArray(data) ? data : []) as Post[]);
+      return (Array.isArray(data) ? data : []) as Post[];
     }
 
     const { data, error } = await supabase
@@ -68,7 +67,10 @@ export async function fetchFeedPostsPage(
       })
       .abortSignal(request.signal);
     if (error) throw error;
-    return signPostMedia((Array.isArray(data) ? data : []) as Post[]);
+    // Return the authorized social records immediately. Private media object
+    // references are signed lazily by visible cards so Storage latency cannot
+    // hold the entire feed behind a loading skeleton.
+    return (Array.isArray(data) ? data : []) as Post[];
   } finally {
     request.cleanup();
   }

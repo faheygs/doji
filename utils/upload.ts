@@ -9,11 +9,14 @@ function withAvatarCacheParam(publicUrl: string): string {
   return `${publicUrl}${sep}v=${Date.now()}`;
 }
 
-export async function compressImage(uri: string): Promise<string> {
+export async function compressImage(
+  uri: string,
+  options: { width?: number; quality?: number } = {},
+): Promise<string> {
   const result = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1200 } }],
-    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+    [{ resize: { width: options.width ?? 1200 } }],
+    { compress: options.quality ?? 0.85, format: ImageManipulator.SaveFormat.JPEG },
   );
   return result.uri;
 }
@@ -24,7 +27,9 @@ export async function uploadPostMedia(
   uri: string,
   type: 'photo' | 'front',
 ): Promise<string> {
-  const compressed = await compressImage(uri);
+  // Preserve enough detail for modern high-density phone displays while keeping
+  // uploads bounded and resumable on weak mobile connections.
+  const compressed = await compressImage(uri, { width: 2048, quality: 0.92 });
   const filePath = await reservePostMedia(userEventId, commandId, type, 'jpg', 'image/jpeg');
   await resumableStorageUpload({
     bucketId: 'post-media',

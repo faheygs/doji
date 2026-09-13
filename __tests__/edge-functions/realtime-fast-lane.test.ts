@@ -7,6 +7,7 @@ describe('realtime command fast lane', () => {
   const worker = read('infra/doji-orchestrator/src/index.ts');
   const gateway = read('infra/doji-orchestrator/src/command-gateway.ts');
   const relay = read('supabase/functions/relay-domain-events/index.ts');
+  const token = read('supabase/functions/realtime-token/index.ts');
   const migration = read('supabase/migrations/20260823140000_realtime_delivery_slo.sql');
   const dueWakeMigration = read(
     'supabase/migrations/20260902210000_rearm_due_outbox_wake.sql',
@@ -48,6 +49,14 @@ describe('realtime command fast lane', () => {
     expect(migration).toContain("'realtime_p95_ms_5m'");
     expect(migration).toContain("'realtime_over_5s_5m'");
     expect(migration).toContain('realtime.slow < 3');
+  });
+
+  it('classifies transient token upstream failures instead of emitting opaque 500s', () => {
+    expect(token).toContain("stage: 'capability'");
+    expect(token).toContain("stage: 'provider'");
+    expect(token).toContain("{ status: 503 }");
+    expect(token).toContain('requestedPostCount');
+    expect(token).toContain('providerDurationMs');
   });
 
   it('immediately re-arms when delayed work crosses its availability boundary', () => {

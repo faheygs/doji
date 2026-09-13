@@ -5,6 +5,7 @@ export type FcmMessage = {
   collapseKey: string;
   ttlSeconds: number;
   data: Record<string, string>;
+  channelId: 'doji-live' | 'direct-activity' | 'reviews-account' | 'doji-alerts';
 };
 
 export type FcmResult = {
@@ -112,7 +113,7 @@ export async function sendFcmMessage(message: FcmMessage): Promise<FcmResult> {
               priority: 'HIGH',
               ttl: `${Math.max(1, message.ttlSeconds)}s`,
               collapse_key: message.collapseKey,
-              notification: { sound: 'default', channel_id: 'doji-alerts' },
+              notification: { sound: 'default', channel_id: message.channelId },
             },
           },
         }),

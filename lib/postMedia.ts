@@ -7,6 +7,12 @@ const SIGNED_URL_REFRESH_SKEW_MS = 60_000;
 const MAX_SIGNED_URL_CACHE_ENTRIES = 2_000;
 const OBJECT_MARKER = /\/storage\/v1\/object\/(?:public|sign|authenticated)\/post-media\//;
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+const pendingPaths = new Set<string>();
+let pendingWaiters: Array<{
+  paths: string[];
+  resolve: (signed: Map<string, string>) => void;
+}> = [];
+let batchTimer: ReturnType<typeof setTimeout> | null = null;
 
 function objectPath(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -19,6 +25,55 @@ function objectPath(value: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+async function flushSignedUrlBatch(): Promise<void> {
+  batchTimer = null;
+  const paths = [...pendingPaths];
+  const waiters = pendingWaiters;
+  pendingPaths.clear();
+  pendingWaiters = [];
+  const signed = new Map<string, string>();
+  if (paths.length > 0) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+      if (!error) {
+        const expiresAt = Date.now() + SIGNED_URL_TTL_SECONDS * 1_000;
+        for (const row of data ?? []) {
+          if (row.path && row.signedUrl) {
+            signed.set(row.path, row.signedUrl);
+            signedUrlCache.set(row.path, { url: row.signedUrl, expiresAt });
+          }
+        }
+        while (signedUrlCache.size > MAX_SIGNED_URL_CACHE_ENTRIES) {
+          const oldest = signedUrlCache.keys().next().value as string | undefined;
+          if (!oldest) break;
+          signedUrlCache.delete(oldest);
+        }
+      }
+    } catch {
+      // A media transport failure leaves the social record usable. A later
+      // visible-card mount or query refresh can retry signing.
+    }
+  }
+  for (const waiter of waiters) {
+    waiter.resolve(new Map(waiter.paths.flatMap((path) => {
+      const url = signed.get(path) ?? signedUrlCache.get(path)?.url;
+      return url ? [[path, url] as const] : [];
+    })));
+  }
+}
+
+function queueSignedUrls(paths: string[]): Promise<Map<string, string>> {
+  return new Promise((resolve) => {
+    for (const path of paths) pendingPaths.add(path);
+    pendingWaiters.push({ paths, resolve });
+    // Cards mount in one render pass. A tiny coalescing window turns those
+    // per-card needs into one Storage request without delaying feed chrome.
+    if (!batchTimer) batchTimer = setTimeout(() => void flushSignedUrlBatch(), 24);
+  });
 }
 
 async function signedUrlMap(values: Array<string | null | undefined>): Promise<Map<string, string>> {
@@ -39,26 +94,15 @@ async function signedUrlMap(values: Array<string | null | undefined>): Promise<M
     }
   }
   if (missing.length === 0) return result;
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrls(missing, SIGNED_URL_TTL_SECONDS);
-  // Media is secondary to the social record. A stale object reference or a
-  // temporary Storage outage must not make the entire feed/comments/report
-  // query fail; unresolved private objects render as unavailable instead.
-  if (error) return result;
-  const expiresAt = now + SIGNED_URL_TTL_SECONDS * 1_000;
-  for (const row of data ?? []) {
-    if (row.path && row.signedUrl) {
-      result.set(row.path, row.signedUrl);
-      signedUrlCache.set(row.path, { url: row.signedUrl, expiresAt });
-    }
-  }
-  while (signedUrlCache.size > MAX_SIGNED_URL_CACHE_ENTRIES) {
-    const oldest = signedUrlCache.keys().next().value as string | undefined;
-    if (!oldest) break;
-    signedUrlCache.delete(oldest);
-  }
+  const batched = await queueSignedUrls(missing);
+  for (const [path, url] of batched) result.set(path, url);
   return result;
+}
+
+export function hasPrivatePostMedia(post: Post): boolean {
+  return [post.photo_url, post.front_photo_url, post.video_url].some(
+    (value) => typeof value === 'string' && objectPath(value) != null,
+  );
 }
 
 function resolved(value: string | null, signed: Map<string, string>): string | null {

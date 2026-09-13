@@ -16,4 +16,11 @@ describe('pushPreferenceEnabled', () => {
   it('allows an enabled category when the master switch is on', () => {
     expect(pushPreferenceEnabled({ push_enabled: true, comment: true }, 'comment')).toBe(true);
   });
+
+  it('honors legacy opt-outs for the consolidated settings', () => {
+    expect(pushPreferenceEnabled({ push_enabled: true, mention: false }, 'mentions_replies'))
+      .toBe(false);
+    expect(pushPreferenceEnabled({ push_enabled: true, doji_start: false }, 'doji_live'))
+      .toBe(false);
+  });
 });

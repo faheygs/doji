@@ -17,6 +17,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Text } from '@/components/ui/Text';
 import { ProfileSkeleton } from '@/components/ui/LoadingSkeletons';
 import { Button } from '@/components/ui/Button';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 import { XPBar } from '@/components/gamification/XPBar';
 import { BadgesGrid } from '@/components/gamification/BadgesGrid';
 import {
@@ -71,6 +72,7 @@ export default function UserProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
   const [reportUserOpen, setReportUserOpen] = useState(false);
+  const [friendActionError, setFriendActionError] = useState<string | null>(null);
 
   const openFriendsList = useCallback(() => {
     Haptics.selectionAsync();
@@ -100,7 +102,7 @@ export default function UserProfileScreen() {
       xp: profile.xp ?? 0,
       level: profile.level ?? 0,
       reactionsReceived: profile.reactions_received ?? 0,
-      reactionsGiven: 0,
+      reactionsGiven: profile.reactions_given ?? 0,
       pollVotes: 0,
       friendsCount: friendCount,
       challengeIdeasSubmitted: 0,
@@ -233,13 +235,28 @@ export default function UserProfileScreen() {
   const pendingOutgoing = friendshipStatus === 'pending_out';
 
   const handleFriendAction = () => {
+    setFriendActionError(null);
     if (isFriend) return;
     if (pendingIncoming && friendship?.id) {
-      respondRequest.mutate({ friendshipId: friendship.id, accept: true });
+      respondRequest.mutate(
+        { friendshipId: friendship.id, accept: true },
+        {
+          onError: () => setFriendActionError(
+            'Could not accept the request. Your previous status was restored; try again.',
+          ),
+        },
+      );
       return;
     }
     if (friendshipStatus === 'none' && profile) {
-      sendRequest.mutate({ addresseeId: profile.id });
+      sendRequest.mutate(
+        { addresseeId: profile.id },
+        {
+          onError: () => setFriendActionError(
+            'Could not send the request. Check your connection and try again.',
+          ),
+        },
+      );
     }
   };
 
@@ -338,7 +355,7 @@ export default function UserProfileScreen() {
                 {isFriend
                   ? 'Unfriend'
                   : pendingOutgoing
-                    ? 'Sent'
+                    ? 'Requested'
                     : pendingIncoming
                       ? 'Accept'
                       : 'Add friend'}
@@ -354,6 +371,14 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
+        {friendActionError ? (
+          <InlineFeedback
+            title="Friendship not updated"
+            message={friendActionError}
+            style={{ marginHorizontal: Spacing.lg, marginBottom: Spacing.md }}
+          />
+        ) : null}
+
         <ProfileHeroRow profile={profile} showLevel />
 
         <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
@@ -363,7 +388,7 @@ export default function UserProfileScreen() {
         <ProfileStatsStrip
           friendCount={friendCount}
           responses={profile.total_completions ?? 0}
-          reactions={profile.reactions_received ?? 0}
+          reactions={profile.reactions_given ?? 0}
           style={{ marginTop: Spacing.lg }}
           onPressFriends={openFriendsList}
         />

@@ -7,6 +7,12 @@ export type NotificationPreferences = {
   push_enabled: boolean;
   /** Legacy compatibility field; unread badges now follow unread activity. */
   show_bell_badge: boolean;
+  /** The four server-authorized phone-alert categories. */
+  doji_live: boolean;
+  friend_requests: boolean;
+  mentions_replies: boolean;
+  reviews_account: boolean;
+  /** Legacy fields retained while older installed builds remain active. */
   doji_start: boolean;
   friend_post: boolean;
   reactions_on_my_post: boolean;
@@ -32,6 +38,12 @@ export type NotificationDismissal = {
   dismissed_at: string;
 };
 
+export type NotificationAttentionReceipt = {
+  scope_kind: 'daily_event' | 'friendship' | 'comment' | 'suggestion';
+  scope_id: string;
+  seen_at: string;
+};
+
 export type DevicePushEndpoint = {
   id: string;
   user_id: string;
@@ -39,6 +51,7 @@ export type DevicePushEndpoint = {
   provider: 'apns' | 'fcm';
   platform: 'ios' | 'android';
   environment: 'sandbox' | 'production';
+  notification_contract_version: 1 | 2;
   token: string;
   active: boolean;
   created_at: string;
@@ -661,9 +674,24 @@ export type Database = {
         };
         Returns: boolean;
       };
+      register_native_push_endpoint_v2: {
+        Args: {
+          p_installation_id: string;
+          p_token: string;
+          p_platform: 'ios' | 'android';
+          p_environment: 'sandbox' | 'production';
+          p_expo_token?: string | null;
+          p_notification_contract_version?: 2;
+        };
+        Returns: boolean;
+      };
       unregister_push_installation: {
         Args: { p_installation_id: string; p_expo_token?: string | null };
         Returns: boolean;
+      };
+      mark_notification_attention_seen: {
+        Args: { p_receipts: NotificationAttentionReceipt[] };
+        Returns: { recorded: number; server_now: string };
       };
       friend_count: {
         Args: { p_user_id: string };

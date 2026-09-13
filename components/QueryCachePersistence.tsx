@@ -33,11 +33,13 @@ function stripExpiringMedia(page: unknown): unknown {
   return page.map((item) => {
     if (!item || typeof item !== 'object') return item;
     const post = item as PersistedPost;
+    const stableOrNull = (value: unknown) =>
+      typeof value === 'string' && value.includes('/storage/v1/object/sign/') ? null : value;
     return {
       ...post,
-      photo_url: post.photo_url ? null : post.photo_url,
-      front_photo_url: post.front_photo_url ? null : post.front_photo_url,
-      video_url: post.video_url ? null : post.video_url,
+      photo_url: stableOrNull(post.photo_url),
+      front_photo_url: stableOrNull(post.front_photo_url),
+      video_url: stableOrNull(post.video_url),
     };
   });
 }

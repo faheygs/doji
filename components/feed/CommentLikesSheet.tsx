@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -40,7 +40,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const pendingNavigationRef = useRef<null | (() => void)>(null);
-  const winH = Dimensions.get('window').height;
+  const { height: winH } = useWindowDimensions();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const sendRequest = useSendFriendRequest();
   const queryClient = useQueryClient();

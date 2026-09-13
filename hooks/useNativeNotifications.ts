@@ -7,6 +7,16 @@ import { syncPushRegistration, unregisterCurrentPushInstallation } from '../lib/
 import { safeReplace } from '../lib/routes';
 import { useAuthStore } from '../stores/useAuthStore';
 import { reportOperationalFailure } from '../lib/telemetry';
+import { attentionScopeFromPushData } from '../lib/notificationAttention';
+import { executeCommand } from '../lib/commandGateway';
+
+async function markNotificationResponseSeen(data: unknown): Promise<void> {
+  const scope = attentionScopeFromPushData(data);
+  if (!scope) return;
+  await executeCommand('mark_notification_attention_seen', {
+    p_receipts: [{ ...scope, seen_at: new Date().toISOString() }],
+  });
+}
 
 /** Owns native push presentation, endpoint registration, rotation, and deep links. */
 export function useNativeNotifications(canUseApp: boolean): void {
@@ -84,13 +94,17 @@ export function useNativeNotifications(canUseApp: boolean): void {
           const href = notificationHrefFromData(last?.notification.request.content.data);
           if (href) {
             safeReplace(router, href);
+            void markNotificationResponseSeen(last?.notification.request.content.data);
             await Notifications.clearLastNotificationResponseAsync();
           }
         })
         .catch(() => undefined);
       subscription = Notifications.addNotificationResponseReceivedListener((response) => {
         const href = notificationHrefFromData(response.notification.request.content.data);
-        if (href) safeReplace(router, href);
+        if (href) {
+          safeReplace(router, href);
+          void markNotificationResponseSeen(response.notification.request.content.data);
+        }
       });
     });
 

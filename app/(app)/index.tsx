@@ -10,7 +10,7 @@ import {
   type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
@@ -91,6 +91,8 @@ export default function FeedScreen() {
     items: notificationItems,
     isLoading: notificationsLoading,
     isClearing: notificationsClearing,
+    markItemsSeen: markNotificationItemsSeen,
+    markScopesSeen,
   } = useNotificationCenterContext();
   const outerStyle = useMemo(() => [styles.container, webScrollParentStyle], [styles.container]);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,6 +101,12 @@ export default function FeedScreen() {
     if (!userEvent?.daily_event?.fires_at) return false;
     return isChallengeLive(userEvent.daily_event.fires_at);
   }, [userEvent]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!challengeIsLive || !userEvent?.daily_event_id) return;
+      markScopesSeen([{ scope_kind: 'daily_event', scope_id: userEvent.daily_event_id }]);
+    }, [challengeIsLive, markScopesSeen, userEvent?.daily_event_id]),
+  );
   const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
   const showInitialFeedSkeleton =
     posts.length === 0 &&
@@ -106,6 +114,10 @@ export default function FeedScreen() {
     (userEventLoading || feedLoading || (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
+    // Media cards resolve private URLs after their social records render. Do
+    // not compete with those visible-image requests by warming an invisible
+    // audience. Text-only feeds retain the inexpensive adjacent-tab prefetch.
+    if (posts.some((post) => post.photo_url || post.front_photo_url || post.video_url)) return;
     const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
     const task = InteractionManager.runAfterInteractions(() => {
       void prefetchFeedAudience(queryClient, {
@@ -116,7 +128,7 @@ export default function FeedScreen() {
       });
     });
     return () => task.cancel();
-  }, [audience, feedPages, feedUnlocked, queryClient, userEvent?.daily_event_id, userId]);
+  }, [audience, feedPages, feedUnlocked, posts, queryClient, userEvent?.daily_event_id, userId]);
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
     if (deepLinkHandledRef.current === pendingPostId) return;
@@ -386,7 +398,7 @@ export default function FeedScreen() {
         skeleton={
           <>
             <ListHeader />
-            <FeedSkeleton />
+            <FeedSkeleton challenge={userEvent?.challenge} />
           </>
         }
       >
@@ -429,6 +441,7 @@ export default function FeedScreen() {
         isClearing={notificationsClearing}
         onDismissItem={dismissNotificationItem}
         onClearHistory={clearNotificationHistory}
+        onItemsVisible={markNotificationItemsSeen}
         onClose={() => {
           void markBellOpened();
           setNotificationsOpen(false);

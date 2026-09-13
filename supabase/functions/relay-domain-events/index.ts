@@ -16,6 +16,7 @@ import {
   type DeliveryEvent,
 } from '../_shared/domain-event-delivery.ts';
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
+import { resolvePushPolicy } from '../_shared/notification-policy.ts';
 
 const MAX_TOPIC_WORKERS = 8;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
@@ -114,6 +115,7 @@ type NativeEndpoint = {
   token: string;
   provider: 'apns' | 'fcm';
   environment: 'sandbox' | 'production';
+  notificationContractVersion?: number;
 };
 
 type PushProfile = {
@@ -185,7 +187,10 @@ Deno.serve(async (request) => {
   const targetUserIds = [
     ...new Set(
       claimedEvents
-        .filter((event) => event.payload?.sendPush === true && event.payload?.targetUserId)
+        .filter((event) => {
+          const policy = resolvePushPolicy(event);
+          return policy?.mode === 'targeted' && event.payload?.targetUserId;
+        })
         .map((event) => String(event.payload.targetUserId)),
     ),
   ];
@@ -233,7 +238,8 @@ Deno.serve(async (request) => {
   let broadcastSent = 0;
   const processEventSideEffects = async (event: RelayEvent) => {
     try {
-      const hasPush = event.payload?.sendPush === true || event.payload?.broadcastPush === true;
+      const pushPolicy = resolvePushPolicy(event);
+      const hasPush = pushPolicy !== null;
       if (hasPush && !isPushFresh(event)) {
         const { data: completed, error: completionError } = await database.rpc(
           'complete_domain_event',
@@ -246,23 +252,23 @@ Deno.serve(async (request) => {
         return;
       }
 
-      const broadcast = await processBroadcastPush(database, event);
+      const broadcast = pushPolicy?.mode === 'broadcast'
+        ? await processBroadcastPush(database, event)
+        : { handled: false, continued: false, sent: 0 };
       broadcastSent += broadcast.sent;
       if (broadcast.continued) {
         continued += 1;
         return;
       }
 
-      if (!broadcast.handled && event.payload?.sendPush === true && event.payload?.targetUserId) {
+      if (!broadcast.handled && pushPolicy?.mode === 'targeted' && event.payload?.targetUserId) {
         const targetUserId = String(event.payload.targetUserId);
         const profileState = await profilesByIdPromise;
         if (profileState.error) throw profileState.error;
         const profile = profileState.profilesById.get(targetUserId);
 
         const token = profile?.notification_token?.trim();
-        const preferenceKey = event.payload.preferenceKey
-          ? String(event.payload.preferenceKey)
-          : null;
+        const preferenceKey = pushPolicy.preferenceKey;
         const preferences = profile?.notification_preferences;
         const nativeEndpoints = (profile?.native_endpoints ?? []).filter((endpoint) =>
           Boolean(endpoint.token) && (
@@ -279,12 +285,15 @@ Deno.serve(async (request) => {
             }))
             : [{ userId: targetUserId, endpointKey: 'expo' }];
           const { data: claimedData, error: claimError } = await database.rpc(
-            'claim_push_delivery_targets_batch',
+            'claim_push_delivery_targets_batch_v2',
             {
               p_event_id: event.id,
               p_targets: pushTargets,
               p_category: preferenceKey ?? event.event_type,
               p_aggregate_id: String(event.aggregate_id ?? event.id),
+              p_scope_kind: pushPolicy.scopeKind,
+              p_scope_id: pushPolicy.scopeId,
+              p_occurred_at: String(event.payload.occurredAt ?? event.created_at),
             },
           );
           if (claimError) throw claimError;
@@ -306,7 +315,7 @@ Deno.serve(async (request) => {
           const ttl = Math.max(1, Math.ceil((pushExpiresAtMs - Date.now()) / 1000));
           const title = String(event.payload.title ?? 'Doji');
           const body = String(event.payload.body ?? '');
-          const collapseKey = String(event.payload.collapseId ?? event.payload.threadId ?? event.id);
+          const collapseKey = pushPolicy.collapseKey;
           const notificationData = {
             type: String(
               event.payload.type ??
@@ -319,7 +328,12 @@ Deno.serve(async (request) => {
             postId: event.payload.postId ? String(event.payload.postId) : '',
             voteId: event.payload.voteId ? String(event.payload.voteId) : '',
             url: event.payload.url ? String(event.payload.url) : '',
+            notificationScopeKind: pushPolicy.scopeKind,
+            notificationScopeId: pushPolicy.scopeId,
           };
+          const expoChannelId = (profile?.native_endpoints ?? []).some((endpoint) =>
+              (endpoint.notificationContractVersion ?? 1) >= 2)
+            ? pushPolicy.channelId : 'doji-alerts';
           const claimedByEndpoint = new Map(
             claimedTargets.map((target) => [target.endpoint_key, target.delivery_key]),
           );
@@ -342,17 +356,15 @@ Deno.serve(async (request) => {
                 body,
                 collapseId: collapseKey,
                 expiresAtEpochSeconds: Math.floor(pushExpiresAtMs / 1000),
-                interruptionLevel:
-                  event.payload.interruptionLevel === 'passive'
-                    ? 'passive'
-                    : event.payload.interruptionLevel === 'time-sensitive'
-                      ? 'time-sensitive'
-                      : 'active',
+                interruptionLevel: pushPolicy.interruptionLevel,
                 data: notificationData,
               })
               : await sendFcmMessage({
                 token: endpoint.token, title, body, collapseKey, ttlSeconds: ttl,
                 data: notificationData,
+                channelId: (endpoint.notificationContractVersion ?? 1) >= 2
+                  ? pushPolicy.channelId
+                  : 'doji-alerts',
               });
             results.push({
               deliveryKey,
@@ -367,17 +379,12 @@ Deno.serve(async (request) => {
           const expoDeliveryKey = claimedByEndpoint.get('expo');
           if (expoDeliveryKey && token) {
             const pushResult = await sendExpoPushMessages([{
-              to: token, title, body, sound: 'default', channelId: 'doji-alerts', badge: 1, ttl,
-              priority: event.payload.priority === 'normal' ? 'normal' : 'high',
-              interruptionLevel:
-                event.payload.interruptionLevel === 'passive'
-                  ? 'passive'
-                  : event.payload.interruptionLevel === 'time-sensitive'
-                    ? 'time-sensitive'
-                    : 'active',
-              threadId: event.payload.threadId ? String(event.payload.threadId) : undefined,
-              collapseId: event.payload.collapseId ? String(event.payload.collapseId) : undefined,
-              tag: event.payload.tag ? String(event.payload.tag) : undefined,
+              to: token, title, body, sound: 'default', channelId: expoChannelId, badge: 1, ttl,
+              priority: 'high',
+              interruptionLevel: pushPolicy.interruptionLevel,
+              threadId: collapseKey,
+              collapseId: collapseKey,
+              tag: collapseKey,
               data: notificationData,
             }]);
             const ticket = pushResult.tickets[0];

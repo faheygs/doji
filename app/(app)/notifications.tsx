@@ -24,6 +24,7 @@ import type { NotificationPreferences } from '@/types/database';
 import {
   mergeNotificationPreferences,
   DEFAULT_NOTIFICATION_PREFERENCES,
+  phoneAlertPreferencePatch,
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
@@ -41,49 +42,24 @@ type RowDef = {
 
 const CATEGORY_ROWS: RowDef[] = [
   {
-    key: 'doji_start',
-    title: 'Daily Challenge Alert',
+    key: 'doji_live',
+    title: 'Doji goes live',
     description: "When today's Doji goes live.",
   },
   {
-    key: 'friend_post',
-    title: 'Friend activity',
-    description: "Grouped updates when friends complete today's Doji.",
-  },
-  {
-    key: 'reactions_on_my_post',
-    title: 'Reactions & comment likes',
-    description: 'Grouped updates for reactions and likes.',
-  },
-  {
-    key: 'comment',
-    title: 'New Comment',
-    description: 'When someone comments on your post.',
-  },
-  {
-    key: 'mention',
-    title: 'Mentions',
-    description: 'When someone @mentions you in a comment.',
-  },
-  {
-    key: 'friend_request',
+    key: 'friend_requests',
     title: 'Friend Requests',
     description: 'When someone sends you a friend request.',
   },
   {
-    key: 'friend_accepted',
-    title: 'Friend Accepted',
-    description: 'When someone accepts your friend request.',
+    key: 'mentions_replies',
+    title: 'Mentions & replies',
+    description: 'When someone @mentions you or replies directly to your comment.',
   },
   {
-    key: 'badges',
-    title: 'Badge Unlocked',
-    description: 'When you earn or upgrade a badge.',
-  },
-  {
-    key: 'suggestion',
-    title: 'Challenge Review',
-    description: 'When your submission is approved or declined.',
+    key: 'reviews_account',
+    title: 'Reviews & account',
+    description: 'Challenge review, moderation, and important account updates.',
   },
 ];
 
@@ -215,7 +191,12 @@ export default function NotificationSettingsScreen() {
   const onCategoryToggle = useCallback(
     (key: NotificationPreferenceKind, value: boolean) => {
       Haptics.selectionAsync();
-      void persistCategories({ [key]: value }, key);
+      const patch =
+        key === 'doji_live' || key === 'friend_requests' ||
+        key === 'mentions_replies' || key === 'reviews_account'
+          ? phoneAlertPreferencePatch(key, value)
+          : { [key]: value };
+      void persistCategories(patch, key);
     },
     [persistCategories],
   );
@@ -327,7 +308,7 @@ export default function NotificationSettingsScreen() {
                 <View style={styles.rowText}>
                   <Text variant="body">Alerts on this phone</Text>
                   <Text variant="micro" color={colors.textTertiary}>
-                    Get alerts when a Doji goes live and when friends interact.
+                    Get a small set of timely, important alerts from Doji.
                   </Text>
                 </View>
                 <Switch
@@ -355,7 +336,7 @@ export default function NotificationSettingsScreen() {
             What we notify you about
           </Text>
           <Text variant="micro" color={colors.textTertiary} style={{ paddingHorizontal: Spacing.xs }}>
-            These apply to real device alerts and in-app scheduling when the permission above is on.
+            These control phone alerts. All activity still appears in Doji in real time.
           </Text>
           <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
             {CATEGORY_ROWS.map((row, i) => (
