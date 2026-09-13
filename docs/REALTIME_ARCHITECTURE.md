@@ -104,6 +104,11 @@
 - The first owner-profile authorization read retries bounded transient failures. Once
   that read has verified the active session, a later presentation refresh failure leaves
   protected routes mounted and reconciles later instead of showing a global account error.
+- Store-update discovery is a bounded Postgres read, not a socket event or handset
+  polling loop. `get_mobile_release_policy` exposes only an enabled platform policy;
+  the client rechecks through the normal startup/foreground query lifecycle and compares
+  native build as well as semantic version. Release operators enable the row only after
+  the exact Apple/Google build is available in that store.
 - Feed RPCs return authorized records and stable private-media references immediately.
   Visible unlocked cards batch signed-URL resolution across one render pass; stable
   references, but never signed bearer URLs, may be persisted. Photo/video feeds do not

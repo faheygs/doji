@@ -89,6 +89,9 @@ deletion paths.
 - Create a separate Google Play Developer API service account for automated store
   submission after the Play app exists. Do not reuse the FCM sender identity.
 - Every new bundle must use a strictly increasing Android `versionCode`.
+- After the rollout is available to the intended track, update the `android` row in
+  `mobile_release_policy` with the exact version/versionCode and set `enabled = true`.
+  Do not announce a release that Play is still processing.
 
 ## Verification before any Play release
 
@@ -117,6 +120,8 @@ deletion paths.
 6. Apply for production access with truthful testing and readiness answers.
 7. After approval, promote the verified closed-test build or upload a newer verified
    bundle, submit it for review, and use a staged production rollout.
+8. Once the rollout is actually available, enable its optional update policy. Increase
+   the minimum supported version only for a deliberate required update.
 
 Google Play submission currently requires new apps and updates to target Android 16
 (API level 36) or higher. Reconfirm the requirement immediately before submission:

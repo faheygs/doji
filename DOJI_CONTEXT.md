@@ -674,6 +674,14 @@ reported account, evidence, and confirmed destructive actions.
   without a real exception. `SearchField` owns the standard icon, focus, clear, and
   theme states. `AppDialog` owns app confirmations and choice prompts; native system
   UI is reserved for operating-system permissions and other OS-owned surfaces.
+- Every password field uses the shared `Input` secure-entry mode, which owns an
+  accessible show/hide control. Do not recreate password visibility state per screen.
+- Native clients read the small server-owned `mobile_release_policy` contract on
+  startup and normal foreground reconciliation. An enabled policy compares both the
+  semantic app version and native build number, opens the platform's official store,
+  reminds users about optional releases no more than once per 24 hours, and can make a
+  minimum-supported release non-dismissible. Keep a platform policy disabled until
+  that exact store release is genuinely available to users.
 - `Avatar`/`AvatarStack` resolve equipped frames consistently.
 - Full-screen app surfaces use `react-native-safe-area-context`, never React Native's
   iOS-only `SafeAreaView`, so status-bar cutouts and gesture/three-button navigation do

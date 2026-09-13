@@ -52,6 +52,7 @@ import { useNativeNotifications } from '../hooks/useNativeNotifications';
 import { Text } from '../components/ui/Text';
 import { initialSessionBootstrap, observeSessionBootstrap } from '../lib/initialSessionBootstrap';
 import { StartupBrandScreen } from '../components/branding/StartupBrandScreen';
+import { AppUpdatePrompt } from '../components/system/AppUpdatePrompt';
 
 const FONT_BOOTSTRAP_DEADLINE_MS = 2_500;
 const SESSION_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -206,6 +207,7 @@ function RootLayoutInner() {
         <SafeAreaProvider style={[styles.flex, { backgroundColor: colors.background }]}>
           <View style={[styles.flex, { backgroundColor: colors.background }]}>
             {gate.canUseApp ? <AppIconBadgeSync /> : null}
+            <AppUpdatePrompt enabled={gate.ready} />
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <Stack
               screenOptions={{

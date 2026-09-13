@@ -648,6 +648,19 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_mobile_release_policy: {
+        Args: { p_platform: 'ios' | 'android' };
+        Returns: {
+          platform: 'ios' | 'android';
+          latest_version: string;
+          latest_build: number;
+          minimum_version: string;
+          minimum_build: number;
+          store_url: string;
+          update_message: string | null;
+          updated_at: string;
+        }[];
+      };
       get_own_profile: {
         Args: Record<string, never>;
         Returns: Profile;

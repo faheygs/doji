@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo } from 'react';
+import React, { forwardRef, useMemo, useState } from 'react';
 import {
   type TextInput,
   type TextInputProps,
@@ -7,11 +7,13 @@ import {
   ViewStyle,
   StyleProp,
   Keyboard,
+  Pressable,
 } from 'react-native';
 import { Radius, Spacing, Typography } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from './Text';
 import { AppTextInput } from './AppTextInput';
+import { IconEye, IconEyeOff } from '../icons/PasswordIcons';
 
 type Props = TextInputProps & {
   label?: string;
@@ -42,11 +44,14 @@ export const Input = forwardRef<TextInput, Props>(
       blurOnSubmit,
       onSubmitEditing,
       accessibilityLabel,
+      secureTextEntry,
       ...rest
     },
     ref,
   ) => {
     const { colors } = useTheme();
+    const [passwordVisible, setPasswordVisible] = useState(false);
+    const isPasswordField = secureTextEntry === true;
 
     const styles = useMemo(
       () =>
@@ -70,6 +75,24 @@ export const Input = forwardRef<TextInput, Props>(
           inputError: {
             borderWidth: 1,
             borderColor: colors.error,
+          },
+          passwordShell: {
+            minHeight: 48,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.fillMuted,
+            borderRadius: Radius.sm,
+          },
+          passwordInput: {
+            flex: 1,
+            minHeight: 48,
+            paddingRight: Spacing.xs,
+          },
+          passwordToggle: {
+            width: 48,
+            minHeight: 48,
+            alignItems: 'center',
+            justifyContent: 'center',
           },
           errorText: {
             marginTop: 2,
@@ -100,24 +123,62 @@ export const Input = forwardRef<TextInput, Props>(
               {label}
             </Text>
           ) : null,
-          <AppTextInput
-            key="field"
-            ref={ref}
-            accessibilityLabel={accessibilityLabel ?? label}
-            accessibilityState={{ disabled: rest.editable === false }}
-            style={[styles.input, error ? styles.inputError : undefined, style]}
-            multiline={multiline}
-            // iOS can add a second floating Done control when a numeric pad is
-            // given returnKeyType="done". Numeric pads use the one shared app
-            // toolbar; text keyboards keep their normal return key.
-            returnKeyType={resolvedReturnKeyType}
-            blurOnSubmit={multiline ? blurOnSubmit : (blurOnSubmit ?? true)}
-            onSubmitEditing={(e) => {
-              if (!multiline) Keyboard.dismiss();
-              onSubmitEditing?.(e);
-            }}
-            {...rest}
-          />,
+          isPasswordField ? (
+            <View
+              key="field"
+              style={[styles.passwordShell, error ? styles.inputError : undefined]}
+            >
+              <AppTextInput
+                ref={ref}
+                accessibilityLabel={accessibilityLabel ?? label}
+                accessibilityState={{ disabled: rest.editable === false }}
+                style={[styles.input, styles.passwordInput, style]}
+                secureTextEntry={!passwordVisible}
+                multiline={false}
+                returnKeyType={resolvedReturnKeyType}
+                blurOnSubmit={blurOnSubmit ?? true}
+                onSubmitEditing={(e) => {
+                  Keyboard.dismiss();
+                  onSubmitEditing?.(e);
+                }}
+                {...rest}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+                accessibilityState={{ expanded: passwordVisible }}
+                hitSlop={8}
+                onPress={() => setPasswordVisible((visible) => !visible)}
+                style={styles.passwordToggle}
+                testID="password-visibility-toggle"
+              >
+                {passwordVisible ? (
+                  <IconEyeOff size={22} color={colors.textSecondary} />
+                ) : (
+                  <IconEye size={22} color={colors.textSecondary} />
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <AppTextInput
+              key="field"
+              ref={ref}
+              accessibilityLabel={accessibilityLabel ?? label}
+              accessibilityState={{ disabled: rest.editable === false }}
+              style={[styles.input, error ? styles.inputError : undefined, style]}
+              multiline={multiline}
+              // iOS can add a second floating Done control when a numeric pad is
+              // given returnKeyType="done". Numeric pads use the one shared app
+              // toolbar; text keyboards keep their normal return key.
+              returnKeyType={resolvedReturnKeyType}
+              blurOnSubmit={multiline ? blurOnSubmit : (blurOnSubmit ?? true)}
+              onSubmitEditing={(e) => {
+                if (!multiline) Keyboard.dismiss();
+                onSubmitEditing?.(e);
+              }}
+              {...rest}
+            />
+          ),
           helperText ? (
             <Text key="helper" variant="bodySmall" color={helperColor} style={styles.hintText}>
               {helperText}

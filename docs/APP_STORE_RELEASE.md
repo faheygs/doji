@@ -44,6 +44,9 @@
   used for App Functionality; Doji does not track users or use data for advertising.
 - Use `https://dojipro.com/privacy/#choices` as the optional privacy-choices URL.
 - Select only the newest verified production build and use manual release.
+- After Apple confirms that the release is available, update the `ios` row in
+  `mobile_release_policy` with its exact version/build and set `enabled = true`.
+  Never enable the prompt while the binary is merely processing or under review.
 - Do not advertise a demo mode. The reviewer account must use the production flow
   and be tested on the exact candidate build before resubmission.
 - Keep Apple Silicon Mac and Vision Pro distribution disabled until those platforms
@@ -77,6 +80,8 @@
 7. Confirm outbox rows publish promptly, push shards finish before expiry, and the
    alarm-repair count remains zero.
 8. Run the complete physical-device matrix before submitting.
+9. After public availability, enable the matching optional update policy. Raise the
+   minimum version/build only when continuing on an older client is unsafe.
 
 ## Required before public production
 
