@@ -22,7 +22,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "73"
+      "buildNumber": "74"
     },
     "android": {
       "edgeToEdgeEnabled": true,
@@ -33,7 +33,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "favicon": "./assets/icon.png"
