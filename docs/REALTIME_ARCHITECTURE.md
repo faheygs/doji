@@ -481,6 +481,9 @@ configured in the production build, and monitored.
 - Release preparation may raise only `@reviewer` to the documented review balance
   through one idempotent `app_review_credit` ledger row. It does not open an
   occurrence, seed social content, or bypass the normal buy-in command.
+- Operator-approved Spark credits use the non-client `award_sparks_once` helper with
+  the `admin_grant` reason and a stable reference. The balance is never changed
+  directly, so retries remain idempotent and the adjustment stays auditable.
 - Socket payloads do not bypass RLS; clients always refetch Postgres rows.
 
 ## Deployment order
