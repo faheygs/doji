@@ -202,7 +202,9 @@ reconcile authoritative database state.
   stays with Postgres, realtime invalidation, and foreground/reconnect reconciliation.
   `notification_attention_state` stores subject-level visibility receipts only after
   matching content is visible or a push is opened. Endpoint claims reject already-seen
-  subjects and stale retries, while Activity Center history remains intact.
+  subjects and stale retries, while Activity Center history remains intact. For a Doji,
+  the final claim compares the receipt to `daily_events.activated_at`, so viewing the
+  pre-live countdown cannot suppress that event's later live phone alert.
 - Social recipient fanout is set-based and asynchronous. One action creates one relay
   wakeup and one internal outbox command rather than blocking the user write or making
   one database HTTP wakeup per friend. Lightweight friend invalidations use Ably's

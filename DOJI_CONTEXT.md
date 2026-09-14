@@ -526,7 +526,9 @@ devices use the live Activity Center and never show a redundant OS banner.
 `notification_attention_state` stores bounded server-owned subject visibility receipts.
 Receipts are written only when the matching row/content is actually visible or its push
 is opened. The final endpoint claim suppresses stale retries for an already-seen daily
-event, friendship request, comment, or suggestion. A successful receipt also dismisses
+event, friendship request, comment, or suggestion. Daily-event suppression is measured
+against the authoritative `daily_events.activated_at`; seeing the pre-live countdown
+cannot suppress the later live alert. A successful receipt also dismisses
 the matching delivered OS notification on that handset; it never removes Activity Center
 history.
 The Activity Center groups reactions by post, friend participation by Doji, and

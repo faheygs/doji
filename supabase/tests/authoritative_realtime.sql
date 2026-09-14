@@ -1,6 +1,6 @@
 begin;
 
-select plan(126);
+select plan(128);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -506,6 +506,19 @@ select has_function(
 select has_function(
   'public', 'get_friend_fanout_realtime_topics', array['uuid'],
   'friend realtime invalidations use a bounded relay batch contract'
+);
+select has_function(
+  'public',
+  'claim_push_delivery_targets_batch_v2',
+  array['uuid', 'jsonb', 'text', 'text', 'text', 'text', 'timestamp with time zone'],
+  'endpoint push claims apply the final server-owned attention check'
+);
+select alike(
+  pg_get_functiondef(
+    'public.claim_push_delivery_targets_batch_v2(uuid,jsonb,text,text,text,text,timestamp with time zone)'::regprocedure
+  ),
+  '%event.activated_at%',
+  'Doji live seen suppression is bounded by the authoritative activation time'
 );
 select alike(
   pg_get_functiondef('public.trg_user_event_completion_push()'::regprocedure),
