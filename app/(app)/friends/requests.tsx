@@ -106,6 +106,7 @@ export default function FriendRequestsScreen() {
         <FlatList
           style={webScrollParentStyle}
           data={requests}
+          removeClippedSubviews={false}
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"

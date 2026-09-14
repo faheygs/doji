@@ -300,6 +300,7 @@ export default function LeaderboardScreen() {
       ) : (
         <FlatList
           data={restEntries}
+          removeClippedSubviews={false}
           keyExtractor={(item) => item.user_id}
           renderItem={({ item }) => <RankItem item={item} isMe={item.user_id === userId} />}
           ListHeaderComponent={ListHeader}

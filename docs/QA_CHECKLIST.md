@@ -134,6 +134,9 @@ Mark each box when verified.
       complete actions; unrelated profile activity does not bounce or reset the list
 - [ ] **Android windows** — rotate a phone, resize a tablet/foldable or emulator window,
       and test cutout plus gesture/three-button navigation without clipped controls
+- [ ] **Android Fabric list stability** — rapidly scroll the feed, comments, Activity
+      Center, friends, leaderboard, and voter/likes sheets while realtime rows update;
+      no `addViewAt`/`ReactClippingViewManager` crash or missing content occurs
 - [ ] **Reduce Motion** — with the OS setting enabled, sheets and skeleton swaps settle without decorative movement while remaining fully operable
 - [ ] **Long caption** — text wraps properly in post card
 - [ ] **Very long username** — truncates with ellipsis

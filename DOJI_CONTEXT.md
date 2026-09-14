@@ -612,6 +612,9 @@ service objective.
   `app_review_credit` so App Review can exercise the normal missed-Doji buy-in flow.
   The credit targets only `@reviewer`; it does not bypass participation or alter the
   public economy.
+- Deliberate operator-approved balance credits use the `admin_grant` ledger reason,
+  a stable one-time reference, and `award_sparks_once`. Operators never edit
+  `profiles.sparks` directly, and the helper remains unavailable to app clients.
 - Shop catalog rows define current items/prices. Ownership is permanent. Purchase
   and equip are distinct concepts, though purchase may equip immediately.
 - Equipped theme affects the owner UI. Equipped avatar frame/title are public
@@ -694,6 +697,9 @@ reported account, evidence, and confirmed destructive actions.
 - Android is edge-to-edge and resizable without a portrait activity lock so Android 16,
   tablets, foldables, cutouts, and multi-window modes can use the available window. The
   iPhone product remains portrait-only through its iOS-specific orientation contract.
+- Every app-owned `FlatList` explicitly disables native clipped-subview removal. Fabric
+  list windowing remains bounded through `windowSize` and render-batch controls, while
+  Android must not detach and reinsert clipped native children during rapid tree updates.
 - Input screens use `AppTextInput`, `AppKeyboardAwareScrollView`,
   `AppKeyboardStickyFooter`, `AppKeyboardToolbar`, or `KeyboardSafeSheet` as
   appropriate.

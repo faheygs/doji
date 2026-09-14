@@ -146,6 +146,7 @@ export default function FriendsScreen() {
         <FlatList
           style={webScrollParentStyle}
           data={friends as FriendRow[]}
+          removeClippedSubviews={false}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"

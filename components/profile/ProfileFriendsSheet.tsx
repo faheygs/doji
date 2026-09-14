@@ -92,6 +92,7 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
       >
         <FlatList
           data={friends}
+          removeClippedSubviews={false}
           keyExtractor={(row) => row.friend_id}
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"

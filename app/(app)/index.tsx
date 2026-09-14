@@ -3,9 +3,7 @@ import {
   View,
   FlatList,
   RefreshControl,
-
   TouchableOpacity,
-  Platform,
   InteractionManager,
   type ViewToken,
 } from 'react-native';
@@ -418,7 +416,7 @@ export default function FeedScreen() {
           initialNumToRender={6}
           maxToRenderPerBatch={4}
           windowSize={7}
-          removeClippedSubviews={Platform.OS === 'android'}
+          removeClippedSubviews={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

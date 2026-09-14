@@ -92,6 +92,7 @@ export function MentionAutocomplete({ query, visible, onSelect }: Props) {
       ) : (
         <FlatList
           data={results}
+          removeClippedSubviews={false}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           keyboardShouldPersistTaps="always"

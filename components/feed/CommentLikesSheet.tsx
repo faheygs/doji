@@ -221,6 +221,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
             ) : (
               <FlatList
                 data={likes}
+                removeClippedSubviews={false}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
                 onEndReached={() => {

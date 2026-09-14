@@ -719,7 +719,7 @@ export function PostCommentsThread({
             windowSize={5}
             initialNumToRender={12}
             maxToRenderPerBatch={8}
-            removeClippedSubviews={Platform.OS === 'android'}
+            removeClippedSubviews={false}
             contentContainerStyle={{ flexGrow: 1 }}
             onEndReached={() => {
               if (hasNextPage && !isFetchingNextPage) void fetchNextPage();

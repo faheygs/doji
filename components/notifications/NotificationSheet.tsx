@@ -474,6 +474,7 @@ export function NotificationSheet({
         >
           <FlatList
             data={items}
+            removeClippedSubviews={false}
             keyExtractor={(i) => i.key}
             contentContainerStyle={styles.list}
             renderItem={renderItem}

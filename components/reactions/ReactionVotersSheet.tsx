@@ -279,6 +279,7 @@ export function ReactionVotersSheet({
             ) : (
               <FlatList
                 data={reactions}
+                removeClippedSubviews={false}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
                 onEndReached={() => {

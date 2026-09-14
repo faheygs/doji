@@ -545,6 +545,7 @@ function PollResultCardImpl({
               </GestureDetector>
               <FlatList
                 data={modalVoters}
+                removeClippedSubviews={false}
                 keyExtractor={(item) => item.user_id}
                 style={{ flex: 1 }}
                 contentContainerStyle={{

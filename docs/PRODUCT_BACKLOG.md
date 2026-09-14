@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 10, 2026
+Last updated: September 14, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -8,6 +8,29 @@ move it to **Completed** only after the relevant release or server change has be
 verified on a physical device.
 
 ## Queued
+
+### FW-009 — Treat intentional realtime connection closure as lifecycle cleanup
+
+Priority: P1 — next shared iOS/Android build
+
+- Do not report an intentionally closed or superseded Ably client as
+  `channel_subscribe_exhausted` when authentication applies, changes, or clears a
+  session.
+- Identify stale subscription attempts by client instance/generation rather than
+  relying only on the provider's error-message text; also recognize wrapped
+  transport-level `Connection closed` errors as recoverable.
+- Keep the expected closure as a diagnostic breadcrumb while continuing to report
+  genuine authorization, capability, and unexpected provider failures to Sentry.
+- Confirm the resilient subscription attaches to the replacement client promptly
+  and that reconnect/foreground reconciliation still catches any event missed during
+  the transition.
+- Add regression coverage for closing a client while channel subscription is in
+  flight: no Sentry incident, no permanent retry loop, and successful attachment to
+  the replacement client.
+- Add explicit Sentry release/build metadata so future events can be attributed to
+  the exact iOS build or Android version code.
+- Verify on physical iOS and Android devices and keep this item queued until no new
+  false `Connection closed` incident appears during normal auth/bootstrap flows.
 
 ### FW-001 — Friendship actions acknowledge immediately
 

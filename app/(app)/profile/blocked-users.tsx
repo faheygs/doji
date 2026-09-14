@@ -126,6 +126,7 @@ export default function BlockedUsersScreen() {
         <FlatList
           style={webScrollParentStyle}
           data={blocked}
+          removeClippedSubviews={false}
           keyExtractor={(item) => item.id}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
