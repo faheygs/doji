@@ -16,6 +16,53 @@ export type FcmResult = {
 
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
+type FcmConfig = {
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+};
+
+const GOOGLE_PROJECT_ID = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u;
+const GOOGLE_SERVICE_ACCOUNT =
+  /^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/u;
+
+/**
+ * Fail closed before a malformed secret can become part of a provider URL.
+ * Provider error bodies may echo URL path segments, so never interpolate an
+ * unchecked project id or a raw provider message into delivery telemetry.
+ */
+function fcmConfig(): FcmConfig {
+  const projectId = Deno.env.get('FCM_PROJECT_ID')?.trim() ?? '';
+  const clientEmail = Deno.env.get('FCM_CLIENT_EMAIL')?.trim() ?? '';
+  const privateKey = Deno.env.get('FCM_PRIVATE_KEY') ?? '';
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error('FCM credentials are not configured');
+  }
+  if (!GOOGLE_PROJECT_ID.test(projectId)) {
+    throw new Error('FCM project ID is malformed');
+  }
+  if (!GOOGLE_SERVICE_ACCOUNT.test(clientEmail)) {
+    throw new Error('FCM client email is malformed');
+  }
+  if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') ||
+      !privateKey.includes('-----END PRIVATE KEY-----')) {
+    throw new Error('FCM private key is malformed');
+  }
+  return { projectId, clientEmail, privateKey };
+}
+
+function safeTransportError(error: unknown): string {
+  if (!(error instanceof Error)) return 'FCM transport failed';
+  const safeMessages = new Set([
+    'FCM credentials are not configured',
+    'FCM project ID is malformed',
+    'FCM client email is malformed',
+    'FCM private key is malformed',
+  ]);
+  if (safeMessages.has(error.message)) return error.message;
+  return `FCM transport failed (${error.name || 'Error'})`;
+}
+
 function base64Url(input: Uint8Array | string): string {
   const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
   let binary = '';
@@ -37,9 +84,7 @@ async function accessToken(): Promise<string> {
   if (cachedAccessToken && cachedAccessToken.expiresAt - now > 120) {
     return cachedAccessToken.value;
   }
-  const clientEmail = Deno.env.get('FCM_CLIENT_EMAIL');
-  const privateKey = Deno.env.get('FCM_PRIVATE_KEY');
-  if (!clientEmail || !privateKey) throw new Error('FCM credentials are not configured');
+  const { clientEmail, privateKey } = fcmConfig();
 
   const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claims = base64Url(JSON.stringify({
@@ -74,7 +119,10 @@ async function accessToken(): Promise<string> {
   });
   const payload = await response.json() as { access_token?: string; expires_in?: number; error?: string };
   if (!response.ok || !payload.access_token) {
-    throw new Error(`FCM OAuth ${response.status}: ${payload.error ?? 'missing access token'}`);
+    const oauthCode = payload.error && /^[a-z0-9_.-]{1,80}$/iu.test(payload.error)
+      ? payload.error
+      : 'provider rejected request';
+    throw new Error(`FCM OAuth ${response.status}: ${oauthCode}`);
   }
   cachedAccessToken = {
     value: payload.access_token,
@@ -84,16 +132,17 @@ async function accessToken(): Promise<string> {
 }
 
 export function fcmConfigured(): boolean {
-  return Boolean(
-    Deno.env.get('FCM_PROJECT_ID') &&
-      Deno.env.get('FCM_CLIENT_EMAIL') &&
-      Deno.env.get('FCM_PRIVATE_KEY'),
-  );
+  try {
+    fcmConfig();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function sendFcmMessage(message: FcmMessage): Promise<FcmResult> {
   try {
-    const projectId = Deno.env.get('FCM_PROJECT_ID')!;
+    const { projectId } = fcmConfig();
     const authorization = await accessToken();
     const response = await fetch(
       `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
@@ -128,12 +177,12 @@ export async function sendFcmMessage(message: FcmMessage): Promise<FcmResult> {
     const invalid = errorCode === 'UNREGISTERED' || errorCode === 'SENDER_ID_MISMATCH';
     return {
       outcome: invalid ? 'invalid_token' : 'rejected',
-      error: `FCM ${response.status}: ${errorCode ?? payload.error?.message ?? 'rejected'}`,
+      error: `FCM ${response.status}: ${errorCode ?? 'provider rejected request'}`,
     };
   } catch (error) {
     return {
       outcome: 'transport_error',
-      error: error instanceof Error ? error.message : String(error),
+      error: safeTransportError(error),
     };
   }
 }

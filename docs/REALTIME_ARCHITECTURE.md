@@ -247,6 +247,10 @@ reconcile authoritative database state.
   priority and iOS time-sensitive interruption. Friend-request, mention/reply, and
   review/account pushes use active interruption and their category-specific Android
   channels.
+  The FCM sender fails closed unless the project ID, service-account email, and private
+  key envelope are structurally valid. Delivery telemetry retains bounded provider
+  codes and safe local categories only; it never stores raw provider bodies or secret
+  values.
   Stable `threadId`, `collapseId`, and Android `tag` values keep related alerts
   organized or replaced without changing durable in-app history.
 - The Firebase Android app and its Android API-key application restrictions include

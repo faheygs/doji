@@ -547,6 +547,10 @@ An iOS production release requires APNs
 key/team/bundle secrets; an Android production release requires FCM
 project/client-email/private-key secrets. A platform is not enabled publicly until
 its native provider is configured and verified on its exact release build.
+The FCM sender validates the project ID, service-account email, and PEM envelope before
+building an OAuth request or provider URL. Push telemetry stores only bounded provider
+codes and safe local error categories; raw provider bodies and credential values are
+never persisted.
 The Firebase Android app and its auto-created Android API key must include the SHA-1
 fingerprint of Google Play's active deployment certificate for
 `com.doit.challengeapp`. Do not substitute the Play hybrid/post-quantum certificate
