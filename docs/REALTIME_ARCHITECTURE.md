@@ -239,6 +239,14 @@ reconcile authoritative database state.
   slower push side effects. Push-recipient reads start concurrently and are not awaited
   by the Ably publication. A durable `realtimePublished` marker prevents a relay retry
   from republishing or delaying the corresponding socket event.
+- User-visible channel events are claimed before internal friend-graph expansion jobs.
+  Once their ordered Ably publication succeeds, all no-push event leases in the page
+  are completed with one set-based database command instead of one round trip per
+  event. Internal fanout keeps bounded workers and is bulk-completed the same way;
+  push-bearing events retain their individual durable delivery state machine.
+- Repeated profile invalidations may coalesce only within the database transaction
+  that produced them, using the transaction ID in the idempotency key. Separate user
+  actions can never reuse a published row or lose an invalidation.
 - Doji-live pushes prefer direct APNs or FCM, with Expo as a transitional fallback
   until an installation has registered its native endpoint. This avoids Expo's 600/s
   project cap. A failed handset refresh of the optional Expo token is recorded as a

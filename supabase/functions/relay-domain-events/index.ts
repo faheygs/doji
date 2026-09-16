@@ -110,6 +110,11 @@ type RelayEvent = DeliveryEvent & {
   lease_id: string;
 };
 
+type EventLease = {
+  id: string;
+  leaseId: string;
+};
+
 type NativeEndpoint = {
   installationId: string;
   token: string;
@@ -236,6 +241,10 @@ Deno.serve(async (request) => {
   let failed = 0;
   let continued = 0;
   let broadcastSent = 0;
+  const bulkCompletions: EventLease[] = [];
+  const queueBulkCompletion = (event: RelayEvent) => {
+    bulkCompletions.push({ id: event.id, leaseId: event.lease_id });
+  };
   const processEventSideEffects = async (event: RelayEvent) => {
     try {
       const pushPolicy = resolvePushPolicy(event);
@@ -485,7 +494,8 @@ Deno.serve(async (request) => {
         return;
       }
     }
-    await processEventSideEffects(event);
+    if (resolvePushPolicy(event) === null) queueBulkCompletion(event);
+    else await processEventSideEffects(event);
   };
 
   // Preserve ordering within each Ably channel, while allowing independent
@@ -529,10 +539,32 @@ Deno.serve(async (request) => {
       return;
     }
 
-    // Realtime for the entire channel is now live. Slower push delivery may run
-    // afterward without delaying a newer feed/comment/reaction invalidation.
-    for (const event of group) await processEventSideEffects(event);
+    // Realtime for the entire channel is now live. No-push events are completed
+    // in one database operation after all topic workers finish. Push-bearing
+    // events retain their durable, per-event delivery state machine.
+    for (const event of group) {
+      if (resolvePushPolicy(event) === null) queueBulkCompletion(event);
+      else await processEventSideEffects(event);
+    }
   });
+
+  if (bulkCompletions.length > 0) {
+    const { data: completedData, error: completionError } = await database.rpc(
+      'complete_domain_events_batch',
+      { p_events: bulkCompletions },
+    );
+    const completed = typeof completedData === 'number' ? completedData : 0;
+    published += completed;
+    if (completionError || completed !== bulkCompletions.length) {
+      failed += bulkCompletions.length - completed;
+      const message = completionError?.message ??
+        `Completed ${completed} of ${bulkCompletions.length} event leases`;
+      await database.rpc('release_domain_events_batch', {
+        p_events: bulkCompletions,
+        p_error: message,
+      });
+    }
+  }
 
   const { data: nextWakeData, error: nextWakeError } = await database.rpc(
     'next_domain_event_available_at',

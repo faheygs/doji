@@ -604,6 +604,14 @@ Push-recipient reads begin concurrently and are not awaited before an Ably batch
 published. `realtime_published_at` measures socket latency from the later of
 `created_at` and `available_at`; phone-alert work never sits in front of the live-data
 service objective.
+User-visible channel rows are claimed before `internal:friend-fanout` expansion jobs.
+After ordered Ably publication, no-push rows from the claimed page are completed by one
+set-based lease command; the relay never serializes one completion RPC per realtime
+event. Internal fanout uses the same bulk completion after its bounded batch work,
+while push-bearing events retain their per-event durable delivery state machine.
+Profile invalidations may coalesce only within their originating database transaction
+using `txid_current()` in the idempotency key. Separate committed actions always create
+separate invalidations.
 
 ## Economy, profiles, and gamification
 

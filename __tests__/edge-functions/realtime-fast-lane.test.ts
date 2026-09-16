@@ -9,6 +9,9 @@ describe('realtime command fast lane', () => {
   const relay = read('supabase/functions/relay-domain-events/index.ts');
   const token = read('supabase/functions/realtime-token/index.ts');
   const migration = read('supabase/migrations/20260823140000_realtime_delivery_slo.sql');
+  const scalingMigration = read(
+    'supabase/migrations/20260916011500_scale_realtime_outbox_delivery.sql',
+  );
   const dueWakeMigration = read(
     'supabase/migrations/20260902210000_rearm_due_outbox_wake.sql',
   );
@@ -41,6 +44,33 @@ describe('realtime command fast lane', () => {
     const topicWorker = relay.indexOf('await runTopicWorkers([...byTopic.values()]');
     expect(relay.indexOf('await publishAblyEvents(', topicWorker)).toBeLessThan(
       relay.indexOf('await processEventSideEffects(event)', topicWorker),
+    );
+  });
+
+  it('bulk-completes no-push work instead of serializing one database call per event', () => {
+    expect(relay).toContain("'complete_domain_events_batch'");
+    expect(relay).toContain('const bulkCompletions: EventLease[] = []');
+    expect(relay).toContain('if (resolvePushPolicy(event) === null) queueBulkCompletion(event)');
+    expect(scalingMigration).toContain(
+      'create or replace function public.complete_domain_events_batch',
+    );
+    expect(scalingMigration).toContain(
+      'create or replace function public.release_domain_events_batch',
+    );
+    expect(scalingMigration).toContain(
+      'grant execute on function public.complete_domain_events_batch(jsonb) to service_role',
+    );
+  });
+
+  it('keeps user-visible realtime and push work ahead of internal graph expansion', () => {
+    expect(scalingMigration).toContain("when event.topic <> 'internal:friend-fanout'");
+    expect(scalingMigration).toContain("when event.topic <> 'internal:friend-fanout' then 2");
+    expect(scalingMigration).toContain('else 3');
+    expect(scalingMigration).toContain(
+      "'account-profile:' || new.id::text || ':' || txid_current()::text",
+    );
+    expect(scalingMigration).toContain(
+      "'fanout:profile:' || fanout_type || ':' || uid::text || ':' || txid_current()::text",
     );
   });
 
