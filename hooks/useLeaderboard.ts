@@ -6,6 +6,7 @@ import { weekStart } from '../lib/xp';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { LeaderboardEntry } from '../types/database';
 import { createRequestSignal } from '../lib/requestSignal';
+import { PERSISTED_QUERY_GC_MS } from '../lib/queryPersistence';
 
 export type LeaderboardMode = 'weekly' | 'alltime';
 export type LeaderboardAudience = 'friends' | 'everyone';
@@ -19,11 +20,13 @@ async function fetchLeaderboard(
   if (audience === 'friends' && !userId) return [];
   const request = createRequestSignal(signal, 6_000);
   try {
-    const { data, error } = await supabase.rpc('get_leaderboard_snapshot', {
-      p_mode: mode,
-      p_audience: audience,
-      p_limit: 50,
-    }).abortSignal(request.signal);
+    const { data, error } = await supabase
+      .rpc('get_leaderboard_snapshot', {
+        p_mode: mode,
+        p_audience: audience,
+        p_limit: 50,
+      })
+      .abortSignal(request.signal);
     if (error) throw error;
     return (data ?? []) as LeaderboardEntry[];
   } finally {
@@ -42,8 +45,10 @@ function leaderboardQueryKey(
 export function warmLeaderboardCache(queryClient: QueryClient, userId: string | undefined) {
   if (!userId) return;
   const variants: [LeaderboardMode, LeaderboardAudience][] = [
-    ['weekly', 'friends'], ['weekly', 'everyone'],
-    ['alltime', 'friends'], ['alltime', 'everyone'],
+    ['weekly', 'friends'],
+    ['weekly', 'everyone'],
+    ['alltime', 'friends'],
+    ['alltime', 'everyone'],
   ];
   for (const [mode, audience] of variants) {
     void queryClient.prefetchQuery({
@@ -65,7 +70,7 @@ export function useLeaderboard(
     queryKey: leaderboardQueryKey(mode, audience, userId),
     queryFn: ({ signal }) => fetchLeaderboard(mode, audience, userId, signal),
     staleTime: 60_000,
-    gcTime: 15 * 60_000,
+    gcTime: PERSISTED_QUERY_GC_MS,
     enabled: audience === 'everyone' || !!userId,
   });
 

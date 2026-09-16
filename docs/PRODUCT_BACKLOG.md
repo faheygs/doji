@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 14, 2026
+Last updated: September 15, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -123,6 +123,10 @@ Priority: P2
 
 Edge-to-edge, resizable, orientation, and safe-area configuration changes are staged for
 Android build 5; Google Play and device verification remain.
+
+The follow-up bottom-tab fix is staged: the navigator now owns the native bottom inset,
+and every screen hosted inside it excludes that edge so Android cannot reserve the same
+space twice. Physical Galaxy verification with gesture and three-button navigation remains.
 
 - Remove deprecated edge-to-edge/window APIs flagged by Google Play for build 4.
 - Audit orientation and resizability behavior for Android 16, tablets, and foldables.

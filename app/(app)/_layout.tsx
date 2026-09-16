@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useDomainRealtime } from '../../hooks/useDomainRealtime';
 import { useAuthGate } from '../../hooks/useAuthGate';
-import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
+import { getBottomTabBarMetrics } from '../../lib/safeAreaLayout';
 import {
   IconHome,
   IconTrophy,
@@ -46,8 +46,10 @@ export default function AppLayout() {
     return () => window.clearTimeout(t);
   }, [pathname]);
 
-  const tabBarHeight =
-    52 + (Platform.OS === 'ios' ? Math.max(insets.bottom, 8) : insets.bottom + 8);
+  const tabBarMetrics = useMemo(
+    () => getBottomTabBarMetrics(Platform.OS, insets.bottom),
+    [insets.bottom],
+  );
 
   const tabBarStyle = useMemo(
     () => [
@@ -57,13 +59,9 @@ export default function AppLayout() {
         borderTopColor: colors.hairline,
         elevation: 0 as const,
       },
-      {
-        height: tabBarHeight,
-        paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : Spacing.sm,
-        paddingTop: 8,
-      },
+      tabBarMetrics,
     ],
-    [colors.background, colors.hairline, tabBarHeight, insets.bottom],
+    [colors.background, colors.hairline, tabBarMetrics],
   );
 
   const tabScreenOptions = useMemo(

@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  TouchableOpacity,
-
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -148,7 +143,9 @@ export default function CameraScreen() {
       let photoReady = Boolean(capturedPhoto);
       const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
       if (!cameraPermission.granted) {
-        setActionError({ message: 'Allow camera access to capture your proof, or use your library.' });
+        setActionError({
+          message: 'Allow camera access to capture your proof, or use your library.',
+        });
         return;
       }
       if (needVideo) {
@@ -179,7 +176,9 @@ export default function CameraScreen() {
         });
         if (video.canceled || !video.assets?.[0]?.uri) {
           if (needPhoto && photoReady) {
-            setActionError({ message: 'Your photo is saved here. Add the required video to continue.' });
+            setActionError({
+              message: 'Your photo is saved here. Add the required video to continue.',
+            });
           }
           return;
         }
@@ -190,7 +189,9 @@ export default function CameraScreen() {
 
       setFlowStep('preview');
     } catch {
-      setActionError({ message: 'The phone camera could not open. Try again or use your library.' });
+      setActionError({
+        message: 'The phone camera could not open. Try again or use your library.',
+      });
     } finally {
       setLibraryBusy(false);
     }
@@ -289,7 +290,10 @@ export default function CameraScreen() {
   if (flowStep === 'chooseSource') {
     const webHint = Platform.OS === 'web' ? 'Use your photo library.' : '';
     return (
-      <SafeAreaView style={[styles.chooseRoot, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.chooseRoot, { backgroundColor: colors.background }]}
+      >
         <View style={styles.chooseHeader}>
           <TouchableOpacity
             onPress={() => backOrHome(router)}
@@ -355,7 +359,7 @@ export default function CameraScreen() {
           contentContainerStyle={[styles.previewContent, { backgroundColor: colors.background }]}
           showsVerticalScrollIndicator={false}
         >
-          <SafeAreaView>
+          <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES}>
             <View style={styles.previewHeader}>
               <TouchableOpacity
                 onPress={handleRetake}

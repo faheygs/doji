@@ -9,7 +9,6 @@ import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
 import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
-import { signPostMedia } from '../lib/postMedia';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
 
 export function useProfile(username?: string) {
@@ -54,9 +53,10 @@ export function usePost(postId?: string) {
       if (error) throw error;
       if (!data) return null;
 
-      const [mapped] = await signPostMedia([data as Post]);
-
-      const [withReaction] = await attachReactionFields([mapped], me, signal);
+      // Keep the stable private object references in server-state cache.
+      // PostCard resolves a current signed URL only while the authorized card
+      // is mounted, so a bearer capability is never persisted.
+      const [withReaction] = await attachReactionFields([data as Post], me, signal);
       return withReaction as Post;
     },
     enabled: !!postId,

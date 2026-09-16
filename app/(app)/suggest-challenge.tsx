@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -193,7 +194,10 @@ export default function SuggestChallengeScreen() {
     if (needsFormatRule) {
       answerRule = buildFormatRule();
       if (!answerRule) {
-        setSubmitFeedback({ tone: 'error', message: formatValidation.message ?? 'Set a valid format rule.' });
+        setSubmitFeedback({
+          tone: 'error',
+          message: formatValidation.message ?? 'Set a valid format rule.',
+        });
         return;
       }
     }
@@ -238,7 +242,10 @@ export default function SuggestChallengeScreen() {
   const SelectedKindIcon = selectedKind.Icon;
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <AppKeyboardAwareScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}

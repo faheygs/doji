@@ -1,11 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
@@ -23,6 +17,7 @@ import {
   webScrollParentStyle,
 } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { CategoryBadge } from '../../components/ui/CategoryBadge';
@@ -185,7 +180,7 @@ export default function ChallengeScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary}>
             Loading…
@@ -197,7 +192,7 @@ export default function ChallengeScreen() {
 
   if (isError) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
@@ -208,8 +203,13 @@ export default function ChallengeScreen() {
           <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
             {"Couldn't load today's challenge."}
           </Text>
-          <TouchableOpacity onPress={() => void refetch()} style={[styles.buyInBtn, { marginTop: Spacing.md }]}>
-            <Text variant="label" color={colors.onPrimary}>Try Again</Text>
+          <TouchableOpacity
+            onPress={() => void refetch()}
+            style={[styles.buyInBtn, { marginTop: Spacing.md }]}
+          >
+            <Text variant="label" color={colors.onPrimary}>
+              Try Again
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -218,7 +218,7 @@ export default function ChallengeScreen() {
 
   if (!userEvent) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
@@ -236,7 +236,7 @@ export default function ChallengeScreen() {
 
   if (notYetLive) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
@@ -253,7 +253,7 @@ export default function ChallengeScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
           <IconClose size={22} color={colors.textSecondary} />
@@ -359,7 +359,7 @@ export default function ChallengeScreen() {
       </ScrollView>
 
       <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.footer}>
-        {(!isCompleted && (isBuyInOpen || (!isMissed && !isExpiredPending))) ? (
+        {!isCompleted && (isBuyInOpen || (!isMissed && !isExpiredPending)) ? (
           <Button onPress={handleStartChallenge} fullWidth size="lg">
             {ctaLabel}
           </Button>

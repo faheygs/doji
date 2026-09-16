@@ -14,6 +14,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { ProfileAvatar } from '../../components/ui/ProfileAvatar';
 import { PostCard } from '../../components/feed/PostCard';
@@ -35,7 +36,7 @@ import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
-import { hasPrivatePostMedia, signPostMedia } from '../../lib/postMedia';
+import { hasPrivatePostMedia, postMediaCacheKey, signPostMedia } from '../../lib/postMedia';
 import { useFeedScreenStyles } from '../../components/feed/useFeedScreenStyles';
 export default function FeedScreen() {
   const router = useRouter();
@@ -55,11 +56,7 @@ export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useFeedScreenStyles();
   const [audience, setAudience] = useState<FeedAudience>('friends');
-  useFocusedRealtimeInvalidation(
-    'feed:public',
-    realtimeQueryRoots,
-    audience === 'everyone',
-  );
+  useFocusedRealtimeInvalidation('feed:public', realtimeQueryRoots, audience === 'everyone');
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [visiblePostIds, setVisiblePostIds] = useState<ReadonlySet<string>>(() => new Set());
   const [focusOpenComments, setFocusOpenComments] = useState(false);
@@ -126,12 +123,25 @@ export default function FeedScreen() {
     const task = InteractionManager.runAfterInteractions(() => {
       void signPostMedia(candidates).then((resolvedPosts) => {
         if (disposed) return;
-        const imageUrls = resolvedPosts.flatMap((post) =>
-          [post.photo_url, post.front_photo_url].filter(
-            (url): url is string => typeof url === 'string' && url.length > 0,
-          ),
+        const imagePairs = resolvedPosts.flatMap((resolvedPost, index) => {
+          const stablePost = candidates[index];
+          return [
+            [stablePost?.photo_url, resolvedPost.photo_url],
+            [stablePost?.front_photo_url, resolvedPost.front_photo_url],
+          ] as const;
+        });
+        void Promise.allSettled(
+          imagePairs.map(async ([stableReference, signedUrl]) => {
+            if (!signedUrl) return;
+            const cacheKey = postMediaCacheKey(stableReference);
+            if (!cacheKey) {
+              await ExpoImage.prefetch(signedUrl, 'memory-disk');
+              return;
+            }
+            const image = await ExpoImage.loadAsync({ uri: signedUrl, cacheKey });
+            await ExpoImage.writeToCacheAsync(image, cacheKey);
+          }),
         );
-        if (imageUrls.length > 0) void ExpoImage.prefetch(imageUrls, 'memory-disk');
       });
     });
     return () => {
@@ -407,7 +417,7 @@ export default function FeedScreen() {
 
   if (feedError && posts.length === 0) {
     return (
-      <SafeAreaView style={outerStyle}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
         <ListHeader />
         <ErrorState
           title="Couldn't load your feed"
@@ -419,7 +429,7 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={outerStyle}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
       <SkeletonSwap
         loading={showInitialFeedSkeleton}
         skeleton={

@@ -25,6 +25,7 @@ import { AppVideo } from '../ui/AppVideo';
 import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalidation';
 import { usePostCardStyles } from './usePostCardStyles';
 import { usePostMedia } from '../../hooks/usePostMedia';
+import { postMediaCacheKey } from '../../lib/postMedia';
 
 type Props = {
   post: Post;
@@ -53,7 +54,8 @@ export function postsVisuallyEqual(a: Post, b: Post): boolean {
     a.video_url !== b.video_url ||
     a.caption !== b.caption ||
     a.created_at !== b.created_at ||
-    a.is_late !== b.is_late || a.comments_disabled !== b.comments_disabled ||
+    a.is_late !== b.is_late ||
+    a.comments_disabled !== b.comments_disabled ||
     Boolean(a.is_community_poll) !== Boolean(b.is_community_poll)
   ) {
     return false;
@@ -69,7 +71,12 @@ export function postsVisuallyEqual(a: Post, b: Post): boolean {
   }
   const ac = a.challenge;
   const bc = b.challenge;
-  if (ac?.id !== bc?.id || ac?.title !== bc?.title || ac?.category !== bc?.category || ac?.type !== bc?.type)
+  if (
+    ac?.id !== bc?.id ||
+    ac?.title !== bc?.title ||
+    ac?.category !== bc?.category ||
+    ac?.type !== bc?.type
+  )
     return false;
   return true;
 }
@@ -116,12 +123,23 @@ function PostCardImpl({
     }
   }, [media.front_photo_url, hasVideo]);
 
-  const displayUri =
-    showFront && media.front_photo_url ? media.front_photo_url : media.photo_url;
-  const mainImageSource = useMemo(() => ({ uri: displayUri ?? '' }), [displayUri]);
+  const displayUri = showFront && media.front_photo_url ? media.front_photo_url : media.photo_url;
+  const displayReference =
+    showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
+  const mainImageSource = useMemo(
+    () => ({
+      uri: displayUri ?? '',
+      cacheKey: postMediaCacheKey(displayReference),
+    }),
+    [displayReference, displayUri],
+  );
+  const thumbReference = showFront ? post.photo_url : post.front_photo_url;
   const thumbImageSource = useMemo(
-    () => ({ uri: showFront ? media.photo_url ?? '' : media.front_photo_url ?? '' }),
-    [showFront, media.photo_url, media.front_photo_url],
+    () => ({
+      uri: showFront ? (media.photo_url ?? '') : (media.front_photo_url ?? ''),
+      cacheKey: postMediaCacheKey(thumbReference),
+    }),
+    [showFront, media.photo_url, media.front_photo_url, thumbReference],
   );
 
   const hasPhotoLayer = Boolean(displayUri);
@@ -130,7 +148,8 @@ function PostCardImpl({
     post.challenge?.type === 'task' ||
     post.challenge?.type === 'format';
   const isPhotoPost = post.type === 'photo';
-  const expectsMedia = !blurred && Boolean(post.photo_url || post.front_photo_url || post.video_url);
+  const expectsMedia =
+    !blurred && Boolean(post.photo_url || post.front_photo_url || post.video_url);
   const showMedia = expectsMedia || hasPhotoLayer || hasVideo;
 
   const isPollVotePost = post.type === 'poll_vote' && post.challenge;
@@ -234,7 +253,14 @@ function PostCardImpl({
             borderWidth={equippedBorder?.width}
           />
           <View style={styles.nameContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: Spacing.sm,
+                flexWrap: 'wrap',
+              }}
+            >
               <Text variant="headingMedium" numberOfLines={1}>
                 @{post.profile?.username}
               </Text>

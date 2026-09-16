@@ -8,7 +8,7 @@ jest.mock('../../lib/supabase', () => ({
   },
 }));
 
-import { signPostMedia } from '../../lib/postMedia';
+import { postMediaCacheKey, signPostMedia } from '../../lib/postMedia';
 import type { Post } from '../../types/database';
 
 function post(id: string, path: string): Post {
@@ -50,5 +50,16 @@ describe('post media signing', () => {
     jest.advanceTimersByTime(24);
     const [result] = await pending;
     expect(result.photo_url).toBeNull();
+  });
+
+  it('uses the immutable object path as the cache key across signed URL rotations', () => {
+    const first =
+      'https://example.supabase.co/storage/v1/object/sign/post-media/users/one/photo.jpg?token=first';
+    const second =
+      'https://example.supabase.co/storage/v1/object/sign/post-media/users/one/photo.jpg?token=second';
+
+    expect(postMediaCacheKey(first)).toBe('post-media:users/one/photo.jpg');
+    expect(postMediaCacheKey(second)).toBe(postMediaCacheKey(first));
+    expect(postMediaCacheKey('https://cdn.example.com/public.jpg')).toBeUndefined();
   });
 });

@@ -1,17 +1,12 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { IconSettings } from '@/components/icons/Icons';
 import { XPBar } from '@/components/gamification/XPBar';
@@ -141,7 +136,10 @@ export default function MyProfileScreen() {
   if (!profile) return null;
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <ScrollView
         style={webScrollParentStyle}
         showsVerticalScrollIndicator={false}

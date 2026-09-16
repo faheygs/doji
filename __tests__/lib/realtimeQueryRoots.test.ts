@@ -2,7 +2,7 @@ import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
 
 describe('realtimeQueryRoots', () => {
   it('does not reload the feed or polls for a comment heart', () => {
-    expect(realtimeQueryRoots('feed.comment_like.insert')).toEqual(['comments']);
+    expect(realtimeQueryRoots('feed.comment_like.insert')).toEqual(['comments', 'commentLikes']);
   });
 
   it('targets only the surfaces changed by each public event', () => {

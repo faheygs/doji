@@ -109,12 +109,25 @@
   the client rechecks through the normal startup/foreground query lifecycle and compares
   native build as well as semantic version. Release operators enable the row only after
   the exact Apple/Google build is available in that store.
+- The bottom tab navigator owns the native bottom safe-area inset. Tab-root screens
+  exclude that edge, while the tab bar adds the measured inset to both its height and
+  bottom padding; no screen or platform branch reserves the same Android space twice.
 - Feed RPCs return authorized records and stable private-media references immediately.
   Visible unlocked cards batch signed-URL resolution across one render pass; stable
   references, but never signed bearer URLs, may be persisted. Photo/video feeds do not
   prefetch the hidden audience while visible media is hydrating. After feed chrome is
   usable, the client signs and memory/disk-prefetches media for at most the first five
   authorized cards so scrolling does not serialize signing and image downloads.
+  The native image cache is keyed by the immutable private object path, not the
+  rotating signed bearer URL. Query persistence flushes on background, and a
+  local snapshot that misses the bounded splash deadline can still hydrate
+  unfinished queries without replacing newer authoritative results.
+  Recent comments, comment-like/reaction voter lists, profiles, friend state,
+  leaderboards, badges, poll detail, and shop ownership use the same bounded
+  stale-while-revalidate contract. Infinite queries retain only their first
+  page; persisted query count and serialized size are capped; mutations,
+  search drafts, and signed bearer URLs are never persisted. Comment-like
+  voter lists participate in both foreground and targeted realtime repair.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.

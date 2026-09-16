@@ -1,12 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +12,7 @@ import {
   type AccentThemeKey,
 } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -120,7 +114,10 @@ export default function AppearanceScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/profile')}
@@ -151,7 +148,11 @@ export default function AppearanceScreen() {
           </View>
         </View>
 
-        <Text variant="label" color={colors.textTertiary} style={{ marginLeft: Spacing.lg, marginTop: Spacing.lg }}>
+        <Text
+          variant="label"
+          color={colors.textTertiary}
+          style={{ marginLeft: Spacing.lg, marginTop: Spacing.lg }}
+        >
           ACCENT COLOR
         </Text>
         <View style={styles.themeGrid}>
@@ -188,7 +189,11 @@ export default function AppearanceScreen() {
         </View>
 
         {selectableThemes.length === 1 ? (
-          <Text variant="body" color={colors.textSecondary} style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md }}>
+          <Text
+            variant="body"
+            color={colors.textSecondary}
+            style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md }}
+          >
             Buy accent themes in the Shop to unlock more colors.
           </Text>
         ) : null}
@@ -197,7 +202,11 @@ export default function AppearanceScreen() {
           style={styles.shopLink}
           onPress={() => router.push(hrefWithReturnTo('/(app)/profile/shop', pathname))}
         >
-          <Text variant="body" color={colors.primary} style={{ fontWeight: '600', textAlign: 'center' }}>
+          <Text
+            variant="body"
+            color={colors.primary}
+            style={{ fontWeight: '600', textAlign: 'center' }}
+          >
             Browse more themes in the Shop →
           </Text>
         </TouchableOpacity>

@@ -1,14 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { useAppDialog } from '@/contexts/DialogContext';
 import { Text } from '@/components/ui/Text';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -17,7 +15,10 @@ import { SkeletonSwap } from '@/components/ui/SkeletonSwap';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { ModerationReportCard } from '@/components/admin/ModerationReportCard';
 import {
-  usePendingReports, useModerateReport, type ModerateAction, type Report,
+  usePendingReports,
+  useModerateReport,
+  type ModerateAction,
+  type Report,
 } from '@/hooks/useReports';
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { AdminQueueEmptyState } from '@/components/admin/AdminQueueEmptyState';
@@ -35,49 +36,54 @@ export default function AdminReportsScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
-  const { data: reports = [], isLoading, isError, refetch } =
-    usePendingReports();
+  const { data: reports = [], isLoading, isError, refetch } = usePendingReports();
   const { refreshing, handleRefresh } = useManualRefresh(refetch);
   const coldError = isError && reports.length === 0;
   const moderate = useModerateReport();
   const [active, setActive] = useState<{ reportId: string; action: ModerateAction } | null>(null);
   const [actionError, setActionError] = useState('');
 
-  const handleAction = useCallback((report: Report, action: ModerateAction) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setActionError('');
-    setActive({ reportId: report.id, action });
-    moderate.mutate(
-      { reportId: report.id, action },
-      {
-        onSuccess: () => Toast.show({ type: 'success', text1: ACTION_LABEL[action] }),
-        onError: () => setActionError('That moderation action did not complete. Try again.'),
-        onSettled: () => setActive(null),
-      },
-    );
-  }, [moderate]);
-
-  const requestAction = useCallback((report: Report, action: ModerateAction) => {
-    if (action === 'dismiss') {
-      handleAction(report, action);
-      return;
-    }
-    const banning = action === 'remove_and_ban';
-    showDialog({
-      title: banning ? 'Remove content and ban user?' : 'Remove reported content?',
-      message: banning
-        ? 'This removes the reported content and prevents this account from using Doji.'
-        : 'This permanently removes the reported content from Doji.',
-      actions: [
-        { label: 'Cancel', variant: 'cancel' },
+  const handleAction = useCallback(
+    (report: Report, action: ModerateAction) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setActionError('');
+      setActive({ reportId: report.id, action });
+      moderate.mutate(
+        { reportId: report.id, action },
         {
-          label: banning ? 'Remove & ban' : 'Remove content',
-          variant: 'destructive',
-          onPress: () => handleAction(report, action),
+          onSuccess: () => Toast.show({ type: 'success', text1: ACTION_LABEL[action] }),
+          onError: () => setActionError('That moderation action did not complete. Try again.'),
+          onSettled: () => setActive(null),
         },
-      ],
-    });
-  }, [handleAction, showDialog]);
+      );
+    },
+    [moderate],
+  );
+
+  const requestAction = useCallback(
+    (report: Report, action: ModerateAction) => {
+      if (action === 'dismiss') {
+        handleAction(report, action);
+        return;
+      }
+      const banning = action === 'remove_and_ban';
+      showDialog({
+        title: banning ? 'Remove content and ban user?' : 'Remove reported content?',
+        message: banning
+          ? 'This removes the reported content and prevents this account from using Doji.'
+          : 'This permanently removes the reported content from Doji.',
+        actions: [
+          { label: 'Cancel', variant: 'cancel' },
+          {
+            label: banning ? 'Remove & ban' : 'Remove content',
+            variant: 'destructive',
+            onPress: () => handleAction(report, action),
+          },
+        ],
+      });
+    },
+    [handleAction, showDialog],
+  );
 
   const handleBack = useCallback(() => {
     goBackToExplicitReturn(
@@ -88,10 +94,16 @@ export default function AdminReportsScreen() {
   }, [router, returnTo]);
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle, { backgroundColor: colors.background }]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={handleBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back"
+          onPress={handleBack}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
           <IconChevronLeft size={26} color={colors.text} />
         </TouchableOpacity>
@@ -121,7 +133,9 @@ export default function AdminReportsScreen() {
             contentContainerStyle={styles.content}
             refreshControl={
               <RefreshControl
-                refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text}
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.text}
               />
             }
           >
@@ -137,15 +151,17 @@ export default function AdminReportsScreen() {
                 title="No reports to review"
                 message="Reported posts and comments will appear here when they need attention."
               />
-            ) : reports.map((report) => (
-              <ModerationReportCard
-                key={report.id}
-                report={report}
-                busyAction={active?.reportId === report.id ? active.action : undefined}
-                disabled={moderate.isPending}
-                onAction={(action) => requestAction(report, action)}
-              />
-            ))}
+            ) : (
+              reports.map((report) => (
+                <ModerationReportCard
+                  key={report.id}
+                  report={report}
+                  busyAction={active?.reportId === report.id ? active.action : undefined}
+                  disabled={moderate.isPending}
+                  onAction={(action) => requestAction(report, action)}
+                />
+              ))
+            )}
           </ScrollView>
         )}
       </SkeletonSwap>
@@ -156,8 +172,11 @@ export default function AdminReportsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   headerText: { flex: 1, gap: 2 },
   content: { paddingBottom: Spacing.xxl, flexGrow: 1 },

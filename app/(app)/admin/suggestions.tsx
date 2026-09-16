@@ -1,18 +1,12 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -92,12 +86,7 @@ export default function AdminSuggestionsScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
-  const {
-    data: suggestions = [],
-    isLoading,
-    isError,
-    refetch,
-  } = usePendingSuggestions();
+  const { data: suggestions = [], isLoading, isError, refetch } = usePendingSuggestions();
   const { refreshing, handleRefresh } = useManualRefresh(refetch);
   const coldError = isError && suggestions.length === 0;
   const review = useReviewSuggestion();
@@ -171,7 +160,10 @@ export default function AdminSuggestionsScreen() {
   }, [router, returnTo]);
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} hitSlop={12} accessibilityLabel="Back">
           <IconChevronLeft size={26} color={colors.text} />
@@ -203,7 +195,11 @@ export default function AdminSuggestionsScreen() {
             style={webScrollParentStyle}
             contentContainerStyle={{ paddingBottom: Spacing.xxl, flexGrow: 1 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.text}
+              />
             }
           >
             {reviewError ? (
@@ -218,7 +214,8 @@ export default function AdminSuggestionsScreen() {
                 title="No suggestions to review"
                 message="New challenge ideas will appear here when someone submits one."
               />
-            ) : suggestions.map((s) => (
+            ) : (
+              suggestions.map((s) => (
                 <SuggestionQueueCard
                   key={s.id}
                   suggestion={s}
@@ -229,7 +226,8 @@ export default function AdminSuggestionsScreen() {
                   onReject={() => setRejectingId(s.id)}
                   onApprove={() => handleApprove(s.id)}
                 />
-              ))}
+              ))
+            )}
           </ScrollView>
         )}
       </SkeletonSwap>

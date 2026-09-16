@@ -1,12 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -14,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { ProfileSkeleton } from '@/components/ui/LoadingSkeletons';
 import { Button } from '@/components/ui/Button';
@@ -25,10 +19,7 @@ import {
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
-import {
-  IconChevronLeft,
-  IconPlus,
-} from '@/components/icons/Icons';
+import { IconChevronLeft, IconPlus } from '@/components/icons/Icons';
 import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
 import {
   useProfile,
@@ -45,11 +36,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { safeReplace, FEED_TAB_HREF } from '@/lib/navigationReturn';
 import { sanitizeReturnTo } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
-import {
-  useBadgeCategories,
-  useBadgeTiers,
-  useUserBadgeProgress,
-} from '@/hooks/useBadges';
+import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
 import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
@@ -135,7 +122,11 @@ export default function UserProfileScreen() {
     setRefreshing(true);
     try {
       await invalidateQueryRoots(queryClient, [
-        'profile', 'friendship', 'friendCount', 'friends', 'userBadgeProgress',
+        'profile',
+        'friendship',
+        'friendCount',
+        'friends',
+        'userBadgeProgress',
       ]);
     } finally {
       setRefreshing(false);
@@ -204,7 +195,10 @@ export default function UserProfileScreen() {
 
   if (isLoading && !profile) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.topBar}>
           {headerBack}
           <View style={{ flex: 1 }} />
@@ -216,7 +210,10 @@ export default function UserProfileScreen() {
 
   if (blockedByUser || !profile) {
     return (
-      <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.topBar}>
           {headerBack}
           <View style={{ flex: 1 }} />
@@ -241,9 +238,10 @@ export default function UserProfileScreen() {
       respondRequest.mutate(
         { friendshipId: friendship.id, accept: true },
         {
-          onError: () => setFriendActionError(
-            'Could not accept the request. Your previous status was restored; try again.',
-          ),
+          onError: () =>
+            setFriendActionError(
+              'Could not accept the request. Your previous status was restored; try again.',
+            ),
         },
       );
       return;
@@ -252,9 +250,10 @@ export default function UserProfileScreen() {
       sendRequest.mutate(
         { addresseeId: profile.id },
         {
-          onError: () => setFriendActionError(
-            'Could not send the request. Check your connection and try again.',
-          ),
+          onError: () =>
+            setFriendActionError(
+              'Could not send the request. Check your connection and try again.',
+            ),
         },
       );
     }
@@ -273,11 +272,11 @@ export default function UserProfileScreen() {
       message: `Remove ${profile.display_name} from your friends?`,
       actions: [
         { label: 'Cancel', variant: 'cancel' },
-      {
-        label: 'Unfriend',
-        variant: 'destructive',
-        onPress: () => removeFriend.mutate({ friendshipId: friendship.id }),
-      },
+        {
+          label: 'Unfriend',
+          variant: 'destructive',
+          onPress: () => removeFriend.mutate({ friendshipId: friendship.id }),
+        },
       ],
     });
   };
@@ -312,16 +311,23 @@ export default function UserProfileScreen() {
         {
           label: 'Unblock',
           onPress: () =>
-            unblockUser.mutate({ blockedUserId: profile.id }, {
-              onSuccess: () => Toast.show({ type: 'success', text1: `${profile.display_name} unblocked` }),
-            }),
+            unblockUser.mutate(
+              { blockedUserId: profile.id },
+              {
+                onSuccess: () =>
+                  Toast.show({ type: 'success', text1: `${profile.display_name} unblocked` }),
+              },
+            ),
         },
       ],
     });
   };
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <ScrollView
         style={webScrollParentStyle}
         showsVerticalScrollIndicator={false}
@@ -427,13 +433,8 @@ export default function UserProfileScreen() {
       ) : null}
 
       {reportUserOpen ? (
-        <ReportSheet
-          visible
-          reportedUserId={profile.id}
-          onClose={() => setReportUserOpen(false)}
-        />
+        <ReportSheet visible reportedUserId={profile.id} onClose={() => setReportUserOpen(false)} />
       ) : null}
-
     </SafeAreaView>
   );
 }

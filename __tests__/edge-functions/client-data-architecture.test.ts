@@ -19,11 +19,26 @@ describe('mobile data architecture', () => {
 
   it('warms the first media cards after feed chrome becomes usable', () => {
     const feed = read('app/(app)/index.tsx');
+    const card = read('components/feed/PostCard.tsx');
     expect(feed).toContain('posts.filter(hasPrivatePostMedia).slice(0, 5)');
-    expect(feed).toContain("ExpoImage.prefetch(imageUrls, 'memory-disk')");
+    expect(feed).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
+    expect(card).toContain('cacheKey: postMediaCacheKey(displayReference)');
     expect(feed.indexOf('signPostMedia(candidates)')).toBeGreaterThan(
       feed.indexOf('InteractionManager.runAfterInteractions'),
     );
+  });
+
+  it('keeps query snapshots across quick background and slow local restoration', () => {
+    const persistence = read('components/QueryCachePersistence.tsx');
+    const policy = read('lib/queryPersistence.ts');
+    expect(persistence).toContain("AppState.addEventListener('change'");
+    expect(persistence).toContain('persistNow();');
+    expect(persistence).toContain('void cacheRead');
+    expect(persistence).toContain('.then(restoreCache)');
+    expect(persistence).toContain('MAX_PERSISTED_QUERIES');
+    expect(policy).toContain("'commentLikes'");
+    expect(policy).toContain("'comments'");
+    expect(policy).toContain("'reactions'");
   });
 
   it('scopes viewer-sensitive poll caches to the signed-in user', () => {

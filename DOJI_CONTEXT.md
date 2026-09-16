@@ -298,6 +298,17 @@ references, but never signed bearer URLs. Detail, moderation, and command-receip
 use the same bounded signer. Once feed chrome is usable, at most the first five
 authorized media cards are signed and warmed into the memory/disk image cache; an
 invisible audience is never prefetched while current media is hydrating.
+Native image cache keys use the immutable authorized object path rather than
+the rotating signed URL, so a reopened app reuses downloaded photos after it
+refreshes authorization. Query snapshots flush when the app backgrounds, and
+a slow local-cache read may hydrate after the bounded splash handoff instead
+of being discarded.
+The same bounded stale-while-revalidate contract covers recent comments,
+comment-like/reaction voter lists, profiles, friend state, leaderboards,
+badges, poll detail, and shop ownership. Infinite reads persist only their
+first page, recent query count and serialized size are capped, mutations and
+search drafts are excluded, and foreground/realtime reconciliation includes
+comment-like voter lists.
 
 Challenge suggestions are untrusted UGC. The database owns their canonical hash,
 allowed kind, per-field size limits, option cardinality, answer-rule shape, and content
@@ -710,6 +721,10 @@ reported account, evidence, and confirmed destructive actions.
   iOS-only `SafeAreaView`, so status-bar cutouts and gesture/three-button navigation do
   not cover content on Android. The Android launcher uses a transparent, padded adaptive
   foreground layer; the status-bar notification glyph is a separate monochrome asset.
+- The bottom tab navigator owns the native bottom inset exactly once. Tab-root screens
+  apply only top/left/right safe-area edges; the bar adds the measured bottom inset to
+  both its height and bottom padding so gesture and three-button Android navigation do
+  not create a blank strip above the icons.
 - Android is edge-to-edge and resizable without a portrait activity lock so Android 16,
   tablets, foldables, cutouts, and multi-window modes can use the available window. The
   iPhone product remains portrait-only through its iOS-specific orientation contract.

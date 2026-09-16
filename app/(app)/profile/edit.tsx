@@ -1,17 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
@@ -83,7 +78,10 @@ export default function EditProfileScreen() {
   if (!profile) return null;
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.screen, { backgroundColor: colors.background }, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           accessibilityRole="button"
@@ -112,7 +110,12 @@ export default function EditProfileScreen() {
           style={styles.photo}
         >
           <ProfileAvatar profile={profile} size={88} />
-          <View style={[styles.camera, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+          <View
+            style={[
+              styles.camera,
+              { backgroundColor: colors.primary, borderColor: colors.background },
+            ]}
+          >
             {uploading ? (
               <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
@@ -127,7 +130,12 @@ export default function EditProfileScreen() {
             style={{ marginHorizontal: Spacing.md }}
           />
         ) : null}
-        <View style={[styles.form, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.form,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+          ]}
+        >
           <Input
             label="Username"
             value={username}

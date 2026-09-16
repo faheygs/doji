@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
@@ -85,7 +86,7 @@ export default function FormatScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator color={colors.text} size="large" />
         </View>
@@ -95,9 +96,12 @@ export default function FormatScreen() {
 
   if (!answerRule) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <View style={styles.header}>
-          <ChallengeTimer expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at} onExpire={() => void refetch()} />
+          <ChallengeTimer
+            expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at}
+            onExpire={() => void refetch()}
+          />
           <TouchableOpacity
             onPress={() => backOrHome(router)}
             hitSlop={16}
@@ -122,10 +126,13 @@ export default function FormatScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
       <View style={{ flex: 1 }}>
         <View style={styles.header}>
-          <ChallengeTimer expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at} onExpire={() => void refetch()} />
+          <ChallengeTimer
+            expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at}
+            onExpire={() => void refetch()}
+          />
           <TouchableOpacity
             onPress={() => backOrHome(router)}
             hitSlop={16}

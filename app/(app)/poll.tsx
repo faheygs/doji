@@ -1,17 +1,12 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { IconClose } from '../../components/icons/Icons';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -186,7 +181,7 @@ export default function PollScreen() {
 
   if (eventLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator color={colors.text} size="large" />
         </View>
@@ -196,7 +191,7 @@ export default function PollScreen() {
 
   if (optionsError || eventError) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <View style={styles.header}>
           <ChallengeTimer
             expiresAt={userEvent?.status === 'buy_in_open' ? null : userEvent?.expires_at}
@@ -224,7 +219,7 @@ export default function PollScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
       <View style={styles.keyboardRoot}>
         <View style={styles.header}>
           <ChallengeTimer

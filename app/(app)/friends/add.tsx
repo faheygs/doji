@@ -5,6 +5,7 @@ import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-ro
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../lib/safeAreaLayout';
 import { Text } from '../../../components/ui/Text';
 import { SearchField } from '../../../components/ui/SearchField';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
@@ -74,7 +75,10 @@ export default function AddFriendsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}

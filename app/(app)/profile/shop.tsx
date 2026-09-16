@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle, DEFAULT_ACCENT_THEME } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { ShopSkeleton } from '@/components/ui/LoadingSkeletons';
 import { SkeletonSwap } from '@/components/ui/SkeletonSwap';
@@ -132,7 +133,9 @@ export default function ShopScreen() {
       setConfirmItem(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      setPurchaseError('Could not complete this purchase. Check your Sparks balance and try again.');
+      setPurchaseError(
+        'Could not complete this purchase. Check your Sparks balance and try again.',
+      );
     }
   };
 
@@ -140,7 +143,10 @@ export default function ShopScreen() {
     TITLE_CATALOG[item.key]?.tagline ?? (item.metadata?.tagline as string | undefined);
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} hitSlop={12} accessibilityLabel="Back">
           <IconChevronLeft size={24} color={colors.text} />

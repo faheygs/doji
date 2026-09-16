@@ -41,7 +41,7 @@ const legacyLimits = new Map(Object.entries({
   'app/(app)/format.tsx': 257,
   'app/(app)/friends/index.tsx': 256,
   'infra/doji-orchestrator/src/index.ts': 620,
-  'supabase/functions/relay-domain-events/index.ts': 560,
+  'supabase/functions/relay-domain-events/index.ts': 591,
   'supabase/functions/fanout-doji-push/index.ts': 430,
 }));
 

@@ -10,7 +10,7 @@ export function realtimeQueryRoots(eventType: string): string[] {
     return ['feed', 'reactions', 'post'];
   }
   if (eventType.startsWith('feed.comment_like.')) {
-    return ['comments'];
+    return ['comments', 'commentLikes'];
   }
   if (eventType.startsWith('feed.comment.')) {
     return ['feed', 'comments', 'post'];

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getBottomTabBarMetrics, TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 
 function sourceFiles(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -20,5 +21,41 @@ describe('cross-platform safe areas', () => {
       .map((file) => path.relative(process.cwd(), file));
 
     expect(offenders).toEqual([]);
+  });
+
+  it('assigns the native bottom inset to the tab bar exactly once', () => {
+    expect(getBottomTabBarMetrics('android', 24)).toEqual({
+      height: 76,
+      paddingBottom: 24,
+      paddingTop: 8,
+    });
+    expect(getBottomTabBarMetrics('android', 0)).toEqual({
+      height: 52,
+      paddingBottom: 0,
+      paddingTop: 8,
+    });
+    expect(getBottomTabBarMetrics('ios', 34)).toEqual({
+      height: 86,
+      paddingBottom: 34,
+      paddingTop: 8,
+    });
+    expect(getBottomTabBarMetrics('web', 34)).toEqual({
+      height: 52,
+      paddingBottom: 0,
+      paddingTop: 8,
+    });
+  });
+
+  it('keeps the bottom inset out of every screen hosted by the tab navigator', () => {
+    expect(TAB_SCREEN_SAFE_AREA_EDGES).toEqual(['top', 'left', 'right']);
+
+    const tabScreens = sourceFiles(path.join(process.cwd(), 'app', '(app)'));
+    for (const file of tabScreens) {
+      const source = fs.readFileSync(file, 'utf8');
+      const safeAreaTags = source.match(/<SafeAreaView\b[^>]*>/gs) ?? [];
+      for (const tag of safeAreaTags) {
+        expect(tag).toContain('edges={TAB_SCREEN_SAFE_AREA_EDGES}');
+      }
+    }
   });
 });

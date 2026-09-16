@@ -12,20 +12,27 @@ export type CommentLikeRow = {
   id: string;
   user_id: string;
   created_at: string;
-  profile?: Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'> | null;
+  profile?: Pick<
+    Profile,
+    'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'
+  > | null;
   friendship_status?: 'self' | 'friends' | 'pending_out' | 'pending_in' | 'none';
 };
 
 export function useCommentLikes(commentId: string, enabled = true) {
+  const userId = useAuthStore((state) => state.session?.user?.id);
   return useInfiniteQuery({
-    queryKey: ['commentLikes', commentId],
+    queryKey: ['commentLikes', commentId, userId],
     queryFn: async ({ pageParam, signal }): Promise<CommentLikeRow[]> => {
-      const { data, error } = await runAbortableQuery(supabase.rpc('get_comment_like_voters_page', {
-        p_comment_id: commentId,
-        p_limit: PAGE_SIZE,
-        p_before_created_at: pageParam?.createdAt ?? null,
-        p_before_id: pageParam?.id ?? null,
-      }), signal);
+      const { data, error } = await runAbortableQuery(
+        supabase.rpc('get_comment_like_voters_page', {
+          p_comment_id: commentId,
+          p_limit: PAGE_SIZE,
+          p_before_created_at: pageParam?.createdAt ?? null,
+          p_before_id: pageParam?.id ?? null,
+        }),
+        signal,
+      );
       if (error) throw error;
       return (data ?? []) as unknown as CommentLikeRow[];
     },
@@ -36,7 +43,7 @@ export function useCommentLikes(commentId: string, enabled = true) {
         : undefined;
     },
     initialPageParam: null as VoterCursor,
-    enabled: !!useAuthStore.getState().session?.user?.id && enabled && !!commentId,
+    enabled: !!userId && enabled && !!commentId,
     staleTime: 15_000,
   });
 }

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconChevronLeft } from '@/components/icons/Icons';
@@ -106,7 +107,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <AppKeyboardAwareScrollView
         style={webScrollParentStyle}
         contentContainerStyle={styles.scrollContent}
@@ -338,7 +342,8 @@ export default function SettingsScreen() {
         ) : null}
 
         <Text variant="bodySmall" color={colors.textTertiary} style={styles.version}>
-          Doji {Constants.expoConfig?.version ?? '1.0.0'}{Constants.nativeBuildVersion ? ` (${Constants.nativeBuildVersion})` : ''}
+          Doji {Constants.expoConfig?.version ?? '1.0.0'}
+          {Constants.nativeBuildVersion ? ` (${Constants.nativeBuildVersion})` : ''}
         </Text>
       </AppKeyboardAwareScrollView>
       <ChangePasswordSheet visible={passwordOpen} onClose={() => setPasswordOpen(false)} />

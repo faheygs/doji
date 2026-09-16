@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-
   ScrollView,
   Switch,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { useAppDialog } from '@/contexts/DialogContext';
 import { Text } from '@/components/ui/Text';
 import { InlineFeedback, type InlineFeedbackTone } from '@/components/ui/InlineFeedback';
@@ -70,7 +70,9 @@ export default function NotificationSettingsScreen() {
   const { showDialog } = useAppDialog();
   const { profile, updateProfile } = useAuthStore();
   const [prefs, setPrefs] = useState<NotificationPreferences>(() =>
-    mergeNotificationPreferences(profile?.notification_preferences ?? DEFAULT_NOTIFICATION_PREFERENCES),
+    mergeNotificationPreferences(
+      profile?.notification_preferences ?? DEFAULT_NOTIFICATION_PREFERENCES,
+    ),
   );
   const [permStatus, setPermStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -95,7 +97,8 @@ export default function NotificationSettingsScreen() {
       const inactiveTrack = disabled ? colors.hairline : colors.surfaceMuted;
       const activeTrack = disabled ? colors.fillMuted : colors.primary;
       const thumbOn = colors.onPrimary;
-      const thumbOff = Platform.OS === 'ios' ? colors.surface : colors.surfaceElevated ?? colors.surface;
+      const thumbOff =
+        Platform.OS === 'ios' ? colors.surface : (colors.surfaceElevated ?? colors.surface);
 
       return {
         trackColor: {
@@ -178,7 +181,10 @@ export default function NotificationSettingsScreen() {
         await updateProfile({ notification_preferences: next });
         return true;
       } catch {
-        setPageFeedback({ tone: 'error', message: 'Could not save that notification setting. Try again.' });
+        setPageFeedback({
+          tone: 'error',
+          message: 'Could not save that notification setting. Try again.',
+        });
         setPrefs(mergeNotificationPreferences(profile.notification_preferences));
         return false;
       } finally {
@@ -192,8 +198,10 @@ export default function NotificationSettingsScreen() {
     (key: NotificationPreferenceKind, value: boolean) => {
       Haptics.selectionAsync();
       const patch =
-        key === 'doji_live' || key === 'friend_requests' ||
-        key === 'mentions_replies' || key === 'reviews_account'
+        key === 'doji_live' ||
+        key === 'friend_requests' ||
+        key === 'mentions_replies' ||
+        key === 'reviews_account'
           ? phoneAlertPreferencePatch(key, value)
           : { [key]: value };
       void persistCategories(patch, key);
@@ -203,7 +211,10 @@ export default function NotificationSettingsScreen() {
 
   const enableSystemAlerts = useCallback(async () => {
     if (Platform.OS === 'web') {
-      setPageFeedback({ tone: 'info', message: 'Phone notifications are available in the mobile app.' });
+      setPageFeedback({
+        tone: 'info',
+        message: 'Phone notifications are available in the mobile app.',
+      });
       return;
     }
     try {
@@ -214,10 +225,17 @@ export default function NotificationSettingsScreen() {
         if (!saved) return;
         setPageFeedback({ tone: 'success', message: 'Alerts are enabled on this phone.' });
       } else if (result === 'error') {
-        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
-        setPageFeedback({ tone: 'error', message: 'Could not connect this phone to alerts. Try again.' });
+        setPrefs(
+          mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),
+        );
+        setPageFeedback({
+          tone: 'error',
+          message: 'Could not connect this phone to alerts. Try again.',
+        });
       } else {
-        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
+        setPrefs(
+          mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),
+        );
         showDialog({
           title: 'Allow notifications',
           message: 'Turn on notifications for Doji in your phone settings.',
@@ -228,8 +246,13 @@ export default function NotificationSettingsScreen() {
         });
       }
     } catch {
-      setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
-      setPageFeedback({ tone: 'error', message: 'Could not enable alerts on this phone. Try again.' });
+      setPrefs(
+        mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),
+      );
+      setPageFeedback({
+        tone: 'error',
+        message: 'Could not enable alerts on this phone. Try again.',
+      });
     }
   }, [persistCategories, profile?.id, showDialog]);
 
@@ -264,11 +287,13 @@ export default function NotificationSettingsScreen() {
   );
 
   const masterEnabled = prefs.push_enabled && permStatus === 'granted';
-  const categoriesDisabled =
-    Platform.OS === 'web' ? true : !masterEnabled || Boolean(savingKey);
+  const categoriesDisabled = Platform.OS === 'web' ? true : !masterEnabled || Boolean(savingKey);
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <ScrollView
         style={webScrollParentStyle}
         contentContainerStyle={styles.scrollContent}
@@ -335,7 +360,11 @@ export default function NotificationSettingsScreen() {
           <Text variant="headingMedium" style={styles.sectionTitle}>
             What we notify you about
           </Text>
-          <Text variant="micro" color={colors.textTertiary} style={{ paddingHorizontal: Spacing.xs }}>
+          <Text
+            variant="micro"
+            color={colors.textTertiary}
+            style={{ paddingHorizontal: Spacing.xs }}
+          >
             These control phone alerts. All activity still appears in Doji in real time.
           </Text>
           <Card style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>

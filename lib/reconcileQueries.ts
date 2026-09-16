@@ -25,6 +25,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'reactionsGiven',
   'reactions',
   'comments',
+  'commentLikes',
   'post',
   'mySuggestions',
   'challengeSuggestionCounts',
@@ -55,14 +56,17 @@ export function reconcileAppQueries(
   // mounted queries refetch now; inactive screens are marked stale and refresh
   // when the user actually opens them.
   inFlight = queryClient
-    .invalidateQueries({
-      predicate: (query) => {
-        const root = query.queryKey[0];
-        if (root === 'admin') return options.isAdmin === true;
-        return typeof root === 'string' && SERVER_QUERY_ROOTS.has(root);
+    .invalidateQueries(
+      {
+        predicate: (query) => {
+          const root = query.queryKey[0];
+          if (root === 'admin') return options.isAdmin === true;
+          return typeof root === 'string' && SERVER_QUERY_ROOTS.has(root);
+        },
+        refetchType: 'active',
       },
-      refetchType: 'active',
-    }, { cancelRefetch: false })
+      { cancelRefetch: false },
+    )
     .finally(() => {
       inFlight = null;
     });

@@ -27,6 +27,16 @@ function objectPath(value: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Signed URLs rotate, but committed post-media object paths are immutable.
+ * Use the object identity as the native disk-cache key so reopening the app
+ * does not download the same authorized image again under a new signature.
+ */
+export function postMediaCacheKey(value: string | null | undefined): string | undefined {
+  const path = objectPath(value);
+  return path ? `${BUCKET}:${path}` : undefined;
+}
+
 async function flushSignedUrlBatch(): Promise<void> {
   batchTimer = null;
   const paths = [...pendingPaths];
@@ -59,10 +69,14 @@ async function flushSignedUrlBatch(): Promise<void> {
     }
   }
   for (const waiter of waiters) {
-    waiter.resolve(new Map(waiter.paths.flatMap((path) => {
-      const url = signed.get(path) ?? signedUrlCache.get(path)?.url;
-      return url ? [[path, url] as const] : [];
-    })));
+    waiter.resolve(
+      new Map(
+        waiter.paths.flatMap((path) => {
+          const url = signed.get(path) ?? signedUrlCache.get(path)?.url;
+          return url ? [[path, url] as const] : [];
+        }),
+      ),
+    );
   }
 }
 
@@ -76,7 +90,9 @@ function queueSignedUrls(paths: string[]): Promise<Map<string, string>> {
   });
 }
 
-async function signedUrlMap(values: Array<string | null | undefined>): Promise<Map<string, string>> {
+async function signedUrlMap(
+  values: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
   const paths = [...new Set(values.map(objectPath).filter((path): path is string => !!path))];
   if (paths.length === 0) return new Map();
   const now = Date.now();

@@ -1,8 +1,4 @@
-import {
-  type InfiniteData,
-  type QueryClient,
-  useInfiniteQuery,
-} from '@tanstack/react-query';
+import { type InfiniteData, type QueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { type FeedAudience } from '../lib/feedAudience';
 import { fetchFeedPostsPage, nextFeedPage, type FeedPageParam } from '../lib/feedQueries';
@@ -18,13 +14,7 @@ type FeedQueryArgs = {
   unlocked: boolean;
 };
 
-type FeedKey = [
-  'feed',
-  string | undefined,
-  FeedAudience,
-  string | undefined,
-  'full' | 'locked',
-];
+type FeedKey = ['feed', string | undefined, FeedAudience, string | undefined, 'full' | 'locked'];
 
 const feedKey = ({
   userId,
@@ -91,17 +81,21 @@ export function useFeed(
 
 export function usePostReactions(postId: string, audience: FeedAudience = 'everyone') {
   const session = useAuthStore((s) => s.session);
+  const userId = session?.user?.id;
 
   return useInfiniteQuery({
-    queryKey: ['reactions', postId, audience],
+    queryKey: ['reactions', postId, audience, userId],
     queryFn: async ({ pageParam, signal }): Promise<Reaction[]> => {
-      const { data, error } = await runAbortableQuery(supabase.rpc('get_post_reaction_voters_page', {
-        p_post_id: postId,
-        p_audience: audience,
-        p_limit: 50,
-        p_before_created_at: pageParam?.createdAt ?? null,
-        p_before_id: pageParam?.id ?? null,
-      }), signal);
+      const { data, error } = await runAbortableQuery(
+        supabase.rpc('get_post_reaction_voters_page', {
+          p_post_id: postId,
+          p_audience: audience,
+          p_limit: 50,
+          p_before_created_at: pageParam?.createdAt ?? null,
+          p_before_id: pageParam?.id ?? null,
+        }),
+        signal,
+      );
 
       if (error) throw error;
       return (data ?? []) as Reaction[];
@@ -113,6 +107,6 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
         : undefined;
     },
     initialPageParam: null as { createdAt: string; id: string } | null,
-    enabled: !!session?.user?.id && !!postId,
+    enabled: !!userId && !!postId,
   });
 }

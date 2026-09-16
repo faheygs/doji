@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Spacing, webScrollParentStyle } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../../lib/safeAreaLayout';
 import { Text } from '../../../../components/ui/Text';
 import { PostCard } from '../../../../components/feed/PostCard';
 import { IconChevronLeft } from '../../../../components/icons/Icons';
@@ -49,7 +50,10 @@ export default function PostDetailScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => backOrHome(router)}

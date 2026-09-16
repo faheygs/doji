@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
@@ -100,7 +101,7 @@ export default function TaskScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator color={colors.text} size="large" />
         </View>
@@ -110,7 +111,7 @@ export default function TaskScreen() {
 
   if (isError) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
         <ErrorState
           title="Couldn't load challenge"
           message="Check your connection and try again."
@@ -121,7 +122,7 @@ export default function TaskScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
       <View style={{ flex: 1 }}>
         <View style={styles.header}>
           <ChallengeTimer

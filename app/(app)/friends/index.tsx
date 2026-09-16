@@ -11,6 +11,7 @@ import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../lib/safeAreaLayout';
 import { Text } from '../../../components/ui/Text';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { Card } from '../../../components/ui/Card';
@@ -24,8 +25,6 @@ import { hrefWithReturnTo } from '../../../lib/navigationReturn';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useAppDialog } from '../../../contexts/DialogContext';
-
-type FriendRow = FriendListRow;
 
 export default function FriendsScreen() {
   const router = useRouter();
@@ -106,7 +105,7 @@ export default function FriendsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text variant="headingLarge">Friends</Text>
@@ -145,7 +144,7 @@ export default function FriendsScreen() {
       >
         <FlatList
           style={webScrollParentStyle}
-          data={friends as FriendRow[]}
+          data={friends as FriendListRow[]}
           removeClippedSubviews={false}
           keyExtractor={(f) => f.id}
           contentContainerStyle={styles.list}
@@ -210,7 +209,7 @@ function FriendCard({
   infoStyle,
   statsStyle,
 }: {
-  profile: FriendRow;
+  profile: FriendListRow;
   onPress: () => void;
   onRemove: () => void;
   cardStyle: object;

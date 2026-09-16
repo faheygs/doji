@@ -1,10 +1,14 @@
 import { QueryClient } from '@tanstack/react-query';
 import { retryDelayWithJitter, shouldRetryQuery } from './apiRetry';
+import { PERSISTED_QUERY_GC_MS } from './queryPersistence';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 2,
+      // Recent inactive social surfaces remain available for instant reopen.
+      // Disk persistence is separately allowlisted and size-bounded.
+      gcTime: PERSISTED_QUERY_GC_MS,
       retry: shouldRetryQuery,
       retryDelay: retryDelayWithJitter,
       // Native lifecycle and socket recovery are reconciled explicitly by

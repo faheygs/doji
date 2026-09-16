@@ -32,9 +32,8 @@ export function useToggleCommentLike() {
         query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId;
       const previous = client.getQueriesData<InfiniteData<Comment[]>>({ predicate });
       void client.cancelQueries({ predicate }, { revert: false, silent: true });
-      client.setQueriesData<InfiniteData<Comment[]>>(
-        { predicate },
-        (old) => patchInfiniteCommentLike(old, vars.commentId, !vars.liked),
+      client.setQueriesData<InfiniteData<Comment[]>>({ predicate }, (old) =>
+        patchInfiniteCommentLike(old, vars.commentId, !vars.liked),
       );
       return { previous };
     },
@@ -51,6 +50,7 @@ export function useToggleCommentLike() {
         (old) => patchInfiniteCommentLike(old, vars.commentId, result.active, result.count),
       );
     },
+    onSettled: () => scheduleQueryInvalidation(client, ['commentLikes']),
   });
 }
 
@@ -79,16 +79,14 @@ export function useToggleCommentsDisabled() {
         { predicate: (query) => feedPredicate(query) || postPredicate(query) },
         { revert: false, silent: true },
       );
-      client.setQueriesData<InfiniteData<Post[]>>(
-        { predicate: feedPredicate },
-        (old) => mapInfinitePosts(old, vars.postId, (post) => ({
+      client.setQueriesData<InfiniteData<Post[]>>({ predicate: feedPredicate }, (old) =>
+        mapInfinitePosts(old, vars.postId, (post) => ({
           ...post,
           comments_disabled: vars.disabled,
         })),
       );
-      client.setQueriesData<Post | null>(
-        { predicate: postPredicate },
-        (old) => old ? { ...old, comments_disabled: vars.disabled } : old,
+      client.setQueriesData<Post | null>({ predicate: postPredicate }, (old) =>
+        old ? { ...old, comments_disabled: vars.disabled } : old,
       );
       return { feeds, posts };
     },
