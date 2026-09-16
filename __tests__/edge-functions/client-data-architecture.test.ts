@@ -7,10 +7,23 @@ describe('mobile data architecture', () => {
   it('uses one socket transport and repairs state from Postgres', () => {
     const layout = read('app/(app)/_layout.tsx');
     const realtime = read('hooks/useDomainRealtime.ts');
+    const client = read('lib/realtimeClient.ts');
     expect(layout).toContain('useDomainRealtime(session?.user?.id)');
     expect(layout).not.toContain('useAppRealtime');
     expect(realtime).toContain('startResilientRealtimeSubscription');
     expect(realtime).toContain('reconcileAppQueries');
+    expect(client).toContain('realtime.connect()');
+    expect(client).not.toContain('Math.random() * 2_000');
+    expect(realtime).toContain('100 + Math.floor(Math.random() * 400)');
+  });
+
+  it('warms the first media cards after feed chrome becomes usable', () => {
+    const feed = read('app/(app)/index.tsx');
+    expect(feed).toContain('posts.filter(hasPrivatePostMedia).slice(0, 5)');
+    expect(feed).toContain("ExpoImage.prefetch(imageUrls, 'memory-disk')");
+    expect(feed.indexOf('signPostMedia(candidates)')).toBeGreaterThan(
+      feed.indexOf('InteractionManager.runAfterInteractions'),
+    );
   });
 
   it('scopes viewer-sensitive poll caches to the signed-in user', () => {

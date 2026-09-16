@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Image as ExpoImage } from 'expo-image';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -34,6 +35,7 @@ import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
+import { hasPrivatePostMedia, signPostMedia } from '../../lib/postMedia';
 import { useFeedScreenStyles } from '../../components/feed/useFeedScreenStyles';
 export default function FeedScreen() {
   const router = useRouter();
@@ -63,6 +65,7 @@ export default function FeedScreen() {
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
+  const warmedMediaKeyRef = useRef<string>('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const { data: upcomingDoji } = useUpcomingDoji();
@@ -110,6 +113,32 @@ export default function FeedScreen() {
     posts.length === 0 &&
     !refreshing &&
     (userEventLoading || feedLoading || (feedFetching && !feedFetchedAfterMount));
+  useEffect(() => {
+    if (!feedUnlocked || posts.length === 0) return;
+    const candidates = posts.filter(hasPrivatePostMedia).slice(0, 5);
+    if (candidates.length === 0) return;
+    const warmKey = candidates
+      .map((post) => `${post.id}:${post.photo_url}:${post.front_photo_url}:${post.video_url}`)
+      .join('|');
+    if (warmedMediaKeyRef.current === warmKey) return;
+    warmedMediaKeyRef.current = warmKey;
+    let disposed = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      void signPostMedia(candidates).then((resolvedPosts) => {
+        if (disposed) return;
+        const imageUrls = resolvedPosts.flatMap((post) =>
+          [post.photo_url, post.front_photo_url].filter(
+            (url): url is string => typeof url === 'string' && url.length > 0,
+          ),
+        );
+        if (imageUrls.length > 0) void ExpoImage.prefetch(imageUrls, 'memory-disk');
+      });
+    });
+    return () => {
+      disposed = true;
+      task.cancel();
+    };
+  }, [feedUnlocked, posts]);
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
     // Media cards resolve private URLs after their social records render. Do

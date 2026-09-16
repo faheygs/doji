@@ -70,6 +70,22 @@ describe('interactive social write performance policy', () => {
     expect(presentationFanout).toContain("'fanout.profile_presentation'");
     expect(presentationFanout).toContain("'fanout.badge'");
     expect(presentationFanout).toContain("'realtimeOnly', true");
+
+    const regressionGuard = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        'supabase/migrations/20260916043000_restore_async_community_reaction_fanout.sql',
+      ),
+      'utf8',
+    );
+    const communityBranch = regressionGuard.slice(
+      regressionGuard.indexOf('if is_community then'),
+      regressionGuard.indexOf('if owner_id is null'),
+    );
+    expect(communityBranch).toContain("perform public.enqueue_friend_fanout(");
+    expect(communityBranch).toContain("'fanout.community_reaction'");
+    expect(communityBranch).not.toContain('from public.friendships');
+    expect(communityBranch).not.toContain('public.can_access_daily_event');
   });
 
   it('starts write bursts immediately with a durable recovery alarm and bounded pages', () => {

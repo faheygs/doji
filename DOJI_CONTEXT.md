@@ -295,7 +295,9 @@ stable private object references without waiting for Storage. Only visible unloc
 cards resolve short-lived signed URLs, and concurrently mounted cards coalesce their
 paths into one bounded signing request. The query cache may persist stable object
 references, but never signed bearer URLs. Detail, moderation, and command-receipt reads
-use the same bounded signer.
+use the same bounded signer. Once feed chrome is usable, at most the first five
+authorized media cards are signed and warmed into the memory/disk image cache; an
+invisible audience is never prefetched while current media is hydrating.
 
 Challenge suggestions are untrusted UGC. The database owns their canonical hash,
 allowed kind, per-field size limits, option cardinality, answer-rule shape, and content
@@ -439,7 +441,8 @@ enforced atomically in Postgres. Posts, completions, community reactions, and
 community comments enqueue one durable fanout command; the relay expands the
 bounded circle after the interactive transaction commits. This keeps writes,
 reads, and notifications bounded even if total registrations grow far beyond
-100,000. Outgoing pending requests are capped at 100 per account.
+100,000. A community reaction trigger must never scan friendships or call recipient
+authorization inline. Outgoing pending requests are capped at 100 per account.
 
 ## Live-data coverage
 
@@ -598,6 +601,9 @@ authorization, with at most one trailing pass for later additions. Mobile token 
 remain serialized with a 20-second transport timeout so an older token cannot win the
 race. The Edge function logs database/provider durations and returns a structured,
 retryable 503 instead of an unhandled 500 when an upstream is unavailable.
+The shared Ably transport connects immediately on first use. Recovered connections
+coalesce authoritative Postgres repair for only 100-500 ms; retry backoff remains
+jittered, but normal cold starts never wait on randomized connection delay.
 Profile presentation/stats and badge-progress changes also use identifier-only friend
 batch fanout, so shop/profile/gamification writes do not synchronously expand friends.
 Push-recipient reads begin concurrently and are not awaited before an Ably batch is

@@ -17,7 +17,6 @@ export type DojiRealtimeEvent = {
 };
 
 let client: Realtime | null = null;
-let connectTimer: ReturnType<typeof setTimeout> | null = null;
 let failedReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let consecutiveConnectionFailures = 0;
 const subscriptionCounts = new Map<string, number>();
@@ -91,17 +90,10 @@ function getClient(): Realtime {
       delay + Math.floor(Math.random() * 750),
     );
   });
-  const scheduledClient = client;
-  // Spread cold-start connection attempts across a short window. This is
-  // invisible beside normal feed hydration but prevents a push-open wave from
-  // creating one synchronized token/connection spike.
-  connectTimer = setTimeout(
-    () => {
-      connectTimer = null;
-      if (client === scheduledClient) scheduledClient.connect();
-    },
-    Math.floor(Math.random() * 2_000),
-  );
+  // Establish realtime immediately. Provider authentication already batches
+  // post capabilities, while delaying the transport creates a visible stale
+  // window and can make a freshly opened app miss the live feel users expect.
+  realtime.connect();
   return client;
 }
 
@@ -222,7 +214,6 @@ export function onRealtimeConnectionChange(
 }
 
 export function closeRealtimeConnection(): void {
-  if (connectTimer) clearTimeout(connectTimer);
   if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
   for (const timer of releaseTimers.values()) clearTimeout(timer);
   releaseTimers.clear();
@@ -230,7 +221,6 @@ export function closeRealtimeConnection(): void {
   postConsumerCounts.clear();
   requestedPostChannels.clear();
   resetRealtimeAuthorization();
-  connectTimer = null;
   failedReconnectTimer = null;
   consecutiveConnectionFailures = 0;
   client?.close();

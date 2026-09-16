@@ -39,13 +39,14 @@ export function useDomainRealtime(userId: string | undefined) {
     const reconcile = () => {
       if (reconcileTimer) clearTimeout(reconcileTimer);
       // Ably can emit multiple connected/update transitions during recovery.
-      // Coalesce them into one authoritative catch-up instead of a query burst.
+      // Coalesce them briefly, then repair from Postgres quickly enough that a
+      // resumed foreground never remains visibly stale for several seconds.
       reconcileTimer = setTimeout(
         () => {
           reconcileTimer = null;
           if (!disposed) void reconcileAppQueries(queryClient, { userId, isAdmin });
         },
-        500 + Math.floor(Math.random() * 2_500),
+        100 + Math.floor(Math.random() * 400),
       );
     };
     const invalidateRoots = (...roots: string[]) => scheduleQueryInvalidation(queryClient, roots);
@@ -71,8 +72,8 @@ export function useDomainRealtime(userId: string | undefined) {
     const removeConnectionListener = onRealtimeConnectionChange((change) => {
       if (change.current === 'connected') {
         // Initial screen queries are already authoritative. Reconciliation is
-        // only needed after a connection recovery, and jitter prevents every
-        // handset from refetching Postgres in the same millisecond.
+        // only needed after a connection recovery. A small jitter prevents a
+        // synchronized refetch without turning recovery into user-visible lag.
         if (hasConnected) reconcile();
         else hasConnected = true;
       }

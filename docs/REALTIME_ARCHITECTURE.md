@@ -112,7 +112,9 @@
 - Feed RPCs return authorized records and stable private-media references immediately.
   Visible unlocked cards batch signed-URL resolution across one render pass; stable
   references, but never signed bearer URLs, may be persisted. Photo/video feeds do not
-  prefetch the hidden audience while visible media is hydrating.
+  prefetch the hidden audience while visible media is hydrating. After feed chrome is
+  usable, the client signs and memory/disk-prefetches media for at most the first five
+  authorized cards so scrolling does not serialize signing and image downloads.
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
@@ -211,6 +213,8 @@ reconcile authoritative database state.
   multi-channel batch endpoint in bounded 100-channel requests and client event-ID
   deduplication. Ambient friend activity does not create per-recipient phone-alert rows;
   idempotent source commands and client query invalidation keep retries safe.
+  Community reactions must use this command path; recipient graph expansion and
+  per-recipient authorization are forbidden inside the interactive reaction transaction.
 - Profile presentation/stats and badge-progress triggers use the same identifier-only
   batch fanout. Buying/equipping a frame or earning a badge never inserts one outbox
   row per friend in the interactive transaction.
@@ -445,11 +449,13 @@ configured in the production build, and monitored.
 - Authenticated social writes are protected by per-user/action time buckets in
   Postgres. Deletes are not trigger-throttled so moderation/account cascades cannot be
   stranded; recreating the deleted resource still consumes the insert budget.
-- Cold socket opens are jittered over two seconds. Initial data queries do not perform
-  a redundant connection reconciliation. Mounted post channels rewind ten seconds of
+- Cold socket opens connect immediately; authentication/capability work is already
+  batched and must not create an artificial stale window. Initial data queries do not
+  perform a redundant connection reconciliation. Mounted post channels rewind ten seconds of
   identifier-only hints on their first attachment to close the read/attach race, then
   the per-post batcher and in-flight snapshot dedupe collapse replayed work. Recovered
-  connections reconcile after a randomized delay to avoid a synchronized Postgres surge.
+  connections reconcile after a bounded 100-500 ms jitter to avoid a synchronized
+  Postgres surge without leaving the UI stale for seconds.
 - Push delivery remains an alert, never the authority for eligibility or the ten-minute
   server window. Reconnect/foreground always reconciles Postgres state.
 
