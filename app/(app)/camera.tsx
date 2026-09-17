@@ -23,6 +23,7 @@ import { required, validationMessage } from '../../lib/formValidation';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 import { cameraScreenStyles as styles } from '../../components/challenge/cameraScreenStyles';
+import { preparePostImage } from '../../utils/upload';
 type FlowStep = 'chooseSource' | 'preview';
 const pickerQuality = 1 as const;
 export default function CameraScreen() {
@@ -85,9 +86,10 @@ export default function CameraScreen() {
         const img = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           quality: pickerQuality,
+          exif: true,
         });
         if (img.canceled || !img.assets?.[0]?.uri) return;
-        setCapturedPhoto(img.assets[0].uri);
+        setCapturedPhoto(await preparePostImage(img.assets[0]));
         setCapturedFrontPhoto(null);
 
         const vid = await ImagePicker.launchImageLibraryAsync({
@@ -116,12 +118,17 @@ export default function CameraScreen() {
       const img = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: pickerQuality,
+        exif: true,
       });
       if (img.canceled || !img.assets?.[0]?.uri) return;
-      setCapturedPhoto(img.assets[0].uri);
+      setCapturedPhoto(await preparePostImage(img.assets[0]));
       setCapturedFrontPhoto(null);
       setCapturedVideoUri(null);
       setFlowStep('preview');
+    } catch {
+      setActionError({
+        message: 'The photo could not be prepared. Try again or choose a different photo.',
+      });
     } finally {
       setLibraryBusy(false);
     }
@@ -161,9 +168,10 @@ export default function CameraScreen() {
           mediaTypes: ['images'],
           quality: pickerQuality,
           allowsEditing: false,
+          exif: true,
         });
         if (image.canceled || !image.assets?.[0]?.uri) return;
-        setCapturedPhoto(image.assets[0].uri);
+        setCapturedPhoto(await preparePostImage(image.assets[0]));
         setCapturedFrontPhoto(null);
         photoReady = true;
       }
@@ -190,7 +198,7 @@ export default function CameraScreen() {
       setFlowStep('preview');
     } catch {
       setActionError({
-        message: 'The phone camera could not open. Try again or use your library.',
+        message: 'The phone camera could not finish the capture. Try again or use your library.',
       });
     } finally {
       setLibraryBusy(false);
@@ -381,16 +389,16 @@ export default function CameraScreen() {
           </SafeAreaView>
 
           {capturedPhoto ? (
-            <View style={styles.dualPhotoContainer}>
+            <View style={[styles.dualPhotoContainer, { backgroundColor: colors.mediaLetterbox }]}>
               <Image
-                source={{ uri: capturedPhoto }}
+                source={{ uri: capturedPhoto.uri }}
                 style={styles.mainPreview}
-                contentFit="cover"
+                contentFit="contain"
               />
               {capturedFrontPhoto ? (
                 <View style={[styles.frontPreviewContainer, { borderColor: colors.background }]}>
                   <Image
-                    source={{ uri: capturedFrontPhoto }}
+                    source={{ uri: capturedFrontPhoto.uri }}
                     style={styles.frontPreview}
                     contentFit="cover"
                   />

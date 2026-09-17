@@ -3,6 +3,21 @@ import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import { resumableStorageUpload } from './resumableUpload';
 
+const POST_IMAGE_MAX_DIMENSION = 2048;
+const POST_IMAGE_QUALITY = 0.92;
+
+export type PreparedPostImage = Readonly<{
+  uri: string;
+  width: number;
+  height: number;
+}>;
+
+type PickedImage = Readonly<{
+  uri: string;
+  width: number;
+  height: number;
+}>;
+
 /** CDN + disk cache reuse the same object path (`…/avatar.jpg`). Cache-busting keeps avatars visually fresh everywhere. */
 function withAvatarCacheParam(publicUrl: string): string {
   const sep = publicUrl.includes('?') ? '&' : '?';
@@ -21,20 +36,44 @@ export async function compressImage(
   return result.uri;
 }
 
+/**
+ * Decode the device image once, bake its display orientation into a JPEG, and
+ * bound only its longest edge. The returned file is both previewed and
+ * uploaded, so submitting a post cannot rotate, mirror, or crop a different
+ * representation after the user approves it.
+ */
+export async function preparePostImage(image: PickedImage): Promise<PreparedPostImage> {
+  const hasDimensions = image.width > 0 && image.height > 0;
+  const longestEdge = hasDimensions ? Math.max(image.width, image.height) : 0;
+  const resize =
+    longestEdge > POST_IMAGE_MAX_DIMENSION
+      ? image.width >= image.height
+        ? { width: POST_IMAGE_MAX_DIMENSION }
+        : { height: POST_IMAGE_MAX_DIMENSION }
+      : null;
+  const result = await ImageManipulator.manipulateAsync(image.uri, resize ? [{ resize }] : [], {
+    compress: POST_IMAGE_QUALITY,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+  return { uri: result.uri, width: result.width, height: result.height };
+}
+
 export async function uploadPostMedia(
   userEventId: string,
   commandId: string,
-  uri: string,
+  image: string | PreparedPostImage,
   type: 'photo' | 'front',
 ): Promise<string> {
-  // Preserve enough detail for modern high-density phone displays while keeping
-  // uploads bounded and resumable on weak mobile connections.
-  const compressed = await compressImage(uri, { width: 2048, quality: 0.92 });
+  // Camera/library flows pass the exact normalized file the user previewed.
+  // The string fallback keeps older callers safe without transforming a
+  // prepared image a second time.
+  const prepared =
+    typeof image === 'string' ? await preparePostImage({ uri: image, width: 0, height: 0 }) : image;
   const filePath = await reservePostMedia(userEventId, commandId, type, 'jpg', 'image/jpeg');
   await resumableStorageUpload({
     bucketId: 'post-media',
     objectPath: filePath,
-    uri: compressed,
+    uri: prepared.uri,
     contentType: 'image/jpeg',
     // The occurrence command reuses one reserved object path. A retry after an
     // ambiguous completion must be able to resume/replace that same owned object.
@@ -66,13 +105,7 @@ export async function uploadPostVideo(
 ): Promise<string> {
   const contentType = guessVideoContentType(uri);
   const ext = videoExtForType(contentType, uri);
-  const filePath = await reservePostMedia(
-    userEventId,
-    commandId,
-    'video',
-    ext,
-    contentType,
-  );
+  const filePath = await reservePostMedia(userEventId, commandId, 'video', ext, contentType);
   await resumableStorageUpload({
     bucketId: 'post-media',
     objectPath: filePath,

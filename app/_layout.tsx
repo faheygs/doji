@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { sentryReleaseIdentity } from '../lib/releaseIdentity';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -7,6 +8,7 @@ Sentry.init({
   // client overhead or exhausting observability quotas during a traffic spike.
   tracesSampleRate: 0.02,
   environment: process.env.EXPO_PUBLIC_APP_ENV,
+  ...sentryReleaseIdentity(),
 });
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';

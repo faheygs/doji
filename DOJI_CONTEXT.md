@@ -295,14 +295,23 @@ stable private object references without waiting for Storage. Only visible unloc
 cards resolve short-lived signed URLs, and concurrently mounted cards coalesce their
 paths into one bounded signing request. The query cache may persist stable object
 references, but never signed bearer URLs. Detail, moderation, and command-receipt reads
-use the same bounded signer. Once feed chrome is usable, at most the first five
-authorized media cards are signed and warmed into the memory/disk image cache; an
-invisible audience is never prefetched while current media is hydrating.
+use the same bounded signer. Once feed chrome is usable, every private image in the
+bounded loaded feed pages is authorized in one coalesced pass. At most the first five
+are also decoded and warmed into the memory/disk image cache; later cards reuse any
+existing stable native-cache bytes without serial signing as they approach the viewport.
+An invisible audience is never prefetched while current media is hydrating. A shared
+skeleton covers the media surface until the authorized native image reports that it
+displayed, preventing a black rebind frame without exposing stale or newly unauthorized
+bytes.
 Native image cache keys use the immutable authorized object path rather than
 the rotating signed URL, so a reopened app reuses downloaded photos after it
 refreshes authorization. Query snapshots flush when the app backgrounds, and
 a slow local-cache read may hydrate after the bounded splash handoff instead
 of being discarded.
+Camera and library photos are decoded once before the approval preview, their longest
+edge is bounded to 2048 pixels, and the resulting orientation-baked JPEG is the exact
+file uploaded. Main preview/feed/moderation images use full-frame containment; only
+small thumbnail and avatar surfaces intentionally crop with `cover`.
 The same bounded stale-while-revalidate contract covers recent comments,
 comment-like/reaction voter lists, profiles, friend state, leaderboards,
 badges, poll detail, and shop ownership. Infinite reads persist only their
@@ -626,9 +635,23 @@ After ordered Ably publication, no-push rows from the claimed page are completed
 set-based lease command; the relay never serializes one completion RPC per realtime
 event. Internal fanout uses the same bulk completion after its bounded batch work,
 while push-bearing events retain their per-event durable delivery state machine.
+Independent channels drain with 16 bounded workers per 100-row claim. Relay logs retain
+per-page examined/published/failure counts and duration, while publication logs retain
+p50/p95/max queue-to-Ably latency. The command gateway returns `Server-Timing` for the
+database command and relay wake and logs the same content-free measurements.
 Profile invalidations may coalesce only within their originating database transaction
 using `txid_current()` in the idempotency key. Separate committed actions always create
 separate invalidations.
+
+Lazy occurrence creation computes the authoritative participation deadline before the
+insert. A first open after that deadline persists `missed`, not `pending`; a narrowly
+scoped migration and every later current-state read also reconcile legacy expired
+pending rows. Signup-day grace, completed, late, and paid buy-in states are unchanged.
+
+Native endpoint registration v1/v2 remains compatible with installed clients. Optional
+v3 registration records app version, native build number, platform, and release channel
+on the same private endpoint row for aggregate service-role rollout reporting; telemetry
+failure can never authorize or block a participation command.
 
 ## Economy, profiles, and gamification
 
@@ -716,6 +739,10 @@ reported account, evidence, and confirmed destructive actions.
   reminds users about optional releases no more than once per 24 hours, and can make a
   minimum-supported release non-dismissible. Keep a platform policy disabled until
   that exact store release is genuinely available to users.
+- Native push registration v3 records semantic version, native build, platform, release
+  channel, and notification contract without making delivery depend on telemetry. The
+  same content-free release identity tags Sentry and command timing, while v1/v2 RPC
+  fallback keeps older deployed backends and clients compatible.
 - `Avatar`/`AvatarStack` resolve equipped frames consistently.
 - Full-screen app surfaces use `react-native-safe-area-context`, never React Native's
   iOS-only `SafeAreaView`, so status-bar cutouts and gesture/three-button navigation do
@@ -731,6 +758,9 @@ reported account, evidence, and confirmed destructive actions.
 - Every app-owned `FlatList` explicitly disables native clipped-subview removal. Fabric
   list windowing remains bounded through `windowSize` and render-batch controls, while
   Android must not detach and reinsert clipped native children during rapid tree updates.
+- Native modal surfaces that contain gesture-handler rows own a full-screen
+  `GestureHandlerRootView`; Android notification rows force that root active so horizontal
+  dismissal and vertical scrolling can coexist outside the app window's root view.
 - Input screens use `AppTextInput`, `AppKeyboardAwareScrollView`,
   `AppKeyboardStickyFooter`, `AppKeyboardToolbar`, or `KeyboardSafeSheet` as
   appropriate.
@@ -877,11 +907,17 @@ the normal 13+ gate and separately accept the current Terms and Privacy Policy.
 - Reaction responses and engagement snapshots read those fixed shards; never restore a
   full reaction-table regroup on the mutation or realtime path. Friend-scoped poll
   totals refresh from friend activity, not from every stranger's global vote signal.
-- `EXPO_PUBLIC_SCALE_READ_URL` is the paid-capacity boundary currently wired for hot
-  engagement and poll-summary aggregates. It is absent in free mode, and enabling it must
-  not change TanStack Query keys or screen behavior. A configured gateway fails closed
-  instead of falling back into a database stampede. The authenticated implementation and
-  a complete 100k feed/profile read tier are release-scale work, not present-tense claims.
+- `EXPO_PUBLIC_SCALE_READ_URL` enables the Cloudflare scale-read tier for bounded feed,
+  locked-feed, public-profile, engagement, and poll-summary RPCs without changing TanStack
+  Query keys or screen behavior. The Worker verifies the Supabase access token, isolates
+  short-lived cache entries by account, coalesces identical reads, preserves the caller JWT
+  for the existing RLS/security-definer authorization contract, and fails closed instead of
+  falling back into a database stampede. Purchased capacity and representative load evidence
+  are still required before a 100k claim.
+- `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` selects authorized CDN-rendered 1280-pixel
+  feed images and 360-pixel thumbnails. Stable original object paths remain the source of
+  truth and cache identity includes the variant, so signed-URL rotation never redownloads
+  an unchanged representation. Leave the flag off until Storage transforms are enabled.
 - Social write budgets are enforced in Postgres per actor/action. Reconnect attempts and
   authoritative catch-up are jittered. Bounded retention continues until caught up,
   and the one-minute operational health contract reports overdue outbox work and stale

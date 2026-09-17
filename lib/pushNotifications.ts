@@ -5,6 +5,7 @@ import { newCommandId } from './idempotency';
 import { executeCommand } from './commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from './telemetry';
+import { mobileReleaseIdentity } from './releaseIdentity';
 
 const INSTALLATION_KEY = '@doji/push-installation-id';
 export const ANDROID_NOTIFICATION_CHANNEL_ID = 'direct-activity';
@@ -94,10 +95,20 @@ export async function syncPushRegistration(userId?: string): Promise<boolean> {
     p_environment: pushEnvironment(),
     p_expo_token: expoToken,
   } as const;
-  let { error } = await executeCommand('register_native_push_endpoint_v2', {
+  const release = mobileReleaseIdentity();
+  let { error } = await executeCommand('register_native_push_endpoint_v3', {
     ...registration,
     p_notification_contract_version: 2,
+    p_app_version: release.appVersion,
+    p_native_build_number: release.nativeBuildNumber,
+    p_release_channel: release.releaseChannel,
   });
+  if (error?.code === 'DOJI_COMMAND_404' || error?.code === 'PGRST202') {
+    ({ error } = await executeCommand('register_native_push_endpoint_v2', {
+      ...registration,
+      p_notification_contract_version: 2,
+    }));
+  }
   if (error?.code === 'DOJI_COMMAND_404' || error?.code === 'PGRST202') {
     ({ error } = await executeCommand('register_native_push_endpoint', registration));
   }

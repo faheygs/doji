@@ -26,6 +26,7 @@ import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalida
 import { usePostCardStyles } from './usePostCardStyles';
 import { usePostMedia } from '../../hooks/usePostMedia';
 import { postMediaCacheKey } from '../../lib/postMedia';
+import { Skeleton } from '../ui/Skeleton';
 
 type Props = {
   post: Post;
@@ -98,7 +99,9 @@ function PostCardImpl({
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [reportOpen, setReportOpen] = useState(false);
-  const media = usePostMedia(post, !blurred && realtimeActive);
+  const [mainMediaReady, setMainMediaReady] = useState(false);
+  const media = usePostMedia(post, !blurred && realtimeActive, 'feed');
+  const thumbnailMedia = usePostMedia(post, !blurred && realtimeActive, 'thumbnail');
   const hasVideo = Boolean(media.video_url && !blurred);
   usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
 
@@ -129,20 +132,24 @@ function PostCardImpl({
   const mainImageSource = useMemo(
     () => ({
       uri: displayUri ?? '',
-      cacheKey: postMediaCacheKey(displayReference),
+      cacheKey: postMediaCacheKey(displayReference, 'feed'),
     }),
     [displayReference, displayUri],
   );
   const thumbReference = showFront ? post.photo_url : post.front_photo_url;
   const thumbImageSource = useMemo(
     () => ({
-      uri: showFront ? (media.photo_url ?? '') : (media.front_photo_url ?? ''),
-      cacheKey: postMediaCacheKey(thumbReference),
+      uri: showFront ? (thumbnailMedia.photo_url ?? '') : (thumbnailMedia.front_photo_url ?? ''),
+      cacheKey: postMediaCacheKey(thumbReference, 'thumbnail'),
     }),
-    [showFront, media.photo_url, media.front_photo_url, thumbReference],
+    [showFront, thumbnailMedia.photo_url, thumbnailMedia.front_photo_url, thumbReference],
   );
 
   const hasPhotoLayer = Boolean(displayUri);
+
+  useEffect(() => {
+    setMainMediaReady(false);
+  }, [displayReference, displayUri]);
   const isQuestionPost =
     post.type === 'task_complete' ||
     post.challenge?.type === 'task' ||
@@ -308,15 +315,19 @@ function PostCardImpl({
                   onPress={handleImageToggle}
                   activeOpacity={media.front_photo_url && !hasVideo ? 0.95 : 1}
                   disabled={!media.front_photo_url || hasVideo}
-                  style={{ position: 'relative' }}
+                  style={styles.mediaFrame}
                 >
                   <Image
                     source={mainImageSource}
                     style={styles.media}
-                    contentFit="cover"
+                    contentFit="contain"
                     cachePolicy="memory-disk"
                     recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
+                    onDisplay={() => setMainMediaReady(true)}
                   />
+                  {!mainMediaReady ? (
+                    <Skeleton height={1} radius={0} style={styles.mediaSkeleton} />
+                  ) : null}
                   {media.front_photo_url && !hasVideo ? (
                     <View style={styles.frontThumbnailContainer}>
                       <Image
@@ -332,7 +343,9 @@ function PostCardImpl({
               ) : null}
 
               {!hasPhotoLayer && !hasVideo && expectsMedia ? (
-                <View style={styles.media} accessibilityLabel="Photo loading" />
+                <View style={styles.media} accessibilityLabel="Photo loading">
+                  <Skeleton height={1} radius={0} style={styles.mediaSkeleton} />
+                </View>
               ) : null}
 
               {hasVideo ? (

@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 15, 2026
+Last updated: September 17, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -9,9 +9,146 @@ verified on a physical device.
 
 ## Queued
 
+### FW-015 — Record the installed release with production observations
+
+Priority: P1 — before next shared iOS/Android build
+
+Implementation status (September 17): endpoint schema, backward-compatible v3
+registration, service-role aggregate reporting, command timing, native v3 registration,
+explicit Sentry release/build identity, and content-free command release headers are
+staged. Physical rollout verification remains.
+
+- Record the app version, iOS build number or Android version code, platform, and
+  notification-contract version when an authenticated device registers or refreshes
+  its endpoint; do not rely on Sentry errors as the only source of release metadata.
+- Attach the same release identity to command/realtime performance observations so a
+  mixed rollout can be compared by build without collecting message content or other
+  unnecessary personal data.
+- Keep the most recent observation per user/device and define a bounded retention
+  policy for historical rollout telemetry.
+- Add an aggregate operational query/dashboard that compares participation,
+  command latency, realtime delivery, push handoff, and failures by release cohort.
+- Verify that old clients remain compatible and that the added telemetry cannot
+  block sign-in, endpoint registration, challenge participation, or notification
+  delivery when observation reporting fails.
+
+### FW-014 — Bring realtime tail latency inside the production SLO
+
+Priority: P1 — before next shared iOS/Android build
+
+Backend status (September 17): relay channel concurrency is bounded at 16 and command
+and relay timing is structured. The paid staging project and its credentials were
+removed at the owner's request; the checked-in deterministic burst models remain, but
+representative isolated concurrent evidence against the SLO is still a launch gate and
+must not be inferred from unit tests.
+
+- Preserve the durable Postgres outbox and identifier-only realtime invalidation
+  contract while removing the remaining long-tail delivery delay under a live Doji.
+- Profile and optimize the slow paths observed on September 16: post insertion,
+  reaction insertion, comment-like insertion, reaction notifications, and
+  `user_event` updates.
+- Meet the documented production target during a representative concurrent event:
+  realtime p95 below 1 second and p99 below 2 seconds, with no overdue or exhausted
+  outbox rows and no loss or duplication of commands.
+- Keep push delivery independent from correctness and confirm reconnect/foreground
+  reconciliation repairs any missed realtime invalidation.
+- Add a repeatable load/regression check and retain per-event p50/p95/p99/max metrics
+  so a faster median cannot hide a degraded tail.
+
+### FW-013 — Prevent post-close lazy occurrences from becoming ghost pending users
+
+Priority: P1 — before next shared iOS/Android build
+
+Backend status (September 17): deployed and production-verified. The repair reduced
+expired pending rows from 29 to zero, the outbox drained with no overdue work, and later
+current-state reads persist an expired occurrence as `missed`.
+
+- When a user first opens or refreshes an already-closed Doji, never create a
+  `pending` occurrence whose expiry is already in the past; return the authoritative
+  missed/closed state immediately.
+- Fix the server-owned lazy occurrence/current-state path atomically rather than
+  patching the client or depending on a later close alarm.
+- Preserve the 10-minute participation window, signup-day grace, paid buy-in, late
+  completion, and idempotent retry behavior.
+- Reconcile existing invalid post-close `pending` rows with an auditable, narrowly
+  scoped migration or repair command; do not alter legitimate active occurrences.
+- Add regression coverage for first open before activation, during the window, just
+  after close, and long after close on both current and older compatible clients.
+- Verify event reporting counts only genuine pending participants and does not label
+  a user who discovered an expired event after close as still pending.
+
+### FW-012 — Eliminate cached-feed photo flashes after a cold restart
+
+Priority: P1 — before next shared iOS/Android build
+
+Implementation is staged: every bounded loaded feed page is authorized in a coalesced
+pass, the first five media cards are decoded into the stable native cache, private object
+references are never rendered directly, and a shared skeleton covers native rebinding.
+Physical Galaxy/iPhone cold-restart verification remains.
+
+- Preserve the existing stable `expo-image` disk-cache key so rotating private-media
+  signed URLs do not cause the photo bytes to be downloaded again.
+- Batch-authorize every private photo in the currently loaded feed page after feed
+  hydration, rather than pre-warming only the first five posts, and authorize the
+  next bounded page before the user scrolls into it.
+- Keep private-media access checks authoritative: do not reveal an old disk-cached
+  photo before the current account is confirmed to still have access, and do not
+  persist bearer signed URLs in unprotected storage.
+- Replace the raw black media surface shown while authorization or native image
+  rebinding completes with the shared challenge-aware placeholder treatment; avoid a
+  transition that makes a disk-cache hit visibly flash.
+- Instrument authorization latency and native cache source so regressions can be
+  distinguished from a real image download or decode failure.
+- Verify on physical Galaxy and iPhone devices by loading a photo-heavy feed, fully
+  terminating and reopening the app, then scrolling beyond the first five posts:
+  authorized cached photos appear without a black frame, wrong/stale photos never
+  appear, and revoked/block-changed media remains inaccessible.
+
+### FW-011 — Restore per-notification swipe dismissal on Android
+
+Priority: P1 — before next Android build
+
+Implementation is staged with a full-screen forced-active gesture root inside the
+native notification modal. Physical Galaxy verification remains.
+
+- `NotificationSheet` renders its `Swipeable` rows inside a native `Modal`, whose
+  Android content is outside the app-level `GestureHandlerRootView`.
+- Wrap the modal content in a full-screen `GestureHandlerRootView` and use
+  `unstable_forceActive` if needed to prevent Samsung/Android native views from
+  cancelling the horizontal gesture.
+- Preserve the existing optimistic dismissal and atomic `dismiss_notification`
+  command so a dismissed item stays hidden after refresh, reconnect, or sign-in on
+  another device.
+- Verify on a physical Galaxy that swiping one row left reveals **Dismiss**, tapping
+  it removes only that item, vertical list scrolling remains smooth, and tapping a
+  notification still opens its destination.
+- Confirm iPhone swipe dismissal, **Clear notifications**, realtime dismissal sync,
+  and notification error recovery remain unchanged.
+
+### FW-010 — Preserve the approved camera frame and orientation
+
+Priority: P1 — next shared iOS/Android build
+
+Implementation is staged; physical iPhone/Galaxy verification remains.
+
+- The system camera/library result is decoded and normalized once before the Doji
+  preview, with only the longest edge bounded to 2048 pixels.
+- The exact normalized JPEG shown in the approval preview is uploaded without a
+  second image transformation that could rotate or mirror it afterward.
+- Main previews, feed cards, and moderation evidence use full-frame containment;
+  intentional square cropping remains limited to small thumbnails and avatar-style
+  surfaces.
+- Verify back/front cameras and library selection in portrait and landscape on recent
+  iPhone and Galaxy devices, including mirrored-selfie settings and upload retry.
+
 ### FW-009 — Treat intentional realtime connection closure as lifecycle cleanup
 
 Priority: P1 — next shared iOS/Android build
+
+Implementation is staged: client generations invalidate in-flight work, superseded
+subscriptions end without retrying, wrapped connection-closure errors are recoverable,
+and Sentry receives explicit release/build identity. Physical iOS/Android soak
+verification remains.
 
 - Do not report an intentionally closed or superseded Ably client as
   `channel_subscribe_exhausted` when authentication applies, changes, or clears a
@@ -107,6 +244,8 @@ Priority: P2
 
 System-camera capture and higher-resolution media encoding are staged for version 1.0.1 build 73;
 physical iPhone/Galaxy quality verification remains.
+
+The follow-up full-frame/orientation pipeline is staged under FW-010 for the next build.
 
 - Investigate current capture resolution, compression, lens selection, and zoom
   mapping on recent iPhone and Galaxy devices.

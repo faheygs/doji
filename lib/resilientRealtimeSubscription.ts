@@ -1,6 +1,7 @@
 import { subscribeToRealtimeChannel, type DojiRealtimeEvent } from './realtimeClient';
 import { isRealtimeAccessUnavailable } from './realtimeAuthorization';
 import { recordRealtimeFailure } from './telemetry';
+import { isRealtimeLifecycleSuperseded } from './realtimeChannelErrors';
 
 const MAX_RETRY_DELAY_MS = 30_000;
 
@@ -37,6 +38,12 @@ export function startResilientRealtimeSubscription(
       }
     } catch (error) {
       if (disposed) return;
+      if (isRealtimeLifecycleSuperseded(error)) {
+        recordRealtimeFailure('subscription_superseded', error, {
+          channelScope: options.scope ?? 'app',
+        });
+        return;
+      }
       if (isRealtimeAccessUnavailable(error)) {
         recordRealtimeFailure('subscription_access_changed', error, {
           channelScope: options.scope ?? 'post',

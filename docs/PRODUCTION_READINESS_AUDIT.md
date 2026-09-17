@@ -59,11 +59,11 @@ and observing it under representative traffic.
   traffic. Those runtime gates must still be observed independently.
 - The exact release candidate has not been physically exercised by this audit. The user
   explicitly deferred runtime tests, so no runtime-pass claim is made here.
-- A 100k launch is not yet capacity-proven. The client has a fail-closed scale-read
-  boundary for hot post-engagement and poll-summary reads, but this repository does not
-  contain a deployed authenticated aggregate cache or a complete feed/profile read tier.
-  Direct Postgres reads are appropriate only for the bounded initial launch until measured
-  production headroom says otherwise.
+- A 100k launch is not yet capacity-proven. The repository now contains a fail-closed,
+  authenticated Cloudflare scale-read cache for bounded feed, profile, post-engagement,
+  and poll-summary reads, but paid provider sizing, deployment, and representative
+  multi-identity load evidence are still required. Direct Postgres reads are appropriate
+  only for the bounded initial launch until measured production headroom says otherwise.
 - Direct Android push credentials are installed in Supabase and EAS for the Firebase
   project registered to `com.doit.challengeapp`. Physical Android delivery validation
   remains required before an Android production release.

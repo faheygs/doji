@@ -112,7 +112,10 @@ export default function FeedScreen() {
     (userEventLoading || feedLoading || (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
     if (!feedUnlocked || posts.length === 0) return;
-    const candidates = posts.filter(hasPrivatePostMedia).slice(0, 5);
+    // Authorize the entire bounded set of loaded pages in one coalesced pass.
+    // The first five are also decoded into the native cache; later cards keep
+    // their existing disk bytes and receive a ready signed URL before scroll.
+    const candidates = posts.filter(hasPrivatePostMedia);
     if (candidates.length === 0) return;
     const warmKey = candidates
       .map((post) => `${post.id}:${post.photo_url}:${post.front_photo_url}:${post.video_url}`)
@@ -121,9 +124,9 @@ export default function FeedScreen() {
     warmedMediaKeyRef.current = warmKey;
     let disposed = false;
     const task = InteractionManager.runAfterInteractions(() => {
-      void signPostMedia(candidates).then((resolvedPosts) => {
+      void signPostMedia(candidates, 'feed').then((resolvedPosts) => {
         if (disposed) return;
-        const imagePairs = resolvedPosts.flatMap((resolvedPost, index) => {
+        const imagePairs = resolvedPosts.slice(0, 5).flatMap((resolvedPost, index) => {
           const stablePost = candidates[index];
           return [
             [stablePost?.photo_url, resolvedPost.photo_url],
@@ -133,7 +136,7 @@ export default function FeedScreen() {
         void Promise.allSettled(
           imagePairs.map(async ([stableReference, signedUrl]) => {
             if (!signedUrl) return;
-            const cacheKey = postMediaCacheKey(stableReference);
+            const cacheKey = postMediaCacheKey(stableReference, 'feed');
             if (!cacheKey) {
               await ExpoImage.prefetch(signedUrl, 'memory-disk');
               return;

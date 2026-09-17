@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { type FeedAudience } from './feedAudience';
 import { createRequestSignal } from './requestSignal';
+import { readThroughScaleGateway } from './scaleReadGateway';
 import type { Post } from '../types/database';
 
 export const FEED_PAGE_SIZE = 20;
@@ -44,33 +45,53 @@ export async function fetchFeedPostsPage(
 
   try {
     if (!unlocked) {
-      const { data, error } = await supabase
-        .rpc('get_locked_feed_previews', {
-          p_daily_event_ids: eventIds,
-          p_audience: audience,
-          p_limit: FEED_PAGE_SIZE,
-          p_offset: page.offset,
-        })
-        .abortSignal(request.signal);
-      if (error) throw error;
-
-      return (Array.isArray(data) ? data : []) as Post[];
+      const path = `/v1/feed/${encodeURIComponent(dailyEventId)}?audience=${audience}&unlocked=false&limit=${FEED_PAGE_SIZE}&offset=${page.offset}`;
+      return readThroughScaleGateway<Post[]>(
+        path,
+        async () => {
+          const { data, error } = await supabase
+            .rpc('get_locked_feed_previews', {
+              p_daily_event_ids: eventIds,
+              p_audience: audience,
+              p_limit: FEED_PAGE_SIZE,
+              p_offset: page.offset,
+            })
+            .abortSignal(request.signal);
+          if (error) throw error;
+          return (Array.isArray(data) ? data : []) as Post[];
+        },
+        request.signal,
+      );
     }
 
-    const { data, error } = await supabase
-      .rpc('get_feed_page_snapshot_v2', {
-        p_daily_event_id: dailyEventId,
-        p_audience: audience,
-        p_limit: FEED_PAGE_SIZE,
-        p_before_created_at: page.beforeCreatedAt ?? null,
-        p_before_id: page.beforeId ?? null,
-      })
-      .abortSignal(request.signal);
-    if (error) throw error;
-    // Return the authorized social records immediately. Private media object
-    // references are signed lazily by visible cards so Storage latency cannot
-    // hold the entire feed behind a loading skeleton.
-    return (Array.isArray(data) ? data : []) as Post[];
+    const cursor = new URLSearchParams({
+      audience,
+      unlocked: 'true',
+      limit: String(FEED_PAGE_SIZE),
+    });
+    if (page.beforeCreatedAt) cursor.set('beforeCreatedAt', page.beforeCreatedAt);
+    if (page.beforeId) cursor.set('beforeId', page.beforeId);
+    const path = `/v1/feed/${encodeURIComponent(dailyEventId)}?${cursor.toString()}`;
+    return readThroughScaleGateway<Post[]>(
+      path,
+      async () => {
+        const { data, error } = await supabase
+          .rpc('get_feed_page_snapshot_v2', {
+            p_daily_event_id: dailyEventId,
+            p_audience: audience,
+            p_limit: FEED_PAGE_SIZE,
+            p_before_created_at: page.beforeCreatedAt ?? null,
+            p_before_id: page.beforeId ?? null,
+          })
+          .abortSignal(request.signal);
+        if (error) throw error;
+        // Return the authorized social records immediately. Private media object
+        // references are signed lazily by visible cards so Storage latency cannot
+        // hold the entire feed behind a loading skeleton.
+        return (Array.isArray(data) ? data : []) as Post[];
+      },
+      request.signal,
+    );
   } finally {
     request.cleanup();
   }

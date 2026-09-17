@@ -19,6 +19,7 @@ Create `.env.local` from the project dashboard. Never commit secrets.
 | --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Mobile/web Supabase client |
 | `EXPO_PUBLIC_SCALE_READ_URL` | Optional authenticated aggregate gateway; omit for free-mode direct reads |
+| `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED` | Use CDN feed/thumbnail variants after Storage image transforms are enabled |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | RLS-bound public client key |
 | `EXPO_PUBLIC_SENTRY_DSN` | Optional production error reporting |
 | `EXPO_PUBLIC_APP_ENV` | Optional environment label |
@@ -58,7 +59,8 @@ Supabase Edge Functions: `schedule-daily-challenge`, `orchestrate-doji`,
 `relay-domain-events`, `fanout-doji-push`, `realtime-token`, `delete-account`,
 `send-admin-email`, `run-data-maintenance`, and `operational-health`.
 
-Cloudflare Worker: `infra/doji-orchestrator`.
+Cloudflare Worker: `infra/doji-orchestrator` (alarms, relay, command gateway, and
+authenticated scale-read cache).
 
 Apply migrations, deploy the Edge Functions and Worker, configure Vault/secrets, then
 invoke `schedule-daily-challenge` once. Later events chain automatically.
@@ -80,4 +82,7 @@ depends on OS push delivery.
 ## Media
 
 Native uploads use `expo-file-system` `ArrayBuffer` payloads for Supabase Storage.
-Media paths are user-scoped and enforced by storage policies.
+Media paths are user-scoped and enforced by storage policies. Paid scale mode can
+serve signed feed and thumbnail variants while retaining the original immutable path.
+Capacity activation and staging gates are in
+[docs/SCALE_CAPACITY_RUNBOOK.md](docs/SCALE_CAPACITY_RUNBOOK.md).

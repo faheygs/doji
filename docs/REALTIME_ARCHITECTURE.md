@@ -93,6 +93,11 @@
   upstream is temporarily unavailable.
   The client verifies the returned token capability instead of assuming every
   requested post passed RLS authorization.
+  Each client instance has a lifecycle generation. Closing or replacing it invalidates
+  in-flight subscriptions before the provider result is handled; the stale attempt ends
+  without a retry or Sentry incident, while wrapped `Connection closed` transport errors
+  remain recoverable breadcrumbs. Genuine capability, authorization, and unexpected
+  provider failures keep their existing incident path.
 - Cold start has one shared persisted-session restoration request. Cache hydration and
   font loading are bounded, and the native splash never waits indefinitely on the auth
   storage lock or a profile network read. Its React handoff uses the same bundled logo,
@@ -113,15 +118,21 @@
   exclude that edge, while the tab bar adds the measured inset to both its height and
   bottom padding; no screen or platform branch reserves the same Android space twice.
 - Feed RPCs return authorized records and stable private-media references immediately.
-  Visible unlocked cards batch signed-URL resolution across one render pass; stable
-  references, but never signed bearer URLs, may be persisted. Photo/video feeds do not
-  prefetch the hidden audience while visible media is hydrating. After feed chrome is
-  usable, the client signs and memory/disk-prefetches media for at most the first five
-  authorized cards so scrolling does not serialize signing and image downloads.
+  Every private image in the bounded loaded feed pages is authorized in one coalesced
+  pass; stable references, but never signed bearer URLs, may be persisted. Photo/video
+  feeds do not prefetch the hidden audience while visible media is hydrating. After feed
+  chrome is usable, at most the first five authorized cards are decoded and warmed into
+  memory/disk cache; later loaded cards already have authorization and reuse any stable
+  native-cache bytes. A shared skeleton covers native rebinding until the image reports
+  that it displayed, so authorization never reveals stale bytes or a black frame.
   The native image cache is keyed by the immutable private object path, not the
   rotating signed bearer URL. Query persistence flushes on background, and a
   local snapshot that misses the bounded splash deadline can still hydrate
   unfinished queries without replacing newer authoritative results.
+  Camera/library photos are normalized once before the approval preview. The
+  orientation-baked, longest-edge-bounded JPEG shown there is uploaded directly,
+  so no post-approval transform can rotate, mirror, or crop a different file. Main
+  media surfaces contain the full frame; only explicit thumbnails crop it.
   Recent comments, comment-like/reaction voter lists, profiles, friend state,
   leaderboards, badges, poll detail, and shop ownership use the same bounded
   stale-while-revalidate contract. Infinite queries retain only their first
@@ -165,7 +176,9 @@
 5. The relay claims critical activation and realtime-only rows ahead of push-only
    backlog, explicitly orders each claim, and atomically publishes each channel batch
    to Ably. It durably records that publication before optional push work begins.
-   Independent channels drain with bounded concurrency.
+   Independent channels drain with 16 bounded workers per 100-row claim. The relay
+   emits per-page drain duration/counts and p50/p95/max queue-to-publication latency;
+   command responses expose content-free database/wake `Server-Timing` measurements.
 6. Connected devices update immediately. Background devices receive remote push.
 7. The same Durable Object wakes at `closes_at` and calls `close_daily_event`.
 8. After close, that one-shot alarm prepares and registers the next Doji before it
@@ -193,6 +206,11 @@ reconcile authoritative database state.
   contract across transports.
   Endpoint registration advertises notification contract version 2; contract 1
   installations keep the legacy `doji-alerts` channel during a rolling store upgrade.
+  Endpoint registration v3 adds app version, native build number, and release channel
+  to the private endpoint record for service-role-only aggregate rollout reporting.
+  The native client prefers v3 and falls back through v2/v1; notification delivery never
+  depends on release telemetry. Sentry and content-free command timing carry the same
+  release identity so mixed rollouts can be compared without logging command bodies.
 - That fallback is only a delivery transport selected by the authoritative outbox
   relay. There is no direct `notify-user` endpoint, row-trigger HTTP push, recurring
   push dispatcher, or second notification producer. Historical migrations that
@@ -418,11 +436,18 @@ authenticated aggregate cache. A scale gateway must preserve
 `can_view_full_post`/`can_access_daily_event` authorization and must never silently fall
 back to Postgres during an outage.
 
-The repository currently contains this fail-closed client boundary for those two hot
-aggregates, but not a deployed aggregate-cache implementation or equivalent feed/profile
-read tier. Direct Postgres reads are the supported small-launch configuration. A 100k
-launch remains blocked until the authenticated read tier is implemented, load-qualified,
-configured in the production build, and monitored.
+The Cloudflare Worker implements the fail-closed authenticated read tier for bounded feed,
+locked-feed, profile, engagement, and poll-summary RPCs. It verifies Supabase JWTs, keeps
+short-lived cache entries account-scoped, coalesces identical in-flight reads, and forwards
+the caller JWT so the existing database authorization remains authoritative. Direct Postgres
+reads remain the small-launch configuration until `EXPO_PUBLIC_SCALE_READ_URL` is configured.
+A 100k launch remains blocked until the paid providers are sized and this exact tier is
+load-qualified and monitored under representative multi-identity traffic.
+
+When the paid Storage transform capability is enabled,
+`EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` signs 1280-pixel feed representations and
+360-pixel thumbnails while preserving the immutable private original. Variant identity is
+part of the native disk-cache key; the original remains the authorization and fallback path.
 
 ## 100k burst contract
 

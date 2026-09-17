@@ -17,13 +17,15 @@ describe('mobile data architecture', () => {
     expect(realtime).toContain('100 + Math.floor(Math.random() * 400)');
   });
 
-  it('warms the first media cards after feed chrome becomes usable', () => {
+  it('authorizes every loaded media card and warms the first five after feed chrome is usable', () => {
     const feed = read('app/(app)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
-    expect(feed).toContain('posts.filter(hasPrivatePostMedia).slice(0, 5)');
+    expect(feed).toContain('const candidates = posts.filter(hasPrivatePostMedia)');
+    expect(feed).toContain('resolvedPosts.slice(0, 5)');
     expect(feed).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
-    expect(card).toContain('cacheKey: postMediaCacheKey(displayReference)');
-    expect(feed.indexOf('signPostMedia(candidates)')).toBeGreaterThan(
+    expect(card).toContain("cacheKey: postMediaCacheKey(displayReference, 'feed')");
+    expect(card).toContain("postMediaCacheKey(thumbReference, 'thumbnail')");
+    expect(feed.indexOf("signPostMedia(candidates, 'feed')")).toBeGreaterThan(
       feed.indexOf('InteractionManager.runAfterInteractions'),
     );
   });

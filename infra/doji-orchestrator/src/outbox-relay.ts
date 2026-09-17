@@ -30,17 +30,29 @@ async function relayDomainEvents(env: Env): Promise<Response> {
 async function relayResult(response: Response): Promise<{
   hasMore: boolean;
   nextWakeAt: string | null;
+  examined: number;
+  published: number;
+  failed: number;
 }> {
   const body = await response.text();
   if (!response.ok) throw new Error(`Outbox relay failed: ${response.status} ${body}`);
   try {
-    const parsed = JSON.parse(body) as { hasMore?: boolean; nextWakeAt?: unknown };
+    const parsed = JSON.parse(body) as {
+      hasMore?: boolean;
+      nextWakeAt?: unknown;
+      examined?: unknown;
+      published?: unknown;
+      failed?: unknown;
+    };
     return {
       hasMore: parsed.hasMore === true,
       nextWakeAt: typeof parsed.nextWakeAt === 'string' ? parsed.nextWakeAt : null,
+      examined: typeof parsed.examined === 'number' ? parsed.examined : 0,
+      published: typeof parsed.published === 'number' ? parsed.published : 0,
+      failed: typeof parsed.failed === 'number' ? parsed.failed : 0,
     };
   } catch {
-    return { hasMore: false, nextWakeAt: null };
+    return { hasMore: false, nextWakeAt: null, examined: 0, published: 0, failed: 0 };
   }
 }
 
@@ -87,6 +99,8 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
 
   private async runDrain(drainId: string, acceptedAt: number): Promise<void> {
     try {
+      let examined = 0;
+      let published = 0;
       for (let page = 0; page < OUTBOX_MAX_PAGES_PER_ALARM; page += 1) {
         if (page === 0) {
           console.info('[outbox-relay] first claim', JSON.stringify({
@@ -94,12 +108,30 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
             wakeToClaimMs: Date.now() - acceptedAt,
           }));
         }
+        const pageStartedAt = Date.now();
         const result = await relayResult(await relayDomainEvents(this.env));
+        examined += result.examined;
+        published += result.published;
+        console.info('[outbox-relay] page', JSON.stringify({
+          drainId,
+          page: page + 1,
+          examined: result.examined,
+          published: result.published,
+          failed: result.failed,
+          durationMs: Date.now() - pageStartedAt,
+          hasMore: result.hasMore,
+        }));
         if (result.hasMore) continue;
         await this.ctx.storage.delete('failures');
         await this.ctx.storage.delete('wake');
         await this.ctx.storage.deleteAlarm();
         if (result.nextWakeAt) await this.schedule(result.nextWakeAt);
+        console.info('[outbox-relay] drain complete', JSON.stringify({
+          drainId,
+          examined,
+          published,
+          totalDurationMs: Date.now() - acceptedAt,
+        }));
         return;
       }
       await this.ctx.storage.delete('wake');

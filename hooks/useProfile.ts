@@ -10,6 +10,7 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
 import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
+import { fetchPublicProfileView } from '../lib/profileQueries';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
@@ -17,13 +18,7 @@ export function useProfile(username?: string) {
     queryKey: ['profile', normalized],
     queryFn: async ({ signal }) => {
       if (!normalized) return { status: 'not_found' as const, profile: null };
-      const { data, error } = await runAbortableQuery(supabase.rpc('get_public_profile_view', {
-        p_username: normalized,
-      }), signal);
-      if (error) {
-        if (__DEV__) console.warn('[useProfile]', error.message);
-        throw error;
-      }
+      const data = await fetchPublicProfileView(normalized, signal);
       const view = parsePublicProfileView(data);
       return { ...view, profile: normalizePublicProfile(view.profile) };
     },

@@ -7,7 +7,11 @@ import {
   isRealtimeAccessUnavailable,
   invalidatePostCapability,
 } from './realtimeAuthorization';
-import { isRealtimeCapabilityDenied, isRealtimeTransportUnavailable } from './realtimeChannelErrors';
+import {
+  isRealtimeCapabilityDenied,
+  isRealtimeTransportUnavailable,
+  RealtimeLifecycleSupersededError,
+} from './realtimeChannelErrors';
 
 export type DojiRealtimeEvent = {
   eventId?: string;
@@ -17,6 +21,7 @@ export type DojiRealtimeEvent = {
 };
 
 let client: Realtime | null = null;
+let clientGeneration = 0;
 let failedReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let consecutiveConnectionFailures = 0;
 const subscriptionCounts = new Map<string, number>();
@@ -59,6 +64,7 @@ function getClient(): Realtime {
     },
   });
   createdClient = realtime;
+  clientGeneration += 1;
   client = realtime;
   client.connection.on((change) => {
     if (change.current === 'connected') {
@@ -90,9 +96,7 @@ function getClient(): Realtime {
       delay + Math.floor(Math.random() * 750),
     );
   });
-  // Establish realtime immediately. Provider authentication already batches
-  // post capabilities, while delaying the transport creates a visible stale
-  // window and can make a freshly opened app miss the live feel users expect.
+  // Connect immediately; token capability work is already batched.
   realtime.connect();
   return client;
 }
@@ -115,6 +119,8 @@ export async function subscribeToRealtimeChannel(
   const isPostChannel = channelName.startsWith('post:');
   if (isPostChannel) retainPostChannel(channelName);
   const realtime = getClient();
+  const generation = clientGeneration;
+  const lifecycleIsCurrent = () => client === realtime && clientGeneration === generation;
   const pendingRelease = releaseTimers.get(channelName);
   if (pendingRelease) clearTimeout(pendingRelease);
   releaseTimers.delete(channelName);
@@ -130,7 +136,7 @@ export async function subscribeToRealtimeChannel(
   for (let attempt = 1; attempt <= SUBSCRIBE_ATTEMPTS; attempt += 1) {
     try {
       if (isPostChannel) {
-        await ensurePostCapability(realtime, channelName, () => client === realtime);
+        await ensurePostCapability(realtime, channelName, lifecycleIsCurrent);
       }
       await channel.subscribe(listener);
       lastError = undefined;
@@ -156,7 +162,7 @@ export async function subscribeToRealtimeChannel(
         channelScope: isPostChannel ? 'post' : 'app',
         attempt,
       });
-      if (client !== realtime || attempt === SUBSCRIBE_ATTEMPTS) break;
+      if (!lifecycleIsCurrent() || attempt === SUBSCRIBE_ATTEMPTS) break;
       if (channel.state === 'failed') {
         realtime.channels.release(channelName);
         channel = getChannel();
@@ -166,6 +172,12 @@ export async function subscribeToRealtimeChannel(
   }
   if (lastError) {
     if (isPostChannel) releasePostChannel(channelName);
+    if (!lifecycleIsCurrent()) {
+      recordRealtimeFailure('channel_subscribe_superseded', lastError, {
+        channelScope: isPostChannel ? 'post' : 'app',
+      });
+      throw new RealtimeLifecycleSupersededError();
+    }
     if (!isRealtimeAccessUnavailable(lastError) && !isRealtimeTransportUnavailable(lastError)) {
       reportRealtimeFailure('channel_subscribe_exhausted', lastError, {
         channelScope: isPostChannel ? 'post' : 'app',
@@ -187,8 +199,6 @@ export async function subscribeToRealtimeChannel(
     }
     subscriptionCounts.delete(channelName);
     // Defer one task so a same-transition remount can retain the attachment.
-    // Otherwise detach immediately; keeping an empty attached channel would
-    // both leak transport resources and create an unreplayable listener gap.
     const timer = setTimeout(() => {
       releaseTimers.delete(channelName);
       if (subscriptionCounts.has(channelName) || client !== realtime) return;
@@ -214,6 +224,7 @@ export function onRealtimeConnectionChange(
 }
 
 export function closeRealtimeConnection(): void {
+  clientGeneration += 1;
   if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
   for (const timer of releaseTimers.values()) clearTimeout(timer);
   releaseTimers.clear();

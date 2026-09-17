@@ -106,7 +106,7 @@ export function ModerationReportCard({ report, busyAction, disabled, onAction }:
           {evidence.label.toUpperCase()}
         </Text>
         {report.post?.photo_url ? (
-          <Image source={{ uri: report.post.photo_url }} style={styles.photo} contentFit="cover" />
+          <Image source={{ uri: report.post.photo_url }} style={styles.photo} contentFit="contain" />
         ) : null}
         <Text variant="body" style={styles.evidenceBody}>{evidence.body}</Text>
       </View>

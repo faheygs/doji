@@ -37,14 +37,49 @@ describe('staged product backlog regressions', () => {
     expect(feed).toContain('<FeedSkeleton challenge={userEvent?.challenge} />');
   });
 
-  it('uses the system camera UI and preserves high-resolution post media', () => {
+  it('hosts notification swipe rows in their Android modal gesture root', () => {
+    const sheet = source('components/notifications/NotificationSheet.tsx');
+    expect(sheet).toContain('GestureHandlerRootView, Swipeable');
+    expect(sheet).toContain('<GestureHandlerRootView style={styles.flex} unstable_forceActive>');
+    expect(sheet).toContain('onDismissItem?.(key)');
+  });
+
+  it('keeps cached feed media covered until the authorized native image displays', () => {
+    const feed = source('app/(app)/index.tsx');
+    const card = source('components/feed/PostCard.tsx');
+    const media = source('hooks/usePostMedia.ts');
+    expect(feed).toContain('const candidates = posts.filter(hasPrivatePostMedia)');
+    expect(feed).toContain('resolvedPosts.slice(0, 5)');
+    expect(card).toContain('onDisplay={() => setMainMediaReady(true)}');
+    expect(card).toContain('<Skeleton height={1} radius={0} style={styles.mediaSkeleton} />');
+    expect(media).toContain('enabled && hasPrivatePostMedia(post)');
+  });
+
+  it('records native release identity without dropping support for older endpoint RPCs', () => {
+    const push = source('lib/pushNotifications.ts');
+    const commands = source('contracts/authenticatedCommands.ts');
+    const layout = source('app/_layout.tsx');
+    expect(push).toContain("executeCommand('register_native_push_endpoint_v3'");
+    expect(push).toContain("executeCommand('register_native_push_endpoint_v2'");
+    expect(push).toContain("executeCommand('register_native_push_endpoint'");
+    expect(commands).toContain("'register_native_push_endpoint_v3'");
+    expect(layout).toContain('...sentryReleaseIdentity()');
+  });
+
+  it('uses the system camera UI and preserves the approved full-frame photo', () => {
     const camera = source('app/(app)/camera.tsx');
     const upload = source('utils/upload.ts');
+    const postCard = source('components/feed/PostCard.tsx');
     expect(camera).toContain('ImagePicker.launchCameraAsync');
     expect(camera).toContain('Use phone camera');
     expect(camera).toContain('const pickerQuality = 1');
     expect(camera).not.toContain('<CameraView');
-    expect(upload).toContain('width: 2048, quality: 0.92');
+    expect(camera).toContain('setCapturedPhoto(await preparePostImage');
+    expect(camera).toContain('source={{ uri: capturedPhoto.uri }}');
+    expect(camera).toContain('contentFit="contain"');
+    expect(upload).toContain('const POST_IMAGE_MAX_DIMENSION = 2048');
+    expect(upload).toContain('uri: prepared.uri');
+    expect(postCard).toMatch(/source=\{mainImageSource\}[\s\S]*?contentFit="contain"/);
   });
 
   it('keeps Android resizable and edge-to-edge without forcing portrait', () => {
@@ -66,14 +101,14 @@ describe('staged product backlog regressions', () => {
     const friendship = source(
       'supabase/migrations/20260909223000_friendship_time_scoped_activity.sql',
     );
-    const leaderboard = source(
-      'supabase/migrations/20260909224000_scope_leaderboard_realtime.sql',
-    );
+    const leaderboard = source('supabase/migrations/20260909224000_scope_leaderboard_realtime.sql');
     expect(friendship).toContain('event.completed_at >= friend.accepted_at');
     expect(friendship).toContain('r.created_at >= friend.accepted_at');
     expect(friendship).toContain('c.created_at >= friend.accepted_at');
     expect(leaderboard).toContain('if leaderboard_changed then');
     const leaderboardBlock = leaderboard.slice(leaderboard.indexOf('leaderboard_changed :='));
-    expect(leaderboardBlock).not.toContain('old.reactions_given is distinct from new.reactions_given');
+    expect(leaderboardBlock).not.toContain(
+      'old.reactions_given is distinct from new.reactions_given',
+    );
   });
 });

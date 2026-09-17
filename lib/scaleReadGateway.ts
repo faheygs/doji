@@ -1,7 +1,10 @@
 import { supabase } from './supabase';
 
-const scaleReadUrl = process.env.EXPO_PUBLIC_SCALE_READ_URL?.replace(/\/$/, '');
 const SCALE_READ_TIMEOUT_MS = 8_000;
+
+function scaleReadUrl(): string | null {
+  return process.env.EXPO_PUBLIC_SCALE_READ_URL?.trim().replace(/\/$/, '') || null;
+}
 
 /**
  * Free mode reads Postgres directly. Scale mode points the same query hooks at
@@ -14,7 +17,8 @@ export async function readThroughScaleGateway<T>(
   directRead: () => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (!scaleReadUrl) return directRead();
+  const baseUrl = scaleReadUrl();
+  if (!baseUrl) return directRead();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Authentication required');
   const controller = new AbortController();
@@ -24,13 +28,20 @@ export async function readThroughScaleGateway<T>(
   const timeout = setTimeout(abort, SCALE_READ_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${scaleReadUrl}${path}`, {
-      signal: controller.signal,
-      headers: {
-        authorization: `Bearer ${session.access_token}`,
-        accept: 'application/json',
-      },
-    });
+    const read = (token: string) =>
+      fetch(`${baseUrl}${path}`, {
+        signal: controller.signal,
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: 'application/json',
+        },
+      });
+    response = await read(session.access_token);
+    if (response.status === 401 && !controller.signal.aborted) {
+      const { data, error } = await supabase.auth.refreshSession();
+      const refreshedToken = data.session?.access_token;
+      if (!error && refreshedToken) response = await read(refreshedToken);
+    }
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abort);

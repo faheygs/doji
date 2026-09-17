@@ -1,10 +1,7 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendExpoPushMessages } from '../_shared/expo-push.ts';
-import {
-  recordPushDeliveryResults,
-  type PushDeliveryOutcome,
-} from '../_shared/push-delivery.ts';
+import { recordPushDeliveryResults, type PushDeliveryOutcome } from '../_shared/push-delivery.ts';
 import { pushPreferenceEnabled } from '../_shared/notification-preferences.ts';
 import { processBroadcastPush } from '../_shared/broadcast-push.ts';
 import { apnsConfigured, sendApnsMessage } from '../_shared/apns-push.ts';
@@ -17,8 +14,8 @@ import {
 } from '../_shared/domain-event-delivery.ts';
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
 import { resolvePushPolicy } from '../_shared/notification-policy.ts';
-
-const MAX_TOPIC_WORKERS = 8;
+import { logRealtimeLatency } from '../_shared/realtime-latency.ts';
+const MAX_TOPIC_WORKERS = 16;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
 const MAX_ABLY_BATCH_CHANNELS = 100;
 
@@ -61,19 +58,20 @@ async function publishFriendFanoutBatch(
   event: RelayEvent,
   topics: string[],
 ): Promise<void> {
-  const eventType = event.event_type === 'fanout.post_membership'
-    ? 'post.created'
-    : event.event_type === 'fanout.friend_completion'
-      ? 'notification.friend_activity.updated'
-      : event.event_type === 'fanout.community_reaction'
-        ? 'notification.reaction.updated'
-        : event.event_type === 'fanout.profile_presentation'
-          ? 'profile.presentation.updated'
-          : event.event_type === 'fanout.profile_stats'
-            ? 'profile.stats.updated'
-            : event.event_type === 'fanout.badge'
-              ? 'badge.updated'
-              : null;
+  const eventType =
+    event.event_type === 'fanout.post_membership'
+      ? 'post.created'
+      : event.event_type === 'fanout.friend_completion'
+        ? 'notification.friend_activity.updated'
+        : event.event_type === 'fanout.community_reaction'
+          ? 'notification.reaction.updated'
+          : event.event_type === 'fanout.profile_presentation'
+            ? 'profile.presentation.updated'
+            : event.event_type === 'fanout.profile_stats'
+              ? 'profile.stats.updated'
+              : event.event_type === 'fanout.badge'
+                ? 'badge.updated'
+                : null;
   if (!eventType || topics.length === 0) return;
 
   for (let index = 0; index < topics.length; index += MAX_ABLY_BATCH_CHANNELS) {
@@ -135,24 +133,6 @@ type ClaimedPushTarget = {
   endpoint_key: string;
 };
 
-function logRealtimeLatency(events: RelayEvent[]): void {
-  if (events.length === 0) return;
-  const now = Date.now();
-  const delays = events.map((event) => {
-    const readyAt = Math.max(Date.parse(event.created_at), Date.parse(event.available_at));
-    return Math.max(0, now - readyAt);
-  });
-  const maxMs = Math.max(...delays);
-  const record = JSON.stringify({
-    metric: 'domain_realtime_publish',
-    count: events.length,
-    maxMs,
-    topic: events[0].topic,
-  });
-  if (maxMs > 5_000) console.warn(record);
-  else console.log(record);
-}
-
 async function runTopicWorkers(
   groups: RelayEvent[][],
   worker: (group: RelayEvent[]) => Promise<void>,
@@ -204,10 +184,9 @@ Deno.serve(async (request) => {
   const profilesByIdPromise = (async () => {
     const profilesById = new Map<string, PushProfile>();
     if (targetUserIds.length === 0) return { profilesById, error: null };
-    const { data: profiles, error: profilesError } = await database.rpc(
-      'get_push_recipients',
-      { p_user_ids: targetUserIds },
-    );
+    const { data: profiles, error: profilesError } = await database.rpc('get_push_recipients', {
+      p_user_ids: targetUserIds,
+    });
     if (profilesError) return { profilesById, error: profilesError };
     for (const profile of profiles ?? []) {
       profilesById.set(String(profile.user_id), {
@@ -217,7 +196,7 @@ Deno.serve(async (request) => {
           unknown
         > | null,
         native_endpoints: Array.isArray(profile.native_endpoints)
-          ? profile.native_endpoints as NativeEndpoint[]
+          ? (profile.native_endpoints as NativeEndpoint[])
           : [],
       });
     }
@@ -229,9 +208,8 @@ Deno.serve(async (request) => {
     // Internal expansion jobs are independent. A unique worker key preserves
     // bounded parallelism instead of serializing the entire social graph on one
     // synthetic topic.
-    const workerKey = event.topic === 'internal:friend-fanout'
-      ? `${event.topic}:${event.id}`
-      : event.topic;
+    const workerKey =
+      event.topic === 'internal:friend-fanout' ? `${event.topic}:${event.id}` : event.topic;
     const group = byTopic.get(workerKey) ?? [];
     group.push(event);
     byTopic.set(workerKey, group);
@@ -261,9 +239,10 @@ Deno.serve(async (request) => {
         return;
       }
 
-      const broadcast = pushPolicy?.mode === 'broadcast'
-        ? await processBroadcastPush(database, event)
-        : { handled: false, continued: false, sent: 0 };
+      const broadcast =
+        pushPolicy?.mode === 'broadcast'
+          ? await processBroadcastPush(database, event)
+          : { handled: false, continued: false, sent: 0 };
       broadcastSent += broadcast.sent;
       if (broadcast.continued) {
         continued += 1;
@@ -279,20 +258,23 @@ Deno.serve(async (request) => {
         const token = profile?.notification_token?.trim();
         const preferenceKey = pushPolicy.preferenceKey;
         const preferences = profile?.notification_preferences;
-        const nativeEndpoints = (profile?.native_endpoints ?? []).filter((endpoint) =>
-          Boolean(endpoint.token) && (
-            (endpoint.provider === 'apns' && apnsConfigured()) ||
-            (endpoint.provider === 'fcm' && fcmConfigured())
-          )
+        const nativeEndpoints = (profile?.native_endpoints ?? []).filter(
+          (endpoint) =>
+            Boolean(endpoint.token) &&
+            ((endpoint.provider === 'apns' && apnsConfigured()) ||
+              (endpoint.provider === 'fcm' && fcmConfigured())),
         );
-        if ((nativeEndpoints.length > 0 || token) &&
-          pushPreferenceEnabled(preferences, preferenceKey)) {
-          const pushTargets = nativeEndpoints.length > 0
-            ? nativeEndpoints.map((endpoint) => ({
-              userId: targetUserId,
-              endpointKey: `native:${endpoint.installationId}`,
-            }))
-            : [{ userId: targetUserId, endpointKey: 'expo' }];
+        if (
+          (nativeEndpoints.length > 0 || token) &&
+          pushPreferenceEnabled(preferences, preferenceKey)
+        ) {
+          const pushTargets =
+            nativeEndpoints.length > 0
+              ? nativeEndpoints.map((endpoint) => ({
+                  userId: targetUserId,
+                  endpointKey: `native:${endpoint.installationId}`,
+                }))
+              : [{ userId: targetUserId, endpointKey: 'expo' }];
           const { data: claimedData, error: claimError } = await database.rpc(
             'claim_push_delivery_targets_batch_v2',
             {
@@ -331,18 +313,18 @@ Deno.serve(async (request) => {
                 (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'),
             ),
             eventId: event.id,
-            daily_event_id: event.payload.dailyEventId
-              ? String(event.payload.dailyEventId)
-              : '',
+            daily_event_id: event.payload.dailyEventId ? String(event.payload.dailyEventId) : '',
             postId: event.payload.postId ? String(event.payload.postId) : '',
             voteId: event.payload.voteId ? String(event.payload.voteId) : '',
             url: event.payload.url ? String(event.payload.url) : '',
             notificationScopeKind: pushPolicy.scopeKind,
             notificationScopeId: pushPolicy.scopeId,
           };
-          const expoChannelId = (profile?.native_endpoints ?? []).some((endpoint) =>
-              (endpoint.notificationContractVersion ?? 1) >= 2)
-            ? pushPolicy.channelId : 'doji-alerts';
+          const expoChannelId = (profile?.native_endpoints ?? []).some(
+            (endpoint) => (endpoint.notificationContractVersion ?? 1) >= 2,
+          )
+            ? pushPolicy.channelId
+            : 'doji-alerts';
           const claimedByEndpoint = new Map(
             claimedTargets.map((target) => [target.endpoint_key, target.delivery_key]),
           );
@@ -357,24 +339,30 @@ Deno.serve(async (request) => {
           for (const endpoint of nativeEndpoints) {
             const deliveryKey = claimedByEndpoint.get(`native:${endpoint.installationId}`);
             if (!deliveryKey) continue;
-            const push = endpoint.provider === 'apns'
-              ? await sendApnsMessage(database, {
-                token: endpoint.token,
-                environment: endpoint.environment ?? 'production',
-                title,
-                body,
-                collapseId: collapseKey,
-                expiresAtEpochSeconds: Math.floor(pushExpiresAtMs / 1000),
-                interruptionLevel: pushPolicy.interruptionLevel,
-                data: notificationData,
-              })
-              : await sendFcmMessage({
-                token: endpoint.token, title, body, collapseKey, ttlSeconds: ttl,
-                data: notificationData,
-                channelId: (endpoint.notificationContractVersion ?? 1) >= 2
-                  ? pushPolicy.channelId
-                  : 'doji-alerts',
-              });
+            const push =
+              endpoint.provider === 'apns'
+                ? await sendApnsMessage(database, {
+                    token: endpoint.token,
+                    environment: endpoint.environment ?? 'production',
+                    title,
+                    body,
+                    collapseId: collapseKey,
+                    expiresAtEpochSeconds: Math.floor(pushExpiresAtMs / 1000),
+                    interruptionLevel: pushPolicy.interruptionLevel,
+                    data: notificationData,
+                  })
+                : await sendFcmMessage({
+                    token: endpoint.token,
+                    title,
+                    body,
+                    collapseKey,
+                    ttlSeconds: ttl,
+                    data: notificationData,
+                    channelId:
+                      (endpoint.notificationContractVersion ?? 1) >= 2
+                        ? pushPolicy.channelId
+                        : 'doji-alerts',
+                  });
             results.push({
               deliveryKey,
               outcome: push.outcome,
@@ -387,15 +375,23 @@ Deno.serve(async (request) => {
           let invalidExpoToken = false;
           const expoDeliveryKey = claimedByEndpoint.get('expo');
           if (expoDeliveryKey && token) {
-            const pushResult = await sendExpoPushMessages([{
-              to: token, title, body, sound: 'default', channelId: expoChannelId, badge: 1, ttl,
-              priority: 'high',
-              interruptionLevel: pushPolicy.interruptionLevel,
-              threadId: collapseKey,
-              collapseId: collapseKey,
-              tag: collapseKey,
-              data: notificationData,
-            }]);
+            const pushResult = await sendExpoPushMessages([
+              {
+                to: token,
+                title,
+                body,
+                sound: 'default',
+                channelId: expoChannelId,
+                badge: 1,
+                ttl,
+                priority: 'high',
+                interruptionLevel: pushPolicy.interruptionLevel,
+                threadId: collapseKey,
+                collapseId: collapseKey,
+                tag: collapseKey,
+                data: notificationData,
+              },
+            ]);
             const ticket = pushResult.tickets[0];
             invalidExpoToken = pushResult.invalidTokenIndices.includes(0);
             results.push({
@@ -404,7 +400,9 @@ Deno.serve(async (request) => {
                 ? 'invalid_token'
                 : ticket?.status === 'ok'
                   ? 'accepted'
-                  : pushResult.httpOk ? 'rejected' : 'transport_error',
+                  : pushResult.httpOk
+                    ? 'rejected'
+                    : 'transport_error',
               providerTicketId: ticket?.status === 'ok' ? ticket.id : undefined,
               error: ticket?.status === 'error' ? ticket.message : pushResult.transportError,
             });
@@ -470,9 +468,10 @@ Deno.serve(async (request) => {
       );
     } catch (fanoutPublishError) {
       failed += 1;
-      const message = fanoutPublishError instanceof Error
-        ? fanoutPublishError.message
-        : String(fanoutPublishError);
+      const message =
+        fanoutPublishError instanceof Error
+          ? fanoutPublishError.message
+          : String(fanoutPublishError);
       await database.rpc('release_domain_event', {
         p_event_id: event.id,
         p_lease_id: event.lease_id,
@@ -557,7 +556,8 @@ Deno.serve(async (request) => {
     published += completed;
     if (completionError || completed !== bulkCompletions.length) {
       failed += bulkCompletions.length - completed;
-      const message = completionError?.message ??
+      const message =
+        completionError?.message ??
         `Completed ${completed} of ${bulkCompletions.length} event leases`;
       await database.rpc('release_domain_events_batch', {
         p_events: bulkCompletions,

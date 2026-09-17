@@ -32,10 +32,19 @@ describe('100k hardening contracts', () => {
     expect(worker).toContain('scheduleDataMaintenance(this.env)');
   });
 
-  it('keeps free reads now and exposes one scale-read configuration boundary', () => {
+  it('keeps free reads and provides a fail-closed authenticated scale tier', () => {
     const gateway = read('lib/scaleReadGateway.ts');
+    const worker = read('infra/doji-orchestrator/src/scale-read.ts');
+    const authentication = read('infra/doji-orchestrator/src/scale-read-auth.ts');
     expect(gateway).toContain('EXPO_PUBLIC_SCALE_READ_URL');
-    expect(gateway).toContain('if (!scaleReadUrl) return directRead()');
+    expect(gateway).toContain('if (!baseUrl) return directRead()');
+    expect(gateway).toContain('await supabase.auth.refreshSession()');
+    expect(authentication).toContain("payload.role !== 'authenticated'");
+    expect(worker).toContain('auth.userId');
+    expect(worker).toContain('get_feed_page_snapshot_v2');
+    expect(worker).toContain('get_public_profile_view');
+    expect(worker).toContain('authorization: `Bearer ${token}`');
+    expect(worker).not.toContain('SERVICE_ROLE');
   });
 
   it('keeps leaderboard reads bounded without ever dropping the viewer', () => {

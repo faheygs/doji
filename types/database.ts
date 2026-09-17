@@ -698,6 +698,20 @@ export type Database = {
         };
         Returns: boolean;
       };
+      register_native_push_endpoint_v3: {
+        Args: {
+          p_installation_id: string;
+          p_token: string;
+          p_platform: 'ios' | 'android';
+          p_environment: 'sandbox' | 'production';
+          p_expo_token?: string | null;
+          p_notification_contract_version?: 2;
+          p_app_version?: string | null;
+          p_native_build_number?: string | null;
+          p_release_channel?: string | null;
+        };
+        Returns: boolean;
+      };
       unregister_push_installation: {
         Args: { p_installation_id: string; p_expo_token?: string | null };
         Returns: boolean;
@@ -733,10 +747,10 @@ export type Database = {
         Args: { p_item_key: string };
         Returns: { item_key: string; sparks: number };
       };
-       equip_shop_item: {
-         Args: { p_item_key: string; p_idempotency_key: string };
-         Returns: { item_key: string };
-       };
+      equip_shop_item: {
+        Args: { p_item_key: string; p_idempotency_key: string };
+        Returns: { item_key: string };
+      };
       buy_in_today: {
         Args: { p_idempotency_key: string };
         Returns: { user_event_id: string; sparks: number; expires_at: string };

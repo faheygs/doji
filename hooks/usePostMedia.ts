@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Post } from '../types/database';
-import { hasPrivatePostMedia, signPostMedia } from '../lib/postMedia';
+import { hasPrivatePostMedia, signPostMedia, type PostMediaVariant } from '../lib/postMedia';
 
 type ResolvedPostMedia = Pick<Post, 'photo_url' | 'front_photo_url' | 'video_url'>;
 
@@ -13,8 +13,16 @@ function mediaOf(post: Post): ResolvedPostMedia {
 }
 
 /** Resolve private media only for a visible, unlocked card. */
-export function usePostMedia(post: Post, enabled: boolean): ResolvedPostMedia {
-  const [media, setMedia] = useState<ResolvedPostMedia>(() => mediaOf(post));
+export function usePostMedia(
+  post: Post,
+  enabled: boolean,
+  variant: PostMediaVariant = 'feed',
+): ResolvedPostMedia {
+  const [media, setMedia] = useState<ResolvedPostMedia>(() =>
+    enabled && hasPrivatePostMedia(post)
+      ? { photo_url: null, front_photo_url: null, video_url: null }
+      : mediaOf(post),
+  );
   const postId = post.id;
   const photoUrl = post.photo_url;
   const frontPhotoUrl = post.front_photo_url;
@@ -30,16 +38,20 @@ export function usePostMedia(post: Post, enabled: boolean): ResolvedPostMedia {
     } as Post;
     if (!enabled || !hasPrivatePostMedia(mediaPost)) {
       setMedia(mediaOf(mediaPost));
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     // Preserve the card dimensions but do not hand authenticated object URLs
     // directly to the image component while their bearer URLs are resolving.
     setMedia({ photo_url: null, front_photo_url: null, video_url: null });
-    void signPostMedia([mediaPost]).then(([resolved]) => {
+    void signPostMedia([mediaPost], variant).then(([resolved]) => {
       if (active && resolved) setMedia(mediaOf(resolved));
     });
-    return () => { active = false; };
-  }, [enabled, postId, photoUrl, frontPhotoUrl, videoUrl]);
+    return () => {
+      active = false;
+    };
+  }, [enabled, postId, photoUrl, frontPhotoUrl, videoUrl, variant]);
 
   return media;
 }

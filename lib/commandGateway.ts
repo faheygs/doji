@@ -2,6 +2,7 @@ import type { Database } from '../types/database';
 import type { AuthenticatedCommandName } from '../contracts/authenticatedCommands';
 import { reportRealtimeFailure } from './telemetry';
 import { supabase } from './supabase';
+import { mobileReleaseIdentity } from './releaseIdentity';
 
 const COMMAND_TIMEOUT_MS = 12_000;
 const TRANSIENT_RETRY_DELAY_MS = 250;
@@ -13,6 +14,7 @@ const IDEMPOTENT_WITHOUT_COMMAND_KEY = new Set<string>([
   'purchase_shop_item',
   'register_native_push_endpoint',
   'register_native_push_endpoint_v2',
+  'register_native_push_endpoint_v3',
   'sync_notification_center_state',
   'unregister_push_installation',
 ]);
@@ -40,7 +42,7 @@ function gatewayUrl(): string | null {
 }
 
 function commandError(value: unknown, fallback: string): CommandError {
-  const body = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const body = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
     code: typeof body.code === 'string' ? body.code : 'DOJI_COMMAND_ERROR',
     details: typeof body.details === 'string' ? body.details : null,
@@ -71,6 +73,7 @@ async function gatewayCommand<Name extends FunctionName>(
   name: Name,
   args: FunctionArgs<Name>,
 ): Promise<{ response: Response; payload: unknown }> {
+  const release = mobileReleaseIdentity();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), COMMAND_TIMEOUT_MS);
   try {
@@ -81,6 +84,10 @@ async function gatewayCommand<Name extends FunctionName>(
         authorization: `Bearer ${token}`,
         'content-type': 'application/json',
         'x-client-info': 'doji-mobile/1.0',
+        ...(release.appVersion ? { 'x-doji-app-version': release.appVersion } : {}),
+        ...(release.nativeBuildNumber ? { 'x-doji-native-build': release.nativeBuildNumber } : {}),
+        'x-doji-platform': release.platform,
+        'x-doji-release-channel': release.releaseChannel,
       },
       body: JSON.stringify(args ?? {}),
       signal: controller.signal,
@@ -121,10 +128,7 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
     if (__DEV__) return directCommand(name, args);
     return {
       data: null,
-      error: commandError(
-        null,
-        'This build is missing its secure command service configuration.',
-      ),
+      error: commandError(null, 'This build is missing its secure command service configuration.'),
     };
   }
 

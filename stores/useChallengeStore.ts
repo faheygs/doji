@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { UserEvent, Challenge, Post } from '../types/database';
+import type { PreparedPostImage } from '../utils/upload';
 
 type ChallengeStatus = 'idle' | 'pending' | 'active' | 'completed' | 'missed';
 
@@ -7,15 +8,15 @@ type ChallengeState = {
   currentUserEvent: UserEvent | null;
   currentChallenge: Challenge | null;
   status: ChallengeStatus;
-  capturedPhoto: string | null;
-  capturedFrontPhoto: string | null;
+  capturedPhoto: PreparedPostImage | null;
+  capturedFrontPhoto: PreparedPostImage | null;
   capturedVideoUri: string | null;
 
   setCurrentUserEvent: (event: UserEvent | null) => void;
   setCurrentChallenge: (challenge: Challenge | null) => void;
   setStatus: (status: ChallengeStatus) => void;
-  setCapturedPhoto: (uri: string | null) => void;
-  setCapturedFrontPhoto: (uri: string | null) => void;
+  setCapturedPhoto: (photo: PreparedPostImage | null) => void;
+  setCapturedFrontPhoto: (photo: PreparedPostImage | null) => void;
   setCapturedVideoUri: (uri: string | null) => void;
   clearCaptures: () => void;
 };

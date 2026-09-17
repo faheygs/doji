@@ -21,6 +21,7 @@ export const AUTHENTICATED_COMMAND_NAMES = [
   'purchase_shop_item',
   'register_native_push_endpoint',
   'register_native_push_endpoint_v2',
+  'register_native_push_endpoint_v3',
   'remove_friendship',
   'reserve_doji_media_upload',
   'request_friendship',

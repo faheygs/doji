@@ -37,6 +37,7 @@ yarn-error.*
 *.tsbuildinfo
 coverage/
 /artifacts/
+/.artifacts/
 
 # generated native folders
 /ios

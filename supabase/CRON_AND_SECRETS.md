@@ -30,12 +30,14 @@ There is no due-event poll, recurring dispatcher, or recurring expiration sweep.
 
 ## Cloudflare Worker secrets
 
-| Secret                | Use                                              |
-| --------------------- | ------------------------------------------------ |
-| `SUPABASE_URL`        | Edge Function base URL                           |
-| `ORCHESTRATOR_SECRET` | Durable alarm registration endpoint              |
-| `OUTBOX_RELAY_SECRET` | Durable relay and Edge Function authentication    |
-| `SENTRY_DSN`          | Final Cloudflare alarm/relay failure diagnostics  |
+| Secret                          | Use                                                     |
+| ------------------------------- | ------------------------------------------------------- |
+| `SUPABASE_URL`                  | Edge Function, REST, Auth, and JWKS base URL             |
+| `SUPABASE_ANON_KEY`             | RLS-bound REST requests from the authenticated read tier |
+| `SUPABASE_JWT_SECRET` optional  | Legacy HS256 verification only; omit with JWKS signing   |
+| `ORCHESTRATOR_SECRET`           | Durable alarm registration endpoint                     |
+| `OUTBOX_RELAY_SECRET`           | Durable relay and Edge Function authentication           |
+| `SENTRY_DSN`                    | Final Cloudflare alarm/relay failure diagnostics         |
 
 Cloudflare must never receive the Supabase service-role key.
 

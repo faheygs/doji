@@ -51,6 +51,8 @@ export function isRealtimeTransportUnavailable(error: unknown): boolean {
   const transientMessages = [
     'connection to server unavailable',
     'connection to server temporarily unavailable',
+    'connection closed',
+    'connection disconnected',
     'network unreachable',
     'no more fallback hosts to try',
   ];
@@ -71,4 +73,15 @@ export function isRealtimeTransportUnavailable(error: unknown): boolean {
     const normalized = message.toLowerCase();
     return transientMessages.some((fragment) => normalized.includes(fragment));
   });
+}
+
+export class RealtimeLifecycleSupersededError extends Error {
+  constructor() {
+    super('Realtime client lifecycle was superseded');
+    this.name = 'RealtimeLifecycleSupersededError';
+  }
+}
+
+export function isRealtimeLifecycleSuperseded(error: unknown): boolean {
+  return error instanceof RealtimeLifecycleSupersededError;
 }

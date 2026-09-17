@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { UserEvent } from '../types/database';
 import { uploadPostMedia, uploadPostVideo } from '../utils/upload';
+import type { PreparedPostImage } from '../utils/upload';
 import { filterContent } from '../lib/contentFilter';
 import { syncServerClock } from '../lib/serverClock';
 import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
@@ -39,8 +40,8 @@ export function useUserEvent() {
 
 type CreatePostPayload = {
   userEventId: string;
-  photoUri: string | null;
-  frontPhotoUri: string | null;
+  photoUri: string | PreparedPostImage | null;
+  frontPhotoUri: string | PreparedPostImage | null;
   videoUri: string | null;
   caption: string;
   isLate: boolean;

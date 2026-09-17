@@ -9,6 +9,8 @@ describe('realtime channel error classification', () => {
     'Unable to connect (and no more fallback hosts to try)',
     'Connection to server unavailable',
     'Connection to server temporarily unavailable',
+    'Connection closed',
+    'Channel operation failed: Connection disconnected',
   ])('treats recoverable mobile transport loss as non-incident telemetry: %s', (message) => {
     expect(isRealtimeTransportUnavailable(new Error(message))).toBe(true);
   });
@@ -18,6 +20,15 @@ describe('realtime channel error classification', () => {
       isRealtimeTransportUnavailable({
         message: 'Channel operation failed as state is failed',
         errorReason: { code: 80003, message: 'Connection disconnected' },
+      }),
+    ).toBe(true);
+  });
+
+  it('recognizes a wrapped intentional connection closure', () => {
+    expect(
+      isRealtimeTransportUnavailable({
+        message: 'Channel operation failed',
+        cause: new Error('Connection closed'),
       }),
     ).toBe(true);
   });
@@ -32,8 +43,8 @@ describe('realtime channel error classification', () => {
   });
 
   it('does not suppress unexpected provider failures', () => {
-    expect(
-      isRealtimeTransportUnavailable({ code: 50001, message: 'Internal channel error' }),
-    ).toBe(false);
+    expect(isRealtimeTransportUnavailable({ code: 50001, message: 'Internal channel error' })).toBe(
+      false,
+    );
   });
 });

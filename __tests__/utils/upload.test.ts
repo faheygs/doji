@@ -1,11 +1,19 @@
-import { uploadPostMedia, uploadPostVideo, uploadAvatar, compressImage } from '../../utils/upload';
+import {
+  uploadPostMedia,
+  uploadPostVideo,
+  uploadAvatar,
+  compressImage,
+  preparePostImage,
+} from '../../utils/upload';
 import { supabase } from '../../lib/supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { resumableStorageUpload } from '../../utils/resumableUpload';
 
 jest.mock('../../lib/supabase');
 jest.mock('expo-image-manipulator', () => ({
-  manipulateAsync: jest.fn().mockResolvedValue({ uri: 'file://compressed.jpg' }),
+  manipulateAsync: jest
+    .fn()
+    .mockResolvedValue({ uri: 'file://compressed.jpg', width: 1200, height: 1600 }),
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
 }));
 jest.mock('expo-file-system', () => ({
@@ -19,8 +27,7 @@ function setupStorageMock() {
   const storageBucket = {
     getPublicUrl: jest.fn(() => ({
       data: {
-        publicUrl:
-          'https://project.supabase.co/storage/v1/object/public/post-media/user/file.jpg',
+        publicUrl: 'https://project.supabase.co/storage/v1/object/public/post-media/user/file.jpg',
       },
     })),
   };
@@ -34,6 +41,8 @@ function setupStorageMock() {
 }
 
 describe('compressImage', () => {
+  afterEach(() => jest.clearAllMocks());
+
   it('calls ImageManipulator with correct params', async () => {
     const uri = await compressImage('file://original.jpg');
     expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
@@ -45,7 +54,38 @@ describe('compressImage', () => {
   });
 });
 
+describe('preparePostImage', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  it('normalizes a portrait photo once and bounds its longest edge', async () => {
+    (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValueOnce({
+      uri: 'file://prepared.jpg',
+      width: 1536,
+      height: 2048,
+    });
+
+    await expect(
+      preparePostImage({ uri: 'file://portrait.heic', width: 3024, height: 4032 }),
+    ).resolves.toEqual({ uri: 'file://prepared.jpg', width: 1536, height: 2048 });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      'file://portrait.heic',
+      [{ resize: { height: 2048 } }],
+      { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG },
+    );
+  });
+
+  it('does not upscale a smaller photo while baking its orientation', async () => {
+    await preparePostImage({ uri: 'file://small.jpg', width: 1200, height: 1600 });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith('file://small.jpg', [], {
+      compress: 0.92,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+  });
+});
+
 describe('uploadPostMedia', () => {
+  afterEach(() => jest.clearAllMocks());
+
   it('compresses, uploads to post-media bucket, and returns public URL', async () => {
     setupStorageMock();
     const url = await uploadPostMedia('event-1', 'command-123456789', 'file://photo.jpg', 'photo');
@@ -68,6 +108,21 @@ describe('uploadPostMedia', () => {
     await expect(
       uploadPostMedia('event-1', 'command-123456789', 'file://photo.jpg', 'photo'),
     ).rejects.toThrow('Storage full');
+  });
+
+  it('uploads the exact prepared image without transforming it again', async () => {
+    setupStorageMock();
+    await uploadPostMedia(
+      'event-1',
+      'command-123456789',
+      { uri: 'file://approved-preview.jpg', width: 1536, height: 2048 },
+      'photo',
+    );
+
+    expect(ImageManipulator.manipulateAsync).not.toHaveBeenCalled();
+    expect(resumableStorageUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ uri: 'file://approved-preview.jpg' }),
+    );
   });
 });
 

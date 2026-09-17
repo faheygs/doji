@@ -5,22 +5,23 @@
   "compatibility_date": "2026-08-11",
   "workers_dev": true,
   "preview_urls": false,
+  "vars": { "SCALE_CACHE_VERSION": "v1" },
   "durable_objects": {
     "bindings": [
       { "name": "DOJI_EVENT_ALARM", "class_name": "DojiEventAlarm" },
       { "name": "OUTBOX_RELAY_ALARM", "class_name": "OutboxRelayAlarm" },
       { "name": "PUSH_FANOUT_ALARM", "class_name": "PushFanoutAlarm" },
       { "name": "DATA_MAINTENANCE_ALARM", "class_name": "DataMaintenanceAlarm" },
-      { "name": "HEALTH_MONITOR", "class_name": "HealthMonitor" }
-    ]
+      { "name": "HEALTH_MONITOR", "class_name": "HealthMonitor" },
+    ],
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["DojiEventAlarm"] },
     { "tag": "v2", "new_sqlite_classes": ["OutboxRelayAlarm"] },
     { "tag": "v3", "new_sqlite_classes": ["DataMaintenanceAlarm"] },
     { "tag": "v4", "new_sqlite_classes": ["PushFanoutAlarm"] },
-    { "tag": "v5", "new_sqlite_classes": ["HealthMonitor"] }
+    { "tag": "v5", "new_sqlite_classes": ["HealthMonitor"] },
   ],
   "observability": { "enabled": true },
-  "triggers": { "crons": ["*/1 * * * *"] }
+  "triggers": { "crons": ["*/1 * * * *"] },
 }

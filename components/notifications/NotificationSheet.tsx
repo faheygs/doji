@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Modal, type ViewToken } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Swipeable } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useRouter, usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing } from '../../constants/theme';
@@ -72,9 +72,7 @@ export function NotificationSheet({
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<NotificationCenterItem>[] }) => {
       onItemsVisibleRef.current?.(
-        viewableItems
-          .filter((token) => token.isViewable && token.item)
-          .map((token) => token.item),
+        viewableItems.filter((token) => token.isViewable && token.item).map((token) => token.item),
       );
     },
   ).current;
@@ -82,10 +80,13 @@ export function NotificationSheet({
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   const respond = useRespondToFriendRequest();
   useDismissOnRouteBlur(visible, onClose);
-  const dismissThen = useCallback((action: () => void) => {
-    pendingActionRef.current = action;
-    onClose();
-  }, [onClose]);
+  const dismissThen = useCallback(
+    (action: () => void) => {
+      pendingActionRef.current = action;
+      onClose();
+    },
+    [onClose],
+  );
 
   const finishDismiss = useCallback(() => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -120,7 +121,11 @@ export function NotificationSheet({
   );
   const clearAll = useCallback(async () => {
     setActionError(false);
-    try { await onClearHistory?.(); } catch { setActionError(true); }
+    try {
+      await onClearHistory?.();
+    } catch {
+      setActionError(true);
+    }
   }, [onClearHistory]);
 
   const renderRightActions = useCallback(
@@ -130,7 +135,11 @@ export function NotificationSheet({
         onPress={async () => {
           swipeableRefs.current.get(key)?.close();
           setActionError(false);
-          try { await onDismissItem?.(key); } catch { setActionError(true); }
+          try {
+            await onDismissItem?.(key);
+          } catch {
+            setActionError(true);
+          }
         }}
         activeOpacity={0.8}
       >
@@ -220,7 +229,8 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
-                title={notificationActorName(item.actor)} body="Liked your comment"
+                title={notificationActorName(item.actor)}
+                body="Liked your comment"
                 sortAt={item.sortAt}
                 onPress={() => openFeedPost(item.post_id, true, item.comment_id)}
               />
@@ -279,7 +289,7 @@ export function NotificationSheet({
                   />
                 }
                 footer={
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
                     <ReactionIconRow emojis={item.emojis} colors={colors} size={15} />
                     <Text variant="micro" color={colors.textTertiary}>
                       {item.count} reaction{item.count === 1 ? '' : 's'}
@@ -331,7 +341,11 @@ export function NotificationSheet({
                 sortAt={item.sortAt}
                 leading={
                   <View style={styles.badgeLeading}>
-                    <CategoryBadgeIcon categoryId={item.categoryId} size={22} color={colors.primary} />
+                    <CategoryBadgeIcon
+                      categoryId={item.categoryId}
+                      size={22}
+                      color={colors.primary}
+                    />
                   </View>
                 }
               />
@@ -346,21 +360,18 @@ export function NotificationSheet({
           card = (
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
-                title={approved ? 'Challenge suggestion approved!' : 'Challenge suggestion reviewed'}
+                title={
+                  approved ? 'Challenge suggestion approved!' : 'Challenge suggestion reviewed'
+                }
                 body={truncated}
                 sortAt={item.sortAt}
                 leading={
                   <View
                     style={
-                      approved
-                        ? styles.suggestionApprovedLeading
-                        : styles.suggestionRejectedLeading
+                      approved ? styles.suggestionApprovedLeading : styles.suggestionRejectedLeading
                     }
                   >
-                    <IconCheck
-                      size={22}
-                      color={approved ? colors.success : colors.textSecondary}
-                    />
+                    <IconCheck size={22} color={approved ? colors.success : colors.textSecondary} />
                   </View>
                 }
               />
@@ -398,7 +409,10 @@ export function NotificationSheet({
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
-                onPress={() => { Haptics.selectionAsync(); dismissThen(() => safeReplace(router, ROUTES.feed)); }}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  dismissThen(() => safeReplace(router, ROUTES.feed));
+                }}
               />
             </Card>
           );
@@ -449,60 +463,68 @@ export function NotificationSheet({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View
-        style={[
-          styles.flex,
-          { paddingTop: modalTopInset, paddingBottom: modalBottomInset },
-        ]}
-      >
-        <View style={styles.header}>
-          <Text variant="headingLarge">Notifications</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={8}
-            style={styles.closeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Close notifications"
+      <GestureHandlerRootView style={styles.flex} unstable_forceActive>
+        <View style={[styles.flex, { paddingTop: modalTopInset, paddingBottom: modalBottomInset }]}>
+          <View style={styles.header}>
+            <Text variant="headingLarge">Notifications</Text>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={8}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close notifications"
+            >
+              <IconClose size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <SkeletonSwap
+            loading={visible && isLoading && items.length === 0}
+            skeleton={<NotificationListSkeleton />}
           >
-            <IconClose size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+            <FlatList
+              data={items}
+              removeClippedSubviews={false}
+              keyExtractor={(i) => i.key}
+              contentContainerStyle={styles.list}
+              renderItem={renderItem}
+              onViewableItemsChanged={handleViewableItemsChanged}
+              viewabilityConfig={attentionViewabilityConfig}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <IconBell size={44} color={colors.textTertiary} />
+                  <Text variant="headingMedium">{"You're all caught up"}</Text>
+                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>
+                    Friend requests, reactions, badge unlocks, and today&apos;s challenge show up
+                    here.
+                  </Text>
+                </View>
+              }
+            />
+          </SkeletonSwap>
 
-        <SkeletonSwap
-          loading={visible && isLoading && items.length === 0}
-          skeleton={<NotificationListSkeleton />}
-        >
-          <FlatList
-            data={items}
-            removeClippedSubviews={false}
-            keyExtractor={(i) => i.key}
-            contentContainerStyle={styles.list}
-            renderItem={renderItem}
-            onViewableItemsChanged={handleViewableItemsChanged}
-            viewabilityConfig={attentionViewabilityConfig}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <IconBell size={44} color={colors.textTertiary} />
-                <Text variant="headingMedium">{"You're all caught up"}</Text>
-                <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>
-                  Friend requests, reactions, badge unlocks, and today&apos;s challenge show up here.
-                </Text>
-              </View>
-            }
-          />
-        </SkeletonSwap>
-
-        <View style={styles.footer}>
-          {actionError ? <Text variant="micro" color={colors.error} style={{ textAlign: 'center' }}>Couldn&apos;t update notifications. Try again.</Text> : null}
-          {onClearHistory && items.some((item) => item.kind !== 'friend_request') ? (
-            <Button onPress={() => void clearAll()} variant="ghost" size="sm" loading={isClearing} fullWidth>
-              Clear notifications
-            </Button>
-          ) : null}
+          <View style={styles.footer}>
+            {actionError ? (
+              <Text variant="micro" color={colors.error} style={{ textAlign: 'center' }}>
+                Couldn&apos;t update notifications. Try again.
+              </Text>
+            ) : null}
+            {onClearHistory && items.some((item) => item.kind !== 'friend_request') ? (
+              <Button
+                onPress={() => void clearAll()}
+                variant="ghost"
+                size="sm"
+                loading={isClearing}
+                fullWidth
+              >
+                Clear notifications
+              </Button>
+            ) : null}
+          </View>
         </View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
