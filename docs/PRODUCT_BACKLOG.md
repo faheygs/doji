@@ -9,6 +9,32 @@ verified on a physical device.
 
 ## Queued
 
+### FW-016 — Preserve photo quality and fill the feed without cropping
+
+Priority: P1 — before next shared iOS/Android build
+
+Implementation is staged with a single-encode 1536x2048 approval/upload master,
+matching full-width 3:4 feed frame, 1440x1920 CDN derivative, and versioned native
+cache identity. Physical iPhone/Galaxy verification remains.
+
+- Do not solve feed letterboxing by changing only the final renderer; that would
+  silently crop a different frame from the one the user approved and regress FW-010.
+- Normalize new main/front photos once to a consistent 3:4 frame before approval,
+  upload that exact approved JPEG, and render the feed in the same full-width 3:4 frame.
+- Backward-compatible clients and older posts retain a safe center-cropped 3:4 fallback;
+  loading an older post must not fail or cause a layout jump.
+- Keep a high-quality immutable upload master and avoid unnecessary JPEG re-encoding.
+  Feed and thumbnail derivatives must be generated from that master at a size and
+  quality appropriate for high-density iPhone and Android screens.
+- The full post image must not display black side/top bars, stretch, rotate, mirror,
+  or crop differently from the approval preview. Intentional square cropping remains
+  limited to thumbnails and avatar-style surfaces.
+- Add automated coverage for portrait, landscape, square, front-camera, library,
+  older dimensionless posts, and transformed-CDN fallback behavior.
+- Verify on physical iPhone and Galaxy devices using fine-detail, low-light, and flat
+  gradient photos; compare the approved preview, stored master, and feed rendering at
+  normal and slow network speeds before releasing.
+
 ### FW-015 — Record the installed release with production observations
 
 Priority: P1 — before next shared iOS/Android build

@@ -914,10 +914,13 @@ the normal 13+ gate and separately accept the current Terms and Privacy Policy.
   for the existing RLS/security-definer authorization contract, and fails closed instead of
   falling back into a database stampede. Purchased capacity and representative load evidence
   are still required before a 100k claim.
-- `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` selects authorized CDN-rendered 1280-pixel
-  feed images and 360-pixel thumbnails. Stable original object paths remain the source of
-  truth and cache identity includes the variant, so signed-URL rotation never redownloads
-  an unchanged representation. Leave the flag off until Storage transforms are enabled.
+- `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` selects authorized CDN-rendered 1440x1920
+  3:4 feed images and 360-pixel thumbnails. New photo submissions are center-cropped once
+  to the same 3:4 frame before approval and the exact approved JPEG is uploaded without a
+  second client transform. Stable original object paths remain the source of
+  truth and cache identity includes the versioned variant, so signed-URL rotation never
+  redownloads an unchanged representation while a changed derivative cannot reuse stale
+  lower-quality bytes. Leave the flag off until Storage transforms are enabled.
 - Social write budgets are enforced in Postgres per actor/action. Reconnect attempts and
   authoritative catch-up are jittered. Bounded retention continues until caught up,
   and the one-minute operational health contract reports overdue outbox work and stale

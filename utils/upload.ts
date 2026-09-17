@@ -3,8 +3,10 @@ import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import { resumableStorageUpload } from './resumableUpload';
 
-const POST_IMAGE_MAX_DIMENSION = 2048;
-const POST_IMAGE_QUALITY = 0.92;
+const POST_IMAGE_WIDTH = 1536;
+const POST_IMAGE_HEIGHT = 2048;
+const POST_IMAGE_ASPECT_RATIO = POST_IMAGE_WIDTH / POST_IMAGE_HEIGHT;
+const POST_IMAGE_QUALITY = 0.95;
 
 export type PreparedPostImage = Readonly<{
   uri: string;
@@ -38,20 +40,47 @@ export async function compressImage(
 
 /**
  * Decode the device image once, bake its display orientation into a JPEG, and
- * bound only its longest edge. The returned file is both previewed and
- * uploaded, so submitting a post cannot rotate, mirror, or crop a different
- * representation after the user approves it.
+ * center-crop it to the feed's native 3:4 frame. The returned file is both
+ * previewed and uploaded, so submitting a post cannot rotate, mirror, or crop
+ * a different representation after the user approves it.
  */
 export async function preparePostImage(image: PickedImage): Promise<PreparedPostImage> {
   const hasDimensions = image.width > 0 && image.height > 0;
-  const longestEdge = hasDimensions ? Math.max(image.width, image.height) : 0;
-  const resize =
-    longestEdge > POST_IMAGE_MAX_DIMENSION
-      ? image.width >= image.height
-        ? { width: POST_IMAGE_MAX_DIMENSION }
-        : { height: POST_IMAGE_MAX_DIMENSION }
-      : null;
-  const result = await ImageManipulator.manipulateAsync(image.uri, resize ? [{ resize }] : [], {
+  const actions: ImageManipulator.Action[] = [];
+
+  if (hasDimensions) {
+    const sourceRatio = image.width / image.height;
+    let croppedWidth = image.width;
+    let croppedHeight = image.height;
+
+    if (sourceRatio > POST_IMAGE_ASPECT_RATIO) {
+      croppedWidth = Math.round(image.height * POST_IMAGE_ASPECT_RATIO);
+      actions.push({
+        crop: {
+          originX: Math.max(0, Math.round((image.width - croppedWidth) / 2)),
+          originY: 0,
+          width: croppedWidth,
+          height: croppedHeight,
+        },
+      });
+    } else if (sourceRatio < POST_IMAGE_ASPECT_RATIO) {
+      croppedHeight = Math.round(image.width / POST_IMAGE_ASPECT_RATIO);
+      actions.push({
+        crop: {
+          originX: 0,
+          originY: Math.max(0, Math.round((image.height - croppedHeight) / 2)),
+          width: croppedWidth,
+          height: croppedHeight,
+        },
+      });
+    }
+
+    if (croppedWidth > POST_IMAGE_WIDTH || croppedHeight > POST_IMAGE_HEIGHT) {
+      actions.push({ resize: { width: POST_IMAGE_WIDTH, height: POST_IMAGE_HEIGHT } });
+    }
+  }
+
+  const result = await ImageManipulator.manipulateAsync(image.uri, actions, {
     compress: POST_IMAGE_QUALITY,
     format: ImageManipulator.SaveFormat.JPEG,
   });

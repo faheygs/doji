@@ -39,7 +39,7 @@ export const cameraScreenStyles = StyleSheet.create({
   dualPhotoContainer: {
     position: 'relative',
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 3 / 4,
   },
   mainPreview: { width: '100%', height: '100%' },
   frontPreviewContainer: {

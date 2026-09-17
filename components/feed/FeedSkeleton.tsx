@@ -77,7 +77,7 @@ export function FeedSkeleton({ challenge }: { challenge?: SkeletonChallenge | nu
   const optionCount = challenge?.poll_kind === 'wyr' ? 2 : 4;
   const photoHeight = challenge?.requires_video && !challenge?.requires_photo
     ? Math.round((width - Spacing.md * 4) * 9 / 16)
-    : width - Spacing.md * 4;
+    : Math.round((width - Spacing.md * 4) * 4 / 3);
   const themed = useMemo(
     () => ({ backgroundColor: colors.surfaceElevated, borderColor: colors.hairline }),
     [colors.hairline, colors.surfaceElevated],

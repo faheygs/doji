@@ -66,7 +66,7 @@ describe('staged product backlog regressions', () => {
     expect(layout).toContain('...sentryReleaseIdentity()');
   });
 
-  it('uses the system camera UI and preserves the approved full-frame photo', () => {
+  it('uses the system camera UI and preserves the approved 3:4 photo', () => {
     const camera = source('app/(app)/camera.tsx');
     const upload = source('utils/upload.ts');
     const postCard = source('components/feed/PostCard.tsx');
@@ -76,10 +76,11 @@ describe('staged product backlog regressions', () => {
     expect(camera).not.toContain('<CameraView');
     expect(camera).toContain('setCapturedPhoto(await preparePostImage');
     expect(camera).toContain('source={{ uri: capturedPhoto.uri }}');
-    expect(camera).toContain('contentFit="contain"');
-    expect(upload).toContain('const POST_IMAGE_MAX_DIMENSION = 2048');
+    expect(camera).toContain('contentFit="cover"');
+    expect(upload).toContain('const POST_IMAGE_WIDTH = 1536');
+    expect(upload).toContain('const POST_IMAGE_HEIGHT = 2048');
     expect(upload).toContain('uri: prepared.uri');
-    expect(postCard).toMatch(/source=\{mainImageSource\}[\s\S]*?contentFit="contain"/);
+    expect(postCard).toMatch(/source=\{mainImageSource\}[\s\S]*?contentFit="cover"/);
   });
 
   it('keeps Android resizable and edge-to-edge without forcing portrait', () => {

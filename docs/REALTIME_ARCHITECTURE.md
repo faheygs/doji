@@ -445,9 +445,12 @@ A 100k launch remains blocked until the paid providers are sized and this exact 
 load-qualified and monitored under representative multi-identity traffic.
 
 When the paid Storage transform capability is enabled,
-`EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` signs 1280-pixel feed representations and
-360-pixel thumbnails while preserving the immutable private original. Variant identity is
-part of the native disk-cache key; the original remains the authorization and fallback path.
+`EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` signs 1440x1920 3:4 feed representations and
+360-pixel thumbnails while preserving the immutable private original. The capture/library
+flow center-crops once to that same frame before approval and uploads that exact approved
+JPEG without a second client encode. Variant identity and its derivative contract version
+are part of the native disk-cache key, so a quality/size change cannot reuse stale bytes.
+The original remains the authorization and fallback path.
 
 ## 100k burst contract
 

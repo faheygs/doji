@@ -77,7 +77,7 @@ describe('post media signing', () => {
     const [result] = await pending;
 
     expect(mockCreateSignedUrl).toHaveBeenNthCalledWith(1, 'fallback.jpg', 15 * 60, {
-      transform: { quality: 85, resize: 'contain', width: 1280 },
+      transform: { height: 1920, quality: 90, resize: 'cover', width: 1440 },
     });
     expect(mockCreateSignedUrl).toHaveBeenNthCalledWith(2, 'fallback.jpg', 15 * 60);
     expect(result.photo_url).toBe('https://signed.test/fallback.jpg');
@@ -91,9 +91,9 @@ describe('post media signing', () => {
 
     expect(postMediaCacheKey(first)).toBe('post-media:users/one/photo.jpg');
     expect(postMediaCacheKey(second)).toBe(postMediaCacheKey(first));
-    expect(postMediaCacheKey(first, 'feed')).toBe('post-media:feed:users/one/photo.jpg');
+    expect(postMediaCacheKey(first, 'feed')).toBe('post-media:feed:v2:users/one/photo.jpg');
     expect(postMediaCacheKey(first, 'thumbnail')).toBe(
-      'post-media:thumbnail:users/one/photo.jpg',
+      'post-media:thumbnail:v2:users/one/photo.jpg',
     );
     expect(postMediaCacheKey('https://cdn.example.com/public.jpg')).toBeUndefined();
   });

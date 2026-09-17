@@ -320,7 +320,7 @@ function PostCardImpl({
                   <Image
                     source={mainImageSource}
                     style={styles.media}
-                    contentFit="contain"
+                    contentFit="cover"
                     cachePolicy="memory-disk"
                     recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
                     onDisplay={() => setMainMediaReady(true)}

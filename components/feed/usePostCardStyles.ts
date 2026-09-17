@@ -46,7 +46,7 @@ export function usePostCardStyles() {
           borderColor: colors.hairline,
         },
         imageTap: { position: 'relative' },
-        mediaFrame: { position: 'relative', width: '100%', aspectRatio: 1 },
+        mediaFrame: { position: 'relative', width: '100%', aspectRatio: 3 / 4 },
         mediaSkeleton: {
           position: 'absolute',
           top: 0,
@@ -56,8 +56,8 @@ export function usePostCardStyles() {
         },
         media: {
           width: '100%',
+          height: '100%',
           alignSelf: 'stretch',
-          aspectRatio: 1,
           backgroundColor: colors.mediaLetterbox,
         },
         videoMedia: {

@@ -57,7 +57,7 @@ describe('compressImage', () => {
 describe('preparePostImage', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('normalizes a portrait photo once and bounds its longest edge', async () => {
+  it('normalizes a native 3:4 portrait once at the approved feed size', async () => {
     (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValueOnce({
       uri: 'file://prepared.jpg',
       width: 1536,
@@ -69,17 +69,47 @@ describe('preparePostImage', () => {
     ).resolves.toEqual({ uri: 'file://prepared.jpg', width: 1536, height: 2048 });
     expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
       'file://portrait.heic',
-      [{ resize: { height: 2048 } }],
-      { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG },
+      [{ resize: { width: 1536, height: 2048 } }],
+      { compress: 0.95, format: ImageManipulator.SaveFormat.JPEG },
     );
   });
 
-  it('does not upscale a smaller photo while baking its orientation', async () => {
+  it('does not upscale a smaller 3:4 photo while baking its orientation', async () => {
     await preparePostImage({ uri: 'file://small.jpg', width: 1200, height: 1600 });
     expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith('file://small.jpg', [], {
-      compress: 0.92,
+      compress: 0.95,
       format: ImageManipulator.SaveFormat.JPEG,
     });
+  });
+
+  it('center-crops landscape photos to the approved 3:4 frame in one encode', async () => {
+    await preparePostImage({ uri: 'file://landscape.jpg', width: 4032, height: 3024 });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      'file://landscape.jpg',
+      [
+        { crop: { originX: 882, originY: 0, width: 2268, height: 3024 } },
+        { resize: { width: 1536, height: 2048 } },
+      ],
+      { compress: 0.95, format: ImageManipulator.SaveFormat.JPEG },
+    );
+  });
+
+  it('center-crops square photos without upscaling them', async () => {
+    await preparePostImage({ uri: 'file://square.jpg', width: 1200, height: 1200 });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      'file://square.jpg',
+      [{ crop: { originX: 150, originY: 0, width: 900, height: 1200 } }],
+      { compress: 0.95, format: ImageManipulator.SaveFormat.JPEG },
+    );
+  });
+
+  it('center-crops extra-tall photos without upscaling them', async () => {
+    await preparePostImage({ uri: 'file://tall.jpg', width: 900, height: 1800 });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      'file://tall.jpg',
+      [{ crop: { originX: 0, originY: 300, width: 900, height: 1200 } }],
+      { compress: 0.95, format: ImageManipulator.SaveFormat.JPEG },
+    );
   });
 });
 

@@ -393,7 +393,7 @@ export default function CameraScreen() {
               <Image
                 source={{ uri: capturedPhoto.uri }}
                 style={styles.mainPreview}
-                contentFit="contain"
+                contentFit="cover"
               />
               {capturedFrontPhoto ? (
                 <View style={[styles.frontPreviewContainer, { borderColor: colors.background }]}>

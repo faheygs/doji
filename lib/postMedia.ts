@@ -10,8 +10,12 @@ const OBJECT_MARKER = /\/storage\/v1\/object\/(?:public|sign|authenticated)\/pos
 export type PostMediaVariant = 'original' | 'feed' | 'thumbnail';
 type SignedRequest = { path: string; variant: PostMediaVariant };
 const VARIANT_TRANSFORMS = {
-  feed: { width: 1280, resize: 'contain' as const, quality: 85 },
-  thumbnail: { width: 360, height: 360, resize: 'cover' as const, quality: 78 },
+  feed: { width: 1440, height: 1920, resize: 'cover' as const, quality: 90 },
+  thumbnail: { width: 360, height: 360, resize: 'cover' as const, quality: 82 },
+};
+const VARIANT_CACHE_VERSION: Record<Exclude<PostMediaVariant, 'original'>, string> = {
+  feed: 'v2',
+  thumbnail: 'v2',
 };
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const pendingRequests = new Map<string, SignedRequest>();
@@ -48,7 +52,10 @@ export function postMediaCacheKey(
   variant: PostMediaVariant = 'original',
 ): string | undefined {
   const path = objectPath(value);
-  return path ? `${BUCKET}:${variant === 'original' ? '' : `${variant}:`}${path}` : undefined;
+  if (!path) return undefined;
+  return variant === 'original'
+    ? `${BUCKET}:${path}`
+    : `${BUCKET}:${variant}:${VARIANT_CACHE_VERSION[variant]}:${path}`;
 }
 
 function requestKey(request: SignedRequest): string {
