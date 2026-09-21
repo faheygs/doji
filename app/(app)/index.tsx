@@ -106,12 +106,14 @@ export default function FeedScreen() {
       markScopesSeen([{ scope_kind: 'daily_event', scope_id: userEvent.daily_event_id }]);
     }, [challengeIsLive, markScopesSeen, userEvent?.daily_event_id]),
   );
-  const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
-  const { posts: preparedPosts, isPreparing: isPreparingFeedPosts } = usePreparedFeedPosts(
-    latestPosts,
-    feedUnlocked === true,
-  );
   const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
+  const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const presentationReadyPosts = usePreparedFeedPosts(
+    latestPosts,
+    feedIdentity,
+    feedUnlocked === true,
+    feedPages !== undefined,
+  );
   const scrollFeedToTop = useCallback(
     () => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }),
     [],
@@ -121,13 +123,12 @@ export default function FeedScreen() {
     pendingNewPostCount,
     revealNewPosts,
     onScroll: handleFeedScroll,
-  } = useStableFeedPresentation(preparedPosts, feedIdentity, scrollFeedToTop);
+  } = useStableFeedPresentation(presentationReadyPosts, feedIdentity, scrollFeedToTop);
   const showInitialFeedSkeleton =
     posts.length === 0 &&
     !refreshing &&
     (userEventLoading ||
       feedLoading ||
-      isPreparingFeedPosts ||
       (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;

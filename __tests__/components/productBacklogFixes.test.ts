@@ -49,7 +49,7 @@ describe('staged product backlog regressions', () => {
     const card = source('components/feed/PostCard.tsx');
     const media = source('hooks/usePostMedia.ts');
     expect(feed).toContain('usePreparedFeedPosts');
-    expect(feed).toContain('useStableFeedPresentation(preparedPosts');
+    expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
     expect(card).toContain('onDisplay={() => setMainMediaReady(true)}');
     expect(card).toContain('!mainMediaReady && styles.mediaHidden');
     expect(card).toContain('<Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />');

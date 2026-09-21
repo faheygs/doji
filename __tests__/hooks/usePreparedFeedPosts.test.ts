@@ -27,38 +27,68 @@ const post = {
 describe('usePreparedFeedPosts', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('withholds a media post until preparation has completed', async () => {
+  it('renders the existing feed immediately without preloading the page', async () => {
+    const { result, unmount } = renderHook(() =>
+      usePreparedFeedPosts([post], 'event:everyone', true, true),
+    );
+
+    expect(result.current).toEqual([post]);
+    await waitFor(() => expect(mockPrepareFeedPostMedia).not.toHaveBeenCalled());
+    unmount();
+  });
+
+  it('withholds only a new head post until that post is ready', async () => {
     let resolvePreparation: ((value: Map<string, Post>) => void) | undefined;
     mockPrepareFeedPostMedia.mockReturnValue(
       new Promise<Map<string, Post>>((resolve) => {
         resolvePreparation = resolve;
       }),
     );
-    const { result, unmount } = renderHook(() => usePreparedFeedPosts([post], true));
+    const { result, rerender, unmount } = renderHook(
+      ({ posts }: { posts: Post[] }) =>
+        usePreparedFeedPosts(posts, 'event:everyone', true, true),
+      { initialProps: { posts: [post] } },
+    );
+    await waitFor(() => expect(result.current.map((item) => item.id)).toEqual(['post-1']));
 
-    expect(result.current.posts).toEqual([]);
-    expect(result.current.isPreparing).toBe(true);
+    const incoming = { ...post, id: 'post-2', photo_url: 'private/post-2.jpg' };
+    rerender({ posts: [incoming, post] });
+    await waitFor(() => expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(1));
+    expect(result.current.map((item) => item.id)).toEqual(['post-1']);
 
     await act(async () => {
       resolvePreparation?.(
         new Map([
           [
-            'post-1:private/post-1.jpg::',
-            { ...post, photo_url: 'file:///native-cache/post-1.jpg' },
+            'post-2:private/post-2.jpg::',
+            { ...incoming, photo_url: 'file:///native-cache/post-2.jpg' },
           ],
         ]),
       );
     });
-
     await waitFor(() => {
-      expect(result.current.posts[0]?.photo_url).toBe('file:///native-cache/post-1.jpg');
-      expect(result.current.isPreparing).toBe(false);
+      expect(result.current.map((item) => item.id)).toEqual(['post-2', 'post-1']);
+      expect(result.current[0]?.photo_url).toBe('file:///native-cache/post-2.jpg');
     });
     unmount();
   });
 
-  it('prepares posts progressively with only two native jobs active', async () => {
-    const posts = [post, { ...post, id: 'post-2' }, { ...post, id: 'post-3' }];
+  it('admits pagination appended after a known row without preparation', async () => {
+    const { result, rerender, unmount } = renderHook(
+      ({ posts }: { posts: Post[] }) =>
+        usePreparedFeedPosts(posts, 'event:everyone', true, true),
+      { initialProps: { posts: [post] } },
+    );
+    await waitFor(() => expect(result.current).toHaveLength(1));
+
+    const older = { ...post, id: 'post-old', photo_url: 'private/old.jpg' };
+    rerender({ posts: [post, older] });
+    await waitFor(() => expect(result.current.map((item) => item.id)).toEqual(['post-1', 'post-old']));
+    expect(mockPrepareFeedPostMedia).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('limits simultaneous incoming-post preparation to two', async () => {
     const resolvers = new Map<string, (value: Map<string, Post>) => void>();
     mockPrepareFeedPostMedia.mockImplementation(
       ([item]) =>
@@ -66,22 +96,32 @@ describe('usePreparedFeedPosts', () => {
           resolvers.set(item.id, resolve);
         }),
     );
+    const { rerender, unmount } = renderHook(
+      ({ posts }: { posts: Post[] }) =>
+        usePreparedFeedPosts(posts, 'event:everyone', true, true),
+      { initialProps: { posts: [post] } },
+    );
+    await act(async () => undefined);
 
-    const { result, unmount } = renderHook(() => usePreparedFeedPosts(posts, true));
+    const incoming = ['post-2', 'post-3', 'post-4'].map((id) => ({
+      ...post,
+      id,
+      photo_url: `private/${id}.jpg`,
+    }));
+    rerender({ posts: [...incoming, post] });
     await waitFor(() => expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(2));
-    expect(resolvers.has('post-3')).toBe(false);
+    expect(resolvers.has('post-4')).toBe(false);
 
     await act(async () => {
-      const first = posts[0];
+      const first = incoming[0];
       resolvers.get(first.id)?.(
-        new Map([[`post-1:private/post-1.jpg::`, { ...first, photo_url: 'file:///one.jpg' }]]),
+        new Map([[
+          `${first.id}:${first.photo_url}::`,
+          { ...first, photo_url: 'file:///native-cache/first.jpg' },
+        ]]),
       );
     });
-
-    await waitFor(() => {
-      expect(result.current.posts.map((item) => item.id)).toContain('post-1');
-      expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(3);
-    });
+    await waitFor(() => expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(3));
     unmount();
   });
 });

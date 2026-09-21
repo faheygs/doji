@@ -22,7 +22,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "84"
+      "buildNumber": "85"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -32,7 +32,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 16
+      "versionCode": 17
     },
     "web": {
       "favicon": "./assets/icon.png"

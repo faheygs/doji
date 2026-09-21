@@ -295,10 +295,10 @@ stable private object references without waiting for Storage. Only visible unloc
 cards resolve short-lived signed URLs, and concurrently mounted cards coalesce their
 paths into one bounded signing request. The query cache may persist stable object
 references, but never signed bearer URLs. Detail, moderation, and command-receipt reads
-use the same bounded signer. Once feed chrome is usable, private images in the bounded
-loaded feed pages enter a per-post readiness queue with at most two native decodes in
-flight. Ready cards appear progressively instead of holding the page behind one batch;
-each released decode warms the stable memory/disk cache for later mounts.
+use the same bounded signer. Existing cache/query rows render immediately and visible
+cards resolve their own media behind a card-local skeleton. Only a genuinely new
+realtime head insert enters the readiness queue; at most two new posts decode at once,
+and the post becomes eligible for "New posts" only after that one post is ready.
 An invisible audience is never prefetched while current media is hydrating. A shared
 skeleton covers the media surface until the authorized native image reports that it
 displayed, preventing a black rebind frame without exposing stale or newly unauthorized
@@ -524,12 +524,11 @@ Feed cold loads use the active challenge shape: a poll/Would You Rather occurren
 one shared-card placeholder, while photo/video and text/task/format occurrences render
 five scrollable per-person post placeholders.
 Post photos stay hidden behind a full-frame themed skeleton until the native image has
-actually displayed. Every media post passes through a readiness gate that authorizes,
-downloads, decodes, and caches its media before stable feed presentation can display it
-or count it behind the "New posts" affordance. A bounded exceptional fallback prevents
-one corrupt or unreachable object from permanently blocking the feed. Decoded native
-image references are explicitly released after the stable cache is written so a photo
-burst cannot exhaust handset memory or trip the app-level error boundary.
+actually displayed. Cold-load and pagination records are never held behind page-wide
+media preparation. A newly arriving media post alone is authorized, downloaded,
+decoded, and cached before it can appear or count behind the "New posts" affordance.
+A bounded exceptional fallback prevents one corrupt object from disappearing forever,
+and decoded native references are explicitly released after the cache write.
 
 Native dialogs and sheets remain mounted while their `visible` prop transitions to
 false so iOS/Android can finish dismissal and release the presentation layer. Route

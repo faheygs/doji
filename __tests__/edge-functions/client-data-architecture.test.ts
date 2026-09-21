@@ -17,11 +17,14 @@ describe('mobile data architecture', () => {
     expect(realtime).toContain('100 + Math.floor(Math.random() * 400)');
   });
 
-  it('prepares every media post before passing it into stable feed presentation', () => {
+  it('prepares only incoming realtime media before stable feed presentation', () => {
     const feed = read('app/(app)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
     expect(feed).toContain('usePreparedFeedPosts');
-    expect(feed).toContain('useStableFeedPresentation(preparedPosts');
+    expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
+    const readiness = read('hooks/usePreparedFeedPosts.ts');
+    expect(readiness).toContain('The first authoritative/cache snapshot is already the feed');
+    expect(readiness).toContain('const isHeadInsert = firstKnownIndex < 0 || index < firstKnownIndex');
     const preparation = read('lib/feedPostPreparation.ts');
     expect(preparation).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
     expect(preparation).toContain('ExpoImage.getCachePathAsync(cacheKey)');

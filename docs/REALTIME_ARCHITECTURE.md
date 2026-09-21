@@ -85,7 +85,7 @@
   for the authoritative Everyone feed, independent of its friend-alert visibility.
   Engagement is routed to `post:{postId}` and subscribed only while an unlocked
   card/thread is mounted.
-  A refreshed media post is not passed into stable feed presentation until its
+  A newly inserted realtime media post is not passed into stable feed presentation until its
   authorized image has been downloaded, decoded, and cached; therefore "New posts"
   counts only presentation-ready rows. A bounded failure fallback keeps a bad object
   from blocking unrelated rows or pagination. Preparation is per-post and limited to
@@ -127,13 +127,11 @@
   exclude that edge, while the tab bar adds the measured inset to both its height and
   bottom padding; no screen or platform branch reserves the same Android space twice.
 - Feed RPCs return authorized records and stable private-media references immediately.
-  Every private image in the bounded loaded feed pages is authorized in one coalesced
-  pass; stable references, but never signed bearer URLs, may be persisted. Photo/video
-  feeds do not prefetch the hidden audience while visible media is hydrating. After feed
-  chrome is usable, a two-worker per-post queue progressively decodes and warms the
-  memory/disk cache without retaining a page of native bitmaps. A shared skeleton covers
-  native rebinding until the image reports that it displayed, so authorization never
-  reveals stale bytes or a black frame.
+  Stable references, but never signed bearer URLs, may be persisted. Existing and
+  paginated cards render immediately; visible cards coalesce signing and keep their
+  media surface behind a card-local skeleton until native display. Only new realtime
+  head inserts use the two-worker readiness queue before entering stable presentation,
+  so a cold feed never waits for a page-wide preload.
   The native image cache is keyed by the immutable private object path, not the
   rotating signed bearer URL. Query persistence flushes on background, and a
   local snapshot that misses the bounded splash deadline can still hydrate

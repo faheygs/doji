@@ -7,14 +7,22 @@ import {
   prepareFeedPostMedia,
 } from '../lib/feedPostPreparation';
 
-const FEED_POST_PREPARATION_CONCURRENCY = 2;
+const NEW_POST_PREPARATION_CONCURRENCY = 2;
 
 /**
- * Keep media posts out of feed presentation until their primary media has been
- * authorized, downloaded, and decoded. A bounded fallback prevents one broken
- * object from permanently blocking pagination or the rest of the feed.
+ * Existing query/cache rows render immediately. Only genuinely new head inserts
+ * are held until their media is ready, so realtime never exposes a black card
+ * and a cold feed never waits for every photo in the page.
  */
-export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
+export function usePreparedFeedPosts(
+  latestPosts: Post[],
+  feedIdentity: string,
+  enabled: boolean,
+  baselineReady: boolean,
+) {
+  const identityRef = useRef('');
+  const baselineEstablishedRef = useRef(false);
+  const admittedIdsRef = useRef(new Set<string>());
   const preparedRef = useRef(new Map<string, Post>());
   const preparingRef = useRef(new Set<string>());
   const fallbackRef = useRef(new Set<string>());
@@ -37,69 +45,94 @@ export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
-    const liveKeys = new Set(latestPosts.map(feedPostPreparationKey));
-    for (const key of preparedRef.current.keys()) {
-      if (!liveKeys.has(key)) preparedRef.current.delete(key);
+    identityRef.current = feedIdentity;
+    baselineEstablishedRef.current = false;
+    admittedIdsRef.current.clear();
+    preparedRef.current.clear();
+    preparingRef.current.clear();
+    fallbackRef.current.clear();
+    for (const timer of timersRef.current.values()) clearTimeout(timer);
+    timersRef.current.clear();
+    setRevision((value) => value + 1);
+  }, [feedIdentity]);
+
+  useEffect(() => {
+    if (!enabled || !baselineReady || identityRef.current !== feedIdentity) return;
+
+    const liveIds = new Set(latestPosts.map((post) => post.id));
+    for (const id of admittedIdsRef.current) {
+      if (!liveIds.has(id)) admittedIdsRef.current.delete(id);
     }
-    for (const key of fallbackRef.current) {
-      if (!liveKeys.has(key)) fallbackRef.current.delete(key);
+    for (const [key, post] of preparedRef.current) {
+      if (!liveIds.has(post.id)) preparedRef.current.delete(key);
     }
 
-    const pending = latestPosts.filter((post) => {
-      if (!feedPostNeedsPreparation(post)) return false;
-      const key = feedPostPreparationKey(post);
-      return (
-        !preparedRef.current.has(key) &&
-        !fallbackRef.current.has(key) &&
-        !preparingRef.current.has(key)
-      );
+    // The first authoritative/cache snapshot is already the feed. Never run a
+    // page-wide media preload on startup or audience changes.
+    if (!baselineEstablishedRef.current) {
+      for (const post of latestPosts) admittedIdsRef.current.add(post.id);
+      baselineEstablishedRef.current = true;
+      setRevision((value) => value + 1);
+      return;
+    }
+
+    const firstKnownIndex = latestPosts.findIndex((post) => admittedIdsRef.current.has(post.id));
+    const pending: Post[] = [];
+    let admittedSynchronously = false;
+    latestPosts.forEach((post, index) => {
+      if (admittedIdsRef.current.has(post.id) || preparingRef.current.has(post.id)) return;
+
+      // New realtime rows are inserted at the head. Rows appended after a known
+      // item are pagination and must render immediately like the baseline.
+      const isHeadInsert = firstKnownIndex < 0 || index < firstKnownIndex;
+      if (!isHeadInsert || !feedPostNeedsPreparation(post)) {
+        admittedIdsRef.current.add(post.id);
+        admittedSynchronously = true;
+        return;
+      }
+      pending.push(post);
     });
-    if (pending.length === 0) return;
+
+    if (pending.length === 0) {
+      if (admittedSynchronously) setRevision((value) => value + 1);
+      return;
+    }
+    if (admittedSynchronously) setRevision((value) => value + 1);
 
     let cursor = 0;
     const prepareNext = async () => {
       while (cursor < pending.length) {
         const post = pending[cursor++];
         const key = feedPostPreparationKey(post);
-        // A newer effect may already have claimed this post while this worker
-        // was waiting for a previous item.
-        if (
-          preparedRef.current.has(key) ||
-          fallbackRef.current.has(key) ||
-          preparingRef.current.has(key)
-        ) {
-          continue;
-        }
-        preparingRef.current.add(key);
+        if (admittedIdsRef.current.has(post.id) || preparingRef.current.has(post.id)) continue;
+
+        preparingRef.current.add(post.id);
         timersRef.current.set(
-          key,
+          post.id,
           setTimeout(() => {
-            timersRef.current.delete(key);
-            fallbackRef.current.add(key);
-            preparingRef.current.delete(key);
+            timersRef.current.delete(post.id);
+            fallbackRef.current.add(post.id);
+            admittedIdsRef.current.add(post.id);
+            preparingRef.current.delete(post.id);
             if (mountedRef.current) setRevision((value) => value + 1);
           }, FEED_POST_PREPARATION_TIMEOUT_MS),
         );
 
         try {
-          // Prepare independently so the first ready card can render without
-          // waiting for every image on the page. Keeping only two native
-          // decodes active also prevents large photo bursts from exhausting
-          // handset memory and tripping the app-level error boundary.
           const prepared = await prepareFeedPostMedia([post]);
           const ready = prepared.get(key);
           if (ready) {
-            const timer = timersRef.current.get(key);
+            const timer = timersRef.current.get(post.id);
             if (timer) clearTimeout(timer);
-            timersRef.current.delete(key);
+            timersRef.current.delete(post.id);
             preparedRef.current.set(key, ready);
-            fallbackRef.current.delete(key);
+            fallbackRef.current.delete(post.id);
+            admittedIdsRef.current.add(post.id);
           }
         } catch {
-          // The bounded fallback timer owns recovery for this single post.
+          // The bounded per-post fallback owns recovery.
         } finally {
-          preparingRef.current.delete(key);
+          preparingRef.current.delete(post.id);
           if (mountedRef.current) setRevision((value) => value + 1);
         }
       }
@@ -107,39 +140,26 @@ export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
 
     void Promise.all(
       Array.from(
-        { length: Math.min(FEED_POST_PREPARATION_CONCURRENCY, pending.length) },
+        { length: Math.min(NEW_POST_PREPARATION_CONCURRENCY, pending.length) },
         () => prepareNext(),
       ),
     );
-  }, [enabled, latestPosts, preparationIdentity]);
+  }, [baselineReady, enabled, feedIdentity, latestPosts, preparationIdentity]);
 
-  const posts = (() => {
-    // Reading the revision intentionally recomputes this ref-backed projection
-    // after an asynchronous preparation or timeout completes.
-    void revision;
-    if (!enabled) return latestPosts;
-    return latestPosts.flatMap((post) => {
-      if (!feedPostNeedsPreparation(post)) return [post];
-      const key = feedPostPreparationKey(post);
-      const prepared = preparedRef.current.get(key);
-      if (prepared) {
-        // Keep all fresh counters/copy from the authoritative query while using
-        // the already-decoded media references from preparation.
-        return [
-          {
-            ...post,
-            photo_url: prepared.photo_url,
-            front_photo_url: prepared.front_photo_url,
-            video_url: prepared.video_url,
-          },
-        ];
-      }
-      return fallbackRef.current.has(key) ? [post] : [];
-    });
-  })();
+  // Reading revision intentionally refreshes this ref-backed projection after
+  // an asynchronous incoming post becomes presentation-ready.
+  void revision;
+  if (!enabled || !baselineReady || !baselineEstablishedRef.current) return latestPosts;
 
-  return {
-    posts,
-    isPreparing: enabled && posts.length < latestPosts.length,
-  };
+  return latestPosts.flatMap((post) => {
+    if (!admittedIdsRef.current.has(post.id)) return [];
+    const prepared = preparedRef.current.get(feedPostPreparationKey(post));
+    if (!prepared) return [post];
+    return [{
+      ...post,
+      photo_url: prepared.photo_url,
+      front_photo_url: prepared.front_photo_url,
+      video_url: prepared.video_url,
+    }];
+  });
 }
