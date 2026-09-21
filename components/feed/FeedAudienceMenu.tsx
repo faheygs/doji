@@ -25,8 +25,8 @@ export function FeedAudienceMenu({
         style={[
           styles.button,
           {
-            backgroundColor: colors.accentLight,
-            borderColor: `${colors.accent}66`,
+            backgroundColor: colors.primaryLight,
+            borderColor: `${colors.primary}66`,
           },
         ]}
         accessibilityRole="button"
@@ -34,12 +34,12 @@ export function FeedAudienceMenu({
         accessibilityLabel={`${audience === 'everyone' ? 'Everyone' : 'Friends'} feed`}
         accessibilityHint="Opens the feed selection menu"
       >
-        <AudienceIcon size={19} color={colors.accent} />
-        <Text variant="headingMedium" color={colors.accent} style={styles.buttonLabel}>
+        <AudienceIcon size={19} color={colors.primary} />
+        <Text variant="headingMedium" color={colors.primary} style={styles.buttonLabel}>
           {audience === 'everyone' ? 'Everyone' : 'Friends'}
         </Text>
         <View style={[styles.chevron, open && styles.chevronOpen]}>
-          <IconChevronDown size={18} color={colors.accent} />
+          <IconChevronDown size={18} color={colors.primary} />
         </View>
       </TouchableOpacity>
       {open ? (
@@ -48,7 +48,7 @@ export function FeedAudienceMenu({
             styles.menu,
             {
               backgroundColor: colors.surfaceElevated,
-              borderColor: `${colors.accent}3D`,
+              borderColor: `${colors.primary}3D`,
               shadowColor: colors.shadowBase,
             },
           ]}
@@ -65,15 +65,15 @@ export function FeedAudienceMenu({
                   setOpen(false);
                 }}
                 activeOpacity={0.78}
-                style={[styles.item, active && { backgroundColor: colors.accentLight }]}
+                style={[styles.item, active && { backgroundColor: colors.primaryLight }]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`${key === 'friends' ? 'Friends' : 'Everyone'} feed`}
               >
-                <Icon size={20} color={active ? colors.accent : colors.textSecondary} />
+                <Icon size={20} color={active ? colors.primary : colors.textSecondary} />
                 <Text
                   variant="headingMedium"
-                  color={active ? colors.accent : colors.text}
+                  color={active ? colors.primary : colors.text}
                   style={styles.label}
                 >
                   {key === 'friends' ? 'Friends' : 'Everyone'}
@@ -92,10 +92,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     alignSelf: 'stretch',
+    marginTop: Spacing.md,
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
   },
   button: {
+    width: 190,
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderWidth: 1,
-    borderRadius: Radius.full,
+    borderRadius: Radius.md,
   },
   buttonLabel: { fontWeight: '800' },
   chevron: { transform: [{ rotate: '0deg' }] },
@@ -113,10 +115,10 @@ const styles = StyleSheet.create({
     top: 50,
     left: '50%',
     zIndex: 20,
-    width: 220,
-    marginLeft: -110,
+    width: 190,
+    marginLeft: -95,
     borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     padding: Spacing.xs,
     shadowOpacity: 0.22,
     shadowRadius: 14,

@@ -10,8 +10,8 @@ jest.mock('expo-haptics', () => ({
 jest.mock('../../contexts/ThemeContext', () => ({
   useTheme: () => ({
     colors: {
-      accent: '#22D3EE',
-      accentLight: 'rgba(34,211,238,0.14)',
+      primary: '#4CAF50',
+      primaryLight: 'rgba(76,175,80,0.14)',
       surfaceElevated: '#1E1E1E',
       text: '#FFFFFF',
       textSecondary: '#9B9B9B',
@@ -29,6 +29,12 @@ describe('FeedAudienceMenu', () => {
 
     const trigger = screen.getByLabelText('Everyone feed');
     expect(trigger.props.accessibilityState).toEqual({ expanded: false });
+    expect(trigger).toHaveStyle({
+      width: 190,
+      borderRadius: 16,
+      backgroundColor: 'rgba(76,175,80,0.14)',
+      borderColor: '#4CAF5066',
+    });
     expect(screen.queryByLabelText('Friends feed')).toBeNull();
 
     fireEvent.press(trigger);
