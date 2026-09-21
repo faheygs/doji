@@ -95,9 +95,10 @@
   requested post passed RLS authorization.
   Each client instance has a lifecycle generation. Closing or replacing it invalidates
   in-flight subscriptions before the provider result is handled; the stale attempt ends
-  without a retry or Sentry incident, while wrapped `Connection closed` transport errors
-  remain recoverable breadcrumbs. Genuine capability, authorization, and unexpected
-  provider failures keep their existing incident path.
+  without a retry or Sentry incident, while wrapped `Connection closed` errors and
+  provider `Channel attach timed out` errors remain recoverable transport breadcrumbs.
+  Genuine capability, authorization, and unexpected provider failures keep their
+  existing incident path.
 - Cold start has one shared persisted-session restoration request. Cache hydration and
   font loading are bounded, and the native splash never waits indefinitely on the auth
   storage lock or a profile network read. Its React handoff uses the same bundled logo,
@@ -450,7 +451,11 @@ When the paid Storage transform capability is enabled,
 flow center-crops once to that same frame before approval and uploads that exact approved
 JPEG without a second client encode. Variant identity and its derivative contract version
 are part of the native disk-cache key, so a quality/size change cannot reuse stale bytes.
-The original remains the authorization and fallback path.
+Once the current authorized feed record is restored, the client checks this stable disk
+key before signed URL refresh and can display cached local bytes immediately. The fresh
+short-lived URL is still requested in parallel, is never persisted, and replaces the
+source without resetting the displayed-ready state. The original remains the
+authorization and fallback path.
 
 ## 100k burst contract
 
@@ -542,6 +547,15 @@ The original remains the authorization and fallback path.
   the `admin_grant` reason and a stable reference. The balance is never changed
   directly, so retries remain idempotent and the adjustment stays auditable.
 - Socket payloads do not bypass RLS; clients always refetch Postgres rows.
+- Feed invalidation never prepends into a scrolled viewport. The client reconciles the
+  latest authorized snapshot, immediately removes rows no longer returned by Postgres,
+  and temporarily withholds only identifiers inserted ahead of the previous head. A
+  user action (or return to the top) commits those rows. This presentation rule does not
+  change event payloads, pagination, authorization, or the source of truth.
+- App announcements do not use push or realtime for correctness. An authenticated,
+  atomic claim RPC applies the server schedule and per-user frequency cap after the app
+  becomes usable; normal foreground/query reconciliation picks up future eligibility.
+  Direct table access is denied and CTA/dismissal receipts are written by a narrow RPC.
 
 ## Deployment order
 

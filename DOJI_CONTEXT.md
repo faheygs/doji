@@ -305,7 +305,11 @@ displayed, preventing a black rebind frame without exposing stale or newly unaut
 bytes.
 Native image cache keys use the immutable authorized object path rather than
 the rotating signed URL, so a reopened app reuses downloaded photos after it
-refreshes authorization. Query snapshots flush when the app backgrounds, and
+refreshes authorization. After the current account's feed read authorizes the
+object reference, cards first consult that stable native disk key and may render
+the cached local file immediately while a fresh short-lived signed URL is obtained
+in parallel. The background URL refresh does not reset the displayed-ready state.
+Query snapshots flush when the app backgrounds, and
 a slow local-cache read may hydrate after the bounded splash handoff instead
 of being discarded.
 Camera and library photos are decoded once before the approval preview, their longest
@@ -444,8 +448,9 @@ Channels:
   the terminally failed channel object, and attaches a fresh channel. If Postgres
   then omits the post, the client stops retrying and immediately reconciles the
   authoritative feed; expected access loss is not reported as a transport outage.
-  Recoverable handset transport loss is also breadcrumb-only: resilient subscriptions
-  retry with bounded jitter and foreground reconciliation repairs authoritative reads.
+  Recoverable handset transport loss, including provider channel-attach timeouts, is
+  also breadcrumb-only: resilient subscriptions retry with bounded jitter and
+  foreground reconciliation repairs authoritative reads.
   Unexpected authentication, capability, protocol, and provider failures remain
   reportable production incidents.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
@@ -892,6 +897,18 @@ the normal 13+ gate and separately accept the current Terms and Privacy Policy.
   prefetch and cache serialization wait until interactions finish.
 - Cached content remains visible during refresh. Pull-to-refresh has a bounded visible
   indicator while reconciliation may safely finish behind the UI.
+- The feed defaults new accounts to Everyone and persists an explicit Friends/Everyone
+  choice per account. Each audience keeps its own TanStack Query/cache identity. Realtime
+  rows insert immediately only while the viewer is at the top; while scrolled, authorized
+  existing rows remain anchored and a New posts control commits withheld head inserts.
+  Rows removed by Postgres authorization (block, moderation, deletion) are never retained.
+- Visible post cards may prefetch only the bounded first page of comment and reaction
+  detail after interactions settle. Those detail reads retain audience-scoped cache keys,
+  server authorization, keyset pagination, and stale-while-revalidate rendering.
+- Product announcements are server-owned in `app_announcements` with per-account durable
+  receipts. `claim_active_app_announcement` atomically enforces scheduling, priority,
+  impression caps, and cooldowns; clients defer prompts during challenge participation
+  and record CTA/dismissal through the idempotent server command.
 - A 100k activation must remain bounded: neither pre-live nor activation scans accounts.
   Activation creates 128 fixed push-shard rows and one global identifier event.
   User occurrences materialize lazily inside the authoritative current-state command.

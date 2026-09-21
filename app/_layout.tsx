@@ -55,6 +55,8 @@ import { Text } from '../components/ui/Text';
 import { initialSessionBootstrap, observeSessionBootstrap } from '../lib/initialSessionBootstrap';
 import { StartupBrandScreen } from '../components/branding/StartupBrandScreen';
 import { AppUpdatePrompt } from '../components/system/AppUpdatePrompt';
+import { AppAnnouncementPrompt } from '../components/system/AppAnnouncementPrompt';
+import { recordOperationalFailure } from '../lib/telemetry';
 
 const FONT_BOOTSTRAP_DEADLINE_MS = 2_500;
 const SESSION_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -141,10 +143,11 @@ function RootLayoutInner() {
             // onSession recovers automatically without making the user sign in.
             setLoading(false);
             setSessionBootstrapError(true);
-            Sentry.captureMessage('Initial session restoration timed out', {
-              level: 'warning',
-              tags: { area: 'startup', operation: 'session_restore' },
-            });
+            recordOperationalFailure(
+              'startup',
+              'session_restore_timeout',
+              new Error('Initial session restoration timed out'),
+            );
           },
         },
       );
@@ -210,6 +213,7 @@ function RootLayoutInner() {
           <View style={[styles.flex, { backgroundColor: colors.background }]}>
             {gate.canUseApp ? <AppIconBadgeSync /> : null}
             <AppUpdatePrompt enabled={gate.ready} />
+            <AppAnnouncementPrompt enabled={gate.canUseApp} />
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <Stack
               screenOptions={{

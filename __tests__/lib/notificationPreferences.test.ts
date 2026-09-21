@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   mergeNotificationPreferences,
@@ -5,6 +8,24 @@ import {
   wantsPushForKind,
   phoneAlertPreferencePatch,
 } from '../../lib/notificationPreferences';
+
+describe('notification preference database contract', () => {
+  it('allows every preference key written by the mobile client', () => {
+    const migrationsDirectory = path.resolve(__dirname, '../../supabase/migrations');
+    const updateProfileMigrations = fs
+      .readdirSync(migrationsDirectory)
+      .sort()
+      .filter((fileName) => fileName.endsWith('.sql'))
+      .map((fileName) => fs.readFileSync(path.join(migrationsDirectory, fileName), 'utf8'))
+      .filter((sql) => /create\s+or\s+replace\s+function\s+public\.update_own_profile/i.test(sql));
+    const latestUpdateProfileDefinition = updateProfileMigrations.at(-1);
+
+    expect(latestUpdateProfileDefinition).toBeDefined();
+    for (const key of Object.keys(DEFAULT_NOTIFICATION_PREFERENCES)) {
+      expect(latestUpdateProfileDefinition).toContain(`'${key}'`);
+    }
+  });
+});
 
 describe('mergeNotificationPreferences', () => {
   it('defaults the four phone-alert categories to true', () => {

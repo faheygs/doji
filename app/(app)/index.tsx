@@ -38,6 +38,9 @@ import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeIn
 import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
 import { hasPrivatePostMedia, postMediaCacheKey, signPostMedia } from '../../lib/postMedia';
 import { useFeedScreenStyles } from '../../components/feed/useFeedScreenStyles';
+import { useFeedAudiencePreference } from '../../hooks/useFeedAudiencePreference';
+import { useStableFeedPresentation } from '../../hooks/useStableFeedPresentation';
+import { FeedAudienceMenu } from '../../components/feed/FeedAudienceMenu';
 export default function FeedScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -55,7 +58,8 @@ export default function FeedScreen() {
   }, [params.openComments]);
   const { colors } = useTheme();
   const styles = useFeedScreenStyles();
-  const [audience, setAudience] = useState<FeedAudience>('friends');
+  const userId = useAuthStore((s) => s.session?.user?.id);
+  const { audience, selectAudience } = useFeedAudiencePreference(userId);
   useFocusedRealtimeInvalidation('feed:public', realtimeQueryRoots, audience === 'everyone');
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [visiblePostIds, setVisiblePostIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -80,7 +84,6 @@ export default function FeedScreen() {
   } = useFeed(audience, feedUnlocked, userEvent?.daily_event_id);
   const queryClient = useQueryClient();
   const profile = useAuthStore((s) => s.profile);
-  const userId = useAuthStore((s) => s.session?.user?.id);
   const {
     unreadCount: notificationUnread,
     markBellOpened,
@@ -105,7 +108,18 @@ export default function FeedScreen() {
       markScopesSeen([{ scope_kind: 'daily_event', scope_id: userEvent.daily_event_id }]);
     }, [challengeIsLive, markScopesSeen, userEvent?.daily_event_id]),
   );
-  const posts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
+  const scrollFeedToTop = useCallback(
+    () => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }),
+    [],
+  );
+  const {
+    posts,
+    pendingNewPostCount,
+    revealNewPosts,
+    onScroll: handleFeedScroll,
+  } = useStableFeedPresentation(latestPosts, feedIdentity, scrollFeedToTop);
   const showInitialFeedSkeleton =
     posts.length === 0 &&
     !refreshing &&
@@ -273,9 +287,9 @@ export default function FeedScreen() {
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
   const refreshColors = useMemo(() => [colors.text], [colors.text]);
-  const ListHeader = useCallback(
+  const FeedChrome = useCallback(
     () => (
-      <View style={styles.listHeader}>
+      <View style={styles.feedChrome}>
         <View style={styles.feedTopBar}>
           <View style={styles.feedTopInner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
@@ -314,7 +328,15 @@ export default function FeedScreen() {
             </View>
           </View>
         </View>
-
+        <FeedAudienceMenu audience={audience} onSelect={selectAudience} />
+      </View>
+    ),
+    [styles, colors, notificationUnread, profile, handleOpenProfile,
+      handleOpenNotifications, audience, selectAudience],
+  );
+  const ListHeader = useCallback(
+    () => (
+      <View style={styles.listHeader}>
         {upcomingDoji ? (
           <UpcomingDojiBanner firesAt={upcomingDoji.fires_at} />
         ) : userEventLoading ? (
@@ -334,47 +356,9 @@ export default function FeedScreen() {
         ) : (
           <ChallengeBanner userEvent={userEvent ?? null} />
         )}
-
-        <View style={styles.audienceWrap}>
-          {(['friends', 'everyone'] as const).map((key) => {
-            const active = audience === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setAudience(key);
-                }}
-                style={[styles.audienceSeg, active && styles.audienceSegActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={key === 'friends' ? 'Friends' : 'Everyone'}
-              >
-                <Text
-                  variant="label"
-                  color={active ? colors.text : colors.textTertiary}
-                  style={{ fontWeight: active ? '700' : '500' }}
-                >
-                  {key === 'friends' ? 'Friends' : 'Everyone'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
       </View>
     ),
-    [
-      styles,
-      colors,
-      notificationUnread,
-      profile,
-      handleOpenProfile,
-      handleOpenNotifications,
-      userEvent,
-      userEventLoading,
-      upcomingDoji,
-      audience,
-    ],
+    [styles, colors, userEvent, userEventLoading, upcomingDoji],
   );
 
   const emptyCopy = useMemo(() => {
@@ -421,7 +405,7 @@ export default function FeedScreen() {
   if (feedError && posts.length === 0) {
     return (
       <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
-        <ListHeader />
+        <FeedChrome />
         <ErrorState
           title="Couldn't load your feed"
           message="Check your connection and try again."
@@ -433,6 +417,7 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
+      <FeedChrome />
       <SkeletonSwap
         loading={showInitialFeedSkeleton}
         skeleton={
@@ -451,6 +436,8 @@ export default function FeedScreen() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           onScrollToIndexFailed={handleScrollToIndexFailed}
+          onScroll={handleFeedScroll}
+          scrollEventThrottle={16}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmptyComponent}
           onEndReached={handleEndReached}
@@ -473,6 +460,19 @@ export default function FeedScreen() {
           keyboardShouldPersistTaps="handled"
         />
       </SkeletonSwap>
+
+      {pendingNewPostCount > 0 ? (
+        <TouchableOpacity
+          onPress={revealNewPosts}
+          style={styles.newPostsButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Show ${pendingNewPostCount} new ${pendingNewPostCount === 1 ? 'post' : 'posts'}`}
+        >
+          <Text variant="label" style={styles.newPostsText}>
+            {pendingNewPostCount === 1 ? 'New post' : `${pendingNewPostCount} new posts`}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <NotificationSheet
         visible={notificationsOpen}

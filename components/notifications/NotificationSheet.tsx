@@ -321,6 +321,10 @@ export function NotificationSheet({
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  dismissThen(() => safeReplace(router, ROUTES.challenge));
+                }}
                 leading={
                   <View style={styles.challengeLeading}>
                     <IconBell size={22} color={colors.primary} />
@@ -339,6 +343,7 @@ export function NotificationSheet({
                 title="Badge unlocked!"
                 body={`${item.categoryName} — ${tierLabel}`}
                 sortAt={item.sortAt}
+                onPress={() => dismissThen(() => safeReplace(router, ROUTES.profile))}
                 leading={
                   <View style={styles.badgeLeading}>
                     <CategoryBadgeIcon
@@ -365,6 +370,7 @@ export function NotificationSheet({
                 }
                 body={truncated}
                 sortAt={item.sortAt}
+                onPress={() => dismissThen(() => safeReplace(router, ROUTES.profile))}
                 leading={
                   <View
                     style={

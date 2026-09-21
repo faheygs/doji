@@ -11,6 +11,18 @@ import { readJsonBody } from '../_shared/json-body.ts';
 
 const PAGE_SIZE = 500;
 const EXPO_BATCH_SIZE = 100;
+const DOJI_LIVE_PUSH_TITLE = "It's time to Doji!";
+const DOJI_LIVE_PUSH_BODY = 'You only have 10 minutes ⚠️';
+
+function urgentLiveBody(body: string | undefined): string {
+  const value = body?.trim();
+  if (!value) return DOJI_LIVE_PUSH_BODY;
+  if (/you only have 10 minutes/i.test(value)) return value;
+  if (/you have 10 minutes\.?$/i.test(value)) {
+    return value.replace(/you have 10 minutes\.?$/i, DOJI_LIVE_PUSH_BODY);
+  }
+  return `${value} — ${DOJI_LIVE_PUSH_BODY}`;
+}
 
 type Recipient = {
   user_id: string;
@@ -247,8 +259,8 @@ Deno.serve(async (request) => {
       const push = await sendApnsMessage(database, {
         token: target.endpoint.token,
         environment: target.endpoint.environment ?? 'production',
-        title: claim.title ?? 'It\'s time to Doji!',
-        body: claim.body ?? 'You have 10 minutes.',
+        title: DOJI_LIVE_PUSH_TITLE,
+        body: urgentLiveBody(claim.body),
         collapseId: `doji-live:${dailyEventId}`,
         expiresAtEpochSeconds: Math.floor(Date.parse(claim.push_expires_at!) / 1000),
         interruptionLevel: 'time-sensitive',
@@ -273,8 +285,8 @@ Deno.serve(async (request) => {
     const fcmResults = await mapConcurrent(fcmTargets, 50, async (target) => {
       const push = await sendFcmMessage({
         token: target.endpoint.token,
-        title: claim.title ?? 'It\'s time to Doji!',
-        body: claim.body ?? 'You have 10 minutes.',
+        title: DOJI_LIVE_PUSH_TITLE,
+        body: urgentLiveBody(claim.body),
         collapseKey: `doji-live:${dailyEventId}`,
         ttlSeconds: Math.max(1, remainingSeconds),
         channelId: (target.endpoint.notificationContractVersion ?? 1) >= 2
@@ -309,8 +321,8 @@ Deno.serve(async (request) => {
             messageFor(
               recipient,
               dailyEventId,
-              claim.title ?? 'It\'s time to Doji!',
-              claim.body ?? 'You have 10 minutes.',
+              DOJI_LIVE_PUSH_TITLE,
+              urgentLiveBody(claim.body),
               Math.max(1, remainingSeconds),
             ),
           ),

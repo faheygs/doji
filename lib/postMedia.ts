@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { Post, Report } from '../types/database';
-
 const BUCKET = 'post-media';
 const SIGNED_URL_TTL_SECONDS = 15 * 60;
 const SIGNED_URL_REFRESH_SKEW_MS = 60_000;
@@ -24,11 +23,9 @@ let pendingWaiters: Array<{
   resolve: (signed: Map<string, string>) => void;
 }> = [];
 let batchTimer: ReturnType<typeof setTimeout> | null = null;
-
 function mediaTransformsEnabled(): boolean {
   return process.env.EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED === 'true';
 }
-
 function objectPath(value: string | null | undefined): string | null {
   if (!value) return null;
   const match = OBJECT_MARKER.exec(value);
@@ -41,7 +38,6 @@ function objectPath(value: string | null | undefined): string | null {
     return null;
   }
 }
-
 /**
  * Signed URLs rotate, but committed post-media object paths are immutable.
  * Use the object identity as the native disk-cache key so reopening the app
@@ -57,11 +53,9 @@ export function postMediaCacheKey(
     ? `${BUCKET}:${path}`
     : `${BUCKET}:${variant}:${VARIANT_CACHE_VERSION[variant]}:${path}`;
 }
-
 function requestKey(request: SignedRequest): string {
   return `${request.variant}:${request.path}`;
 }
-
 async function forEachWithConcurrency<T>(
   values: T[],
   concurrency: number,
@@ -77,7 +71,6 @@ async function forEachWithConcurrency<T>(
     }),
   );
 }
-
 async function flushSignedUrlBatch(): Promise<void> {
   batchTimer = null;
   const requests = [...pendingRequests.values()];

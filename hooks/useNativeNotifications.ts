@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, InteractionManager, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
@@ -15,6 +15,14 @@ async function markNotificationResponseSeen(data: unknown): Promise<void> {
   if (!scope) return;
   await executeCommand('mark_notification_attention_seen', {
     p_receipts: [{ ...scope, seen_at: new Date().toISOString() }],
+  });
+}
+
+function markAfterNavigationSettles(data: unknown): void {
+  InteractionManager.runAfterInteractions(() => {
+    // A response is only consumed after the destination transition has mounted.
+    // If the app is interrupted first, the durable attention row remains unseen.
+    void markNotificationResponseSeen(data);
   });
 }
 
@@ -94,7 +102,7 @@ export function useNativeNotifications(canUseApp: boolean): void {
           const href = notificationHrefFromData(last?.notification.request.content.data);
           if (href) {
             safeReplace(router, href);
-            void markNotificationResponseSeen(last?.notification.request.content.data);
+            markAfterNavigationSettles(last?.notification.request.content.data);
             await Notifications.clearLastNotificationResponseAsync();
           }
         })
@@ -103,7 +111,7 @@ export function useNativeNotifications(canUseApp: boolean): void {
         const href = notificationHrefFromData(response.notification.request.content.data);
         if (href) {
           safeReplace(router, href);
-          void markNotificationResponseSeen(response.notification.request.content.data);
+          markAfterNavigationSettles(response.notification.request.content.data);
         }
       });
     });

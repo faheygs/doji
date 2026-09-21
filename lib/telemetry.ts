@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { isRealtimeTransportUnavailable } from './realtimeChannelErrors';
 
 type TelemetryValue = string | number | boolean | null | undefined;
 
@@ -65,6 +66,7 @@ export function reportRealtimeFailure(
   recordRealtimeFailure(operation, error, context);
 
   if (__DEV__) return;
+  if (isRealtimeTransportUnavailable(error)) return;
   const reportKey = `${operation}:${String(details.errorCode ?? details.statusCode ?? '')}`;
   const now = Date.now();
   if (now - (lastReportAt.get(reportKey) ?? 0) < REPORT_WINDOW_MS) return;
@@ -93,6 +95,7 @@ export function reportOperationalFailure(
   const data = { ...context, ...details };
   recordOperationalFailure(area, operation, error, context);
   if (__DEV__) return;
+  if (isRealtimeTransportUnavailable(error)) return;
 
   const reportKey = `${area}:${operation}:${String(details.errorCode ?? details.statusCode ?? '')}`;
   const now = Date.now();

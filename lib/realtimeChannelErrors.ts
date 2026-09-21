@@ -53,7 +53,13 @@ export function isRealtimeTransportUnavailable(error: unknown): boolean {
     'connection to server temporarily unavailable',
     'connection closed',
     'connection disconnected',
+    'channel attach timed out',
     'network unreachable',
+    'network request failed',
+    'fetch failed',
+    'fetch request has been canceled',
+    'fetch request has been cancelled',
+    'request was aborted',
     'no more fallback hosts to try',
   ];
 

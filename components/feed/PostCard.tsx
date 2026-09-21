@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { InteractionManager, View, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter, usePathname } from 'expo-router';
@@ -27,6 +27,9 @@ import { usePostCardStyles } from './usePostCardStyles';
 import { usePostMedia } from '../../hooks/usePostMedia';
 import { postMediaCacheKey } from '../../lib/postMedia';
 import { Skeleton } from '../ui/Skeleton';
+import { useQueryClient } from '@tanstack/react-query';
+import { prefetchCommentsForPost } from '../../hooks/useComments';
+import { prefetchPostReactions } from '../../hooks/useFeed';
 
 type Props = {
   post: Post;
@@ -94,6 +97,7 @@ function PostCardImpl({
   const { colors } = useTheme();
   const styles = usePostCardStyles();
   const meId = useAuthStore((s) => s.session?.user?.id);
+  const queryClient = useQueryClient();
   const isOwnPost = meId != null && post.user_id === meId;
   const equippedBorder = getEquippedBorder(post.profile);
   const [showFront, setShowFront] = useState(false);
@@ -104,6 +108,37 @@ function PostCardImpl({
   const thumbnailMedia = usePostMedia(post, !blurred && realtimeActive, 'thumbnail');
   const hasVideo = Boolean(media.video_url && !blurred);
   usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
+
+  useEffect(() => {
+    if (blurred || !realtimeActive || !meId) return;
+    if (post.comment_count <= 0 && post.reaction_count <= 0) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (post.comment_count > 0) {
+        void prefetchCommentsForPost(queryClient, {
+          postId: post.id,
+          userId: meId,
+          audience: feedAudience,
+        });
+      }
+      if (post.reaction_count > 0) {
+        void prefetchPostReactions(queryClient, {
+          postId: post.id,
+          userId: meId,
+          audience: feedAudience,
+        });
+      }
+    });
+    return () => task.cancel();
+  }, [
+    blurred,
+    feedAudience,
+    meId,
+    post.comment_count,
+    post.id,
+    post.reaction_count,
+    queryClient,
+    realtimeActive,
+  ]);
 
   useEffect(() => {
     if (initialCommentsOpen) setCommentsOpen(true);
@@ -149,7 +184,7 @@ function PostCardImpl({
 
   useEffect(() => {
     setMainMediaReady(false);
-  }, [displayReference, displayUri]);
+  }, [displayReference]);
   const isQuestionPost =
     post.type === 'task_complete' ||
     post.challenge?.type === 'task' ||

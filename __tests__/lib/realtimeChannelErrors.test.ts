@@ -11,7 +11,16 @@ describe('realtime channel error classification', () => {
     'Connection to server temporarily unavailable',
     'Connection closed',
     'Channel operation failed: Connection disconnected',
+    'Channel attach timed out',
   ])('treats recoverable mobile transport loss as non-incident telemetry: %s', (message) => {
+    expect(isRealtimeTransportUnavailable(new Error(message))).toBe(true);
+  });
+
+  it.each([
+    'fetch failed: FetchRequestCanceledException',
+    'Network request failed',
+    'The request was aborted',
+  ])('treats handset fetch cancellation as transport state: %s', (message) => {
     expect(isRealtimeTransportUnavailable(new Error(message))).toBe(true);
   });
 

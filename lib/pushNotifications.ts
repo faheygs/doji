@@ -30,7 +30,7 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
   const Notifications = await import('expo-notifications');
   await Notifications.setNotificationChannelAsync('doji-live', {
     name: 'Doji goes live',
-    description: 'Time-sensitive alerts when the daily Doji opens',
+    description: 'Urgent alerts when the 10-minute daily Doji opens',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#F97316',

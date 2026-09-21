@@ -100,7 +100,7 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
       if (error) throw error;
       return (data ?? []) as Reaction[];
     },
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: (lastPage: Reaction[]) => {
       const tail = lastPage.at(-1);
       return lastPage.length === 50 && tail
         ? { createdAt: tail.created_at, id: tail.id }
@@ -108,5 +108,37 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
     },
     initialPageParam: null as { createdAt: string; id: string } | null,
     enabled: !!userId && !!postId,
+    staleTime: 20_000,
+  });
+}
+
+export function prefetchPostReactions(
+  client: QueryClient,
+  args: { postId: string; userId: string; audience: FeedAudience },
+) {
+  return client.prefetchInfiniteQuery({
+    queryKey: ['reactions', args.postId, args.audience, args.userId],
+    queryFn: async ({ pageParam, signal }): Promise<Reaction[]> => {
+      const { data, error } = await runAbortableQuery(
+        supabase.rpc('get_post_reaction_voters_page', {
+          p_post_id: args.postId,
+          p_audience: args.audience,
+          p_limit: 50,
+          p_before_created_at: pageParam?.createdAt ?? null,
+          p_before_id: pageParam?.id ?? null,
+        }),
+        signal,
+      );
+      if (error) throw error;
+      return (data ?? []) as Reaction[];
+    },
+    getNextPageParam: (lastPage: Reaction[]) => {
+      const tail = lastPage.at(-1);
+      return lastPage.length === 50 && tail
+        ? { createdAt: tail.created_at, id: tail.id }
+        : undefined;
+    },
+    initialPageParam: null as { createdAt: string; id: string } | null,
+    staleTime: 20_000,
   });
 }

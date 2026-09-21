@@ -87,12 +87,14 @@ describe('staged product backlog regressions', () => {
     const config = JSON.parse(source('app.json')) as {
       expo: {
         orientation: string;
-        android: { edgeToEdgeEnabled: boolean };
+        android: Record<string, unknown>;
         ios: { infoPlist: { UISupportedInterfaceOrientations: string[] } };
       };
     };
     expect(config.expo.orientation).toBe('default');
-    expect(config.expo.android.edgeToEdgeEnabled).toBe(true);
+    // Expo SDK 57 follows Android 16's mandatory edge-to-edge behavior and
+    // rejects the retired edgeToEdgeEnabled customization.
+    expect(config.expo.android).not.toHaveProperty('edgeToEdgeEnabled');
     expect(config.expo.ios.infoPlist.UISupportedInterfaceOrientations).toEqual([
       'UIInterfaceOrientationPortrait',
     ]);

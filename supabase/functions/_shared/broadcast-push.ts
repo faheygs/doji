@@ -5,6 +5,18 @@ import { getPushExpiresAtMs, type DeliveryEvent } from './domain-event-delivery.
 const PAGE_SIZE = 1000;
 const EXPO_BATCH_SIZE = 100;
 const EXPO_BATCH_DELAY_MS = 220;
+const DOJI_LIVE_PUSH_TITLE = "It's time to Doji!";
+const DOJI_LIVE_PUSH_BODY = 'You only have 10 minutes ⚠️';
+
+function urgentLiveBody(body: unknown): string {
+  const value = typeof body === 'string' ? body.trim() : '';
+  if (!value) return DOJI_LIVE_PUSH_BODY;
+  if (/you only have 10 minutes/i.test(value)) return value;
+  if (/you have 10 minutes\.?$/i.test(value)) {
+    return value.replace(/you have 10 minutes\.?$/i, DOJI_LIVE_PUSH_BODY);
+  }
+  return `${value} — ${DOJI_LIVE_PUSH_BODY}`;
+}
 
 type DatabaseClient = {
   rpc: (
@@ -49,8 +61,8 @@ function messageFor(event: BroadcastEvent, token: string): ExpoMessage {
     : Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 1000));
   return {
     to: token,
-    title: String(event.payload.title ?? 'Doji'),
-    body: String(event.payload.body ?? ''),
+    title: DOJI_LIVE_PUSH_TITLE,
+    body: urgentLiveBody(event.payload.body),
     sound: 'default',
     badge: 1,
     ttl,

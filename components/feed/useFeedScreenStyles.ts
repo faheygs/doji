@@ -8,6 +8,7 @@ export function useFeedScreenStyles() {
   return useMemo(
     () => StyleSheet.create({
       container: { flex: 1, backgroundColor: colors.background },
+      feedChrome: { zIndex: 40, backgroundColor: colors.background },
       listHeader: { gap: Spacing.sm, paddingBottom: Spacing.xs },
       feedTopBar: {
         borderBottomWidth: StyleSheet.hairlineWidth,
@@ -46,28 +47,23 @@ export function useFeedScreenStyles() {
         paddingHorizontal: Spacing.xl,
       },
       emptyText: { textAlign: 'center', lineHeight: 22 },
-      audienceWrap: {
-        flexDirection: 'row',
-        marginHorizontal: Spacing.md,
-        marginBottom: Spacing.xs,
-        padding: 3,
-        borderRadius: Radius.md,
-        backgroundColor: colors.chipBackground,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.border,
-      },
-      audienceSeg: {
-        flex: 1,
-        paddingVertical: Spacing.sm,
-        alignItems: 'center',
+      newPostsButton: {
+        position: 'absolute',
+        top: 116,
+        alignSelf: 'center',
+        zIndex: 30,
+        minHeight: 40,
         justifyContent: 'center',
-        borderRadius: Radius.sm,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: 999,
+        backgroundColor: colors.accent,
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 10,
       },
-      audienceSegActive: {
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.border,
-      },
+      newPostsText: { color: colors.onPrimary, fontWeight: '700' },
     }),
     [colors],
   );

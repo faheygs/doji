@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { type QueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { FeedAudience } from '../lib/feedAudience';
@@ -13,7 +13,7 @@ export { useToggleCommentLike, useToggleCommentsDisabled } from './useCommentCon
 
 export type CommentWithMeta = Comment;
 
-async function fetchCommentsForPost(
+export async function fetchCommentsForPost(
   postId: string,
   audience: FeedAudience,
   page: { beforeCreatedAt: string; beforeId: string } | null,
@@ -35,6 +35,24 @@ async function fetchCommentsForPost(
   } finally {
     request.cleanup();
   }
+}
+
+export function prefetchCommentsForPost(
+  client: QueryClient,
+  args: { postId: string; userId: string; audience: FeedAudience },
+) {
+  return client.prefetchInfiniteQuery({
+    queryKey: ['comments', args.postId, args.userId, args.audience],
+    queryFn: ({ signal, pageParam }) =>
+      fetchCommentsForPost(args.postId, args.audience, pageParam, signal),
+    initialPageParam: null as { beforeCreatedAt: string; beforeId: string } | null,
+    getNextPageParam: (lastPage: CommentWithMeta[]) => {
+      if (lastPage.length < 50) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return { beforeCreatedAt: last.created_at, beforeId: last.id };
+    },
+    staleTime: 20_000,
+  });
 }
 
 export function useComments(
