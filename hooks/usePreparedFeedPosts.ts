@@ -7,6 +7,8 @@ import {
   prepareFeedPostMedia,
 } from '../lib/feedPostPreparation';
 
+const FEED_POST_PREPARATION_CONCURRENCY = 2;
+
 /**
  * Keep media posts out of feed presentation until their primary media has been
  * authorized, downloaded, and decoded. A bounded fallback prevents one broken
@@ -24,14 +26,15 @@ export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
     [latestPosts],
   );
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    const timers = timersRef.current;
+    return () => {
       mountedRef.current = false;
-      for (const timer of timersRef.current.values()) clearTimeout(timer);
-      timersRef.current.clear();
-    },
-    [],
-  );
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -54,24 +57,37 @@ export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
     });
     if (pending.length === 0) return;
 
-    for (const post of pending) {
-      const key = feedPostPreparationKey(post);
-      preparingRef.current.add(key);
-      timersRef.current.set(
-        key,
-        setTimeout(() => {
-          timersRef.current.delete(key);
-          fallbackRef.current.add(key);
-          preparingRef.current.delete(key);
-          if (mountedRef.current) setRevision((value) => value + 1);
-        }, FEED_POST_PREPARATION_TIMEOUT_MS),
-      );
-    }
+    let cursor = 0;
+    const prepareNext = async () => {
+      while (cursor < pending.length) {
+        const post = pending[cursor++];
+        const key = feedPostPreparationKey(post);
+        // A newer effect may already have claimed this post while this worker
+        // was waiting for a previous item.
+        if (
+          preparedRef.current.has(key) ||
+          fallbackRef.current.has(key) ||
+          preparingRef.current.has(key)
+        ) {
+          continue;
+        }
+        preparingRef.current.add(key);
+        timersRef.current.set(
+          key,
+          setTimeout(() => {
+            timersRef.current.delete(key);
+            fallbackRef.current.add(key);
+            preparingRef.current.delete(key);
+            if (mountedRef.current) setRevision((value) => value + 1);
+          }, FEED_POST_PREPARATION_TIMEOUT_MS),
+        );
 
-    void prepareFeedPostMedia(pending)
-      .then((prepared) => {
-        for (const post of pending) {
-          const key = feedPostPreparationKey(post);
+        try {
+          // Prepare independently so the first ready card can render without
+          // waiting for every image on the page. Keeping only two native
+          // decodes active also prevents large photo bursts from exhausting
+          // handset memory and tripping the app-level error boundary.
+          const prepared = await prepareFeedPostMedia([post]);
           const ready = prepared.get(key);
           if (ready) {
             const timer = timersRef.current.get(key);
@@ -80,13 +96,21 @@ export function usePreparedFeedPosts(latestPosts: Post[], enabled: boolean) {
             preparedRef.current.set(key, ready);
             fallbackRef.current.delete(key);
           }
+        } catch {
+          // The bounded fallback timer owns recovery for this single post.
+        } finally {
           preparingRef.current.delete(key);
+          if (mountedRef.current) setRevision((value) => value + 1);
         }
-        if (mountedRef.current && prepared.size > 0) setRevision((value) => value + 1);
-      })
-      .catch(() => {
-        // Per-post timeout below owns the visible fallback and retry boundary.
-      });
+      }
+    };
+
+    void Promise.all(
+      Array.from(
+        { length: Math.min(FEED_POST_PREPARATION_CONCURRENCY, pending.length) },
+        () => prepareNext(),
+      ),
+    );
   }, [enabled, latestPosts, preparationIdentity]);
 
   const posts = (() => {

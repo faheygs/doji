@@ -56,4 +56,32 @@ describe('usePreparedFeedPosts', () => {
     });
     unmount();
   });
+
+  it('prepares posts progressively with only two native jobs active', async () => {
+    const posts = [post, { ...post, id: 'post-2' }, { ...post, id: 'post-3' }];
+    const resolvers = new Map<string, (value: Map<string, Post>) => void>();
+    mockPrepareFeedPostMedia.mockImplementation(
+      ([item]) =>
+        new Promise<Map<string, Post>>((resolve) => {
+          resolvers.set(item.id, resolve);
+        }),
+    );
+
+    const { result, unmount } = renderHook(() => usePreparedFeedPosts(posts, true));
+    await waitFor(() => expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(2));
+    expect(resolvers.has('post-3')).toBe(false);
+
+    await act(async () => {
+      const first = posts[0];
+      resolvers.get(first.id)?.(
+        new Map([[`post-1:private/post-1.jpg::`, { ...first, photo_url: 'file:///one.jpg' }]]),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.posts.map((item) => item.id)).toContain('post-1');
+      expect(mockPrepareFeedPostMedia).toHaveBeenCalledTimes(3);
+    });
+    unmount();
+  });
 });

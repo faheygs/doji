@@ -88,7 +88,9 @@
   A refreshed media post is not passed into stable feed presentation until its
   authorized image has been downloaded, decoded, and cached; therefore "New posts"
   counts only presentation-ready rows. A bounded failure fallback keeps a bad object
-  from blocking unrelated rows or pagination.
+  from blocking unrelated rows or pagination. Preparation is per-post and limited to
+  two concurrent native decodes; each decoded image reference is released immediately
+  after its stable cache entry is written.
   Friend-feed membership is routed to the author and accepted friends' private
   channels. This removes the previous all-users-by-all-actions amplification.
 - The handset Ably client is bound to one authenticated account and is closed before
@@ -128,10 +130,10 @@
   Every private image in the bounded loaded feed pages is authorized in one coalesced
   pass; stable references, but never signed bearer URLs, may be persisted. Photo/video
   feeds do not prefetch the hidden audience while visible media is hydrating. After feed
-  chrome is usable, at most the first five authorized cards are decoded and warmed into
-  memory/disk cache; later loaded cards already have authorization and reuse any stable
-  native-cache bytes. A shared skeleton covers native rebinding until the image reports
-  that it displayed, so authorization never reveals stale bytes or a black frame.
+  chrome is usable, a two-worker per-post queue progressively decodes and warms the
+  memory/disk cache without retaining a page of native bitmaps. A shared skeleton covers
+  native rebinding until the image reports that it displayed, so authorization never
+  reveals stale bytes or a black frame.
   The native image cache is keyed by the immutable private object path, not the
   rotating signed bearer URL. Query persistence flushes on background, and a
   local snapshot that misses the bounded splash deadline can still hydrate

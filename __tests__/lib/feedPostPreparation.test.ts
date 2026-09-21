@@ -41,12 +41,14 @@ function photoPost(id = 'post-1'): Post {
 }
 
 describe('feed post media preparation', () => {
+  const release = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockPostMediaCacheKey.mockImplementation((value: string | null) =>
       value ? `feed:${value}` : undefined,
     );
-    mockLoadAsync.mockResolvedValue({ nativeRef: 'decoded' });
+    mockLoadAsync.mockResolvedValue({ nativeRef: 'decoded', release } as never);
     mockWriteToCacheAsync.mockResolvedValue(true);
     mockGetCachePathAsync.mockResolvedValue('/native-cache/post.jpg');
   });
@@ -59,17 +61,21 @@ describe('feed post media preparation', () => {
 
     const result = await prepareFeedPostMedia([post]);
 
-    expect(mockLoadAsync).toHaveBeenCalledWith({
-      uri: 'https://signed.test/post.jpg',
-      cacheKey: 'feed:private/post-1.jpg',
-    });
+    expect(mockLoadAsync).toHaveBeenCalledWith(
+      {
+        uri: 'https://signed.test/post.jpg',
+        cacheKey: 'feed:private/post-1.jpg',
+      },
+      { maxWidth: 1440, maxHeight: 1920 },
+    );
     expect(mockWriteToCacheAsync).toHaveBeenCalledWith(
-      { nativeRef: 'decoded' },
+      expect.objectContaining({ nativeRef: 'decoded' }),
       'feed:private/post-1.jpg',
     );
     expect(result.get(feedPostPreparationKey(post))?.photo_url).toBe(
       'file:///native-cache/post.jpg',
     );
+    expect(release).toHaveBeenCalledTimes(1);
   });
 
   it('does not mark a post ready when its image cannot be decoded', async () => {

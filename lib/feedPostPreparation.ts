@@ -26,10 +26,20 @@ async function prepareImage(
   const cacheKey = postMediaCacheKey(stableReference, 'feed');
   const image = await ExpoImage.loadAsync(
     cacheKey ? { uri: resolvedUrl, cacheKey } : { uri: resolvedUrl },
+    // Do not retain a full-resolution camera bitmap merely to prime a feed
+    // card. The signed feed variant is already bounded, and these guards keep
+    // unusual legacy uploads from causing a native memory spike.
+    { maxWidth: 1440, maxHeight: 1920 },
   );
-  if (!cacheKey) return resolvedUrl;
-  await ExpoImage.writeToCacheAsync(image, cacheKey);
-  return asFileUri(await ExpoImage.getCachePathAsync(cacheKey)) ?? resolvedUrl;
+  try {
+    if (!cacheKey) return resolvedUrl;
+    await ExpoImage.writeToCacheAsync(image, cacheKey);
+    return asFileUri(await ExpoImage.getCachePathAsync(cacheKey)) ?? resolvedUrl;
+  } finally {
+    // ImageRef owns a native bitmap. Waiting for JavaScript garbage collection
+    // leaked several decoded photos during a burst and could trip ErrorBoundary.
+    image.release();
+  }
 }
 
 /**
