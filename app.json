@@ -32,7 +32,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 13
+      "versionCode": 14
     },
     "web": {
       "favicon": "./assets/icon.png"
