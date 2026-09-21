@@ -60,6 +60,7 @@ export function usePostCardStyles() {
           alignSelf: 'stretch',
           backgroundColor: colors.mediaLetterbox,
         },
+        mediaHidden: { opacity: 0 },
         videoMedia: {
           width: '100%',
           alignSelf: 'stretch',

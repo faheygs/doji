@@ -17,17 +17,18 @@ describe('mobile data architecture', () => {
     expect(realtime).toContain('100 + Math.floor(Math.random() * 400)');
   });
 
-  it('authorizes every loaded media card and warms the first five after feed chrome is usable', () => {
+  it('prepares every media post before passing it into stable feed presentation', () => {
     const feed = read('app/(app)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
-    expect(feed).toContain('const candidates = posts.filter(hasPrivatePostMedia)');
-    expect(feed).toContain('resolvedPosts.slice(0, 5)');
-    expect(feed).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
+    expect(feed).toContain('usePreparedFeedPosts');
+    expect(feed).toContain('useStableFeedPresentation(preparedPosts');
+    const preparation = read('lib/feedPostPreparation.ts');
+    expect(preparation).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
+    expect(preparation).toContain('ExpoImage.getCachePathAsync(cacheKey)');
     expect(card).toContain("cacheKey: postMediaCacheKey(displayReference, 'feed')");
     expect(card).toContain("postMediaCacheKey(thumbReference, 'thumbnail')");
-    expect(feed.indexOf("signPostMedia(candidates, 'feed')")).toBeGreaterThan(
-      feed.indexOf('InteractionManager.runAfterInteractions'),
-    );
+    expect(preparation).toContain("const resolvedPosts = await signPostMedia(posts, 'feed')");
+    expect(preparation).toContain('prepareImage(post.photo_url, resolved.photo_url)');
   });
 
   it('keeps query snapshots across quick background and slow local restoration', () => {

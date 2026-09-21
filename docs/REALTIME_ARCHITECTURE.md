@@ -81,8 +81,14 @@
 - Public feed hints use event-specific query roots. Comment likes refresh comments;
   reactions refresh reaction-bearing post surfaces; poll votes refresh poll results.
   A social event never invalidates every public feed query family by default.
-- `feed:public` carries only coalesced post-membership hints. Engagement is routed to
-  `post:{postId}` and subscribed only while an unlocked card/thread is mounted.
+- `feed:public` carries only coalesced membership hints for every non-demo post eligible
+  for the authoritative Everyone feed, independent of its friend-alert visibility.
+  Engagement is routed to `post:{postId}` and subscribed only while an unlocked
+  card/thread is mounted.
+  A refreshed media post is not passed into stable feed presentation until its
+  authorized image has been downloaded, decoded, and cached; therefore "New posts"
+  counts only presentation-ready rows. A bounded failure fallback keeps a bad object
+  from blocking unrelated rows or pagination.
   Friend-feed membership is routed to the author and accepted friends' private
   channels. This removes the previous all-users-by-all-actions amplification.
 - The handset Ably client is bound to one authenticated account and is closed before
@@ -320,8 +326,9 @@ handoff being repeated when its database acknowledgement failed.
 ## Channels
 
 - `doji:global`: pre-live, activation, and close announcements.
-- `feed:public`: coalesced public post-membership hints only; subscribed only while
-  the feed is focused. Engagement and poll-vote changes use mounted post channels.
+- `feed:public`: coalesced Everyone-eligible post-membership hints only; subscribed
+  only while the feed is focused. Engagement and poll-vote changes use mounted post
+  channels.
 - `profiles:global`: retired; profile changes fan out to the account and accepted
   friends instead of every connected device.
 - `leaderboard:global`: five-second-coalesced XP/rank and rendered-profile-field hints;

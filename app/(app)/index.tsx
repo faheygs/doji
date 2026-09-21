@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Image as ExpoImage } from 'expo-image';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -36,10 +35,10 @@ import { hasUnlockedFeed } from '../../lib/participationGate';
 import type { Post } from '../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 import { realtimeQueryRoots } from '../../lib/realtimeQueryRoots';
-import { hasPrivatePostMedia, postMediaCacheKey, signPostMedia } from '../../lib/postMedia';
 import { useFeedScreenStyles } from '../../components/feed/useFeedScreenStyles';
 import { useFeedAudiencePreference } from '../../hooks/useFeedAudiencePreference';
 import { useStableFeedPresentation } from '../../hooks/useStableFeedPresentation';
+import { usePreparedFeedPosts } from '../../hooks/usePreparedFeedPosts';
 import { FeedAudienceMenu } from '../../components/feed/FeedAudienceMenu';
 export default function FeedScreen() {
   const router = useRouter();
@@ -66,7 +65,6 @@ export default function FeedScreen() {
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
-  const warmedMediaKeyRef = useRef<string>('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const { data: upcomingDoji } = useUpcomingDoji();
@@ -109,6 +107,10 @@ export default function FeedScreen() {
     }, [challengeIsLive, markScopesSeen, userEvent?.daily_event_id]),
   );
   const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const { posts: preparedPosts, isPreparing: isPreparingFeedPosts } = usePreparedFeedPosts(
+    latestPosts,
+    feedUnlocked === true,
+  );
   const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
   const scrollFeedToTop = useCallback(
     () => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }),
@@ -119,53 +121,14 @@ export default function FeedScreen() {
     pendingNewPostCount,
     revealNewPosts,
     onScroll: handleFeedScroll,
-  } = useStableFeedPresentation(latestPosts, feedIdentity, scrollFeedToTop);
+  } = useStableFeedPresentation(preparedPosts, feedIdentity, scrollFeedToTop);
   const showInitialFeedSkeleton =
     posts.length === 0 &&
     !refreshing &&
-    (userEventLoading || feedLoading || (feedFetching && !feedFetchedAfterMount));
-  useEffect(() => {
-    if (!feedUnlocked || posts.length === 0) return;
-    // Authorize the entire bounded set of loaded pages in one coalesced pass.
-    // The first five are also decoded into the native cache; later cards keep
-    // their existing disk bytes and receive a ready signed URL before scroll.
-    const candidates = posts.filter(hasPrivatePostMedia);
-    if (candidates.length === 0) return;
-    const warmKey = candidates
-      .map((post) => `${post.id}:${post.photo_url}:${post.front_photo_url}:${post.video_url}`)
-      .join('|');
-    if (warmedMediaKeyRef.current === warmKey) return;
-    warmedMediaKeyRef.current = warmKey;
-    let disposed = false;
-    const task = InteractionManager.runAfterInteractions(() => {
-      void signPostMedia(candidates, 'feed').then((resolvedPosts) => {
-        if (disposed) return;
-        const imagePairs = resolvedPosts.slice(0, 5).flatMap((resolvedPost, index) => {
-          const stablePost = candidates[index];
-          return [
-            [stablePost?.photo_url, resolvedPost.photo_url],
-            [stablePost?.front_photo_url, resolvedPost.front_photo_url],
-          ] as const;
-        });
-        void Promise.allSettled(
-          imagePairs.map(async ([stableReference, signedUrl]) => {
-            if (!signedUrl) return;
-            const cacheKey = postMediaCacheKey(stableReference, 'feed');
-            if (!cacheKey) {
-              await ExpoImage.prefetch(signedUrl, 'memory-disk');
-              return;
-            }
-            const image = await ExpoImage.loadAsync({ uri: signedUrl, cacheKey });
-            await ExpoImage.writeToCacheAsync(image, cacheKey);
-          }),
-        );
-      });
-    });
-    return () => {
-      disposed = true;
-      task.cancel();
-    };
-  }, [feedUnlocked, posts]);
+    (userEventLoading ||
+      feedLoading ||
+      isPreparingFeedPosts ||
+      (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
     // Media cards resolve private URLs after their social records render. Do

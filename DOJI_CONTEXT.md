@@ -430,7 +430,8 @@ Supabase publication during migration, but current correctness never depends on 
 Channels:
 
 - `doji:global`: pre-live, activation, and close.
-- `feed:public`: coalesced public/community post membership changes only.
+- `feed:public`: coalesced membership hints for every non-demo post eligible for the
+  authoritative Everyone feed, regardless of friend-alert visibility.
 - `post:{postId}`: reactions, comments, comment likes, poll votes, and vote likes
   for a mounted, unlocked card or open thread. List virtualization bounds active
   subscriptions instead of sending every engagement event to every handset. Initial
@@ -495,6 +496,9 @@ to display. Per-category preferences control push delivery; they do not erase
 history. Foreground OS banners and notification-derived app toasts are suppressed;
 the live bell and actionable feed banner update instead. Background/killed clients use native push, with Expo retained during endpoint migration. Tapping an alert is
 resolved through `lib/notificationHref.ts` and canonical routes in `lib/routes.ts`.
+Post-backed alerts open the exact `app/(app)/post/[id]` route rather than searching the
+currently selected/paginated feed; comment, reply, mention, and comment-like alerts
+open that post's comments sheet immediately.
 Clearing history optimistically filters the retained query snapshot immediately,
 then persists through the atomic clear RPC; a failed authoritative write rolls the
 UI back. Pending friend requests remain because they are actionable account state.
@@ -519,6 +523,11 @@ and must never place a loading overlay above usable controls.
 Feed cold loads use the active challenge shape: a poll/Would You Rather occurrence has
 one shared-card placeholder, while photo/video and text/task/format occurrences render
 five scrollable per-person post placeholders.
+Post photos stay hidden behind a full-frame themed skeleton until the native image has
+actually displayed. Every media post passes through a readiness gate that authorizes,
+downloads, decodes, and caches its media before stable feed presentation can display it
+or count it behind the "New posts" affordance. A bounded exceptional fallback prevents
+one corrupt or unreachable object from permanently blocking the feed.
 
 Native dialogs and sheets remain mounted while their `visible` prop transitions to
 false so iOS/Android can finish dismissal and release the presentation layer. Route

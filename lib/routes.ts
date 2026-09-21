@@ -1,6 +1,9 @@
 import type { Href } from 'expo-router';
-import type { FeedPostDeepLinkOptions } from './notificationHref';
-import { feedPostHref } from './notificationHref';
+
+export type PostDetailDeepLinkOptions = {
+  openComments?: boolean;
+  mentionCommentId?: string;
+};
 
 /** Canonical in-app routes — must match files under `app/`. */
 export const ROUTES = {
@@ -19,6 +22,15 @@ export const ROUTES = {
   profile: '/(app)/profile' as Href,
   friends: '/(app)/friends' as Href,
 } as const;
+
+/** Build an exact post route without relying on feed pagination or audience. */
+export function postDetailHref(postId: string, options?: PostDetailDeepLinkOptions): Href {
+  const params = new URLSearchParams();
+  if (options?.openComments) params.set('openComments', '1');
+  if (options?.mentionCommentId) params.set('mentionCommentId', options.mentionCommentId);
+  const query = params.toString();
+  return `/(app)/post/${encodeURIComponent(postId)}${query ? `?${query}` : ''}` as Href;
+}
 
 export function challengeEntryHref(type: string | null | undefined): Href {
   if (type === 'poll') return ROUTES.poll;
@@ -86,13 +98,13 @@ export function safeReplace(router: RouterLike, href: string | Href): void {
   }
 }
 
-/** Land on the home feed tab, optionally focusing a post / comments sheet. */
+/** Open an exact post, optionally opening its comments sheet. */
 export function navigateToFeedPost(
   router: RouterLike,
   postId: string,
-  options?: FeedPostDeepLinkOptions,
+  options?: PostDetailDeepLinkOptions,
 ): void {
-  safeReplace(router, feedPostHref(postId, options));
+  safeReplace(router, postDetailHref(postId, options));
 }
 
 /** Land on the home feed tab after challenge flows, notifications, onboarding, etc. */

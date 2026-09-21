@@ -1,26 +1,15 @@
 import type { Href } from 'expo-router';
-import { normalizeHref, ROUTES } from './routes';
-
-export type FeedPostDeepLinkOptions = {
-  openComments?: boolean;
-  mentionCommentId?: string;
-};
-
-/** Build feed href that opens a post (and optionally comments) on the home tab. */
-export function feedPostHref(postId: string, options?: FeedPostDeepLinkOptions): Href {
-  const params = new URLSearchParams({ postId });
-  if (options?.openComments) params.set('openComments', '1');
-  if (options?.mentionCommentId) params.set('mentionCommentId', options.mentionCommentId);
-  return `${ROUTES.feed}?${params.toString()}` as Href;
-}
+import { normalizeHref, postDetailHref, ROUTES } from './routes';
 
 /** Resolve push / in-app notification payload to an in-app route. */
 export function notificationHrefFromData(data: unknown): Href | null {
   if (!data || typeof data !== 'object') return null;
   const rec = data as Record<string, unknown>;
   const type = rec.type;
-  const postId = rec.postId;
-  const commentId = rec.commentId;
+  // Accept both the current camelCase producer contract and legacy/database-shaped
+  // payloads so an older queued notification still lands on the correct content.
+  const postId = rec.postId ?? rec.post_id;
+  const commentId = rec.commentId ?? rec.comment_id;
 
   if (type === 'CHALLENGE') return '/(app)/challenge';
   if (type === 'BADGE' || type === 'BADGE_EARNED') return '/(app)/profile' as Href;
@@ -30,7 +19,11 @@ export function notificationHrefFromData(data: unknown): Href | null {
   if (type === 'FRIEND_ACCEPTED') {
     return '/(app)/friends';
   }
-  if (type === 'FRIEND_POST') return ROUTES.feed;
+  if (type === 'FRIEND_POST') {
+    return typeof postId === 'string' && postId.length > 0
+      ? postDetailHref(postId)
+      : ROUTES.feed;
+  }
   if (type === 'POLL_VOTE') return ROUTES.feed;
   if (type === 'SUGGESTION_APPROVED' || type === 'SUGGESTION_REJECTED') {
     return '/(app)/profile' as Href;
@@ -44,7 +37,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
     typeof postId === 'string' &&
     postId.length > 0
   ) {
-    return feedPostHref(postId, {
+    return postDetailHref(postId, {
       openComments:
         type === 'COMMENT' ||
         type === 'COMMENT_LIKE' ||

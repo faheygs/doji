@@ -48,10 +48,11 @@ describe('staged product backlog regressions', () => {
     const feed = source('app/(app)/index.tsx');
     const card = source('components/feed/PostCard.tsx');
     const media = source('hooks/usePostMedia.ts');
-    expect(feed).toContain('const candidates = posts.filter(hasPrivatePostMedia)');
-    expect(feed).toContain('resolvedPosts.slice(0, 5)');
+    expect(feed).toContain('usePreparedFeedPosts');
+    expect(feed).toContain('useStableFeedPresentation(preparedPosts');
     expect(card).toContain('onDisplay={() => setMainMediaReady(true)}');
-    expect(card).toContain('<Skeleton height={1} radius={0} style={styles.mediaSkeleton} />');
+    expect(card).toContain('!mainMediaReady && styles.mediaHidden');
+    expect(card).toContain('<Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />');
     expect(media).toContain('enabled && hasPrivatePostMedia(post)');
   });
 

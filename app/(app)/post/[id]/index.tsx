@@ -21,7 +21,10 @@ import { hasUnlockedFeed } from '../../../../lib/participationGate';
 import { backOrHome } from '../../../../lib/navigationReturn';
 
 export default function PostDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, openComments } = useLocalSearchParams<{
+    id: string;
+    openComments?: string | string[];
+  }>();
   const router = useRouter();
   const { colors } = useTheme();
   const { data: post, isLoading, error } = usePost(id);
@@ -86,7 +89,13 @@ export default function PostDetailScreen() {
           keyboardDismissMode="on-drag"
           scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
         >
-          <PostCard post={post} blurred={feedLocked} />
+          <PostCard
+            post={post}
+            blurred={feedLocked}
+            initialCommentsOpen={
+              (Array.isArray(openComments) ? openComments[0] : openComments) === '1'
+            }
+          />
         </ScrollView>
       )}
     </SafeAreaView>

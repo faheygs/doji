@@ -354,14 +354,14 @@ function PostCardImpl({
                 >
                   <Image
                     source={mainImageSource}
-                    style={styles.media}
+                    style={[styles.media, !mainMediaReady && styles.mediaHidden]}
                     contentFit="cover"
                     cachePolicy="memory-disk"
                     recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
                     onDisplay={() => setMainMediaReady(true)}
                   />
                   {!mainMediaReady ? (
-                    <Skeleton height={1} radius={0} style={styles.mediaSkeleton} />
+                    <Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />
                   ) : null}
                   {media.front_photo_url && !hasVideo ? (
                     <View style={styles.frontThumbnailContainer}>
@@ -379,7 +379,7 @@ function PostCardImpl({
 
               {!hasPhotoLayer && !hasVideo && expectsMedia ? (
                 <View style={styles.media} accessibilityLabel="Photo loading">
-                  <Skeleton height={1} radius={0} style={styles.mediaSkeleton} />
+                  <Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />
                 </View>
               ) : null}
 

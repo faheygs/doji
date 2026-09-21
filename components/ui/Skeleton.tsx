@@ -5,7 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   width?: DimensionValue;
-  height: number;
+  height: DimensionValue;
   radius?: number;
   style?: ViewStyle;
 };
