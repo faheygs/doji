@@ -315,6 +315,7 @@ Deno.serve(async (request) => {
             eventId: event.id,
             daily_event_id: event.payload.dailyEventId ? String(event.payload.dailyEventId) : '',
             postId: event.payload.postId ? String(event.payload.postId) : '',
+            commentId: event.payload.commentId ? String(event.payload.commentId) : '',
             voteId: event.payload.voteId ? String(event.payload.voteId) : '',
             url: event.payload.url ? String(event.payload.url) : '',
             notificationScopeKind: pushPolicy.scopeKind,

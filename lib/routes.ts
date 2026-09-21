@@ -80,20 +80,34 @@ export function normalizeHref(raw: string | Href | null | undefined): Href | nul
   return str as Href;
 }
 
-/** Safe replace — never navigates to an invalid href. */
-export function safeReplace(router: RouterLike, href: string | Href): void {
+/** Safe replace — never navigates to an invalid href; reports whether routing was accepted. */
+export function safeReplace(router: RouterLike, href: string | Href): boolean {
   const normalized = normalizeHref(href);
   if (!normalized) {
-    router.replace(ROUTES.feed);
-    return;
+    try {
+      router.replace(ROUTES.feed);
+      return true;
+    } catch {
+      return false;
+    }
   }
   try {
     router.replace(normalized);
+    return true;
   } catch {
     try {
-      router.navigate?.(normalized);
+      if (router.navigate) {
+        router.navigate(normalized);
+        return true;
+      }
     } catch {
+      /* Fall through to the safe home destination. */
+    }
+    try {
       router.replace(ROUTES.feed);
+      return true;
+    } catch {
+      return false;
     }
   }
 }

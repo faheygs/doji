@@ -165,6 +165,11 @@
   Shared polls render one placeholder; per-user post types render five scrollable
   placeholders that match their photo/video or text card geometry.
   Native sheet dismissal completes before a queued route action is allowed to run.
+- A native notification tap is registered before auth/profile restoration, retained
+  while the protected navigator mounts, and consumed only after `safeReplace` accepts
+  its canonical route. The OS response is cleared only after that acceptance. Relay
+  payloads preserve `commentId`, so native mention/reply taps and Activity Center items
+  share the same post/comment routing contract.
 
 ## Runtime flow
 

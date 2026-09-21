@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, InteractionManager, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter, type Href } from 'expo-router';
+import type { NotificationResponse } from 'expo-notifications';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { syncPushRegistration, unregisterCurrentPushInstallation } from '../lib/pushNotifications';
@@ -26,9 +27,27 @@ function markAfterNavigationSettles(data: unknown): void {
   });
 }
 
+type PendingNotificationResponse = {
+  key: string;
+  data: unknown;
+  href: Href;
+};
+
+function responseKey(identifier: string | undefined, data: unknown): string {
+  if (data && typeof data === 'object') {
+    const eventId = (data as Record<string, unknown>).eventId;
+    if (typeof eventId === 'string' && eventId.length > 0) return `event:${eventId}`;
+  }
+  return `notification:${identifier ?? 'unknown'}`;
+}
+
 /** Owns native push presentation, endpoint registration, rotation, and deep links. */
 export function useNativeNotifications(canUseApp: boolean): void {
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+  const [pendingResponse, setPendingResponse] = useState<PendingNotificationResponse | null>(null);
+  const handledResponseKeysRef = useRef(new Set<string>());
+  const notificationsModuleRef = useRef<typeof import('expo-notifications') | null>(null);
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
   const userId = session?.user?.id;
@@ -90,35 +109,60 @@ export function useNativeNotifications(canUseApp: boolean): void {
   }, [profileId, profileIsBanned, profilePushEnabled, userId]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || !canUseApp) return;
+    if (Platform.OS === 'web') return;
     let disposed = false;
     let subscription: { remove: () => void } | undefined;
 
     void import('expo-notifications').then((Notifications) => {
       if (disposed) return;
+      notificationsModuleRef.current = Notifications;
+      const queueResponse = (response: NotificationResponse | null | undefined) => {
+        if (!response) return;
+        const data = response.notification.request.content.data ?? {};
+        const href = notificationHrefFromData(data);
+        if (!href) return;
+        const key = responseKey(response.notification.request.identifier, data);
+        if (handledResponseKeysRef.current.has(key)) return;
+        setPendingResponse((current) => current?.key === key ? current : { key, data, href });
+      };
+
+      // Install the live listener before reading the cold-start response so a
+      // tap cannot be lost while auth/profile state is still restoring.
+      subscription = Notifications.addNotificationResponseReceivedListener(queueResponse);
       void Notifications.getLastNotificationResponseAsync()
-        .then(async (last) => {
+        .then((last) => {
           if (disposed) return;
-          const href = notificationHrefFromData(last?.notification.request.content.data);
-          if (href) {
-            safeReplace(router, href);
-            markAfterNavigationSettles(last?.notification.request.content.data);
-            await Notifications.clearLastNotificationResponseAsync();
-          }
+          queueResponse(last);
         })
         .catch(() => undefined);
-      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const href = notificationHrefFromData(response.notification.request.content.data);
-        if (href) {
-          safeReplace(router, href);
-          markAfterNavigationSettles(response.notification.request.content.data);
-        }
-      });
     });
 
     return () => {
       disposed = true;
       subscription?.remove();
     };
-  }, [canUseApp, router]);
+  }, []);
+
+  useEffect(() => {
+    if (
+      Platform.OS === 'web' ||
+      !canUseApp ||
+      !rootNavigationState?.key ||
+      !pendingResponse
+    ) {
+      return;
+    }
+
+    // Protected app routes and the navigation container were committed in the
+    // same render. Yield one task before consuming the durable response.
+    const timer = setTimeout(() => {
+      if (!safeReplace(router, pendingResponse.href)) return;
+      handledResponseKeysRef.current.add(pendingResponse.key);
+      setPendingResponse((current) => current?.key === pendingResponse.key ? null : current);
+      markAfterNavigationSettles(pendingResponse.data);
+      void notificationsModuleRef.current?.clearLastNotificationResponseAsync();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [canUseApp, pendingResponse, rootNavigationState?.key, router]);
 }

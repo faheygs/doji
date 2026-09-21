@@ -67,6 +67,17 @@ describe('staged product backlog regressions', () => {
     expect(layout).toContain('...sentryReleaseIdentity()');
   });
 
+  it('holds phone-alert taps until the protected navigator is mounted', () => {
+    const nativeNotifications = source('hooks/useNativeNotifications.ts');
+    expect(nativeNotifications).toContain('useRootNavigationState');
+    expect(nativeNotifications).toContain('setPendingResponse');
+    expect(nativeNotifications).toContain('!rootNavigationState?.key');
+    expect(nativeNotifications).toContain(
+      'Notifications.addNotificationResponseReceivedListener(queueResponse)',
+    );
+    expect(nativeNotifications).toContain('clearLastNotificationResponseAsync');
+  });
+
   it('uses the system camera UI and preserves the approved 3:4 photo', () => {
     const camera = source('app/(app)/camera.tsx');
     const upload = source('utils/upload.ts');

@@ -3,6 +3,7 @@ import {
   normalizeHref,
   pathnameForReturnTo,
   navigateToFeed,
+  safeReplace,
 } from '../../lib/routes';
 
 describe('routes', () => {
@@ -79,5 +80,25 @@ describe('navigateToFeed', () => {
     navigateToFeed(router);
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith(ROUTES.feed);
+  });
+});
+
+describe('safeReplace', () => {
+  it('reports when the requested route was accepted', () => {
+    const router = { replace: jest.fn() };
+    expect(safeReplace(router, '/(app)/challenge')).toBe(true);
+    expect(router.replace).toHaveBeenCalledWith('/(app)/challenge');
+  });
+
+  it('reports failure when neither the destination nor safe fallback can be accepted', () => {
+    const router = {
+      replace: jest.fn(() => {
+        throw new Error('navigator not ready');
+      }),
+      navigate: jest.fn(() => {
+        throw new Error('navigator not ready');
+      }),
+    };
+    expect(safeReplace(router, '/(app)/challenge')).toBe(false);
   });
 });

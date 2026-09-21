@@ -41,4 +41,10 @@ describe('terminal push delivery policy', () => {
     expect(broadcast).toContain("const DOJI_LIVE_PUSH_BODY = 'You only have 10 minutes ⚠️'");
     expect(broadcast).toContain('title: DOJI_LIVE_PUSH_TITLE');
   });
+
+  it('preserves the target comment in relayed native notification data', () => {
+    expect(relay).toContain(
+      "commentId: event.payload.commentId ? String(event.payload.commentId) : ''",
+    );
+  });
 });

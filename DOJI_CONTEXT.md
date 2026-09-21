@@ -315,6 +315,11 @@ in parallel. The background URL refresh does not reset the displayed-ready state
 Query snapshots flush when the app backgrounds, and
 a slow local-cache read may hydrate after the bounded splash handoff instead
 of being discarded.
+Native phone-alert responses are captured before auth/profile restoration completes,
+held until the protected root navigator is mounted, and cleared from the operating
+system only after the canonical destination route is accepted. Comment alerts retain
+their comment identifier through provider delivery so phone alerts and Activity Center
+items resolve through the same route contract.
 Camera and library photos are decoded once before the approval preview, their longest
 edge is bounded to 2048 pixels, and the resulting orientation-baked JPEG is the exact
 file uploaded. Main preview/feed/moderation images use full-frame containment; only
