@@ -11,6 +11,7 @@ jest.mock('../../lib/feedPostPreparation', () => ({
 }));
 
 import { usePreparedFeedPosts } from '../../hooks/usePreparedFeedPosts';
+import { useStableFeedPresentation } from '../../hooks/useStableFeedPresentation';
 import { prepareFeedPostMedia } from '../../lib/feedPostPreparation';
 
 const mockPrepareFeedPostMedia = prepareFeedPostMedia as jest.MockedFunction<
@@ -34,6 +35,34 @@ describe('usePreparedFeedPosts', () => {
 
     expect(result.current).toEqual([post]);
     await waitFor(() => expect(mockPrepareFeedPostMedia).not.toHaveBeenCalled());
+    unmount();
+  });
+
+  it('keeps a stable list reference when the downstream feed updates its own state', async () => {
+    const existingPosts = [post];
+    const scrollToTop = jest.fn();
+    const { result, rerender, unmount } = renderHook(() => {
+      const readyPosts = usePreparedFeedPosts(
+        existingPosts,
+        'event:everyone',
+        true,
+        true,
+      );
+      return {
+        readyPosts,
+        stableFeed: useStableFeedPresentation(
+          readyPosts,
+          'event:everyone',
+          scrollToTop,
+        ),
+      };
+    });
+
+    await waitFor(() => expect(result.current.stableFeed.posts).toEqual(existingPosts));
+    const firstReadyReference = result.current.readyPosts;
+    rerender({});
+    expect(result.current.readyPosts).toBe(firstReadyReference);
+    expect(mockPrepareFeedPostMedia).not.toHaveBeenCalled();
     unmount();
   });
 

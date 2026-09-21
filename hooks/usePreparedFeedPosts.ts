@@ -146,20 +146,23 @@ export function usePreparedFeedPosts(
     );
   }, [baselineReady, enabled, feedIdentity, latestPosts, preparationIdentity]);
 
-  // Reading revision intentionally refreshes this ref-backed projection after
-  // an asynchronous incoming post becomes presentation-ready.
-  void revision;
-  if (!enabled || !baselineReady || !baselineEstablishedRef.current) return latestPosts;
+  return useMemo(() => {
+    // Keep this projection referentially stable between real query/readiness
+    // changes. Returning a fresh array on every render makes the downstream
+    // stable-feed effect update itself forever.
+    void revision;
+    if (!enabled || !baselineReady || !baselineEstablishedRef.current) return latestPosts;
 
-  return latestPosts.flatMap((post) => {
-    if (!admittedIdsRef.current.has(post.id)) return [];
-    const prepared = preparedRef.current.get(feedPostPreparationKey(post));
-    if (!prepared) return [post];
-    return [{
-      ...post,
-      photo_url: prepared.photo_url,
-      front_photo_url: prepared.front_photo_url,
-      video_url: prepared.video_url,
-    }];
-  });
+    return latestPosts.flatMap((post) => {
+      if (!admittedIdsRef.current.has(post.id)) return [];
+      const prepared = preparedRef.current.get(feedPostPreparationKey(post));
+      if (!prepared) return [post];
+      return [{
+        ...post,
+        photo_url: prepared.photo_url,
+        front_photo_url: prepared.front_photo_url,
+        video_url: prepared.video_url,
+      }];
+    });
+  }, [baselineReady, enabled, latestPosts, revision]);
 }
