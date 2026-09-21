@@ -1,103 +1,22 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Spacing, webScrollParentStyle } from '../../../../constants/theme';
-import { useTheme } from '../../../../contexts/ThemeContext';
-import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../../lib/safeAreaLayout';
-import { Text } from '../../../../components/ui/Text';
-import { PostCard } from '../../../../components/feed/PostCard';
-import { IconChevronLeft } from '../../../../components/icons/Icons';
-import { usePost } from '../../../../hooks/useProfile';
-import { useUserEvent } from '../../../../hooks/useUserEvent';
-import { hasUnlockedFeed } from '../../../../lib/participationGate';
-import { backOrHome } from '../../../../lib/navigationReturn';
+import React from 'react';
+import { Redirect, useLocalSearchParams } from 'expo-router';
+import { feedPostHref } from '../../../../lib/routes';
 
 export default function PostDetailScreen() {
-  const { id, openComments } = useLocalSearchParams<{
-    id: string;
+  const { id, openComments, mentionCommentId } = useLocalSearchParams<{
+    id: string | string[];
     openComments?: string | string[];
+    mentionCommentId?: string | string[];
   }>();
-  const router = useRouter();
-  const { colors } = useTheme();
-  const { data: post, isLoading, error } = usePost(id);
-  const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
-  const feedLocked = !hasUnlockedFeed(userEvent) && !userEventLoading;
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
-        header: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.sm,
-          paddingHorizontal: Spacing.md,
-          paddingVertical: Spacing.sm,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-        },
-        backHit: { padding: Spacing.xs },
-        centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-        scroll: { flex: 1 },
-        scrollContent: { paddingBottom: Spacing.xxl },
-      }),
-    [colors.background, colors.hairline],
-  );
-
+  const postId = Array.isArray(id) ? id[0] : id;
+  const shouldOpenComments = (Array.isArray(openComments) ? openComments[0] : openComments) === '1';
+  const commentId = Array.isArray(mentionCommentId) ? mentionCommentId[0] : mentionCommentId;
   return (
-    <SafeAreaView
-      edges={TAB_SCREEN_SAFE_AREA_EDGES}
-      style={[styles.container, webScrollParentStyle]}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => backOrHome(router)}
-          hitSlop={16}
-          style={styles.backHit}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <IconChevronLeft size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
-        <Text variant="headingMedium" numberOfLines={1} style={{ flex: 1 }}>
-          Post
-        </Text>
-      </View>
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.text} />
-        </View>
-      ) : error || !post ? (
-        <View style={styles.centered}>
-          <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-            {"Couldn't load this post. It may have been removed."}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView
-          style={[styles.scroll, webScrollParentStyle]}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
-        >
-          <PostCard
-            post={post}
-            blurred={feedLocked}
-            initialCommentsOpen={
-              (Array.isArray(openComments) ? openComments[0] : openComments) === '1'
-            }
-          />
-        </ScrollView>
-      )}
-    </SafeAreaView>
+    <Redirect
+      href={feedPostHref(postId, {
+        openComments: shouldOpenComments,
+        mentionCommentId: commentId,
+      })}
+    />
   );
 }

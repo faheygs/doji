@@ -78,6 +78,19 @@ describe('staged product backlog regressions', () => {
     expect(nativeNotifications).toContain('clearLastNotificationResponseAsync');
   });
 
+  it('opens notification posts in the feed and redirects legacy detail links there', () => {
+    const routes = source('lib/routes.ts');
+    const feed = source('app/(app)/index.tsx');
+    const legacyDetail = source('app/(app)/post/[id]/index.tsx');
+    expect(routes).toContain("params.set('postId', postId)");
+    expect(routes).toContain('`/(app)?${params.toString()}`');
+    expect(feed).toContain('usePost(pendingPostId && !postAlreadyLoaded');
+    expect(feed).toContain('initialCommentsOpen={focusPostId === item.id && focusOpenComments}');
+    expect(feed).toContain('scrollToIndex');
+    expect(legacyDetail).toContain('<Redirect');
+    expect(legacyDetail).toContain('feedPostHref(postId');
+  });
+
   it('uses the system camera UI and preserves the approved 3:4 photo', () => {
     const camera = source('app/(app)/camera.tsx');
     const upload = source('utils/upload.ts');

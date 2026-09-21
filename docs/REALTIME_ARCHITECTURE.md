@@ -169,7 +169,10 @@
   while the protected navigator mounts, and consumed only after `safeReplace` accepts
   its canonical route. The OS response is cleared only after that acceptance. Relay
   payloads preserve `commentId`, so native mention/reply taps and Activity Center items
-  share the same post/comment routing contract.
+  share the same post/comment routing contract. Post notification routes land on the
+  main feed, use the authorized targeted-post read if the row is outside loaded pages,
+  scroll to that card, and open comments when requested. Legacy detail URLs redirect to
+  the same route instead of maintaining a second post presentation surface.
 
 ## Runtime flow
 

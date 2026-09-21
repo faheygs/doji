@@ -1,5 +1,6 @@
 import {
   ROUTES,
+  feedPostHref,
   normalizeHref,
   pathnameForReturnTo,
   navigateToFeed,
@@ -31,6 +32,12 @@ describe('routes', () => {
 
   it('pathnameForReturnTo never stores /(app)/index', () => {
     expect(pathnameForReturnTo('/(app)/index')).toBe('/(app)');
+  });
+
+  it('builds a feed-focused post route with comments', () => {
+    expect(feedPostHref('post id', { openComments: true, mentionCommentId: 'comment-1' })).toBe(
+      '/(app)?postId=post+id&openComments=1&mentionCommentId=comment-1',
+    );
   });
 });
 

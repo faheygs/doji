@@ -23,14 +23,17 @@ export const ROUTES = {
   friends: '/(app)/friends' as Href,
 } as const;
 
-/** Build an exact post route without relying on feed pagination or audience. */
-export function postDetailHref(postId: string, options?: PostDetailDeepLinkOptions): Href {
+/** Build a feed route focused on one authorized post. */
+export function feedPostHref(postId: string, options?: PostDetailDeepLinkOptions): Href {
   const params = new URLSearchParams();
+  params.set('postId', postId);
   if (options?.openComments) params.set('openComments', '1');
   if (options?.mentionCommentId) params.set('mentionCommentId', options.mentionCommentId);
-  const query = params.toString();
-  return `/(app)/post/${encodeURIComponent(postId)}${query ? `?${query}` : ''}` as Href;
+  return `/(app)?${params.toString()}` as Href;
 }
+
+/** Compatibility alias for callers compiled against the former detail-route helper. */
+export const postDetailHref = feedPostHref;
 
 export function challengeEntryHref(type: string | null | undefined): Href {
   if (type === 'poll') return ROUTES.poll;
@@ -112,13 +115,13 @@ export function safeReplace(router: RouterLike, href: string | Href): boolean {
   }
 }
 
-/** Open an exact post, optionally opening its comments sheet. */
+/** Focus an exact post inside the feed, optionally opening its comments sheet. */
 export function navigateToFeedPost(
   router: RouterLike,
   postId: string,
   options?: PostDetailDeepLinkOptions,
 ): void {
-  safeReplace(router, postDetailHref(postId, options));
+  safeReplace(router, feedPostHref(postId, options));
 }
 
 /** Land on the home feed tab after challenge flows, notifications, onboarding, etc. */

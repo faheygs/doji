@@ -57,13 +57,13 @@ describe('notificationHrefFromData', () => {
 
   it('returns the exact post for REACTION with postId', () => {
     expect(notificationHrefFromData({ type: 'REACTION', postId: 'abc-123' })).toBe(
-      '/(app)/post/abc-123',
+      '/(app)?postId=abc-123',
     );
   });
 
   it('returns the exact post for FRIEND_POST with postId', () => {
     expect(notificationHrefFromData({ type: 'FRIEND_POST', postId: 'xyz' })).toBe(
-      '/(app)/post/xyz',
+      '/(app)?postId=xyz',
     );
   });
 
@@ -73,7 +73,7 @@ describe('notificationHrefFromData', () => {
 
   it('returns the exact post and opens comments for COMMENT with postId', () => {
     expect(notificationHrefFromData({ type: 'COMMENT', postId: 'abc' })).toBe(
-      '/(app)/post/abc?openComments=1',
+      '/(app)?postId=abc&openComments=1',
     );
   });
 
@@ -84,19 +84,19 @@ describe('notificationHrefFromData', () => {
         postId: 'abc',
         commentId: 'comment-1',
       }),
-    ).toBe('/(app)/post/abc?openComments=1&mentionCommentId=comment-1');
+    ).toBe('/(app)?postId=abc&openComments=1&mentionCommentId=comment-1');
   });
 
   it('returns the exact post and opens comments for MENTION with postId', () => {
     expect(notificationHrefFromData({ type: 'MENTION', postId: 'abc' })).toBe(
-      '/(app)/post/abc?openComments=1',
+      '/(app)?postId=abc&openComments=1',
     );
   });
 
   it('supports database-shaped comment notification identifiers', () => {
     expect(
       notificationHrefFromData({ type: 'COMMENT', post_id: 'abc', comment_id: 'comment-1' }),
-    ).toBe('/(app)/post/abc?openComments=1&mentionCommentId=comment-1');
+    ).toBe('/(app)?postId=abc&openComments=1&mentionCommentId=comment-1');
   });
 
   it('returns profile for SUGGESTION_APPROVED', () => {
@@ -136,7 +136,7 @@ describe('notificationHrefFromData', () => {
   // New notification types added for reply + poll vote features
   it('returns the exact post and opens comments for COMMENT_REPLY with postId', () => {
     expect(notificationHrefFromData({ type: 'COMMENT_REPLY', postId: 'abc' })).toBe(
-      '/(app)/post/abc?openComments=1',
+      '/(app)?postId=abc&openComments=1',
     );
   });
 

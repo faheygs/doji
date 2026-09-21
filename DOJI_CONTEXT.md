@@ -319,7 +319,11 @@ Native phone-alert responses are captured before auth/profile restoration comple
 held until the protected root navigator is mounted, and cleared from the operating
 system only after the canonical destination route is accepted. Comment alerts retain
 their comment identifier through provider delivery so phone alerts and Activity Center
-items resolve through the same route contract.
+items resolve through the same route contract. Post-related notification routes focus
+the authorized post inside the main feed and open its comments sheet when applicable;
+they do not create a separate post-view experience. The feed uses the targeted safe
+post read when the row is outside the currently loaded pages, avoiding an unbounded
+pagination scan. Legacy post-detail links redirect into this feed contract.
 Camera and library photos are decoded once before the approval preview, their longest
 edge is bounded to 2048 pixels, and the resulting orientation-baked JPEG is the exact
 file uploaded. Main preview/feed/moderation images use full-frame containment; only

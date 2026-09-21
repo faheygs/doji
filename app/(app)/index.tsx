@@ -40,6 +40,8 @@ import { useFeedAudiencePreference } from '../../hooks/useFeedAudiencePreference
 import { useStableFeedPresentation } from '../../hooks/useStableFeedPresentation';
 import { usePreparedFeedPosts } from '../../hooks/usePreparedFeedPosts';
 import { FeedAudienceMenu } from '../../components/feed/FeedAudienceMenu';
+import { usePost } from '../../hooks/useProfile';
+import { InlineFeedback } from '../../components/ui/InlineFeedback';
 export default function FeedScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -61,10 +63,13 @@ export default function FeedScreen() {
   const { audience, selectAudience } = useFeedAudiencePreference(userId);
   useFocusedRealtimeInvalidation('feed:public', realtimeQueryRoots, audience === 'everyone');
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
+  const [focusedPost, setFocusedPost] = useState<Post | null>(null);
+  const [focusedPostUnavailable, setFocusedPostUnavailable] = useState(false);
   const [visiblePostIds, setVisiblePostIds] = useState<ReadonlySet<string>>(() => new Set());
   const [focusOpenComments, setFocusOpenComments] = useState(false);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
+  const focusFeedIdentityRef = useRef<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const { data: upcomingDoji } = useUpcomingDoji();
@@ -124,6 +129,19 @@ export default function FeedScreen() {
     revealNewPosts,
     onScroll: handleFeedScroll,
   } = useStableFeedPresentation(presentationReadyPosts, feedIdentity, scrollFeedToTop);
+  const postAlreadyLoaded = useMemo(
+    () => Boolean(pendingPostId && posts.some((post) => post.id === pendingPostId)),
+    [pendingPostId, posts],
+  );
+  const {
+    data: resolvedFocusedPost,
+    isFetched: focusedPostFetched,
+    isError: focusedPostError,
+  } = usePost(pendingPostId && !postAlreadyLoaded ? pendingPostId : undefined);
+  const displayedPosts = useMemo(() => {
+    if (!focusedPost || posts.some((post) => post.id === focusedPost.id)) return posts;
+    return [focusedPost, ...posts];
+  }, [focusedPost, posts]);
   const showInitialFeedSkeleton =
     posts.length === 0 &&
     !refreshing &&
@@ -148,20 +166,53 @@ export default function FeedScreen() {
     return () => task.cancel();
   }, [audience, feedPages, feedUnlocked, posts, queryClient, userEvent?.daily_event_id, userId]);
   useEffect(() => {
-    if (!pendingPostId || feedLoading) return;
+    if (!pendingPostId) {
+      deepLinkHandledRef.current = null;
+      return;
+    }
     if (deepLinkHandledRef.current === pendingPostId) return;
-    const idx = posts.findIndex((p) => p.id === pendingPostId);
-    if (idx >= 0) {
+    const loadedPost = posts.find((post) => post.id === pendingPostId);
+    const targetPost = loadedPost ?? resolvedFocusedPost ?? null;
+    if (targetPost) {
       deepLinkHandledRef.current = pendingPostId;
+      setFocusedPostUnavailable(false);
+      setFocusedPost(targetPost);
       setFocusPostId(pendingPostId);
       setFocusOpenComments(pendingOpenComments);
       requestAnimationFrame(() => {
-        flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+        const index = loadedPost ? posts.findIndex((post) => post.id === pendingPostId) : 0;
+        flatListRef.current?.scrollToIndex({ index: Math.max(0, index), animated: true });
       });
       router.setParams({ postId: undefined, openComments: undefined, mentionCommentId: undefined });
       return;
     }
-  }, [pendingPostId, pendingOpenComments, feedLoading, posts, router]);
+    if (focusedPostFetched || focusedPostError) {
+      deepLinkHandledRef.current = pendingPostId;
+      setFocusedPostUnavailable(true);
+      router.setParams({ postId: undefined, openComments: undefined, mentionCommentId: undefined });
+    }
+  }, [
+    focusedPostError,
+    focusedPostFetched,
+    pendingOpenComments,
+    pendingPostId,
+    posts,
+    resolvedFocusedPost,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (focusFeedIdentityRef.current === null) {
+      focusFeedIdentityRef.current = feedIdentity;
+      return;
+    }
+    if (focusFeedIdentityRef.current !== feedIdentity) {
+      focusFeedIdentityRef.current = feedIdentity;
+      setFocusedPost(null);
+      setFocusPostId(null);
+      setFocusOpenComments(false);
+    }
+  }, [feedIdentity]);
 
   const shouldBlur = !hasUnlockedFeed(userEvent) && !userEventLoading;
   const handleRefresh = useCallback(async () => {
@@ -301,6 +352,13 @@ export default function FeedScreen() {
   const ListHeader = useCallback(
     () => (
       <View style={styles.listHeader}>
+        {focusedPostUnavailable ? (
+          <InlineFeedback
+            title="Post unavailable"
+            message="It may have expired or been removed."
+            style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.sm }}
+          />
+        ) : null}
         {upcomingDoji ? (
           <UpcomingDojiBanner firesAt={upcomingDoji.fires_at} />
         ) : userEventLoading ? (
@@ -322,7 +380,7 @@ export default function FeedScreen() {
         )}
       </View>
     ),
-    [styles, colors, userEvent, userEventLoading, upcomingDoji],
+    [styles, colors, focusedPostUnavailable, userEvent, userEventLoading, upcomingDoji],
   );
 
   const emptyCopy = useMemo(() => {
@@ -394,7 +452,7 @@ export default function FeedScreen() {
         <FlatList
           ref={flatListRef}
           style={webScrollParentStyle}
-          data={posts}
+          data={displayedPosts}
           keyExtractor={keyExtractorPost}
           renderItem={renderPost}
           onViewableItemsChanged={onViewableItemsChanged}
