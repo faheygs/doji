@@ -13,7 +13,9 @@ const VARIANT_TRANSFORMS = {
   thumbnail: { width: 360, height: 360, resize: 'cover' as const, quality: 82 },
 };
 const VARIANT_CACHE_VERSION: Record<Exclude<PostMediaVariant, 'original'>, string> = {
-  feed: 'v2',
+  // v3 discards feed entries created by the retired decode/re-encode cache
+  // seeding path. A feed cache entry now contains the exact CDN response bytes.
+  feed: 'v3',
   thumbnail: 'v2',
 };
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();

@@ -26,7 +26,7 @@ describe('mobile data architecture', () => {
     expect(readiness).toContain('The first authoritative/cache snapshot is already the feed');
     expect(readiness).toContain('const isHeadInsert = firstKnownIndex < 0 || index < firstKnownIndex');
     const preparation = read('lib/feedPostPreparation.ts');
-    expect(preparation).toContain('ExpoImage.writeToCacheAsync(image, cacheKey)');
+    expect(preparation).toContain('ExpoImage.writeToCacheAsync(downloadedFile.uri, cacheKey)');
     expect(preparation).toContain('ExpoImage.getCachePathAsync(cacheKey)');
     expect(card).toContain("cacheKey: postMediaCacheKey(displayReference, 'feed')");
     expect(card).toContain("postMediaCacheKey(thumbReference, 'thumbnail')");

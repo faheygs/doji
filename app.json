@@ -22,7 +22,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "86"
+      "buildNumber": "87"
     },
     "android": {
       "googleServicesFile": "./google-services.json",

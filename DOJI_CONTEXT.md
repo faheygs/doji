@@ -299,6 +299,9 @@ use the same bounded signer. Existing cache/query rows render immediately and vi
 cards resolve their own media behind a card-local skeleton. Only a genuinely new
 realtime head insert enters the readiness queue; at most two new posts decode at once,
 and the post becomes eligible for "New posts" only after that one post is ready.
+Readiness verifies the authorized derivative but seeds the stable cache from the exact
+downloaded encoded bytes. A cached image is immutable and is never decoded and then
+re-encoded back into its own cache key; cache-generation bumps discard legacy copies.
 An invisible audience is never prefetched while current media is hydrating. A shared
 skeleton covers the media surface until the authorized native image reports that it
 displayed, preventing a black rebind frame without exposing stale or newly unauthorized

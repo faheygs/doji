@@ -131,7 +131,9 @@
   paginated cards render immediately; visible cards coalesce signing and keep their
   media surface behind a card-local skeleton until native display. Only new realtime
   head inserts use the two-worker readiness queue before entering stable presentation,
-  so a cold feed never waits for a page-wide preload.
+  so a cold feed never waits for a page-wide preload. Readiness downloads the authorized
+  derivative to a temporary file, verifies it decodes, and seeds the stable cache with
+  those exact encoded bytes. A cached image is never decoded and re-encoded into itself.
   The native image cache is keyed by the immutable private object path, not the
   rotating signed bearer URL. Query persistence flushes on background, and a
   local snapshot that misses the bounded splash deadline can still hydrate

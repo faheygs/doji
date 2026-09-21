@@ -1,4 +1,5 @@
 import { Image as ExpoImage } from 'expo-image';
+import { File as ExpoFile, Paths } from 'expo-file-system';
 import type { Post } from '../types/database';
 import { postMediaCacheKey, signPostMedia } from './postMedia';
 
@@ -24,21 +25,35 @@ async function prepareImage(
   if (!stableReference) return null;
   if (!resolvedUrl) throw new Error('Post media could not be authorized');
   const cacheKey = postMediaCacheKey(stableReference, 'feed');
-  const image = await ExpoImage.loadAsync(
-    cacheKey ? { uri: resolvedUrl, cacheKey } : { uri: resolvedUrl },
-    // Do not retain a full-resolution camera bitmap merely to prime a feed
-    // card. The signed feed variant is already bounded, and these guards keep
-    // unusual legacy uploads from causing a native memory spike.
-    { maxWidth: 1440, maxHeight: 1920 },
+  const decodeOptions = { maxWidth: 1440, maxHeight: 1920 };
+
+  if (!cacheKey) {
+    const image = await ExpoImage.loadAsync(resolvedUrl, decodeOptions);
+    image.release();
+    return resolvedUrl;
+  }
+
+  const temporaryFile = new ExpoFile(
+    Paths.cache,
+    `doji-feed-${Date.now()}-${Math.random().toString(36).slice(2)}.img`,
   );
+  let image: Awaited<ReturnType<typeof ExpoImage.loadAsync>> | null = null;
   try {
-    if (!cacheKey) return resolvedUrl;
-    await ExpoImage.writeToCacheAsync(image, cacheKey);
+    const downloadedFile = await ExpoFile.downloadFileAsync(
+      resolvedUrl,
+      temporaryFile,
+      { idempotent: true },
+    );
+    // Decode once to prove the complete response is renderable, but seed the
+    // stable cache from the downloaded file—not the decoded bitmap. Passing an
+    // ImageRef here forces native re-encoding and compounds quality loss when
+    // preparation runs again.
+    image = await ExpoImage.loadAsync(downloadedFile.uri, decodeOptions);
+    await ExpoImage.writeToCacheAsync(downloadedFile.uri, cacheKey);
     return asFileUri(await ExpoImage.getCachePathAsync(cacheKey)) ?? resolvedUrl;
   } finally {
-    // ImageRef owns a native bitmap. Waiting for JavaScript garbage collection
-    // leaked several decoded photos during a burst and could trip ErrorBoundary.
-    image.release();
+    image?.release();
+    if (temporaryFile.exists) temporaryFile.delete();
   }
 }
 

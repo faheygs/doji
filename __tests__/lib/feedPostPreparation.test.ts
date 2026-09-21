@@ -6,6 +6,26 @@ jest.mock('expo-image', () => ({
   },
 }));
 
+const mockDownloadFileAsync = jest.fn();
+const mockDeleteTemporaryFile = jest.fn();
+const mockTemporaryFile = {
+  uri: 'file:///cache/doji-feed-preparation.img',
+  exists: true,
+  delete: mockDeleteTemporaryFile,
+};
+
+jest.mock('expo-file-system', () => ({
+  Paths: { cache: 'file:///cache/' },
+  File: class MockFile {
+    static downloadFileAsync(...args: unknown[]) {
+      return mockDownloadFileAsync(...args);
+    }
+    uri = mockTemporaryFile.uri;
+    exists = mockTemporaryFile.exists;
+    delete = mockDeleteTemporaryFile;
+  },
+}));
+
 jest.mock('../../lib/postMedia', () => ({
   signPostMedia: jest.fn(),
   postMediaCacheKey: jest.fn(),
@@ -49,6 +69,7 @@ describe('feed post media preparation', () => {
       value ? `feed:${value}` : undefined,
     );
     mockLoadAsync.mockResolvedValue({ nativeRef: 'decoded', release } as never);
+    mockDownloadFileAsync.mockResolvedValue(mockTemporaryFile);
     mockWriteToCacheAsync.mockResolvedValue(true);
     mockGetCachePathAsync.mockResolvedValue('/native-cache/post.jpg');
   });
@@ -61,21 +82,24 @@ describe('feed post media preparation', () => {
 
     const result = await prepareFeedPostMedia([post]);
 
+    expect(mockDownloadFileAsync).toHaveBeenCalledWith(
+      'https://signed.test/post.jpg',
+      expect.objectContaining({ uri: 'file:///cache/doji-feed-preparation.img' }),
+      { idempotent: true },
+    );
     expect(mockLoadAsync).toHaveBeenCalledWith(
-      {
-        uri: 'https://signed.test/post.jpg',
-        cacheKey: 'feed:private/post-1.jpg',
-      },
+      'file:///cache/doji-feed-preparation.img',
       { maxWidth: 1440, maxHeight: 1920 },
     );
     expect(mockWriteToCacheAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ nativeRef: 'decoded' }),
+      'file:///cache/doji-feed-preparation.img',
       'feed:private/post-1.jpg',
     );
     expect(result.get(feedPostPreparationKey(post))?.photo_url).toBe(
       'file:///native-cache/post.jpg',
     );
     expect(release).toHaveBeenCalledTimes(1);
+    expect(mockDeleteTemporaryFile).toHaveBeenCalledTimes(1);
   });
 
   it('does not mark a post ready when its image cannot be decoded', async () => {
@@ -88,5 +112,6 @@ describe('feed post media preparation', () => {
     const result = await prepareFeedPostMedia([post]);
 
     expect(result.has(feedPostPreparationKey(post))).toBe(false);
+    expect(mockDeleteTemporaryFile).toHaveBeenCalledTimes(1);
   });
 });

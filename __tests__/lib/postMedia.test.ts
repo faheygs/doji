@@ -91,7 +91,7 @@ describe('post media signing', () => {
 
     expect(postMediaCacheKey(first)).toBe('post-media:users/one/photo.jpg');
     expect(postMediaCacheKey(second)).toBe(postMediaCacheKey(first));
-    expect(postMediaCacheKey(first, 'feed')).toBe('post-media:feed:v2:users/one/photo.jpg');
+    expect(postMediaCacheKey(first, 'feed')).toBe('post-media:feed:v3:users/one/photo.jpg');
     expect(postMediaCacheKey(first, 'thumbnail')).toBe(
       'post-media:thumbnail:v2:users/one/photo.jpg',
     );
