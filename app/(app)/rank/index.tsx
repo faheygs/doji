@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, usePathname, type Href } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Typography, Spacing, Radius, Shadows } from '../../../constants/theme';
 import { Text } from '../../../components/ui/Text';
@@ -20,6 +20,7 @@ import { PodiumTopThree } from '../../../components/leaderboard/PodiumTopThree';
 import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib/cosmetics';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
+import { useNavigationOrigin } from '../../../contexts/NavigationOriginContext';
 import type { LeaderboardEntry } from '../../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../../hooks/useFocusedRealtimeInvalidation';
 import { useManualRefresh } from '../../../hooks/useManualRefresh';
@@ -32,7 +33,7 @@ const AUDIENCE_LABELS: Record<LeaderboardAudience, string> = {
 function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const level = item.profile.level ?? 1;
   const rankTitle = getRankTitle(level);
   const rankBorderColor = getRankBorderColor(level, colors);
@@ -74,7 +75,7 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
     if (isMe) {
       router.push('/(app)/profile' as Href);
     } else if (item.profile.username) {
-      const href = prepareProfileHref(item.profile.username, pathname);
+      const href = prepareProfileHref(item.profile.username, navigationOrigin);
       if (href) router.push(href);
     }
   };

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '@/constants/theme';
@@ -28,6 +28,7 @@ import { usePollVotesCount } from '@/hooks/usePollVotesCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
 import { useSparksBalance } from '@/hooks/useSparks';
 import { hrefWithReturnTo } from '@/lib/navigationReturn';
+import { useNavigationOrigin } from '@/contexts/NavigationOriginContext';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
 import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
@@ -36,7 +37,7 @@ import { InlineFeedback } from '@/components/ui/InlineFeedback';
 import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
 export default function MyProfileScreen() {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const profile = useAuthStore((s) => s.profile) as Profile | null;
@@ -149,7 +150,7 @@ export default function MyProfileScreen() {
       >
         <View style={styles.topBar}>
           <TouchableOpacity
-            onPress={() => router.push(hrefWithReturnTo('/(app)/profile/settings', pathname))}
+            onPress={() => router.push(hrefWithReturnTo('/(app)/profile/settings', navigationOrigin))}
             hitSlop={16}
             accessibilityLabel="Settings"
             onPressIn={() => Haptics.selectionAsync()}
@@ -189,7 +190,7 @@ export default function MyProfileScreen() {
           sparks={sparks}
           onPressShop={() => {
             Haptics.selectionAsync();
-            router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
+            router.push(hrefWithReturnTo('/(app)/profile/shop', navigationOrigin));
           }}
           style={{ marginTop: Spacing.md }}
         />

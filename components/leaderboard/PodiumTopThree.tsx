@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
-import { useRouter, usePathname, type Href } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Spacing, BADGE_TIER_COLORS } from '../../constants/theme';
 import { Text } from '../ui/Text';
@@ -9,6 +9,7 @@ import { IcnCrown } from '../icons/BadgeIcons';
 import { getRankBorderColor } from '../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
 import { prepareProfileHref } from '../../lib/profileNavigation';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import type { LeaderboardEntry } from '../../types/database';
 import {
   PODIUM_AVATAR_SIZES,
@@ -33,7 +34,7 @@ type PodiumSlotProps = {
 function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
   const { colors } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const rank = entry.rank as 1 | 2 | 3;
   const color = podiumColor(rank);
   const isMe = entry.user_id === currentUserId;
@@ -47,7 +48,7 @@ function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
     if (isMe) {
       router.push('/(app)/profile' as Href);
     } else if (entry.profile.username) {
-      const href = prepareProfileHref(entry.profile.username, pathname);
+      const href = prepareProfileHref(entry.profile.username, navigationOrigin);
       if (href) router.push(href);
     }
   };

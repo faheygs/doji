@@ -97,6 +97,17 @@ describe('hrefPreservingReturnTo', () => {
       '/(app)/member/kira?returnTo=%2F(app)%2Ffriends%2Fadd%3FreturnTo%3D%252F(app)%252Ffriends',
     );
   });
+
+  it('keeps every parent in a multi-screen navigation chain', () => {
+    const settings = hrefWithReturnTo('/(app)/profile/settings', '/(app)/profile');
+    const appearance = hrefWithReturnTo('/(app)/profile/appearance', String(settings));
+    const shop = hrefPreservingReturnTo('/(app)/profile/shop', appearance);
+    const parentOf = (href: Href) =>
+      sanitizeReturnTo(new URL(String(href), 'https://dojipro.com').searchParams.get('returnTo'));
+    expect(parentOf(shop)).toBe(appearance);
+    expect(parentOf(appearance)).toBe(settings);
+    expect(parentOf(settings)).toBe('/(app)/profile');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -114,15 +125,15 @@ describe('goBackWithOptionalReturn', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it('pops real history instead of duplicating an explicit returnTo route', () => {
+  it('uses an explicit origin before incidental router history', () => {
     const router = {
       back: jest.fn(),
       canGoBack: jest.fn().mockReturnValue(true),
       replace: jest.fn(),
     };
     goBackWithOptionalReturn(router, encodeURIComponent('/(app)/friends'), ROUTES.feed);
-    expect(router.back).toHaveBeenCalledTimes(1);
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/(app)/friends');
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it('uses explicit returnTo when no stack history exists', () => {

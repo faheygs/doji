@@ -62,6 +62,10 @@ user directly to the feed; there is no success interstitial.
   Displayed identities are profile links across posts, comments, reactions, voters,
   friends, rankings, and notifications; navigation never leaves the prior person's
   profile visible while the requested identity loads.
+- Protected-app navigation carries the complete explicit origin chain into every
+  nested destination. Back always restores the immediately preceding screen from that
+  chain before considering Expo's incidental stack or hidden-tab history. New entry
+  points must use the shared navigation-origin helpers rather than a bare pathname.
 - Blocking immediately removes the person and their content from the viewer's UI
   and removes the friendship. It does not create moderation work; only an explicit
   report action enters the admin queue.

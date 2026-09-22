@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, usePathname, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   Spacing,
@@ -18,10 +18,11 @@ import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useOwnedShopItems, useEquipShopItem, isShopItemOwned } from '@/hooks/useShop';
 import { goBackWithOptionalReturn, hrefWithReturnTo } from '@/lib/navigationReturn';
+import { useNavigationOrigin } from '@/contexts/NavigationOriginContext';
 
 export default function AppearanceScreen() {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors, isDark, setPreference, accentTheme, setAccentTheme } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
@@ -200,7 +201,7 @@ export default function AppearanceScreen() {
 
         <TouchableOpacity
           style={styles.shopLink}
-          onPress={() => router.push(hrefWithReturnTo('/(app)/profile/shop', pathname))}
+          onPress={() => router.push(hrefWithReturnTo('/(app)/profile/shop', navigationOrigin))}
         >
           <Text
             variant="body"

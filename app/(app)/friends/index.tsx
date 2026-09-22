@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -25,10 +25,10 @@ import { hrefWithReturnTo } from '../../../lib/navigationReturn'; import { prepa
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useAppDialog } from '../../../contexts/DialogContext';
-
+import { useNavigationOrigin } from '../../../contexts/NavigationOriginContext';
 export default function FriendsScreen() {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const meId = useAuthStore((s) => s.session?.user?.id);
@@ -114,7 +114,7 @@ export default function FriendsScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/add', pathname))}
+          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/add', navigationOrigin))}
           style={styles.addButton}
           onPressIn={() => Haptics.selectionAsync()}
           accessibilityLabel="Find people"
@@ -126,7 +126,7 @@ export default function FriendsScreen() {
 
       {friendRequestCount > 0 && (
         <TouchableOpacity
-          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/requests', pathname))}
+          onPress={() => router.push(hrefWithReturnTo('/(app)/friends/requests', navigationOrigin))}
           style={styles.requestsBanner}
           activeOpacity={0.8}
         >
@@ -163,7 +163,7 @@ export default function FriendsScreen() {
               statsStyle={styles.friendStats}
               onPress={() => {
                 Haptics.selectionAsync();
-                const href = prepareProfileHref(item.username, pathname);
+                const href = prepareProfileHref(item.username, navigationOrigin);
                 if (href) router.push(href);
               }}
               onRemove={() => {

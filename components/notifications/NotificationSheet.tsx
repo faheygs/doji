@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Modal, type ViewToken } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -32,6 +32,7 @@ import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
 import { useNotificationSheetStyles } from './useNotificationSheetStyles';
 type Props = {
@@ -55,7 +56,7 @@ export function NotificationSheet({
   onItemsVisible,
 }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   // A native full-screen Modal is hosted in a separate iOS window. The native
@@ -115,10 +116,10 @@ export function NotificationSheet({
       const handle = username ? normalizeUsernameInput(username) : '';
       if (!handle) return;
       Haptics.selectionAsync();
-      const href = prepareProfileHref(handle, pathname);
+      const href = prepareProfileHref(handle, navigationOrigin);
       if (href) dismissThen(() => router.push(href));
     },
-    [dismissThen, router, pathname],
+    [dismissThen, router, navigationOrigin],
   );
   const clearAll = useCallback(async () => {
     setActionError(false);

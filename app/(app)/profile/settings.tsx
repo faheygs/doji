@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
-import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
+import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/Text';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
+import { useNavigationOrigin } from '@/contexts/NavigationOriginContext';
 import { useBlockedUserCount } from '@/hooks/useBlockUser';
 import { usePendingSuggestions } from '@/hooks/useSuggestions';
 import { usePendingReports } from '@/hooks/useReports';
@@ -25,7 +26,7 @@ import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { profile, signOut } = useAuthStore();
   const { colors } = useTheme();
@@ -144,7 +145,7 @@ export default function SettingsScreen() {
           style={styles.profileCard}
           onPress={() => {
             Haptics.selectionAsync();
-            router.push(hrefWithReturnTo('/(app)/profile/edit', pathname));
+            router.push(hrefWithReturnTo('/(app)/profile/edit', navigationOrigin));
           }}
           activeOpacity={0.78}
         >
@@ -178,7 +179,7 @@ export default function SettingsScreen() {
             subtitle="Alerts, Doji, friends, reactions, and more"
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/notifications', pathname));
+              router.push(hrefWithReturnTo('/(app)/notifications', navigationOrigin));
             }}
             isLast
           />
@@ -192,14 +193,14 @@ export default function SettingsScreen() {
             label="Terms of Use"
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/legal/terms', pathname));
+              router.push(hrefWithReturnTo('/(app)/legal/terms', navigationOrigin));
             }}
           />
           <SettingsRow
             label="Privacy Policy"
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/legal/privacy', pathname));
+              router.push(hrefWithReturnTo('/(app)/legal/privacy', navigationOrigin));
             }}
             isLast
           />
@@ -216,7 +217,7 @@ export default function SettingsScreen() {
             }
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/profile/blocked-users', pathname));
+              router.push(hrefWithReturnTo('/(app)/profile/blocked-users', navigationOrigin));
             }}
             isLast
           />
@@ -231,7 +232,7 @@ export default function SettingsScreen() {
             subtitle="Accent colors and appearance"
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/profile/appearance', pathname));
+              router.push(hrefWithReturnTo('/(app)/profile/appearance', navigationOrigin));
             }}
           />
           <SettingsRow
@@ -239,7 +240,7 @@ export default function SettingsScreen() {
             subtitle="Spend Sparks on themes, frames, and titles"
             onPress={() => {
               Haptics.selectionAsync();
-              router.push(hrefWithReturnTo('/(app)/profile/shop', pathname));
+              router.push(hrefWithReturnTo('/(app)/profile/shop', navigationOrigin));
             }}
             isLast
           />
@@ -306,7 +307,7 @@ export default function SettingsScreen() {
                 }
                 onPress={() => {
                   Haptics.selectionAsync();
-                  router.push(hrefWithReturnTo('/(app)/admin/suggestions', pathname));
+                  router.push(hrefWithReturnTo('/(app)/admin/suggestions', navigationOrigin));
                 }}
               />
               <SettingsRow
@@ -333,7 +334,7 @@ export default function SettingsScreen() {
                 }
                 onPress={() => {
                   Haptics.selectionAsync();
-                  router.push(hrefWithReturnTo('/(app)/admin/reports', pathname));
+                  router.push(hrefWithReturnTo('/(app)/admin/reports', navigationOrigin));
                 }}
                 isLast
               />

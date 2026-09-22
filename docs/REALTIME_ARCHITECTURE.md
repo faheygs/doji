@@ -174,8 +174,11 @@
   reposition feed pages. Profiles resolve one bounded current-occurrence post preview,
   while feed cards remain non-navigating feed interactions. Advancing to pre-live makes
   the prior profile preview and direct post route unavailable without deleting history.
-  Member and post routes also preserve their complete explicit navigation-origin chain;
-  nested post/profile visits never fall through to stale hidden-tab history on Back.
+  Every protected-app route preserves its complete explicit navigation-origin chain.
+  Nested profile, post, friends, settings, shop, legal, notification, and admin visits
+  restore the immediately preceding screen on Back and never fall through to stale
+  hidden-tab history. Shared identity links consume the current full origin rather than
+  reconstructing one from a bare pathname.
 
 ## Runtime flow
 

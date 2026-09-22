@@ -76,16 +76,16 @@ export function goBackWithOptionalReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
-  // A screen reached with router.push already has its real parent underneath it.
-  // Pop that entry instead of replacing it with returnTo, which duplicates the
-  // parent route (for example Profile -> Settings -> Edit -> Settings).
-  if (router.canGoBack()) {
-    router.back();
-    return;
-  }
+  // The explicit origin is the product navigation contract. Expo history can
+  // contain inactive tab routes, so it is only a fallback when no origin was
+  // carried into this screen.
   const explicit = sanitizeReturnTo(returnToRaw);
   if (explicit) {
     safeReplace(router, explicit);
+    return;
+  }
+  if (router.canGoBack()) {
+    router.back();
     return;
   }
   safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
@@ -101,14 +101,5 @@ export function goBackToExplicitReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
-  const explicit = sanitizeReturnTo(returnToRaw);
-  if (explicit) {
-    safeReplace(router, explicit);
-    return;
-  }
-  if (router.canGoBack()) {
-    router.back();
-    return;
-  }
-  safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
+  goBackWithOptionalReturn(router, returnToRaw, fallback);
 }
