@@ -1,28 +1,24 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, Keyboard, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import { Spacing, webScrollParentStyle } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../lib/safeAreaLayout';
 import { Text } from '../../../components/ui/Text';
 import { SearchField } from '../../../components/ui/SearchField';
-import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
-import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
 import { ListRowsSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
-import { IconChevronLeft, IconCheck } from '../../../components/icons/Icons';
-import {
-  useSearchUsers,
-  useSendFriendRequest,
-  type SearchProfile,
-} from '../../../hooks/useProfile';
+import { IconChevronLeft } from '../../../components/icons/Icons';
+import { useSearchUsers } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { goBackToExplicitReturn, hrefPreservingReturnTo } from '../../../lib/navigationReturn';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
+import { useRecentProfileSearches } from '../../../hooks/useRecentProfileSearches';
+import { RecentProfileSearchList } from '../../../components/friends/RecentProfileSearchList';
+import { UserSearchResult } from '../../../components/friends/UserSearchResult';
+import type { RecentProfileSearch } from '../../../lib/recentProfileSearches';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
@@ -34,9 +30,11 @@ export default function AddFriendsScreen() {
   );
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
-  const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  const trimmedQuery = query.trim();
+  const debouncedQuery = useDebouncedValue(trimmedQuery, 250);
   const { data: results = [], isLoading } = useSearchUsers(debouncedQuery);
   const currentProfile = useAuthStore((s) => s.profile);
+  const { recents, record, remove, clear } = useRecentProfileSearches(currentProfile?.id);
 
   const styles = useMemo(
     () =>
@@ -75,8 +73,20 @@ export default function AddFriendsScreen() {
   );
 
   const filteredResults = useMemo(
-    () => results.filter((r) => r.id !== currentProfile?.id),
-    [results, currentProfile?.id],
+    () => debouncedQuery === trimmedQuery
+      ? results.filter((result) => result.id !== currentProfile?.id)
+      : [],
+    [currentProfile?.id, debouncedQuery, results, trimmedQuery],
+  );
+  const openProfile = useCallback(
+    (profile: RecentProfileSearch) => {
+      Keyboard.dismiss();
+      setQuery('');
+      record(profile);
+      const href = prepareProfileHref(profile.username, navigationOrigin);
+      if (href) router.push(href);
+    },
+    [navigationOrigin, record, router],
   );
 
   return (
@@ -107,116 +117,39 @@ export default function AddFriendsScreen() {
         />
       </View>
 
-      <SkeletonSwap
-        loading={isLoading}
-        skeleton={<ListRowsSkeleton rows={4} label="Searching people" />}
-      >
-        <FlatList
-          style={webScrollParentStyle}
-          data={filteredResults}
-          removeClippedSubviews={false}
-          keyExtractor={(u) => u.id}
-          contentContainerStyle={styles.list}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => <UserResult user={item} returnPath={navigationOrigin} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text variant="body" color={colors.textSecondary}>
-                {query.length >= 2 ? `No users found for "${query}"` : 'No users yet'}
-              </Text>
-            </View>
-          }
+      {!trimmedQuery ? (
+        <RecentProfileSearchList
+          recents={recents}
+          onSelect={openProfile}
+          onRemove={remove}
+          onClear={clear}
         />
-      </SkeletonSwap>
-    </SafeAreaView>
-  );
-}
-
-function UserResult({ user, returnPath }: { user: SearchProfile; returnPath: string }) {
-  const router = useRouter();
-  const { colors } = useTheme();
-  const sendRequest = useSendFriendRequest();
-  const friendshipStatus = user.friendship_status;
-
-  const rowStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        userCard: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.md,
-        },
-        userInfo: {
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: Spacing.md,
-        },
-        nameContainer: {
-          gap: 2,
-        },
-        statusBadge: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-        },
-      }),
-    [],
-  );
-
-  const isFriend = friendshipStatus === 'friends';
-  const isRequested = friendshipStatus === 'pending_out';
-  const isPendingIn = friendshipStatus === 'pending_in';
-
-  return (
-    <Card style={rowStyles.userCard} elevated>
-      <TouchableOpacity
-        onPress={() => {
-          Haptics.selectionAsync();
-          const href = prepareProfileHref(user.username, returnPath);
-          if (href) router.push(href);
-        }}
-        style={rowStyles.userInfo}
-        activeOpacity={0.8}
-      >
-        <ProfileAvatar profile={user} size={44} />
-        <View style={rowStyles.nameContainer}>
-          <Text variant="headingMedium">{user.display_name}</Text>
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            @{user.username}
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      {isFriend ? (
-        <View style={rowStyles.statusBadge}>
-          <IconCheck size={16} color={colors.success} />
-          <Text variant="label" color={colors.success}>
-            Friends
-          </Text>
-        </View>
-      ) : isRequested ? (
-        <Text variant="label" color={colors.textSecondary}>
-          Requested
-        </Text>
-      ) : isPendingIn ? (
-        <Text variant="label" color={colors.textSecondary}>
-          Requested you
-        </Text>
-      ) : friendshipStatus === 'blocked' ? (
-        <Text variant="label" color={colors.textTertiary}>
-          Unavailable
-        </Text>
       ) : (
-        <Button
-          onPress={() => sendRequest.mutate({ addresseeId: user.id })}
-          loading={sendRequest.isPending}
-          size="sm"
+        <SkeletonSwap
+          loading={trimmedQuery.length >= 2 && (debouncedQuery !== trimmedQuery || isLoading)}
+          skeleton={<ListRowsSkeleton rows={4} label="Searching people" />}
         >
-          Add friend
-        </Button>
+          <FlatList
+            style={webScrollParentStyle}
+            data={filteredResults}
+            removeClippedSubviews={false}
+            keyExtractor={(u) => u.id}
+            contentContainerStyle={styles.list}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => <UserSearchResult user={item} onOpen={openProfile} />}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text variant="body" color={colors.textSecondary}>
+                  {trimmedQuery.length < 2
+                    ? 'Keep typing to search'
+                    : `No users found for "${trimmedQuery}"`}
+                </Text>
+              </View>
+            }
+          />
+        </SkeletonSwap>
       )}
-    </Card>
+    </SafeAreaView>
   );
 }

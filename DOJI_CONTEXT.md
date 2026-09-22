@@ -66,6 +66,9 @@ user directly to the feed; there is no success interstitial.
   nested destination. Back always restores the immediately preceding screen from that
   chain before considering Expo's incidental stack or hidden-tab history. New entry
   points must use the shared navigation-origin helpers rather than a bare pathname.
+- Friend search history is device-local and account-scoped. An empty search shows up
+  to ten recent profile selections with individual and clear-all controls; typing
+  switches immediately to live search, and opening a result clears the active query.
 - Blocking immediately removes the person and their content from the viewer's UI
   and removes the friendship. It does not create moderation work; only an explicit
   report action enters the admin queue.

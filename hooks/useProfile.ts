@@ -229,7 +229,7 @@ export function useSearchUsers(query: string) {
       if (error) throw error;
       return (data ?? []) as SearchProfile[];
     },
-    enabled: query.length === 0 || query.length >= 2,
+    enabled: query.length >= 2,
     staleTime: 30_000,
   });
 }
