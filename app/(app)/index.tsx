@@ -200,7 +200,6 @@ export default function FeedScreen() {
     resolvedFocusedPost,
     router,
   ]);
-
   useEffect(() => {
     if (focusFeedIdentityRef.current === null) {
       focusFeedIdentityRef.current = feedIdentity;
@@ -232,7 +231,6 @@ export default function FeedScreen() {
           refreshWorkRef.current = null;
         });
       }
-
       // Native RefreshControl otherwise spins forever when the radio changes
       // networks while a request is in flight. The authoritative queries keep
       // reconciling in the background; the UI never becomes a blocking state.
@@ -246,7 +244,6 @@ export default function FeedScreen() {
       setRefreshing(false);
     }
   }, [refetch, queryClient]);
-
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -260,12 +257,10 @@ export default function FeedScreen() {
     },
     [],
   );
-
   const handleOpenProfile = useCallback(() => {
     Haptics.selectionAsync();
     router.push('/(app)/profile' as never);
   }, [router]);
-
   const handleOpenNotifications = useCallback(() => {
     Haptics.selectionAsync();
     setNotificationsOpen(true);
@@ -283,7 +278,6 @@ export default function FeedScreen() {
     ),
     [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds],
   );
-
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<Post>[] }) => {
       const next = new Set(

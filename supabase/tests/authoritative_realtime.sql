@@ -1,6 +1,6 @@
 begin;
 
-select plan(128);
+select plan(130);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -548,9 +548,23 @@ select is(
     where namespace_row.nspname = 'public'
       and function_row.prosecdef is true
       and has_function_privilege('anon', function_row.oid, 'execute')
+      and function_row.oid <> 'public.get_mobile_release_policy(text)'::regprocedure
   ),
   0::bigint,
-  'anonymous sessions cannot execute security-definer functions'
+  'anonymous sessions cannot execute unapproved security-definer functions'
+);
+select ok(
+  has_function_privilege('anon', 'public.get_mobile_release_policy(text)', 'execute'),
+  'anonymous startup may read the enabled native release policy'
+);
+select is(
+  (
+    select function_row.prosecdef
+    from pg_proc function_row
+    where function_row.oid = 'public.get_mobile_release_policy(text)'::regprocedure
+  ),
+  true,
+  'the anonymous release-policy exception remains an explicit privileged reader'
 );
 select is(
   (

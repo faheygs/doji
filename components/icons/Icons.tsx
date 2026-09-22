@@ -1,6 +1,5 @@
 import React from 'react';
 import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
-
 export {
   REACTION_CONTROLS,
   ReactionIcon,
@@ -13,12 +12,10 @@ export {
 } from './ReactionIcons';
 export type { ReactionIconProps } from './ReactionIcons';
 export { IconSpark } from './IconSpark';
-
 export type IconProps = {
   size?: number;
   color: string;
 };
-
 export function IconLightbulb({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -32,7 +29,6 @@ export function IconLightbulb({ size = 24, color }: IconProps) {
     </Svg>
   );
 }
-
 export function IconHome({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -46,7 +42,6 @@ export function IconHome({ size = 24, color }: IconProps) {
     </Svg>
   );
 }
-
 export function IconFriends({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -62,7 +57,6 @@ export function IconFriends({ size = 24, color }: IconProps) {
     </Svg>
   );
 }
-
 export function IconProfile({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -76,7 +70,6 @@ export function IconProfile({ size = 24, color }: IconProps) {
     </Svg>
   );
 }
-
 export function IconTrophy({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -97,7 +90,6 @@ export function IconTrophy({ size = 24, color }: IconProps) {
     </Svg>
   );
 }
-
 export function IconBolt({ size = 24, color }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

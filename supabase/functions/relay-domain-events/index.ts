@@ -18,7 +18,6 @@ import { logRealtimeLatency } from '../_shared/realtime-latency.ts';
 const MAX_TOPIC_WORKERS = 16;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
 const MAX_ABLY_BATCH_CHANNELS = 100;
-
 async function publishAblyEvents(
   apiKey: string,
   topic: string,

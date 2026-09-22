@@ -150,7 +150,6 @@ async function flushSignedUrlBatch(): Promise<void> {
     );
   }
 }
-
 function queueSignedUrls(requests: SignedRequest[]): Promise<Map<string, string>> {
   return new Promise((resolve) => {
     for (const request of requests) pendingRequests.set(requestKey(request), request);
@@ -160,7 +159,6 @@ function queueSignedUrls(requests: SignedRequest[]): Promise<Map<string, string>
     if (!batchTimer) batchTimer = setTimeout(() => void flushSignedUrlBatch(), 24);
   });
 }
-
 async function signedUrlMap(
   values: Array<{ value: string | null | undefined; variant: PostMediaVariant }>,
 ): Promise<Map<string, string>> {

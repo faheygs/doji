@@ -8,12 +8,10 @@ import {
 import { apnsConfigured, sendApnsMessage } from '../_shared/apns-push.ts';
 import { fcmConfigured, sendFcmMessage } from '../_shared/fcm-push.ts';
 import { readJsonBody } from '../_shared/json-body.ts';
-
 const PAGE_SIZE = 500;
 const EXPO_BATCH_SIZE = 100;
 const DOJI_LIVE_PUSH_TITLE = "It's time to Doji!";
 const DOJI_LIVE_PUSH_BODY = 'You only have 10 minutes ⚠️';
-
 function urgentLiveBody(body: string | undefined): string {
   const value = body?.trim();
   if (!value) return DOJI_LIVE_PUSH_BODY;
@@ -23,7 +21,6 @@ function urgentLiveBody(body: string | undefined): string {
   }
   return `${value} — ${DOJI_LIVE_PUSH_BODY}`;
 }
-
 type Recipient = {
   user_id: string;
   notification_token: string | null;
@@ -48,7 +45,6 @@ type Claim = {
   title?: string; body?: string;
   retry_after_seconds?: number;
 };
-
 function messageFor(
   recipient: Recipient,
   dailyEventId: string,
@@ -79,7 +75,6 @@ function messageFor(
     },
   };
 }
-
 async function mapConcurrent<T, R>(
   values: T[],
   concurrency: number,
@@ -95,21 +90,18 @@ async function mapConcurrent<T, R>(
   }));
   return results;
 }
-
 Deno.serve(async (request) => {
   const startedAt = Date.now();
   const expectedSecret = Deno.env.get('OUTBOX_RELAY_SECRET');
   if (!expectedSecret || request.headers.get('x-outbox-secret') !== expectedSecret) {
     return new Response('Unauthorized', { status: 401 });
   }
-
   const { dailyEventId, shard, expire } = await readJsonBody<{
     dailyEventId?: string;
     shard?: number;
     expire?: boolean;
   }>(request);
   if (!dailyEventId) return new Response('Missing dailyEventId', { status: 400 });
-
   const database = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -137,7 +129,6 @@ Deno.serve(async (request) => {
     { p_daily_event_id: dailyEventId, p_shard: shard },
   );
   if (claimError) return new Response(claimError.message, { status: 500 });
-
   const claim = claimData as Claim;
   if (claim.state === 'busy') {
     return Response.json(
@@ -146,12 +137,10 @@ Deno.serve(async (request) => {
     );
   }
   if (claim.state === 'done') return Response.json({ continued: false, sent: 0 });
-
   const leaseId = claim.lease_id;
   if (!leaseId || !claim.push_expires_at) {
     return new Response('Invalid fanout lease', { status: 500 });
   }
-
   try {
     const remainingSeconds = Math.floor(
       (Date.parse(claim.push_expires_at) - Date.now()) / 1000,
@@ -169,7 +158,6 @@ Deno.serve(async (request) => {
       if (error) throw error;
       return Response.json({ continued: false, sent: 0, expired: true });
     }
-
     const { data: recipientData, error: recipientError } = await database.rpc(
       'get_doji_push_recipients_shard_page',
       {
