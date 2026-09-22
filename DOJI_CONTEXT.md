@@ -553,9 +553,10 @@ unmount a visible native modal or leave an invisible backdrop intercepting touch
 Bottom-sheet closing motion is bounded to the shared 180 ms content duration; do not
 use a settling spring to decide when the native modal may finally unmount.
 
-Stack Back actions pop existing navigation history before consulting a `returnTo`
-fallback. `returnTo` is only for routes opened without usable history (for example a
-direct link); replacing a pushed child with its parent duplicates the parent route.
+Ordinary Stack children pop their real navigation history before consulting a
+`returnTo` fallback. Hidden tab routes such as member profiles and post detail carry
+the complete explicit origin chain, including the parent's own `returnTo`, and restore
+that origin before considering incidental tab history.
 
 Community poll notification rule: global aggregate data does not imply global social
 noise. Only accepted friends receive participation, reaction, and comment alerts for
@@ -818,7 +819,8 @@ reported account, evidence, and confirmed destructive actions.
 - Admin review sheets use a tall, scrollable detail body with persistent moderation
   actions so long prompts and answer sets remain fully inspectable.
 - Child routes opened with an explicit `returnTo` must return to that origin before
-  considering incidental router-stack history. Settings children return to Settings.
+  considering incidental router-stack history. Nested Profile -> Post -> Profile flows
+  preserve the entire origin chain; Settings children return to Settings.
 - Buttons meet minimum touch targets and expose accessibility role, label, state,
   and disabled behavior.
 - Mutations should feel immediate through safe optimistic UI, then reconcile to the

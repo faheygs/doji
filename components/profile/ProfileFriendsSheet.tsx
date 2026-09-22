@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -17,6 +17,7 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
 import { prepareProfileHref } from '../../lib/profileNavigation';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { useProfileFriendsPaged } from '../../hooks/useProfileFriendsPaged';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { AppSheetModal } from '../ui/AppSheetModal';
@@ -36,7 +37,7 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const pendingNavigationRef = useRef<null | (() => void)>(null);
   useDismissOnRouteBlur(visible, onClose);
 
@@ -55,12 +56,12 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
   const openMember = useCallback(
     (username: string) => {
       Haptics.selectionAsync();
-      const href = prepareProfileHref(username, pathname);
+      const href = prepareProfileHref(username, navigationOrigin);
       if (!href) return;
       pendingNavigationRef.current = () => router.push(href);
       onClose();
     },
-    [onClose, pathname, router],
+    [onClose, navigationOrigin, router],
   );
 
   const finishDismiss = useCallback(() => {

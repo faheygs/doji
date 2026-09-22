@@ -1,5 +1,6 @@
 import {
   hrefWithReturnTo,
+  hrefPreservingReturnTo,
   sanitizeReturnTo,
   goBackWithOptionalReturn,
   goBackToExplicitReturn,
@@ -80,6 +81,21 @@ describe('sanitizeReturnTo', () => {
   it('normalises /(app)/index to feed href', () => {
     const result = sanitizeReturnTo('/(app)/index');
     expect(result).toBe(ROUTES.feed);
+  });
+
+  it('does not decode a nested return chain twice', () => {
+    const search = hrefWithReturnTo('/(app)/friends/add', '/(app)/friends');
+    const profile = hrefWithReturnTo('/(app)/member/kira', String(search));
+    expect(sanitizeReturnTo(String(profile))).toBe(profile);
+  });
+});
+
+describe('hrefPreservingReturnTo', () => {
+  it('retains the parent origin when a screen becomes a nested origin', () => {
+    const search = hrefWithReturnTo('/(app)/friends/add', '/(app)/friends');
+    expect(hrefPreservingReturnTo('/(app)/member/kira', search)).toBe(
+      '/(app)/member/kira?returnTo=%2F(app)%2Ffriends%2Fadd%3FreturnTo%3D%252F(app)%252Ffriends',
+    );
   });
 });
 

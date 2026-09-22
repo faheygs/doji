@@ -19,13 +19,17 @@ import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
 import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useFriendRequests';
 import { formatRelativeTime } from '../../../utils/time';
-import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { goBackToExplicitReturn, hrefPreservingReturnTo } from '../../../lib/navigationReturn';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const navigationOrigin = useMemo(
+    () => String(hrefPreservingReturnTo(pathname, returnTo)),
+    [pathname, returnTo],
+  );
   const { colors } = useTheme();
   const requestsQuery = useFriendRequests();
   const requests = useMemo(
@@ -89,7 +93,7 @@ export default function FriendRequestsScreen() {
     <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}
+          onPress={() => goBackToExplicitReturn(router, returnTo, '/(app)/friends' as Href)}
           hitSlop={16}
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -128,7 +132,7 @@ export default function FriendRequestsScreen() {
                   onPress={() => {
                     Haptics.selectionAsync();
                     if (requester?.username) {
-                      const href = prepareProfileHref(requester.username, pathname);
+                      const href = prepareProfileHref(requester.username, navigationOrigin);
                       if (href) router.push(href);
                     }
                   }}

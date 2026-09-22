@@ -45,6 +45,13 @@ describe('routes', () => {
     );
     expect(feedPostHref('abc')).toBe('/(app)/post/abc');
   });
+
+  it('preserves an encoded profile origin inside a post route', () => {
+    const profile = '/(app)/member/kira?returnTo=%2F(app)%2Ffriends%2Fadd';
+    const post = String(postDetailHref('post-1', { returnTo: profile }));
+    const encodedOrigin = new URLSearchParams(post.split('?')[1]).get('returnTo');
+    expect(encodedOrigin).toBe(profile);
+  });
 });
 
 // ---------------------------------------------------------------------------

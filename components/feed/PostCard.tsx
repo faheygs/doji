@@ -2,9 +2,10 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { InteractionManager, View, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
@@ -93,7 +94,7 @@ function PostCardImpl({
   initialCommentsOpen = false,
 }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { colors } = useTheme();
   const styles = usePostCardStyles();
   const meId = useAuthStore((s) => s.session?.user?.id);
@@ -149,9 +150,9 @@ function PostCardImpl({
 
   const handleProfilePress = useCallback(() => {
     Haptics.selectionAsync();
-    const href = prepareProfileHref(post.profile?.username, pathname);
+    const href = prepareProfileHref(post.profile?.username, navigationOrigin);
     if (href) router.push(href);
-  }, [router, post.profile?.username, pathname]);
+  }, [router, post.profile?.username, navigationOrigin]);
 
   const handleImageToggle = useCallback(() => {
     if (media.front_photo_url && !hasVideo) {

@@ -40,9 +40,9 @@ import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
 import { createRequestSignal } from '../../lib/requestSignal';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { prepareProfileHref } from '../../lib/profileNavigation';
-
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 
 type VoterRow = {
@@ -98,7 +98,7 @@ function PollResultCardImpl({
 }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
@@ -349,11 +349,11 @@ function PollResultCardImpl({
   }, []);
 
   const openVoterProfile = useCallback((username: string) => {
-    const href = prepareProfileHref(username, pathname);
+    const href = prepareProfileHref(username, navigationOrigin);
     if (!href) return;
     pendingNavigationRef.current = () => router.push(href);
     closeVoters();
-  }, [closeVoters, pathname, router]);
+  }, [closeVoters, navigationOrigin, router]);
   const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
     setVoterModal({ optionId, label, isOther, count }); setVoterVisible(true);
   }, []);

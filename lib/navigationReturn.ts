@@ -53,13 +53,22 @@ export function sanitizeReturnTo(raw: unknown): Href | null {
   if (raw == null) return null;
   const v = Array.isArray(raw) ? raw[0] : raw;
   if (typeof v !== 'string' || v.length === 0) return null;
-  let decoded = v;
+  const direct = normalizeHref(v);
+  if (direct) return direct;
+  let decoded: string;
   try {
     decoded = decodeURIComponent(v);
   } catch {
     return null;
   }
   return normalizeHref(decoded);
+}
+
+/** Rebuild a screen href while retaining the origin it must return to next. */
+export function hrefPreservingReturnTo(path: string, returnToRaw: unknown): Href {
+  const safePath = normalizeHref(path) ?? FEED_TAB_HREF;
+  const explicit = sanitizeReturnTo(returnToRaw);
+  return explicit ? hrefWithReturnTo(String(safePath), String(explicit)) : safePath;
 }
 
 export function goBackWithOptionalReturn(

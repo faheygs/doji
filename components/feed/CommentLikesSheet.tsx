@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -17,6 +17,7 @@ import { Avatar } from '../ui/Avatar';
 import { IconClose } from '../icons/Icons';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { prepareProfileHref } from '../../lib/profileNavigation';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { useCommentLikes, type CommentLikeRow } from '../../hooks/useCommentLikes';
 import { Button } from '../ui/Button';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -38,7 +39,7 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const pendingNavigationRef = useRef<null | (() => void)>(null);
   const { height: winH } = useWindowDimensions();
   const userId = useAuthStore((s) => s.session?.user?.id);
@@ -65,12 +66,12 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
-      const href = prepareProfileHref(username, pathname);
+      const href = prepareProfileHref(username, navigationOrigin);
       if (!href) return;
       pendingNavigationRef.current = () => router.push(href);
       handleClose();
     },
-    [handleClose, pathname, router],
+    [handleClose, navigationOrigin, router],
   );
 
   const finishDismiss = useCallback(() => {

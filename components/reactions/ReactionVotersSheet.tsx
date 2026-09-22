@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { Spacing, Radius } from '../../constants/theme';
@@ -21,6 +21,7 @@ import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { normalizeReactionEmoji } from '../../lib/reactionEmoji';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { prepareProfileHref } from '../../lib/profileNavigation';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { usePostReactions } from '../../hooks/useFeed';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSendFriendRequest } from '../../hooks/useProfile';
@@ -55,7 +56,7 @@ export function ReactionVotersSheet({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const pendingNavigationRef = useRef<null | (() => void)>(null);
   const userId = useAuthStore((s) => s.session?.user?.id);
   useDismissOnRouteBlur(visible, onClose);
@@ -94,12 +95,12 @@ export function ReactionVotersSheet({
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
-      const href = prepareProfileHref(username, pathname);
+      const href = prepareProfileHref(username, navigationOrigin);
       if (!href) return;
       pendingNavigationRef.current = () => router.push(href);
       handleClose();
     },
-    [handleClose, pathname, router],
+    [handleClose, navigationOrigin, router],
   );
 
   const finishDismiss = useCallback(() => {

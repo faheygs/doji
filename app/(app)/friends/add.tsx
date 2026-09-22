@@ -20,7 +20,7 @@ import {
   type SearchProfile,
 } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { goBackToExplicitReturn, hrefPreservingReturnTo } from '../../../lib/navigationReturn';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
@@ -28,6 +28,10 @@ export default function AddFriendsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const navigationOrigin = useMemo(
+    () => String(hrefPreservingReturnTo(pathname, returnTo)),
+    [pathname, returnTo],
+  );
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
@@ -82,7 +86,7 @@ export default function AddFriendsScreen() {
     >
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/friends' as Href)}
+          onPress={() => goBackToExplicitReturn(router, returnTo, '/(app)/friends' as Href)}
           hitSlop={16}
         >
           <IconChevronLeft size={24} color={colors.textSecondary} />
@@ -115,7 +119,7 @@ export default function AddFriendsScreen() {
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => <UserResult user={item} returnPath={pathname} />}
+          renderItem={({ item }) => <UserResult user={item} returnPath={navigationOrigin} />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text variant="body" color={colors.textSecondary}>

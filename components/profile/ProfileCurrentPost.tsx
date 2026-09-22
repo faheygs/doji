@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { usePostMedia } from '../../hooks/usePostMedia';
 import { postMediaCacheKey } from '../../lib/postMedia';
 import { postDetailHref } from '../../lib/routes';
@@ -20,7 +21,7 @@ type Props = {
 
 export function ProfileCurrentPost({ post, loading = false }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const { colors } = useTheme();
   const [imageReady, setImageReady] = useState(false);
   const media = usePostMedia(post ?? EMPTY_POST, Boolean(post), 'thumbnail');
@@ -69,7 +70,7 @@ export function ProfileCurrentPost({ post, loading = false }: Props) {
 
   const openPost = () => {
     Haptics.selectionAsync();
-    router.push(postDetailHref(post.id, { returnTo: pathname }));
+    router.push(postDetailHref(post.id, { returnTo: navigationOrigin }));
   };
 
   return (

@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { usePathname, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { Text } from '../ui/Text';
 import { AppTextInput } from '../ui/AppTextInput';
 import { Avatar } from '../ui/Avatar';
@@ -401,7 +402,7 @@ export function PostCommentsThread({
   const { showDialog } = useAppDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pathname = usePathname();
+  const navigationOrigin = useNavigationOrigin();
   const me = useAuthStore((s) => s.session?.user?.id);
   const {
     data: commentPages,
@@ -445,10 +446,10 @@ export function PostCommentsThread({
   const onProfile = useCallback(
     (username: string) => {
       Haptics.selectionAsync();
-      const href = prepareProfileHref(username, pathname);
+      const href = prepareProfileHref(username, navigationOrigin);
       if (href) router.push(href);
     },
-    [router, pathname],
+    [router, navigationOrigin],
   );
 
   const onReply = useCallback((c: CommentWithMeta) => {

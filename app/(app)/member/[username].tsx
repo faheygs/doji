@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -34,7 +34,7 @@ import { useRespondToFriendRequest } from '@/hooks/useFriendRequests';
 import { useBlockUser, useUnblockUser, useIsBlockedByMe } from '@/hooks/useBlockUser';
 import { ReportSheet } from '@/components/feed/ReportSheet';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { FEED_TAB_HREF, goBackToExplicitReturn } from '@/lib/navigationReturn';
+import { FEED_TAB_HREF, goBackToExplicitReturn, hrefPreservingReturnTo } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
@@ -44,6 +44,7 @@ import { ProfileManageMenu } from '@/components/profile/ProfileManageMenu';
 import { useAppDialog } from '@/contexts/DialogContext';
 import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
 import { useProfileNavigationStore } from '@/stores/useProfileNavigationStore';
+import { NavigationOriginProvider } from '@/contexts/NavigationOriginContext';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams<{ username: string | string[]; returnTo?: string }>();
@@ -54,6 +55,11 @@ export default function UserProfileScreen() {
   }, [params.username]);
   const { returnTo } = params;
   const router = useRouter();
+  const pathname = usePathname();
+  const navigationOrigin = useMemo(
+    () => String(hrefPreservingReturnTo(pathname, returnTo)),
+    [pathname, returnTo],
+  );
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
@@ -337,6 +343,7 @@ export default function UserProfileScreen() {
   };
 
   return (
+    <NavigationOriginProvider origin={navigationOrigin}>
     <SafeAreaView
       edges={TAB_SCREEN_SAFE_AREA_EDGES}
       style={[styles.container, webScrollParentStyle]}
@@ -451,5 +458,6 @@ export default function UserProfileScreen() {
         <ReportSheet visible reportedUserId={profile.id} onClose={() => setReportUserOpen(false)} />
       ) : null}
     </SafeAreaView>
+    </NavigationOriginProvider>
   );
 }
