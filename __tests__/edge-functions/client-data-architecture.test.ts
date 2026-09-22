@@ -18,7 +18,7 @@ describe('mobile data architecture', () => {
   });
 
   it('prepares only incoming realtime media before stable feed presentation', () => {
-    const feed = read('app/(app)/index.tsx');
+    const feed = read('app/(app)/(tabs)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
     expect(feed).toContain('usePreparedFeedPosts');
     expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
@@ -61,7 +61,7 @@ describe('mobile data architecture', () => {
   });
 
   it('does not flash a feed empty state while cold cached data reconciles', () => {
-    const feed = read('app/(app)/index.tsx');
+    const feed = read('app/(app)/(tabs)/index.tsx');
     expect(feed).toContain('isFetchedAfterMount: feedFetchedAfterMount');
     expect(feed).toContain('feedFetching && !feedFetchedAfterMount');
     expect(feed).toContain('if (feedError && posts.length === 0)');

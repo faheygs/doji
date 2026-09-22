@@ -174,11 +174,12 @@
   reposition feed pages. Profiles resolve one bounded current-occurrence post preview,
   while feed cards remain non-navigating feed interactions. Advancing to pre-live makes
   the prior profile preview and direct post route unavailable without deleting history.
-  Every protected-app route preserves its complete explicit navigation-origin chain.
-  Nested profile, post, friends, settings, shop, legal, notification, and admin visits
-  restore the immediately preceding screen on Back and never fall through to stale
-  hidden-tab history. Shared identity links consume the current full origin rather than
-  reconstructing one from a bare pathname.
+  Protected navigation is composed as one outer Stack with the five-tab navigator as
+  its anchored root. Member profiles, post detail, friends children, settings, shop,
+  legal, notification, admin, and challenge pages push above that root; Back pops one
+  real entry at a time. Native and in-app notification destinations use the same push
+  contract. `returnTo` remains only as a no-history cold/deep-link fallback and never
+  overrides valid stack history, eliminating stale hidden-tab page flashes.
 
 ## Runtime flow
 

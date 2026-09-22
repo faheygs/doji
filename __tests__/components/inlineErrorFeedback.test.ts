@@ -34,7 +34,7 @@ describe('contextual error feedback contract', () => {
     'app/(app)/format.tsx',
     'app/(app)/poll.tsx',
     'app/(app)/profile/edit.tsx',
-    'app/(app)/suggest-challenge.tsx',
+    'app/(app)/(tabs)/suggest-challenge.tsx',
     'app/(app)/task.tsx',
     'components/feed/PostCommentsThread.tsx',
     'components/feed/ReportSheet.tsx',

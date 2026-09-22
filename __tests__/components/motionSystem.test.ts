@@ -13,9 +13,9 @@ describe('motion system', () => {
 
   it('uses one skeleton transition on primary cold-load surfaces', () => {
     for (const file of [
-      'app/(app)/index.tsx',
-      'app/(app)/rank/index.tsx',
-      'app/(app)/friends/index.tsx',
+      'app/(app)/(tabs)/index.tsx',
+      'app/(app)/(tabs)/rank.tsx',
+      'app/(app)/(tabs)/friends.tsx',
       'app/(app)/friends/add.tsx',
       'app/(app)/profile/shop.tsx',
       'components/notifications/NotificationSheet.tsx',

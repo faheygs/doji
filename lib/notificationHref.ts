@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router';
 import { normalizeHref, postDetailHref, ROUTES } from './routes';
 
-/** Resolve push / in-app notification payload to an in-app route. */
+/** Resolve a push payload to a page that will be pushed above the tab root. */
 export function notificationHrefFromData(data: unknown): Href | null {
   if (!data || typeof data !== 'object') return null;
   const rec = data as Record<string, unknown>;

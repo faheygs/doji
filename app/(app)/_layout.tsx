@@ -1,155 +1,42 @@
-import React, { useEffect, useMemo } from 'react';
-import { Tabs, usePathname } from 'expo-router';
-import { StyleSheet, Platform, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useMemo } from 'react';
+import { Stack } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useDomainRealtime } from '../../hooks/useDomainRealtime';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
-import { getBottomTabBarMetrics } from '../../lib/safeAreaLayout';
-import {
-  IconHome,
-  IconTrophy,
-  IconFriends,
-  IconProfile,
-  IconLightbulb,
-} from '../../components/icons/Icons';
+import { webScrollParentStyle } from '../../constants/theme';
 
-function blurFocusedElementIfAriaHiddenAncestor(): void {
-  if (typeof document === 'undefined') return;
-  const el = document.activeElement;
-  if (!(el instanceof HTMLElement)) return;
-  let node: HTMLElement | null = el;
-  while (node) {
-    if (node.getAttribute('aria-hidden') === 'true') {
-      el.blur();
-      return;
-    }
-    node = node.parentElement;
-  }
-}
+export const unstable_settings = { anchor: '(tabs)' };
 
 export default function AppLayout() {
-  const { session } = useAuthStore();
+  const session = useAuthStore((state) => state.session);
   const { ready } = useAuthGate();
-  useDomainRealtime(session?.user?.id);
-  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const pathname = usePathname();
+  useDomainRealtime(session?.user?.id);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const t = window.setTimeout(() => {
-      blurFocusedElementIfAriaHiddenAncestor();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [pathname]);
-
-  const tabBarMetrics = useMemo(
-    () => getBottomTabBarMetrics(Platform.OS, insets.bottom),
-    [insets.bottom],
-  );
-
-  const tabBarStyle = useMemo(
-    () => [
-      {
-        backgroundColor: colors.background,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: colors.hairline,
-        elevation: 0 as const,
-      },
-      tabBarMetrics,
-    ],
-    [colors.background, colors.hairline, tabBarMetrics],
-  );
-
-  const tabScreenOptions = useMemo(
+  const screenOptions = useMemo(
     () => ({
-      headerShown: false,
-      // Hidden tab trees must not keep rendering, refetching, or intercepting
-      // touches above the active route. Query invalidation still updates their
-      // cache and they reconcile when focused again.
-      freezeOnBlur: true,
-      tabBarStyle,
-      tabBarShowLabel: false,
-      tabBarActiveTintColor: colors.text,
-      tabBarInactiveTintColor: colors.textTertiary,
-      ...(Platform.OS === 'web' ? { sceneContainerStyle: { flex: 1, minHeight: 0 } } : {}),
+      headerShown: false as const,
+      contentStyle: [
+        { flex: 1, backgroundColor: colors.background },
+        webScrollParentStyle,
+      ],
     }),
-    [colors.text, colors.textTertiary, tabBarStyle],
+    [colors.background],
   );
 
   if (!ready) return null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Tabs detachInactiveScreens screenOptions={tabScreenOptions}>
-        {/* Home feed — file `app/(app)/index.tsx` → href `/(app)` (see lib/routes.ts) */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            tabBarIcon: ({ focused }) => (
-              <IconHome size={26} color={focused ? colors.text : colors.textTertiary} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="rank"
-          options={{
-            tabBarIcon: ({ focused }) => (
-              <IconTrophy size={26} color={focused ? colors.text : colors.textTertiary} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="friends"
-          options={{
-            title: 'Friends',
-            tabBarAccessibilityLabel: 'Friends',
-            tabBarIcon: ({ focused }) => (
-              <IconFriends size={26} color={focused ? colors.text : colors.textTertiary} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="suggest-challenge"
-          options={{
-            title: 'Suggest',
-            tabBarAccessibilityLabel: 'Suggest a challenge',
-            tabBarIcon: ({ focused }) => (
-              <IconLightbulb size={26} color={focused ? colors.text : colors.textTertiary} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          listeners={({ navigation }) => ({
-            tabPress: (e) => {
-              e.preventDefault();
-              navigation.navigate('profile', { screen: 'index' });
-            },
-          })}
-          options={{
-            tabBarAccessibilityLabel: 'Your profile',
-            tabBarIcon: ({ focused }) => (
-              <IconProfile size={26} color={focused ? colors.text : colors.textTertiary} />
-            ),
-          }}
-        />
-        <Tabs.Screen name="member" options={{ href: null }} />
-        <Tabs.Screen name="notifications" options={{ href: null }} />
-        <Tabs.Screen name="challenge" options={{ href: null }} />
-        <Tabs.Screen name="camera" options={{ href: null }} />
-        <Tabs.Screen name="poll" options={{ href: null }} />
-        <Tabs.Screen name="task" options={{ href: null }} />
-        <Tabs.Screen name="format" options={{ href: null }} />
-        <Tabs.Screen name="post" options={{ href: null }} />
-        <Tabs.Screen name="admin" options={{ href: null }} />
-        <Tabs.Screen name="legal/terms" options={{ href: null }} />
-        <Tabs.Screen name="legal/privacy" options={{ href: null }} />
-      </Tabs>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack screenOptions={screenOptions}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
       <CelebrationHost />
     </View>
   );
 }
+
+const styles = StyleSheet.create({ container: { flex: 1 } });

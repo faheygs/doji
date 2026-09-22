@@ -55,14 +55,38 @@ const FEED_ALIASES = new Set([
 
 type RouterLike = {
   replace: (href: Href) => void;
+  push?: (href: Href) => void;
   navigate?: (href: Href) => void;
   dismissAll?: () => void;
   canDismiss?: () => boolean;
 };
 
+/** Push a page onto the app stack, falling back safely for legacy routers. */
+export function safePush(router: RouterLike, href: string | Href): boolean {
+  const normalized = normalizeHref(href);
+  if (!normalized) return false;
+  try {
+    if (router.push) {
+      router.push(normalized);
+      return true;
+    }
+  } catch {
+    /* Fall through to compatibility navigation. */
+  }
+  try {
+    if (router.navigate) {
+      router.navigate(normalized);
+      return true;
+    }
+  } catch {
+    /* Fall through to replace for older callers. */
+  }
+  return safeReplace(router, normalized);
+}
+
 /**
  * Map previously-issued and mistaken paths to real Expo Router hrefs.
- * `app/(app)/index.tsx` resolves to `/(app)`, never `/(app)/index`.
+ * `app/(app)/(tabs)/index.tsx` resolves to `/(app)`, never `/(app)/index`.
  */
 export function normalizeHref(raw: string | Href | null | undefined): Href | null {
   if (raw == null) return null;
@@ -123,7 +147,7 @@ export function navigateToFeedPost(
   postId: string,
   options?: PostDetailDeepLinkOptions,
 ): void {
-  safeReplace(router, postDetailHref(postId, options));
+  safePush(router, postDetailHref(postId, options));
 }
 
 /** Land on the home feed tab after challenge flows, notifications, onboarding, etc. */

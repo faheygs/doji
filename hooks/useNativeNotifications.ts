@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState, InteractionManager, Platform } from 'react-native';
-import { useRootNavigationState, useRouter, type Href } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import type { NotificationResponse } from 'expo-notifications';
 import { notificationHrefFromData } from '../lib/notificationHref';
 import { mergeNotificationPreferences } from '../lib/notificationPreferences';
 import { syncPushRegistration, unregisterCurrentPushInstallation } from '../lib/pushNotifications';
-import { safeReplace } from '../lib/routes';
+import { safePush } from '../lib/routes';
 import { useAuthStore } from '../stores/useAuthStore';
 import { reportOperationalFailure } from '../lib/telemetry';
 import { attentionScopeFromPushData } from '../lib/notificationAttention';
@@ -30,7 +30,6 @@ function markAfterNavigationSettles(data: unknown): void {
 type PendingNotificationResponse = {
   key: string;
   data: unknown;
-  href: Href;
 };
 
 function responseKey(identifier: string | undefined, data: unknown): string {
@@ -123,7 +122,7 @@ export function useNativeNotifications(canUseApp: boolean): void {
         if (!href) return;
         const key = responseKey(response.notification.request.identifier, data);
         if (handledResponseKeysRef.current.has(key)) return;
-        setPendingResponse((current) => current?.key === key ? current : { key, data, href });
+        setPendingResponse((current) => current?.key === key ? current : { key, data });
       };
 
       // Install the live listener before reading the cold-start response so a
@@ -156,7 +155,8 @@ export function useNativeNotifications(canUseApp: boolean): void {
     // Protected app routes and the navigation container were committed in the
     // same render. Yield one task before consuming the durable response.
     const timer = setTimeout(() => {
-      if (!safeReplace(router, pendingResponse.href)) return;
+      const href = notificationHrefFromData(pendingResponse.data);
+      if (!href || !safePush(router, href)) return;
       handledResponseKeysRef.current.add(pendingResponse.key);
       setPendingResponse((current) => current?.key === pendingResponse.key ? null : current);
       markAfterNavigationSettles(pendingResponse.data);

@@ -125,15 +125,15 @@ describe('goBackWithOptionalReturn', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it('uses an explicit origin before incidental router history', () => {
+  it('pops the actual stack before considering a legacy explicit origin', () => {
     const router = {
       back: jest.fn(),
       canGoBack: jest.fn().mockReturnValue(true),
       replace: jest.fn(),
     };
     goBackWithOptionalReturn(router, encodeURIComponent('/(app)/friends'), ROUTES.feed);
-    expect(router.replace).toHaveBeenCalledWith('/(app)/friends');
-    expect(router.back).not.toHaveBeenCalled();
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('uses explicit returnTo when no stack history exists', () => {
@@ -169,7 +169,7 @@ describe('goBackWithOptionalReturn', () => {
 });
 
 describe('goBackToExplicitReturn', () => {
-  it('uses the explicit origin before incidental tab history', () => {
+  it('pops the actual stack before considering a legacy explicit origin', () => {
     const router = {
       back: jest.fn(),
       canGoBack: jest.fn().mockReturnValue(true),
@@ -180,8 +180,8 @@ describe('goBackToExplicitReturn', () => {
       encodeURIComponent('/(app)/profile/settings'),
       ROUTES.feed,
     );
-    expect(router.replace).toHaveBeenCalledWith('/(app)/profile/settings');
-    expect(router.back).not.toHaveBeenCalled();
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('pops history when no explicit origin exists', () => {

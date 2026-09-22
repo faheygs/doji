@@ -4,7 +4,7 @@ import path from 'node:path';
 describe('manual refresh behavior', () => {
   it('keeps background reconciliation silent on refreshable server-state screens', () => {
     for (const file of [
-      'app/(app)/rank/index.tsx',
+      'app/(app)/(tabs)/rank.tsx',
       'app/(app)/admin/suggestions.tsx',
       'app/(app)/admin/reports.tsx',
       'app/(app)/profile/blocked-users.tsx',

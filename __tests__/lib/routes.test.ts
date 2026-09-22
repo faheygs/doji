@@ -5,6 +5,8 @@ import {
   normalizeHref,
   pathnameForReturnTo,
   navigateToFeed,
+  navigateToFeedPost,
+  safePush,
   safeReplace,
 } from '../../lib/routes';
 
@@ -120,5 +122,21 @@ describe('safeReplace', () => {
       }),
     };
     expect(safeReplace(router, '/(app)/challenge')).toBe(false);
+  });
+});
+
+describe('stack page navigation', () => {
+  it('pushes a post detail page so Back can pop to the true origin', () => {
+    const router = { push: jest.fn(), replace: jest.fn() };
+    navigateToFeedPost(router, 'post-1', { openComments: true });
+    expect(router.push).toHaveBeenCalledWith('/(app)/post/post-1?openComments=1');
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('uses navigate as a compatibility fallback when push is unavailable', () => {
+    const router = { navigate: jest.fn(), replace: jest.fn() };
+    expect(safePush(router, '/(app)/member/kira')).toBe(true);
+    expect(router.navigate).toHaveBeenCalledWith('/(app)/member/kira');
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

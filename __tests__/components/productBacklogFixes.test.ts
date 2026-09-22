@@ -7,7 +7,7 @@ function source(relativePath: string) {
 
 describe('staged product backlog regressions', () => {
   it('uses reactions given for both owner and member profile top stats', () => {
-    const owner = source('app/(app)/profile/index.tsx');
+    const owner = source('app/(app)/(tabs)/profile.tsx');
     const member = source('app/(app)/member/[username].tsx');
     expect(owner).toContain('reactions={reactionsGiven}');
     expect(member).toContain('reactions={profile.reactions_given ?? 0}');
@@ -29,7 +29,7 @@ describe('staged product backlog regressions', () => {
 
   it('renders a shared poll skeleton or five challenge-shaped post skeletons', () => {
     const skeleton = source('components/feed/FeedSkeleton.tsx');
-    const feed = source('app/(app)/index.tsx');
+    const feed = source('app/(app)/(tabs)/index.tsx');
     expect(skeleton).toContain('const cards = isPoll ? 1 : 5');
     expect(skeleton).toContain("challenge?.poll_kind === 'wyr' ? 2 : 4");
     expect(skeleton).toContain('<PhotoSkeleton');
@@ -45,7 +45,7 @@ describe('staged product backlog regressions', () => {
   });
 
   it('keeps cached feed media covered until the authorized native image displays', () => {
-    const feed = source('app/(app)/index.tsx');
+    const feed = source('app/(app)/(tabs)/index.tsx');
     const card = source('components/feed/PostCard.tsx');
     const media = source('hooks/usePostMedia.ts');
     expect(feed).toContain('usePreparedFeedPosts');
@@ -80,7 +80,7 @@ describe('staged product backlog regressions', () => {
 
   it('opens notification posts on the canonical current-post screen', () => {
     const routes = source('lib/routes.ts');
-    const feed = source('app/(app)/index.tsx');
+    const feed = source('app/(app)/(tabs)/index.tsx');
     const detail = source('app/(app)/post/[id]/index.tsx');
     const profilePost = source('components/profile/ProfileCurrentPost.tsx');
     expect(routes).toContain('`/(app)/post/${encodeURIComponent(postId)}');

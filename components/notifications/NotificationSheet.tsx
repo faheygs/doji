@@ -106,7 +106,12 @@ export function NotificationSheet({
   const openFeedPost = useCallback(
     (postId: string, openComments = false, mentionCommentId?: string) => {
       Haptics.selectionAsync();
-      dismissThen(() => navigateToFeedPost(router, postId, { openComments, mentionCommentId }));
+      dismissThen(() =>
+        navigateToFeedPost(router, postId, {
+          openComments,
+          mentionCommentId,
+        }),
+      );
     },
     [dismissThen, router],
   );

@@ -44,6 +44,8 @@ export default function PostDetailScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { data: post, isLoading, error } = usePost(postId);
+  const visiblePost = post?.id === postId ? post : null;
+  const routeIsLoading = isLoading || (!!post && post.id !== postId);
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const feedLocked = !hasUnlockedFeed(userEvent) && !userEventLoading;
   const styles = useMemo(
@@ -78,9 +80,9 @@ export default function PostDetailScreen() {
         </TouchableOpacity>
         <Text variant="headingMedium" numberOfLines={1} style={{ flex: 1 }}>Post</Text>
       </View>
-      {isLoading ? (
+      {routeIsLoading ? (
         <View style={styles.centered}><ActivityIndicator color={colors.text} /></View>
-      ) : error || !post ? (
+      ) : error || !visiblePost ? (
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             This post is no longer available.
@@ -94,7 +96,12 @@ export default function PostDetailScreen() {
           keyboardDismissMode="on-drag"
           scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
         >
-          <PostCard post={post} blurred={feedLocked} initialCommentsOpen={openComments === '1'} />
+          <PostCard
+            key={postId}
+            post={visiblePost}
+            blurred={feedLocked}
+            initialCommentsOpen={openComments === '1'}
+          />
         </ScrollView>
       )}
     </SafeAreaView>

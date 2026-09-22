@@ -26,7 +26,7 @@ describe('shared keyboard and admin navigation contracts', () => {
     'app/(app)/format.tsx',
     'app/(app)/poll.tsx',
     'app/(app)/profile/edit.tsx',
-    'app/(app)/suggest-challenge.tsx',
+    'app/(app)/(tabs)/suggest-challenge.tsx',
     'app/(app)/task.tsx',
   ])('%s uses the shared full-page keyboard scroll behavior', (file) => {
     expect(source(file)).toContain('<AppKeyboardAwareScrollView');

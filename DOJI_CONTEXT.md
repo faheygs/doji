@@ -62,10 +62,12 @@ user directly to the feed; there is no success interstitial.
   Displayed identities are profile links across posts, comments, reactions, voters,
   friends, rankings, and notifications; navigation never leaves the prior person's
   profile visible while the requested identity loads.
-- Protected-app navigation carries the complete explicit origin chain into every
-  nested destination. Back always restores the immediately preceding screen from that
-  chain before considering Expo's incidental stack or hidden-tab history. New entry
-  points must use the shared navigation-origin helpers rather than a bare pathname.
+- Protected-app navigation has one outer Stack whose anchored root is the five-tab
+  navigator. Feed, leaderboard, friends, suggest, and the current-user profile are tab
+  roots; member profiles, post detail, notifications, settings, shop, legal, admin,
+  and challenge pages are Stack screens. Ordinary page opens push and Back pops the
+  actual stack. A `returnTo` value is only a cold/deep-link fallback when no in-memory
+  history exists; it must never override a valid Back entry.
 - Friend search history is device-local and account-scoped. An empty search shows up
   to ten recent profile selections with individual and clear-all controls; typing
   switches immediately to live search, and opening a result clears the active query.
@@ -561,9 +563,9 @@ Bottom-sheet closing motion is bounded to the shared 180 ms content duration; do
 use a settling spring to decide when the native modal may finally unmount.
 
 Ordinary Stack children pop their real navigation history before consulting a
-`returnTo` fallback. Hidden tab routes such as member profiles and post detail carry
-the complete explicit origin chain, including the parent's own `returnTo`, and restore
-that origin before considering incidental tab history.
+`returnTo` fallback. Member profiles and post detail are never hidden tabs. Native and
+in-app notification taps push their destination above the current tab root, so Back
+returns exactly once to the page from which the destination was opened.
 
 Community poll notification rule: global aggregate data does not imply global social
 noise. Only accepted friends receive participation, reaction, and comment alerts for
@@ -810,7 +812,7 @@ reported account, evidence, and confirmed destructive actions.
 - Up/down toolbar controls follow visual field order. Done dismisses the keyboard.
 - Ten-minute timers derive every tick from the synchronized server clock and the
   occurrence's authoritative expiry; backgrounding never pauses or extends a window.
-- Sheets and hidden tab screens must not remain touchable above the active screen.
+- Sheets and inactive tab roots must not remain touchable above the active screen.
 - Bottom sheets use the shared `AppSheetModal` presence lifecycle: backdrop and surface
   animate together, Reduce Motion is honored, navigation waits for dismissal, and the
   native modal unmounts only after its closing motion releases the presentation layer.
@@ -825,9 +827,9 @@ reported account, evidence, and confirmed destructive actions.
   previews and owned/equipped state follow beneath that header.
 - Admin review sheets use a tall, scrollable detail body with persistent moderation
   actions so long prompts and answer sets remain fully inspectable.
-- Child routes opened with an explicit `returnTo` must return to that origin before
-  considering incidental router-stack history. Nested Profile -> Post -> Profile flows
-  preserve the entire origin chain; Settings children return to Settings.
+- Child routes use the outer Stack's push/pop history. Nested Profile -> Post -> Profile
+  flows therefore unwind one screen per Back action; explicit `returnTo` is reserved
+  for direct/cold entry with no stack history. Settings children return to Settings.
 - Buttons meet minimum touch targets and expose accessibility role, label, state,
   and disabled behavior.
 - Mutations should feel immediate through safe optimistic UI, then reconcile to the
@@ -843,7 +845,7 @@ reported account, evidence, and confirmed destructive actions.
 | ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Auth          | `app/(auth)`                                                        | Welcome, sign in/up, legal documents, username                                   |
 | Onboarding    | `app/(onboarding)`                                                  | How it works and notification permission after the one-page auth profile setup   |
-| Feed          | `app/(app)/index.tsx`                                               | Header, live banner, Friends/Everyone feed, gate, stable scrolling               |
+| Feed          | `app/(app)/(tabs)/index.tsx`                                        | Header, live banner, Friends/Everyone feed, gate, stable scrolling               |
 | Doji          | `challenge.tsx`, `camera.tsx`, `poll.tsx`, `task.tsx`, `format.tsx` | Type-specific participation and buy-in entry                                     |
 | Leaderboard   | `app/(app)/rank`                                                    | Weekly/all-time and Friends/Everyone rankings                                    |
 | Friends       | `app/(app)/friends`                                                 | List, search, requests, remove/block actions                                     |

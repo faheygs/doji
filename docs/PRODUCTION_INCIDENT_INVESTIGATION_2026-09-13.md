@@ -152,7 +152,7 @@ awaits `signPostMedia` before returning any posts. [lib/postMedia.ts](../lib/pos
 then calls `createSignedUrls` for all uncached objects. Only after both complete can
 `expo-image` begin fetching the actual media.
 
-The first page is 20 posts. Once it resolves, [app/(app)/index.tsx](../app/(app)/index.tsx#L115)
+The first page is 20 posts. Once it resolves, [app/(app)/(tabs)/index.tsx](../app/(app)/(tabs)/index.tsx#L115)
 prefetches the opposite audience, which can initiate another feed RPC and another
 private-media signing batch. Visible unlocked cards also mount post-scoped realtime
 subscriptions; adding a new post channel can call `authorize()` again.

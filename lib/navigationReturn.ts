@@ -76,25 +76,24 @@ export function goBackWithOptionalReturn(
   returnToRaw: unknown,
   fallback: Href,
 ): void {
-  // The explicit origin is the product navigation contract. Expo history can
-  // contain inactive tab routes, so it is only a fallback when no origin was
-  // carried into this screen.
+  // Normal app navigation is a real Stack above the tab root. Pop it first so
+  // Back always means the screen the user actually came from. `returnTo` only
+  // exists as a cold/deep-link fallback when no in-memory history is present.
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
   const explicit = sanitizeReturnTo(returnToRaw);
   if (explicit) {
     safeReplace(router, explicit);
-    return;
-  }
-  if (router.canGoBack()) {
-    router.back();
     return;
   }
   safeReplace(router, normalizeHref(fallback) ?? FEED_TAB_HREF);
 }
 
 /**
- * Hidden top-level tab routes have tab history that is not the user's screen
- * history. When one was opened with an explicit origin, return there before
- * considering Expo's incidental tab stack.
+ * Compatibility name retained for existing detail screens. The outer Stack is
+ * authoritative; an explicit return route is only a no-history fallback.
  */
 export function goBackToExplicitReturn(
   router: RouterBack,
