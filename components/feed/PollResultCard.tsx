@@ -40,6 +40,8 @@ import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
 import { createRequestSignal } from '../../lib/requestSignal';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
+import { usePathname, useRouter } from 'expo-router';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 
 type PollRow = PollOption & { liveCount: number; previewVoters: VoterRow[] };
 
@@ -95,6 +97,8 @@ function PollResultCardImpl({
   feedAudience = 'everyone',
 }: Props) {
   const { colors } = useTheme();
+  const router = useRouter();
+  const pathname = usePathname();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
@@ -105,6 +109,7 @@ function PollResultCardImpl({
   const [reportVote, setReportVote] = useState<{ voteId: string; userId: string } | null>(null);
   const [reportVisible, setReportVisible] = useState(false);
   const pendingReportRef = useRef<{ voteId: string; userId: string } | null>(null);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
   const isFriendsScope = feedAudience === 'friends';
   const modalOpen = voterVisible;
 
@@ -331,7 +336,10 @@ function PollResultCardImpl({
     setVoterVisible(false);
     setVoterModal(null);
     const pendingReport = pendingReportRef.current;
+    const pendingNavigation = pendingNavigationRef.current;
     pendingReportRef.current = null;
+    pendingNavigationRef.current = null;
+    if (pendingNavigation) requestAnimationFrame(pendingNavigation);
     if (pendingReport) {
       requestAnimationFrame(() => {
         setReportVote(pendingReport);
@@ -339,6 +347,13 @@ function PollResultCardImpl({
       });
     }
   }, []);
+
+  const openVoterProfile = useCallback((username: string) => {
+    const href = prepareProfileHref(username, pathname);
+    if (!href) return;
+    pendingNavigationRef.current = () => router.push(href);
+    closeVoters();
+  }, [closeVoters, pathname, router]);
   const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
     setVoterModal({ optionId, label, isOther, count }); setVoterVisible(true);
   }, []);
@@ -574,15 +589,22 @@ function PollResultCardImpl({
                    const isLiked = item.my_like === true;
                    const likeCount = item.like_count ?? 0;
                   return (
-                    <View style={styles.voterRow}>
-                      <Avatar
-                        uri={item.avatar_url}
-                        username={item.username}
-                        size={40}
-                        borderColor={border?.color}
-                        borderWidth={border?.width}
-                      />
-                      <View style={{ flex: 1, minWidth: 0 }}>
+                     <View style={styles.voterRow}>
+                       <TouchableOpacity
+                         onPress={() => openVoterProfile(item.username)}
+                         activeOpacity={0.8}
+                         accessibilityRole="button"
+                         accessibilityLabel={`Open @${item.username} profile`}
+                         style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}
+                       >
+                         <Avatar
+                           uri={item.avatar_url}
+                           username={item.username}
+                           size={40}
+                           borderColor={border?.color}
+                           borderWidth={border?.width}
+                         />
+                         <View style={{ flex: 1, minWidth: 0 }}>
                         <Text variant="body" numberOfLines={1}>
                           {item.display_name?.trim() || item.username}
                         </Text>
@@ -594,7 +616,8 @@ function PollResultCardImpl({
                             "{item.custom_text.trim()}"
                           </Text>
                         ) : null}
-                      </View>
+                         </View>
+                       </TouchableOpacity>
                       {canAdd ? (
                         <Button
                           size="sm"

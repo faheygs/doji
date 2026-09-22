@@ -19,6 +19,7 @@ type Props = {
   body: string;
   sortAt: string;
   onPress?: () => void;
+  onActorPress?: () => void;
   accessibilityLabel?: string;
   footer?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -31,6 +32,7 @@ export function NotificationActorRow({
   body,
   sortAt,
   onPress,
+  onActorPress,
   accessibilityLabel,
   footer,
   style,
@@ -78,7 +80,18 @@ export function NotificationActorRow({
 
   const content = (
     <View style={[styles.row, style]}>
-      {avatar ? <View style={styles.leading}>{avatar}</View> : null}
+      {avatar ? (
+        onActorPress ? (
+          <TouchableOpacity
+            style={styles.leading}
+            onPress={onActorPress}
+            accessibilityRole="button"
+            accessibilityLabel={handle ? `Open @${handle} profile` : 'Open profile'}
+          >
+            {avatar}
+          </TouchableOpacity>
+        ) : <View style={styles.leading}>{avatar}</View>
+      ) : null}
       <View style={styles.meta}>
         <Text variant="body" numberOfLines={2} style={{ fontWeight: '700' }}>
           {title}

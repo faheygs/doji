@@ -18,7 +18,7 @@ import { IconLock, IconMoreVertical } from '../icons/Icons';
 import { ReportSheet } from './ReportSheet';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import type { FeedAudience } from '../../lib/feedAudience';
 import { AppVideo } from '../ui/AppVideo';
@@ -149,9 +149,8 @@ function PostCardImpl({
 
   const handleProfilePress = useCallback(() => {
     Haptics.selectionAsync();
-    if (post.profile?.username) {
-      router.push(hrefWithReturnTo(`/(app)/member/${post.profile.username}`, pathname));
-    }
+    const href = prepareProfileHref(post.profile?.username, pathname);
+    if (href) router.push(href);
   }, [router, post.profile?.username, pathname]);
 
   const handleImageToggle = useCallback(() => {

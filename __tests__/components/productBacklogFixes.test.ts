@@ -78,17 +78,16 @@ describe('staged product backlog regressions', () => {
     expect(nativeNotifications).toContain('clearLastNotificationResponseAsync');
   });
 
-  it('opens notification posts in the feed and redirects legacy detail links there', () => {
+  it('opens notification posts on the canonical current-post screen', () => {
     const routes = source('lib/routes.ts');
     const feed = source('app/(app)/index.tsx');
-    const legacyDetail = source('app/(app)/post/[id]/index.tsx');
-    expect(routes).toContain("params.set('postId', postId)");
-    expect(routes).toContain('`/(app)?${params.toString()}`');
-    expect(feed).toContain('usePost(pendingPostId && !postAlreadyLoaded');
-    expect(feed).toContain('initialCommentsOpen={focusPostId === item.id && focusOpenComments}');
-    expect(feed).toContain('scrollToIndex');
-    expect(legacyDetail).toContain('<Redirect');
-    expect(legacyDetail).toContain('feedPostHref(postId');
+    const detail = source('app/(app)/post/[id]/index.tsx');
+    const profilePost = source('components/profile/ProfileCurrentPost.tsx');
+    expect(routes).toContain('`/(app)/post/${encodeURIComponent(postId)}');
+    expect(feed).not.toContain('usePost(pendingPostId && !postAlreadyLoaded');
+    expect(detail).toContain('usePost(postId)');
+    expect(detail).toContain('initialCommentsOpen={openComments ===');
+    expect(profilePost).toContain('postDetailHref(post.id');
   });
 
   it('uses the system camera UI and preserves the approved 3:4 photo', () => {

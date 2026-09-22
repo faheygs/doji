@@ -24,7 +24,7 @@ import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import {
   useComments,
@@ -445,7 +445,8 @@ export function PostCommentsThread({
   const onProfile = useCallback(
     (username: string) => {
       Haptics.selectionAsync();
-      router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
+      const href = prepareProfileHref(username, pathname);
+      if (href) router.push(href);
     },
     [router, pathname],
   );

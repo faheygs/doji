@@ -1,6 +1,7 @@
 import {
   ROUTES,
   feedPostHref,
+  postDetailHref,
   normalizeHref,
   pathnameForReturnTo,
   navigateToFeed,
@@ -34,10 +35,15 @@ describe('routes', () => {
     expect(pathnameForReturnTo('/(app)/index')).toBe('/(app)');
   });
 
-  it('builds a feed-focused post route with comments', () => {
-    expect(feedPostHref('post id', { openComments: true, mentionCommentId: 'comment-1' })).toBe(
-      '/(app)?postId=post+id&openComments=1&mentionCommentId=comment-1',
+  it('builds an exact post route with comments and an origin', () => {
+    expect(postDetailHref('post id', {
+      openComments: true,
+      mentionCommentId: 'comment-1',
+      returnTo: '/(app)/member/alice',
+    })).toBe(
+      '/(app)/post/post%20id?openComments=1&mentionCommentId=comment-1&returnTo=%2F%28app%29%2Fmember%2Falice',
     );
+    expect(feedPostHref('abc')).toBe('/(app)/post/abc');
   });
 });
 

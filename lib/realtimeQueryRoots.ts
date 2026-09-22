@@ -1,10 +1,10 @@
 /** Query families affected by one committed realtime event. */
 export function realtimeQueryRoots(eventType: string): string[] {
   if (eventType === 'post.created' || eventType === 'feed.updated') {
-    return ['feed'];
+    return ['feed', 'profilePost'];
   }
   if (eventType.startsWith('feed.post.')) {
-    return ['feed', 'post'];
+    return ['feed', 'post', 'profilePost'];
   }
   if (eventType.startsWith('feed.reaction.')) {
     return ['feed', 'reactions', 'post'];

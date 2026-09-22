@@ -30,7 +30,7 @@ import {
 } from '../../lib/notificationCopy';
 import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
 import { useNotificationSheetStyles } from './useNotificationSheetStyles';
@@ -115,7 +115,8 @@ export function NotificationSheet({
       const handle = username ? normalizeUsernameInput(username) : '';
       if (!handle) return;
       Haptics.selectionAsync();
-      dismissThen(() => router.push(hrefWithReturnTo(`/(app)/member/${handle}`, pathname)));
+      const href = prepareProfileHref(handle, pathname);
+      if (href) dismissThen(() => router.push(href));
     },
     [dismissThen, router, pathname],
   );
@@ -215,6 +216,7 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
+                onActorPress={() => openProfile(notificationActorHandle(item.actor))}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
@@ -229,6 +231,7 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
+                onActorPress={() => openProfile(notificationActorHandle(item.actor))}
                 title={notificationActorName(item.actor)}
                 body="Liked your comment"
                 sortAt={item.sortAt}
@@ -257,6 +260,7 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
+                onActorPress={() => openProfile(notificationActorHandle(item.actor))}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
@@ -394,6 +398,7 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
+                onActorPress={() => openProfile(notificationActorHandle(item.actor))}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}
@@ -412,6 +417,7 @@ export function NotificationSheet({
             <Card style={styles.card} elevated padded={false}>
               <NotificationActorRow
                 actor={item.actor ?? undefined}
+                onActorPress={() => openProfile(notificationActorHandle(item.actor))}
                 title={copy.title}
                 body={copy.body}
                 sortAt={item.sortAt}

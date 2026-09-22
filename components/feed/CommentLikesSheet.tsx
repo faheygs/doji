@@ -16,7 +16,7 @@ import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { IconClose } from '../icons/Icons';
 import { getEquippedBorder } from '../../lib/cosmetics';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useCommentLikes, type CommentLikeRow } from '../../hooks/useCommentLikes';
 import { Button } from '../ui/Button';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -65,8 +65,9 @@ export function CommentLikesSheet({ visible, commentId, onClose }: Props) {
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
-      pendingNavigationRef.current = () =>
-        router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
+      const href = prepareProfileHref(username, pathname);
+      if (!href) return;
+      pendingNavigationRef.current = () => router.push(href);
       handleClose();
     },
     [handleClose, pathname, router],

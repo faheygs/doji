@@ -10,6 +10,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'myPollVote',
   'pollVoteLikes',
   'profile',
+  'profilePost',
   'searchUsers',
   'friends',
   'friendRequests',

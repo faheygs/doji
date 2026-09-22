@@ -19,15 +19,11 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { PodiumTopThree } from '../../../components/leaderboard/PodiumTopThree';
 import { getRankTitle, getRankBorderColor } from '../../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../../lib/cosmetics';
-import { hrefWithReturnTo } from '../../../lib/navigationReturn';
+import { prepareProfileHref } from '../../../lib/profileNavigation';
 import type { LeaderboardEntry } from '../../../types/database';
 import { useFocusedRealtimeInvalidation } from '../../../hooks/useFocusedRealtimeInvalidation';
 import { useManualRefresh } from '../../../hooks/useManualRefresh';
-
-const MODE_LABELS: Record<LeaderboardMode, string> = {
-  weekly: 'This week',
-  alltime: 'All time',
-};
+const MODE_LABELS: Record<LeaderboardMode, string> = { weekly: 'This week', alltime: 'All time' };
 const AUDIENCE_LABELS: Record<LeaderboardAudience, string> = {
   friends: 'Friends',
   everyone: 'Everyone',
@@ -78,7 +74,8 @@ function RankItem({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
     if (isMe) {
       router.push('/(app)/profile' as Href);
     } else if (item.profile.username) {
-      router.push(hrefWithReturnTo(`/(app)/member/${item.profile.username}`, pathname));
+      const href = prepareProfileHref(item.profile.username, pathname);
+      if (href) router.push(href);
     }
   };
 

@@ -19,7 +19,7 @@ export function handleDomainRealtimeEvent({
   invalidateRoots,
 }: HandlerContext): void {
   if (event.type.startsWith('doji.')) {
-    invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'notificationCenter');
+    invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter');
     return;
   }
   if (event.type.startsWith('poll.vote.') || event.type.startsWith('poll.vote_like.')) {
@@ -27,7 +27,7 @@ export function handleDomainRealtimeEvent({
     return;
   }
   if (event.type.startsWith('user_event.')) {
-    invalidateRoots('userEvent', 'feed');
+    invalidateRoots('userEvent', 'feed', 'profilePost');
     return;
   }
   if (event.type.startsWith('shop.ownership.')) {
@@ -53,7 +53,7 @@ export function handleDomainRealtimeEvent({
     return;
   }
   if (event.type.startsWith('social.block.')) {
-    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'feed');
+    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed');
     return;
   }
   if (event.type.startsWith('notification.')) {

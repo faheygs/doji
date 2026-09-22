@@ -20,6 +20,7 @@ import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
 import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useFriendRequests';
 import { formatRelativeTime } from '../../../utils/time';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { prepareProfileHref } from '../../../lib/profileNavigation';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
@@ -127,7 +128,8 @@ export default function FriendRequestsScreen() {
                   onPress={() => {
                     Haptics.selectionAsync();
                     if (requester?.username) {
-                      router.push(hrefWithReturnTo(`/(app)/member/${requester.username}`, pathname));
+                      const href = prepareProfileHref(requester.username, pathname);
+                      if (href) router.push(href);
                     }
                   }}
                   style={styles.userInfo}

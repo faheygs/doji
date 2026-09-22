@@ -1,5 +1,5 @@
 import type { Href } from 'expo-router';
-import { feedPostHref, normalizeHref, ROUTES } from './routes';
+import { normalizeHref, postDetailHref, ROUTES } from './routes';
 
 /** Resolve push / in-app notification payload to an in-app route. */
 export function notificationHrefFromData(data: unknown): Href | null {
@@ -21,7 +21,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
   }
   if (type === 'FRIEND_POST') {
     return typeof postId === 'string' && postId.length > 0
-      ? feedPostHref(postId)
+      ? postDetailHref(postId)
       : ROUTES.feed;
   }
   if (type === 'POLL_VOTE') return ROUTES.feed;
@@ -37,7 +37,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
     typeof postId === 'string' &&
     postId.length > 0
   ) {
-    return feedPostHref(postId, {
+    return postDetailHref(postId, {
       openComments:
         type === 'COMMENT' ||
         type === 'COMMENT_LIKE' ||

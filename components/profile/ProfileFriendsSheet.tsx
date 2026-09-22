@@ -16,7 +16,7 @@ import type { AppColors } from '../../constants/theme';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Text } from '../ui/Text';
 import { IconClose } from '../icons/Icons';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useProfileFriendsPaged } from '../../hooks/useProfileFriendsPaged';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { AppSheetModal } from '../ui/AppSheetModal';
@@ -55,8 +55,9 @@ export function ProfileFriendsSheet({ visible, onClose, profileUserId, ownerDisp
   const openMember = useCallback(
     (username: string) => {
       Haptics.selectionAsync();
-      pendingNavigationRef.current = () =>
-        router.push(hrefWithReturnTo(`/(app)/member/${username}`, pathname));
+      const href = prepareProfileHref(username, pathname);
+      if (!href) return;
+      pendingNavigationRef.current = () => router.push(href);
       onClose();
     },
     [onClose, pathname, router],

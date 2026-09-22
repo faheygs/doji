@@ -29,12 +29,12 @@ import {
   useRemoveFriend,
   useFriendCount,
 } from '@/hooks/useProfile';
+import { useCurrentProfilePost } from '@/hooks/useCurrentProfilePost';
 import { useRespondToFriendRequest } from '@/hooks/useFriendRequests';
 import { useBlockUser, useUnblockUser, useIsBlockedByMe } from '@/hooks/useBlockUser';
 import { ReportSheet } from '@/components/feed/ReportSheet';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { safeReplace, FEED_TAB_HREF } from '@/lib/navigationReturn';
-import { sanitizeReturnTo } from '@/lib/navigationReturn';
+import { FEED_TAB_HREF, goBackToExplicitReturn } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
 import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import type { BadgeProgressStats } from '@/lib/badgeProgress';
@@ -42,6 +42,8 @@ import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import { ProfileManageMenu } from '@/components/profile/ProfileManageMenu';
 import { useAppDialog } from '@/contexts/DialogContext';
+import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
+import { useProfileNavigationStore } from '@/stores/useProfileNavigationStore';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams<{ username: string | string[]; returnTo?: string }>();
@@ -56,6 +58,8 @@ export default function UserProfileScreen() {
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const currentProfile = useAuthStore((s) => s.profile);
+  const pendingUsername = useProfileNavigationStore((s) => s.pendingUsername);
+  const clearPendingProfile = useProfileNavigationStore((s) => s.clear);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
   const [reportUserOpen, setReportUserOpen] = useState(false);
@@ -66,10 +70,15 @@ export default function UserProfileScreen() {
     setFriendsSheetVisible(true);
   }, []);
 
-  const { data: profile, blockedByUser, isLoading } = useProfile(username);
+  const profileQuery = useProfile(username);
+  const routeReady = !pendingUsername || pendingUsername === username;
+  const profile = routeReady && profileQuery.data?.username === username ? profileQuery.data : null;
+  const blockedByUser = routeReady && profileQuery.blockedByUser;
+  const isLoading = profileQuery.isLoading || !routeReady;
   const { data: friendship } = useFriendship(profile?.id);
   const { data: friendshipStatus = 'none' } = useFriendshipStatus(profile?.id);
   const { data: friendCount = 0 } = useFriendCount(profile?.id);
+  const { data: currentPost, isLoading: currentPostLoading } = useCurrentProfilePost(profile?.id);
   const sendRequest = useSendFriendRequest();
   const respondRequest = useRespondToFriendRequest();
   const removeFriend = useRemoveFriend();
@@ -103,19 +112,22 @@ export default function UserProfileScreen() {
   );
 
   const handleBack = () => {
-    // member/[username] is a Tabs.Screen, so its history accumulates across visits.
-    // router.back() would navigate within the member tab's stack (e.g. back to a
-    // previously visited profile). Always replace to the explicit returnTo or feed
-    // so the destination is always correct regardless of tab stack state.
-    const target = sanitizeReturnTo(returnTo);
-    safeReplace(router, target ?? FEED_TAB_HREF);
+    clearPendingProfile();
+    goBackToExplicitReturn(router, returnTo, FEED_TAB_HREF);
   };
 
   useEffect(() => {
     if (currentProfile?.username === username) {
+      clearPendingProfile();
       router.replace('/(app)/profile' as Href);
     }
-  }, [currentProfile?.username, username, router]);
+  }, [clearPendingProfile, currentProfile?.username, username, router]);
+
+  useEffect(() => {
+    if (pendingUsername === username && (profile || profileQuery.isFetched)) {
+      clearPendingProfile();
+    }
+  }, [clearPendingProfile, pendingUsername, profile, profileQuery.isFetched, username]);
 
   const onRefresh = useCallback(async () => {
     if (!profile?.id) return;
@@ -123,6 +135,7 @@ export default function UserProfileScreen() {
     try {
       await invalidateQueryRoots(queryClient, [
         'profile',
+        'profilePost',
         'friendship',
         'friendCount',
         'friends',
@@ -404,6 +417,8 @@ export default function UserProfileScreen() {
           bestStreak={profile.longest_streak ?? 0}
           style={{ marginTop: Spacing.md }}
         />
+
+        <ProfileCurrentPost post={currentPost} loading={currentPostLoading} />
 
         {categories.length > 0 ? (
           <View style={styles.section}>

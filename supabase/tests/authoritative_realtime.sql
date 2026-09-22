@@ -1,6 +1,6 @@
 begin;
 
-select plan(130);
+select plan(133);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -480,6 +480,19 @@ select has_function(
 select has_function(
   'public', 'get_post_detail', array['uuid'],
   'post detail uses an explicit server-owned safe-field contract'
+);
+select has_function(
+  'public', 'get_current_profile_post', array['uuid'],
+  'profiles can resolve only their post in the authoritative current Doji'
+);
+select has_index(
+  'public', 'posts', 'posts_current_profile_idx',
+  'current profile posts use a bounded event-and-owner lookup'
+);
+select alike(
+  pg_get_functiondef('public.get_post_detail(uuid)'::regprocedure),
+  '%post.daily_event_id = (%current_event.activated_at is not null or current_event.prelive_at is not null%',
+  'single-post reads expire when the authoritative feed occurrence advances'
 );
 select unalike(
   pg_get_functiondef('public.get_leaderboard_snapshot(text,text,integer)'::regprocedure),

@@ -21,7 +21,7 @@ import { IconChevronRight, IconFriends, IconSearch } from '../../../components/i
 import { useRemoveFriend, useFriendCount } from '../../../hooks/useProfile';
 import { useFriendRequestCount } from '../../../hooks/useFriendRequests';
 import { useFriendsPaged, type FriendListRow } from '../../../hooks/useFriendsPaged';
-import { hrefWithReturnTo } from '../../../lib/navigationReturn';
+import { hrefWithReturnTo } from '../../../lib/navigationReturn'; import { prepareProfileHref } from '../../../lib/profileNavigation';
 import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useAppDialog } from '../../../contexts/DialogContext';
@@ -163,7 +163,8 @@ export default function FriendsScreen() {
               statsStyle={styles.friendStats}
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push(hrefWithReturnTo(`/(app)/member/${item.username}`, pathname));
+                const href = prepareProfileHref(item.username, pathname);
+                if (href) router.push(href);
               }}
               onRemove={() => {
                 showDialog({

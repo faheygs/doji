@@ -959,6 +959,10 @@ export type Database = {
         Args: { p_post_id: string };
         Returns: Post | null;
       };
+      get_current_profile_post: {
+        Args: { p_user_id: string };
+        Returns: Post | null;
+      };
       get_notification_center_snapshot: {
         Args: {
           p_since: string;

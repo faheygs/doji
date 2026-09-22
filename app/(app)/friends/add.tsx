@@ -21,6 +21,7 @@ import {
 } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '../../../lib/navigationReturn';
+import { prepareProfileHref } from '../../../lib/profileNavigation';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 export default function AddFriendsScreen() {
@@ -169,7 +170,8 @@ function UserResult({ user, returnPath }: { user: SearchProfile; returnPath: str
       <TouchableOpacity
         onPress={() => {
           Haptics.selectionAsync();
-          router.push(hrefWithReturnTo(`/(app)/member/${user.username}`, returnPath));
+          const href = prepareProfileHref(user.username, returnPath);
+          if (href) router.push(href);
         }}
         style={rowStyles.userInfo}
         activeOpacity={0.8}

@@ -59,6 +59,9 @@ user directly to the feed; there is no success interstitial.
   optimistically, roll back on command failure, and then reconcile from the atomic
   friendship RPC plus private realtime invalidation.
 - Whenever a name or username is shown, show that user's avatar and equipped frame.
+  Displayed identities are profile links across posts, comments, reactions, voters,
+  friends, rankings, and notifications; navigation never leaves the prior person's
+  profile visible while the requested identity loads.
 - Blocking immediately removes the person and their content from the viewer's UI
   and removes the friendship. It does not create moderation work; only an explicit
   report action enters the admin queue.
@@ -319,11 +322,12 @@ Native phone-alert responses are captured before auth/profile restoration comple
 held until the protected root navigator is mounted, and cleared from the operating
 system only after the canonical destination route is accepted. Comment alerts retain
 their comment identifier through provider delivery so phone alerts and Activity Center
-items resolve through the same route contract. Post-related notification routes focus
-the authorized post inside the main feed and open its comments sheet when applicable;
-they do not create a separate post-view experience. The feed uses the targeted safe
-post read when the row is outside the currently loaded pages, avoiding an unbounded
-pagination scan. Legacy post-detail links redirect into this feed contract.
+items resolve through the same route contract. Post-related notification routes open
+the exact authorized current-post screen and open its comments sheet when applicable;
+they never search or reposition the paginated feed. Feed cards remain feed interactions
+and do not navigate to detail when tapped. A profile exposes only that account's post
+for the authoritative current Doji; tapping that preview opens the same post screen.
+When pre-live advances the feed occurrence, the prior preview and route are unavailable.
 Camera and library photos are decoded once before the approval preview, their longest
 edge is bounded to 2048 pixels, and the resulting orientation-baked JPEG is the exact
 file uploaded. Main preview/feed/moderation images use full-frame containment; only
@@ -830,13 +834,13 @@ reported account, evidence, and confirmed destructive actions.
 | ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Auth          | `app/(auth)`                                                        | Welcome, sign in/up, legal documents, username                                   |
 | Onboarding    | `app/(onboarding)`                                                  | How it works and notification permission after the one-page auth profile setup   |
-| Feed          | `app/(app)/index.tsx`                                               | Header, live banner, Friends/Everyone feed, gate, deep-linked content            |
+| Feed          | `app/(app)/index.tsx`                                               | Header, live banner, Friends/Everyone feed, gate, stable scrolling               |
 | Doji          | `challenge.tsx`, `camera.tsx`, `poll.tsx`, `task.tsx`, `format.tsx` | Type-specific participation and buy-in entry                                     |
 | Leaderboard   | `app/(app)/rank`                                                    | Weekly/all-time and Friends/Everyone rankings                                    |
 | Friends       | `app/(app)/friends`                                                 | List, search, requests, remove/block actions                                     |
 | Suggestions   | `suggest-challenge.tsx`                                             | Submit community challenge ideas                                                 |
-| Profile       | `app/(app)/profile`                                                 | Stats, Sparks, badges, posts, settings, dedicated edit profile, appearance, shop |
-| Member        | `app/(app)/member/[username].tsx`                                   | Another user's public profile and social actions                                 |
+| Profile       | `app/(app)/profile`                                                 | Stats, Sparks, badges, current Doji post, settings, edit, appearance, shop        |
+| Member        | `app/(app)/member/[username].tsx`                                   | Public profile, current Doji post, and social actions                             |
 | Notifications | `app/(app)/notifications.tsx`                                       | Durable bell history, dismiss/clear actions                                      |
 | Post detail   | `app/(app)/post/[id]`                                               | Focused content and threaded conversation                                        |
 | Admin         | `app/(app)/admin`                                                   | Reports and challenge suggestions                                                |

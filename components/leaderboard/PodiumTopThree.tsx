@@ -8,7 +8,7 @@ import { Avatar } from '../ui/Avatar';
 import { IcnCrown } from '../icons/BadgeIcons';
 import { getRankBorderColor } from '../../lib/rankTitle';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
-import { hrefWithReturnTo } from '../../lib/navigationReturn';
+import { prepareProfileHref } from '../../lib/profileNavigation';
 import type { LeaderboardEntry } from '../../types/database';
 import {
   PODIUM_AVATAR_SIZES,
@@ -47,7 +47,8 @@ function PodiumSlot({ entry, currentUserId }: PodiumSlotProps) {
     if (isMe) {
       router.push('/(app)/profile' as Href);
     } else if (entry.profile.username) {
-      router.push(hrefWithReturnTo(`/(app)/member/${entry.profile.username}`, pathname));
+      const href = prepareProfileHref(entry.profile.username, pathname);
+      if (href) router.push(href);
     }
   };
 

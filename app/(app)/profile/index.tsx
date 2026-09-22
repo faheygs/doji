@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import { useMySuggestions } from '@/hooks/useSuggestions';
 import { useFriendCount } from '@/hooks/useProfile';
+import { useCurrentProfilePost } from '@/hooks/useCurrentProfilePost';
 import { useReactionsGivenCount } from '@/hooks/useReactionsGivenCount';
 import { usePollVotesCount } from '@/hooks/usePollVotesCount';
 import { useChangeProfilePhoto } from '@/hooks/useChangeProfilePhoto';
@@ -32,7 +33,7 @@ import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
-
+import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
 export default function MyProfileScreen() {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,17 +47,16 @@ export default function MyProfileScreen() {
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
   const { data: friendCount = 0 } = useFriendCount(profile?.id);
+  const { data: currentPost, isLoading: currentPostLoading } = useCurrentProfilePost(profile?.id);
   const { data: reactionsGiven = 0 } = useReactionsGivenCount(profile?.id);
   const { data: pollVotes = 0 } = usePollVotesCount(profile?.id);
   const { data: mySuggestions = [] } = useMySuggestions(profile?.id);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
-
   const openFriendsList = useCallback(() => {
     Haptics.selectionAsync();
     setFriendsSheetVisible(true);
   }, []);
-
   const badgeProgressStats = useMemo((): BadgeProgressStats | null => {
     if (!profile) return null;
     return {
@@ -92,6 +92,7 @@ export default function MyProfileScreen() {
           'mySuggestions',
           'reactionsGiven',
           'profile',
+          'profilePost',
         ]),
         fetchProfile(profile.id),
       ]);
@@ -99,7 +100,6 @@ export default function MyProfileScreen() {
       setRefreshing(false);
     }
   }, [profile?.id, queryClient, fetchProfile]);
-
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -132,7 +132,6 @@ export default function MyProfileScreen() {
       }),
     [colors],
   );
-
   if (!profile) return null;
 
   return (
@@ -194,6 +193,8 @@ export default function MyProfileScreen() {
           }}
           style={{ marginTop: Spacing.md }}
         />
+
+        <ProfileCurrentPost post={currentPost} loading={currentPostLoading} />
 
         {categories.length > 0 ? (
           <View style={styles.section}>
