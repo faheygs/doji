@@ -22,4 +22,10 @@ describe('Everyone feed realtime membership contract', () => {
     expect(sql).toContain("tg_table_name = 'posts'");
     expect(sql).toContain("to_jsonb(new) - 'reaction_count' - 'comment_count' - 'updated_at'");
   });
+
+  it('reconciles cached audience data when a viewer returns after socket loss', () => {
+    const feedHook = fs.readFileSync(path.join(process.cwd(), 'hooks/useFeed.ts'), 'utf8');
+    expect(feedHook).toContain("refetchOnMount: 'always'");
+    expect(feedHook).toContain("refetchOnReconnect: 'always'");
+  });
 });

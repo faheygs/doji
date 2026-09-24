@@ -236,7 +236,7 @@ export async function handlePortalRead(
           'x-client-info': request.headers.get('x-client-info') ?? 'doji-admin-portal/1.0',
         },
         body: JSON.stringify(
-          realtimeTokenRoute ? { postIds: [] } : route!.args(url, inputBody),
+          realtimeTokenRoute ? { admin: true, postIds: [] } : route!.args(url, inputBody),
         ),
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       },

@@ -37,6 +37,11 @@ function tokenResponse(postIds: string[]) {
 const mockInvoke = jest.fn((_name: string, options: { body: { postIds: string[] } }) =>
   Promise.resolve(tokenResponse(options.body.postIds)),
 );
+const mockGetSession = jest.fn().mockResolvedValue({
+  data: { session: { access_token: 'test-token' } },
+  error: null,
+});
+const mockRefreshSession = jest.fn();
 
 jest.mock('ably', () => ({
   Realtime: jest.fn().mockImplementation((options) => {
@@ -52,7 +57,13 @@ jest.mock('ably', () => ({
   }),
 }));
 jest.mock('../../lib/supabase', () => ({
-  supabase: { functions: { invoke: (...args: unknown[]) => mockInvoke(...args) } },
+  supabase: {
+    auth: {
+      getSession: (...args: unknown[]) => mockGetSession(...args),
+      refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+    },
+    functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
+  },
 }));
 jest.mock('../../lib/telemetry', () => ({
   reportRealtimeFailure: (...args: unknown[]) => mockReport(...args),
@@ -86,6 +97,10 @@ describe('realtime channel lifecycle', () => {
     mockInvoke.mockImplementation((_name: string, options: { body: { postIds: string[] } }) =>
       Promise.resolve(tokenResponse(options.body.postIds)),
     );
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: 'test-token' } },
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -132,6 +147,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockAuthorize).toHaveBeenCalledTimes(1);
     expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
       body: { postIds: [postId] },
+      headers: { Authorization: 'Bearer test-token' },
     });
     remove();
   });
@@ -148,6 +164,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockAuthorize).toHaveBeenCalledTimes(1);
     expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
       body: { postIds: [firstId, secondId] },
+      headers: { Authorization: 'Bearer test-token' },
     });
     removeFirst();
     removeSecond();
@@ -179,6 +196,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockAuthorize).toHaveBeenCalledTimes(2);
     expect(mockInvoke).toHaveBeenLastCalledWith('realtime-token', {
       body: { postIds: [firstId, secondId] },
+      headers: { Authorization: 'Bearer test-token' },
     });
     removeFirst();
     removeSecond();

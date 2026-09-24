@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(40);
 
 select has_table('public', 'admin_operator_roles', 'admin roles are server owned');
 select has_table('public', 'admin_audit_log', 'admin audit storage exists');
@@ -8,6 +8,10 @@ select has_table('public', 'admin_report_triage', 'report assignment and priorit
 select has_function(
   'public', 'admin_user_has_permission', array['text'],
   'portal permissions use a bounded server helper'
+);
+select has_function(
+  'public', 'get_admin_realtime_token_capabilities', array[]::text[],
+  'portal realtime authorization has a separate capability contract'
 );
 select has_function(
   'public', 'get_admin_portal_session', array[]::text[],
@@ -41,10 +45,36 @@ select has_trigger(
   'public', 'challenge_suggestions', 'publish_admin_suggestion_change',
   'new community ideas invalidate the admin queue'
 );
-select alike(
+select unalike(
   pg_get_functiondef('public.get_realtime_token_capabilities(uuid[])'::regprocedure),
   '%moderation.read%',
-  'portal moderation roles receive the existing admin realtime channel'
+  'mobile realtime authorization does not consult portal roles'
+);
+select alike(
+  pg_get_functiondef('public.get_admin_realtime_token_capabilities()'::regprocedure),
+  '%moderation.read%',
+  'portal realtime authorization checks moderation permission'
+);
+select alike(
+  pg_get_functiondef('public.get_admin_realtime_token_capabilities()'::regprocedure),
+  '%''aal2''%',
+  'portal realtime authorization requires MFA assurance level two'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.get_admin_realtime_token_capabilities()',
+    'execute'
+  ),
+  'authenticated AAL2 operators may request admin realtime capability'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.get_admin_realtime_token_capabilities()',
+    'execute'
+  ),
+  'anonymous users cannot request admin realtime capability'
 );
 select ok(
   has_function_privilege('authenticated', 'public.get_admin_portal_session()', 'execute'),

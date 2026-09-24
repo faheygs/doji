@@ -446,6 +446,12 @@ foreground reconciliation refetches authorized state if any event was missed.
    the app returns to the foreground.
 6. Ably connect/recovery runs the shared `lib/reconcileQueries.ts` catch-up.
 
+Audience query caches remain independent and render immediately when toggled. Returning
+to an audience or reconnecting the network always starts one background authoritative
+read, even inside the normal stale window, so a missed socket hint cannot strand a
+Friends feed on an older membership snapshot. This is lifecycle-triggered reconciliation,
+not recurring polling.
+
 The mobile client does not subscribe to Supabase Postgres Changes. Running two socket
 transports for the same commit duplicated invalidation and reconnect work, while
 Postgres Changes performs per-subscriber authorization and does not provide a more
@@ -477,6 +483,10 @@ Channels:
   Recoverable handset transport loss, including provider channel-attach timeouts, is
   also breadcrumb-only: resilient subscriptions retry with bounded jitter and
   foreground reconciliation repairs authoritative reads.
+  Realtime authorization sends the current Supabase access token explicitly. A 401
+  triggers one Auth refresh and one read-only token retry before normal channel
+  recovery continues. Authenticated command requests use the same single refresh
+  retry; their desired-state/idempotency contracts keep that recovery safe.
   Unexpected authentication, capability, protocol, and provider failures remain
   reportable production incidents.
 - Public identity, avatar, frame, title, badge, and public-stat events fan out on
@@ -645,6 +655,10 @@ than two minutes and other pushes older than five minutes. APNs, FCM, and Expo e
 is fixed to the original action deadline; a retry can never give an old action a new
 lifetime. Realtime health email requires a representative five-minute sample unless
 one event exceeds 30 seconds, and each issue family has a rolling 60-minute cooldown.
+When the durable outbox is caught up, slow socket publication is labeled as a suspected
+provider/network incident rather than a database-write failure. Failed health reads
+report only a bounded provider surface, failure class, attempt count, and HTTP status;
+response bodies, credentials, and application content are excluded.
 App correctness never depends on OS push delivery; foreground/reconnect reconciliation
 must still reveal the committed state.
 Nested outbox inserts issue one post-commit relay wake per database transaction.
@@ -667,7 +681,8 @@ one bounded database RPC for caller identity, administrator, and mounted-post
 capabilities. Initially visible subscriptions collect for 80 ms before one shared
 authorization, with at most one trailing pass for later additions. Mobile token requests
 remain serialized with a 20-second transport timeout so an older token cannot win the
-race. The Edge function logs database/provider durations and returns a structured,
+race. A rejected JWT receives one explicit session refresh and retry. The Edge function
+logs database/provider durations and returns a structured,
 retryable 503 instead of an unhandled 500 when an upstream is unavailable.
 The shared Ably transport connects immediately on first use. Recovered connections
 coalesce authoritative Postgres repair for only 100-500 ms; retry backoff remains
@@ -1002,8 +1017,10 @@ the normal 13+ gate and separately accept the current Terms and Privacy Policy.
   content/profile photo and warning state atomically. Every command writes an audit row.
   Protected post evidence is signed for five minutes
   only after the case read authorizes it. Other portal writes remain disabled until they
-  receive equivalent permission-scoped audited commands. Live refresh reuses the existing short-lived Ably authorization
-  and subscribes only to `moderation:global` and `doji:global`; identifier events are
+  receive equivalent permission-scoped audited commands. Live refresh reuses the existing short-lived Ably endpoint
+  through a separate AAL2-only admin capability RPC and subscribes only to
+  `moderation:global` and `doji:global`; normal mobile token issuance never consults
+  portal-role tables. Identifier events are
   coalesced into an authoritative snapshot read and reconnect always reconciles.
   An authorized operator without MFA completes a one-time TOTP enrollment after
   password sign-in: the browser requests a Supabase QR/secret, keeps the pre-AAL2

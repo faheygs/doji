@@ -28,6 +28,8 @@ describe('audience-scoped engagement contract', () => {
     const mutation = read('hooks/useToggleReaction.ts');
     expect(mutation).toContain("audience === 'everyone' ? patchGlobal : patchViewerState");
     expect(mutation).toContain('variables.feedAudience');
+    expect(mutation).toContain('ENGAGEMENT_CACHE_SETTLE_MS = 1_500');
+    expect(mutation).toContain('scheduleAuthoritativeEngagementRefresh');
   });
 
   it('uses a notification post id as a targeted ordering safety net', () => {

@@ -47,6 +47,43 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   });
 }
 
+function responseStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const value = error as { context?: unknown; status?: unknown; statusCode?: unknown };
+  if (typeof value.status === 'number') return value.status;
+  if (typeof value.statusCode === 'number') return value.statusCode;
+  if (value.context && typeof value.context === 'object') {
+    const status = (value.context as { status?: unknown }).status;
+    if (typeof status === 'number') return status;
+  }
+  return null;
+}
+
+async function invokeRealtimeToken(postIds: string[]) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  let token = sessionData.session?.access_token;
+  if (sessionError || !token) throw sessionError ?? new Error('Authentication required');
+
+  const invoke = (accessToken: string) =>
+    supabase.functions.invoke<TokenRequest>('realtime-token', {
+      body: { postIds },
+      // Supplying the access token explicitly avoids relying on a Functions
+      // client snapshot while Auth is rotating a session in the background.
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+  let result = await invoke(token);
+  if (responseStatus(result.error) !== 401) return result;
+
+  // A rejected freshly-rotated JWT is safe to retry once after Auth refresh.
+  // The token endpoint is read-only and does not create application state.
+  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+  token = refreshed.session?.access_token;
+  if (refreshError || !token) return result;
+  result = await invoke(token);
+  return result;
+}
+
 function grantedChannels(token: TokenRequest): Set<string> {
   try {
     const capability = JSON.parse(token.capability) as Record<string, unknown>;
@@ -73,7 +110,7 @@ export function requestRealtimeToken(
     try {
       const postIds = [...requestedSnapshot].map((name) => name.slice('post:'.length));
       const { data, error } = await withTimeout(
-        supabase.functions.invoke<TokenRequest>('realtime-token', { body: { postIds } }),
+        invokeRealtimeToken(postIds),
         AUTH_REQUEST_TIMEOUT_MS,
       );
       if (error || !data) {

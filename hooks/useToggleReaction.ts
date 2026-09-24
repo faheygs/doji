@@ -25,6 +25,29 @@ type ToggleReactionResult = {
   current_emoji?: ReactionEmoji | null;
 };
 
+const ENGAGEMENT_CACHE_SETTLE_MS = 1_500;
+const engagementRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleAuthoritativeEngagementRefresh(
+  queryClient: ReturnType<typeof useQueryClient>,
+  userId: string,
+  postId: string,
+  audience: FeedAudience,
+) {
+  const key = `${userId}:${postId}:${audience}`;
+  const previous = engagementRefreshTimers.get(key);
+  if (previous) clearTimeout(previous);
+  engagementRefreshTimers.set(
+    key,
+    setTimeout(() => {
+      engagementRefreshTimers.delete(key);
+      void refreshPostEngagement(queryClient, postId, audience).catch((error) => {
+        if (__DEV__) console.warn('[reactions] engagement refresh failed', error);
+      });
+    }, ENGAGEMENT_CACHE_SETTLE_MS),
+  );
+}
+
 export function patchReactionToggle(post: Post, emoji: ReactionEmoji, active: boolean): Post {
   const breakdown: Record<string, number> = { ...(post.reaction_breakdown ?? {}) };
   const previous = post.my_reactions?.[0] as ReactionEmoji | undefined;
@@ -104,7 +127,7 @@ export function useToggleReaction() {
       for (const [key, data] of context?.previousPosts ?? []) queryClient.setQueryData(key, data);
     },
     onSuccess: (result, variables) => {
-      if (!result) return;
+      if (!result || !userId) return;
       const patchGlobal = (post: Post): Post => ({
         ...post,
         reaction_count: result.count,
@@ -139,10 +162,16 @@ export function useToggleReaction() {
         },
         (old) => (old ? patchGlobal(old) : old),
       );
-      void refreshPostEngagement(queryClient, variables.postId, variables.feedAudience).catch(
-        (error) => {
-          if (__DEV__) console.warn('[reactions] engagement refresh failed', error);
-        },
+      // The command receipt is the authoritative committed result. The scale
+      // read cache intentionally lives for one second, so an immediate read can
+      // still contain the pre-command snapshot and visually undo a reaction.
+      // Reconcile after that bounded cache window; a newer toggle replaces this
+      // timer so an older refresh cannot win over the user's latest choice.
+      scheduleAuthoritativeEngagementRefresh(
+        queryClient,
+        userId,
+        variables.postId,
+        variables.feedAudience,
       );
     },
     onSettled: (_data, _error, variables) => {

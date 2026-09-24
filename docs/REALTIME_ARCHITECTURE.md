@@ -151,9 +151,17 @@
 - Optimistic mutation completion uses the same batch. A committed challenge response
   never waits for feed/profile refetches before navigation; authoritative reads
   reconcile behind the direct-to-feed transition.
+- Friends and Everyone retain separate cached query identities. Returning to either
+  audience or reconnecting the network displays its cache immediately and performs one
+  background authoritative read, even during the normal stale window. This repairs a
+  missed socket hint without recurring polling or a loading-state regression.
 - A reaction/comment intent patches the actor's cache synchronously before cancellation
   acknowledgement or the RPC. The cancellation signal prevents stale reads from
   overwriting it; the authoritative response and post socket then reconcile counts.
+  A successful reaction receipt is applied immediately. Its targeted engagement
+  refresh waits beyond the one-second scale-cache TTL and newer reaction intents
+  replace older timers, so a pre-command cached snapshot cannot visually undo a
+  committed reaction while realtime is recovering.
 - Changing a reaction emoji moves its fixed-shard breakdown count in the same database
   transaction as the base reaction row. Feed snapshots and targeted engagement reads
   therefore cannot disagree after a reaction switch.
@@ -500,8 +508,9 @@ stable idempotency receipt, enforce bounded reasons, and append `admin_audit_log
 other portal mutation remains disabled.
 Private post media receives a five-minute signed URL only after that report read and the
 existing Storage authorization succeed. Portal activity does not create a second socket topology: the live portal subscribes
-to the existing `moderation:global` and `doji:global` Ably channels using the existing
-short-lived `realtime-token` contract. Messages remain identifier-only and are coalesced
+to the existing `moderation:global` and `doji:global` Ably channels through the existing
+short-lived endpoint but a separate AAL2-only admin capability RPC. Normal mobile token
+issuance does not consult portal-role tables. Messages remain identifier-only and are coalesced
 into fresh authoritative command-center and appeal reads; reports, appeals, and community-suggestion changes
 both invalidate the admin queue, and a recovered connection also reconciles.
 First-time administrators use the same Doji Auth identity. After the password reaches
@@ -580,6 +589,9 @@ authorization and fallback path.
   for that authenticated-only RPC and returns its user ID with the capability inputs,
   eliminating a separate Auth-server request. Mobile token requests are serialized and use
   a 20-second transport timeout so cold starts do not create an auth-request storm.
+  The client supplies its current access token explicitly; an HTTP 401 causes exactly
+  one session refresh and one read-only retry. Authenticated command requests have the
+  same single 401 recovery, independent of their bounded transient retry budget.
   Authenticated clients never receive a `post:*` wildcard.
 - A provider capability rejection receives one bounded recovery attempt: invalidate
   the cached exact-post grant, mint a fresh capability set, release the failed Ably
@@ -688,6 +700,11 @@ It accepts only the orchestrator secret and is not attached to pg_cron.
 - Realtime latency is degraded only with a representative five-minute sample of at
   least 20 events whose p95 exceeds five seconds, or when any event exceeds 30 seconds.
   This prevents a handful of low-traffic samples from paging as a system incident.
+- When the outbox is caught up but socket publication is slow, alerts identify the
+  suspected provider/network layer and explicitly state that committed database writes
+  are not at risk. A failed health read records only the provider surface, timeout/network/
+  HTTP/invalid-response class, bounded attempt count, and status; upstream bodies and
+  application data never enter the alert.
 - Retention is a self-draining Durable Object alarm. Each Edge invocation stays bounded,
   but `hasMore` schedules the next batch until operational and rate-limit backlogs are
   empty.

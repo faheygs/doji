@@ -24,7 +24,9 @@ async function withTimeout<T>(operation: Promise<T>, message: string): Promise<T
   }
 }
 
-async function readBoundedJson(request: Request): Promise<{ postIds?: unknown }> {
+type TokenRequestBody = { admin?: unknown; postIds?: unknown };
+
+async function readBoundedJson(request: Request): Promise<TokenRequestBody> {
   const contentLength = Number(request.headers.get('content-length') ?? '0');
   if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
     throw new RangeError('Realtime token request is too large');
@@ -55,7 +57,7 @@ async function readBoundedJson(request: Request): Promise<{ postIds?: unknown }>
 
   const parsed: unknown = JSON.parse(body);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-  return parsed as { postIds?: unknown };
+  return parsed as TokenRequestBody;
 }
 
 Deno.serve(async (request) => {
@@ -76,7 +78,7 @@ Deno.serve(async (request) => {
   const ablyKey = Deno.env.get('ABLY_API_KEY');
   if (!ablyKey) return new Response('Realtime service is not configured', { status: 500 });
 
-  let requestBody: { postIds?: unknown } = {};
+  let requestBody: TokenRequestBody = {};
   if (request.method === 'POST') {
     try {
       requestBody = await readBoundedJson(request);
@@ -98,17 +100,24 @@ Deno.serve(async (request) => {
   if (requestedPostIds.length > 64) {
     return new Response('Too many realtime post subscriptions', { status: 400 });
   }
+  const adminRequest = requestBody.admin === true;
+  if (adminRequest && requestedPostIds.length > 0) {
+    return new Response('Admin token requests cannot include post subscriptions', { status: 400 });
+  }
 
   let capabilityData: unknown;
   try {
     const result = await database.rpc(
-      'get_realtime_token_capabilities',
-      { p_post_ids: requestedPostIds },
+      adminRequest
+        ? 'get_admin_realtime_token_capabilities'
+        : 'get_realtime_token_capabilities',
+      adminRequest ? {} : { p_post_ids: requestedPostIds },
     );
     capabilityData = result.data;
     if (result.error || !capabilityData) {
       console.error('[realtime-token] capability lookup failed', JSON.stringify({
         stage: 'capability',
+        capabilityScope: adminRequest ? 'admin' : 'mobile',
         durationMs: Date.now() - startedAt,
         requestedPostCount: requestedPostIds.length,
         error: result.error?.message ?? 'empty capability response',
@@ -121,6 +130,7 @@ Deno.serve(async (request) => {
   } catch (error) {
     console.error('[realtime-token] capability request failed', JSON.stringify({
       stage: 'capability',
+      capabilityScope: adminRequest ? 'admin' : 'mobile',
       durationMs: Date.now() - startedAt,
       requestedPostCount: requestedPostIds.length,
       error: error instanceof Error ? error.message : String(error),
@@ -173,6 +183,7 @@ Deno.serve(async (request) => {
     console.info('[realtime-token] issued', JSON.stringify({
       durationMs: Date.now() - startedAt,
       providerDurationMs: Date.now() - providerStartedAt,
+      capabilityScope: adminRequest ? 'admin' : 'mobile',
       requestedPostCount: requestedPostIds.length,
       authorizedPostCount: authorizedPostIds.length,
     }));
@@ -180,6 +191,7 @@ Deno.serve(async (request) => {
   } catch (error) {
     console.error('[realtime-token] provider request failed', JSON.stringify({
       stage: 'provider',
+      capabilityScope: adminRequest ? 'admin' : 'mobile',
       durationMs: Date.now() - startedAt,
       requestedPostCount: requestedPostIds.length,
       authorizedPostCount: authorizedPostIds.length,

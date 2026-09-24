@@ -4,6 +4,7 @@ import { captureWorkerException } from './sentry';
 import {
   actionableOperationalIssue,
   checkOperationalHealth,
+  operationalHealthFailureDetails,
   sendOperationalAlert,
   type EventAlarmRepair,
 } from './operational-health';
@@ -84,10 +85,11 @@ export class HealthMonitor extends DurableObject<Env> {
               this.env.SENTRY_DSN,
               issue.family,
               new Error(`Operational health issue persisted: ${issue.family}`),
-              { consecutiveChecks: state.consecutiveUnhealthy },
+              { consecutiveChecks: state.consecutiveUnhealthy, ...issue.diagnostics },
             ),
             sendOperationalAlert(this.env, issue.family, {
               ...health,
+              ...issue.diagnostics,
               consecutive_unhealthy_checks: state.consecutiveUnhealthy,
             }),
           ]);
@@ -105,10 +107,12 @@ export class HealthMonitor extends DurableObject<Env> {
         await Promise.allSettled([
           captureWorkerException(this.env.SENTRY_DSN, 'operational_health_check', error, {
             consecutiveFailures: state.consecutiveCheckFailures,
+            ...operationalHealthFailureDetails(error),
           }),
           sendOperationalAlert(this.env, 'operational-health-check-failed', {
             consecutive_failures: state.consecutiveCheckFailures,
             error: error instanceof Error ? error.message : String(error),
+            ...operationalHealthFailureDetails(error),
           }),
         ]);
         state.checkFailureAlerted = true;

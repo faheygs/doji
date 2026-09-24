@@ -76,6 +76,12 @@ export function useFeed(
     initialPageParam: { offset: 0 },
     enabled: !!userId && !!dailyEventId && unlocked !== undefined,
     staleTime: 60_000,
+    // Keep the cached audience visible immediately, but always reconcile when
+    // the observer returns to it or the network reconnects. This is a bounded
+    // user/lifecycle-triggered read, not polling, and repairs a missed socket
+    // hint without making the user wait for the normal stale window.
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
   });
 }
 

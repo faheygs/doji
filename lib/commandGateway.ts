@@ -134,7 +134,7 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
+  let token = sessionData.session?.access_token;
   if (sessionError || !token) {
     return {
       data: null,
@@ -143,14 +143,28 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
   }
 
   const retryable = mayRetryCommand(name, args);
+  let transientRetriesRemaining = retryable ? 1 : 0;
+  let refreshedUnauthorizedSession = false;
   let lastFailure: unknown = null;
-  for (let attempt = 0; attempt < (retryable ? 2 : 1); attempt += 1) {
+  for (;;) {
     try {
       const { response, payload } = await gatewayCommand(baseUrl, token, name, args);
       if (response.ok) {
         return { data: payload as FunctionResult<Name>, error: null };
       }
-      if (attempt === 0 && retryable && isTransientStatus(response.status)) {
+
+      if (response.status === 401 && !refreshedUnauthorizedSession) {
+        refreshedUnauthorizedSession = true;
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        const refreshedToken = refreshed.session?.access_token;
+        if (!refreshError && refreshedToken) {
+          token = refreshedToken;
+          continue;
+        }
+      }
+
+      if (transientRetriesRemaining > 0 && isTransientStatus(response.status)) {
+        transientRetriesRemaining -= 1;
         lastFailure = commandError(payload, `Command failed (${response.status})`);
         await delay(TRANSIENT_RETRY_DELAY_MS);
         continue;
@@ -161,10 +175,12 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
       };
     } catch (error) {
       lastFailure = error;
-      if (attempt === 0 && retryable) {
+      if (transientRetriesRemaining > 0) {
+        transientRetriesRemaining -= 1;
         await delay(TRANSIENT_RETRY_DELAY_MS);
         continue;
       }
+      break;
     }
   }
 

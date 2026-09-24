@@ -116,13 +116,18 @@ describe('mobile data architecture', () => {
   it('authorizes admin realtime without exposing private profile columns', () => {
     const token = read('supabase/functions/realtime-token/index.ts');
     const capabilityContract = read(
-      'supabase/migrations/20260824231500_single_round_trip_realtime_auth.sql',
+      'supabase/migrations/20260924140000_isolate_admin_realtime_capabilities.sql',
     );
     expect(token).toContain("'get_realtime_token_capabilities'");
+    expect(token).toContain("'get_admin_realtime_token_capabilities'");
+    expect(token).toContain("capabilityScope: adminRequest ? 'admin' : 'mobile'");
     expect(token).not.toContain("select('is_admin')");
     expect(capabilityContract).toContain('select coalesce(profile.is_admin, false)');
+    expect(capabilityContract).toContain("auth.jwt() ->> 'aal'");
+    expect(capabilityContract).toContain("admin_user_has_permission('moderation.read')");
     expect(capabilityContract).toContain("'userId', uid");
     expect(capabilityContract).toContain("'isAdmin', coalesce(is_admin, false)");
+    expect(capabilityContract).toContain("'isAdmin', true");
   });
 
   it('keeps authenticated RLS helpers executable after function hardening', () => {

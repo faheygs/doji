@@ -18,7 +18,29 @@ describe('resilient realtime subscription', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
+  });
+
+  it('retries a temporary provider failure and keeps the recovered subscription', async () => {
+    const remove = jest.fn();
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    mockSubscribe
+      .mockRejectedValueOnce(new Error('Edge Function returned 503'))
+      .mockResolvedValueOnce(remove);
+
+    const stop = startResilientRealtimeSubscription('doji:global', jest.fn(), {
+      scope: 'app',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1_000);
+    expect(mockSubscribe).toHaveBeenCalledTimes(2);
+
+    stop();
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry an authoritative post access loss', async () => {

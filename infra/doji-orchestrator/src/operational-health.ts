@@ -11,6 +11,7 @@ export type OperationalHealth = {
 export type OperationalIssue = {
   family: string;
   immediate: boolean;
+  diagnostics: Record<string, unknown>;
 };
 
 export type EventAlarmRepair = {
@@ -26,6 +27,57 @@ const ALERT_TIMEOUT_MS = 12_000;
 const HEALTH_TIMEOUT_MS = 20_000;
 const HEALTH_ATTEMPTS = 2;
 const HEALTH_RETRY_DELAY_MS = 750;
+
+type HealthFailureKind = 'http' | 'invalid-response' | 'network' | 'timeout';
+
+class OperationalHealthCheckError extends Error {
+  constructor(
+    message: string,
+    readonly failureKind: HealthFailureKind,
+    readonly attempts: number,
+    readonly status: number | null = null,
+  ) {
+    super(message);
+    this.name = 'OperationalHealthCheckError';
+  }
+}
+
+function timeoutFailure(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const value = error as { message?: unknown; name?: unknown };
+  return value.name === 'AbortError' || value.name === 'TimeoutError' ||
+    (typeof value.message === 'string' && /aborted.*timeout|timed out/i.test(value.message));
+}
+
+function normalizeHealthFailure(error: unknown, attempt: number): OperationalHealthCheckError {
+  if (error instanceof OperationalHealthCheckError) return error;
+  if (timeoutFailure(error)) {
+    return new OperationalHealthCheckError(
+      'Supabase operational-health request timed out',
+      'timeout',
+      attempt,
+    );
+  }
+  return new OperationalHealthCheckError(
+    'Supabase operational-health request failed before a response',
+    'network',
+    attempt,
+  );
+}
+
+export function operationalHealthFailureDetails(error: unknown): Record<string, unknown> {
+  const failure = error instanceof OperationalHealthCheckError
+    ? error
+    : normalizeHealthFailure(error, HEALTH_ATTEMPTS);
+  return {
+    provider: 'supabase',
+    provider_surface: 'edge-functions',
+    failure_kind: failure.failureKind,
+    attempts: failure.attempts,
+    upstream_status: failure.status,
+    durable_event_state: 'unverified-health-read',
+  };
+}
 
 async function operationalFetch(
   input: RequestInfo | URL,
@@ -56,13 +108,26 @@ async function fetchOperationalHealth(env: OperationalEnv): Promise<Record<strin
         },
         HEALTH_TIMEOUT_MS,
       );
-      const body = await response.text();
       if (!response.ok) {
-        throw new Error(`Operational health check failed: ${response.status} ${body}`);
+        throw new OperationalHealthCheckError(
+          `Supabase operational-health endpoint returned ${response.status}`,
+          'http',
+          attempt,
+          response.status,
+        );
       }
-      return JSON.parse(body) as Record<string, unknown>;
+      try {
+        return JSON.parse(await response.text()) as Record<string, unknown>;
+      } catch {
+        throw new OperationalHealthCheckError(
+          'Supabase operational-health endpoint returned invalid JSON',
+          'invalid-response',
+          attempt,
+          response.status,
+        );
+      }
     } catch (error) {
-      lastError = error;
+      lastError = normalizeHealthFailure(error, attempt);
       if (attempt < HEALTH_ATTEMPTS) await wait(HEALTH_RETRY_DELAY_MS);
     }
   }
@@ -121,16 +186,32 @@ export async function checkOperationalHealth(
  */
 export function actionableOperationalIssue(health: OperationalHealth): OperationalIssue | null {
   if (Number(health.apns_provider_credential_errors ?? 0) > 0) {
-    return { family: 'apns-provider-credentials', immediate: true };
+    return {
+      family: 'apns-provider-credentials',
+      immediate: true,
+      diagnostics: { suspected_layer: 'apns-provider-credentials' },
+    };
   }
   if (Number(health.outbox_exhausted ?? 0) > 0) {
-    return { family: 'domain-outbox-exhausted', immediate: true };
+    return {
+      family: 'domain-outbox-exhausted',
+      immediate: true,
+      diagnostics: { suspected_layer: 'durable-outbox' },
+    };
   }
   if (Number(health.push_exhausted_shards ?? 0) > 0) {
-    return { family: 'push-fanout-exhausted', immediate: true };
+    return {
+      family: 'push-fanout-exhausted',
+      immediate: true,
+      diagnostics: { suspected_layer: 'push-fanout' },
+    };
   }
   if (Number(health.outbox_overdue ?? 0) > 0) {
-    return { family: 'domain-outbox-delayed', immediate: false };
+    return {
+      family: 'domain-outbox-delayed',
+      immediate: false,
+      diagnostics: { suspected_layer: 'durable-outbox' },
+    };
   }
   if (
     Number(health.realtime_max_ms_5m ?? 0) > 30_000 ||
@@ -139,7 +220,19 @@ export function actionableOperationalIssue(health: OperationalHealth): Operation
       Number(health.realtime_p95_ms_5m ?? 0) > 5_000
     )
   ) {
-    return { family: 'realtime-delivery-degraded', immediate: false };
+    const durableOutboxCaughtUp = Number(health.outbox_overdue ?? 0) === 0 &&
+      Number(health.outbox_exhausted ?? 0) === 0;
+    return {
+      family: 'realtime-delivery-degraded',
+      immediate: false,
+      diagnostics: {
+        suspected_layer: durableOutboxCaughtUp
+          ? 'realtime-provider-or-network'
+          : 'durable-outbox',
+        durable_outbox_caught_up: durableOutboxCaughtUp,
+        database_writes_at_risk: false,
+      },
+    };
   }
   return null;
 }

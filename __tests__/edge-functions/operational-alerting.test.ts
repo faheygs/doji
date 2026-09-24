@@ -24,9 +24,13 @@ describe('operational alerting contract', () => {
 
   it('retries one transient health timeout before paging the administrator', () => {
     const health = read('infra/doji-orchestrator/src/operational-health.ts');
+    const monitor = read('infra/doji-orchestrator/src/health-monitor.ts');
     expect(health).toContain('HEALTH_ATTEMPTS = 2');
     expect(health).toContain('HEALTH_TIMEOUT_MS = 20_000');
     expect(health).toContain('attempt < HEALTH_ATTEMPTS');
+    expect(health).toContain('failure_kind: failure.failureKind');
+    expect(monitor).toContain('operationalHealthFailureDetails(error)');
+    expect(monitor).toContain('...issue.diagnostics');
   });
 
   it('keeps server diagnostics non-blocking and free of provider secrets', () => {
