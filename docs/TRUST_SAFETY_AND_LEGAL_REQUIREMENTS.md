@@ -294,6 +294,16 @@ verified.
 
 ## Rollout order
 
+Implementation checkpoint (2026-09-24): the production contract now has reversible
+post/comment/poll-response moderation state, classified and audited portal decisions,
+routine warnings and member notices, Account Status, one server-owned appeal per
+eligible decision, independent appeal review with restoration, and quarantine routing
+to a restricted queue. The older hard-delete and mobile-admin decision paths fail
+closed. This is an engineering foundation, not legal-program completion: the staged
+avatar pipeline, restricted evidence vault, account-restriction/ban criteria, public
+intake/status center, legal holds/retention jobs, trained escalation coverage, policy
+publication, counsel approval, and scenario testing below are still required.
+
 1. Obtain counsel review of the operating entity, launch jurisdictions, Terms,
    Privacy Policy, Community Guidelines, TAKE IT DOWN process, DMCA agent/process,
    child-safety reporting, evidence preservation, retention schedule, and appeals.

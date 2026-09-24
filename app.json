@@ -2,7 +2,7 @@
   "expo": {
     "name": "Doji",
     "slug": "doit-challenge-app",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "default",
     "icon": "./assets/icon-ios.png",
     "scheme": "doit",
@@ -22,7 +22,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "91"
+      "buildNumber": "92"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -32,7 +32,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 17
+      "versionCode": 18
     },
     "web": {
       "favicon": "./assets/icon.png"

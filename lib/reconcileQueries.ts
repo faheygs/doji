@@ -31,6 +31,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'mySuggestions',
   'challengeSuggestionCounts',
   'notificationCenter',
+  'moderationStatus',
 ]);
 
 let inFlight: Promise<void> | null = null;

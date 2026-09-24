@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 20, 2026
+Last updated: September 22, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -8,6 +8,49 @@ move it to **Completed** only after the relevant release or server change has be
 verified on a physical device.
 
 ## Queued
+
+### FW-031 — Make native push-endpoint registration resilient to transient timeouts
+
+Priority: P1 — before next shared iOS/Android build
+
+Implementation staged September 22: endpoint mutations are serialized, concurrent
+sync requests are single-flight, unchanged successful identities use a six-hour local
+fingerprint receipt, transient command-gateway errors use bounded 1/3/10-second
+jittered recovery, and superseded lifecycle runs stop before another attempt. Automated
+policy, token-rotation, cache-reuse, and transient-classification coverage is included;
+physical iPhone/Android failure injection and subsequent Doji-live delivery verification
+remain before completion.
+
+On September 22, Android 1.0.7 code 17 reported a handled HTTP 504 while
+refreshing a native push endpoint on app foreground. The command gateway retried
+once after 250 ms, then surfaced `endpoint-registration` to Sentry. The atomic
+database command prevents partial endpoint state, and a later foreground retries
+the sync, but a new or rotated device token can miss phone alerts until that retry
+succeeds.
+
+- Single-flight registration per installation so startup, foreground, settings,
+  and permission flows cannot issue overlapping endpoint commands.
+- Persist a non-sensitive fingerprint of the last successful user, native token,
+  app release/build, notification-contract version, environment, and relevant
+  preference state. Skip an unchanged foreground registration until a bounded
+  reconciliation interval expires.
+- Replace the single 250 ms retry for transient 408/425/429/5xx and transport
+  failures with bounded exponential backoff and jitter. Cancel pending retries on
+  sign-out, user change, notification disablement, ban, or app disposal.
+- Preserve the existing active endpoint until a replacement registration commits;
+  never clear a working endpoint because a refresh timed out.
+- Keep app-start/foreground reconciliation and make eventual success observable.
+  A timeout that later recovers should remain a breadcrumb; raise a Sentry issue
+  only after the bounded retry sequence is exhausted.
+- Record enough content-free command timing and outcome context to distinguish a
+  Cloudflare edge timeout, the command worker's Supabase upstream timeout, database
+  lock contention, and a handset transport failure.
+- Add automated coverage for concurrent sync calls, unchanged-token suppression,
+  token rotation, release upgrade, 504 recovery, retry cancellation, sign-out, and
+  a previously active endpoint surviving a failed refresh.
+- Verify on physical iPhone and Android devices that a forced transient failure
+  self-recovers without reopening notification settings, duplicate endpoint rows,
+  repeated Sentry incidents, or a missed subsequent Doji-live alert.
 
 ### FW-030 — Rebalance Sparks, progression, streaks, and repeatable shop value
 
@@ -247,6 +290,16 @@ profile-photo safety system is complete
 
 The approved requirements and rollout checklist live in
 [`docs/TRUST_SAFETY_AND_LEGAL_REQUIREMENTS.md`](TRUST_SAFETY_AND_LEGAL_REQUIREMENTS.md).
+
+Implemented foundation (2026-09-24): reversible moderation state for posts, comments,
+poll responses, and profile-photo decisions; policy/severity classification; routine
+warning and member notice; Account Status and in-app appeal submission; an independent
+operator appeal queue with atomic restoration; restricted-safety quarantine routing;
+bounded identifier-only realtime invalidation; and fail-closed retirement of the old
+hard-delete/mobile-admin commands. This does not complete FW-024: staged avatar
+screening, automated trusted-signal quarantine, temporary/permanent account-action
+criteria, public removal intake/status, evidence vault/legal holds, retention jobs,
+restricted playbooks, counsel approval, and full physical-device scenarios remain.
 
 - Stage candidate profile photos privately, screen them before publication, and send
   uncertain results to the restricted moderation queue. The server owns publication,

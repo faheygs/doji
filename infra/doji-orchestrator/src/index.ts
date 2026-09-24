@@ -5,6 +5,7 @@ import { sendOperationalAlert, type EventAlarmRepair } from './operational-healt
 import { HealthMonitor } from './health-monitor';
 import { expirePushFanout } from './push-fanout-lifecycle';
 import { OutboxRelayAlarm } from './outbox-relay';
+import { handlePortalRead } from './portal-read';
 import { handleScaleRead } from './scale-read';
 
 export { HealthMonitor };
@@ -23,6 +24,7 @@ export interface Env {
   SENTRY_DSN?: string;
   SUPABASE_JWT_SECRET?: string;
   SCALE_CACHE_VERSION?: string;
+  ADMIN_PORTAL_ORIGINS?: string;
 }
 
 type AlarmState = {
@@ -474,6 +476,8 @@ export default {
   async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
     const commandResponse = await handleCommandGateway(request, env);
     if (commandResponse) return commandResponse;
+    const portalReadResponse = await handlePortalRead(request, env);
+    if (portalReadResponse) return portalReadResponse;
     const scaleReadResponse = await handleScaleRead(request, env, context);
     if (scaleReadResponse) return scaleReadResponse;
     if (!isAuthorized(request, env)) return new Response('Unauthorized', { status: 401 });

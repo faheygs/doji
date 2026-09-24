@@ -2,6 +2,8 @@
   "name": "doji-public-site",
   "private": true,
   "scripts": {
+    "build:admin": "node build-admin.mjs",
+    "test:admin-auth": "node admin-portal/live-client.test.mjs",
     "validate": "node validate.mjs"
   }
 }

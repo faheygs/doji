@@ -143,6 +143,7 @@ export type PollVote = {
   user_event_id?: string | null;
   idempotency_key?: string | null;
   custom_text?: string | null;
+  moderation_status?: 'visible' | 'quarantined' | 'removed';
   created_at: string;
 };
 
@@ -259,6 +260,7 @@ export type Post = {
   visibility: 'friends' | 'public';
   created_at: string;
   idempotency_key?: string | null;
+  moderation_status?: 'visible' | 'quarantined' | 'removed';
   reaction_breakdown?: Record<ReactionEmoji, number>;
   my_reactions?: ReactionEmoji[];
   profile?: Profile;
@@ -306,6 +308,7 @@ export type Comment = {
   updated_at: string | null;
   body_edited: boolean;
   idempotency_key?: string | null;
+  moderation_status?: 'visible' | 'quarantined' | 'removed';
   profile?: Profile;
   /** Filled client-side for the signed-in user. */
   my_like?: boolean;
@@ -764,6 +767,52 @@ export type Database = {
         Returns: {
           status: 'visible' | 'blocked_by_user' | 'not_found';
           profile: Profile | null;
+        };
+      };
+      get_my_moderation_status: {
+        Args: Record<string, never>;
+        Returns: {
+          notices: Array<{
+            id: string;
+            decision_id: string;
+            kind: 'decision' | 'appeal_received' | 'appeal_upheld' | 'appeal_reversed';
+            title: string;
+            body: string;
+            created_at: string;
+            read_at: string | null;
+          }>;
+          decisions: Array<{
+            id: string;
+            content_kind: 'post' | 'comment' | 'poll_response' | 'profile_photo' | 'account';
+            action: 'no_violation' | 'quarantine' | 'remove_content' | 'remove_profile_photo';
+            policy_code: string;
+            severity: 'none' | 'level_1' | 'level_2' | 'level_3';
+            user_notice: string;
+            appeal_eligible: boolean;
+            state: 'active' | 'reversed' | 'superseded';
+            decided_at: string;
+            appeal: null | {
+              id: string;
+              status: 'pending' | 'upheld' | 'reversed';
+              statement: string;
+              submitted_at: string;
+              reviewed_at: string | null;
+              review_reason: string | null;
+            };
+          }>;
+        };
+      };
+      mark_moderation_notice_read: {
+        Args: { p_notice_id: string };
+        Returns: string;
+      };
+      submit_moderation_appeal: {
+        Args: { p_decision_id: string; p_statement: string; p_idempotency_key: string };
+        Returns: {
+          appeal_id: string;
+          decision_id: string;
+          status: 'pending';
+          submitted_at: string;
         };
       };
       get_pending_reports_snapshot: {

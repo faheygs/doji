@@ -32,10 +32,18 @@ export function isTransientApiError(error: unknown): boolean {
   const candidate = error as ErrorLike;
   const code = String(candidate.status ?? candidate.code ?? '');
   if (TRANSIENT_CODES.has(code)) return true;
+  const commandGatewayStatus = /^DOJI_COMMAND_(\d{3})$/.exec(code)?.[1];
+  const messageStatus = /(?:command|request) failed\s*\((\d{3})\)/i.exec(
+    candidate.message ?? '',
+  )?.[1];
   // PostgreSQL SQLSTATE values (for example 23505) are numeric-looking but
   // are not HTTP status codes. Never classify them by numeric magnitude.
-  const httpLike = candidate.status != null || code.length === 3;
-  const numeric = httpLike ? Number(code) : Number.NaN;
+  const httpLike =
+    candidate.status != null ||
+    code.length === 3 ||
+    commandGatewayStatus != null ||
+    messageStatus != null;
+  const numeric = httpLike ? Number(commandGatewayStatus ?? messageStatus ?? code) : Number.NaN;
   if (Number.isFinite(numeric) && (numeric === 408 || numeric === 429 || numeric >= 500)) {
     return true;
   }

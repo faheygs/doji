@@ -117,6 +117,35 @@ describe('usePreparedFeedPosts', () => {
     unmount();
   });
 
+  it('withholds a prepared head insert while scrolled and reveals it on demand', async () => {
+    const scrollToTop = jest.fn();
+    const incoming = { ...post, id: 'post-2', photo_url: null };
+    const { result, rerender, unmount } = renderHook(
+      ({ posts }: { posts: Post[] }) =>
+        useStableFeedPresentation(posts, 'event:everyone', scrollToTop),
+      { initialProps: { posts: [post] } },
+    );
+
+    await waitFor(() => expect(result.current.posts.map((item) => item.id)).toEqual(['post-1']));
+    act(() => {
+      result.current.onScroll({
+        nativeEvent: { contentOffset: { x: 0, y: 240 } },
+      } as never);
+    });
+    rerender({ posts: [incoming, post] });
+
+    await waitFor(() => {
+      expect(result.current.posts.map((item) => item.id)).toEqual(['post-1']);
+      expect(result.current.pendingNewPostCount).toBe(1);
+    });
+
+    act(() => result.current.revealNewPosts());
+    expect(result.current.posts.map((item) => item.id)).toEqual(['post-2', 'post-1']);
+    expect(result.current.pendingNewPostCount).toBe(0);
+    expect(scrollToTop).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
   it('limits simultaneous incoming-post preparation to two', async () => {
     const resolvers = new Map<string, (value: Map<string, Post>) => void>();
     mockPrepareFeedPostMedia.mockImplementation(

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="canonical" href="https://admin.dojipro.com/">
+  <title>Doji Admin Portal</title>
+  <meta name="description" content="Private Doji administration, safety, and operations workspace.">
+  <link rel="icon" href="/assets/doji-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme-init.js"></script>
+  <link rel="stylesheet" href="/portal.css?v=20260924n">
+  <link rel="stylesheet" href="/admin-portal/admin.css?v=20260924n">
+</head>
+<body class="portalPage adminPortalPage" data-portal="admin">
+  <svg class="adminIconLibrary" aria-hidden="true">
+    <symbol id="admin-icon-command" viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/></symbol>
+    <symbol id="admin-icon-queue" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14"/><circle cx="3" cy="6" r=".7"/><circle cx="3" cy="12" r=".7"/><circle cx="3" cy="18" r=".7"/></symbol>
+    <symbol id="admin-icon-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="admin-icon-legal" viewBox="0 0 24 24"><path d="M12 3v18M7 5h10M5 8l-3 6h6L5 8Zm14 0-3 6h6l-3-6ZM7 21h10"/></symbol>
+    <symbol id="admin-icon-sponsor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 9h8M8 13h5"/></symbol>
+    <symbol id="admin-icon-business" viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13M8 21v-5h8v5M8 10h.01M12 10h.01M16 10h.01"/></symbol>
+    <symbol id="admin-icon-spark" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8Z"/></symbol>
+    <symbol id="admin-icon-megaphone" viewBox="0 0 24 24"><path d="M4 13V9l13-5v14L4 13Z"/><path d="M8 14v5a2 2 0 0 0 2 2h1v-6"/><path d="M20 8v6"/></symbol>
+    <symbol id="admin-icon-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
+    <symbol id="admin-icon-audit" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></symbol>
+    <symbol id="admin-icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></symbol>
+  </svg>
+  <div class="prototypeBar" id="adminEnvironmentBar"><strong>Local prototype</strong><span>Sample data only</span><span>No production actions</span></div>
+
+  <section class="portalAuth" id="portalAuth">
+    <div class="authStory adminAuthStory">
+      <a class="portalBrand" href="/"><img src="/assets/doji-icon.png" alt=""><span>Doji<small>Admin</small></span></a>
+      <div class="authCopy"><p class="eyebrow">Private operations</p><h1>Run Doji from one accountable workspace.</h1><p>Review urgent safety matters, reported content, businesses, sponsored Dojis, community ideas, announcements, and platform health without placing privileged controls in the consumer app.</p></div>
+      <p class="authFine">Production requires an isolated admin host, verified MFA, role-scoped access, short sessions, restricted evidence access, and atomic audited commands. Hardware-backed factors remain the expansion target.</p>
+    </div>
+    <div class="authPanel">
+      <div class="authCard">
+        <div class="authUtility"><button class="themeToggle" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button></div>
+        <p class="eyebrow">Authorized staff only</p><h2>Admin sign in</h2><p id="adminAuthDescription">Use the sample credentials below to explore the local workflow.</p>
+        <form class="authForm" id="adminSigninForm">
+          <div class="field"><label for="adminEmail">Operator email</label><input id="adminEmail" type="email" value="operator@doji.example" autocomplete="email" required></div>
+          <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" value="prototype" autocomplete="current-password" required></div>
+          <button class="portalButton primary" type="submit">Enter admin prototype</button>
+        </form>
+        <form class="authForm adminMfaChallenge" id="adminMfaChallengeForm" hidden>
+          <button class="authBackButton" type="button" data-action="admin-auth-back">← Use a different account</button>
+          <div class="mfaStepHeading"><span class="mfaStepIcon" aria-hidden="true">✓</span><div><strong>Verify it’s you</strong><p id="adminMfaChallengeDescription">Enter the six-digit code from your authenticator app.</p></div></div>
+          <div class="field"><label for="adminChallengeCode">Verification code</label><input id="adminChallengeCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div>
+          <button class="portalButton primary" type="submit">Verify and continue</button>
+        </form>
+        <section class="adminMfaSetup" id="adminMfaSetup" hidden aria-labelledby="adminMfaSetupTitle">
+          <button class="authBackButton" type="button" data-action="admin-auth-back">← Use a different account</button>
+          <p class="eyebrow">One-time setup</p>
+          <h3 id="adminMfaSetupTitle">Set up your authenticator app</h3>
+          <p>Scan one QR code to protect future administrator sign-ins.</p>
+          <div class="totpEnrollment" id="adminTotpEnrollment" hidden>
+            <div class="totpInstructions"><strong>Scan this QR code</strong><p>Open your authenticator app, add an account, and scan the code below.</p></div>
+            <div class="totpQrFrame"><img id="adminTotpQr" alt="Authenticator setup QR code"></div>
+            <details class="totpManual"><summary>Can’t scan it?</summary><p>Enter this setup key manually in your authenticator app:</p><code id="adminTotpSecret"></code></details>
+            <form class="authForm" id="adminTotpVerifyForm">
+              <div class="field"><label for="adminTotpCode">Six-digit code</label><input id="adminTotpCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div>
+              <button class="portalButton primary" type="submit">Finish setup and enter admin</button>
+            </form>
+          </div>
+        </section>
+        <div class="portalFormStatus" id="adminSigninStatus" role="status" aria-live="polite"></div>
+        <div class="authHint" id="adminAuthHint">Nothing entered here is transmitted. Production must authenticate before returning any queue count, case, business, or user information.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="portalShell" id="portalApp" hidden>
+    <div class="portalSidebarBackdrop" id="portalSidebarBackdrop" aria-hidden="true"></div>
+    <aside class="portalSidebar adminSidebar" id="portalSidebar">
+      <button type="button" class="sidebarClose" id="sidebarClose" aria-label="Close navigation">×</button>
+      <a class="workspaceBrand adminWorkspaceBrand" href="/"><span class="workspaceLogo"><img src="/assets/doji-icon.png" alt=""></span><span><strong>Doji Operations</strong><small>Admin console</small></span></a>
+      <nav class="portalNav adminNav" aria-label="Admin workspace">
+        <span class="navSectionLabel">Workspace</span>
+        <button type="button" data-view="overview" data-label="Command center" aria-current="page"><span class="navIcon"><svg><use href="#admin-icon-command"/></svg></span>Command center</button>
+        <button type="button" data-view="inbox" data-label="Work queue"><span class="navIcon"><svg><use href="#admin-icon-queue"/></svg></span>Work queue <span class="navCount" id="inboxNavCount">0</span></button>
+        <span class="navSectionLabel">Review</span>
+        <button type="button" data-view="moderation" data-label="Trust & safety"><span class="navIcon"><svg><use href="#admin-icon-shield"/></svg></span>Trust & safety</button>
+        <button type="button" data-view="safety" data-label="Legal requests"><span class="navIcon"><svg><use href="#admin-icon-legal"/></svg></span>Legal requests <span class="navAlert" id="legalUrgentAlert" hidden></span></button>
+        <button type="button" data-view="campaigns" data-label="Sponsored Dojis"><span class="navIcon"><svg><use href="#admin-icon-sponsor"/></svg></span>Sponsored Dojis</button>
+        <button type="button" data-view="businesses" data-label="Businesses"><span class="navIcon"><svg><use href="#admin-icon-business"/></svg></span>Businesses</button>
+        <button type="button" data-view="suggestions" data-label="Community ideas"><span class="navIcon"><svg><use href="#admin-icon-spark"/></svg></span>Community ideas</button>
+        <span class="navSectionLabel">Operate</span>
+        <button type="button" data-view="announcements" data-label="Announcements"><span class="navIcon"><svg><use href="#admin-icon-megaphone"/></svg></span>Announcements</button>
+        <button type="button" data-view="operations" data-label="Platform operations"><span class="navIcon"><svg><use href="#admin-icon-pulse"/></svg></span>Platform operations</button>
+        <button type="button" data-view="audit" data-label="Audit log"><span class="navIcon"><svg><use href="#admin-icon-audit"/></svg></span>Audit log</button>
+      </nav>
+      <div class="portalAccount"><span class="operatorAvatar" id="operatorAvatar">DO</span><span class="operatorCopy"><strong id="operatorName">Demo operator</strong><span id="operatorRole">Super admin prototype</span><span class="operatorState" id="operatorSession"><i></i> Session protected</span></span></div>
+    </aside>
+    <main class="portalMain">
+      <header class="portalTopbar adminTopbar">
+        <div class="topActions"><button type="button" class="iconButton mobileMenu" id="mobileMenu" aria-label="Open navigation" aria-controls="portalSidebar" aria-expanded="false">☰</button><div><p class="topbarKicker">Doji operations</p><h1 id="portalPageTitle">Command center</h1></div></div>
+        <div class="topActions adminTopActions"><button type="button" class="adminSearchButton" data-action="focus-global-search" aria-label="Search admin workspace"><svg><use href="#admin-icon-search"/></svg><span>Search workspace</span><kbd>Ctrl K</kbd></button><button class="themeToggle compact" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button><button type="button" class="portalButton sessionButton" data-action="exit-demo">Lock session</button></div>
+      </header>
+
+      <div class="portalContent adminContent">
+        <section class="portalView" data-portal-view="overview">
+          <div class="viewIntro adminIntro overviewHero"><div><p class="eyebrow">Doji operations</p><h2>Today’s operational priorities</h2><p>Urgent safety, legal, community, and commercial work—ordered by deadline and impact.</p><div class="overviewPulse" id="overviewPlatformPulse"><span></span>All critical systems operational</div></div><div class="introActions"><button class="portalButton" type="button" data-view-jump="audit">View audit log</button><button class="portalButton primary" type="button" data-view-jump="inbox">Open work queue</button></div></div>
+          <div class="metricGrid adminMetricGrid"><article class="metricCard criticalMetric"><div class="metricLabel"><span class="metricDot"></span><span>Urgent deadlines</span></div><strong id="urgentMetric">0</strong><small>Restricted safety and legal cases</small></article><article class="metricCard"><div class="metricLabel"><span class="metricDot"></span><span>Unassigned work</span></div><strong id="unassignedMetric">0</strong><small>Across all operational queues</small></article><article class="metricCard sponsoredMetric"><div class="metricLabel"><span class="metricDot"></span><span>Sponsored reviews</span></div><strong id="campaignMetric">0</strong><small>Individual Dojis awaiting decision</small></article><article class="metricCard healthyMetric"><div class="metricLabel"><span class="metricDot"></span><span>Platform status</span></div><strong class="wordMetric" id="platformStatusMetric">Healthy</strong><small id="platformStatusText">All critical services reporting</small></article></div>
+          <div class="adminDashboardGrid">
+            <article class="portalPanel priorityPanel"><div class="panelHeader"><div><h3>Priority work</h3><p>Highest-risk and nearest-deadline items</p></div><button class="textButton" type="button" data-view-jump="inbox">View all</button></div><div class="priorityList" id="priorityQueue"></div></article>
+            <aside class="dashboardRail"><article class="portalPanel"><div class="panelHeader"><div><h3>Queue health</h3><p>Internal operating targets</p></div></div><div class="slaList" id="queueHealth"></div></article><article class="portalPanel"><div class="panelHeader"><div><h3>Today’s schedule</h3><p>Server-owned release windows</p></div></div><div class="scheduleList" id="todaysSchedule"><div><time>7:35 PM</time><span><strong>Daily Doji</strong><small>Prepared · 10-minute window</small></span><span class="statusPill approved">Ready</span></div><div><time>8:15 PM</time><span><strong>Service review</strong><small>Push and realtime delivery</small></span><span class="statusPill">Planned</span></div></div></article></aside>
+          </div>
+        </section>
+
+        <section class="portalView" data-portal-view="inbox" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Unified operations</p><h2>Work queue</h2><p>One triage surface across safety, legal, moderation, business verification, sponsored Dojis, and community ideas.</p></div><button class="portalButton" type="button" data-action="claim-next">Claim next priority</button></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span aria-hidden="true">⌕</span><input id="globalQueueSearch" type="search" placeholder="Search case, business, campaign, or subject" autocomplete="off"></label><div class="queueFilters" data-queue-filters="inbox"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="urgent">Urgent</button><button class="filterButton" data-queue-filter="unassigned">Unassigned</button><button class="filterButton" data-queue-filter="mine">Mine</button></div><select id="inboxTypeFilter" aria-label="Filter work type"><option value="all">All work types</option><option value="moderation">Trust & safety</option><option value="safety">Legal requests</option><option value="campaigns">Sponsored Dojis</option><option value="businesses">Businesses</option><option value="suggestions">Community ideas</option></select></div><div class="tableWrap"><table class="queueTable scalableTable"><thead><tr><th>Priority</th><th>Work item</th><th>Queue</th><th>Submitted</th><th>Owner</th><th>Status</th></tr></thead><tbody data-queue-body="inbox"></tbody></table></div><div class="tableFooter"><span id="queueResultCount">0 work items</span><span>Bounded page · Cursor pagination expansion planned</span></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="moderation" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Trust & safety</p><h2>Reports and enforcement</h2><p>Blocks remain a personal safety action. Explicit reports enter this queue with visibility, history, and an accountable decision path.</p></div><span class="statusPill approved">24-hour internal target</span></div>
+          <div class="queueSummaryStrip"><span><strong id="moderationOpenCount">0</strong> open</span><span><strong id="moderationHighCount">0</strong> high priority</span><span><strong id="moderationUnassignedCount">0</strong> unassigned</span><span><strong>24h</strong> decision target</span></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span>⌕</span><input type="search" data-queue-search="moderation" placeholder="Search moderation reports"></label><div class="queueFilters" data-queue-filters="moderation"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="open">Open</button><button class="filterButton" data-queue-filter="urgent">High risk</button><button class="filterButton" data-queue-filter="resolved">Resolved</button></div></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>Case</th><th>Reported content</th><th>Category</th><th>Visibility</th><th>Age</th><th>Status</th></tr></thead><tbody data-queue-body="moderation"></tbody></table></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="safety" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Restricted access</p><h2>Legal and urgent removal</h2><p>TAKE IT DOWN requests, child-safety escalation, imminent threats, privacy removal, copyright, and appeals keep separate deadlines and evidence rules.</p></div><span class="statusPill urgent">Restricted queue</span></div>
+          <div class="restrictedNotice"><span>!</span><div><strong>Sensitive evidence stays isolated.</strong><p>Lists contain only operational metadata. Opening restricted evidence would require elevated authorization, a purpose code, and an immutable access record.</p></div></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span>⌕</span><input type="search" data-queue-search="safety" placeholder="Search legal or safety cases"></label><div class="queueFilters" data-queue-filters="safety"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="urgent">Deadline</button><button class="filterButton" data-queue-filter="appeal">Appeals</button><button class="filterButton" data-queue-filter="resolved">Closed</button></div></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>Case</th><th>Request type</th><th>Public state</th><th>Deadline</th><th>Owner</th><th>Status</th></tr></thead><tbody data-queue-body="safety"></tbody></table></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="campaigns" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Commercial integrity</p><h2>Sponsored Doji review</h2><p>Every Doji is reviewed independently for format, prompt, disclosure, options, claim support, destination, audience, reward, and schedule.</p></div><span class="syncNote"><i></i> Synced with local business portal</span></div>
+          <div class="queueSummaryStrip"><span><strong id="sponsoredReviewCount">0</strong> awaiting review</span><span><strong>2</strong> changes requested</span><span><strong>4</strong> scheduled</span><span><strong>0</strong> live conflicts</span></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span>⌕</span><input type="search" data-queue-search="campaigns" placeholder="Search brand, campaign, or Doji"></label><div class="queueFilters" data-queue-filters="campaigns"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="open">In review</button><button class="filterButton" data-queue-filter="revision">Changes requested</button><button class="filterButton" data-queue-filter="approved">Approved</button></div></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>Doji</th><th>Business / campaign</th><th>Format</th><th>Requested date</th><th>Owner</th><th>Status</th></tr></thead><tbody data-queue-body="campaigns"></tbody></table></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="businesses" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Organizations</p><h2>Business accounts</h2><p>Verify the legal organization, representative, domain, brand assets, team access, and risk state before sponsored work can be approved.</p></div></div><div class="businessAdminGrid" id="businessAdminGrid"></div>
+        </section>
+
+        <section class="portalView" data-portal-view="suggestions" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Community programming</p><h2>User-submitted Doji ideas</h2><p>Review the idea, format fit, duplication, safety, and participation potential before moving it into the editorial planning pool.</p></div></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span>⌕</span><input type="search" data-queue-search="suggestions" placeholder="Search submitted ideas"></label><div class="queueFilters" data-queue-filters="suggestions"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="open">Pending</button><button class="filterButton" data-queue-filter="approved">Accepted</button><button class="filterButton" data-queue-filter="resolved">Declined</button></div></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>ID</th><th>Prompt</th><th>Format</th><th>Submitted</th><th>Owner</th><th>Status</th></tr></thead><tbody data-queue-body="suggestions"></tbody></table></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="announcements" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Server-controlled communication</p><h2>Announcements</h2><p>Product messages are scheduled, audience-aware, frequency-capped, and separate from forced updates and sponsored content.</p></div><button type="button" class="portalButton primary" data-action="new-announcement">New announcement</button></div><div class="announcementGrid" id="announcementList"></div>
+        </section>
+
+        <section class="portalView" data-portal-view="operations" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Platform operations</p><h2>Health and delivery</h2><p>A compact control surface for release posture, daily-Doji scheduling, command delivery, realtime repair, push delivery, storage, and administrative readiness.</p></div><span class="statusPill approved">No active incident</span></div>
+          <div class="opsGrid"><article class="portalPanel opsHero"><div><span class="healthPulse"></span><p class="eyebrow">Overall status</p><h3>All critical systems operational</h3><p>Last reconciled 32 seconds ago. Mobile correctness remains backed by Postgres and foreground reconciliation, not by push delivery.</p></div><div class="opsHeroMetric"><strong>99.98%</strong><span>Command success · 24h</span></div></article><article class="portalPanel"><div class="panelHeader"><div><h3>Core services</h3><p>Operational signals, not provider marketing status</p></div></div><div class="serviceList"><div><span><i class="serviceDot healthy"></i><strong>Postgres commands</strong></span><small>p95 184 ms</small></div><div><span><i class="serviceDot healthy"></i><strong>Durable scheduler</strong></span><small>Next alarm registered</small></div><div><span><i class="serviceDot healthy"></i><strong>Realtime relay</strong></span><small>p95 612 ms</small></div><div><span><i class="serviceDot healthy"></i><strong>Native push</strong></span><small>98.9% accepted</small></div><div><span><i class="serviceDot healthy"></i><strong>Private media</strong></span><small>p95 420 ms</small></div></div></article><article class="portalPanel"><div class="panelHeader"><div><h3>Release policy</h3><p>Current production minimums</p></div></div><div class="releaseRows"><div><span><strong>iOS</strong><small>App Store</small></span><strong>1.0.7</strong><span class="statusPill approved">Enforced</span></div><div><span><strong>Android</strong><small>Closed testing</small></span><strong>1.0.7</strong><span class="statusPill approved">Enforced</span></div></div><button class="portalButton fullButton" type="button" data-action="prototype-only">Manage release policy</button></article><article class="portalPanel"><div class="panelHeader"><div><h3>Operational guardrails</h3><p>Required before production admin launch</p></div></div><div class="guardrailList"><label><input type="checkbox" checked disabled><span>Admin routes separated from consumer app</span></label><label><input type="checkbox" disabled><span>Phishing-resistant MFA and role provisioning</span></label><label><input type="checkbox" disabled><span>Atomic admin commands and immutable audit</span></label><label><input type="checkbox" disabled><span>Restricted evidence vault and access reviews</span></label><label><input type="checkbox" disabled><span>On-call and legal escalation playbooks</span></label></div></article></div>
+        </section>
+
+        <section class="portalView" data-portal-view="audit" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Accountability</p><h2>Audit log</h2><p>Every read of restricted evidence and every verification, assignment, decision, enforcement, approval, schedule change, hold, or emergency pause belongs here.</p></div><button class="portalButton" type="button" data-action="export-audit">Export view</button></div>
+          <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span>⌕</span><input id="auditSearch" type="search" placeholder="Search actor, action, or entity"></label><div class="queueFilters" data-audit-filters><button class="filterButton active" data-audit-filter="all">All activity</button><button class="filterButton" data-audit-filter="decision">Decisions</button><button class="filterButton" data-audit-filter="access">Sensitive access</button><button class="filterButton" data-audit-filter="system">System</button></div></div><div class="auditList" id="auditList"></div><div class="tableFooter"><span>Showing the newest local prototype events</span><span>Production records are append-only and cursor paginated</span></div></article>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="drawerBackdrop" id="drawerBackdrop"></div>
+  <aside class="portalDrawer adminDrawer" id="caseDrawer" aria-labelledby="drawerTitle" aria-hidden="true"><div class="drawerHeader"><div><p class="eyebrow" id="drawerEyebrow">Work item</p><h2 id="drawerTitle">Details</h2><div class="drawerHeaderMeta" id="drawerHeaderMeta"></div></div><button type="button" class="iconButton" data-action="close-drawer" aria-label="Close">×</button></div><div class="drawerTabs" role="tablist"><button class="active" type="button" data-drawer-tab="details">Details</button><button type="button" data-drawer-tab="history">History</button><button type="button" data-drawer-tab="related">Related</button></div><div id="drawerContent"></div><div class="decisionPanel" id="decisionPanel"><div class="moderationTriage" id="moderationTriage" hidden><div class="field"><label for="moderationPriority">Case priority</label><select id="moderationPriority"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></div><button class="portalButton" id="claimReportButton" type="button" data-action="claim-report">Claim case</button></div><div class="moderationClassification" id="moderationClassification" hidden><div class="field"><label for="moderationPolicy">Policy area</label><select id="moderationPolicy"><option value="">Choose a policy</option></select></div><div class="field"><label for="moderationSeverity">Severity</label><select id="moderationSeverity"><option value="">Choose severity</option><option value="level_1">Level 1 · Ordinary</option><option value="level_2">Level 2 · Serious</option><option value="level_3">Level 3 · Emergency / illegal</option></select></div></div><div class="field"><label for="decisionReason">Internal rationale</label><textarea id="decisionReason" maxlength="1000" placeholder="Record the policy rule, evidence considered, context, and why this outcome is proportionate."></textarea><small id="decisionReasonHint">Required. This stays in the operator audit record.</small></div><div class="field" id="moderationNoticeField" hidden><label for="moderationUserNotice">Notice shown to the member</label><textarea id="moderationUserNotice" maxlength="1000" placeholder="Explain what happened, the policy area, the effect on their account, and how to appeal."></textarea><small>Use plain language. Do not expose reporter identity or restricted evidence.</small></div><div class="drawerActions" id="drawerActions"></div></div></aside>
+
+  <dialog class="portalModal announcementModal" id="announcementModal"><form method="dialog" id="announcementForm"><div class="modalHeader"><div><p class="eyebrow">New message</p><h2>Create announcement</h2><p>Save a local draft and review its delivery rules.</p></div><button class="iconButton" value="cancel" aria-label="Close">×</button></div><div class="modalBody"><div class="formGrid"><div class="field"><label for="announcementType">Message type</label><select id="announcementType"><option value="product">Product announcement</option><option value="participation">Participation campaign</option><option value="service">Service notice</option></select></div><div class="field"><label for="announcementAudience">Audience</label><select id="announcementAudience"><option>All eligible users</option><option>New users</option><option>Release cohort</option><option>Inactive participants</option></select></div><div class="field full"><label for="announcementTitle">Title</label><input id="announcementTitle" required maxlength="60" placeholder="Submit your own Doji"></div><div class="field full"><label for="announcementBody">Message</label><textarea id="announcementBody" required maxlength="220" placeholder="Share your best challenge idea and earn Sparks when it is approved."></textarea></div><div class="field"><label for="announcementFrequency">Frequency</label><select id="announcementFrequency"><option>Once per user</option><option>Once per release</option><option>Repeatable with cap</option></select></div><div class="field"><label for="announcementPriority">Priority</label><select id="announcementPriority"><option>Normal</option><option>Elevated</option><option>Service-critical</option></select></div><div class="field"><label for="announcementStart">Starts</label><input id="announcementStart" type="datetime-local" required></div><div class="field"><label for="announcementEnd">Ends</label><input id="announcementEnd" type="datetime-local" required></div><div class="field full"><label for="announcementLink">Canonical in-app destination</label><input id="announcementLink" placeholder="doji://suggestions/new"></div></div><p class="formNotice">Rewards must be granted only by the qualifying server action through an idempotent ledger entry. Viewing or tapping this message never awards Sparks.</p></div><div class="modalFooter"><button class="portalButton" value="cancel">Cancel</button><button class="portalButton primary" type="submit" value="submit">Save draft</button></div></form></dialog>
+  <dialog class="portalModal globalSearchModal" id="globalSearchModal"><form method="dialog"><div class="globalSearchInput"><span>⌕</span><input id="globalSearchInput" type="search" placeholder="Search cases, businesses, campaigns, users, and audit history" autocomplete="off"><button class="iconButton" value="cancel" aria-label="Close">×</button></div><div class="globalSearchResults" id="globalSearchResults"></div></form></dialog>
+  <dialog class="portalModal moderationConfirmModal" id="moderationConfirmModal"><form method="dialog" id="moderationConfirmForm"><div class="modalHeader"><div><p class="eyebrow">Confirm enforcement</p><h2 id="moderationConfirmTitle">Confirm decision</h2><p id="moderationConfirmCopy">Review the action before it is recorded.</p></div><button class="iconButton" type="button" data-action="cancel-moderation-confirm" aria-label="Close">×</button></div><div class="modalBody"><div class="confirmationSummary" id="moderationConfirmSummary"></div><p class="formNotice">This command is atomic, idempotent, and permanently recorded in the administrator audit log.</p></div><div class="modalFooter"><button class="portalButton" type="button" data-action="cancel-moderation-confirm">Cancel</button><button class="portalButton danger" id="moderationConfirmSubmit" type="submit" value="confirm">Confirm decision</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/portal-config.js?v=20260924o" defer></script>
+  <script src="/admin-portal/live-client.js?v=20260924o" defer></script>
+  <script src="/admin-portal/portal-runtime-20260924o.js" defer></script>
+</body>
+</html>

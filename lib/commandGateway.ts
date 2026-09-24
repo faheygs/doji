@@ -11,6 +11,7 @@ const IDEMPOTENT_WITHOUT_COMMAND_KEY = new Set<string>([
   'dismiss_notification',
   'mark_notification_center_opened',
   'mark_notification_attention_seen',
+  'mark_moderation_notice_read',
   'purchase_shop_item',
   'register_native_push_endpoint',
   'register_native_push_endpoint_v2',

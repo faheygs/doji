@@ -235,6 +235,13 @@ reconcile authoritative database state.
   The native client prefers v3 and falls back through v2/v1; notification delivery never
   depends on release telemetry. Sentry and content-free command timing carry the same
   release identity so mixed rollouts can be compared without logging command bodies.
+  Registration and unregistration are serialized per app process, and concurrent
+  startup/foreground/settings requests share one registration promise. The client
+  persists only a fingerprint of the successful identity and skips unchanged refreshes
+  for at most six hours. Token, account, environment, contract, release/build, or
+  preference changes bypass that cache. Transient gateway failures receive bounded
+  jittered one-, three-, and ten-second recovery attempts; lifecycle-superseded runs
+  stop before another command, and only exhausted recovery is reported as an incident.
 - That fallback is only a delivery transport selected by the authoritative outbox
   relay. There is no direct `notify-user` endpoint, row-trigger HTTP push, recurring
   push dispatcher, or second notification producer. Historical migrations that
@@ -388,7 +395,8 @@ the reply alert to that exact target. Clients optimistically render the reply be
 the root and reconcile it through the normal post-scoped comment event.
 | XP/rank | `leaderboard.updated` | global | active leaderboard/profile |
 | Suggestions | `notification.suggestion.*` | owner | submission state and bell history |
-| Moderation | `moderation.report.*` | admins | report queue |
+| Moderation reports | `moderation.report.*` | admins | report and restricted-safety queues |
+| Moderation status | `moderation.status.*` | affected user | Account Status, Activity Center, feed/profile repair |
 
 Shared poll/WYR cards have community-wide aggregate state, but social alerts are
 friend-scoped: only accepted friends of the actor receive participation, reaction,
@@ -468,6 +476,40 @@ the caller JWT so the existing database authorization remains authoritative. Dir
 reads remain the small-launch configuration until `EXPO_PUBLIC_SCALE_READ_URL` is configured.
 A 100k launch remains blocked until the paid providers are sized and this exact tier is
 load-qualified and monitored under representative multi-identity traffic.
+
+The same Worker also owns the private administrator portal boundary under
+`/portal/admin/*`. These routes are never edge cached, accept only exact
+origins configured in `ADMIN_PORTAL_ORIGINS`, require a verified Supabase JWT with
+`aal2`, apply a bounded per-operator budget, and forward the caller JWT plus the
+public anon key to a small RPC allowlist. The Worker does not hold a Supabase service-role
+key. `get_admin_portal_session` returns the operator's minimal identity and roles;
+the full command center is restricted to legacy administrators, `super_admin`, and
+`operations`; `get_admin_command_center_snapshot` returns at most 50 existing report/suggestion work
+items plus coarse delivery health, the next Doji, release policy, announcements, and a
+bounded audit tail. Trust & Safety is the first writable portal workflow. AAL2 operators
+with `moderation.write` use `admin_triage_report` for assignment/priority and
+`admin_decide_report_v2` for a policy/severity-classified outcome. Routine action changes
+only the violating row to `removed`, retains evidence, issues a warning/member notice,
+and never hard-deletes the row or bundles it with a blanket ban. Serious/emergency action
+sets `quarantined`, leaves the report open, and moves it to `restricted_safety`.
+`get_admin_report_case_v2` returns only safe identities, bounded evidence, and the policy
+catalog for one report. `submit_moderation_appeal` creates one durable appeal;
+`admin_review_moderation_appeal` requires a different AAL2 operator and atomically
+upholds or reverses/restores the decision. These commands lock their subject, reuse a
+stable idempotency receipt, enforce bounded reasons, and append `admin_audit_log`; every
+other portal mutation remains disabled.
+Private post media receives a five-minute signed URL only after that report read and the
+existing Storage authorization succeed. Portal activity does not create a second socket topology: the live portal subscribes
+to the existing `moderation:global` and `doji:global` Ably channels using the existing
+short-lived `realtime-token` contract. Messages remain identifier-only and are coalesced
+into fresh authoritative command-center and appeal reads; reports, appeals, and community-suggestion changes
+both invalidate the admin queue, and a recovered connection also reconciles.
+First-time administrators use the same Doji Auth identity. After the password reaches
+`aal1`, the portal enrolls a Supabase TOTP factor, displays its QR/secret without
+persisting either, challenges the submitted six-digit code, and stores the session in
+`sessionStorage` only after the returned JWT reaches `aal2`. The production UI exposes
+no email or paid phone factor; an abandoned unverified TOTP factor is removed before a
+fresh enrollment so retrying setup does not consume the account's factor limit.
 
 When the paid Storage transform capability is enabled,
 `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` signs 1440x1920 3:4 feed representations and
@@ -585,7 +627,9 @@ authorization and fallback path.
 
 1. Create the Ably app/key and Cloudflare Worker account.
 2. Set Worker secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `ORCHESTRATOR_SECRET`,
-   `OUTBOX_RELAY_SECRET`, and `SENTRY_DSN`.
+   `OUTBOX_RELAY_SECRET`, and `SENTRY_DSN`. Before enabling the private admin portal,
+   also set `ADMIN_PORTAL_ORIGINS` to the comma-separated exact production admin origins;
+   an empty value denies all browser origins.
    The Worker uses the relay secret to deliver operational alerts through the protected
    `send-admin-email` Edge Function; it never needs a third-party webhook credential.
 3. Deploy `infra/doji-orchestrator`.

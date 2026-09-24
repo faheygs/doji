@@ -9,7 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { IconBell, IconClose, IconCheck } from '../icons/Icons';
+import { IconBell, IconClose, IconCheck, IconShield } from '../icons/Icons';
 import { AvatarStack } from '../ui/AvatarStack';
 import { ReactionIconRow } from '../ui/ReactionIconRow';
 import { NotificationActorRow } from './NotificationActorRow';
@@ -33,8 +33,10 @@ import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
+import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
 import { useNotificationSheetStyles } from './useNotificationSheetStyles';
+import { executeCommand } from '../../lib/commandGateway';
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -436,6 +438,32 @@ export function NotificationSheet({
           );
           break;
         }
+        case 'moderation_notice': {
+          card = (
+            <Card style={styles.card} elevated padded={false}>
+              <NotificationActorRow
+                title={item.title}
+                body={item.body}
+                 sortAt={item.sortAt}
+                 onPress={() => {
+                   void Haptics.selectionAsync();
+                   void executeCommand('mark_moderation_notice_read', {
+                     p_notice_id: item.notice_id,
+                   });
+                   dismissThen(() => router.push(
+                     hrefWithReturnTo('/(app)/profile/account-status', navigationOrigin),
+                  ));
+                }}
+                leading={
+                  <View style={styles.challengeLeading}>
+                    <IconShield size={22} color={colors.primary} />
+                  </View>
+                }
+              />
+            </Card>
+          );
+          break;
+        }
         default:
           return null;
       }
@@ -459,6 +487,7 @@ export function NotificationSheet({
       openProfile,
       openFeedPost,
       dismissThen,
+      navigationOrigin,
       router,
       renderRightActions,
       respond,

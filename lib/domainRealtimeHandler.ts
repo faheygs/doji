@@ -100,6 +100,10 @@ export function handleDomainRealtimeEvent({
     invalidateRoots('admin');
     return;
   }
+  if (event.type.startsWith('moderation.status.')) {
+    invalidateRoots('moderationStatus', 'notificationCenter', 'feed', 'post', 'profilePost', 'comments', 'pollResults');
+    return;
+  }
   const roots = realtimeQueryRoots(event.type);
   if (roots.length > 0) invalidateRoots(...roots);
 }

@@ -1,0 +1,454 @@
+/* Doji operations console — deliberately scoped so the business portal stays independent. */
+.adminPortalPage {
+  --admin-sidebar: #101116;
+  --admin-sidebar-panel: #191a20;
+  --admin-sidebar-copy: #f7f5f2;
+  --admin-sidebar-muted: #8e919b;
+  --admin-coral: #ff643c;
+  --admin-coral-deep: #e64e28;
+  --admin-purple: #7758e7;
+  --admin-canvas: #f5f6f9;
+  --admin-card: #fff;
+  --admin-border: #e5e7ed;
+  --admin-ink: #17181d;
+  --admin-muted: #696d78;
+  --admin-shadow: 0 12px 34px rgba(23,24,29,.055);
+  letter-spacing: -.005em;
+}
+
+html[data-theme="dark"] .adminPortalPage {
+  --admin-canvas: #0f1014;
+  --admin-card: #17181d;
+  --admin-border: #292b33;
+  --admin-ink: #f6f4f1;
+  --admin-muted: #9a9da7;
+  --admin-shadow: 0 18px 42px rgba(0,0,0,.22);
+}
+
+.adminIconLibrary { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.adminPortalPage > .prototypeBar {
+  min-height: 28px;
+  height: 28px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 22px;
+  border: 0;
+  background: #282118;
+  color: #d9c6a0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .03em;
+}
+
+.adminPortalPage > .prototypeBar strong {
+  color: #ffda88;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.adminPortalPage > .prototypeBar span { display: inline-flex; align-items: center; gap: 10px; }
+.adminPortalPage > .prototypeBar span::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #89785c; }
+
+html[data-theme] .adminPortalPage .portalShell {
+  min-height: calc(100vh - 28px);
+  grid-template-columns: 282px minmax(0,1fr);
+  background: var(--admin-canvas);
+}
+
+html[data-theme] .adminPortalPage .adminSidebar {
+  top: 0;
+  height: calc(100vh - 28px);
+  padding: 22px 16px 16px;
+  border-right: 1px solid rgba(255,255,255,.07);
+  background:
+    radial-gradient(circle at 12% -4%,rgba(255,100,60,.15),transparent 25%),
+    var(--admin-sidebar);
+}
+
+html[data-theme] .adminPortalPage .adminWorkspaceBrand {
+  min-height: 66px;
+  margin: 0 4px 20px;
+  padding: 8px 8px 18px;
+  border-color: rgba(255,255,255,.09);
+  color: var(--admin-sidebar-copy);
+}
+
+.adminPortalPage .adminWorkspaceBrand .workspaceLogo {
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 13px;
+  background: rgba(255,255,255,.07);
+  box-shadow: 0 9px 24px rgba(0,0,0,.22);
+}
+
+.adminPortalPage .adminWorkspaceBrand strong { font-size: 15px; letter-spacing: -.02em; }
+.adminPortalPage .adminWorkspaceBrand small { margin-top: 4px; color: #777b86; font-size: 9px; letter-spacing: .13em; }
+.adminPortalPage .navSectionLabel { margin: 18px 14px 8px; color: #626672; font-size: 9px; }
+.adminPortalPage .navSectionLabel:first-child { margin-top: 0; }
+
+html[data-theme] .adminPortalPage .adminNav { gap: 4px; }
+html[data-theme] .adminPortalPage .adminNav button {
+  min-height: 44px;
+  gap: 12px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--admin-sidebar-muted);
+  font-size: 13px;
+  font-weight: 690;
+  transition: color .16s ease, background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+html[data-theme] .adminPortalPage .adminNav button:hover {
+  color: var(--admin-sidebar-copy);
+  background: rgba(255,255,255,.055);
+  transform: translateX(2px);
+}
+
+html[data-theme] .adminPortalPage .adminNav button[aria-current="page"] {
+  border-color: rgba(255,121,86,.18);
+  background: linear-gradient(90deg,rgba(255,100,60,.19),rgba(255,100,60,.07));
+  color: #ff9476;
+  box-shadow: inset 3px 0 0 var(--admin-coral);
+}
+
+.adminPortalPage .adminNav .navIcon { width: 19px; height: 19px; flex-basis: 19px; }
+.adminPortalPage .adminNav .navIcon svg,
+.adminPortalPage .adminSearchButton svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.adminPortalPage .adminNav .navCount {
+  min-width: 25px;
+  height: 21px;
+  background: rgba(255,255,255,.08);
+  color: #b4b7c0;
+}
+
+.adminPortalPage .adminNav button[aria-current="page"] .navCount { background: rgba(255,100,60,.2); color: #ffad98; }
+
+html[data-theme] .adminPortalPage .portalAccount {
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr);
+  gap: 11px;
+  align-items: center;
+  margin-top: auto;
+  padding: 16px 10px 5px;
+  border-color: rgba(255,255,255,.09);
+}
+
+.adminPortalPage .operatorAvatar {
+  width: 38px;
+  height: 38px;
+  display: grid !important;
+  place-items: center;
+  margin: 0 !important;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  background: linear-gradient(145deg,#2d3039,#1d1f26);
+  color: #f6f4f1 !important;
+  font-size: 10px !important;
+  font-weight: 900;
+}
+
+.adminPortalPage .operatorCopy { min-width: 0; }
+.adminPortalPage .operatorCopy strong { color: #eeece8; font-size: 12px; }
+.adminPortalPage .operatorCopy > span { color: #737782; font-size: 10px; }
+.adminPortalPage .operatorState { color: #8c909a !important; font-size: 9px !important; }
+
+html[data-theme] .adminPortalPage .portalMain {
+  min-height: calc(100vh - 28px);
+  background: var(--admin-canvas);
+}
+
+html[data-theme] .adminPortalPage .adminTopbar {
+  top: 28px;
+  min-height: 78px;
+  padding: 0 34px;
+  border-color: var(--admin-border);
+  background: color-mix(in srgb,var(--admin-canvas) 90%,transparent);
+}
+
+.adminPortalPage .topbarKicker { margin-bottom: 6px; color: var(--admin-muted); font-size: 8px; letter-spacing: .15em; }
+html[data-theme] .adminPortalPage .portalTopbar h1 { color: var(--admin-ink); font-size: 20px; font-weight: 800; }
+.adminPortalPage .adminTopActions { gap: 8px; }
+
+.adminPortalPage .adminSearchButton {
+  min-width: 270px;
+  min-height: 42px;
+  padding: 0 10px 0 13px;
+  border-color: var(--admin-border);
+  border-radius: 11px;
+  background: var(--admin-card);
+  color: var(--admin-muted);
+  box-shadow: 0 1px 2px rgba(20,22,27,.03);
+}
+
+.adminPortalPage .adminSearchButton:hover { border-color: #cfd2da; color: var(--admin-ink); }
+.adminPortalPage .adminSearchButton kbd { border-color: var(--admin-border); background: var(--admin-canvas); color: var(--admin-muted); }
+.adminPortalPage .sessionButton { background: transparent !important; }
+
+html[data-theme] .adminPortalPage .adminContent {
+  width: min(1500px,100%);
+  max-width: none;
+  padding: 34px 36px 72px;
+}
+
+.adminPortalPage .overviewHero {
+  position: relative;
+  overflow: hidden;
+  min-height: 218px;
+  align-items: center;
+  padding: 36px 38px;
+  border: 1px solid #202127;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 82% 18%,rgba(119,88,231,.36),transparent 28%),
+    radial-gradient(circle at 100% 100%,rgba(255,100,60,.28),transparent 32%),
+    linear-gradient(135deg,#17181d,#101116);
+  box-shadow: 0 24px 56px rgba(21,22,27,.14);
+}
+
+.adminPortalPage .overviewHero::after {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  right: 18%;
+  top: -170px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 50%;
+}
+
+.adminPortalPage .overviewHero > * { position: relative; z-index: 1; }
+.adminPortalPage .overviewHero .eyebrow { color: #ff9b80; }
+.adminPortalPage .overviewHero h2 { max-width: 620px; margin: 7px 0 11px; color: #fff !important; font-size: clamp(34px,3.8vw,50px) !important; line-height: 1.02; }
+.adminPortalPage .overviewHero p { max-width: 590px; color: #a9abb3 !important; font-size: 14px; }
+.adminPortalPage .overviewHero .portalButton { border-color: rgba(255,255,255,.13); background: rgba(255,255,255,.07); color: #fff; box-shadow: none; }
+.adminPortalPage .overviewHero .portalButton:hover { background: rgba(255,255,255,.12); }
+.adminPortalPage .overviewHero .portalButton.primary { border-color: transparent; background: var(--admin-coral); color: #21100b; }
+
+.adminPortalPage .overviewPulse { display: flex; align-items: center; gap: 8px; margin-top: 20px; color: #c4c6cd; font-size: 11px; font-weight: 700; }
+.adminPortalPage .overviewPulse span { width: 8px; height: 8px; border-radius: 50%; background: #4cdda0; box-shadow: 0 0 0 5px rgba(76,221,160,.1); }
+
+.adminPortalPage .adminMetricGrid { gap: 14px; margin-top: 16px; }
+html[data-theme] .adminPortalPage .adminMetricGrid .metricCard {
+  min-height: 155px;
+  padding: 22px;
+  border-color: var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-card);
+  box-shadow: var(--admin-shadow);
+}
+
+.adminPortalPage .adminMetricGrid .metricCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #a9adb8;
+}
+
+.adminPortalPage .adminMetricGrid .criticalMetric::before { background: #ff6474; }
+.adminPortalPage .adminMetricGrid .sponsoredMetric::before { background: #8c70f3; }
+.adminPortalPage .adminMetricGrid .healthyMetric::before { background: #42cd91; }
+.adminPortalPage .adminMetricGrid .metricCard::after { width: 110px; height: 110px; right: -50px; bottom: -58px; opacity: .9; }
+.adminPortalPage .metricLabel { display: flex; align-items: center; gap: 9px; }
+.adminPortalPage .metricLabel > span { color: var(--admin-muted); font-size: 12px; font-weight: 720; }
+.adminPortalPage .metricDot { width: 7px; height: 7px; border-radius: 50%; background: #a9adb8; }
+.adminPortalPage .criticalMetric .metricDot { background: #ff6474; }
+.adminPortalPage .sponsoredMetric .metricDot { background: #8c70f3; }
+.adminPortalPage .healthyMetric .metricDot { background: #42cd91; }
+html[data-theme] .adminPortalPage .adminMetricGrid .metricCard strong { margin-top: 18px; color: var(--admin-ink); font-size: 34px; }
+html[data-theme] .adminPortalPage .adminMetricGrid .metricCard small { color: var(--admin-muted); font-size: 11px; }
+
+.adminPortalPage .adminDashboardGrid { gap: 16px; margin-top: 16px; }
+html[data-theme] .adminPortalPage .portalPanel,
+.adminPortalPage .businessAdminCard,
+.adminPortalPage .announcementCard,
+.adminPortalPage .queueSummaryStrip {
+  border-color: var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-card);
+  box-shadow: var(--admin-shadow);
+}
+
+html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
+.adminPortalPage .panelHeader h3 { color: var(--admin-ink); font-size: 17px; }
+.adminPortalPage .panelHeader p { margin-top: 5px; color: var(--admin-muted); font-size: 11px; }
+.adminPortalPage .priorityPanel { min-height: 490px; }
+.adminPortalPage .priorityRow { grid-template-columns: 5px minmax(0,1fr) minmax(160px,.38fr) 20px; min-height: 76px; padding: 13px 10px; border-color: var(--admin-border); border-radius: 9px; }
+.adminPortalPage .priorityRow:hover { background: color-mix(in srgb,var(--admin-canvas) 75%,transparent); }
+.adminPortalPage .priorityMark { width: 4px; height: 42px; }
+.adminPortalPage .priorityCopy strong { color: var(--admin-ink); font-size: 13px; }
+.adminPortalPage .priorityCopy small,
+.adminPortalPage .priorityDue strong,
+.adminPortalPage .priorityDue small { color: var(--admin-muted); font-size: 10px; }
+
+.adminPortalPage .slaList > div,
+.adminPortalPage .scheduleList > div { min-height: 64px; border-color: var(--admin-border); }
+.adminPortalPage .slaList strong,
+.adminPortalPage .scheduleList strong { color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .slaList small,
+.adminPortalPage .scheduleList small { color: var(--admin-muted); font-size: 10px; }
+
+.adminPortalPage .portalFormStatus {
+  min-height: 20px;
+  margin-top: 12px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.adminPortalPage .portalFormStatus[data-tone="error"] { color: #d94c4c; }
+.adminPortalPage .authForm button:disabled { cursor: wait; opacity: .65; }
+.adminPortalPage .authBackButton {
+  width: fit-content;
+  margin: 0 0 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 720;
+  cursor: pointer;
+}
+.adminPortalPage .authBackButton:hover { color: var(--admin-ink); }
+.adminPortalPage .mfaStepHeading { display: grid; grid-template-columns: 42px 1fr; gap: 13px; align-items: center; margin: 3px 0 5px; }
+.adminPortalPage .mfaStepIcon {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255,100,60,.12);
+  color: var(--admin-coral-deep);
+  font-weight: 900;
+}
+.adminPortalPage .mfaStepIcon { width: 42px; height: 42px; }
+.adminPortalPage .mfaStepHeading strong { display: block; color: var(--admin-ink); font-size: 18px; }
+.adminPortalPage .mfaStepHeading p { margin: 3px 0 0; color: var(--admin-muted); font-size: 12px; line-height: 1.45; }
+.adminPortalPage .adminMfaSetup > h3 { margin: 7px 0 8px; color: var(--admin-ink); font-size: 25px; letter-spacing: -.035em; }
+.adminPortalPage .adminMfaSetup > p:not(.eyebrow) { margin: 0; color: var(--admin-muted); font-size: 13px; line-height: 1.55; }
+.adminPortalPage .totpEnrollment { display: grid; gap: 16px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--admin-border); }
+.adminPortalPage .totpInstructions strong { color: var(--admin-ink); font-size: 14px; }
+.adminPortalPage .totpInstructions p { margin: 5px 0 0; color: var(--admin-muted); font-size: 11px; line-height: 1.5; }
+.adminPortalPage .totpQrFrame { width: 190px; height: 190px; display: grid; place-items: center; margin: 0 auto; padding: 10px; border: 1px solid var(--admin-border); border-radius: 16px; background: #fff; box-shadow: 0 12px 30px rgba(23,24,29,.08); }
+.adminPortalPage .totpQrFrame img { width: 100%; height: 100%; display: block; }
+.adminPortalPage .totpManual { padding: 12px 14px; border: 1px solid var(--admin-border); border-radius: 12px; color: var(--admin-muted); font-size: 11px; }
+.adminPortalPage .totpManual summary { color: var(--admin-ink); font-weight: 760; cursor: pointer; }
+.adminPortalPage .totpManual p { margin: 10px 0 8px; line-height: 1.45; }
+.adminPortalPage .totpManual code { display: block; overflow-wrap: anywhere; padding: 9px; border-radius: 8px; background: var(--admin-canvas); color: var(--admin-ink); font-size: 11px; letter-spacing: .06em; user-select: all; }
+.adminPortalPage .overviewPulse[data-tone="attention"] { color: #b54708; }
+
+.adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro { min-height: 128px; align-items: end; margin-bottom: 22px; padding: 4px 2px; }
+.adminPortalPage .portalView > .viewIntro > div { min-width: 0; }
+.adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro > .statusPill { align-self: center; }
+.adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro h2 { color: var(--admin-ink); font-size: clamp(32px,3vw,42px); }
+.adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro p { color: var(--admin-muted); font-size: 13px; }
+
+.adminPortalPage .queuePanel { border-radius: 18px; }
+.adminPortalPage .queueCommandBar { min-height: 76px; border-color: var(--admin-border); }
+.adminPortalPage .queueSearch { min-width: 290px; border-color: var(--admin-border); border-radius: 11px; background: var(--admin-card); }
+.adminPortalPage .queueSearch input { color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .filterButton { min-height: 36px; border-color: transparent; border-radius: 9px; background: var(--admin-canvas); color: var(--admin-muted); }
+.adminPortalPage .filterButton:hover { color: var(--admin-ink); }
+.adminPortalPage .filterButton.active { border-color: #25262c; background: #25262c; color: #fff; }
+.adminPortalPage .queueTable th { padding: 14px 16px; border-color: var(--admin-border); color: #8b8f99; font-size: 9px; }
+.adminPortalPage .queueTable td { padding: 17px 16px; border-color: var(--admin-border); color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .queueTable tbody tr:hover { background: color-mix(in srgb,var(--admin-canvas) 72%,transparent); }
+.adminPortalPage .queuePanel .tableWrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.adminPortalPage .tableFooter { padding: 14px 18px; border-color: var(--admin-border); color: var(--admin-muted); }
+.adminPortalPage .queueSummaryStrip > span { padding: 18px 20px; border-color: var(--admin-border); color: var(--admin-muted); }
+.adminPortalPage .queueSummaryStrip strong { color: var(--admin-ink); }
+
+.adminPortalPage .adminDrawer,
+.adminPortalPage .portalModal { --portal-panel: var(--admin-card); --portal-line: var(--admin-border); --portal-copy: var(--admin-ink); --portal-muted: var(--admin-muted); }
+.adminPortalPage .adminDrawer .drawerHeader { padding: 30px 30px 22px; }
+.adminPortalPage .drawerTabs { padding: 0 30px; }
+.adminPortalPage .adminDrawer #drawerContent { padding: 26px 30px; }
+.adminPortalPage .decisionPanel { padding: 20px 30px 28px; background: color-mix(in srgb,var(--admin-card) 94%,transparent); }
+.adminPortalPage .moderationTriage { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; margin-bottom: 16px; }
+.adminPortalPage .moderationTriage .field { margin: 0; }
+.adminPortalPage .moderationTriage .portalButton { min-width: 128px; }
+.adminPortalPage .moderationClassification { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
+.adminPortalPage .moderationClassification .field { margin: 0; }
+.adminPortalPage .moderationEvidence { display: grid; gap: 12px; }
+.adminPortalPage .moderationEvidenceImage { display: block; width: 100%; max-height: 420px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); object-fit: contain; }
+.adminPortalPage .moderationEvidence > small { color: var(--admin-muted); font-size: 11px; }
+.adminPortalPage .moderationEvidence.removed { opacity: .72; }
+.adminPortalPage .moderationEvidenceUnavailable { display: grid; gap: 4px; min-height: 120px; place-content: center; padding: 24px; border: 1px dashed var(--admin-border-strong); border-radius: 14px; background: var(--admin-shell); color: var(--admin-muted); text-align: center; }
+.adminPortalPage .moderationEvidenceUnavailable strong { color: var(--admin-ink); }
+.adminPortalPage .moderationPeople { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adminPortalPage .moderationPeople > div { display: grid; gap: 5px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); }
+.adminPortalPage .moderationPeople span, .adminPortalPage .moderationPeople small { color: var(--admin-muted); font-size: 10px; }
+.adminPortalPage .moderationPeople strong { color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .drawerLoading, .adminPortalPage .drawerError { display: grid; justify-items: start; gap: 8px; min-height: 220px; align-content: center; color: var(--admin-muted); }
+.adminPortalPage .drawerLoading span { width: 28px; height: 28px; border: 3px solid var(--admin-border-strong); border-top-color: var(--portal-coral); border-radius: 50%; animation: adminSpin .8s linear infinite; }
+.adminPortalPage .drawerLoading strong, .adminPortalPage .drawerError strong { color: var(--admin-ink); }
+.adminPortalPage .drawerLoading small, .adminPortalPage .drawerError p { max-width: 420px; margin: 0; line-height: 1.5; }
+.adminPortalPage .moderationConfirmModal { width: min(590px,calc(100% - 28px)); }
+.adminPortalPage .confirmationSummary { display: grid; gap: 10px; }
+.adminPortalPage .confirmationSummary span { display: grid; gap: 5px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); color: var(--admin-muted); line-height: 1.5; }
+.adminPortalPage .confirmationSummary strong { color: var(--admin-ink); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+@keyframes adminSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1180px) {
+  html[data-theme] .adminPortalPage .portalShell { grid-template-columns: 254px minmax(0,1fr); }
+  .adminPortalPage .overviewHero { padding: 32px; }
+  .adminPortalPage .overviewHero h2 { max-width: 560px; }
+}
+
+@media (max-width: 1100px) {
+  html[data-theme] .adminPortalPage .portalShell { grid-template-columns: minmax(0,1fr); }
+  html[data-theme] .adminPortalPage .portalMain { width: 100%; grid-column: 1; }
+  html[data-theme] .adminPortalPage .adminSidebar { position: fixed; left: 0; top: 28px; bottom: 0; z-index: 60; width: 256px; height: calc(100dvh - 28px); max-height: none; transform: translateX(-102%); transition: transform .2s ease; }
+  html[data-theme] .adminPortalPage .adminSidebar.open { transform: translateX(0); }
+  html[data-theme] .adminPortalPage .portalSidebarBackdrop { position: fixed; inset: 28px 0 0; z-index: 59; display: block; background: rgba(7,8,12,.58); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  html[data-theme] .adminPortalPage .portalSidebarBackdrop.open { opacity: 1; pointer-events: auto; }
+  .adminPortalPage .sidebarClose { position: absolute; z-index: 2; top: 12px; right: 12px; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: rgba(255,255,255,.06); color: white; font-size: 23px; line-height: 1; cursor: pointer; }
+  .adminPortalPage .mobileMenu { display: inline-grid; place-items: center; }
+  html[data-theme] .adminPortalPage .adminWorkspaceBrand { padding-right: 44px; }
+  html[data-theme] .adminPortalPage .adminTopbar { top: 28px; padding: 0 20px; }
+  html[data-theme] .adminPortalPage .adminContent { padding: 26px 22px 56px; }
+  .adminPortalPage .adminSearchButton { min-width: 42px; width: 42px; justify-content: center; }
+  .adminPortalPage .adminSearchButton > span:nth-child(2),
+  .adminPortalPage .adminSearchButton kbd { display: none; }
+  html[data-theme] .adminPortalPage .overviewHero { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 700px) {
+  .adminPortalPage > .prototypeBar span { display: none; }
+  .adminPortalPage > .prototypeBar { justify-content: center; }
+  .adminPortalPage .overviewHero { min-height: 0; padding: 28px 24px; border-radius: 18px; }
+  .adminPortalPage .overviewHero h2 { font-size: 36px !important; }
+  .adminPortalPage .overviewHero .introActions { margin-top: 8px; }
+  .adminPortalPage .adminMetricGrid { grid-template-columns: 1fr 1fr; }
+  html[data-theme] .adminPortalPage .adminMetricGrid .metricCard { min-height: 142px; padding: 18px; }
+  .adminPortalPage .sessionButton { width: 42px; overflow: hidden; padding: 0 !important; font-size: 0; }
+  .adminPortalPage .sessionButton::before { content: "×"; font-size: 18px; }
+  .adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro { min-height: 0; align-items: flex-start; margin-bottom: 18px; padding: 8px 0 0; }
+  .adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro > .statusPill { align-self: flex-start; }
+  .adminPortalPage .queueCommandBar { padding: 12px; }
+  .adminPortalPage .queueCommandBar .queueFilters { overflow: visible; flex-wrap: wrap; }
+  .adminPortalPage .moderationTriage, .adminPortalPage .moderationClassification, .adminPortalPage .moderationPeople { grid-template-columns: 1fr; }
+  .adminPortalPage .moderationTriage .portalButton { width: 100%; }
+  .adminPortalPage .queueTable th:nth-child(4),
+  .adminPortalPage .queueTable td:nth-child(4),
+  .adminPortalPage .queueTable th:nth-child(5),
+  .adminPortalPage .queueTable td:nth-child(5) { display: none; }
+}
+
+@media (max-width: 480px) {
+  .adminPortalPage .adminMetricGrid { grid-template-columns: 1fr; }
+  .adminPortalPage .overviewHero h2 { font-size: 31px !important; }
+}

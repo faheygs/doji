@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Doji Business Portal - Prototype</title>
+  <meta name="description" content="Local prototype of the Doji business application and sponsored campaign workspace.">
+  <link rel="icon" href="/assets/doji-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+  <script>document.documentElement.dataset.theme=localStorage.getItem('doji-portal-theme')||'light';</script>
+  <link rel="stylesheet" href="/portal.css?v=20260923b">
+</head>
+<body class="portalPage" data-portal="business">
+  <div class="prototypeBar">Local prototype · Browser-only demo data · No campaign can publish or reach Doji users</div>
+
+  <section class="portalAuth" id="portalAuth">
+    <div class="authStory">
+      <a class="portalBrand" href="/business/"><img src="/assets/doji-icon.png" alt=""><span>Doji<small>Business portal</small></span></a>
+      <div class="authCopy"><p class="eyebrow">Doji for Business</p><h1>Turn a prompt into a shared moment.</h1><p>Create your company workspace, tell us about your brand, and build a sponsored Doji with clear human review.</p></div>
+      <p class="authFine">Production will use isolated business authentication, role-scoped access, MFA for privileged roles, and audited server commands.</p>
+    </div>
+    <div class="authPanel">
+      <div class="authCard">
+        <div class="authUtility"><button class="themeToggle" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button></div>
+        <h2 id="authTitle">Business sign in</h2>
+        <p id="authDescription">Welcome back. Sign in to manage your company workspace.</p>
+        <div class="authTabs" role="tablist" aria-label="Business portal access">
+          <button type="button" class="active" data-auth-tab="signin" role="tab" aria-selected="true">Sign in</button>
+          <button type="button" data-auth-tab="signup" role="tab" aria-selected="false">Create account</button>
+        </div>
+        <form class="authForm" id="signinForm">
+          <div class="field"><label for="businessEmail">Work email</label><input id="businessEmail" type="email" value="alex@northstar.example" autocomplete="email"></div>
+          <div class="field"><label for="businessPassword">Password</label><input id="businessPassword" type="password" value="prototype" autocomplete="current-password"></div>
+          <button class="portalButton primary" type="submit">Sign in</button>
+        </form>
+        <form class="authForm" id="signupForm" hidden>
+          <div class="field"><label for="accountName">Your name</label><input id="accountName" required autocomplete="name" placeholder="Alex Morgan"></div>
+          <div class="field"><label for="signupEmail">Work email</label><input id="signupEmail" type="email" required autocomplete="email" placeholder="alex@company.com"></div>
+          <div class="field"><label for="signupPassword">Create password</label><input id="signupPassword" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></div>
+          <button class="portalButton primary" type="submit">Create account and continue</button>
+        </form>
+        <div class="authHint">Prototype only: nothing is uploaded or sent to Doji. Your test progress stays in this browser.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="portalOnboarding" id="portalOnboarding" hidden>
+    <header class="onboardingHeader">
+      <a class="portalBrand" href="/business/"><img src="/assets/doji-icon.png" alt=""><span>Doji<small>Business portal</small></span></a>
+      <div class="headerActions"><button class="themeToggle" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button><button class="portalButton" type="button" data-action="back-to-auth">Save and finish later</button></div>
+    </header>
+    <main class="onboardingMain">
+      <div class="onboardingAside">
+        <p class="eyebrow">Company setup</p>
+        <h1>Build your business profile.</h1>
+        <p>We use this information to verify your company, review campaign fit, and present your brand consistently in Doji.</p>
+        <ol class="onboardingSteps" aria-label="Onboarding progress">
+          <li class="active" data-onboarding-indicator="1"><span>1</span><div><strong>Brand basics</strong><small>Company identity and logo</small></div></li>
+          <li data-onboarding-indicator="2"><span>2</span><div><strong>Business profile</strong><small>Industry, markets, and goals</small></div></li>
+          <li data-onboarding-indicator="3"><span>3</span><div><strong>Review</strong><small>Confirm your workspace</small></div></li>
+        </ol>
+      </div>
+      <div class="onboardingCard">
+        <form id="onboardingForm">
+          <section class="onboardingStep" data-onboarding-step="1">
+            <p class="stepCount">Step 1 of 3</p><h2>Tell us about your company</h2><p class="stepLead">Start with the identity people should recognize when your sponsored Doji appears.</p>
+            <div class="logoUploadRow">
+              <div class="logoPreview" id="logoPreview" aria-hidden="true">N</div>
+              <div><label class="portalButton" for="companyLogo">Upload company logo</label><input class="visuallyHidden" id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp"><small>Square PNG, JPG, or WebP works best. Prototype preview only.</small></div>
+            </div>
+            <div class="formGrid">
+              <div class="field"><label for="companyName">Public company name</label><input id="companyName" required placeholder="Northstar"></div>
+              <div class="field"><label for="companyLegalName">Legal company name</label><input id="companyLegalName" required placeholder="Northstar Outdoor Co."></div>
+              <div class="field full"><label for="companyWebsite">Company website</label><input id="companyWebsite" type="url" required placeholder="https://northstar.example"></div>
+              <div class="field full"><label for="companyDescription">Tell us about your business</label><textarea id="companyDescription" required maxlength="500" placeholder="What do you make, who do you serve, and what makes your brand distinct?"></textarea><small>Up to 500 characters. This is for verification and campaign review—not public ad copy.</small></div>
+            </div>
+          </section>
+          <section class="onboardingStep" data-onboarding-step="2" hidden>
+            <p class="stepCount">Step 2 of 3</p><h2>Help us understand your audience</h2><p class="stepLead">This shapes campaign recommendations. It does not grant access to individual Doji users.</p>
+            <div class="formGrid">
+              <div class="field"><label for="companyIndustry">Industry</label><select id="companyIndustry" required><option value="">Choose an industry</option><option>Consumer goods</option><option>Sports and wellness</option><option>Food and beverage</option><option>Entertainment</option><option>Travel and outdoors</option><option>Local business</option><option>Technology</option><option>Other</option></select></div>
+              <div class="field"><label for="companySize">Company size</label><select id="companySize" required><option value="">Choose a size</option><option>1–10 employees</option><option>11–50 employees</option><option>51–250 employees</option><option>251–1,000 employees</option><option>1,000+ employees</option></select></div>
+              <div class="field"><label for="companyCountry">Headquarters</label><select id="companyCountry" required><option value="">Choose a country</option><option>United States</option><option>Canada</option><option>United Kingdom</option><option>Australia</option><option>Other</option></select></div>
+              <div class="field"><label for="companyGoal">Primary goal</label><select id="companyGoal" required><option value="">Choose a goal</option><option>Brand awareness</option><option>Learn audience preferences</option><option>Launch a product</option><option>Start a cultural conversation</option><option>Promote an event</option></select></div>
+              <fieldset class="field full marketField"><legend>Markets you are interested in</legend><div class="choiceGrid"><label><input type="checkbox" name="companyMarkets" value="United States" checked><span>United States</span></label><label><input type="checkbox" name="companyMarkets" value="Canada"><span>Canada</span></label><label><input type="checkbox" name="companyMarkets" value="Europe"><span>Europe</span></label><label><input type="checkbox" name="companyMarkets" value="Latin America"><span>Latin America</span></label><label><input type="checkbox" name="companyMarkets" value="Asia Pacific"><span>Asia Pacific</span></label><label><input type="checkbox" name="companyMarkets" value="Global"><span>Global</span></label></div><small>Campaign availability and reporting remain subject to Doji review, audience size, and privacy thresholds.</small></fieldset>
+            </div>
+          </section>
+          <section class="onboardingStep" data-onboarding-step="3" hidden>
+            <p class="stepCount">Step 3 of 3</p><h2>Review your company profile</h2><p class="stepLead">You can update these details later. Completing setup creates a private workspace—it does not approve or publish a campaign.</p>
+            <div class="profileReview" id="profileReview"></div>
+            <label class="consentRow"><input id="businessAccuracy" type="checkbox" required><span>I confirm I am authorized to represent this company and the information is accurate for this prototype.</span></label>
+          </section>
+          <footer class="onboardingFooter"><button class="portalButton" id="onboardingBack" type="button" hidden>Back</button><button class="portalButton primary" id="onboardingNext" type="button">Continue</button></footer>
+        </form>
+      </div>
+    </main>
+  </section>
+
+  <div class="portalShell" id="portalApp" hidden>
+    <aside class="portalSidebar" id="portalSidebar">
+      <button class="workspaceBrand" type="button" data-view-jump="overview" aria-label="Go to workspace overview"><span class="workspaceLogo" id="workspaceLogo">N</span><span><strong data-company-name>Northstar</strong><small>Business workspace</small></span></button>
+      <nav class="portalNav" aria-label="Business workspace">
+        <button type="button" data-view="overview" data-label="Overview" aria-current="page"><span class="navIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/></svg></span><span>Overview</span></button>
+        <button type="button" data-view="campaigns" data-label="Campaigns"><span class="navIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/></svg></span><span>Campaigns</span></button>
+        <button type="button" data-view="analytics" data-label="Results"><span class="navIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19V3"/></svg></span><span>Results</span></button>
+        <button type="button" data-view="organization" data-label="Organization"><span class="navIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span><span>Organization</span></button>
+      </nav>
+      <div class="portalAccount"><span class="poweredBy"><img src="/assets/doji-icon.png" alt="">Powered by Doji</span><span>Owner · Prototype workspace</span></div>
+    </aside>
+    <main class="portalMain">
+      <header class="portalTopbar">
+        <div class="topActions"><button type="button" class="iconButton mobileMenu" id="mobileMenu" aria-label="Open navigation">☰</button><h1 id="portalPageTitle">Overview</h1></div>
+        <div class="topActions"><button class="themeToggle compact" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button><button type="button" class="portalButton" data-action="exit-demo">Sign out</button><button type="button" class="portalButton primary" data-action="new-campaign"><span aria-hidden="true">+</span> Create campaign</button></div>
+      </header>
+      <div class="portalContent">
+        <section class="portalView" data-portal-view="overview">
+          <div class="viewIntro"><div><p class="eyebrow"><span data-company-name>Northstar</span> workspace</p><h2>Good afternoon, <span data-owner-name>Alex</span>.</h2><p>Plan campaigns, submit sponsored Dojis for review, and understand aggregate performance from one place.</p></div></div>
+          <div class="firstRunPanel" id="firstRunPanel" hidden><div class="firstRunMark">01</div><div><p class="eyebrow">Your workspace is ready</p><h3>Create your first campaign</h3><p>Define the objective, audience, and date range first. Then add one or more sponsored Dojis for Doji review and scheduling.</p><div class="firstRunActions"><button type="button" class="portalButton primary" data-action="new-campaign">Create your first campaign</button><button type="button" class="portalButton" data-view-jump="analytics">Preview reporting</button></div></div></div>
+          <div id="workspaceMetrics">
+            <div class="metricGrid"><article class="metricCard"><span>Active campaigns</span><strong id="activeCampaignMetric">2</strong><small>Currently planned or delivering</small></article><article class="metricCard"><span>Dojis in review</span><strong id="reviewMetric">1</strong><small>Awaiting Doji review</small></article><article class="metricCard"><span>Scheduled Dojis</span><strong id="approvedMetric">1</strong><small>Approved with a live date</small></article><article class="metricCard"><span>Valid completions</span><strong id="completionMetric">12.8k</strong><small>Across completed Dojis</small></article></div>
+          </div>
+          <div class="portalGrid" id="workspaceOverview">
+            <article class="portalPanel"><div class="panelHeader"><div><h3>Campaigns</h3><p>Objectives with one or more sponsored Dojis</p></div><button type="button" class="portalButton secondary" data-view-jump="campaigns">View all</button></div><div class="campaignList" id="overviewCampaigns"></div></article>
+            <article class="portalPanel"><div class="panelHeader"><div><h3>How it works</h3><p>Campaign strategy, Doji-level approval</p></div></div><div class="lifecycleList"><div><span>1</span><p><strong>Create a campaign</strong>Set the goal, audience, and date range.</p></div><div><span>2</span><p><strong>Add sponsored Dojis</strong>Build each prompt and proposed live date.</p></div><div><span>3</span><p><strong>Review and schedule</strong>Doji approves and schedules each immutable Doji.</p></div><div><span>4</span><p><strong>Measure results</strong>Compare aggregate campaign and Doji performance.</p></div></div></article>
+          </div>
+        </section>
+
+        <section class="portalView" data-portal-view="campaigns" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Campaign workspace</p><h2>Campaigns and sponsored Dojis.</h2><p>Group related Dojis under one objective, audience, and reporting window.</p></div><button type="button" class="portalButton primary" data-action="new-campaign"><span aria-hidden="true">+</span> Create campaign</button></div>
+          <div class="sampleBanner"><strong>Campaign structure</strong><span>A campaign can contain one or many sponsored Dojis. Every Doji is reviewed and scheduled independently.</span></div>
+          <article class="portalPanel"><div class="queueToolbar"><div class="queueFilters"><button class="filterButton active" data-campaign-filter="all">All</button><button class="filterButton" data-campaign-filter="draft">Draft</button><button class="filterButton" data-campaign-filter="review">In review</button><button class="filterButton" data-campaign-filter="approved">Approved</button><button class="filterButton" data-campaign-filter="completed">Completed</button></div></div><div class="campaignList" id="allCampaigns"></div></article>
+        </section>
+
+        <section class="portalView" data-portal-view="analytics" hidden>
+          <div class="viewIntro resultsIntro"><div><p class="eyebrow">Privacy-safe reporting</p><h2>Understand campaign performance.</h2><p>View aggregate campaign totals, then compare each completed Doji without receiving identities or individual submissions.</p></div><div class="reportControls"><label class="reportSelector">Campaign<select id="analyticsCampaign"><option value="CAM-094">Weekend reset</option><option value="CAM-099">Morning movement</option></select></label><label class="reportSelector">Doji<select id="analyticsDoji"><option value="all">All completed Dojis</option><option value="DOJI-094-A">Weekend reset ritual</option><option value="DOJI-094-B">Sunday recharge poll</option></select></label></div></div>
+          <div class="sampleBanner" id="analyticsSampleBanner"><strong>Example report</strong><span>This illustrates what becomes available after a campaign completes. It is not your company’s data.</span></div>
+          <div class="metricGrid" id="resultsMetrics"><article class="metricCard"><span>Eligible opportunities</span><strong>18.4k</strong><small>Eligible users across selected Doji windows</small></article><article class="metricCard"><span>Challenge opens</span><strong>14.2k</strong><small>Opened the selected sponsored Dojis</small></article><article class="metricCard"><span>Valid completions</span><strong>12.8k</strong><small>Completed within an authorized window</small></article><article class="metricCard"><span>Completion rate</span><strong>90.1%</strong><small>Valid completions ÷ challenge opens</small></article></div>
+          <div class="portalGrid analyticsGrid"><article class="portalPanel"><div class="panelHeader"><div><h3>Participation by region</h3><p>Share of valid completions in reportable cohorts</p></div><span class="statusPill approved">Aggregated</span></div><div class="regionChart"><div><span>Western United States</span><strong>32%</strong><i style="--bar:32%"></i></div><div><span>Southern United States</span><strong>26%</strong><i style="--bar:26%"></i></div><div><span>Midwestern United States</span><strong>21%</strong><i style="--bar:21%"></i></div><div><span>Northeastern United States</span><strong>17%</strong><i style="--bar:17%"></i></div><div><span>Other / suppressed</span><strong>4%</strong><i style="--bar:4%"></i></div></div><p class="chartNote">Exact location and small cohorts are never shown. Percentages use broad approved regions only.</p></article><article class="portalPanel"><div class="panelHeader"><div><h3>Doji outcomes</h3><p>Aggregate activity after valid participation</p></div></div><div class="funnelList"><div><span>Valid completions</span><strong>12,809</strong></div><div><span>Total reactions</span><strong>3,142</strong></div><div><span>Total comments</span><strong>487</strong></div><div><span>Report / hide rate</span><strong>0.08%</strong></div></div></article></div>
+          <article class="portalPanel resultBreakdown" id="pollResultsPanel" hidden><div class="panelHeader"><div><h3>Poll distribution</h3><p>Aggregate votes for the selected Doji, including Other</p></div><span class="statusPill approved">Aggregate only</span></div><div class="regionChart" id="pollResultsList"></div></article>
+          <div class="portalGrid"><article class="portalPanel"><div class="panelHeader"><div><h3>What businesses can learn</h3><p>Campaign-level aggregate signals</p></div></div><div class="insightGrid"><span>Reach and frequency</span><span>Open and completion rates</span><span>Poll result distribution</span><span>Reaction and comment totals</span><span>Coarse regional interest</span><span>Approved device categories</span></div></article><article class="portalPanel"><div class="panelHeader"><div><h3>What stays private</h3><p>Always outside the business portal</p></div></div><div class="privacyList"><span>User identities</span><span>Raw submissions</span><span>Individual votes</span><span>Exact locations</span></div></article></div>
+        </section>
+
+        <section class="portalView" data-portal-view="organization" hidden>
+          <div class="viewIntro"><div><p class="eyebrow">Organization</p><h2 data-company-name>Northstar</h2><p id="organizationDescription">Verified organization information, team access, billing, and brand assets live here.</p></div></div>
+          <article class="portalPanel"><div class="settingsList"><div class="settingsRow"><div><strong>Verification</strong><p>Organization, representative, and domain review</p></div><span class="statusPill" id="verificationStatus">Pending review</span></div><div class="settingsRow"><div><strong>Company profile</strong><p id="organizationMeta">Sports and wellness · United States</p></div><button class="portalButton" type="button" data-action="edit-profile">Edit profile</button></div><div class="settingsRow"><div><strong>Team roles</strong><p>Owner, campaign manager, analyst, and billing</p></div><button class="portalButton" type="button" data-action="prototype-only">Manage team</button></div><div class="settingsRow"><div><strong>Contracts & billing</strong><p>Invoice-based for the managed pilot</p></div><button class="portalButton" type="button" data-action="prototype-only">View documents</button></div><div class="settingsRow"><div><strong>Brand assets</strong><p>Approved logos, accessibility text, and destinations</p></div><button class="portalButton" type="button" data-action="prototype-only">Manage assets</button></div><div class="settingsRow"><div><strong>Prototype controls</strong><p>Clear the browser-only company and campaign state to retest onboarding.</p></div><button class="portalButton danger" type="button" data-action="reset-business-demo">Reset prototype</button></div></div></article>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <dialog class="portalModal" id="campaignModal">
+    <form method="dialog" id="campaignForm">
+      <div class="modalHeader"><div><p class="eyebrow">New campaign</p><h2>Create a campaign</h2><p>Set the shared objective and reporting window. You will add sponsored Dojis next.</p></div><button class="iconButton" type="button" data-action="close-campaign" aria-label="Close">×</button></div>
+      <div class="modalBody"><div class="formGrid">
+        <div class="field full"><label for="campaignName">Campaign name</label><input id="campaignName" required maxlength="80" placeholder="Spring movement"></div>
+        <div class="field"><label for="campaignGoal">Campaign goal</label><select id="campaignGoal" required><option value="">Choose a goal</option><option>Brand awareness</option><option>Learn audience preferences</option><option>Product launch</option><option>Community conversation</option><option>Event promotion</option></select></div>
+        <div class="field"><label for="campaignRegion">Proposed audience</label><select id="campaignRegion"><option>United States</option><option>Canada</option><option>United States & Canada</option><option>Global, where eligible</option></select></div>
+        <div class="field"><label for="campaignStart">Campaign start</label><input id="campaignStart" type="date" required><small>Sponsored Dojis cannot be requested before this date.</small></div>
+        <div class="field"><label for="campaignEnd">Campaign end</label><input id="campaignEnd" type="date" required><small>All requested Doji dates must fall inside the campaign.</small></div>
+        <div class="field full"><label for="campaignSummary">Campaign brief</label><textarea id="campaignSummary" required maxlength="500" placeholder="What is this campaign trying to learn or accomplish?"></textarea><small>Internal context for your team and Doji reviewers. This is not shown to consumers.</small></div>
+      </div><p class="formNotice">Creating a campaign does not submit or publish anything. Each sponsored Doji inside it has its own review and schedule.</p></div>
+      <div class="modalFooter"><button class="portalButton" type="button" data-action="close-campaign">Cancel</button><button class="portalButton primary" type="submit">Create campaign</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="portalModal" id="dojiModal">
+    <form method="dialog" id="dojiForm">
+      <div class="modalHeader"><div><p class="eyebrow">Sponsored Doji</p><h2>Create a Doji</h2><p id="dojiCampaignContext">Add a Doji to this campaign.</p></div><button class="iconButton" type="button" data-action="close-doji" aria-label="Close">×</button></div>
+      <div class="modalBody"><div class="formGrid">
+        <div class="field"><label for="dojiName">Internal Doji name</label><input id="dojiName" required maxlength="80" placeholder="Morning movement poll"></div>
+        <div class="field"><label for="campaignFormat">Doji format</label><select id="campaignFormat"><option value="poll">Poll</option><option value="wyr">Would you rather</option><option value="question">Question</option><option value="format_question">Format question</option><option value="photo_idea">Photo idea</option></select></div>
+        <div class="field full"><label for="campaignPrompt">Participant prompt</label><textarea id="campaignPrompt" required maxlength="160" placeholder="Which gets you moving?"></textarea><small>Use the exact prompt people will see during the ten-minute participation window.</small></div>
+        <div class="field full" id="campaignOptionsField"><div class="fieldLabelRow"><label>Poll choices</label><small id="pollOptionCount">2 of 4 custom choices</small></div><div class="optionBuilder" id="campaignOptionsList"></div><div class="pollOptionRow systemPollOption" id="automaticOtherOption"><span class="optionNumber" id="automaticOtherNumber">3</span><input class="pollOptionInput" value="Other" disabled aria-label="Other option, added automatically"><span class="systemOptionTag">Always included</span></div><button class="portalButton optionAddButton" id="addPollOption" type="button"><span aria-hidden="true">+</span> Add choice</button><small id="pollOptionsHelp">Add 2–4 custom choices. Doji always adds Other as the final choice, for a maximum of 5 total.</small></div>
+        <div class="field"><label for="dojiLiveDate">Requested live date</label><input id="dojiLiveDate" type="date" required><small>Must fall within the campaign. The Doji stays hidden until its approved activation time.</small></div>
+        <div class="field"><label for="campaignDestination">Optional Learn more link</label><input id="campaignDestination" type="url" inputmode="url" placeholder="https://yourcompany.com/campaign"><small>Shown after participation, requires approval, and never opens automatically.</small></div>
+      </div><p class="formNotice">Submitting creates a review request only. Doji can request changes, reject the concept, or approve an immutable version and schedule.</p></div>
+      <div class="modalFooter"><button class="portalButton" type="button" data-action="save-doji-draft">Save draft</button><button class="portalButton primary" type="submit">Submit Doji for review</button></div>
+    </form>
+  </dialog>
+  <dialog class="portalModal campaignDetailModal" id="campaignDetailModal">
+    <div class="modalHeader"><div><p class="eyebrow" id="campaignDetailEyebrow">Campaign</p><h2 id="campaignDetailTitle">Campaign detail</h2><p id="campaignDetailSubtitle"></p></div><button class="iconButton" type="button" data-action="close-campaign-detail" aria-label="Close">×</button></div>
+    <div class="modalBody" id="campaignDetailBody"></div>
+    <div class="modalFooter"><button class="portalButton" type="button" data-action="close-campaign-detail">Close</button><button class="portalButton primary" type="button" data-action="new-doji"><span aria-hidden="true">+</span> Add Doji</button></div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/portal.js?v=20260923b" defer></script>
+</body>
+</html>

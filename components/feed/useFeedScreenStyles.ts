@@ -49,9 +49,8 @@ export function useFeedScreenStyles() {
       emptyText: { textAlign: 'center', lineHeight: 22 },
       newPostsButton: {
         position: 'absolute',
-        top: 116,
         alignSelf: 'center',
-        zIndex: 30,
+        zIndex: 60,
         minHeight: 40,
         justifyContent: 'center',
         paddingHorizontal: Spacing.lg,

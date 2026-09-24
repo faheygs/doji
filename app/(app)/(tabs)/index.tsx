@@ -5,6 +5,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   InteractionManager,
+  type LayoutChangeEvent,
   type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,6 +64,7 @@ export default function FeedScreen() {
   const [focusPostId, setFocusPostId] = useState<string | null>(null);
   const [visiblePostIds, setVisiblePostIds] = useState<ReadonlySet<string>>(() => new Set());
   const [focusOpenComments, setFocusOpenComments] = useState(false);
+  const [feedChromeBottom, setFeedChromeBottom] = useState(0);
   const flatListRef = useRef<FlatList<Post>>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -246,9 +248,14 @@ export default function FeedScreen() {
   const keyExtractorPost = useCallback((p: Post) => p.id, []);
 
   const refreshColors = useMemo(() => [colors.text], [colors.text]);
+  const handleFeedChromeLayout = useCallback((event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    const nextBottom = Math.ceil(y + height);
+    setFeedChromeBottom((current) => current === nextBottom ? current : nextBottom);
+  }, []);
   const FeedChrome = useCallback(
     () => (
-      <View style={styles.feedChrome}>
+      <View style={styles.feedChrome} onLayout={handleFeedChromeLayout}>
         <View style={styles.feedTopBar}>
           <View style={styles.feedTopInner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
@@ -290,7 +297,7 @@ export default function FeedScreen() {
         <FeedAudienceMenu audience={audience} onSelect={selectAudience} />
       </View>
     ),
-    [styles, colors, notificationUnread, profile, handleOpenProfile,
+    [styles, colors, notificationUnread, profile, handleFeedChromeLayout, handleOpenProfile,
       handleOpenNotifications, audience, selectAudience],
   );
   const ListHeader = useCallback(
@@ -420,10 +427,10 @@ export default function FeedScreen() {
         />
       </SkeletonSwap>
 
-      {pendingNewPostCount > 0 ? (
+      {pendingNewPostCount > 0 && feedChromeBottom > 0 ? (
         <TouchableOpacity
           onPress={revealNewPosts}
-          style={styles.newPostsButton}
+          style={[styles.newPostsButton, { top: feedChromeBottom + Spacing.sm }]}
           accessibilityRole="button"
           accessibilityLabel={`Show ${pendingNewPostCount} new ${pendingNewPostCount === 1 ? 'post' : 'posts'}`}
         >

@@ -5,7 +5,10 @@
   "compatibility_date": "2026-08-11",
   "workers_dev": true,
   "preview_urls": false,
-  "vars": { "SCALE_CACHE_VERSION": "v1" },
+  "vars": {
+    "SCALE_CACHE_VERSION": "v1",
+    "ADMIN_PORTAL_ORIGINS": "https://admin.dojipro.com"
+  },
   "durable_objects": {
     "bindings": [
       { "name": "DOJI_EVENT_ALARM", "class_name": "DojiEventAlarm" },

@@ -609,6 +609,13 @@ and independently idempotent; no account silently receives alerts on only its ne
 phone. Direct APNs and FCM are the scale paths and the unique Expo token is a
 temporary migration fallback. A failed handset refresh of that optional Expo token is
 kept as a Sentry breadcrumb; native endpoint registration failures remain reportable.
+Native endpoint synchronization is single-flight and serializes registration with
+unregistration. A successful registration stores only a local fingerprint and timestamp,
+so unchanged foregrounds avoid another database write while a six-hour reconciliation,
+token rotation, release/build change, account change, or preference transition still
+refreshes the authoritative endpoint. Transient gateway/provider failures retry after
+bounded one-, three-, and ten-second jittered delays; superseded account/preference runs
+stop retrying, and only an exhausted sequence becomes a Sentry incident.
 An iOS production release requires APNs
 key/team/bundle secrets; an Android production release requires FCM
 project/client-email/private-key secrets. A platform is not enabled publicly until
@@ -758,7 +765,16 @@ bounded, admin-only security-definer snapshots with explicit safe profile fields
 viewer-relative profile policies cannot hide or break review evidence. Queue screens
 preserve cached rows during background reconciliation and distinguish initial loading,
 empty, retryable error, and populated states. Report cards distinguish reporter,
-reported account, evidence, and confirmed destructive actions.
+reported account, evidence, and classified, reversible actions. `posts`, `comments`,
+and `poll_votes` retain a server-owned `moderation_status`; a routine removal changes
+only the reported row to `removed` instead of deleting it, writes an immutable
+`moderation_decisions` record, issues a warning and plain-language member notice, and
+remains restorable by appeal. Serious or emergency cases change the item to
+`quarantined` and the report to the `restricted_safety` queue without recording a final
+violation. Member Account Status reads only the signed-in user's decisions and notices.
+One appeal is allowed per eligible decision and `admin_review_moderation_appeal` rejects
+the original decision-maker as reviewer. The legacy mobile moderation command and old
+destructive portal command fail closed; staff decisions belong in the AAL2 web portal.
 
 ## UI and interaction system
 
@@ -968,6 +984,32 @@ the normal 13+ gate and separately accept the current Terms and Privacy Policy.
   for the existing RLS/security-definer authorization contract, and fails closed instead of
   falling back into a database stampede. Purchased capacity and representative load evidence
   are still required before a 100k claim.
+- The private administrator portal reuses the production Supabase and Cloudflare stack;
+  it does not need a second database or a browser-held service-role key. Exact-origin
+  `/portal/admin/*` Worker routes require Supabase
+  `aal2`, forward the caller JWT to bounded admin RPCs, return no consumer email or
+  age-assurance fields, and are never edge cached. `admin_operator_roles` owns portal
+  roles, while `admin_audit_log` is append-only.
+  Existing reports, community ideas, coarse delivery health, the next event, release
+  policies, and server announcements may be read; unfinished business, sponsorship,
+  legal-intake, billing, and evidence-vault domains are not fabricated. Trust & Safety
+  is the first writable portal domain: AAL2 moderation operators may read one bounded
+  report case, claim/release it, change priority, classify it by policy and severity,
+  record no violation, remove only the reported item with a warning and notice, or
+  quarantine it into restricted review through narrow atomic idempotent RPCs. The portal
+  does not combine routine content action with a blanket account ban. Appeals appear in
+  a separate queue and require a different AAL2 reviewer; reversal restores the
+  content/profile photo and warning state atomically. Every command writes an audit row.
+  Protected post evidence is signed for five minutes
+  only after the case read authorizes it. Other portal writes remain disabled until they
+  receive equivalent permission-scoped audited commands. Live refresh reuses the existing short-lived Ably authorization
+  and subscribes only to `moderation:global` and `doji:global`; identifier events are
+  coalesced into an authoritative snapshot read and reconnect always reconciles.
+  An authorized operator without MFA completes a one-time TOTP enrollment after
+  password sign-in: the browser requests a Supabase QR/secret, keeps the pre-AAL2
+  session and secret only in memory, verifies the six-digit authenticator code, and
+  enters the portal only after the refreshed JWT reports `aal2`. SMS/email factors
+  are not presented by this rollout, so the portal has no messaging-provider cost.
 - `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED=true` selects authorized CDN-rendered 1440x1920
   3:4 feed images and 360-pixel thumbnails. New photo submissions are center-cropped once
   to the same 3:4 frame before approval and the exact approved JPEG is uploaded without a

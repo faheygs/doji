@@ -88,4 +88,14 @@ export type NotificationCenterItem =
       actor: Actor | null;
       sortAt: string;
     }
-  | { key: string; kind: 'poll_vote'; actor: Actor | null; sortAt: string };
+  | { key: string; kind: 'poll_vote'; actor: Actor | null; sortAt: string }
+  | {
+      key: string;
+      kind: 'moderation_notice';
+      notice_id: string;
+      decision_id: string;
+      notice_kind: 'decision' | 'appeal_received' | 'appeal_upheld' | 'appeal_reversed';
+      title: string;
+      body: string;
+      sortAt: string;
+    };

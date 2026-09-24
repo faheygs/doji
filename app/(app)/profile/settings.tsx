@@ -16,8 +16,6 @@ import { IconChevronLeft } from '@/components/icons/Icons';
 import { hrefWithReturnTo, goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import { useNavigationOrigin } from '@/contexts/NavigationOriginContext';
 import { useBlockedUserCount } from '@/hooks/useBlockUser';
-import { usePendingSuggestions } from '@/hooks/useSuggestions';
-import { usePendingReports } from '@/hooks/useReports';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { ChangePasswordSheet } from '@/components/settings/ChangePasswordSheet';
 import { SettingsRow } from '@/components/settings/SettingsGroup';
@@ -33,10 +31,6 @@ export default function SettingsScreen() {
   const { showDialog } = useAppDialog();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const { data: pendingSuggestions = [], isError: pendingSuggestionsError } = usePendingSuggestions(
-    !!profile?.is_admin,
-  );
-  const { data: pendingReports = [] } = usePendingReports(!!profile?.is_admin);
   const { data: blockedUserCount = 0 } = useBlockedUserCount();
 
   const styles = useMemo(
@@ -211,6 +205,14 @@ export default function SettingsScreen() {
         </Text>
         <View style={styles.group}>
           <SettingsRow
+            label="Account status"
+            subtitle="Policy decisions, warnings, and appeals"
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(hrefWithReturnTo('/(app)/profile/account-status', navigationOrigin));
+            }}
+          />
+          <SettingsRow
             label="Blocked users"
             subtitle={
               blockedUserCount > 0 ? `${blockedUserCount} blocked` : 'Manage blocked accounts'
@@ -267,80 +269,6 @@ export default function SettingsScreen() {
           />
           <SettingsRow label="Delete account" danger onPress={handleDeleteAccount} isLast />
         </View>
-
-        {profile?.is_admin ? (
-          <>
-            <Text variant="label" color={colors.textTertiary} style={styles.sectionLabel}>
-              ADMIN
-            </Text>
-            <View style={styles.group}>
-              <SettingsRow
-                label="Review suggestions"
-                subtitle="Approve or reject pending challenge ideas"
-                right={
-                  pendingSuggestionsError ? (
-                    <View
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 5,
-                        backgroundColor: colors.error,
-                      }}
-                    />
-                  ) : pendingSuggestions.length > 0 ? (
-                    <View
-                      style={{
-                        minWidth: 22,
-                        height: 22,
-                        borderRadius: 11,
-                        backgroundColor: colors.warning,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingHorizontal: 6,
-                      }}
-                    >
-                      <Text variant="micro" color={colors.onPrimary} style={{ fontWeight: '700' }}>
-                        {pendingSuggestions.length}
-                      </Text>
-                    </View>
-                  ) : undefined
-                }
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  router.push(hrefWithReturnTo('/(app)/admin/suggestions', navigationOrigin));
-                }}
-              />
-              <SettingsRow
-                label="Review reports"
-                subtitle="Moderate flagged content and blocked users"
-                right={
-                  pendingReports.length > 0 ? (
-                    <View
-                      style={{
-                        minWidth: 22,
-                        height: 22,
-                        borderRadius: 11,
-                        backgroundColor: colors.error,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingHorizontal: 6,
-                      }}
-                    >
-                      <Text variant="micro" color={colors.onPrimary} style={{ fontWeight: '700' }}>
-                        {pendingReports.length}
-                      </Text>
-                    </View>
-                  ) : undefined
-                }
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  router.push(hrefWithReturnTo('/(app)/admin/reports', navigationOrigin));
-                }}
-                isLast
-              />
-            </View>
-          </>
-        ) : null}
 
         <Text variant="bodySmall" color={colors.textTertiary} style={styles.version}>
           Doji {Constants.expoConfig?.version ?? '1.0.0'}

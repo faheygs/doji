@@ -1,8 +1,98 @@
 # Sponsored Doji business platform
 
-Status: product exploration and architecture requirements; not approved for implementation
+Status: business-platform exploration; read-only admin foundation approved for implementation
 
-Last updated: September 18, 2026
+Last updated: September 23, 2026
+
+## Local workflow prototype
+
+The repository now includes a static, local-only experience prototype under
+`website/` for product review:
+
+- `/business/` previews the public Business destination;
+- `/business-portal/` previews application, organization, campaign-draft, review,
+  and aggregate-reporting flows; and
+- `/admin-portal/` previews the separate Doji operator queues.
+
+The business portal still contains mock data and browser-local draft state only. It does
+not authenticate businesses, create production organizations, accept legal terms, upload
+evidence, read or write production campaign data, publish or schedule campaigns, or
+perform billing. The admin portal now has an optional first production read mode in
+addition to its default local prototype: authorized operators can sign in with Supabase
+password plus verified TOTP, reach `aal2`, and read bounded existing operational data
+through the Cloudflare gateway. Every admin mutation remains disabled. Both private
+portal pages are `noindex`; unfinished business, sponsorship, legal-intake, billing, and
+evidence-vault domains still require the product, policy, legal, authorization, command,
+audit, and hosting gates in this document.
+
+### First live administrator milestone
+
+The implemented read foundation reuses the existing production stack rather than adding
+a second API or database:
+
+- `admin_operator_roles` provides explicit operator roles while preserving existing
+  `profiles.is_admin` administrators during migration;
+- `get_admin_portal_session` and `get_admin_command_center_snapshot` are bounded,
+  security-definer read contracts that require both `aal2` and an active role; the full
+  command center is limited to legacy administrators, `super_admin`, and `operations`;
+- the Cloudflare Worker exposes an exact allowlist under `/portal/admin/*`, enforces an
+  exact-origin CORS list, a per-operator read budget, no-store responses, and forwards
+  only the caller JWT plus the public anon key;
+- session tokens stay in `sessionStorage`, not persistent browser storage, and the live
+  portal mixes in no browser-local decision overrides; and
+- live refresh reuses the existing short-lived Ably token and the identifier-only
+  `moderation:global`/`doji:global` channels, coalescing hints into an authoritative
+  snapshot rather than adding a second socket service or polling; and
+- production assignment, review, announcement, enforcement, scheduling, and release
+  controls are hidden or disabled until narrow atomic, idempotent, audited commands exist.
+
+Only existing production domains are represented: reports, community suggestions,
+coarse delivery health, the current/next event, release policies, server announcements,
+and the audit foundation. A zero count for sponsored reviews is intentional until the
+business data model is approved and deployed; no sample company or campaign is presented
+as production data.
+
+The business prototype now models the intended first-run journey end to end: a short
+account form, guided company onboarding, logo preview, company/market profile review,
+an empty first-time workspace, campaign creation, one or more campaign-scoped sponsored
+Dojis with independent review/schedule states, campaign status/detail, and example
+privacy-protective reporting with campaign and per-Doji views plus coarse regional
+participation. Newly onboarded
+companies never receive seeded performance data; the signed-in demonstration workspace
+is the only place that shows sample campaigns. Logo files and all other prototype data
+remain browser-local and are not uploaded.
+
+The portal uses one shared component system across onboarding and workspace views. It
+defaults to light mode, offers a persistent light/dark theme toggle, and uses consistent
+control heights, spacing, selection states, status treatments, and responsive layouts.
+
+The local admin prototype now models the broader private operating console rather than
+only the commercial-review table. It includes a deadline- and risk-ordered command
+center, a unified assignable work queue, trust-and-safety reports, a separately labeled
+restricted legal/removal queue, sponsored-Doji review, business verification, community
+ideas, server-controlled announcement drafts, platform/release health, global search,
+and an append-style audit view. Work-item drawers separate bounded metadata, history,
+related records, an internal decision note, and queue-specific decisions. Restricted
+evidence is intentionally not displayed by the prototype.
+
+For local workflow testing, sponsored Dojis submitted through the business prototype
+are read from the same browser-local campaign state by the admin prototype. A local
+approval, requested change, or decline is written back to that browser-local campaign
+record and is visible when the business workspace is reopened. The prototype also keeps
+local admin decision overrides, announcement drafts, and audit events. This demonstrates
+the desired state flow only; it is not the production data or authorization model and it
+must never be converted into a privileged browser-side database.
+
+The prototype's human-facing format choices mirror the five formats exposed in Doji:
+Poll, Would You Rather, Question (`task`), Format Question (`format`), and Photo Idea.
+Poll choices use discrete ordered fields rather than comma-delimited text. Generic polls
+accept two through four sponsor-defined choices and Doji always appends `Other`, producing
+no more than five total choices. Would You Rather stays locked to exactly two and never
+includes `Other`.
+
+A sponsor may propose an optional `Learn more` URL. It is reviewable content, appears only
+after participation, is never opened automatically, and must not interrupt or be required
+for completing the Doji.
 
 This document defines the recommended product boundary for verified business
 accounts and sponsored Dojis. The business platform belongs on an authenticated web

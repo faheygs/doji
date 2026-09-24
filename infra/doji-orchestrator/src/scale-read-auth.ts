@@ -6,6 +6,7 @@ export type ScaleReadAuthEnv = {
 
 type JwtHeader = { alg?: string; kid?: string };
 type JwtPayload = {
+  aal?: string;
   aud?: string | string[];
   exp?: number;
   iss?: string;
@@ -89,7 +90,7 @@ async function verificationKey(env: ScaleReadAuthEnv, header: JwtHeader): Promis
 export async function authenticateScaleReadRequest(
   request: Request,
   env: ScaleReadAuthEnv,
-): Promise<{ token: string; userId: string }> {
+): Promise<{ aal: string | undefined; token: string; userId: string }> {
   const authorization = request.headers.get('authorization') ?? '';
   if (!authorization.startsWith('Bearer ')) throw new Error('Authentication required');
   const token = authorization.slice(7);
@@ -131,5 +132,5 @@ export async function authenticateScaleReadRequest(
   ) {
     throw new Error('Invalid access token');
   }
-  return { token, userId: payload.sub };
+  return { aal: payload.aal, token, userId: payload.sub };
 }
