@@ -11,9 +11,16 @@ model, atomic commands, realtime events, notifications, economy, moderation, UI
 rules, and how every system connects. Transport/deployment details are in
 [docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md).
 
-## Local setup
+## Testing and local setup
 
-Create `.env.local` from the project dashboard. Never commit secrets.
+Start with the [test suite handoff](docs/TEST_SUITE_HANDOFF.md) for prerequisites,
+safe fresh-clone commands, required CI checks, evidence and remaining acceptance
+gates. Automated tests use synthetic fixtures; production credentials are not
+required. Use Node 24 and the committed lockfiles.
+
+For interactive app development only, use approved development values in
+`.env.local`; [.env.example](.env.example) documents the public placeholders.
+Automated tests do not need this file. Never commit secrets.
 
 | Variable | Use |
 | --- | --- |
@@ -27,14 +34,17 @@ Create `.env.local` from the project dashboard. Never commit secrets.
 Server-role, Ably API, relay, and orchestration secrets are server-only.
 
 ```powershell
-npm install
-npx supabase link
-npx supabase db push
+npm ci
+npm ci --prefix infra/portal-identity-candidate
 npm test -- --runInBand
-npx tsc --noEmit
+npm run typecheck
 npm run lint
-npx expo start --dev-client
 ```
+
+Linking a hosted Supabase project, pushing migrations, starting a native build,
+and deploying services are not test setup. Each requires its own reviewed scope.
+For interactive app development, obtain approved development configuration before
+running `npx expo start --dev-client`; do not copy production server secrets.
 
 ## Authoritative realtime
 
@@ -84,5 +94,5 @@ depends on OS push delivery.
 Native uploads use `expo-file-system` `ArrayBuffer` payloads for Supabase Storage.
 Media paths are user-scoped and enforced by storage policies. Paid scale mode can
 serve signed feed and thumbnail variants while retaining the original immutable path.
-Capacity activation and staging gates are in
-[docs/SCALE_CAPACITY_RUNBOOK.md](docs/SCALE_CAPACITY_RUNBOOK.md).
+Capacity activation needs a separately approved plan and measured headroom; see
+the [independent release acceptance gates](docs/TEST_SUITE_HANDOFF.md#independent-release-acceptance).
