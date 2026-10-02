@@ -3,8 +3,6 @@ import path from 'node:path';
 
 const controlledModals = [
   'components/notifications/NotificationSheet.tsx',
-  'components/feed/PostCommentsThread.tsx',
-  'components/feed/PostCommentsSheet.tsx',
   'components/challenge/ChallengeReveal.tsx',
   'components/challenge/SubmittedOverlay.tsx',
 ];
@@ -34,7 +32,7 @@ describe('native modal lifecycle', () => {
       path.join(process.cwd(), 'components/ui/AppSheetModal.tsx'),
       'utf8',
     );
-    expect(source).toContain('if (!visible) return null');
+    expect(source).toContain('if (!visible && !nativeDismissal) return null');
     expect(source).toContain('visible={visible}');
     expect(source).toContain('useModalPresence(visible)');
   });
@@ -62,6 +60,15 @@ describe('native modal lifecycle', () => {
     expect(source).toContain('setVoterVisible(false)');
     expect(source).toContain('setVoterModal(null)');
     expect(source).toContain('pendingReportRef.current =');
-    expect(source).toContain('visible={reportVisible}');
+    expect(source).toContain('openReport({ reportedUserId: pendingReport.userId');
+    expect(source).toContain("onDismiss={Platform.OS === 'ios' ? finishVoterDismiss : undefined}");
   });
+
+  it.each(['components/feed/PostCommentsThread.tsx', 'components/feed/PostCommentsSheet.tsx'])(
+    '%s waits for iOS native dismissal when handing off to reporting', file => {
+      const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+      expect(source).toContain("if (!visible && !(Platform.OS === 'ios' && pending");
+      expect(source).toContain("onDismiss={Platform.OS === 'ios' ? finish");
+    },
+  );
 });

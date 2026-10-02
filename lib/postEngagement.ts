@@ -5,6 +5,7 @@ import type { Post } from '../types/database';
 import { readThroughScaleGateway } from './scaleReadGateway';
 import type { FeedAudience } from './feedAudience';
 import { runAbortableQuery } from './requestSignal';
+import { useAuthStore } from '../stores/useAuthStore';
 
 type EngagementSnapshot = Pick<
   Post,
@@ -13,8 +14,9 @@ type EngagementSnapshot = Pick<
 
 const pendingSnapshots = new Map<string, Promise<EngagementSnapshot | null>>();
 
-function readSnapshot(postId: string, audience: FeedAudience) {
-  const key = `${postId}:${audience}`;
+function readSnapshot(postId: string, audience: FeedAudience, userId: string) {
+  // Viewer-specific aggregates and selections must not share work across accounts.
+  const key = `${userId}:${postId}:${audience}`;
   const existing = pendingSnapshots.get(key);
   if (existing) return existing;
   const request = readThroughScaleGateway<unknown>(
@@ -45,8 +47,10 @@ export async function refreshPostEngagement(
   postId: string,
   audience: FeedAudience = 'everyone',
 ) {
-  const snapshot = await readSnapshot(postId, audience);
-  if (!snapshot) return;
+  const userId = useAuthStore.getState().session?.user.id;
+  if (!userId) return;
+  const snapshot = await readSnapshot(postId, audience, userId);
+  if (!snapshot || useAuthStore.getState().session?.user.id !== userId) return;
   const patch = (post: Post): Post => ({
     ...post,
     reaction_count: snapshot.reaction_count,
@@ -75,6 +79,7 @@ export async function refreshPostEngagement(
 
 /** Notification delivery can precede the post-channel aggregate hint. */
 export async function refreshActivePostEngagement(client: QueryClient, postId: string) {
+  if (!useAuthStore.getState().session?.user.id) return;
   const audiences = new Set<FeedAudience>();
   for (const query of client.getQueryCache().findAll({ queryKey: ['feed'], type: 'active' })) {
     if (!containsPost(query.state.data, postId)) continue;

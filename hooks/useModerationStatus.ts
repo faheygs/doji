@@ -15,7 +15,7 @@ async function fetchModerationStatus(signal?: AbortSignal) {
     signal,
   );
   if (error) throw error;
-  return data ?? { notices: [], decisions: [] };
+  return data ?? { account_access: null, notices: [], decisions: [] };
 }
 
 export function useModerationStatus() {

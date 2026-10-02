@@ -76,6 +76,14 @@ describe('useAuthStore', () => {
   });
 
   describe('setLoading', () => {
+    it('employee session skips every member profile read and clears cached member presentation', async () => {
+      useAuthStore.setState({ session: { user: { id: 'employee', role: 'doji_employee' } } as any,
+        profile: { id: 'old-member' } as any, isProfileLoading: true });
+      await useAuthStore.getState().fetchProfile('employee');
+      expect(mockFrom).not.toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(useAuthStore.getState()).toMatchObject({ profile: null, isLoading: false, isProfileLoading: false });
+    });
     it('updates loading state', () => {
       useAuthStore.getState().setLoading(false);
       expect(useAuthStore.getState().isLoading).toBe(false);
@@ -92,7 +100,7 @@ describe('useAuthStore', () => {
 
       await useAuthStore.getState().signOut();
 
-      expect(supabase.auth.signOut).toHaveBeenCalled();
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
       expect(useAuthStore.getState().session).toBeNull();
       expect(useAuthStore.getState().profile).toBeNull();
     });

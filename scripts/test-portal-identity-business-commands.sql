@@ -1,0 +1,52 @@
+create function pg_temp.ok(v boolean,label text) returns text language plpgsql as $$begin
+ if v is distinct from true then raise exception 'FAIL: %',label;end if;return 'PASS: '||label;end$$;
+create function pg_temp.denied(statement text,expected text,label text) returns text language plpgsql as $$begin
+ begin execute statement;exception when others then if sqlstate=expected then return 'PASS: '||label;end if;raise;end;
+ raise exception 'FAIL: % unexpectedly succeeded',label;end$$;
+insert into portal_identity_private.realms(realm,enabled,issuer,audience) values
+ ('business',true,'https://issuer.example.test/','business'),('employee',true,'https://issuer.example.test/','employee');
+select portal_identity_private.bind_identity('business','owner','86000000-0000-4000-8000-000000000001','synthetic');
+select portal_identity_private.bind_identity('business','other','86000000-0000-4000-8000-000000000002','synthetic');
+update portal_identity_private.principals set state='active';
+update business_private.settings set enabled=true,application_terms_version='test',privacy_version='test';
+select set_config('test.details','{"legal_name":"Example LLC","brand_name":"Example","website":"https://example.test","country":"US","business_address":"123 Example St","representative_name":"Test Owner","representative_role":"Owner","category":"Retail","purpose":"Synthetic local verification"}',true);
+select pg_temp.ok(not (select enabled from portal_identity_private.business_command_settings),'command bridge defaults disabled');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',null,current_setting('test.details')::jsonb,null,null,'87000000-0000-4000-8000-000000000001')$q$,'42501','disabled bridge denies without writes');
+select pg_temp.ok((select count(*)=0 from business_private.accounts),'disabled bridge creates no account');
+update portal_identity_private.business_command_settings set enabled=true;
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',null,current_setting('test.details')::jsonb,null,null,'87000000-0000-4000-8000-000000000001')$q$,'42501','missing signup agreement denies before account creation');
+insert into business_private.signup_agreements(account_id,terms_version,privacy_version) values
+ ('86000000-0000-4000-8000-000000000001','test','test'),('86000000-0000-4000-8000-000000000002','test','test');
+select pg_temp.ok(not has_function_privilege('authenticated','portal_identity_private.business_application_command(text,text,text,text,boolean,text,bigint,jsonb,text,text,uuid)','execute'),'member cannot call new commands');
+select pg_temp.ok(not has_function_privilege('doji_employee','portal_identity_private.business_application_command(text,text,text,text,boolean,text,bigint,jsonb,text,text,uuid)','execute'),'employee browser cannot call new commands');
+select pg_temp.ok(not has_function_privilege('doji_business','portal_identity_private.business_application_command(text,text,text,text,boolean,text,bigint,jsonb,text,text,uuid)','execute'),'legacy business browser cannot call new commands');
+select pg_temp.ok(not has_function_privilege('service_role','portal_identity_private.business_application_command(text,text,text,text,boolean,text,bigint,jsonb,text,text,uuid)','execute'),'existing service key cannot call new commands');
+select pg_temp.ok(not has_function_privilege('doji_identity_resolver','portal_identity_private.business_application_core(uuid,text,bigint,jsonb,text,text,uuid)','execute'),'verifier cannot supply a UUID to raw command core');
+set local role doji_identity_resolver;
+select set_config('test.saved',portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',null,current_setting('test.details')::jsonb,null,null,'87000000-0000-4000-8000-000000000001')::text,true);
+select pg_temp.ok(current_setting('test.saved')::jsonb#>>'{outcome,state}'='draft','external identity saves its own draft');
+select pg_temp.ok(portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',null,current_setting('test.details')::jsonb,null,null,'87000000-0000-4000-8000-000000000001')->>'replayed'='true','same request replays receipt');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',null,'{}',null,null,'87000000-0000-4000-8000-000000000001')$q$,'22023','same key with different payload rejected');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',0,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'PT409','stale revision rejected');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'approve',1,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'22023','business cannot promote an application');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'submit',1,current_setting('test.details')::jsonb,'old','test',gen_random_uuid())$q$,'22023','current application legal versions required');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','employee','owner','sid',true,'save',1,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'42501','employee audience cannot write as business');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://wrong.example.test/','business','owner','sid',true,'save',1,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'42501','wrong issuer denied');
+select pg_temp.ok(portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'submit',1,current_setting('test.details')::jsonb,'test','test','87000000-0000-4000-8000-000000000002')#>>'{outcome,state}'='pending','submit enters review atomically');
+select pg_temp.ok(portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'submit',1,current_setting('test.details')::jsonb,'test','test','87000000-0000-4000-8000-000000000002')->>'replayed'='true','submit retry does not duplicate snapshot');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'save',2,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'55000','pending application cannot be edited');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','other','sid',false,'save',2,current_setting('test.details')::jsonb,null,null,gen_random_uuid())$q$,'PT409','other identity cannot claim first application revision');
+reset role;
+select pg_temp.ok((select count(*)=1 from business_private.applications),'one application exists');
+select pg_temp.ok((select count(*)=1 from business_private.submissions),'one immutable submission exists');
+select pg_temp.ok((select count(*)=2 from business_private.receipts),'one receipt per successful action');
+select pg_temp.ok((select count(*)=2 from business_private.history),'one audit entry per successful action');
+select pg_temp.ok((select count(*)=1 from business_private.accounts),'failed cross-account command rolled back account creation');
+select pg_temp.ok((select budget_used=2 from business_private.accounts where id='86000000-0000-4000-8000-000000000001'),'replays and rolled-back failures do not consume write budget');
+update business_private.accounts set disabled=true;
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'submit',1,current_setting('test.details')::jsonb,'test','test','87000000-0000-4000-8000-000000000002')$q$,'42501','disabled account denies even receipt replay');
+update business_private.accounts set disabled=false;
+select portal_identity_private.revoke_session('business','owner','sid','synthetic');
+select pg_temp.denied($q$select portal_identity_private.business_application_command('https://issuer.example.test/','business','owner','sid',false,'submit',1,current_setting('test.details')::jsonb,'test','test','87000000-0000-4000-8000-000000000002')$q$,'42501','revoked session denies even receipt replay');
+select pg_temp.ok(not exists(select 1 from auth.users where id::text like '86000000-%'),'no shared Auth identities created');
+select pg_temp.ok((select count(*)=0 from business_private.organizations),'submission cannot create approved organization');

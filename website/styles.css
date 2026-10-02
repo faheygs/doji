@@ -12,6 +12,10 @@
   --radius: 28px;
 }
 
+/* Public reporting-link candidate only; matches the existing accessible safety
+   text accent without changing portal/business themes or button backgrounds. */
+.safetyLinkedPage { --orange-dark: #b33a20; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { scroll-behavior: smooth; }

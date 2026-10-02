@@ -1,8 +1,14 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient } from '@tanstack/react-query';
+import { reportApiFailure } from './apiFailureTelemetry';
+import { createApiQueryCache } from './apiQueryCache';
 import { retryDelayWithJitter, shouldRetryQuery } from './apiRetry';
 import { PERSISTED_QUERY_GC_MS } from './queryPersistence';
 
 export const queryClient = new QueryClient({
+  queryCache: createApiQueryCache(),
+  mutationCache: new MutationCache({
+    onError: error => reportApiFailure('mutation', 'other', error),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 2,

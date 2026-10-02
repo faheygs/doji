@@ -7,6 +7,7 @@ import { useAuthGate } from '../../hooks/useAuthGate';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
 import { webScrollParentStyle } from '../../constants/theme';
+import { ReportFlowProvider } from '../../contexts/ReportFlowContext';
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -30,12 +31,14 @@ export default function AppLayout() {
   if (!ready) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack screenOptions={screenOptions}>
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-      <CelebrationHost />
-    </View>
+    <ReportFlowProvider key={session?.user?.id ?? 'signed-out'}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Stack screenOptions={screenOptions}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+        <CelebrationHost />
+      </View>
+    </ReportFlowProvider>
   );
 }
 

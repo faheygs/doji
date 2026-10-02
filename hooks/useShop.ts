@@ -6,17 +6,21 @@ import type { Profile, ShopItem, UserShopItem } from '../types/database';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { newCommandId } from '../lib/idempotency';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 
 export function useShopCatalog() {
   return useQuery({
     queryKey: ['shopCatalog'],
     queryFn: async ({ signal }) => {
-      const { data, error } = await runAbortableQuery(supabase
-        .from('shop_items')
-        .select('key, kind, name, price, sort_order, metadata, is_active, created_at')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .limit(100), signal);
+      const { data, error } = await runAbortableQuery(
+        supabase
+          .from('shop_items')
+          .select('key, kind, name, price, sort_order, metadata, is_active, created_at')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .limit(100),
+        signal,
+      );
       if (error) throw error;
       return (data ?? []) as ShopItem[];
     },
@@ -29,12 +33,15 @@ export function useOwnedShopItems(userId: string | undefined) {
     queryKey: ['ownedShopItems', userId],
     enabled: !!userId,
     queryFn: async ({ signal }) => {
-      const { data, error } = await runAbortableQuery(supabase
-        .from('user_shop_items')
-        .select('user_id, item_key, purchased_at')
-        .eq('user_id', userId!)
-        .limit(100), signal);
-      if (error) throw error;
+      if (!userId) return [];
+      const { data } = await runMemberRead(
+        supabase
+          .from('user_shop_items')
+          .select('user_id, item_key, purchased_at')
+          .eq('user_id', userId)
+          .limit(100),
+        signal,
+      );
       return (data ?? []) as UserShopItem[];
     },
   });
@@ -44,6 +51,10 @@ type ShopMutationContext = {
   previousProfile: Profile | null;
   previousOwned: UserShopItem[] | undefined;
 };
+
+function isCurrentShopMember(userId: string | undefined): userId is string {
+  return Boolean(userId) && useAuthStore.getState().session?.user.id === userId;
+}
 
 function getCatalogItem(queryClient: QueryClient, itemKey: string): ShopItem | undefined {
   return queryClient.getQueryData<ShopItem[]>(['shopCatalog'])?.find((i) => i.key === itemKey);
@@ -70,7 +81,7 @@ function applyOptimisticEquip(
   item: ShopItem,
 ): ShopMutationContext | undefined {
   const { profile, setProfile } = useAuthStore.getState();
-  if (!profile) return undefined;
+  if (!profile || profile.id !== userId) return undefined;
 
   const previousProfile = profile;
   const previousOwned = queryClient.getQueryData<UserShopItem[]>(['ownedShopItems', userId]);
@@ -95,10 +106,13 @@ function applyOptimisticPurchase(
 
   const previousOwned = ctx.previousOwned ?? [];
   if (!previousOwned.some((o) => o.item_key === item.key)) {
-    queryClient.setQueryData<UserShopItem[]>(['ownedShopItems', userId], [
-      ...previousOwned,
-      { user_id: userId, item_key: item.key, purchased_at: new Date().toISOString() },
-    ]);
+    queryClient.setQueryData<UserShopItem[]>(
+      ['ownedShopItems', userId],
+      [
+        ...previousOwned,
+        { user_id: userId, item_key: item.key, purchased_at: new Date().toISOString() },
+      ],
+    );
   }
 
   return ctx;
@@ -109,12 +123,14 @@ function rollbackOptimistic(
   ctx: ShopMutationContext | undefined,
   userId: string | undefined,
 ) {
-  if (!ctx || !userId) return;
+  if (!ctx || !isCurrentShopMember(userId)) return;
   if (ctx.previousProfile) {
     useAuthStore.getState().setProfile(ctx.previousProfile);
   }
   if (ctx.previousOwned !== undefined) {
     queryClient.setQueryData(['ownedShopItems', userId], ctx.previousOwned);
+  } else {
+    queryClient.removeQueries({ queryKey: ['ownedShopItems', userId], exact: true });
   }
 }
 
@@ -125,7 +141,10 @@ export function usePurchaseShopItem() {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
+    // Account changes must not rebind an in-flight mutation's callbacks.
+    mutationKey: ['purchaseShopItem', userId],
     mutationFn: async (itemKey: string) => {
+      if (!isCurrentShopMember(userId)) throw new Error('Not authenticated');
       const { data, error } = await executeCommand('purchase_shop_item', {
         p_item_key: itemKey,
       });
@@ -133,7 +152,7 @@ export function usePurchaseShopItem() {
       return data as { item_key: string; sparks: number };
     },
     onMutate: async (itemKey) => {
-      if (!userId) return undefined;
+      if (!isCurrentShopMember(userId)) return undefined;
       const item = getCatalogItem(queryClient, itemKey);
       if (!item) return undefined;
       return applyOptimisticPurchase(queryClient, userId, item);
@@ -142,13 +161,14 @@ export function usePurchaseShopItem() {
       rollbackOptimistic(queryClient, ctx, userId);
     },
     onSuccess: async (data) => {
+      if (!isCurrentShopMember(userId)) return;
       const profile = useAuthStore.getState().profile;
-      if (profile) {
+      if (profile?.id === userId) {
         useAuthStore.getState().setProfile({ ...profile, sparks: data.sparks });
       }
     },
     onSettled: async () => {
-      if (!userId) return;
+      if (!isCurrentShopMember(userId)) return;
       invalidateCosmeticQueries(queryClient, userId, username);
       await fetchProfile(userId);
     },
@@ -162,7 +182,10 @@ export function useEquipShopItem() {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
+    // Keep late success/error callbacks attached to the initiating account.
+    mutationKey: ['equipShopItem', userId],
     mutationFn: async (itemKey: string) => {
+      if (!isCurrentShopMember(userId)) throw new Error('Not authenticated');
       const { data, error } = await executeCommand('equip_shop_item', {
         p_item_key: itemKey,
         p_idempotency_key: newCommandId('shop-equip'),
@@ -171,18 +194,18 @@ export function useEquipShopItem() {
       return data as { item_key: string };
     },
     onMutate: async (itemKey) => {
-      if (!userId) return undefined;
+      if (!isCurrentShopMember(userId)) return undefined;
       const item = getCatalogItem(queryClient, itemKey);
       if (!item) return undefined;
       return applyOptimisticEquip(queryClient, userId, item);
     },
     onError: (_err, _itemKey, ctx) => {
-      if (ctx?.previousProfile) {
+      if (isCurrentShopMember(userId) && ctx?.previousProfile) {
         useAuthStore.getState().setProfile(ctx.previousProfile);
       }
     },
     onSettled: async () => {
-      if (!userId) return;
+      if (!isCurrentShopMember(userId)) return;
       invalidateCosmeticQueries(queryClient, userId, username);
       await fetchProfile(userId);
     },

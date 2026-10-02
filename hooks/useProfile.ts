@@ -8,7 +8,7 @@ import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
-import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
+import { runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
 import { fetchPublicProfileView } from '../lib/profileQueries';
 
@@ -66,25 +66,16 @@ export function useFriendship(targetUserId?: string) {
     queryKey: ['friendship', userId, targetUserId],
     queryFn: async ({ signal }): Promise<Friendship | null> => {
       if (!userId || !targetUserId) return null;
-      const request = createRequestSignal(signal);
-      let data: Friendship | null;
-      let error: { message: string } | null;
-      try {
-        const result = await supabase
+      const query = supabase
           .from('friendships')
           .select('id, requester_id, addressee_id, status, created_at, accepted_at')
           .or(
             `and(requester_id.eq.${userId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${userId})`,
-          )
-          .abortSignal(request.signal)
-          .maybeSingle();
-        data = result.data as Friendship | null;
-        error = result.error;
-      } finally {
-        request.cleanup();
-      }
-
-      if (error) throw error;
+          );
+      const { data } = await runAbortableQuery({
+        retry: enabled => query.retry(enabled),
+        abortSignal: requestSignal => query.abortSignal(requestSignal).maybeSingle(),
+      }, signal);
       return data as Friendship | null;
     },
     enabled: !!userId && !!targetUserId,

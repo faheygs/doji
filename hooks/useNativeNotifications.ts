@@ -10,14 +10,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from '../lib/telemetry';
 import { attentionScopeFromPushData } from '../lib/notificationAttention';
 import { executeCommand } from '../lib/commandGateway';
-import { isTransientApiError } from '../lib/apiRetry';
-import { pushRegistrationRetryDelay } from '../lib/pushRegistrationPolicy';
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+import { retryPushRegistration } from '../lib/retryPushRegistration';
 
 async function markNotificationResponseSeen(data: unknown): Promise<void> {
   const scope = attentionScopeFromPushData(data);
@@ -103,29 +96,11 @@ export function useNativeNotifications(canUseApp: boolean): void {
         const { status } = await Notifications.getPermissionsAsync();
         if (cancelled() || status !== 'granted') return;
 
-        let lastError: unknown = null;
-        for (let attempt = 0; attempt < 4; attempt += 1) {
-          if (cancelled()) return;
-          if (attempt > 0) {
-            const retryDelay = pushRegistrationRetryDelay(attempt - 1);
-            if (retryDelay == null) break;
-            await delay(retryDelay);
-            if (cancelled()) return;
-          }
-          try {
-            const registered = await syncPushRegistration(userId);
-            if (registered || cancelled()) return;
-          } catch (error) {
-            lastError = error;
-            if (!isTransientApiError(error)) throw error;
-            if (attempt < 3) {
-              recordOperationalFailure('push', 'endpoint-registration-retry', error, {
-                attempt: attempt + 1,
-              });
-            }
-          }
-        }
-        if (lastError) throw lastError;
+        await retryPushRegistration(
+          () => syncPushRegistration(userId),
+          cancelled,
+          (error, attempt) => recordOperationalFailure('push', 'endpoint-registration-retry', error, { attempt }),
+        );
       } catch (error) {
         if (cancelled()) return;
         if (__DEV__) console.warn('[pushToken] sync failed', error);

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "paths": {
+      "npm:@noble/hashes@1.8.0/sha256": ["../../node_modules/@noble/hashes/sha256.d.ts"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.d.ts"]
+}

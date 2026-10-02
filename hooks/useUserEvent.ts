@@ -8,7 +8,7 @@ import { filterContent } from '../lib/contentFilter';
 import { syncServerClock } from '../lib/serverClock';
 import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { createRequestSignal } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 import { getCommittedPostReceipt } from '../lib/dojiWriteReceipt';
 import { executeCommand } from '../lib/commandGateway';
 
@@ -20,18 +20,12 @@ export function useUserEvent() {
     queryKey: ['userEvent', 'today', userId] as const,
     queryFn: async ({ signal }): Promise<UserEvent | null> => {
       if (!userId) return null;
-      const request = createRequestSignal(signal, 6_000);
-      try {
-        const { data: authoritativeState, error: stateError } = await supabase
-          .rpc('get_current_doji_state')
-          .abortSignal(request.signal);
-        if (stateError) throw stateError;
-        if (!authoritativeState) return null;
-        syncServerClock(authoritativeState.server_now);
-        return authoritativeState.user_event;
-      } finally {
-        request.cleanup();
-      }
+      const { data: authoritativeState } = await runMemberRead(
+        supabase.rpc('get_current_doji_state'), signal, 6_000,
+      );
+      if (!authoritativeState) return null;
+      syncServerClock(authoritativeState.server_now);
+      return authoritativeState.user_event;
     },
     enabled: !!userId,
     staleTime: 1000 * 30,

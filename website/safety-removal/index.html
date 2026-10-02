@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">
+  <meta name="description" content="Report content or an account on Doji and request review or removal. No Doji account required.">
+  <title>Safety and Removal Center · Doji</title>
+  <link rel="icon" href="/assets/doji-icon.png"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/portal.css"><link rel="stylesheet" href="/safety-removal/safety.css">
+  <script src="/safety-removal/config.js" defer></script><script src="/portal-select.js" defer></script><script src="/safety-removal/taxonomy.js" defer></script><script src="/safety-removal/form.js" defer></script>
+</head>
+<body class="safetyPage">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="siteHeader"><nav class="nav shell" aria-label="Main navigation">
+    <a class="brand" href="/"><img src="/assets/doji-icon.png" alt=""><span>Doji</span></a>
+    <div class="navLinks"><a href="#statusSection">Check a request</a><a href="/support/">Get help <span aria-hidden="true">↗</span></a></div>
+  </nav></header>
+  <main id="main" class="shell safetyShell">
+    <header class="safetyHero">
+      <p class="eyebrow">Safety &amp; support</p><h1>Request content removal.</h1>
+      <p class="safetyLead">Report content or an account on Doji. Choose the reason that best fits so we can send your request to the right review queue.</p>
+      <ul class="safetyAssurances" aria-label="Request information"><li>No account needed</li><li>Restricted staff review</li></ul>
+    </header>
+    <div class="safetyLayout">
+      <div class="safetyPrimary">
+        <section id="requestSection" class="supportCard safetyFormCard" aria-labelledby="requestTitle">
+          <header class="safetyCardHeader"><h2 id="requestTitle">Submit a removal request</h2><p>You can report for yourself, as an authorized representative, or as someone who noticed a concern.</p></header>
+          <p id="availability" class="safetyAvailability" role="status">Checking online intake availability…</p>
+          <form id="removalForm"><fieldset id="requestFields" disabled><legend class="sr-only">Removal request details</legend>
+            <section class="safetyFormGroup" aria-labelledby="contactTitle">
+              <h3 id="contactTitle"><span class="safetyStepNumber" aria-hidden="true">1</span><span class="sr-only">Step 1 of 3 </span>About your request</h3>
+              <div class="formGrid">
+                <div class="field full"><label for="reason">Category</label><select id="reason" name="reason" required><option value="">Choose a category</option></select></div>
+                <div class="field full"><label for="detail">Reason</label><select id="detail" name="detail" required><option value="">Choose a category first</option></select><small id="categoryHelp" aria-live="polite">Choose the closest match. Staff will assess the information you provide.</small></div>
+                <div class="field"><label for="requestName">Your name</label><input id="requestName" name="name" maxlength="160" autocomplete="name" required></div>
+                <div class="field"><label for="contact">Safe contact information</label><input id="contact" name="contact" maxlength="500" required aria-describedby="contactHelp"><small id="contactHelp">An email, phone number or mailing address where it is safe to contact you.</small></div>
+                <div class="field full"><label for="relationship">Who are you submitting for?</label><select id="relationship" name="relationship"><option value="depicted">Myself — I am affected</option><option value="representative">Someone I am authorized to represent</option><option value="witness">I noticed a concern affecting someone else</option></select></div>
+              </div>
+            </section>
+            <section class="safetyFormGroup" aria-labelledby="contentTitle">
+              <h3 id="contentTitle"><span class="safetyStepNumber" aria-hidden="true">2</span><span class="sr-only">Step 2 of 3 </span>Identify the content</h3>
+              <div class="formGrid">
+                <div class="field full"><label for="location">Where is the content on Doji?</label><textarea id="location" name="location" rows="3" maxlength="3000" required aria-describedby="locationHelp"></textarea><small id="locationHelp">Include any known links or content IDs. No link? Give the username, approximate date and a description that helps us find it.</small></div>
+                <div class="field full"><label for="statement">Good-faith statement</label><textarea id="statement" name="statement" rows="3" maxlength="3000" required aria-describedby="statementHelp"></textarea><small id="statementHelp">Explain what happened and why you believe the content or account should be reviewed. No graphic detail is needed.</small></div>
+              </div>
+            </section>
+            <section class="safetyFormGroup" aria-labelledby="signatureTitle">
+              <h3 id="signatureTitle"><span class="safetyStepNumber" aria-hidden="true">3</span><span class="sr-only">Step 3 of 3 </span>Sign your request</h3>
+              <div class="field"><label for="signature">Electronic signature</label><input id="signature" name="signature" maxlength="160" required aria-describedby="signatureHelp"><small id="signatureHelp">Type your name to sign this removal request.</small></div>
+              <label class="safetyDeclaration"><input id="declaration" type="checkbox" name="consent" required><span id="declarationText">I believe this report is accurate to the best of my knowledge and intend my typed name as my electronic signature.</span></label>
+            </section>
+          </fieldset>
+          <div id="requestVerification" class="safetyVerification" role="group" aria-label="Security check"></div>
+          <p id="requestFeedback" class="safetyFeedback" role="status" tabindex="-1"></p>
+          <div class="safetySubmit"><button id="submitRequest" class="portalButton primary" disabled>Submit</button><p>Your details are used to review and respond to this request. <a href="/privacy/">Privacy Policy</a></p></div>
+          </form>
+        </section>
+        <section id="receiptSection" class="supportCard safetyFormCard" hidden aria-labelledby="receiptTitle">
+          <p class="eyebrow">Saved for review</p><h2 id="receiptTitle" tabindex="-1">Request received</h2>
+          <p>Save your reference and private code before leaving. Use them to check the response below. We don’t store them in your browser or email the code.</p>
+          <dl class="safetyReceipt"><dt>Reference</dt><dd id="receiptReference"></dd><dt>Private status code</dt><dd id="receiptSecret"></dd><dt>Received</dt><dd id="receiptTime"></dd></dl>
+          <div class="safetyActions"><button type="button" class="portalButton primary" id="saveReceipt">Save receipt</button></div>
+          <p class="safetyFinePrint">Keep the code private. Anyone with both values can see your request’s status and the response addressed to you.</p>
+        </section>
+        <section id="statusSection" class="supportCard safetyFormCard" aria-labelledby="statusTitle">
+          <header class="safetyCardHeader"><p class="eyebrow">Already submitted?</p><h2 id="statusTitle">Check a request</h2><p>Use the reference and private code from your receipt.</p></header>
+          <form id="statusForm"><div class="formGrid"><div class="field full"><label for="statusReference">Reference</label><input id="statusReference" maxlength="36" autocomplete="off" spellcheck="false" required></div><div class="field full"><label for="statusSecret">Private status code</label><input id="statusSecret" type="password" maxlength="64" autocomplete="off" required></div></div><div id="statusVerification" class="safetyVerification" role="group" aria-label="Status security check"></div><div class="safetyActions"><button id="checkStatus" class="portalButton" disabled>Check status</button></div><p id="statusFeedback" class="safetyFeedback" role="status" tabindex="-1"></p></form>
+          <div id="statusResult" class="safetyNotice" hidden><h3 id="statusLabel"></h3><p id="statusMessage"></p><p id="statusTime"></p><p>If staff request more information, contact support@dojipro.com with your reference. Do not send images or your private code.</p></div>
+        </section>
+      </div>
+      <aside class="safetySidebar" aria-label="Request guidance">
+        <section class="safetyGuide"><p class="eyebrow">The process</p><h2>What happens next</h2>
+          <ol class="safetySteps"><li><strong>Save your receipt</strong><p>You’ll receive a reference and private code to check your request.</p></li><li><strong>We review the content</strong><p>Restricted staff assess the request and may ask for clarification. A request is not a violation finding.</p></li><li><strong>Check the response</strong><p>See the outcome or any request for more information using your receipt.</p></li></ol>
+          <div id="nciiNotice" class="safetyDeadline"><strong>Intimate images shared without consent</strong><p>You can request removal of real, AI-generated or altered intimate imagery. Select “Nudity or sexual activity”, then the intimate-images reason. For a valid TAKE IT DOWN request, qualifying content must be removed as soon as possible, no later than 48 hours after receipt, with reasonable efforts to find and remove known identical copies. You don’t need to find every copy.</p></div>
+        </section>
+        <section class="safetyGuide safetyHelp"><h2>Need help?</h2><p>For account access or technical problems, visit the Support Center. You can also report directly from content in the app.</p><p>If someone is in immediate danger, contact local emergency services. This form is not an emergency service.</p><a class="safetyHelpLink" href="/support/">Visit the Support Center <span aria-hidden="true">↗</span></a></section>
+      </aside>
+    </div>
+  </main>
+  <footer class="footer"><div class="footerInner shell"><span class="footerMeta">© 2026 Doji</span><div class="footerLinks"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/community-guidelines/">Community</a><a href="/support/">Support</a></div></div></footer>
+</body>
+</html>

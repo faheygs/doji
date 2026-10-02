@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
-import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
+import { Spacing, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
 import { Text } from '@/components/ui/Text';
@@ -22,6 +22,8 @@ import { IconChevronLeft } from '@/components/icons/Icons';
 import { useBlockedUsersPaged, useUnblockUser } from '@/hooks/useBlockUser';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import { useManualRefresh } from '@/hooks/useManualRefresh';
+import { ReadFailureFeedback } from '@/components/ui/ReadFailureFeedback';
+import { canKeepQueryDataOnError } from '@/lib/queryDisplayState';
 
 export default function BlockedUsersScreen() {
   const router = useRouter();
@@ -29,8 +31,11 @@ export default function BlockedUsersScreen() {
   const { colors } = useTheme();
   const blockedQuery = useBlockedUsersPaged();
   const blocked = useMemo(
-    () => blockedQuery.data?.pages.flatMap((page) => page) ?? [],
-    [blockedQuery.data?.pages],
+    () =>
+      blockedQuery.error && !canKeepQueryDataOnError(blockedQuery.data, blockedQuery.error)
+        ? []
+        : (blockedQuery.data?.pages.flatMap((page) => page) ?? []),
+    [blockedQuery.data, blockedQuery.error],
   );
   const { isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = blockedQuery;
   const { refreshing, handleRefresh } = useManualRefresh(refetch);
@@ -107,7 +112,7 @@ export default function BlockedUsersScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text variant="headingLarge">Blocked users</Text>
-          {!isLoading ? (
+          {!isLoading && !blockedQuery.isError ? (
             <Text variant="micro" color={colors.textTertiary}>
               {blocked.length === 0
                 ? 'No blocked users'
@@ -135,9 +140,28 @@ export default function BlockedUsersScreen() {
             removeClippedSubviews={false}
             keyExtractor={(item) => item.id}
             onEndReached={() => {
-              if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+              if (
+                hasNextPage &&
+                !blockedQuery.isFetching &&
+                !isFetchingNextPage &&
+                !blockedQuery.isError
+              )
+                void fetchNextPage();
             }}
             onEndReachedThreshold={0.35}
+            ListHeaderComponent={
+              blockedQuery.isError ? (
+                <ReadFailureFeedback
+                  message="Could not load blocked users. Please try again."
+                  retrying={blockedQuery.isFetching}
+                  onRetry={() =>
+                    void (blockedQuery.isFetchNextPageError
+                      ? fetchNextPage({ cancelRefetch: false })
+                      : refetch({ cancelRefetch: false }))
+                  }
+                />
+              ) : null
+            }
             ListFooterComponent={
               isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null
             }
@@ -149,18 +173,20 @@ export default function BlockedUsersScreen() {
               />
             }
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-                  You haven't blocked anyone.
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  color={colors.textTertiary}
-                  style={{ textAlign: 'center' }}
-                >
-                  Blocked users can't see your posts or interact with you.
-                </Text>
-              </View>
+              blockedQuery.isError ? null : (
+                <View style={styles.empty}>
+                  <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+                    You haven't blocked anyone.
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    color={colors.textTertiary}
+                    style={{ textAlign: 'center' }}
+                  >
+                    Blocked users can't see your posts or interact with you.
+                  </Text>
+                </View>
+              )
             }
             renderItem={({ item }) => (
               <View style={styles.row}>

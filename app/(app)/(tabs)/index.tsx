@@ -92,6 +92,9 @@ export default function FeedScreen() {
     items: notificationItems,
     isLoading: notificationsLoading,
     isClearing: notificationsClearing,
+    readError: notificationsReadError,
+    isRefetching: notificationsRefetching,
+    retryRead: retryNotificationsRead,
     markItemsSeen: markNotificationItemsSeen,
     markScopesSeen,
   } = useNotificationCenterContext();
@@ -445,6 +448,9 @@ export default function FeedScreen() {
         items={notificationItems}
         isLoading={notificationsLoading}
         isClearing={notificationsClearing}
+        readError={notificationsReadError}
+        isRefetching={notificationsRefetching}
+        onRetryRead={() => void retryNotificationsRead()}
         onDismissItem={dismissNotificationItem}
         onClearHistory={clearNotificationHistory}
         onItemsVisible={markNotificationItemsSeen}

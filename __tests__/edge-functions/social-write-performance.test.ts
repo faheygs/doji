@@ -104,7 +104,10 @@ describe('interactive social write performance policy', () => {
     expect(outboxRelay).toContain('OUTBOX_MAX_PAGES_PER_ALARM = 8');
     expect(outboxRelay).toContain('OUTBOX_RECOVERY_ALARM_MS = 30_000');
     expect(outboxRelay).toContain('this.ctx.waitUntil(this.startDrain(');
-    expect(outboxRelay).toContain('if (this.drainTask) return this.drainTask');
+    expect(outboxRelay).toContain('if (this.drainTask || this.drainStarting)');
+    expect(outboxRelay).toContain('this.rerunRequested = true');
+    expect(outboxRelay).toContain('if (this.rerunRequested)');
+    expect(outboxRelay).toContain('UPSTREAM_TIMEOUT_MS = 20_000');
     expect(outboxRelay).toContain('wakeToClaimMs: Date.now() - acceptedAt');
     expect(outboxRelay).toContain('drainId');
     expect(outboxRelay).toContain("await this.ctx.storage.delete('wake');");

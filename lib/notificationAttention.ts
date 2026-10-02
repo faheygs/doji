@@ -22,6 +22,9 @@ export function attentionScopeForItem(
   if (item.kind === 'challenge') {
     return { scope_kind: 'daily_event', scope_id: item.userEvent.daily_event_id };
   }
+  if (item.kind === 'moderation_notice') {
+    return { scope_kind: 'moderation_decision', scope_id: item.decision_id };
+  }
   return null;
 }
 
@@ -45,7 +48,7 @@ export function attentionScopeFromPushData(data: unknown): NotificationAttention
   const id = record.notificationScopeId;
   if (
     (kind === 'daily_event' || kind === 'friendship' || kind === 'comment' ||
-      kind === 'suggestion') &&
+      kind === 'suggestion' || kind === 'moderation_decision') &&
     typeof id === 'string' && id.length > 0
   ) {
     return { scope_kind: kind, scope_id: id };

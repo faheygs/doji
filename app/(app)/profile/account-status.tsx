@@ -25,6 +25,15 @@ function decisionDate(value: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function restrictionDate(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
 export default function AccountStatusScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
@@ -95,6 +104,7 @@ export default function AccountStatusScreen() {
   }), [colors]);
 
   const decisions = status.data?.decisions ?? [];
+  const accountAccess = status.data?.account_access;
   const active = decisions.filter((decision) => decision.state === 'active' && decision.action !== 'no_violation');
 
   const submit = async (decisionId: string) => {
@@ -149,7 +159,26 @@ export default function AccountStatusScreen() {
           </View>
         ) : (
           <>
-            {active.length === 0 ? (
+            {accountAccess?.state === 'temporarily_restricted' ? (
+              <View style={styles.currentIssue}>
+                <Text variant="headingMedium">Your account is temporarily restricted</Text>
+                <Text variant="body" color={colors.textSecondary}>
+                  {accountAccess.body || 'Some account actions are unavailable while this restriction is active.'}
+                </Text>
+                {restrictionDate(accountAccess.ends_at) ? (
+                  <Text variant="bodySmall" color={colors.textSecondary}>
+                    Access returns automatically on {restrictionDate(accountAccess.ends_at)}.
+                  </Text>
+                ) : null}
+              </View>
+            ) : accountAccess?.state === 'suspended' ? (
+              <View style={styles.currentIssue}>
+                <Text variant="headingMedium">Your account is suspended</Text>
+                <Text variant="body" color={colors.textSecondary}>
+                  {accountAccess.body || 'Review the decision and appeal options below.'}
+                </Text>
+              </View>
+            ) : active.length === 0 ? (
               <View style={styles.healthy}>
                 <IconShield size={34} color={colors.success} />
                 <Text variant="headingMedium">No active policy issues</Text>
@@ -180,13 +209,20 @@ export default function AccountStatusScreen() {
           const appealOpen = appealingDecisionId === decision.id;
           const resolved = decision.state === 'reversed' || decision.action === 'no_violation';
           const badgeColor = resolved ? colors.success : decision.state === 'active' ? colors.warning : colors.textSecondary;
+          const outcomeLabel = decision.account_action?.action === 'warning'
+            ? 'Warning'
+            : decision.account_action?.action === 'temporary_restriction'
+              ? 'Temporary restriction'
+              : decision.account_action?.action === 'permanent_ban'
+                ? 'Account suspension'
+                : label(decision.action);
           return (
             <View key={decision.id} style={styles.card}>
               <View style={styles.row}>
                 <View style={{ flex: 1, gap: 3 }}>
-                  <Text variant="headingMedium">{label(decision.action)}</Text>
+                  <Text variant="headingMedium">{outcomeLabel}</Text>
                   <Text variant="bodySmall" color={colors.textSecondary}>
-                    {label(decision.content_kind)} · {label(decision.policy_code)} · {label(decision.severity)}
+                    {label(decision.action)} · {label(decision.content_kind)} · {label(decision.policy_code)} · {label(decision.severity)}
                   </Text>
                   {decisionDate(decision.decided_at) ? (
                     <Text variant="micro" color={colors.textTertiary}>{decisionDate(decision.decided_at)}</Text>
@@ -197,6 +233,11 @@ export default function AccountStatusScreen() {
                 </View>
               </View>
               <Text variant="body" color={colors.textSecondary}>{decision.user_notice}</Text>
+              {decision.account_action?.action === 'temporary_restriction' && decision.account_action.ends_at ? (
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  {decision.account_action.state === 'expired' ? 'Ended' : 'Scheduled to end'} {restrictionDate(decision.account_action.ends_at)}
+                </Text>
+              ) : null}
               {decision.appeal ? (
                 <InlineFeedback
                   tone={decision.appeal.status === 'reversed' ? 'success' : 'info'}

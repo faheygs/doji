@@ -3,13 +3,14 @@ import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types/database';
 import { needsOnboarding } from './onboardingGate';
 import { ROUTES } from './routes';
+import { isEmployeeSession } from './employeeIdentity';
 
 /** Where the user should go once session + profile are loaded. */
 export function resolveAuthenticatedRoute(
   session: Session | null,
   profile: Profile | null,
 ): Href {
-  if (!session) return ROUTES.welcome;
+  if (!session || isEmployeeSession(session)) return ROUTES.welcome;
   if (!profile) return ROUTES.username;
   if (profile.is_banned) return ROUTES.banned;
   if (needsOnboarding(profile)) return ROUTES.onboardingHowItWorks;
@@ -27,12 +28,13 @@ export function isAuthRoutingPending(
   // for the first owner-profile read of this session even when cached data is
   // available, so a newly banned account cannot enter the protected app.
   return isLoading || (
-    !!session &&
+    !!session && !isEmployeeSession(session) &&
     (isProfileLoading || profileLoadState === 'idle' || profileLoadState === 'loading')
   );
 }
 
 export type AuthGate = {
+  isEmployee: boolean;
   ready: boolean;
   signedIn: boolean;
   hasProfile: boolean;
@@ -52,7 +54,8 @@ export function getAuthGate(
   profile: Profile | null,
   profileLoadState: 'idle' | 'loading' | 'ready' | 'missing' | 'error' = 'idle',
 ): AuthGate {
-  const profileLoadFailed = !!session && profileLoadState === 'error';
+  const isEmployee = isEmployeeSession(session);
+  const profileLoadFailed = !!session && !isEmployee && profileLoadState === 'error';
   const ready = !profileLoadFailed && !isAuthRoutingPending(
     isLoading,
     isProfileLoading,
@@ -61,14 +64,15 @@ export function getAuthGate(
     profileLoadState,
   );
   const signedIn = ready && !!session;
-  const hasProfile = signedIn && !!profile;
+  const hasProfile = signedIn && !isEmployee && !!profile;
   const isBanned = hasProfile && profile.is_banned === true;
   const mustFinishOnboarding = hasProfile && !isBanned && needsOnboarding(profile);
   const canUseApp = hasProfile && !isBanned && !needsOnboarding(profile);
   const canUseBannedScreen = isBanned;
-  const canUseAuthGroup = ready && (!signedIn || !hasProfile);
+  const canUseAuthGroup = ready && !isEmployee && (!signedIn || !hasProfile);
 
   return {
+    isEmployee,
     ready,
     signedIn,
     hasProfile,

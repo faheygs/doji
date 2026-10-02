@@ -96,7 +96,7 @@ function wait(ms: number): Promise<void> {
   });
 }
 
-async function fetchOperationalHealth(env: OperationalEnv): Promise<Record<string, unknown>> {
+export async function fetchOperationalHealth(env: OperationalEnv): Promise<Record<string, unknown>> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1) {
     try {
@@ -222,14 +222,19 @@ export function actionableOperationalIssue(health: OperationalHealth): Operation
   ) {
     const durableOutboxCaughtUp = Number(health.outbox_overdue ?? 0) === 0 &&
       Number(health.outbox_exhausted ?? 0) === 0;
+    const realtimePublishRetried = Number(health.realtime_retried_samples_5m ?? 0) > 0 ||
+      Number(health.realtime_max_publish_attempts_5m ?? 1) > 1;
     return {
       family: 'realtime-delivery-degraded',
       immediate: false,
       diagnostics: {
         suspected_layer: durableOutboxCaughtUp
-          ? 'realtime-provider-or-network'
+          ? realtimePublishRetried
+            ? 'publication-or-database-acknowledgement'
+            : 'relay-or-publication-path'
           : 'durable-outbox',
         durable_outbox_caught_up: durableOutboxCaughtUp,
+        realtime_publish_retried: realtimePublishRetried,
         database_writes_at_risk: false,
       },
     };

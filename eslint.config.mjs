@@ -8,6 +8,8 @@ export default [
       '.expo/**',
       'dist/**',
       'coverage/**',
+      'test-results/**',
+      'website/test-results/**',
       '.claude/**',
       'infra/doji-orchestrator/node_modules/**',
       'infra/doji-orchestrator/worker-configuration.d.ts',

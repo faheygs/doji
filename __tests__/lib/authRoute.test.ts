@@ -44,6 +44,13 @@ function mockProfile(overrides: Partial<Profile> = {}): Profile {
 }
 
 describe('resolveAuthenticatedRoute', () => {
+  it('employee identity cannot enter member onboarding even with cached member data', () => {
+    const session = { user: { id: 'employee', role: 'doji_employee' } } as NonNullable<ReturnType<typeof mockSession>>;
+    const gate = getAuthGate(false, true, session, mockProfile(), 'error');
+    expect(gate).toMatchObject({ isEmployee: true, ready: true, profileLoadFailed: false,
+      canUseApp: false, canUseAuthGroup: false, mustFinishOnboarding: false, canUseBannedScreen: false });
+    expect(resolveAuthenticatedRoute(session, null)).toBe(ROUTES.welcome);
+  });
   it('sends unauthenticated users to welcome', () => {
     expect(resolveAuthenticatedRoute(null, null)).toBe(ROUTES.welcome);
   });

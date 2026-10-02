@@ -37,12 +37,16 @@ import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
 import { useNotificationSheetStyles } from './useNotificationSheetStyles';
 import { executeCommand } from '../../lib/commandGateway';
+import { ReadFailureFeedback } from '../ui/ReadFailureFeedback';
 type Props = {
   visible: boolean;
   onClose: () => void;
   items: NotificationCenterItem[];
   isLoading: boolean;
   isClearing?: boolean;
+  readError?: unknown;
+  isRefetching?: boolean;
+  onRetryRead?: () => void;
   onDismissItem?: (key: string) => void | Promise<void>;
   onClearHistory?: () => void | Promise<void>;
   onItemsVisible?: (items: readonly NotificationCenterItem[]) => void;
@@ -53,6 +57,9 @@ export function NotificationSheet({
   items,
   isLoading,
   isClearing = false,
+  readError,
+  isRefetching = false,
+  onRetryRead,
   onDismissItem,
   onClearHistory,
   onItemsVisible,
@@ -539,8 +546,13 @@ export function NotificationSheet({
               viewabilityConfig={attentionViewabilityConfig}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
+              ListHeaderComponent={readError && onRetryRead ? (
+                <ReadFailureFeedback
+                  message={items.length ? 'Could not refresh notifications. Previously loaded activity is shown.' : 'Could not load notifications. Please try again.'}
+                  retrying={isRefetching} onRetry={onRetryRead} />
+              ) : null}
               ListEmptyComponent={
-                <View style={styles.empty}>
+                readError ? null : <View style={styles.empty}>
                   <IconBell size={44} color={colors.textTertiary} />
                   <Text variant="headingMedium">{"You're all caught up"}</Text>
                   <Text variant="bodySmall" color={colors.textSecondary} style={styles.emptySub}>

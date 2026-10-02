@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 website/.admin-dist/
+website/.business-dist/
 expo-env.d.ts
 
 # Native
@@ -37,6 +38,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 coverage/
+/test-results/
+/website/**/test-results/
+/website/**/browser-test-output/
+/website/.business-admin-qa-*/
+/website/.safety-preview/
+/supabase/.temp/
 /artifacts/
 /.artifacts/
 

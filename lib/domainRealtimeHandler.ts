@@ -101,7 +101,17 @@ export function handleDomainRealtimeEvent({
     return;
   }
   if (event.type.startsWith('moderation.status.')) {
-    invalidateRoots('moderationStatus', 'notificationCenter', 'feed', 'post', 'profilePost', 'comments', 'pollResults');
+    invalidateRoots(
+      'moderationStatus',
+      'notificationCenter',
+      'feed',
+      'post',
+      'profile',
+      'profilePost',
+      'comments',
+      'pollResults',
+      'pollVotersDetail',
+    );
     return;
   }
   const roots = realtimeQueryRoots(event.type);

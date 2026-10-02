@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { createRequestSignal } from '../lib/requestSignal';
+import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
+import { rpcQueryError } from '../lib/rpcQueryError';
 
 /** Matches settings save validation (DB allows up to 30; client caps at 20). */
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -81,21 +82,22 @@ export function useUsernameAvailability(input: string, options: Options = {}) {
       let data: boolean | null = null;
       let error: { message: string } | null = null;
       try {
-        const result = await supabase.rpc('is_username_available', {
+        const result = await runAbortableQuery(supabase.rpc('is_username_available', {
           p_username: normalized,
-        }).abortSignal(request.signal);
+        }), request.signal, 6_000);
         data = result.data;
         error = result.error;
       } catch (requestError) {
-        if (request.signal.aborted) return;
+        if (request.abortSource === 'manual') return;
+        const failure = rpcQueryError(requestError, { abortSource: request.abortSource, timeoutMs: 6_000 });
         error = {
-          message: requestError instanceof Error ? requestError.message : 'Username check failed',
+          message: failure.message,
         };
       } finally {
         request.cleanup();
       }
 
-      if (req !== reqRef.current) return;
+      if (req !== reqRef.current || request.abortSource === 'manual') return;
 
       if (error) {
         if (__DEV__) console.warn('[useUsernameAvailability]', error.message);

@@ -26,6 +26,8 @@ import { formatCompactCount } from '../../../utils/formatCount';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useAppDialog } from '../../../contexts/DialogContext';
 import { useNavigationOrigin } from '../../../contexts/NavigationOriginContext';
+import { ReadFailureFeedback } from '../../../components/ui/ReadFailureFeedback';
+import { canKeepQueryDataOnError } from '../../../lib/queryDisplayState';
 export default function FriendsScreen() {
   const router = useRouter();
   const navigationOrigin = useNavigationOrigin();
@@ -33,8 +35,9 @@ export default function FriendsScreen() {
   const { showDialog } = useAppDialog();
   const meId = useAuthStore((s) => s.session?.user?.id);
   const friendsQuery = useFriendsPaged();
-  const friends = useMemo(() => friendsQuery.data?.pages.flat() ?? [],
-    [friendsQuery.data?.pages]) as FriendListRow[];
+  const friends = useMemo(() => friendsQuery.error && !canKeepQueryDataOnError(friendsQuery.data, friendsQuery.error)
+    ? [] : friendsQuery.data?.pages.flat() ?? [],
+    [friendsQuery.data, friendsQuery.error]) as FriendListRow[];
   const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = friendsQuery;
   const { data: friendRequestCount = 0 } = useFriendRequestCount();
   const { data: friendCount = 0 } = useFriendCount(meId);
@@ -150,8 +153,13 @@ export default function FriendsScreen() {
           contentContainerStyle={styles.list}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+          onEndReached={() => { if (hasNextPage && !friendsQuery.isFetching && !friendsQuery.isError) void fetchNextPage(); }}
           onEndReachedThreshold={0.35}
+          ListHeaderComponent={friendsQuery.isError ? <ReadFailureFeedback
+            message={friends.length ? 'Could not refresh friends. Previously loaded friends are shown.' : 'Could not load friends. Please try again.'}
+            retrying={friendsQuery.isFetching}
+            onRetry={() => void (friendsQuery.isFetchNextPageError ? fetchNextPage({ cancelRefetch: false }) : friendsQuery.refetch({ cancelRefetch: false }))}
+          /> : null}
           ListFooterComponent={
             isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null
           }
@@ -183,7 +191,7 @@ export default function FriendsScreen() {
             />
           )}
           ListEmptyComponent={
-            <View style={styles.empty}>
+            friendsQuery.isError ? null : <View style={styles.empty}>
               <IconFriends size={48} color={colors.textTertiary} />
               <Text variant="headingLarge">No friends yet</Text>
               <Text variant="body" color={colors.textSecondary} style={styles.emptyText}>

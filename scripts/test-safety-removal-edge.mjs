@@ -1,0 +1,76 @@
+// Compiles only the pure Edge handler into memory; no hosted calls or secrets.
+import ts from 'typescript';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const cache=new Map();
+function load(path){if(cache.has(path))return cache.get(path);const module={exports:{}};
+ const js=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const localRequire=name=>load(new URL(name,`file:///${path.replaceAll('\\','/')}`).pathname.replace(/^\/([A-Z]:)/,'$1'));
+ vm.runInNewContext(js,{module,exports:module.exports,require:localRequire,Request,Response,Headers,fetch,crypto,TextEncoder,TextDecoder,AbortSignal,URL,Uint8Array,console},{filename:path});cache.set(path,module.exports);return module.exports;
+}
+const {safetyRemoval}=load(`${process.cwd()}/supabase/functions/_shared/safety-removal.ts`);
+const env={enabled:true,origin:'https://dojipro.com',supabaseUrl:'https://db.test.invalid',serviceKey:'sb_secret_fixture',turnstileSecret:'fixture'};
+const body={action:'submit',id:'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',secret:'a'.repeat(64),verification:'bot-fixture',request:{name:'Synthetic',contact:'test@test.invalid',relationship:'depicted',reason:'sexual_content',detail:'nonconsensual_intimate_images',location:'@fixture post reference',statement:'Not shared with consent',signature:'Synthetic',consent:true}};
+const receipt={id:body.id,received_at:'2026-09-28T12:00:00Z',deadline_at:'2026-09-30T12:00:00Z',state:'received',message:'Received',updated_at:'2026-09-28T12:00:00Z',request:{should:'never leak'},token_hash:'never expose'};
+const req=(b=body,origin=env.origin)=>new Request('https://db.test.invalid/functions/v1/safety-removal',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(b)});
+let calls=[];
+function upstream(bot={success:true,hostname:'dojipro.com',action:'safety_removal'},rpcStatus=200,rpcBody=receipt){return async(url,options)=>{calls.push([url,options]);return Response.json(url.includes('siteverify')?bot:rpcBody,{status:url.includes('siteverify')?200:rpcStatus});};}
+let response=await safetyRemoval(req(),env,upstream());assert.equal(response.status,201);let result=await response.json();assert.equal(result.id,body.id);assert.equal(result.request,undefined);assert.equal(result.token_hash,undefined);
+assert.equal(calls[1][1].headers.authorization,undefined);assert.equal(calls[1][1].headers.apikey,'sb_secret_fixture');
+const stored=JSON.parse(calls[1][1].body);assert.equal(stored.p_token_hash.length,64);assert.notEqual(stored.p_token_hash,body.secret);assert.ok(!calls[1][1].body.includes('bot-fixture'));assert.equal(response.headers.get('cache-control'),'no-store');
+for(const bot of [{success:false},{success:true,hostname:'evil.invalid',action:'safety_removal'},{success:true,hostname:'dojipro.com',action:'other'}]){calls=[];assert.equal((await safetyRemoval(req(),env,upstream(bot))).status,400);assert.equal(calls.length,1);}
+calls=[];assert.equal((await safetyRemoval(req(),{...env,enabled:false},upstream())).status,503);assert.equal(calls.length,0);
+assert.equal((await safetyRemoval(req(body,'https://evil.invalid'),env,upstream())).status,403);
+assert.equal((await safetyRemoval(req({...body,request:{...body.request,attachment:'file'}}),env,upstream())).status,400);
+for(const key of ['queue','priority','deadline_at'])assert.equal((await safetyRemoval(req({...body,request:{...body.request,[key]:'override'}}),env,upstream())).status,400);
+assert.equal((await safetyRemoval(req({...body,request:{...body.request,reason:null}}),env,upstream())).status,400);
+assert.equal((await safetyRemoval(req(),env,upstream(undefined,400,{code:'22023'}))).status,400);
+assert.equal((await safetyRemoval(req({...body,request:{...body.request,consent:false}}),env,upstream())).status,400);
+assert.equal((await safetyRemoval(req({...body,request:{...body.request,location:'x'.repeat(3001)}}),env,upstream())).status,400);
+assert.equal((await safetyRemoval(req({...body,secret:'guess'}),env,upstream())).status,400);
+assert.equal((await safetyRemoval(req(),env,async()=>{throw new Error('secret backend message');})).status,503);
+response=await safetyRemoval(req(),env,upstream(undefined,500,{message:'secret backend message'}));assert.equal(response.status,503);assert.ok(!(await response.text()).includes('secret backend'));
+const status={action:'status',id:body.id,secret:body.secret,verification:'bot-fixture'};
+assert.equal((await safetyRemoval(req(status),env,upstream())).status,200);
+assert.equal((await safetyRemoval(req(status),env,upstream(undefined,404,{code:'P0002'}))).status,404);
+assert.equal((await safetyRemoval(req(),env,upstream(undefined,400,{code:'P0001'}))).status,429);
+const {safetyRemovalAlerts}=load(`${process.cwd()}/supabase/functions/_shared/safety-removal-alerts.ts`);
+const alertEnv={enabled:true,secret:'test-dispatch-secret',supabaseUrl:env.supabaseUrl,serviceKey:env.serviceKey,cloudflareAccountId:'0'.repeat(32),cloudflareToken:'test-key'};
+const dispatchReq=(secret=alertEnv.secret)=>new Request('https://db.test.invalid/dispatch',{method:'POST',headers:{authorization:`Bearer ${secret}`}});
+const alert={queue:'restricted_safety',id:body.id,lease_id:'11111111-2222-4333-8444-555555555555',deadline_at:receipt.deadline_at,envelope:{from:'safety@dojipro.com',to:'faheygs@gmail.com'}};
+let sends=[],acks=[];
+const delivered={success:true,result:{message_id:'<synthetic@dojipro.com>',delivered:['faheygs@gmail.com'],queued:[],permanent_bounces:[]}};
+const dispatchMock=(status=200)=>async(url,options)=>{
+ if(url.includes('/routing/addresses'))return Response.json({success:true,result:[{email:'faheygs@gmail.com',verified:'2026-09-01T12:00:00Z'}]});
+ if(url.includes('claim_'))return Response.json([alert]);
+ if(url.includes('finish_')){acks.push(JSON.parse(options.body));return Response.json(true);}
+ assert.match(url,/^https:\/\/api.cloudflare.com\/client\/v4\/accounts\/[0-9a-f]{32}\/email\/sending\/send$/);
+ sends.push(options);return Response.json(status===200?delivered:{message:'private provider error'},{status});
+};
+assert.equal((await safetyRemovalAlerts(dispatchReq('wrong'),alertEnv,dispatchMock())).status,401);assert.equal(sends.length,0);
+assert.equal((await safetyRemovalAlerts(dispatchReq(),{...alertEnv,enabled:false},dispatchMock())).status,503);
+assert.equal((await safetyRemovalAlerts(dispatchReq(),alertEnv,dispatchMock())).status,200);
+const envelope=JSON.parse(sends[0].body);assert.equal(envelope.to,'faheygs@gmail.com');assert.ok(envelope.html.includes(body.id));assert.ok(!envelope.html.includes('Synthetic'));assert.ok(!envelope.html.includes(body.secret));assert.ok(envelope.text.includes(receipt.deadline_at));
+assert.equal(sends[0].headers['idempotency-key'],undefined);assert.equal(envelope.headers['X-Doji-Alert-Reference'],body.id);assert.ok(acks.at(-1).p_provider_id);assert.equal(acks.at(-1).p_delivery_status,'delivered');
+await safetyRemovalAlerts(dispatchReq(),alertEnv,dispatchMock(429));assert.equal(acks.at(-1).p_terminal,false);assert.equal(acks.at(-1).p_provider_id,null);
+await safetyRemovalAlerts(dispatchReq(),alertEnv,dispatchMock(403));assert.equal(acks.at(-1).p_terminal,true);
+assert.equal(sends[0].body,sends[1].body);
+const {classifyCloudflareMail,sendSafetyAlert,verifySafetyAlertDestination}=load(`${process.cwd()}/supabase/functions/_shared/safety-removal-cloudflare.ts`);
+const classify=(patch)=>classifyCloudflareMail(200,{...delivered,result:{...delivered.result,...patch}});
+assert.equal(classify({delivered:[],queued:['faheygs@gmail.com']}).status,'queued');
+assert.equal(classify({delivered:[],permanent_bounces:['faheygs@gmail.com']}).terminal,true);
+assert.equal(classify({delivered:[],suppressed_recipients:['faheygs@gmail.com']}).status,'suppressed');
+for(const patch of [{delivered:[]},{message_id:undefined},{message_id:'bad\nheader'},{delivered:['other@example.invalid']},{queued:['faheygs@gmail.com']},{delivered:null}])assert.equal(classify(patch).status,'uncertain');
+for(const status of [408,429,500,503])assert.equal(classifyCloudflareMail(status,{}).terminal,false);
+for(const status of [400,401,403,404])assert.equal(classifyCloudflareMail(status,{}).terminal,true);
+const config={accountId:alertEnv.cloudflareAccountId,token:alertEnv.cloudflareToken};
+for(const value of [null,false,'not-a-date'])assert.equal(await verifySafetyAlertDestination(config,async()=>Response.json({success:true,result:[{email:'faheygs@gmail.com',verified:value}]})),false);
+let unexpectedCalls=0;
+response=await safetyRemovalAlerts(dispatchReq(),alertEnv,async url=>{unexpectedCalls++;assert.ok(url.includes('/routing/addresses'));return Response.json({success:true,result:[]});});
+assert.equal(response.status,503);assert.equal(unexpectedCalls,1);
+const mail={reference:body.id,from:'safety@dojipro.com',to:'faheygs@gmail.com',html:'test',text:'test'};
+assert.equal((await sendSafetyAlert(config,mail,async()=>{throw new Error('private failure');})).status,'uncertain');
+await assert.rejects(sendSafetyAlert(config,{...mail,to:'other@test.invalid'},async()=>{throw new Error('should not send');}),/Invalid alert envelope/);
+response=await safetyRemovalAlerts(dispatchReq(),alertEnv,async(url,options)=>url.includes('finish_')?Response.json(false):dispatchMock()(url,options));assert.equal(response.status,503);
+console.log('Safety intake and alert Edge checks passed; all network responses mocked, no email sent.');

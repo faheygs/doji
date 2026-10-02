@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "jose": "npm:jose@6.2.8",
+    "pg": "npm:pg@8.16.3",
+    "ably": "npm:ably@2.26.0"
+  }
+}

@@ -1,11 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Linking, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,8 +17,7 @@ import { useBlockedUserCount } from '@/hooks/useBlockUser';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { ChangePasswordSheet } from '@/components/settings/ChangePasswordSheet';
 import { SettingsRow } from '@/components/settings/SettingsGroup';
-import { useAppDialog } from '@/contexts/DialogContext';
-import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { DeleteAccountAction } from '@/components/settings/DeleteAccountAction';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -28,9 +25,7 @@ export default function SettingsScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { profile, signOut } = useAuthStore();
   const { colors } = useTheme();
-  const { showDialog } = useAppDialog();
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
   const { data: blockedUserCount = 0 } = useBlockedUserCount();
 
   const styles = useMemo(
@@ -74,33 +69,6 @@ export default function SettingsScreen() {
     [colors],
   );
 
-  const handleDeleteAccount = () => {
-    setDeleteError('');
-    showDialog({
-      title: 'Delete account',
-      message: 'This permanently deletes your account and all its data. This cannot be undone.',
-      actions: [
-        { label: 'Cancel', variant: 'cancel' },
-        {
-          label: 'Delete',
-          variant: 'destructive',
-          onPress: async () => {
-            try {
-              const userId = useAuthStore.getState().session?.user?.id;
-              if (!userId) return;
-              const { error } = await supabase.functions.invoke('delete-account');
-              if (error) throw error;
-              await signOut();
-              Toast.show({ type: 'success', text1: 'Account deleted' });
-            } catch {
-              setDeleteError('Could not delete your account. Try again or contact support.');
-            }
-          },
-        },
-      ],
-    });
-  };
-
   return (
     <SafeAreaView
       edges={TAB_SCREEN_SAFE_AREA_EDGES}
@@ -127,13 +95,6 @@ export default function SettingsScreen() {
             Settings
           </Text>
         </View>
-        {deleteError ? (
-          <InlineFeedback
-            title="Account was not deleted"
-            message={deleteError}
-            style={{ marginHorizontal: Spacing.md }}
-          />
-        ) : null}
 
         <TouchableOpacity
           style={styles.profileCard}
@@ -267,7 +228,10 @@ export default function SettingsScreen() {
               await signOut();
             }}
           />
-          <SettingsRow label="Delete account" danger onPress={handleDeleteAccount} isLast />
+        </View>
+
+        <View style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md, gap: Spacing.sm }}>
+          <DeleteAccountAction />
         </View>
 
         <Text variant="bodySmall" color={colors.textTertiary} style={styles.version}>

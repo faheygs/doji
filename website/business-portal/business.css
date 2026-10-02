@@ -1,0 +1,31 @@
+/* Business-only refinements. Shared portal components remain the foundation. */
+body[data-portal="business"] { --portal-soft: var(--portal-muted); }
+body[data-portal="business"] .businessRecordDrawer {
+  inset: 0 0 0 auto; margin: 0; width: min(680px,100%); max-width: 100%;
+  height: 100dvh; max-height: 100dvh; padding: 0; border-width: 0 0 0 1px;
+  border-radius: 0; transform: none;
+}
+body[data-portal="business"] .businessRecordDrawer::backdrop { background: rgba(0,0,0,.55); }
+body[data-portal="business"] .businessRecordDrawer .modalHeader { position: sticky; top: 0; z-index: 2; background: var(--portal-panel); }
+body[data-portal="business"] .modalFooter { justify-content: flex-end; flex-wrap: wrap; }
+body[data-portal="business"] .dojiRow { width: 100%; text-align: left; cursor: pointer; font: inherit; }
+body[data-portal="business"] :is(.dojiRow,.campaignRow):focus-visible { outline: 2px solid var(--portal-copy); outline-offset: 3px; }
+body[data-portal="business"] .businessFormError { padding: 14px 16px; border: 1px solid currentColor; border-radius: 12px; color: #a32d20; background: #fff1ed; margin: 16px 0; }
+html[data-theme="dark"] body[data-portal="business"] .businessFormError { color: #ffb4a4; background: #321b1a; }
+body[data-portal="business"] .businessRecordDrawer textarea { min-height: 80px; overflow-wrap: anywhere; }
+body[data-portal="business"] .businessRecordDrawer :is(h2,p,strong) { overflow-wrap: anywhere; }
+body[data-portal="business"] .portalSelectOption.highlighted { outline: 2px solid var(--portal-copy); outline-offset: -2px; }
+body[data-portal="business"] .businessFormError:empty { display: none; }
+body[data-portal="business"] .businessRecordDrawer .dojiRow { grid-template-columns: 32px minmax(0,1fr) auto; }
+body[data-portal="business"] .businessRecordDrawer .dojiMeta { display: none; }
+body[data-portal="business"] .businessEmptyResults { margin-bottom: 24px; }
+@media (max-width: 960px) {
+  body[data-portal="business"] .portalShell { grid-template-columns: minmax(0,1fr); }
+  body[data-portal="business"] .portalGrid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 600px) {
+  body[data-portal="business"] .portalTopbar { flex-wrap: wrap; gap: 12px; }
+  body[data-portal="business"] .topActions { flex-wrap: wrap; }
+  body[data-portal="business"] .campaignRow { grid-template-columns: minmax(0,1fr) auto 12px; padding: 12px; gap: 8px; }
+  body[data-portal="business"] .campaignMeta { min-width: 0; overflow-wrap: anywhere; }
+}

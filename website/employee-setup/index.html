@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Doji · Work account setup</title>
+  <link rel="icon" href="/assets/doji-icon.png"><link rel="stylesheet" href="/styles.css">
+  <script src="/theme-init.js"></script><link rel="stylesheet" href="/portal.css"><link rel="stylesheet" href="/admin-portal/admin.css">
+  <link rel="stylesheet" href="/employee-setup/setup.css">
+</head>
+<body class="portalPage adminPortalPage employeeSetup">
+  <main class="portalAuth">
+    <aside class="authStory adminAuthStory">
+      <div class="portalBrand"><img src="/assets/doji-icon.png" alt=""><span>Doji<small>WORKSPACE</small></span></div>
+      <div class="authCopy"><p class="eyebrow">The people behind Doji</p><h1>Good work starts here.</h1><p>Your work identity. Your secure workspace. Separate from your personal Doji account.</p></div>
+      <ol class="setupSteps" aria-label="Setup progress">
+        <li data-step="account" aria-current="step"><span>01</span><div>Create your account<small>Use your approved work email</small></div></li>
+        <li data-step="email"><span>02</span><div>Verify your email<small>Confirm that it belongs to you</small></div></li>
+        <li data-step="security"><span>03</span><div>Secure your sign-in<small>Connect your authenticator</small></div></li>
+        <li data-step="access"><span>04</span><div>Access approval<small>Assigned permissions, not automatic access</small></div></li>
+      </ol>
+    </aside>
+    <section class="authPanel"><div class="authCard">
+      <p class="eyebrow" id="setupEyebrow">WORK ACCOUNT · STEP 01</p>
+      <div class="setupSymbol" id="setupSymbol" aria-hidden="true" hidden>✉</div>
+      <h2 id="setupHeading" tabindex="-1">Create your work account</h2>
+      <p id="setupDescription">Use your approved work email and a separate password.</p>
+      <form class="authForm" id="setupForm">
+        <div class="field" id="nameField"><label for="setupName">Full name</label><input id="setupName" autocomplete="name" maxlength="80" required></div>
+        <div class="field"><label for="setupEmail">Work email</label><input id="setupEmail" type="email" autocomplete="email" maxlength="254" required></div>
+        <div class="field"><label for="setupPassword">Password</label><input id="setupPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="passwordHelp" required><small id="passwordHelp">Use 12–128 characters.</small></div>
+        <button class="portalButton primary" id="setupSubmit" type="submit">Create employee account</button>
+      </form>
+      <section id="emailConfirmation" hidden aria-label="Email confirmation">
+        <div class="setupEmailCard"><small>CHECK YOUR INBOX</small><strong id="confirmationEmail"></strong><p>Open the verification email from Doji, then come back to finish your secure sign-in.</p></div>
+        <button class="portalButton primary" id="emailContinue" type="button">I’ve verified my email · Continue</button>
+        <p class="setupNote">Nothing yet? Check spam and use the most recent email. An existing account can sign in without registering again.</p>
+      </section>
+      <section id="securitySetup" hidden aria-label="Authenticator setup">
+        <div id="newAuthenticator" hidden>
+          <p>In your authenticator app, add an account and scan this code.</p>
+          <div class="setupQr"><img id="setupQr" alt="Work account authenticator QR code"></div>
+          <details><summary>Can’t scan the code?</summary><p>Enter this setup key manually. Keep it private.</p><code id="setupSecret"></code></details>
+        </div>
+        <form class="authForm" id="securityForm">
+          <div class="field"><label for="setupCode">Authenticator code</label><input id="setupCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-describedby="codeHelp"><small id="codeHelp">Use the current six-digit code from your authenticator, not your email.</small></div>
+          <button class="portalButton primary" type="submit" id="securitySubmit">Verify and finish setup</button>
+        </form>
+      </section>
+      <section id="setupComplete" hidden aria-label="Setup result">
+        <div class="setupEmailCard"><small>SECURITY CHECKLIST</small><ul><li>Email verified</li><li>Authenticator verified</li></ul></div>
+        <p id="accessDescription" class="setupNote"></p>
+        <a class="portalButton primary" id="openEmployeePortal" href="/" hidden>Open your workspace</a>
+      </section>
+      <div class="portalFormStatus setupStatus" id="setupStatus" role="status" aria-live="polite" tabindex="-1" hidden></div>
+      <div class="setupSecondary">
+        <button class="authBackButton" id="setupMode" type="button">Already have a work account? Sign in</button>
+        <button class="authBackButton" id="setupResend" type="button">Resend verification email</button>
+        <button class="authBackButton" id="setupRestart" type="button" hidden>Use a different work account</button>
+      </div>
+      <p class="setupFooter">For authorized Doji staff. Account setup does not grant workspace permissions.</p>
+    </div></section>
+  </main>
+  <script src="/employee-setup/config.js"></script><script src="/employee-setup/setup.js" defer></script>
+</body>
+</html>

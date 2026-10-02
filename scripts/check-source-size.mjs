@@ -7,11 +7,9 @@ const DEFAULT_LIMIT = 240;
 // but CI will reject growth. Remove entries as each feature is split below 240.
 const legacyLimits = new Map(Object.entries({
   'hooks/useNotificationCenter.ts': 960,
-  'components/feed/PostCommentsThread.tsx': 893,
   'app/(app)/camera.tsx': 737,
   'components/feed/PollResultCard.tsx': 697,
   'app/(app)/(tabs)/suggest-challenge.tsx': 630,
-  'components/notifications/NotificationSheet.tsx': 582,
   'app/(app)/(tabs)/index.tsx': 508,
   'constants/theme.ts': 497,
   'app/(app)/profile/settings.tsx': 482,
@@ -27,7 +25,6 @@ const legacyLimits = new Map(Object.entries({
   'app/(auth)/login.tsx': 386,
   'components/profile/ProfileSections.tsx': 385,
   'app/(app)/poll.tsx': 360,
-  'app/(app)/(tabs)/rank.tsx': 347,
   'components/reactions/ReactionVotersSheet.tsx': 333,
   'app/_layout.tsx': 312,
   'app/(app)/profile/shop.tsx': 307,
@@ -39,10 +36,25 @@ const legacyLimits = new Map(Object.entries({
   'components/leaderboard/PodiumTopThree.tsx': 268,
   'components/feed/ReactionBar.tsx': 266,
   'app/(app)/format.tsx': 257,
-  'app/(app)/(tabs)/friends.tsx': 256,
   'infra/doji-orchestrator/src/index.ts': 620,
-  'supabase/functions/relay-domain-events/index.ts': 591,
   'supabase/functions/fanout-doji-push/index.ts': 430,
+  // Owner-approved October 2, 2026 exceptions: defer refactoring these 15
+  // files, but freeze their current sizes. Coverage/test gates are unchanged.
+  'supabase/functions/_shared/business-auth.ts': 391,
+  'supabase/functions/_shared/doji-email.ts': 246,
+  'app/(app)/(tabs)/friends.tsx': 264,
+  'app/(app)/(tabs)/rank.tsx': 354,
+  'app/(app)/profile/account-status.tsx': 292,
+  'components/feed/PostCommentsThread.tsx': 899,
+  'components/feed/ReportSheet.tsx': 435,
+  'components/notifications/NotificationSheet.tsx': 589,
+  'infra/doji-orchestrator/src/operational-health.ts': 243,
+  'infra/doji-orchestrator/src/portal-read.ts': 629,
+  'lib/pushNotifications.ts': 267,
+  'stores/useAuthStore.ts': 253,
+  'supabase/functions/relay-domain-events/index.ts': 879,
+  'supabase/functions/run-data-maintenance/index.ts': 259,
+  'supabase/functions/send-admin-email/index.ts': 422,
 }));
 
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {

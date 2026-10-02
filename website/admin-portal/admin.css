@@ -1,4 +1,49 @@
 /* Doji operations console — deliberately scoped so the business portal stays independent. */
+.adminPortalPage .safetyRemovalDialog .eyebrow,.adminPortalPage .safetyRemovalDialog .field small { color: var(--admin-muted); }
+.adminPortalPage .safetyRemovalDialog .editorialActions { justify-content: flex-end; }
+.adminPortalPage .safetyHistory > div { padding-bottom: 20px; }
+.adminPortalPage .safetyHistory small { color: var(--admin-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.adminPortalPage .safetyHistory p { min-width: 0; }
+.adminPortalPage .safetyRemovalDialog .detailBlock label { color: var(--admin-muted); }
+.adminPortalPage .editorialLegacyHidden { display: none !important; }
+.adminPortalPage .editorialWorkspace { display: flex; flex-direction: column; gap: 16px; height: calc(100dvh - 140px); min-height: 420px; }
+.adminPortalPage .editorialWorkspace .viewIntro { margin: 0; flex: 0 0 auto; }
+.adminPortalPage .editorialTablePanel { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.adminPortalPage .editorialTablePanel .tableWrap { flex: 1; min-height: 0; overflow: auto; }
+.adminPortalPage .editorialTablePanel th { position: sticky; top: 0; background: var(--admin-card); }
+.adminPortalPage .editorialTablePanel td small { display: block; margin-top: 6px; color: var(--admin-muted); }
+.adminPortalPage .editorialRecord { background: none; border: 0; color: var(--admin-ink); text-align: left; font: inherit; font-weight: 700; cursor: pointer; max-width: 440px; overflow-wrap: anywhere; }
+.adminPortalPage .editorialRecord:hover { text-decoration: underline; }
+.adminPortalPage .editorialPageStatus { margin: 0 24px 12px; }
+.adminPortalPage .editorialPageStatus:empty { display: none; }
+.adminPortalPage .editorialFilter { display: flex; gap: 12px; align-items: center; }
+.adminPortalPage .editorialFilter .portalSelect { width: 200px; max-width: 100%; }
+.adminPortalPage .editorialDialog { max-height: calc(100dvh - 32px); }
+.adminPortalPage .editorialDialog .modalHeader { position: sticky; top: 0; z-index: 101; background: var(--portal-panel); }
+.adminPortalPage .editorialDialog .modalHeader h2 { overflow-wrap: anywhere; }
+.adminPortalPage .editorialDialog .field { min-width: 0; margin: 0; }
+.adminPortalPage .editorialDialog .portalSelectNative { min-height: 1px; }
+.adminPortalPage .editorialDialog .portalSelectOption.highlighted { outline: 2px solid var(--portal-violet); outline-offset: -2px; }
+.adminPortalPage .editorialFilter .portalSelectOption.highlighted { outline: 2px solid var(--portal-violet); outline-offset: -2px; }
+.adminPortalPage .editorialActions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.adminPortalPage .editorialPreview { padding: 24px; border: 1px solid var(--admin-border); border-radius: 18px; background: var(--admin-canvas); margin: 24px 0; overflow-wrap: anywhere; }
+.adminPortalPage .editorialPreview p { white-space: pre-wrap; }
+.adminPortalPage .editorialPreview h3 { margin: 10px 0; }
+.adminPortalPage .editorialPreview div { display: flex; flex-direction: column; text-align: center; gap: 16px; padding: 16px 0; }
+.adminPortalPage .editorialPreviewCta { font-weight: 750; color: var(--admin-coral-deep); }
+.adminPortalPage .editorialPreview small { color: var(--admin-muted); }
+.adminPortalPage .editorialPreview pre { white-space: pre-wrap; }
+.adminPortalPage .editorialFacts div { padding: 12px 0; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .editorialFacts dt { font-weight: 750; }
+.adminPortalPage .editorialFacts dd { margin: 6px 0 0; }
+.adminPortalPage .editorialHistory { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--admin-border); overflow-wrap: anywhere; }
+.adminPortalPage .editorialHistory li { margin-bottom: 12px; }
+.adminPortalPage .editorialConsequence { padding: 16px; border-left: 4px solid var(--admin-coral); background: var(--admin-canvas); }
+.adminPortalPage .editorialFeedback { margin: 20px 0 0; padding: 12px; border-radius: 10px; background: var(--admin-canvas); }
+.adminPortalPage .editorialFeedback:empty { display: none; }
+.adminPortalPage .editorialFeedback.error,.adminPortalPage .editorialPageStatus.error { color: #b42318; border: 1px solid currentColor; }
+html[data-theme="dark"] .adminPortalPage .editorialFeedback.error,html[data-theme="dark"] .adminPortalPage .editorialPageStatus.error { color: #ffaaa0; }
+@media(max-width: 600px) { .adminPortalPage .editorialDialog .formGrid { grid-template-columns: 1fr; } .adminPortalPage .editorialFilter { gap: 8px; } }
 .adminPortalPage {
   --admin-sidebar: #101116;
   --admin-sidebar-panel: #191a20;
@@ -27,7 +72,85 @@ html[data-theme="dark"] .adminPortalPage {
 
 .adminIconLibrary { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-.adminPortalPage > .prototypeBar {
+/* Bounded workspaces: the records scroll, the page controls stay reachable. */
+.adminPortalPage .portalView:has(> .queuePanel) { height: calc(100dvh - 132px); min-height: 560px; display: flex; flex-direction: column; gap: 16px; }
+html[data-theme] .adminPortalPage .portalView:has(> .queuePanel) > .viewIntro { min-height: auto; margin: 0; flex: 0 0 auto; }
+.adminPortalPage .portalView > .queuePanel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.adminPortalPage .queuePanel .tableWrap, .adminPortalPage .queuePanel .auditList { flex: 1 1 0; min-height: 0; overflow: auto; }
+.adminPortalPage .queuePanel thead { position: sticky; top: 0; z-index: 1; background: var(--admin-card); }
+.adminPortalPage .queuePanel > .tableFooter:not(.workspacePager) { display: none; }
+.adminPortalPage .queuePanel .queueCommandBar, .adminPortalPage .workspacePager { flex: 0 0 auto; }
+.adminPortalPage .workspacePager { gap: 12px; flex-wrap: wrap; }
+.adminPortalPage .workspacePager > div { display: flex; gap: 8px; }
+.adminPortalPage .workspacePager button:disabled { opacity: .45; cursor: default; }
+.adminPortalPage .caseReferenceButton { border: 0; background: transparent; color: var(--admin-muted); padding: 4px 0; font: inherit; font-size: 11px; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.adminPortalPage .caseReferenceButton:hover { text-decoration: underline; }
+.adminPortalPage .reviewDeadline { display: grid; gap: 4px; font-size: 11px; }
+.adminPortalPage .slaList [data-tone="overdue"],
+.adminPortalPage .slaList [data-tone="critical"] { background: #fff0ef; border-left: 3px solid #c6374b; border-radius: 8px; padding: 12px; }
+.adminPortalPage .slaList [data-tone="critical"] { border: 1px solid #c6374b; border-left-width: 5px; }
+.adminPortalPage .slaList [data-tone="overdue"] small,
+.adminPortalPage .slaList [data-tone="critical"] small { color: #a92236; font-weight: 700; }
+.adminPortalPage .slaList [data-tone="overdue"] .serviceDot,
+.adminPortalPage .slaList [data-tone="critical"] .serviceDot { background: #c6374b; }
+.adminPortalPage .slaList [data-tone="watch"] .serviceDot { background: #9c6000; }
+.adminPortalPage .slaList [data-tone="watch"] small { color: #8c5500; }
+.adminPortalPage .slaList [data-tone="healthy"] .serviceDot { background: #168361; }
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="overdue"],
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="critical"] { background: #381920; }
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="overdue"] small,
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="critical"] small { color: #ffadba; }
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="watch"] small { color: #f8c66b; }
+html[data-theme="dark"] .adminPortalPage .slaList [data-tone="watch"] .serviceDot { background: #f8c66b; }
+.adminPortalPage .mobileReviewDeadline { display: none; }
+.adminPortalPage .reviewDeadline[class*="breached"] strong { color: inherit; }
+html[data-theme] .adminPortalPage .reviewDeadline.breached,
+html[data-theme] .adminPortalPage .reviewDeadline.breached-critical { border-left: 3px solid #c6374b; padding: 8px 10px; border-radius: 5px; background: #fff0ef; color: #a92236; }
+html[data-theme] .adminPortalPage .reviewDeadline.breached-critical { border: 1px solid #c6374b; border-left-width: 5px; font-weight: 800; }
+html[data-theme="dark"] .adminPortalPage .reviewDeadline.breached,
+html[data-theme="dark"] .adminPortalPage .reviewDeadline.breached-critical { background: #381920; color: #ffadba; }
+.adminPortalPage .priorityCopy strong { overflow-wrap: anywhere; }
+.adminPortalPage .priorityRow + .priorityRow { border-top: 1px solid var(--admin-border); }
+html[data-theme] .adminPortalPage .queueSummaryStrip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0; padding: 0; background: transparent; border: 0; box-shadow: none; flex: 0 0 auto; }
+html[data-theme] .adminPortalPage .queueSummaryStrip > span { border: 1px solid var(--admin-border); border-radius: 16px; background: var(--admin-card); box-shadow: var(--admin-shadow); }
+@media (max-width: 700px) {
+  .adminPortalPage .mobileReviewDeadline { display: block; }
+  html[data-theme] .adminPortalPage .queueSummaryStrip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .adminPortalPage .portalView:has(> .queuePanel) { height: calc(100dvh - 110px); min-height: 640px; }
+}
+
+/* Supplemental guidance sits beside labels, never between labels and inputs. */
+.adminPortalPage .field > label,
+.adminPortalPage .contextualHelpLabel { min-height: 32px; display: flex; align-items: center; }
+.adminPortalPage .contextualHelpLabel { gap: 8px; }
+.adminPortalPage .contextualHelpLabel > label { margin: 0; }
+.adminPortalPage .contextualHelpTrigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex: 0 0 28px; padding: 0;
+  border: 1px solid var(--admin-border); border-radius: 50%;
+  background: var(--admin-card); color: var(--admin-muted);
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.adminPortalPage .contextualHelpTrigger:hover,
+.adminPortalPage .contextualHelpTrigger[aria-expanded="true"] { color: var(--admin-ink); border-color: var(--admin-muted); }
+.adminPortalPage .contextualHelpTrigger:focus-visible { outline: 2px solid var(--admin-coral); outline-offset: 3px; }
+.adminPortalPage .contextualHelp {
+  position: fixed; inset: auto; margin: 0; padding: 16px; box-sizing: border-box;
+  max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto;
+  border: 1px solid var(--admin-border); border-radius: 12px;
+  color: var(--admin-ink); background: var(--admin-card); box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  font-size: 13px; line-height: 1.6;
+}
+.adminPortalPage .contextualHelp [data-context-help] { display: block; margin: 0; color: inherit; font-size: inherit; line-height: inherit; }
+.adminPortalPage .fieldRequirement { margin-left: auto; color: var(--admin-muted); font-size: 11px; }
+html[data-theme] .adminPortalPage .decisionPanel .field > small { color: var(--admin-muted); }
+html[data-theme="light"] .adminPortalPage .decisionPanelHeader .eyebrow { color: #b83a1b; }
+html[data-theme="dark"] .adminPortalPage .decisionPanelHeader .eyebrow { color: #ff9475; }
+
+html[data-theme] .adminPortalPage > .prototypeBar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   min-height: 28px;
   height: 28px;
   justify-content: flex-start;
@@ -52,14 +175,14 @@ html[data-theme="dark"] .adminPortalPage {
 .adminPortalPage > .prototypeBar span::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #89785c; }
 
 html[data-theme] .adminPortalPage .portalShell {
-  min-height: calc(100vh - 28px);
+  min-height: 100vh;
   grid-template-columns: 282px minmax(0,1fr);
   background: var(--admin-canvas);
 }
 
 html[data-theme] .adminPortalPage .adminSidebar {
   top: 0;
-  height: calc(100vh - 28px);
+  height: 100vh;
   padding: 22px 16px 16px;
   border-right: 1px solid rgba(255,255,255,.07);
   background:
@@ -167,16 +290,17 @@ html[data-theme] .adminPortalPage .portalAccount {
 .adminPortalPage .operatorState { color: #8c909a !important; font-size: 9px !important; }
 
 html[data-theme] .adminPortalPage .portalMain {
-  min-height: calc(100vh - 28px);
+  min-height: 100vh;
   background: var(--admin-canvas);
 }
 
 html[data-theme] .adminPortalPage .adminTopbar {
-  top: 28px;
+  top: 0;
   min-height: 78px;
   padding: 0 34px;
   border-color: var(--admin-border);
-  background: color-mix(in srgb,var(--admin-canvas) 90%,transparent);
+  background: var(--admin-canvas);
+  backdrop-filter: none;
 }
 
 .adminPortalPage .topbarKicker { margin-bottom: 6px; color: var(--admin-muted); font-size: 8px; letter-spacing: .15em; }
@@ -197,6 +321,7 @@ html[data-theme] .adminPortalPage .portalTopbar h1 { color: var(--admin-ink); fo
 .adminPortalPage .adminSearchButton:hover { border-color: #cfd2da; color: var(--admin-ink); }
 .adminPortalPage .adminSearchButton kbd { border-color: var(--admin-border); background: var(--admin-canvas); color: var(--admin-muted); }
 .adminPortalPage .sessionButton { background: transparent !important; }
+.adminPortalPage .sessionButton svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; }
 
 html[data-theme] .adminPortalPage .adminContent {
   width: min(1500px,100%);
@@ -286,7 +411,7 @@ html[data-theme] .adminPortalPage .portalPanel,
 html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 .adminPortalPage .panelHeader h3 { color: var(--admin-ink); font-size: 17px; }
 .adminPortalPage .panelHeader p { margin-top: 5px; color: var(--admin-muted); font-size: 11px; }
-.adminPortalPage .priorityPanel { min-height: 490px; }
+.adminPortalPage .priorityPanel { min-height: 0; align-self: start; }
 .adminPortalPage .priorityRow { grid-template-columns: 5px minmax(0,1fr) minmax(160px,.38fr) 20px; min-height: 76px; padding: 13px 10px; border-color: var(--admin-border); border-radius: 9px; }
 .adminPortalPage .priorityRow:hover { background: color-mix(in srgb,var(--admin-canvas) 75%,transparent); }
 .adminPortalPage .priorityMark { width: 4px; height: 42px; }
@@ -363,9 +488,16 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 .adminPortalPage .filterButton { min-height: 36px; border-color: transparent; border-radius: 9px; background: var(--admin-canvas); color: var(--admin-muted); }
 .adminPortalPage .filterButton:hover { color: var(--admin-ink); }
 .adminPortalPage .filterButton.active { border-color: #25262c; background: #25262c; color: #fff; }
-.adminPortalPage .queueTable th { padding: 14px 16px; border-color: var(--admin-border); color: #8b8f99; font-size: 9px; }
-.adminPortalPage .queueTable td { padding: 17px 16px; border-color: var(--admin-border); color: var(--admin-ink); font-size: 12px; }
-.adminPortalPage .queueTable tbody tr:hover { background: color-mix(in srgb,var(--admin-canvas) 72%,transparent); }
+.adminPortalPage .queueTable th { padding: 14px 16px; border-color: var(--admin-border); color: var(--admin-muted); font-size: 9px; }
+.adminPortalPage .queueTable td { padding: 18px 16px; border-color: var(--admin-border); color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .queueTable tbody tr { position: relative; transition: background-color .15s ease, box-shadow .15s ease; }
+.adminPortalPage .queueTable tbody tr:hover { background: color-mix(in srgb,var(--admin-canvas) 72%,transparent); box-shadow: inset 3px 0 var(--row-tone,var(--admin-border-strong)); }
+.adminPortalPage .queueTable tbody tr.severity-critical { --row-tone: #ef5b6c; }
+.adminPortalPage .queueTable tbody tr.severity-high { --row-tone: #e3a52e; }
+.adminPortalPage .queueTable tbody tr.severity-normal { --row-tone: #7a6af2; }
+.adminPortalPage .queueTable tbody tr.severity-low { --row-tone: #3ab986; }
+.adminPortalPage .caseCell { display: grid; justify-items: start; gap: 8px; }
+.adminPortalPage .caseCell > strong { overflow-wrap: anywhere; }
 .adminPortalPage .queuePanel .tableWrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
 .adminPortalPage .tableFooter { padding: 14px 18px; border-color: var(--admin-border); color: var(--admin-muted); }
 .adminPortalPage .queueSummaryStrip > span { padding: 18px 20px; border-color: var(--admin-border); color: var(--admin-muted); }
@@ -374,16 +506,38 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 .adminPortalPage .adminDrawer,
 .adminPortalPage .portalModal { --portal-panel: var(--admin-card); --portal-line: var(--admin-border); --portal-copy: var(--admin-ink); --portal-muted: var(--admin-muted); }
 .adminPortalPage .adminDrawer .drawerHeader { padding: 30px 30px 22px; }
+.adminPortalPage .drawerCloseButton { height: 36px; min-height: 36px; max-height: 36px; align-self: flex-start; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-card); color: var(--admin-muted); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.adminPortalPage .drawerCloseButton:hover { border-color: var(--admin-border-strong); color: var(--admin-ink); background: var(--admin-shell); }
+.adminPortalPage .drawerCloseButton span[aria-hidden] { font-size: 15px; }
 .adminPortalPage .drawerTabs { padding: 0 30px; }
 .adminPortalPage .adminDrawer #drawerContent { padding: 26px 30px; }
-.adminPortalPage .decisionPanel { padding: 20px 30px 28px; background: color-mix(in srgb,var(--admin-card) 94%,transparent); }
+.adminPortalPage .caseFactsGrid { grid-auto-rows: minmax(96px,auto); gap: 12px; margin-bottom: 24px; }
+.adminPortalPage .caseFactsGrid .detailTile { height: 100%; padding: 18px 20px; }
+.adminPortalPage .caseFactsGrid .detailTile span { font-size: 11px; }
+.adminPortalPage .caseFactsGrid .detailTile strong { margin-top: 8px; font-size: 16px; line-height: 1.28; }
+.adminPortalPage .adminDrawer #drawerContent > .detailBlock { padding: 22px 0; }
+.adminPortalPage .adminDrawer .detailBlock > label { color: var(--admin-muted); }
+.adminPortalPage .decisionPanel { position: static; padding: 26px 30px 30px; border-top: 1px solid var(--admin-border); background: color-mix(in srgb,var(--admin-card) 94%,transparent); backdrop-filter: none; }
+.adminPortalPage .decisionPanelHeader { display: grid; gap: 5px; margin-bottom: 20px; }
+.adminPortalPage .decisionPanelHeader h3 { margin: 0; color: var(--admin-ink); font-size: 18px; letter-spacing: -.02em; }
+.adminPortalPage .decisionPanelHeader > p:last-child { max-width: 560px; margin: 0; color: var(--admin-muted); font-size: 11px; line-height: 1.55; }
+.adminPortalPage .moderationActionStatus { display: grid; gap: 7px; margin-bottom: 16px; padding: 16px 18px; border: 1px solid color-mix(in srgb,var(--admin-coral) 38%,var(--admin-border)); border-radius: 14px; background: color-mix(in srgb,var(--admin-coral) 8%,var(--admin-card)); }
+.adminPortalPage .moderationActionStatus strong { color: var(--admin-ink); font-size: 13px; }
+.adminPortalPage .moderationActionStatus p { margin: 0; color: var(--admin-muted); font-size: 12px; line-height: 1.55; }
 .adminPortalPage .moderationTriage { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; margin-bottom: 16px; }
 .adminPortalPage .moderationTriage .field { margin: 0; }
 .adminPortalPage .moderationTriage .portalButton { min-width: 128px; }
 .adminPortalPage .moderationClassification { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
 .adminPortalPage .moderationClassification .field { margin: 0; }
-.adminPortalPage .moderationEvidence { display: grid; gap: 12px; }
-.adminPortalPage .moderationEvidenceImage { display: block; width: 100%; max-height: 420px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); object-fit: contain; }
+.adminPortalPage .moderationClassification .field.full { grid-column: 1 / -1; }
+.adminPortalPage .moderationEvidence { display: grid; gap: 14px; }
+.adminPortalPage .evidenceGallery { display: grid; gap: 16px; min-width: 0; }
+.adminPortalPage .evidenceAsset { display: grid; gap: 8px; min-width: 0; margin: 0; }
+.adminPortalPage .evidenceAsset figcaption { font-size: 12px; font-weight: 750; color: var(--admin-ink); }
+.adminPortalPage .moderationEvidenceVideo { display: block; width: 100%; max-height: 520px; border: 1px solid var(--admin-border); border-radius: 14px; background: #101114; object-fit: contain; }
+.adminPortalPage .adminDrawer #drawerContent > .evidenceProvenance { padding: 16px; border: 1px solid var(--admin-border-strong); border-radius: 14px; background: var(--admin-shell); }
+.adminPortalPage .moderationEvidenceImage { display: block; width: 100%; max-height: 520px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); object-fit: contain; }
+.adminPortalPage .moderationEvidence > p { font-size: 13px; }
 .adminPortalPage .moderationEvidence > small { color: var(--admin-muted); font-size: 11px; }
 .adminPortalPage .moderationEvidence.removed { opacity: .72; }
 .adminPortalPage .moderationEvidenceUnavailable { display: grid; gap: 4px; min-height: 120px; place-content: center; padding: 24px; border: 1px dashed var(--admin-border-strong); border-radius: 14px; background: var(--admin-shell); color: var(--admin-muted); text-align: center; }
@@ -392,12 +546,181 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 .adminPortalPage .moderationPeople > div { display: grid; gap: 5px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); }
 .adminPortalPage .moderationPeople span, .adminPortalPage .moderationPeople small { color: var(--admin-muted); font-size: 10px; }
 .adminPortalPage .moderationPeople strong { color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .caseMetadata { overflow: hidden; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); }
+.adminPortalPage .caseMetadata > div { display: grid; grid-template-columns: minmax(120px,.72fr) minmax(0,1.28fr); gap: 18px; align-items: start; padding: 12px 14px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .caseMetadata > div:last-child { border-bottom: 0; }
+.adminPortalPage .caseMetadata span { color: var(--admin-muted); font-size: 10px; }
+.adminPortalPage .caseMetadata strong { overflow-wrap: anywhere; color: var(--admin-ink); font-size: 11px; font-weight: 750; text-align: right; }
 .adminPortalPage .drawerLoading, .adminPortalPage .drawerError { display: grid; justify-items: start; gap: 8px; min-height: 220px; align-content: center; color: var(--admin-muted); }
 .adminPortalPage .drawerLoading span { width: 28px; height: 28px; border: 3px solid var(--admin-border-strong); border-top-color: var(--portal-coral); border-radius: 50%; animation: adminSpin .8s linear infinite; }
 .adminPortalPage .drawerLoading strong, .adminPortalPage .drawerError strong { color: var(--admin-ink); }
 .adminPortalPage .drawerLoading small, .adminPortalPage .drawerError p { max-width: 420px; margin: 0; line-height: 1.5; }
+.adminPortalPage .triageStateCard { overflow: hidden; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); }
+.adminPortalPage .triageStateCard > div:first-child { display: grid; gap: 6px; padding: 20px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .triageStateCard span, .adminPortalPage .triageStateCard dt { color: var(--admin-muted); font-size: 10px; }
+.adminPortalPage .triageStateCard strong { color: var(--admin-ink); font-size: 18px; line-height: 1.25; }
+.adminPortalPage .triageStateCard small { color: var(--admin-muted); font-size: 11px; line-height: 1.45; }
+.adminPortalPage .triageStateCard dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin: 0; }
+.adminPortalPage .triageStateCard dl > div { min-width: 0; padding: 14px 20px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .triageStateCard dl > div:nth-child(odd) { border-right: 1px solid var(--admin-border); }
+.adminPortalPage .triageStateCard dl > div:nth-last-child(-n+2) { border-bottom: 0; }
+.adminPortalPage .triageStateCard dt, .adminPortalPage .triageStateCard dd { margin: 0; }
+.adminPortalPage .triageStateCard dd { margin-top: 5px; overflow-wrap: anywhere; color: var(--admin-ink); font-size: 12px; font-weight: 800; }
+.adminPortalPage .historySectionLabel { margin: 26px 0 14px; color: var(--admin-muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.adminPortalPage .drawerTimeline { padding: 0; }
+.adminPortalPage .drawerTimeline > div { min-height: 76px; }
+.adminPortalPage .drawerTimeline > .emptyState { display: block; min-height: 0; }
+.adminPortalPage .drawerTimeline strong { font-size: 13px; }
+.adminPortalPage .drawerTimeline small { max-width: 510px; font-size: 11px; line-height: 1.45; }
+.adminPortalPage .historyAccessSummary { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 12px; margin-top: 12px; padding: 16px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); }
+.adminPortalPage .historyAccessIcon { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--admin-border-strong); border-radius: 9px; color: var(--admin-muted); font-size: 15px; }
+.adminPortalPage .historyAccessSummary strong { color: var(--admin-ink); font-size: 11px; }
+.adminPortalPage .historyAccessSummary p { margin: 4px 0 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; }
 .adminPortalPage .moderationConfirmModal { width: min(590px,calc(100% - 28px)); }
+.adminPortalPage .portalCommandError { margin: 16px 0; padding: 14px 16px; border: 1px solid currentColor; border-radius: 12px; color: #a32d20; background: #fff1ed; overflow-wrap: anywhere; }
+html[data-theme="dark"] .adminPortalPage .portalCommandError { color: #ffb4a4; background: #321b1a; }
 .adminPortalPage .confirmationSummary { display: grid; gap: 10px; }
+.adminPortalPage .moderationArchiveFooter { justify-content: space-between; gap: 16px; }
+.adminPortalPage .moderationArchiveFooter .portalButton { min-height: 34px; padding: 8px 13px; font-size: 10px; }
+.adminPortalPage .decisionSummary { overflow: hidden; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); }
+.adminPortalPage .decisionSummaryGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.adminPortalPage .decisionSummaryGrid > div { display: grid; gap: 5px; min-width: 0; padding: 14px 16px; border-right: 1px solid var(--admin-border); border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .decisionSummaryGrid > div:nth-child(even) { border-right: 0; }
+.adminPortalPage .decisionSummaryGrid span, .adminPortalPage .decisionCopy span, .adminPortalPage .deliveryStatusGrid span { color: var(--admin-muted); font-size: 9px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.adminPortalPage .decisionSummaryGrid strong, .adminPortalPage .deliveryStatusGrid strong { overflow-wrap: anywhere; color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .decisionSummaryGrid small { color: var(--admin-muted); font-size: 9px; }
+.adminPortalPage .decisionCopy { display: grid; gap: 6px; padding: 16px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .decisionCopy p { margin: 0 0 8px; color: var(--admin-ink); font-size: 11px; line-height: 1.55; }
+.adminPortalPage .decisionCopy p:last-child { margin-bottom: 0; }
+.adminPortalPage .deliveryStatusGrid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+.adminPortalPage .deliveryStatusGrid > div { display: grid; gap: 5px; min-width: 0; padding: 13px 14px; border-right: 1px solid var(--admin-border); }
+.adminPortalPage .deliveryStatusGrid > div:last-child { border-right: 0; }
+.adminPortalPage .decisionPanel .drawerActions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+.adminPortalPage .decisionPanel .drawerActions .portalButton { min-height: 48px; padding: 10px 14px; white-space: normal; line-height: 1.25; box-shadow: none; }
+.adminPortalPage .portalButton.action-neutral { border-color: var(--admin-border-strong); background: var(--admin-card); color: var(--admin-ink); }
+.adminPortalPage .portalButton.action-warning { border-color: color-mix(in srgb,#d98918 52%,var(--admin-border)); background: color-mix(in srgb,#d98918 9%,var(--admin-card)); color: #875006; }
+.adminPortalPage .portalButton.action-critical { border-color: #c6374b; background: #c6374b; color: #fff; box-shadow: 0 10px 22px rgba(218,70,89,.18); }
+.adminPortalPage .portalButton.action-positive { border-color: #1c7959; background: #1c7959; color: #fff; box-shadow: 0 10px 22px rgba(35,141,104,.16); }
+html[data-theme="dark"] .adminPortalPage .portalButton.action-warning { color: #f3bd61; }
+.adminPortalPage .auditRow { width: 100%; min-height: 82px; grid-template-columns: 40px minmax(0,1fr) 140px 90px 20px; border: 0; border-bottom: 1px solid var(--admin-border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.adminPortalPage .auditRow:hover { background: var(--admin-shell); }
+.adminPortalPage .auditRow:focus-visible { outline: 2px solid var(--admin-violet); outline-offset: -2px; }
+.adminPortalPage .auditRowChevron { color: var(--admin-muted); font-size: 18px; text-align: right; }
+.adminPortalPage .auditActor { width: 38px; height: 38px; }
+.adminPortalPage .auditEventCopy { min-width: 0; }
+.adminPortalPage .auditEventCopy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adminPortalPage .auditType[data-type="access"] { color: #8c62e8; background: rgba(126,92,224,.1); }
+.adminPortalPage .auditType[data-type="system"] { color: #32779d; background: rgba(55,137,183,.1); }
+.adminPortalPage .auditFooter { justify-content: space-between; gap: 16px; }
+.adminPortalPage .auditDetailModal { width: min(680px,calc(100% - 28px)); }
+.adminPortalPage .auditDetailBody { display: grid; gap: 18px; padding: 22px 24px; }
+.adminPortalPage .auditDetailLead { display: grid; gap: 7px; padding: 18px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); }
+.adminPortalPage .auditDetailLead strong { color: var(--admin-ink); font-size: 16px; }
+.adminPortalPage .auditDetailLead p { margin: 0; color: var(--admin-muted); font-size: 12px; line-height: 1.55; }
+.adminPortalPage .auditMetadata { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-border); }
+.adminPortalPage .auditMetadata > div { display: grid; grid-template-columns: minmax(130px,.7fr) minmax(0,1.3fr); gap: 16px; padding: 12px 14px; background: var(--admin-card); }
+.adminPortalPage .auditMetadata dt { color: var(--admin-muted); font-size: 10px; font-weight: 800; }
+.adminPortalPage .auditMetadata dd { margin: 0; overflow-wrap: anywhere; color: var(--admin-ink); font-size: 11px; font-weight: 700; text-align: right; }
+.adminPortalPage .opsGrid { align-items: stretch; }
+.adminPortalPage .healthSignalGrid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,290px),1fr)); gap: 14px; grid-column: 1 / -1; }
+.adminPortalPage .healthSignal { padding: 20px; border: 1px solid var(--admin-border); border-left: 4px solid var(--health-color); border-radius: 14px; background: var(--admin-card); }
+.adminPortalPage .healthSignal > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.adminPortalPage .healthSignal h4 { margin: 0; color: var(--admin-ink); font-size: 14px; }
+.adminPortalPage .healthSignal p, .adminPortalPage .healthThresholds p, .adminPortalPage .healthThresholds dd { color: var(--admin-muted); line-height: 1.6; font-size: 12px; }
+.adminPortalPage [data-state="healthy"] { --health-color: #167a58; }
+.adminPortalPage [data-state="watch"] { --health-color: #936007; }
+.adminPortalPage [data-state="degraded"] { --health-color: #bc4223; }
+.adminPortalPage [data-state="critical"] { --health-color: #bc2448; }
+.adminPortalPage [data-state="unknown"] { --health-color: #626778; }
+html[data-theme="dark"] .adminPortalPage [data-state="healthy"] { --health-color: #60dab3; }
+html[data-theme="dark"] .adminPortalPage [data-state="watch"] { --health-color: #f2c56a; }
+html[data-theme="dark"] .adminPortalPage [data-state="degraded"] { --health-color: #ffa184; }
+html[data-theme="dark"] .adminPortalPage [data-state="critical"] { --health-color: #ff8ca4; }
+html[data-theme="dark"] .adminPortalPage [data-state="unknown"] { --health-color: #b2b7c6; }
+html[data-theme] .adminPortalPage .healthState { display: inline-block; width: fit-content; flex-shrink: 0; border-radius: 6px; padding: 4px 8px; background: color-mix(in srgb,var(--health-color) 10%,var(--admin-card)); color: var(--health-color); font-size: 11px; font-weight: 800; }
+.adminPortalPage .healthThresholds { grid-column: 1 / -1; }
+html[data-theme] .adminPortalPage .opsHero .eyebrow { color: var(--admin-muted); }
+.adminPortalPage .healthThresholds dl > div { display: grid; grid-template-columns: 95px minmax(0,1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--admin-border); }
+.adminPortalPage .healthThresholds dd { margin: 0; }
+.adminPortalPage .eventHealthRow small { display: block; margin-top: 5px; color: var(--admin-muted); font-size: 10px; }
+.adminPortalPage .eventHealthTitle .healthState { margin-top: 8px; }
+.adminPortalPage .opsHero .portalButton { margin-top: 16px; color: #fff; border-color: #707581; background: #242730; }
+.adminPortalPage .eventHealthContext { grid-column: 1 / -1; }
+.adminPortalPage .healthMetricGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px; overflow: hidden; margin-top: 16px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-border); }
+.adminPortalPage .healthMetricGrid > div { display: grid; gap: 6px; min-width: 0; padding: 15px 16px; background: var(--admin-card); }
+.adminPortalPage .healthMetricGrid span { color: var(--admin-muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.adminPortalPage .healthMetricGrid strong { overflow-wrap: anywhere; color: var(--admin-ink); font-size: 11px; }
+.adminPortalPage .opsHero[data-tone="attention"] { background: linear-gradient(130deg,#211417,#17181e 58%,#2a1820); }
+.adminPortalPage .opsMetricGrid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; grid-column: 1 / -1; }
+.adminPortalPage .opsMetricCard { display: grid; gap: 8px; min-height: 118px; padding: 18px; border: 1px solid var(--admin-border); border-radius: 16px; background: var(--admin-card); }
+.adminPortalPage .opsMetricCard span { color: var(--admin-muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.adminPortalPage .opsMetricCard strong { color: var(--admin-ink); font-size: 27px; letter-spacing: -.04em; }
+.adminPortalPage .opsMetricCard small { color: var(--admin-muted); font-size: 10px; line-height: 1.45; }
+.adminPortalPage .sentryPanel { grid-column: 1 / -1; }
+.adminPortalPage .eventHistoryPanel { grid-column: 1 / -1; }
+.adminPortalPage .eventHealthList { display: grid; }
+.adminPortalPage .eventHealthRow { position: relative; display: grid; grid-template-columns: minmax(210px,1.4fr) repeat(5,minmax(105px,.72fr)); gap: 14px; align-items: center; padding: 16px 18px 16px 22px; border-top: 1px solid var(--admin-border); }
+.adminPortalPage .eventHealthRail { position: absolute; inset: 14px auto 14px 8px; width: 4px; border-radius: 4px; background: var(--admin-green); }
+.adminPortalPage .eventHealthRow[data-tone="attention"] .eventHealthRail { background: #e85b6b; }
+.adminPortalPage .eventHealthRow > div { min-width: 0; }
+.adminPortalPage .eventHealthRow > div > span,
+.adminPortalPage .eventHealthRow > div > strong,
+.adminPortalPage .eventHealthTitle small { display: block; }
+.adminPortalPage .eventHealthRow > div > span { color: var(--admin-muted); font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.adminPortalPage .eventHealthRow > div > strong { margin-top: 4px; overflow-wrap: anywhere; color: var(--admin-ink); font-size: 10px; }
+.adminPortalPage .eventHealthTitle > strong { margin-top: 0 !important; font-size: 12px !important; }
+.adminPortalPage .eventHealthTitle small { margin-top: 5px; color: var(--admin-muted); font-size: 9px; }
+.adminPortalPage .sentryIssueList { display: grid; }
+.adminPortalPage .sentryIssueRow { width: 100%; display: grid; grid-template-columns: 10px minmax(0,1fr) 70px 70px 110px 18px; gap: 14px; align-items: center; padding: 15px 18px; border: 0; border-top: 1px solid var(--admin-border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.adminPortalPage .sentryIssueRow:hover { background: var(--admin-shell); }
+.adminPortalPage .sentryIssueTone { width: 9px; height: 9px; border-radius: 50%; background: #e4a535; box-shadow: 0 0 0 5px rgba(228,165,53,.1); }
+.adminPortalPage .sentryIssueRow[data-level="fatal"] .sentryIssueTone,
+.adminPortalPage .sentryIssueRow[data-level="error"] .sentryIssueTone { background: #e85b6b; box-shadow: 0 0 0 5px rgba(232,91,107,.1); }
+.adminPortalPage .sentryIssueCopy { min-width: 0; }
+.adminPortalPage .sentryIssueCopy strong, .adminPortalPage .sentryIssueCopy small { display: block; }
+.adminPortalPage .sentryIssueCopy strong { overflow: hidden; color: var(--admin-ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.adminPortalPage .sentryIssueCopy small { margin-top: 4px; overflow: hidden; color: var(--admin-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.adminPortalPage .sentryIssueStat { color: var(--admin-muted); font-size: 10px; text-align: right; }
+.adminPortalPage .healthEmpty { display: grid; justify-items: start; gap: 6px; padding: 24px; border-top: 1px solid var(--admin-border); color: var(--admin-muted); }
+.adminPortalPage .healthEmpty strong { color: var(--admin-ink); }
+.adminPortalPage .portalDataBanner { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding: 13px 16px; border: 1px solid color-mix(in srgb,#d98918 45%,var(--admin-border)); border-radius: 13px; background: color-mix(in srgb,#d98918 8%,var(--admin-card)); color: var(--admin-muted); font-size: 11px; line-height: 1.5; }
+.adminPortalPage .portalDataBanner strong { display: block; margin-bottom: 2px; color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .portalDataBanner[data-tone="healthy"] { border-color: color-mix(in srgb,var(--admin-green) 42%,var(--admin-border)); background: color-mix(in srgb,var(--admin-green) 7%,var(--admin-card)); }
+.adminPortalPage .moduleBoundary { display: grid; gap: 6px; margin-bottom: 16px; padding: 18px 20px; border: 1px dashed var(--admin-border-strong); border-radius: 15px; background: var(--admin-card); color: var(--admin-muted); }
+.adminPortalPage .moduleBoundary strong { color: var(--admin-ink); font-size: 13px; }
+.adminPortalPage .moduleBoundary p { max-width: 820px; margin: 0; font-size: 11px; line-height: 1.6; }
+.adminPortalPage .accessLayout { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(320px,.75fr); gap: 18px; align-items: start; }
+.adminPortalPage .operatorPanel, .adminPortalPage .accessChangePanel { overflow: hidden; }
+.adminPortalPage .operatorList { display: grid; }
+.adminPortalPage .operatorRow { display: grid; grid-template-columns: 42px minmax(0,1fr) minmax(190px,.8fr) 120px; gap: 14px; align-items: center; padding: 15px 18px; border-top: 1px solid var(--admin-border); }
+.adminPortalPage .operatorAvatarSmall { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--admin-border-strong); border-radius: 12px; background: var(--admin-shell); color: var(--admin-ink); font-size: 11px; font-weight: 900; }
+.adminPortalPage .operatorIdentity, .adminPortalPage .operatorRoles { min-width: 0; }
+.adminPortalPage .operatorIdentity strong, .adminPortalPage .operatorIdentity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adminPortalPage .operatorIdentity strong { color: var(--admin-ink); font-size: 12px; }
+.adminPortalPage .operatorIdentity small { margin-top: 4px; color: var(--admin-muted); font-size: 10px; }
+.adminPortalPage .operatorRoles { display: flex; flex-wrap: wrap; gap: 5px; }
+.adminPortalPage .roleChip { padding: 5px 8px; border-radius: 999px; background: color-mix(in srgb,var(--admin-violet) 9%,var(--admin-card)); color: var(--admin-violet); font-size: 8px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.adminPortalPage .operatorChanged { color: var(--admin-muted); font-size: 9px; text-align: right; }
+.adminPortalPage .operatorChanged small { display: block; margin-top: 5px; }
+.adminPortalPage .operatorRoleForm { display: grid; gap: 14px; padding: 18px; border-top: 1px solid var(--admin-border); }
+.adminPortalPage .operatorRoleForm .field { margin: 0; }
+.adminPortalPage .operatorRoleForm .portalButton { width: 100%; }
+.adminPortalPage .auditRepeat { display: inline-flex; align-items: center; margin-left: 7px; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb,var(--admin-violet) 10%,var(--admin-card)); color: var(--admin-violet); font-size: 8px; font-weight: 900; }
+.adminPortalPage .healthUnavailable { grid-column: 1 / -1; border-color: color-mix(in srgb,#e85b6b 38%,var(--admin-border)); }
+
+@media (max-width: 520px) {
+  .adminPortalPage .healthMetricGrid { grid-template-columns: 1fr; }
+  .adminPortalPage .triageStateCard dl { grid-template-columns: 1fr; }
+  .adminPortalPage .triageStateCard dl > div,
+  .adminPortalPage .triageStateCard dl > div:nth-child(odd),
+  .adminPortalPage .triageStateCard dl > div:nth-last-child(-n+2) { border-right: 0; border-bottom: 1px solid var(--admin-border); }
+  .adminPortalPage .triageStateCard dl > div:last-child { border-bottom: 0; }
+  .adminPortalPage .decisionSummaryGrid, .adminPortalPage .deliveryStatusGrid { grid-template-columns: 1fr; }
+  .adminPortalPage .decisionSummaryGrid > div,
+  .adminPortalPage .decisionSummaryGrid > div:nth-child(even),
+  .adminPortalPage .deliveryStatusGrid > div { border-right: 0; border-bottom: 1px solid var(--admin-border); }
+  .adminPortalPage .deliveryStatusGrid > div:last-child { border-bottom: 0; }
+}
 .adminPortalPage .confirmationSummary span { display: grid; gap: 5px; padding: 14px; border: 1px solid var(--admin-border); border-radius: 12px; background: var(--admin-shell); color: var(--admin-muted); line-height: 1.5; }
 .adminPortalPage .confirmationSummary strong { color: var(--admin-ink); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 @keyframes adminSpin { to { transform: rotate(360deg); } }
@@ -411,19 +734,21 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 @media (max-width: 1100px) {
   html[data-theme] .adminPortalPage .portalShell { grid-template-columns: minmax(0,1fr); }
   html[data-theme] .adminPortalPage .portalMain { width: 100%; grid-column: 1; }
-  html[data-theme] .adminPortalPage .adminSidebar { position: fixed; left: 0; top: 28px; bottom: 0; z-index: 60; width: 256px; height: calc(100dvh - 28px); max-height: none; transform: translateX(-102%); transition: transform .2s ease; }
+  html[data-theme] .adminPortalPage .adminSidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 60; width: 256px; height: 100dvh; max-height: none; transform: translateX(-102%); transition: transform .2s ease; }
   html[data-theme] .adminPortalPage .adminSidebar.open { transform: translateX(0); }
-  html[data-theme] .adminPortalPage .portalSidebarBackdrop { position: fixed; inset: 28px 0 0; z-index: 59; display: block; background: rgba(7,8,12,.58); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  html[data-theme] .adminPortalPage .portalSidebarBackdrop { position: fixed; inset: 0; z-index: 59; display: block; background: rgba(7,8,12,.58); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
   html[data-theme] .adminPortalPage .portalSidebarBackdrop.open { opacity: 1; pointer-events: auto; }
-  .adminPortalPage .sidebarClose { position: absolute; z-index: 2; top: 12px; right: 12px; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: rgba(255,255,255,.06); color: white; font-size: 23px; line-height: 1; cursor: pointer; }
+  .adminPortalPage .sidebarClose { position: absolute; z-index: 2; top: 12px; right: 12px; width: auto; min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; background: rgba(255,255,255,.06); color: white; font-size: 10px; font-weight: 800; line-height: 1; cursor: pointer; }
+  .adminPortalPage .sidebarClose span:first-child { font-size: 15px; }
   .adminPortalPage .mobileMenu { display: inline-grid; place-items: center; }
   html[data-theme] .adminPortalPage .adminWorkspaceBrand { padding-right: 44px; }
-  html[data-theme] .adminPortalPage .adminTopbar { top: 28px; padding: 0 20px; }
+  html[data-theme] .adminPortalPage .adminTopbar { top: 0; padding: 0 20px; }
   html[data-theme] .adminPortalPage .adminContent { padding: 26px 22px 56px; }
   .adminPortalPage .adminSearchButton { min-width: 42px; width: 42px; justify-content: center; }
   .adminPortalPage .adminSearchButton > span:nth-child(2),
   .adminPortalPage .adminSearchButton kbd { display: none; }
   html[data-theme] .adminPortalPage .overviewHero { align-items: flex-start; flex-direction: column; }
+  .adminPortalPage .accessLayout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
@@ -434,14 +759,36 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
   .adminPortalPage .overviewHero .introActions { margin-top: 8px; }
   .adminPortalPage .adminMetricGrid { grid-template-columns: 1fr 1fr; }
   html[data-theme] .adminPortalPage .adminMetricGrid .metricCard { min-height: 142px; padding: 18px; }
-  .adminPortalPage .sessionButton { width: 42px; overflow: hidden; padding: 0 !important; font-size: 0; }
-  .adminPortalPage .sessionButton::before { content: "×"; font-size: 18px; }
+  .adminPortalPage .sessionButton { width: 42px; overflow: hidden; padding: 0 !important; }
+  .adminPortalPage .sessionButton span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .adminPortalPage .sessionButton svg { width: 17px; height: 17px; }
+  .adminPortalPage .auditRow { min-height: 0; grid-template: "actor copy chevron" auto "actor meta chevron" auto "actor type chevron" auto / 38px minmax(0,1fr) 18px; gap: 5px 12px; padding: 14px; }
+  .adminPortalPage .auditActor { grid-area: actor; align-self: start; }
+  .adminPortalPage .auditEventCopy { grid-area: copy; }
+  .adminPortalPage .auditEventCopy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adminPortalPage .auditEventCopy p { display: -webkit-box; overflow: hidden; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .adminPortalPage .auditRow time { grid-area: meta; text-align: left; }
+  .adminPortalPage .auditType { grid-area: type; justify-self: start; text-align: left; }
+  .adminPortalPage .auditRowChevron { grid-area: chevron; align-self: center; }
+  .adminPortalPage .eventHealthRow { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; padding: 16px 18px 16px 22px; }
+  .adminPortalPage .eventHealthTitle { grid-column: 1 / -1; }
   .adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro { min-height: 0; align-items: flex-start; margin-bottom: 18px; padding: 8px 0 0; }
   .adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro > .statusPill { align-self: flex-start; }
   .adminPortalPage .queueCommandBar { padding: 12px; }
   .adminPortalPage .queueCommandBar .queueFilters { overflow: visible; flex-wrap: wrap; }
   .adminPortalPage .moderationTriage, .adminPortalPage .moderationClassification, .adminPortalPage .moderationPeople { grid-template-columns: 1fr; }
+  .adminPortalPage .caseFactsGrid { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .adminPortalPage .caseMetadata > div { grid-template-columns: 1fr; gap: 5px; }
+  .adminPortalPage .caseMetadata strong { text-align: left; }
   .adminPortalPage .moderationTriage .portalButton { width: 100%; }
+  .adminPortalPage .decisionPanel .drawerActions { grid-template-columns: 1fr; }
+  .adminPortalPage .opsMetricGrid { grid-template-columns: 1fr 1fr; }
+  .adminPortalPage .sentryIssueRow { grid-template-columns: 10px minmax(0,1fr) 18px; }
+  .adminPortalPage .sentryIssueStat { display: none; }
+  .adminPortalPage .auditMetadata > div { grid-template-columns: 1fr; gap: 5px; }
+  .adminPortalPage .auditMetadata dd { text-align: left; }
+  .adminPortalPage .operatorRow { grid-template-columns: 40px minmax(0,1fr); }
+  .adminPortalPage .operatorRoles, .adminPortalPage .operatorChanged { grid-column: 2; text-align: left; }
   .adminPortalPage .queueTable th:nth-child(4),
   .adminPortalPage .queueTable td:nth-child(4),
   .adminPortalPage .queueTable th:nth-child(5),
@@ -451,4 +798,43 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 @media (max-width: 480px) {
   .adminPortalPage .adminMetricGrid { grid-template-columns: 1fr; }
   .adminPortalPage .overviewHero h2 { font-size: 31px !important; }
+  .adminPortalPage .opsMetricGrid { grid-template-columns: 1fr; }
 }
+/* A whole editorial row opens the same detail as its keyboard-accessible title. */
+.editorialRecordRow { cursor: pointer; }
+.editorialRecordRow:focus-within { outline: 2px solid var(--admin-ink); outline-offset: -2px; }
+.adminPortalPage .editorialPreview .eyebrow { color: var(--admin-muted); }
+
+/* Original submission review form: shared fields, never editable source data. */
+.adminPortalPage .editorialSubmission { margin: 24px 0; }
+.adminPortalPage .editorialSubmission > .eyebrow { margin: 0 0 20px; color: var(--admin-muted); }
+.adminPortalPage .editorialSubmission textarea { field-sizing: content; min-height: 64px; overflow-wrap: anywhere; }
+.adminPortalPage .editorialSubmission .field.full textarea { min-height: 104px; }
+
+/* Editorial records use the existing admin side-drawer presentation. */
+.adminPortalPage :is(.editorialDialog,.auditDetailModal).portalDrawer { inset: 0 0 0 auto; margin: 0; width: min(680px,100%); max-width: 100%; height: 100dvh; max-height: 100dvh; padding: 0; border-width: 0 0 0 1px; border-radius: 0; transform: none; transition: none; }
+.adminPortalPage :is(.editorialDialog,.auditDetailModal).portalDrawer::backdrop { background: rgba(0,0,0,.55); backdrop-filter: none; }
+.adminPortalPage .editorialDialog .drawerHeader { position: sticky; top: 0; z-index: 101; background: var(--portal-panel); }
+.adminPortalPage .editorialDialog .drawerHeader h2 { overflow-wrap: anywhere; }
+.adminPortalPage .editorialDrawerContent { padding: 26px 30px; }
+.adminPortalPage .businessReviewDialog .field small, .adminPortalPage .businessReviewDialog .eyebrow { color: var(--admin-muted); }
+.adminPortalPage .businessReviewDialog .editorialDrawerContent > p { overflow-wrap: anywhere; }
+.adminPortalPage #businessAdminGrid > .editorialFilter { flex-wrap: wrap; margin-bottom: 20px; }
+.adminPortalPage #businessPrivacy { margin-top: 32px; }
+.adminPortalPage #privacyQueue .editorialFilter { flex-wrap: wrap; margin: 24px 0; }
+.adminPortalPage #businessPrivacy .businessCardBody, .adminPortalPage .businessPrivacyDialog :is(p,summary) { overflow-wrap: anywhere; }
+.adminPortalPage #businessPrivacy .businessCardBody { display: grid; gap: 4px; min-width: 0; }
+.adminPortalPage .businessPrivacyDialog :is(form,section,details) { margin-top: 24px; }
+.adminPortalPage .businessPrivacyDialog .consentRow { color: var(--admin-ink); background: var(--admin-canvas); }
+
+/* Shared admin tokens also cover less frequently opened operational states. */
+html[data-theme] .adminPortalPage :is(.auditRow time,.auditType,.searchSectionLabel,#drawerEyebrow,.drawerTimeline small,.relatedList span) { color: var(--admin-muted); }
+html[data-theme="light"] .adminPortalPage .priorityBadge.critical { color: #a92236; }
+html[data-theme="light"] .adminPortalPage .priorityBadge.high { color: #8c5500; }
+html[data-theme="dark"] .adminPortalPage .priorityBadge.low { color: #8fe3bc; }
+.adminPortalPage .auditDetailModal .modalHeader { position: sticky; top: 0; z-index: 1; background: var(--admin-card); }
+.adminPortalPage .auditDetailModal .modalActions { display: flex; justify-content: flex-end; gap: 12px; padding: 0 24px 24px; }
+.adminPortalPage .auditDetailModal .modalActions:empty { display: none; }
+.adminPortalPage .operatorRoleForm .portalButton { width: auto; justify-self: end; }
+.adminPortalPage .auditExportFeedback { margin: 0 0 16px; }
+html[data-theme] .adminPortalPage .auditExportFeedback[data-tone="neutral"] { color: var(--admin-ink); background: var(--admin-card); border-color: var(--admin-border); }

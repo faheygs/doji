@@ -11,7 +11,7 @@ export type PushPolicy = {
   preferenceKey: PushPreferenceKey;
   channelId: 'doji-live' | 'direct-activity' | 'reviews-account';
   interruptionLevel: 'active' | 'time-sensitive';
-  scopeKind: 'daily_event' | 'friendship' | 'comment' | 'suggestion';
+  scopeKind: 'daily_event' | 'friendship' | 'comment' | 'suggestion' | 'moderation_decision';
   scopeId: string;
   collapseKey: string;
 };
@@ -88,6 +88,21 @@ export function resolvePushPolicy(event: DeliveryEvent): PushPolicy | null {
           scopeKind: 'suggestion',
           scopeId,
           collapseKey: `challenge-review:${scopeId}`,
+        }
+      : null;
+  }
+
+  if (event.event_type === 'moderation.status.changed') {
+    const scopeId = text(event.payload.decisionId) ?? aggregateId;
+    return scopeId
+      ? {
+          mode: 'targeted',
+          preferenceKey: 'reviews_account',
+          channelId: 'reviews-account',
+          interruptionLevel: 'active',
+          scopeKind: 'moderation_decision',
+          scopeId,
+          collapseKey: `moderation-decision:${scopeId}`,
         }
       : null;
   }

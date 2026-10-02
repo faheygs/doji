@@ -1,5 +1,6 @@
 /// <reference path="../deno.d.ts" />
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createMediaCleanupClient, type MediaCleanupClient } from '../_shared/moderation-media-cleanup-client.ts';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -35,19 +36,28 @@ async function listObjectPaths(
   return paths;
 }
 
-async function removeUserStorage(client: SupabaseClient, userId: string) {
+async function removeUserStorage(client: SupabaseClient, userId: string, guarded?: MediaCleanupClient) {
+  let deferred = false;
   for (const bucketId of ['avatars', 'post-media']) {
+    if (guarded && !guarded.available()) throw new Error('Media cleanup deferred to durable recovery');
     const paths = await listObjectPaths(client, bucketId, userId);
     for (let index = 0; index < paths.length; index += 100) {
+      if (guarded) {
+        const result = await guarded.remove(bucketId, paths.slice(index, index + 100));
+        deferred ||= result.deferred.length > 0;
+        continue;
+      }
       const { error } = await client.storage
         .from(bucketId)
         .remove(paths.slice(index, index + 100));
       if (error) throw new Error(`${bucketId} removal failed: ${error.message}`);
     }
   }
+  if (deferred) throw new Error('Media cleanup deferred to durable recovery');
 }
 
 Deno.serve(async (request: Request) => {
+  const requestId = crypto.randomUUID();
   if (request.method === 'OPTIONS') {
     return new Response('ok', {
       headers: {
@@ -103,22 +113,27 @@ Deno.serve(async (request: Request) => {
     // Best effort keeps the common path immediate. Failure is deliberately not
     // surfaced to the deleted user; run-data-maintenance owns durable retries.
     try {
-      await removeUserStorage(admin, data.user.id);
+      const guarded = Deno.env.get('MODERATION_MEDIA_CLEANUP_ENABLED') === 'true'
+        ? createMediaCleanupClient(supabaseUrl, serviceRoleKey, fetch, 8000, 4) : undefined;
+      const storageClient = guarded ? createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: guarded.fetch },
+      }) : admin;
+      await removeUserStorage(storageClient, data.user.id, guarded);
       await admin.from('account_deletion_cleanup').delete().eq('user_id', data.user.id);
     } catch (cleanupError) {
       const cleanupMessage = cleanupError instanceof Error
         ? cleanupError.message
         : 'Storage cleanup failed';
-      console.error('[delete-account-cleanup]', { userId: data.user.id, cleanupMessage });
+      console.error('[delete-account-cleanup]', { userId: data.user.id, requestId, cleanupMessage });
       await admin
         .from('account_deletion_cleanup')
         .update({ last_error: cleanupMessage, retry_at: new Date().toISOString() })
         .eq('user_id', data.user.id);
     }
-    return json(200, { ok: true });
+    return json(200, { ok: true, requestId });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Account deletion failed';
-    console.error('[delete-account]', { userId: data.user.id, message });
-    return json(500, { error: 'Could not delete the account. Please try again.', detail: message });
+    console.error('[delete-account]', { userId: data.user.id, requestId, message });
+    return json(500, { error: 'Could not delete the account. Please try again.', requestId });
   }
 });

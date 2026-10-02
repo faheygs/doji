@@ -12,7 +12,7 @@ function setupSummaryMock(
     my_reactions: string[];
   }>,
 ) {
-  mockRpc.mockResolvedValue({ data: summaries, error: null });
+  mockRpc.mockReturnValue({ abortSignal: () => Promise.resolve({ data: summaries, error: null }) });
 }
 
 describe('attachReactionFields', () => {
@@ -58,7 +58,7 @@ describe('attachReactionFields', () => {
   });
 
   it('throws when supabase returns an error', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: new Error('DB error') });
+    mockRpc.mockReturnValue({ abortSignal: () => Promise.resolve({ data: null, error: new Error('DB error') }) });
 
     await expect(attachReactionFields([{ id: 'p1' }], 'user-1')).rejects.toThrow('DB error');
   });

@@ -32,7 +32,7 @@ import {
 import { useCurrentProfilePost } from '@/hooks/useCurrentProfilePost';
 import { useRespondToFriendRequest } from '@/hooks/useFriendRequests';
 import { useBlockUser, useUnblockUser, useIsBlockedByMe } from '@/hooks/useBlockUser';
-import { ReportSheet } from '@/components/feed/ReportSheet';
+import { useReportFlow } from '@/contexts/ReportFlowContext';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { FEED_TAB_HREF, goBackToExplicitReturn, hrefPreservingReturnTo } from '@/lib/navigationReturn';
 import { normalizeUsernameInput } from '@/hooks/useUsernameAvailability';
@@ -68,7 +68,7 @@ export default function UserProfileScreen() {
   const clearPendingProfile = useProfileNavigationStore((s) => s.clear);
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
-  const [reportUserOpen, setReportUserOpen] = useState(false);
+  const openReport = useReportFlow();
   const [friendActionError, setFriendActionError] = useState<string | null>(null);
 
   const openFriendsList = useCallback(() => {
@@ -392,7 +392,7 @@ export default function UserProfileScreen() {
               busy={removeFriend.isPending || blockUser.isPending || unblockUser.isPending}
               onBlock={handleBlockUser}
               onUnblock={handleUnblockUser}
-              onReport={() => setReportUserOpen(true)}
+              onReport={() => openReport({ reportedUserId: profile.id })}
             />
           </View>
         </View>
@@ -454,9 +454,6 @@ export default function UserProfileScreen() {
         />
       ) : null}
 
-      {reportUserOpen ? (
-        <ReportSheet visible reportedUserId={profile.id} onClose={() => setReportUserOpen(false)} />
-      ) : null}
     </SafeAreaView>
     </NavigationOriginProvider>
   );

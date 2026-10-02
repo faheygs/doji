@@ -14,6 +14,8 @@ import {
 } from '../../../hooks/useLeaderboard';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { ErrorState } from '../../../components/ui/ErrorState';
+import { ReadFailureFeedback } from '../../../components/ui/ReadFailureFeedback';
+import { canKeepQueryDataOnError } from '../../../lib/queryDisplayState';
 import { LevelBadge } from '../../../components/gamification/LevelBadge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PodiumTopThree } from '../../../components/leaderboard/PodiumTopThree';
@@ -196,11 +198,15 @@ export default function LeaderboardScreen() {
   const [mode, setMode] = useState<LeaderboardMode>('weekly');
   const [audience, setAudience] = useState<LeaderboardAudience>('everyone');
   const {
-    data: entries,
+    data: rawEntries,
     isLoading,
     isError,
+    error,
+    isFetching,
     refetch,
   } = useLeaderboard(mode, audience);
+  const blockingReadError = isError && !canKeepQueryDataOnError(rawEntries, error);
+  const entries = blockingReadError ? undefined : rawEntries;
   const { refreshing, handleRefresh } = useManualRefresh(refetch);
 
   const restEntries = useMemo(() => (entries ?? []).filter((e) => e.rank > 3), [entries]);
@@ -277,22 +283,25 @@ export default function LeaderboardScreen() {
         >
           <PodiumTopThree entries={entries ?? []} currentUserId={userId} />
         </SkeletonSwap>
+        {isError && !blockingReadError ? <ReadFailureFeedback
+          message="Could not refresh rankings. Previously loaded rankings are shown."
+          retrying={isFetching} onRetry={() => void refetch({ cancelRefetch: false })} /> : null}
       </>
     ),
-    [layout, colors, audience, mode, entries, userId, isLoading],
+    [layout, colors, audience, mode, entries, userId, isLoading, isError, blockingReadError, isFetching, refetch],
   );
 
   return (
     <View
       style={[layout.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
     >
-      {isError ? (
+      {blockingReadError ? (
         <>
           {ListHeader}
           <ErrorState
             title="Couldn't load rankings"
             message="Pull down to refresh or try again later."
-            onRetry={() => void refetch()}
+            onRetry={() => void refetch({ cancelRefetch: false })}
           />
         </>
       ) : (

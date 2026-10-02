@@ -2,7 +2,7 @@ import { access, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname);
-const generatedBuildAssets = new Set(['/admin-portal/portal-runtime-20260924o.js']);
+const generatedBuildAssets = new Set(['/admin-portal/admin-app-20260925ap.js']);
 const pages = [
   'index.html',
   'privacy/index.html',
@@ -36,7 +36,7 @@ for (const page of pages) {
   if (isPrivatePortal && !html.includes('name="robots" content="noindex,nofollow"')) {
     fail(`${page} must be noindex,nofollow`);
   }
-  if (isPrivatePortal && !html.toLowerCase().includes('prototype')) {
+  if (isPrivatePortal && page !== 'admin-portal/index.html' && !html.toLowerCase().includes('prototype')) {
     fail(`${page} must visibly identify the non-production prototype`);
   }
   if (html.includes('faheygs@gmail.com')) fail(`${page} exposes a personal support address`);
@@ -88,10 +88,10 @@ if (!businessPortal.includes('data-action="toggle-theme"')) fail('business porta
 
 const adminPortal = await readFile(join(root, 'admin-portal/index.html'), 'utf8');
 const adminCss = await readFile(join(root, 'admin-portal/admin.css'), 'utf8');
-for (const requiredId of ['globalQueueSearch', 'inboxTypeFilter', 'businessAdminGrid', 'announcementList', 'auditList', 'caseDrawer', 'decisionReason', 'globalSearchModal', 'adminSigninStatus', 'adminAuthHint', 'overviewPlatformPulse', 'adminMfaSetup', 'adminMfaChallengeForm', 'adminTotpEnrollment', 'adminTotpQr', 'adminTotpSecret', 'adminTotpVerifyForm', 'portalSidebarBackdrop', 'sidebarClose', 'legalUrgentAlert', 'moderationPriority', 'claimReportButton', 'moderationConfirmModal', 'moderationConfirmForm', 'moderationHighCount', 'moderationUnassignedCount']) {
+for (const requiredId of ['globalQueueSearch', 'inboxTypeFilter', 'businessAdminGrid', 'announcementList', 'auditList', 'caseDrawer', 'decisionReason', 'decisionReasonField', 'moderationActionStatus', 'globalSearchModal', 'adminSigninStatus', 'adminAuthHint', 'overviewPlatformPulse', 'adminMfaSetup', 'adminMfaChallengeForm', 'adminTotpEnrollment', 'adminTotpQr', 'adminTotpSecret', 'adminTotpVerifyForm', 'portalSidebarBackdrop', 'sidebarClose', 'legalUrgentAlert', 'moderationPriority', 'moderationAccountOutcome', 'moderationRestrictionDays', 'claimReportButton', 'moderationConfirmModal', 'moderationConfirmForm', 'moderationHighCount', 'moderationUnassignedCount', 'portalDataBanner', 'operatorAccessNav', 'operatorList', 'operatorRoleForm', 'operatorUsername', 'operatorRoleSelect', 'operatorRoleAction', 'operatorRoleReason', 'operatorRoleStatus']) {
   if (!adminPortal.includes(`id="${requiredId}"`)) fail(`admin portal is missing ${requiredId}`);
 }
-for (const view of ['overview', 'inbox', 'moderation', 'safety', 'campaigns', 'businesses', 'suggestions', 'announcements', 'operations', 'audit']) {
+for (const view of ['overview', 'inbox', 'moderation', 'safety', 'campaigns', 'businesses', 'suggestions', 'announcements', 'operations', 'audit', 'access']) {
   if (!adminPortal.includes(`data-portal-view="${view}"`)) fail(`admin portal is missing its ${view} view`);
 }
 if (!adminPortal.includes('Restricted queue')) fail('admin portal must distinguish restricted legal and safety work');
@@ -99,18 +99,18 @@ if (!portalScript.includes('doji-admin-prototype-state-v1')) fail('admin portal 
 if (!portalScript.includes('writeBusinessDecision')) fail('admin portal is missing business-review prototype synchronization');
 if (!portalScript.includes('recordDecision')) fail('admin portal is missing auditable prototype decisions');
 if (!adminPortal.includes('data-action="toggle-theme"')) fail('admin portal is missing its theme toggle');
-if (!adminPortal.includes('/portal-config.js') || !adminPortal.includes('/admin-portal/live-client.js')) fail('admin portal is missing its guarded live client assets');
+if (!adminPortal.includes('/admin-portal/admin-app-20260925ap.js')) fail('admin portal is missing its atomic production bundle');
 if (!adminPortal.includes('/theme-init.js')) fail('admin portal is missing its CSP-safe theme initializer');
 if (adminPortal.includes('<script>')) fail('admin portal must not use inline scripts under its strict CSP');
 if (!portalScript.includes("adminConfig.mode === 'live'")) fail('admin portal is missing its explicit live-mode boundary');
-if (!portalScript.includes('Other operational mutations remain disabled')) fail('admin portal must visibly bound production mutations');
+if (!portalScript.includes('Announcement writes remain disabled during the read-only rollout.')) fail('admin portal must visibly bound production mutations');
 if (adminPortal.includes('Text message')) fail('admin portal must offer QR-code authenticator setup only');
 if (!portalScript.includes('Creating your secure authenticator QR code')) fail('admin portal is missing guided authenticator enrollment');
 if (!adminCss.includes('html[data-theme] .adminPortalPage .portalShell { grid-template-columns: minmax(0,1fr); }')) fail('admin portal must collapse its shell to one column below the tablet breakpoint');
-if (!adminCss.includes('height: calc(100dvh - 28px)')) fail('admin portal mobile navigation must fill the viewport below the environment bar');
+if (!adminCss.includes('height: 100dvh')) fail('admin portal mobile navigation must fill the viewport');
 if (!portalScript.includes('setSidebarOpen(false)')) fail('portal navigation is missing a shared close path');
 if (!portalScript.includes("sidebarBackdrop?.setAttribute('aria-hidden', String(!open))")) fail('portal navigation is missing synchronized backdrop accessibility state');
-if (!portalScript.includes('setLegalUrgentAlert(urgentCount)')) fail('admin portal legal alert must follow the authoritative urgent count');
+if (!portalScript.includes('setLegalUrgentAlert(restrictedSafetyCount)')) fail('admin portal legal alert must follow the authoritative restricted-safety count');
 if (!portalScript.includes('runLiveTriage')) fail('admin portal is missing its live Trust & Safety triage flow');
 if (!portalScript.includes('executeLiveDecision')) fail('admin portal is missing its live Trust & Safety decision flow');
 
@@ -119,9 +119,15 @@ if (adminLiveClient.includes('localStorage')) fail('live admin tokens must not u
 for (const requiredContract of ['/portal/admin/session', '/portal/admin/command-center', ".aal === 'aal2'", 'enrollTotp', 'verifyTotpEnrollment', "'/factors'"]) {
   if (!adminLiveClient.includes(requiredContract)) fail(`live admin client is missing ${requiredContract}`);
 }
-for (const moderationContract of ['/portal/admin/report-case', '/portal/admin/report-triage', '/portal/admin/report-decision', 'signEvidence']) {
+for (const moderationContract of ['/portal/admin/report-case', '/portal/admin/report-triage', '/portal/admin/report-review-state', '/portal/admin/report-decision', 'signEvidence']) {
   if (!adminLiveClient.includes(moderationContract)) fail(`live admin client is missing moderation contract ${moderationContract}`);
 }
+for (const operationsContract of ['/portal/admin/audit-export', '/portal/admin/operators', '/portal/admin/operator-role', 'sessionPolicy', 'noteActivity']) {
+  if (!adminLiveClient.includes(operationsContract)) fail(`live admin client is missing operational contract ${operationsContract}`);
+}
+if (!portalScript.includes('groupedAuditRows')) fail('admin portal is missing meaningful audit access grouping');
+if (!portalScript.includes('renderDataHealthBanner')) fail('admin portal is missing visible stale-data handling');
+if (!portalScript.includes('renderOperators')) fail('admin portal is missing its super-admin operator access view');
 for (const realtimeContract of ['moderation:global', 'doji:global', '/portal/admin/realtime-token', 'startRealtime']) {
   if (!adminLiveClient.includes(realtimeContract)) fail(`live admin client is missing realtime contract ${realtimeContract}`);
 }

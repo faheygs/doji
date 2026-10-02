@@ -1,19 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Keyboard,
-  Platform,
-  Dimensions,
-} from 'react-native';
+import { View, StyleSheet, Pressable, Keyboard, Platform, Dimensions } from 'react-native';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from './Text';
-import { IconClose } from '../icons/Icons';
+import { IconChevronLeft, IconClose } from '../icons/Icons';
 import { AppKeyboardToolbar } from './AppKeyboardToolbar';
 import { getKeyboardDismissTarget } from '../../lib/keyboardSafeInteraction';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
@@ -24,8 +17,12 @@ import { AppKeyboardAwareScrollView } from './AppKeyboardAwareScrollView';
 type Props = {
   visible: boolean;
   onClose: () => void;
+  onDismiss?: () => void;
+  nativeDismissal?: boolean;
   title?: string;
   subtitle?: string;
+  onBack?: () => void;
+  centeredHeader?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
   /** When true, scrim/back dismisses keyboard first instead of closing immediately */
@@ -37,8 +34,12 @@ type Props = {
 export function KeyboardSafeSheet({
   visible,
   onClose,
+  onDismiss,
+  nativeDismissal,
   title,
   subtitle,
+  onBack,
+  centeredHeader = false,
   children,
   footer,
   keyboardAwareDismiss = true,
@@ -116,6 +117,29 @@ export function KeyboardSafeSheet({
           paddingBottom: Spacing.sm,
           gap: Spacing.sm,
         },
+        centeredHeadRow: {
+          alignItems: 'center',
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: Spacing.sm,
+          gap: Spacing.sm,
+        },
+        centeredTitleRow: {
+          width: '100%',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: Spacing.sm,
+        },
+        headerAction: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          backgroundColor: colors.surfaceMuted,
+        },
         scroll: {
           paddingHorizontal: Spacing.lg,
         },
@@ -141,11 +165,44 @@ export function KeyboardSafeSheet({
     <AppSheetModal
       visible={visible}
       onClose={tryDismiss}
+      onDismiss={onDismiss}
+      nativeDismissal={nativeDismissal}
       sheetStyle={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPad }]}
       accessory={<AppKeyboardToolbar owner="overlay" />}
     >
       <View style={styles.grab} />
-      {title ? (
+      {title && centeredHeader ? (
+        <View style={styles.centeredHeadRow}>
+          <View style={styles.centeredTitleRow}>
+            {onBack ? (
+              <Pressable style={styles.headerAction} onPress={onBack} accessibilityLabel="Back">
+                <IconChevronLeft size={24} color={colors.textSecondary} />
+              </Pressable>
+            ) : (
+              <View style={{ width: 40 }} />
+            )}
+            <Text variant="headingMedium" style={{ flex: 1, textAlign: 'center' }}>
+              {title}
+            </Text>
+            <Pressable
+              style={styles.headerAction}
+              onPress={handleExplicitClose}
+              accessibilityLabel="Close"
+            >
+              <IconClose size={24} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          {subtitle ? (
+            <Text
+              variant="bodySmall"
+              color={colors.textSecondary}
+              style={{ lineHeight: 20, textAlign: 'center' }}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      ) : title ? (
         <View style={styles.headRow}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text variant="headingMedium">{title}</Text>

@@ -27,6 +27,8 @@ import { TITLE_CATALOG } from '@/lib/cosmetics';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import type { ShopItem } from '@/types/database';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { ReadFailureFeedback } from '@/components/ui/ReadFailureFeedback';
+import { canKeepQueryDataOnError } from '@/lib/queryDisplayState';
 
 export default function ShopScreen() {
   const router = useRouter();
@@ -35,8 +37,15 @@ export default function ShopScreen() {
   const sparks = useSparksBalance();
   const userId = useAuthStore((s) => s.session?.user?.id);
   const profile = useAuthStore((s) => s.profile);
-  const { data: catalog = [], isLoading } = useShopCatalog();
-  const { data: owned = [] } = useOwnedShopItems(userId);
+  const catalogQuery = useShopCatalog();
+  const ownedQuery = useOwnedShopItems(userId);
+  const { data: catalog = [] } = catalogQuery;
+  const { data: owned = [] } = ownedQuery;
+  const readError = catalogQuery.error || ownedQuery.error;
+  const blockingShopRead = catalogQuery.data === undefined || ownedQuery.data === undefined ||
+    Boolean(catalogQuery.error && !canKeepQueryDataOnError(catalogQuery.data, catalogQuery.error)) ||
+    Boolean(ownedQuery.error && !canKeepQueryDataOnError(ownedQuery.data, ownedQuery.error));
+  const isLoading = (catalogQuery.isLoading || ownedQuery.isLoading) && !readError;
   const purchase = usePurchaseShopItem();
   const equip = useEquipShopItem();
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
@@ -110,6 +119,7 @@ export default function ShopScreen() {
 
   const handleItemPress = useCallback(
     (item: ShopItem) => {
+      if (blockingShopRead) return;
       Haptics.selectionAsync();
       setShopError('');
       setPurchaseError('');
@@ -122,11 +132,11 @@ export default function ShopScreen() {
       }
       setConfirmItem(item);
     },
-    [owned, equip],
+    [owned, equip, blockingShopRead],
   );
 
   const handlePurchase = async () => {
-    if (!confirmItem) return;
+    if (!confirmItem || blockingShopRead) return;
     setPurchaseError('');
     try {
       await purchase.mutateAsync(confirmItem.key);
@@ -160,12 +170,20 @@ export default function ShopScreen() {
           contentContainerStyle={{ paddingBottom: Spacing.xxl }}
           showsVerticalScrollIndicator={false}
         >
+          {readError ? <ReadFailureFeedback
+            message={blockingShopRead ? 'Could not load the shop and your owned items. Please try again.' : 'Could not refresh the shop. Previously loaded items are shown.'}
+            retrying={catalogQuery.isFetching || ownedQuery.isFetching}
+            onRetry={() => {
+              if (catalogQuery.error) void catalogQuery.refetch({ cancelRefetch: false });
+              if (ownedQuery.error) void ownedQuery.refetch({ cancelRefetch: false });
+            }} /> : null}
           {shopError ? (
             <InlineFeedback
               message={shopError}
               style={{ marginHorizontal: Spacing.md, marginTop: Spacing.md }}
             />
           ) : null}
+          {!blockingShopRead ? <>
           <View style={styles.intro}>
             <Text variant="headingLarge">Make Doji yours</Text>
             <Text variant="body" color={colors.textSecondary} style={{ lineHeight: 21 }}>
@@ -267,11 +285,12 @@ export default function ShopScreen() {
               })}
             </View>
           </View>
+          </> : null}
         </ScrollView>
       </SkeletonSwap>
 
       <PurchaseConfirmSheet
-        visible={!!confirmItem}
+        visible={!!confirmItem && !blockingShopRead}
         item={confirmItem}
         profile={profile}
         sparksBalance={sparks}

@@ -8,7 +8,7 @@ import { newCommandId } from '../lib/idempotency';
 import { filterContent } from '../lib/contentFilter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '../lib/queryClient';
-import { createRequestSignal } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 import { closeRealtimeConnection } from '../lib/realtimeClient';
 import { queryCacheStorageKey } from '../lib/queryPersistence';
 import {
@@ -16,15 +16,17 @@ import {
   normalizeProfile,
   persistProfile,
   PROFILE_FETCH_ATTEMPTS,
+  PROFILE_REQUEST_TIMEOUT_MS,
   profileCacheKey,
   waitForProfileRetry,
 } from '../lib/profileFetchPolicy';
+import { reportOperationalFailure } from '../lib/telemetry';
+import { isEmployeeSession } from '../lib/employeeIdentity';
 
 // Startup, foreground reconciliation, and both realtime transports can all ask
 // for the same profile at once. Share that request instead of repeatedly
 // aborting/restarting it (which previously kept the auth gate busy).
 let activeProfileFetch: { userId: string; requestId: symbol; promise: Promise<void> } | null = null;
-const PROFILE_REQUEST_TIMEOUT_MS = 3_000;
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
@@ -89,13 +91,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const signedOutUserId = get().session?.user?.id;
     closeRealtimeConnection();
     try {
-      const { unregisterCurrentPushInstallation } = await import('../lib/pushNotifications');
-      await unregisterCurrentPushInstallation();
+      if (!isEmployeeSession(get().session)) {
+        const { unregisterCurrentPushInstallation } = await import('../lib/pushNotifications');
+        await unregisterCurrentPushInstallation();
+      }
     } catch {
       // Signing out must still succeed if token cleanup is temporarily offline.
       // A later registration atomically transfers ownership away from this user.
     }
-    await supabase.auth.signOut();
+    // Sign out this installation only. Supabase defaults to global scope,
+    // which would also terminate the same person's admin-browser and other
+    // device sessions.
+    await supabase.auth.signOut({ scope: 'local' });
     queryClient.clear();
     if (signedOutUserId) {
       await AsyncStorage.removeItem(queryCacheStorageKey(signedOutUserId));
@@ -110,6 +117,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchProfile: (userId: string) => {
+    if (isEmployeeSession(get().session)) {
+      set({ profile: null, isLoading: false, isProfileLoading: false, profileLoadState: 'idle' });
+      return Promise.resolve();
+    }
     if (activeProfileFetch?.userId === userId) return activeProfileFetch.promise;
 
     const requestId = Symbol(userId);
@@ -148,17 +159,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         let data: unknown = null;
         let error: { message?: string; status?: number; code?: string } | null = null;
         for (let attempt = 0; attempt < PROFILE_FETCH_ATTEMPTS; attempt += 1) {
-          const request = createRequestSignal(undefined, PROFILE_REQUEST_TIMEOUT_MS);
           try {
-            const result = await supabase
-              .rpc('get_own_profile')
-              .abortSignal(request.signal);
+            const result = await runMemberRead(supabase.rpc('get_own_profile'), undefined, PROFILE_REQUEST_TIMEOUT_MS);
             data = result.data;
             error = result.error;
           } catch (caught) {
-            error = caught instanceof Error ? { message: caught.message } : { message: String(caught) };
-          } finally {
-            request.cleanup();
+            error = caught instanceof Error ? caught : { message: String(caught) };
           }
           if (!error || isNonRetryableProfileError(error) || attempt === PROFILE_FETCH_ATTEMPTS - 1) {
             break;
@@ -170,6 +176,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (error) {
           if (__DEV__) console.warn('[fetchProfile]', error.message);
           if (get().session?.user?.id === userId) {
+            if (!hadVerifiedProfile) {
+              try {
+                reportOperationalFailure('startup', 'profile_bootstrap_failed', error, {
+                  attempts: PROFILE_FETCH_ATTEMPTS,
+                  hadCachedProfile: get().profile?.id === userId,
+                });
+              } catch {
+                // Diagnostics must never replace the original recoverable auth state.
+              }
+            }
             set({ profileLoadState: hadVerifiedProfile ? 'ready' : 'error' });
           }
           return;

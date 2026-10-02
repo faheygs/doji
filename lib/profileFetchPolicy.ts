@@ -4,6 +4,12 @@ import type { Profile } from '../types/database';
 import { mergeNotificationPreferences } from './notificationPreferences';
 
 export const PROFILE_FETCH_ATTEMPTS = 3;
+// Daily activation creates a short, legitimate read burst. Account bootstrap is
+// security-sensitive, but a 3s handset deadline was shorter than the observed
+// successful production round-trip during that burst and falsely presented a
+// fatal account error. Keep the gate server-authoritative while allowing the
+// same bounded deadline used by other critical reads.
+export const PROFILE_REQUEST_TIMEOUT_MS = 10_000;
 const PROFILE_RETRY_DELAYS_MS = [250, 750] as const;
 const PROFILE_CACHE_PREFIX = '@doji/profile-cache:';
 

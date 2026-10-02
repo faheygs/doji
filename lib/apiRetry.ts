@@ -17,6 +17,7 @@ const TRANSIENT_CODES = new Set([
   'PGRST002',
   'PGRST003',
   'PGRST504',
+  '57014', // PostgreSQL query cancellation / statement deadline (reads only).
 ]);
 
 const TRANSIENT_MESSAGE =
@@ -30,6 +31,7 @@ const TRANSIENT_MESSAGE =
 export function isTransientApiError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const candidate = error as ErrorLike;
+  if (['42501', 'PGRST301', 'PGRST302', 'PGRST303', '23505', 'P0001'].includes(String(candidate.code))) return false;
   const code = String(candidate.status ?? candidate.code ?? '');
   if (TRANSIENT_CODES.has(code)) return true;
   const commandGatewayStatus = /^DOJI_COMMAND_(\d{3})$/.exec(code)?.[1];
@@ -44,6 +46,8 @@ export function isTransientApiError(error: unknown): boolean {
     commandGatewayStatus != null ||
     messageStatus != null;
   const numeric = httpLike ? Number(commandGatewayStatus ?? messageStatus ?? code) : Number.NaN;
+  if (Number.isFinite(numeric) && numeric >= 400 && numeric < 500 &&
+    ![408, 425, 429].includes(numeric)) return false;
   if (Number.isFinite(numeric) && (numeric === 408 || numeric === 429 || numeric >= 500)) {
     return true;
   }

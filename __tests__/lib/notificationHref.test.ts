@@ -103,6 +103,11 @@ describe('notificationHrefFromData', () => {
     expect(notificationHrefFromData({ type: 'SUGGESTION_APPROVED' })).toBe('/(app)/profile');
   });
 
+  it('opens private account status for a moderation alert', () => {
+    expect(notificationHrefFromData({ type: 'MODERATION' }))
+      .toBe('/(app)/profile/account-status');
+  });
+
   it('returns null for REACTION without postId', () => {
     expect(notificationHrefFromData({ type: 'REACTION' })).toBeNull();
   });

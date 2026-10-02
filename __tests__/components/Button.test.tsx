@@ -1,111 +1,106 @@
-/**
- * Tests for Button component behavior.
- * Tests the onPress guard logic and prop handling without rendering.
- */
+import React from 'react';
+import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
+import { Button } from '../../components/ui/Button';
+import { darkColors, lightColors } from '../../constants/theme';
 
-jest.mock('../../contexts/ThemeContext', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#F97316',
-      onPrimary: '#FFFFFF',
-      text: '#FAFAFA',
-      link: '#3B82F6',
-      border: '#333',
-      error: '#EF4444',
-    },
-  }),
+let mockColors = lightColors;
+jest.mock('../../contexts/ThemeContext', () => ({ useTheme: () => ({ colors: mockColors }) }));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light' },
 }));
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockColors = lightColors;
+});
 
-jest.mock('expo-haptics');
+test('an enabled press invokes the actual callback once with light feedback', () => {
+  const onPress = jest.fn();
+  const view = render(<Button onPress={onPress}>Continue</Button>);
+  fireEvent.press(view.getByRole('button', { name: 'Continue' }));
+  expect(onPress).toHaveBeenCalledTimes(1);
+  expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
+});
 
-describe('Button', () => {
-  it('exports a function component', () => {
-    const { Button } = require('../../components/ui/Button');
-    expect(typeof Button).toBe('function');
-  });
+test.each([{ disabled: true }, { loading: true }, { disabled: true, loading: true }])(
+  'pending/disabled actions are inert: %j',
+  (props) => {
+    const onPress = jest.fn();
+    const view = render(
+      <Button {...props} accessibilityLabel="Save" onPress={onPress}>
+        Save
+      </Button>,
+    );
+    const button = view.getByRole('button', { name: 'Save' });
+    expect(button).toBeDisabled();
+    expect(button.props.accessibilityState.busy).toBe(props.loading === true);
+    fireEvent.press(button);
+    // Also exercise the handler's defensive guard, not just RN's disabled prop.
+    view.UNSAFE_getByType(TouchableOpacity).props.onPress();
+    expect(onPress).not.toHaveBeenCalled();
+    expect(Haptics.impactAsync).not.toHaveBeenCalled();
+  },
+);
 
-  describe('press guard logic', () => {
-    it('blocks press when disabled', () => {
-      const onPress = jest.fn();
-      const disabled = true;
-      const loading = false;
+describe.each([
+  ['light', lightColors],
+  ['dark', darkColors],
+] as const)('%s theme', (_name, colors) => {
+  test.each(['primary', 'secondary', 'ghost', 'danger'] as const)(
+    '%s uses the shared palette for label and loading indicator',
+    (variant) => {
+      mockColors = colors;
+      const view = render(
+        <Button variant={variant} onPress={jest.fn()} leftIcon={<Text>Icon</Text>}>
+          Action
+        </Button>,
+      );
+      const labelColor =
+        variant === 'primary'
+          ? colors.onPrimary
+          : variant === 'danger'
+            ? colors.error
+            : variant === 'ghost'
+              ? colors.link
+              : colors.text;
+      expect(view.getByText('Action')).toHaveStyle({ color: labelColor });
+      expect(view.getByRole('button')).toHaveStyle({
+        backgroundColor: variant === 'primary' ? colors.primary : 'transparent',
+      });
+      if (variant === 'danger' || variant === 'secondary')
+        expect(view.getByRole('button')).toHaveStyle({
+          borderColor: variant === 'danger' ? colors.error : colors.border,
+        });
+      expect(view.getByText('Icon')).toBeTruthy();
+      view.rerender(
+        <Button variant={variant} onPress={jest.fn()} loading leftIcon={<Text>Icon</Text>}>
+          Action
+        </Button>,
+      );
+      expect(view.queryByText('Action')).toBeNull();
+      expect(view.queryByText('Icon')).toBeNull();
+      expect(view.UNSAFE_getByType(ActivityIndicator).props.color).toBe(
+        variant === 'primary'
+          ? colors.onPrimary
+          : variant === 'danger'
+            ? colors.error
+            : colors.text,
+      );
+    },
+  );
+});
 
-      // Simulate the guard: if (disabled || loading) return;
-      if (disabled || loading) {
-        // Intentionally blocked
-      } else {
-        onPress();
-      }
-
-      expect(onPress).not.toHaveBeenCalled();
-    });
-
-    it('blocks press when loading', () => {
-      const onPress = jest.fn();
-      const disabled = false;
-      const loading = true;
-
-      if (disabled || loading) {
-        // Intentionally blocked
-      } else {
-        onPress();
-      }
-
-      expect(onPress).not.toHaveBeenCalled();
-    });
-
-    it('allows press when enabled and not loading', () => {
-      const onPress = jest.fn();
-      const disabled = false;
-      const loading = false;
-
-      if (disabled || loading) {
-        // Intentionally blocked
-      } else {
-        onPress();
-      }
-
-      expect(onPress).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('variant styling', () => {
-    it('primary variant uses primary color', () => {
-      const colors = { primary: '#F97316', border: '#333', error: '#EF4444' };
-      const variant = 'primary';
-      const style = variant === 'primary' ? { backgroundColor: colors.primary } : {};
-      expect(style).toEqual({ backgroundColor: '#F97316' });
-    });
-
-    it('danger variant uses error border', () => {
-      const colors = { accent: '#F97316', border: '#333', error: '#EF4444' };
-      const variant = 'danger';
-      const style = variant === 'danger'
-        ? { backgroundColor: 'transparent', borderColor: colors.error }
-        : {};
-      expect(style.borderColor).toBe('#EF4444');
-    });
-  });
-
-  describe('label color logic', () => {
-    it('primary shows onPrimary color', () => {
-      const colors = { onPrimary: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
-      const variant = 'primary';
-      const labelColor = variant === 'primary' ? colors.onPrimary
-        : variant === 'danger' ? colors.error
-        : variant === 'ghost' ? colors.link
-        : colors.text;
-      expect(labelColor).toBe('#FFFFFF');
-    });
-
-    it('ghost shows link color', () => {
-      const colors = { onPrimary: '#FFFFFF', text: '#FAFAFA', link: '#3B82F6', error: '#EF4444' };
-      const variant = 'ghost';
-      const labelColor = variant === 'primary' ? colors.onPrimary
-        : variant === 'danger' ? colors.error
-        : variant === 'ghost' ? colors.link
-        : colors.text;
-      expect(labelColor).toBe('#3B82F6');
-    });
-  });
+test.each([
+  ['sm', 36],
+  ['md', 48],
+  ['lg', 52],
+] as const)('%s respects minimum control size and explicit layout overrides', (size, minHeight) => {
+  const view = render(
+    <Button size={size} fullWidth style={{ marginTop: 7 }} onPress={jest.fn()}>
+      Action
+    </Button>,
+  );
+  expect(view.getByRole('button')).toHaveStyle({ minHeight, width: '100%', marginTop: 7 });
 });

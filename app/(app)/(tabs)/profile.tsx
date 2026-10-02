@@ -17,7 +17,7 @@ import {
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
 import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
-import { SubmissionCard } from '@/components/profile/SubmissionCard';
+import { ProfileSubmissions } from '@/components/profile/ProfileSubmissions';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useBadgeCategories, useBadgeTiers, useUserBadgeProgress } from '@/hooks/useBadges';
 import { useMySuggestions } from '@/hooks/useSuggestions';
@@ -51,7 +51,8 @@ export default function MyProfileScreen() {
   const { data: currentPost, isLoading: currentPostLoading } = useCurrentProfilePost(profile?.id);
   const { data: reactionsGiven = 0 } = useReactionsGivenCount(profile?.id);
   const { data: pollVotes = 0 } = usePollVotesCount(profile?.id);
-  const { data: mySuggestions = [] } = useMySuggestions(profile?.id);
+  const suggestionsQuery = useMySuggestions(profile?.id);
+  const { data: mySuggestions = [] } = suggestionsQuery;
   const [refreshing, setRefreshing] = useState(false);
   const [friendsSheetVisible, setFriendsSheetVisible] = useState(false);
   const openFriendsList = useCallback(() => {
@@ -126,9 +127,6 @@ export default function MyProfileScreen() {
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: Spacing.md,
-        },
-        submissionsList: {
-          gap: Spacing.sm,
         },
       }),
     [colors],
@@ -214,18 +212,13 @@ export default function MyProfileScreen() {
           </View>
         ) : null}
 
-        {mySuggestions.length > 0 ? (
-          <View style={styles.section}>
-            <Text variant="headingMedium" style={{ marginBottom: Spacing.md }}>
-              My Submissions
-            </Text>
-            <View style={styles.submissionsList}>
-              {mySuggestions.map((s) => (
-                <SubmissionCard key={s.id} submission={s} />
-              ))}
-            </View>
-          </View>
-        ) : null}
+        <ProfileSubmissions
+          data={suggestionsQuery.data}
+          error={suggestionsQuery.error}
+          isPending={suggestionsQuery.isPending}
+          isFetching={suggestionsQuery.isFetching}
+          onRetry={() => void suggestionsQuery.refetch({ cancelRefetch: false })}
+        />
       </ScrollView>
       {friendsSheetVisible ? (
         <ProfileFriendsSheet

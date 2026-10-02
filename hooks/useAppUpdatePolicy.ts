@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 import type { MobilePlatform, MobileReleasePolicy } from '../lib/appUpdate';
-import { createRequestSignal } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 import { supabase } from '../lib/supabase';
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1_000;
@@ -17,16 +17,10 @@ export function useAppUpdatePolicy(enabled: boolean) {
     queryKey: ['mobileReleasePolicy', platform] as const,
     queryFn: async ({ signal }): Promise<MobileReleasePolicy | null> => {
       if (!platform) return null;
-      const request = createRequestSignal(signal, 6_000);
-      try {
-        const { data, error } = await supabase
-          .rpc('get_mobile_release_policy', { p_platform: platform })
-          .abortSignal(request.signal);
-        if (error) throw error;
-        return data?.[0] ?? null;
-      } finally {
-        request.cleanup();
-      }
+      const { data } = await runMemberRead(
+        supabase.rpc('get_mobile_release_policy', { p_platform: platform }), signal, 6_000,
+      );
+      return data?.[0] ?? null;
     },
     enabled: enabled && platform !== null,
     staleTime: SIX_HOURS_MS,

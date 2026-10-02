@@ -13,8 +13,15 @@ import {
   type DeliveryEvent,
 } from '../_shared/domain-event-delivery.ts';
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
+import { assertBusinessEvent, isBusinessEvent } from '../_shared/business-realtime.ts';
 import { resolvePushPolicy } from '../_shared/notification-policy.ts';
 import { logRealtimeLatency } from '../_shared/realtime-latency.ts';
+import {
+  formatEmailTimestamp,
+  humanizeEmailToken,
+  renderDojiEmail,
+  type DojiEmailTone,
+} from '../_shared/doji-email.ts';
 const MAX_TOPIC_WORKERS = 16;
 const MAX_ABLY_MESSAGES_PER_REQUEST = 25;
 const MAX_ABLY_BATCH_CHANNELS = 100;
@@ -132,6 +139,267 @@ type ClaimedPushTarget = {
   endpoint_key: string;
 };
 
+type ServiceDatabase = ReturnType<typeof createClient>;
+
+type ModerationDeliveryCopy = {
+  decisionId: string;
+  userId: string;
+  action: 'remove_content' | 'remove_profile_photo';
+  severity: 'level_1' | 'level_2' | 'level_3';
+  accountAction: 'warning' | 'temporary_restriction' | 'permanent_ban';
+  accountActionStartsAt: string;
+  accountActionEndsAt: string | null;
+  policyCode: string;
+  appealEligible: boolean;
+  decidedAt: string;
+  title: string;
+  body: string;
+};
+
+async function loadModerationDeliveryCopy(
+  database: ServiceDatabase,
+  event: RelayEvent,
+): Promise<ModerationDeliveryCopy | null> {
+  if (event.event_type !== 'moderation.status.changed') return null;
+  const decisionId = String(event.payload.decisionId ?? event.aggregate_id ?? '');
+  const targetUserId = String(event.payload.targetUserId ?? '');
+  if (!decisionId || !targetUserId) throw new Error('Moderation delivery identifiers are missing');
+
+  const { data: decision, error: decisionError } = await database
+    .from('moderation_decisions')
+    .select(
+      'id, affected_user_id, action, severity, policy_code, appeal_eligible, decided_at, state, user_notice',
+    )
+    .eq('id', decisionId)
+    .eq('affected_user_id', targetUserId)
+    .maybeSingle();
+  if (decisionError) throw new Error(`Moderation delivery read failed: ${decisionError.message}`);
+  if (
+    !decision ||
+    decision.state !== 'active' ||
+    !['remove_content', 'remove_profile_photo'].includes(String(decision.action)) ||
+    !['level_1', 'level_2', 'level_3'].includes(String(decision.severity))
+  ) {
+    throw new Error('Moderation delivery is not an active finalized removal');
+  }
+
+  const { data: accountAction, error: accountActionError } = await database
+    .from('moderation_account_actions')
+    .select('action, starts_at, ends_at')
+    .eq('decision_id', decisionId)
+    .maybeSingle();
+  if (accountActionError) {
+    throw new Error(`Moderation account outcome read failed: ${accountActionError.message}`);
+  }
+  if (
+    !accountAction?.action ||
+    !['warning', 'temporary_restriction', 'permanent_ban'].includes(String(accountAction.action))
+  ) {
+    throw new Error('Moderation account outcome is missing');
+  }
+
+  const { data: notice, error: noticeError } = await database
+    .from('moderation_notices')
+    .select('title, body')
+    .eq('decision_id', decisionId)
+    .eq('user_id', targetUserId)
+    .eq('kind', 'decision')
+    .maybeSingle();
+  if (noticeError) throw new Error(`Moderation notice read failed: ${noticeError.message}`);
+  if (!notice?.title || !notice?.body) throw new Error('Moderation member notice is missing');
+
+  return {
+    decisionId,
+    userId: targetUserId,
+    action: decision.action as ModerationDeliveryCopy['action'],
+    severity: decision.severity as ModerationDeliveryCopy['severity'],
+    accountAction: accountAction.action as ModerationDeliveryCopy['accountAction'],
+    accountActionStartsAt: String(accountAction.starts_at),
+    accountActionEndsAt: accountAction.ends_at ? String(accountAction.ends_at) : null,
+    policyCode: String(decision.policy_code),
+    appealEligible: decision.appeal_eligible === true,
+    decidedAt: String(decision.decided_at),
+    title: String(notice.title),
+    body: String(notice.body),
+  };
+}
+
+async function loadModerationPushRecipient(
+  database: ServiceDatabase,
+  userId: string,
+): Promise<PushProfile | null> {
+  const { data, error } = await database.rpc('get_moderation_push_recipient', {
+    p_user_id: userId,
+  });
+  if (error) throw new Error(`Moderation push recipient read failed: ${error.message}`);
+  const recipient = Array.isArray(data) ? data[0] : null;
+  if (!recipient) return null;
+  return {
+    notification_token: recipient.notification_token,
+    notification_preferences: recipient.notification_preferences as Record<string, unknown> | null,
+    native_endpoints: Array.isArray(recipient.native_endpoints)
+      ? (recipient.native_endpoints as NativeEndpoint[])
+      : [],
+  };
+}
+
+async function deliverMemberModerationEmail(
+  database: ServiceDatabase,
+  event: RelayEvent,
+  copy: ModerationDeliveryCopy | null,
+): Promise<void> {
+  if (event.payload.sendEmail !== true) return;
+  if (!copy || !['level_2', 'level_3'].includes(copy.severity)) {
+    throw new Error('Member email is allowed only for a finalized serious removal');
+  }
+
+  const { data: existing, error: existingError } = await database
+    .from('member_moderation_email_deliveries')
+    .select('status')
+    .eq('decision_id', copy.decisionId)
+    .maybeSingle();
+  if (existingError)
+    throw new Error(`Moderation email receipt read failed: ${existingError.message}`);
+  if (existing?.status === 'sent' || existing?.status === 'skipped') return;
+
+  const { data: authResult, error: authError } = await database.auth.admin.getUserById(copy.userId);
+  if (authError) throw new Error(`Moderation email recipient lookup failed: ${authError.message}`);
+  const recipient = authResult.user?.email_confirmed_at ? authResult.user.email?.trim() : undefined;
+  if (!recipient) {
+    const { error: skippedError } = await database
+      .from('member_moderation_email_deliveries')
+      .upsert(
+        {
+          event_id: event.id,
+          decision_id: copy.decisionId,
+          user_id: copy.userId,
+          status: 'skipped',
+          last_error: 'No verified email recipient',
+          attempted_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: 'decision_id' },
+      );
+    if (skippedError)
+      throw new Error(`Moderation email skip receipt failed: ${skippedError.message}`);
+    return;
+  }
+
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  const from = Deno.env.get('MEMBER_FROM_EMAIL') ?? Deno.env.get('ADMIN_FROM_EMAIL');
+  if (!resendKey || !from) throw new Error('Member moderation email is not configured');
+
+  const subject =
+    copy.accountAction === 'permanent_ban'
+      ? 'Your Doji account has been suspended'
+      : copy.accountAction === 'temporary_restriction'
+        ? 'Your Doji account is temporarily restricted'
+        : 'We took action on content you shared';
+  const accountStatus =
+    copy.accountAction === 'permanent_ban'
+      ? 'Suspended'
+      : copy.accountAction === 'temporary_restriction'
+        ? 'Temporarily restricted'
+        : 'Warning issued';
+  const contentAction =
+    copy.action === 'remove_profile_photo' ? 'Profile photo removed' : 'Reported content removed';
+  const tone: DojiEmailTone =
+    copy.accountAction === 'permanent_ban'
+      ? 'critical'
+      : copy.accountAction === 'temporary_restriction'
+        ? 'danger'
+        : 'warning';
+  const template = renderDojiEmail({
+    preheader: `${accountStatus}: review the decision and your options in Doji Account Status.`,
+    eyebrow: 'Account status · official notice',
+    title: copy.title,
+    summary: copy.body,
+    tone,
+    statusLabel: accountStatus,
+    facts: [
+      { label: 'Content action', value: contentAction },
+      { label: 'Account status', value: accountStatus },
+      { label: 'Policy area', value: humanizeEmailToken(copy.policyCode) },
+      { label: 'Decision recorded', value: formatEmailTimestamp(copy.decidedAt) },
+      ...(copy.accountActionEndsAt
+        ? [{ label: 'Restriction ends', value: formatEmailTimestamp(copy.accountActionEndsAt) }]
+        : []),
+    ],
+    sections: [
+      {
+        heading: 'Review the full decision in Doji',
+        body: 'Open Doji and go to Profile → Settings → Account Status. That private screen is the authoritative place to review the notice, account consequence, and delivery status.',
+      },
+      {
+        heading: copy.appealEligible ? 'You can appeal this decision' : 'About this decision',
+        body: copy.appealEligible
+          ? 'If you believe this decision is incorrect, Account Status lets you submit one appeal with relevant context. A reviewer will evaluate the decision and your statement.'
+          : 'This decision is not currently eligible for an in-app appeal. Doji Support can help with access or technical questions, but support cannot bypass a safety decision.',
+        bullets: [
+          'Do not reply with passwords, sign-in codes, or private media.',
+          'The identity of anyone who submitted a report is never included in this notice.',
+          'Keep the decision reference below if you contact support.',
+        ],
+      },
+    ],
+    actions: [
+      { label: 'Open Account Status', href: 'doit://profile/account-status' },
+      { label: 'Get support', href: 'https://dojipro.com/support/', kind: 'secondary' },
+    ],
+    reference: copy.decisionId,
+    footerNote:
+      'Private account notice for the verified recipient. This message never identifies a reporter or includes restricted evidence.',
+  });
+  const requestBody = JSON.stringify({
+    from,
+    to: [recipient],
+    subject,
+    html: template.html,
+    text: template.text,
+  });
+  const response = await fetchWithTimeout('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `moderation-decision/${copy.decisionId}`,
+    },
+    body: requestBody,
+  });
+  const providerResult = (await response.json().catch(() => null)) as { id?: string } | null;
+  if (!response.ok || !providerResult?.id) {
+    await database.from('member_moderation_email_deliveries').upsert(
+      {
+        event_id: event.id,
+        decision_id: copy.decisionId,
+        user_id: copy.userId,
+        status: 'failed',
+        last_error: `Resend handoff failed (${response.status})`,
+        attempted_at: new Date().toISOString(),
+        completed_at: null,
+      },
+      { onConflict: 'decision_id' },
+    );
+    throw new Error(`Member moderation email handoff failed (${response.status})`);
+  }
+
+  const { error: receiptError } = await database.from('member_moderation_email_deliveries').upsert(
+    {
+      event_id: event.id,
+      decision_id: copy.decisionId,
+      user_id: copy.userId,
+      status: 'sent',
+      provider_id: providerResult.id,
+      last_error: null,
+      attempted_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    },
+    { onConflict: 'decision_id' },
+  );
+  if (receiptError)
+    throw new Error(`Moderation email receipt write failed: ${receiptError.message}`);
+}
+
 async function runTopicWorkers(
   groups: RelayEvent[][],
   worker: (group: RelayEvent[]) => Promise<void>,
@@ -172,6 +440,7 @@ Deno.serve(async (request) => {
     ...new Set(
       claimedEvents
         .filter((event) => {
+          if (isBusinessEvent(event)) return false;
           const policy = resolvePushPolicy(event);
           return policy?.mode === 'targeted' && event.payload?.targetUserId;
         })
@@ -208,6 +477,7 @@ Deno.serve(async (request) => {
     // bounded parallelism instead of serializing the entire social graph on one
     // synthetic topic.
     const workerKey =
+      isBusinessEvent(event) ? `business-scope:${event.topic}` :
       event.topic === 'internal:friend-fanout' ? `${event.topic}:${event.id}` : event.topic;
     const group = byTopic.get(workerKey) ?? [];
     group.push(event);
@@ -226,7 +496,9 @@ Deno.serve(async (request) => {
     try {
       const pushPolicy = resolvePushPolicy(event);
       const hasPush = pushPolicy !== null;
+      const moderationCopy = await loadModerationDeliveryCopy(database, event);
       if (hasPush && !isPushFresh(event)) {
+        await deliverMemberModerationEmail(database, event, moderationCopy);
         const { data: completed, error: completionError } = await database.rpc(
           'complete_domain_event',
           { p_event_id: event.id, p_lease_id: event.lease_id },
@@ -252,7 +524,10 @@ Deno.serve(async (request) => {
         const targetUserId = String(event.payload.targetUserId);
         const profileState = await profilesByIdPromise;
         if (profileState.error) throw profileState.error;
-        const profile = profileState.profilesById.get(targetUserId);
+        let profile = profileState.profilesById.get(targetUserId);
+        if (!profile && moderationCopy?.accountAction === 'permanent_ban') {
+          profile = (await loadModerationPushRecipient(database, targetUserId)) ?? undefined;
+        }
 
         const token = profile?.notification_token?.trim();
         const preferenceKey = pushPolicy.preferenceKey;
@@ -289,6 +564,7 @@ Deno.serve(async (request) => {
           if (claimError) throw claimError;
           const claimedTargets = (claimedData ?? []) as ClaimedPushTarget[];
           if (claimedTargets.length === 0) {
+            await deliverMemberModerationEmail(database, event, moderationCopy);
             const { data: completed, error: completionError } = await database.rpc(
               'complete_domain_event',
               { p_event_id: event.id, p_lease_id: event.lease_id },
@@ -303,8 +579,8 @@ Deno.serve(async (request) => {
           const pushExpiresAtMs = getPushExpiresAtMs(event);
           if (pushExpiresAtMs === null) throw new Error('Push expiration is invalid');
           const ttl = Math.max(1, Math.ceil((pushExpiresAtMs - Date.now()) / 1000));
-          const title = String(event.payload.title ?? 'Doji');
-          const body = String(event.payload.body ?? '');
+          const title = moderationCopy?.title ?? String(event.payload.title ?? 'Doji');
+          const body = moderationCopy?.body.slice(0, 220) ?? String(event.payload.body ?? '');
           const collapseKey = pushPolicy.collapseKey;
           const notificationData = {
             type: String(
@@ -427,6 +703,8 @@ Deno.serve(async (request) => {
         }
       }
 
+      await deliverMemberModerationEmail(database, event, moderationCopy);
+
       const { data: completed, error: completionError } = await database.rpc(
         'complete_domain_event',
         { p_event_id: event.id, p_lease_id: event.lease_id },
@@ -500,6 +778,16 @@ Deno.serve(async (request) => {
   // Preserve ordering within each Ably channel, while allowing independent
   // user/public channels to drain concurrently under a bounded worker count.
   await runTopicWorkers([...byTopic.values()], async (group) => {
+    try {
+      for (const event of group) assertBusinessEvent(event, Deno.env.get('BUSINESS_REALTIME_RELAY_ENABLED') === 'true');
+    } catch (error) {
+      failed += group.length;
+      await Promise.all(group.map(event => database.rpc('release_domain_event', {
+        p_event_id: event.id, p_lease_id: event.lease_id,
+        p_error: error instanceof Error ? error.message : 'Invalid business event',
+      })));
+      return;
+    }
     if (group[0].topic === 'internal:friend-fanout') {
       for (const event of group) await processInternalFanout(event);
       return;

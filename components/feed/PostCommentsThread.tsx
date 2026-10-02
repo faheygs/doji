@@ -18,6 +18,7 @@ import { Spacing, Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { Text } from '../ui/Text';
+import { Button } from '../ui/Button';
 import { AppTextInput } from '../ui/AppTextInput';
 import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
@@ -38,7 +39,9 @@ import {
 import type { FeedAudience } from '../../lib/feedAudience';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { CommentLikesSheet } from './CommentLikesSheet';
-import { ReportSheet } from './ReportSheet';
+import { useReportFlow } from '../../contexts/ReportFlowContext';
+import type { ReportSubject } from './ReportSheet';
+import { canKeepQueryDataOnError } from '../../lib/queryDisplayState';
 import { useAppDialog } from '../../contexts/DialogContext';
 import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
 import {
@@ -64,18 +67,17 @@ function CommentActionSheet({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const pendingActionRef = useRef<null | (() => void)>(null);
+  const finishDismiss = useCallback(() => {
+    const pending = pendingActionRef.current;
+    pendingActionRef.current = null;
+    pending?.();
+  }, []);
   const runAfterClose = useCallback((action: () => void) => {
     pendingActionRef.current = action;
     onClose();
-    // Let React synchronously remove this native modal window before another
-    // dialog/sheet is opened. Swapping two native modals in the same render can
-    // leave an invisible touch-intercepting window on iOS.
-    requestAnimationFrame(() => {
-      const pending = pendingActionRef.current;
-      pendingActionRef.current = null;
-      pending?.();
-    });
-  }, [onClose]);
+    // iOS must acknowledge dismissal before another native presentation starts.
+    if (Platform.OS !== 'ios') requestAnimationFrame(finishDismiss);
+  }, [finishDismiss, onClose]);
   const sheetStyles = useMemo(
     () =>
       StyleSheet.create({
@@ -105,9 +107,10 @@ function CommentActionSheet({
       }),
     [colors, insets.bottom],
   );
-  if (!visible) return null;
+  if (!visible && !(Platform.OS === 'ios' && pendingActionRef.current)) return null;
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}
+      onDismiss={Platform.OS === 'ios' ? finishDismiss : undefined}>
       <Pressable style={sheetStyles.backdrop} onPress={onClose}>
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
           {onEdit ? (
@@ -388,6 +391,8 @@ type Props = {
   /** Sheet handles safe area; avoid double padding on composer. */
   embedInSheet?: boolean;
   feedAudience?: FeedAudience;
+  /** A containing native sheet must dismiss before the account-level report host opens. */
+  onReport?: (subject: ReportSubject) => void;
 };
 
 export function PostCommentsThread({
@@ -397,22 +402,28 @@ export function PostCommentsThread({
   fetchEnabled = true,
   embedInSheet = false,
   feedAudience = 'everyone',
+  onReport,
 }: Props) {
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const openReport = useReportFlow();
   const navigationOrigin = useNavigationOrigin();
   const me = useAuthStore((s) => s.session?.user?.id);
   const {
     data: commentPages,
     isLoading,
     isError,
+    error,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isRefetching,
+    refetch,
   } = useComments(postId, { fetchEnabled, feedAudience });
   const comments = useMemo(() => commentPages?.pages.flat() ?? [], [commentPages?.pages]);
+  const blockingReadError = isError && !canKeepQueryDataOnError(commentPages, error);
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
@@ -423,7 +434,6 @@ export function PostCommentsThread({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
-  const [reportComment, setReportComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState('');
@@ -467,8 +477,8 @@ export function PostCommentsThread({
   }, []);
 
   const onOpenReport = useCallback((c: CommentWithMeta) => {
-    setReportComment(c);
-  }, []);
+    if (c.user_id) (onReport ?? openReport)({ reportedUserId: c.user_id, commentId: c.id });
+  }, [onReport, openReport]);
 
   const onEdit = useCallback((c: CommentWithMeta) => {
     setComposerError('');
@@ -701,14 +711,31 @@ export function PostCommentsThread({
     <View style={styles.root}>
       {isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
-      ) : isError ? (
+      ) : blockingReadError ? (
         <View style={[styles.flex1, styles.centered]}>
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             {"Couldn't load comments."}
           </Text>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={isRefetching}
+            onPress={() => void refetch()}
+            style={{ marginTop: Spacing.md }}
+          >
+            Try again
+          </Button>
         </View>
       ) : (
         <View style={styles.flex1}>
+          {isError ? (
+            <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
+              <InlineFeedback tone="info" message="Couldn’t refresh comments. Showing previously loaded comments." />
+              <Button variant="secondary" size="sm" loading={isRefetching} onPress={() => void refetch()}>
+                Try again
+              </Button>
+            </View>
+          ) : null}
           <FlatList
             style={styles.list}
             data={rows}
@@ -867,14 +894,6 @@ export function PostCommentsThread({
         }}
       />
 
-      {reportComment?.user_id ? (
-        <ReportSheet
-          visible
-          reportedUserId={reportComment.user_id}
-          commentId={reportComment.id}
-          onClose={() => setReportComment(null)}
-        />
-      ) : null}
     </View>
   );
 }

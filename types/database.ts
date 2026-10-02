@@ -1,4 +1,7 @@
 import type { ThemeName } from '../constants/theme';
+import type { ReportReason, ReportReasonDetail, ReportTargetKind } from '../lib/reportingTaxonomy';
+
+export type { ReportReason, ReportReasonDetail, ReportTargetKind } from '../lib/reportingTaxonomy';
 
 export type ReactionEmoji = 'fire' | 'like' | 'dislike' | 'laugh' | 'wow' | 'heart';
 
@@ -39,7 +42,7 @@ export type NotificationDismissal = {
 };
 
 export type NotificationAttentionReceipt = {
-  scope_kind: 'daily_event' | 'friendship' | 'comment' | 'suggestion';
+  scope_kind: 'daily_event' | 'friendship' | 'comment' | 'suggestion' | 'moderation_decision';
   scope_id: string;
   seen_at: string;
 };
@@ -410,17 +413,20 @@ export type LeaderboardEntry = {
   profile: Profile;
 };
 
-export type ReportReason = 'spam' | 'inappropriate' | 'harassment' | 'other';
 export type ReportStatus = 'pending' | 'dismissed' | 'actioned';
+export type LegacyReportReason = 'spam' | 'inappropriate' | 'harassment' | 'other';
+export type StoredReportReason = ReportReason | LegacyReportReason;
 
 export type Report = {
   id: string;
-  reporter_id: string;
+  reporter_id: string | null;
   reported_user_id: string | null;
   post_id: string | null;
   comment_id: string | null;
   poll_vote_id: string | null;
-  reason: ReportReason;
+  target_kind: ReportTargetKind;
+  reason: StoredReportReason;
+  reason_detail: ReportReasonDetail | null;
   status: ReportStatus;
   notes: string | null;
   created_at: string;
@@ -772,6 +778,15 @@ export type Database = {
       get_my_moderation_status: {
         Args: Record<string, never>;
         Returns: {
+          account_access: null | {
+            state: 'active' | 'temporarily_restricted' | 'suspended';
+            decision_id: string | null;
+            ends_at: string | null;
+            title: string | null;
+            body: string | null;
+            appeal_eligible: boolean;
+            appeal_status: 'pending' | 'upheld' | 'reversed' | null;
+          };
           notices: Array<{
             id: string;
             decision_id: string;
@@ -791,6 +806,12 @@ export type Database = {
             appeal_eligible: boolean;
             state: 'active' | 'reversed' | 'superseded';
             decided_at: string;
+            account_action: null | {
+              action: 'warning' | 'temporary_restriction' | 'permanent_ban';
+              state: 'active' | 'expired' | 'reversed';
+              starts_at: string;
+              ends_at: string | null;
+            };
             appeal: null | {
               id: string;
               status: 'pending' | 'upheld' | 'reversed';
@@ -1255,7 +1276,21 @@ export type Database = {
           p_post_id: string | null;
           p_comment_id: string | null;
           p_poll_vote_id: string | null;
+          p_reason: LegacyReportReason;
+          p_idempotency_key: string;
+        };
+        Returns: Report;
+      };
+      submit_policy_report: {
+        Args: {
+          p_reported_user_id: string;
+          p_post_id: string | null;
+          p_comment_id: string | null;
+          p_poll_vote_id: string | null;
+          p_target_kind: ReportTargetKind;
           p_reason: ReportReason;
+          p_reason_detail: ReportReasonDetail;
+          p_notes: string | null;
           p_idempotency_key: string;
         };
         Returns: Report;

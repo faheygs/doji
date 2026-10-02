@@ -41,6 +41,7 @@ function scheduleAuthoritativeEngagementRefresh(
     key,
     setTimeout(() => {
       engagementRefreshTimers.delete(key);
+      if (useAuthStore.getState().session?.user.id !== userId) return;
       void refreshPostEngagement(queryClient, postId, audience).catch((error) => {
         if (__DEV__) console.warn('[reactions] engagement refresh failed', error);
       });
@@ -77,9 +78,11 @@ export function patchReactionToggle(post: Post, emoji: ReactionEmoji, active: bo
 export function useToggleReaction() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user?.id);
+  const isCurrentMember = () => !!userId && useAuthStore.getState().session?.user.id === userId;
   return useMutation({
+    mutationKey: ['toggleReaction', userId],
     mutationFn: async (variables: ToggleReactionVars) => {
-      if (!userId) throw new Error('Not authenticated');
+      if (!isCurrentMember()) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('reaction');
       const { data, error } = await executeCommand('set_post_reaction', {
         p_post_id: variables.postId,
@@ -91,6 +94,7 @@ export function useToggleReaction() {
       return data as ToggleReactionResult;
     },
     onMutate: (variables) => {
+      if (!isCurrentMember()) return undefined;
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
       });
@@ -123,11 +127,12 @@ export function useToggleReaction() {
       return { previousFeeds, previousPosts };
     },
     onError: (_error, _variables, context) => {
+      if (!isCurrentMember()) return;
       for (const [key, data] of context?.previousFeeds ?? []) queryClient.setQueryData(key, data);
       for (const [key, data] of context?.previousPosts ?? []) queryClient.setQueryData(key, data);
     },
     onSuccess: (result, variables) => {
-      if (!result || !userId) return;
+      if (!result || !userId || !isCurrentMember()) return;
       const patchGlobal = (post: Post): Post => ({
         ...post,
         reaction_count: result.count,
@@ -175,6 +180,7 @@ export function useToggleReaction() {
       );
     },
     onSettled: (_data, _error, variables) => {
+      if (!isCurrentMember()) return;
       if (variables?.postId) {
         scheduleQueryInvalidation(queryClient, ['reactionsGiven', 'reactions', 'profile']);
       }

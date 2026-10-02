@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Doji · Business application</title>
+    <link rel="icon" href="/assets/doji-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portal.css" />
+    <link rel="stylesheet" href="/business-portal/application/application.css" />
+  </head>
+  <body class="portalPage" data-portal="business-application">
+    <header class="onboardingHeader">
+      <a class="portalBrand" href="/business/"
+        ><img src="/assets/doji-icon.png" alt="" /><span
+          >Doji<small>Business application</small></span
+        ></a
+      >
+      <div class="headerActions">
+        <button class="themeToggle" type="button" data-action="toggle-theme">
+          <span data-theme-label>Dark mode</span></button
+        ><button class="portalButton" id="businessSignout" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+    <main class="applicationMain">
+      <section class="onboardingCard" id="applicationAccess">
+        <p class="eyebrow">Business access</p>
+        <h1>Your business, on Doji.</h1>
+        <p id="businessAvailability">
+          Applications are not open yet. This connection is still being qualified.
+        </p>
+        <form id="businessAccessForm" class="authForm" hidden>
+          <div class="field">
+            <label for="businessEmail">Business email</label
+            ><input
+              id="businessEmail"
+              type="email"
+              required
+              maxlength="254"
+              autocomplete="username"
+            />
+          </div>
+          <div class="field">
+            <label for="businessPassword">Password</label
+            ><input
+              id="businessPassword"
+              type="password"
+              required
+              maxlength="128"
+              autocomplete="current-password"
+            />
+          </div>
+          <div id="signinVerification" class="businessVerification" hidden></div>
+          <div class="applicationActions">
+            <button class="portalButton primary" type="submit">Sign in</button>
+          </div>
+        </form>
+        <div class="applicationActions">
+          <a class="portalButton" href="/business-portal/access/"
+            >Create account or recover access</a
+          >
+        </div>
+      </section>
+      <section class="onboardingCard" id="applicationWorkspace" hidden>
+        <header class="applicationHeading">
+          <div>
+            <p class="eyebrow" id="applicationState"></p>
+            <h1>Your business application</h1>
+          </div>
+          <button class="portalButton" id="applicationRefresh" type="button">Refresh</button>
+        </header>
+        <p id="applicationReadStatus" role="status" aria-live="polite"></p>
+        <p>
+          Tell us about the business you represent. Applying does not publish a campaign or enable
+          billing.
+        </p>
+        <div id="applicationResponse" class="authHint" hidden></div>
+        <div id="applicationStale" class="authHint" hidden>
+          Your application changed. Your draft is preserved on this page. Review your changes before
+          loading the current record.
+          <button type="button" class="portalButton" id="applicationReload">
+            Load current record
+          </button>
+        </div>
+        <form id="businessApplicationForm">
+          <div id="applicationFields"></div>
+          <label class="consentRow" id="applicationConsent"
+            ><input id="businessTerms" type="checkbox" /><span
+              >I am authorized to represent this business, confirm this information is accurate, and
+              accept the
+              <a id="businessTermsLink" rel="noopener noreferrer" target="_blank"
+                >application terms</a
+              >
+              and acknowledge the
+              <a id="businessPrivacyLink" rel="noopener noreferrer" target="_blank"
+                >privacy notice</a
+              >.</span
+            ></label
+          >
+          <div class="applicationActions" id="applicationActions">
+            <button class="portalButton" id="applicationSave" type="button">Save draft</button
+            ><button class="portalButton primary" id="applicationSubmit" type="submit">
+              Submit for review
+            </button>
+          </div>
+        </form>
+        <p id="applicationLegalGate" hidden>
+          Submission will open after the application terms and privacy notice are approved. You can
+          save a draft.
+        </p>
+        <div class="applicationActions" id="businessWorkspaceActions" hidden>
+          <button class="portalButton primary" id="businessOpenWorkspace" type="button">
+            Open business workspace
+          </button>
+        </div>
+        <div id="businessWorkspaceMfa" hidden></div>
+        <section class="authHint" id="businessVerifiedWorkspace" hidden>
+          <h2>Business workspace</h2>
+          <p id="businessWorkspaceSummary"></p>
+          <p>Campaign publishing and billing are not enabled.</p>
+        </section>
+      </section>
+      <p id="businessApplicationMessage" role="status" aria-live="polite"></p>
+      <p
+        id="businessRealtimeStatus"
+        role="status"
+        aria-label="Live updates"
+        aria-live="polite"
+        hidden
+      ></p>
+    </main>
+    <script src="/portal-select.js"></script>
+    <script src="/portal.js"></script>
+    <script type="module" src="/business-portal/application/application.js"></script>
+  </body>
+</html>

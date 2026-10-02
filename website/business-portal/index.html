@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/styles.css">
   <script>document.documentElement.dataset.theme=localStorage.getItem('doji-portal-theme')||'light';</script>
   <link rel="stylesheet" href="/portal.css?v=20260923b">
+  <link rel="stylesheet" href="/business-portal/business.css">
 </head>
 <body class="portalPage" data-portal="business">
   <div class="prototypeBar">Local prototype · Browser-only demo data · No campaign can publish or reach Doji users</div>
@@ -30,15 +31,14 @@
           <button type="button" data-auth-tab="signup" role="tab" aria-selected="false">Create account</button>
         </div>
         <form class="authForm" id="signinForm">
-          <div class="field"><label for="businessEmail">Work email</label><input id="businessEmail" type="email" value="alex@northstar.example" autocomplete="email"></div>
-          <div class="field"><label for="businessPassword">Password</label><input id="businessPassword" type="password" value="prototype" autocomplete="current-password"></div>
-          <button class="portalButton primary" type="submit">Sign in</button>
+          <p>Explore the Northstar example workspace. No credentials are needed.</p>
+          <button class="portalButton primary" type="submit">Open example workspace</button>
+          <button class="portalButton" type="button" id="resumeBusiness" hidden>Resume local workspace</button>
         </form>
         <form class="authForm" id="signupForm" hidden>
           <div class="field"><label for="accountName">Your name</label><input id="accountName" required autocomplete="name" placeholder="Alex Morgan"></div>
           <div class="field"><label for="signupEmail">Work email</label><input id="signupEmail" type="email" required autocomplete="email" placeholder="alex@company.com"></div>
-          <div class="field"><label for="signupPassword">Create password</label><input id="signupPassword" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></div>
-          <button class="portalButton primary" type="submit">Create account and continue</button>
+          <button class="portalButton primary" type="submit">Start local setup</button>
         </form>
         <div class="authHint">Prototype only: nothing is uploaded or sent to Doji. Your test progress stays in this browser.</div>
       </div>
@@ -171,6 +171,11 @@
         <div class="field"><label for="dojiName">Internal Doji name</label><input id="dojiName" required maxlength="80" placeholder="Morning movement poll"></div>
         <div class="field"><label for="campaignFormat">Doji format</label><select id="campaignFormat"><option value="poll">Poll</option><option value="wyr">Would you rather</option><option value="question">Question</option><option value="format_question">Format question</option><option value="photo_idea">Photo idea</option></select></div>
         <div class="field full"><label for="campaignPrompt">Participant prompt</label><textarea id="campaignPrompt" required maxlength="160" placeholder="Which gets you moving?"></textarea><small>Use the exact prompt people will see during the ten-minute participation window.</small></div>
+        <div class="field full" id="businessAnswerRule" hidden><div class="formGrid">
+          <div class="field"><label for="businessAnswerType">Answer format</label><select id="businessAnswerType"><option value="exact_word_count">Exact word count</option><option value="starts_with_letter">Starts with a letter</option></select></div>
+          <div class="field" id="businessWordCountField"><label for="businessWordCount">Word count</label><input id="businessWordCount" type="number" min="1" max="20" value="2"></div>
+          <div class="field" id="businessLetterField" hidden><label for="businessStartingLetter">Starting letter</label><input id="businessStartingLetter" maxlength="1" pattern="[A-Za-z]" value="A"></div>
+        </div></div>
         <div class="field full" id="campaignOptionsField"><div class="fieldLabelRow"><label>Poll choices</label><small id="pollOptionCount">2 of 4 custom choices</small></div><div class="optionBuilder" id="campaignOptionsList"></div><div class="pollOptionRow systemPollOption" id="automaticOtherOption"><span class="optionNumber" id="automaticOtherNumber">3</span><input class="pollOptionInput" value="Other" disabled aria-label="Other option, added automatically"><span class="systemOptionTag">Always included</span></div><button class="portalButton optionAddButton" id="addPollOption" type="button"><span aria-hidden="true">+</span> Add choice</button><small id="pollOptionsHelp">Add 2–4 custom choices. Doji always adds Other as the final choice, for a maximum of 5 total.</small></div>
         <div class="field"><label for="dojiLiveDate">Requested live date</label><input id="dojiLiveDate" type="date" required><small>Must fall within the campaign. The Doji stays hidden until its approved activation time.</small></div>
         <div class="field"><label for="campaignDestination">Optional Learn more link</label><input id="campaignDestination" type="url" inputmode="url" placeholder="https://yourcompany.com/campaign"><small>Shown after participation, requires approval, and never opens automatically.</small></div>
@@ -178,12 +183,18 @@
       <div class="modalFooter"><button class="portalButton" type="button" data-action="save-doji-draft">Save draft</button><button class="portalButton primary" type="submit">Submit Doji for review</button></div>
     </form>
   </dialog>
+  <dialog class="portalModal businessRecordDrawer" id="businessDojiDetail" aria-labelledby="businessDojiTitle">
+    <div class="modalHeader"><div><p class="eyebrow" id="businessDojiStatus"></p><h2 id="businessDojiTitle">Sponsored Doji</h2></div><button class="portalButton" type="button" data-close-business-doji>Close</button></div>
+    <div class="modalBody" id="businessDojiBody"></div>
+    <div class="modalFooter"><button class="portalButton" type="button" data-close-business-doji>Back to campaign</button><button class="portalButton primary" type="button" id="editBusinessDoji">Edit draft</button></div>
+  </dialog>
   <dialog class="portalModal campaignDetailModal" id="campaignDetailModal">
     <div class="modalHeader"><div><p class="eyebrow" id="campaignDetailEyebrow">Campaign</p><h2 id="campaignDetailTitle">Campaign detail</h2><p id="campaignDetailSubtitle"></p></div><button class="iconButton" type="button" data-action="close-campaign-detail" aria-label="Close">×</button></div>
     <div class="modalBody" id="campaignDetailBody"></div>
     <div class="modalFooter"><button class="portalButton" type="button" data-action="close-campaign-detail">Close</button><button class="portalButton primary" type="button" data-action="new-doji"><span aria-hidden="true">+</span> Add Doji</button></div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/portal.js?v=20260923b" defer></script>
+  <script src="/portal-select.js?v=20260928a" defer></script>
+  <script src="/portal.js?v=20260928a" defer></script>
 </body>
 </html>

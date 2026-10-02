@@ -91,6 +91,22 @@ export async function authenticateScaleReadRequest(
   request: Request,
   env: ScaleReadAuthEnv,
 ): Promise<{ aal: string | undefined; token: string; userId: string }> {
+  return authenticateRole(request, env, 'authenticated');
+}
+
+// Only portal routes call this entry point. Member routes cannot opt into it.
+export async function authenticateEmployeePortalRequest(
+  request: Request,
+  env: ScaleReadAuthEnv,
+): Promise<{ aal: string | undefined; token: string; userId: string }> {
+  return authenticateRole(request, env, 'doji_employee');
+}
+
+async function authenticateRole(
+  request: Request,
+  env: ScaleReadAuthEnv,
+  requiredRole: 'authenticated' | 'doji_employee',
+): Promise<{ aal: string | undefined; token: string; userId: string }> {
   const authorization = request.headers.get('authorization') ?? '';
   if (!authorization.startsWith('Bearer ')) throw new Error('Authentication required');
   const token = authorization.slice(7);
@@ -123,7 +139,7 @@ export async function authenticateScaleReadRequest(
     !valid ||
     !payload.sub ||
     !UUID.test(payload.sub) ||
-    payload.role !== 'authenticated' ||
+    payload.role !== requiredRole ||
     payload.iss !== `${normalizedSupabaseUrl(env)}/auth/v1` ||
     !audience.includes('authenticated') ||
     !payload.exp ||

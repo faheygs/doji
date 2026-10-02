@@ -23,4 +23,10 @@ describe('formatCompactCount', () => {
   it('clamps negatives', () => {
     expect(formatCompactCount(-3)).toBe('0');
   });
+
+  it('rounds large million totals and normalizes invalid numeric input', () => {
+    expect(formatCompactCount(10_600_000)).toBe('11m');
+    expect(formatCompactCount(Number.NaN)).toBe('0');
+    expect(formatCompactCount(9.9)).toBe('9');
+  });
 });

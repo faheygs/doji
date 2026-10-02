@@ -11,14 +11,16 @@ import { executeCommand } from '../lib/commandGateway';
 export function useEditComment() {
   const client = useQueryClient();
   const uid = useAuthStore((s) => s.session?.user?.id);
+  const isCurrentMember = () => !!uid && useAuthStore.getState().session?.user.id === uid;
   return useMutation({
+    mutationKey: ['editComment', uid],
     mutationFn: async (vars: {
       postId: string;
       commentId: string;
       body: string;
       commandId?: string;
     }) => {
-      if (!uid) throw new Error('Not authenticated');
+      if (!isCurrentMember()) throw new Error('Not authenticated');
       const body = vars.body.trim();
       if (!body) throw new Error('Comment cannot be empty');
       const check = filterContent(body);
@@ -32,6 +34,9 @@ export function useEditComment() {
       if (error) throw error;
     },
     onMutate: (vars) => {
+      if (!isCurrentMember()) return undefined;
+      const body = vars.body.trim();
+      if (!body || !filterContent(body).ok) return undefined;
       const previous = client.getQueriesData<InfiniteData<Comment[]>>({
         predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
       });
@@ -43,25 +48,34 @@ export function useEditComment() {
         { revert: false, silent: true },
       );
       client.setQueriesData<InfiniteData<Comment[]>>(
-        { predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId },
-        (old) => old
-          ? {
-              ...old,
-              pages: old.pages.map((page) => page.map((comment) =>
-                comment.id === vars.commentId ? { ...comment, body: vars.body.trim() } : comment
-              )),
-            }
-          : old,
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+        },
+        (old) =>
+          old
+            ? {
+                ...old,
+                pages: old.pages.map((page) =>
+                  page.map((comment) =>
+                    comment.id === vars.commentId ? { ...comment, body } : comment,
+                  ),
+                ),
+              }
+            : old,
       );
       return { previous };
     },
     onError: (_error, _vars, context) => {
+      if (!isCurrentMember()) return;
       for (const [key, data] of context?.previous ?? []) client.setQueryData(key, data);
     },
     onSuccess: (_data, vars) => {
+      if (!isCurrentMember()) return;
       void client.invalidateQueries(
         {
-          predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+          predicate: (query) =>
+            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
           refetchType: 'active',
         },
         { cancelRefetch: false },
@@ -73,14 +87,16 @@ export function useEditComment() {
 export function useDeleteComment() {
   const client = useQueryClient();
   const uid = useAuthStore((s) => s.session?.user?.id);
+  const isCurrentMember = () => !!uid && useAuthStore.getState().session?.user.id === uid;
   return useMutation({
+    mutationKey: ['deleteComment', uid],
     mutationFn: async (vars: {
       postId: string;
       commentId: string;
       feedAudience: FeedAudience;
       commandId?: string;
     }) => {
-      if (!uid) throw new Error('Not authenticated');
+      if (!isCurrentMember()) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('comment-delete');
       const { error } = await executeCommand('delete_comment', {
         p_comment_id: vars.commentId,
@@ -89,6 +105,7 @@ export function useDeleteComment() {
       if (error) throw error;
     },
     onMutate: (vars) => {
+      if (!isCurrentMember()) return undefined;
       const comments = client.getQueriesData<InfiniteData<Comment[]>>({
         predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
       });
@@ -108,33 +125,42 @@ export function useDeleteComment() {
         { revert: false, silent: true },
       );
       client.setQueriesData<InfiniteData<Comment[]>>(
-        { predicate: (query) => query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId },
-        (old) => old
-          ? {
-              ...old,
-              pages: old.pages.map((page) => page.filter((comment) => comment.id !== vars.commentId)),
-            }
-          : old,
+        {
+          predicate: (query) =>
+            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
+        },
+        (old) =>
+          old
+            ? {
+                ...old,
+                pages: old.pages.map((page) =>
+                  page.filter((comment) => comment.id !== vars.commentId),
+                ),
+              }
+            : old,
       );
       client.setQueriesData<InfiniteData<Post[]>>(
         { predicate: (query) => query.queryKey[0] === 'feed' },
-        (old) => mapInfinitePosts(old, vars.postId, (post) => ({
-          ...post,
-          comment_count: Math.max(0, post.comment_count - 1),
-        })),
+        (old) =>
+          mapInfinitePosts(old, vars.postId, (post) => ({
+            ...post,
+            comment_count: Math.max(0, post.comment_count - 1),
+          })),
       );
       client.setQueriesData<Post | null>(
         { predicate: (query) => query.queryKey[0] === 'post' && query.queryKey[1] === vars.postId },
-        (old) => old ? { ...old, comment_count: Math.max(0, old.comment_count - 1) } : old,
+        (old) => (old ? { ...old, comment_count: Math.max(0, old.comment_count - 1) } : old),
       );
       return { comments, feeds, posts };
     },
     onError: (_error, _vars, context) => {
+      if (!isCurrentMember()) return;
       for (const [key, data] of context?.comments ?? []) client.setQueryData(key, data);
       for (const [key, data] of context?.feeds ?? []) client.setQueryData(key, data);
       for (const [key, data] of context?.posts ?? []) client.setQueryData(key, data);
     },
     onSuccess: (_data, vars) => {
+      if (!isCurrentMember()) return;
       void refreshPostEngagement(client, vars.postId, vars.feedAudience).catch((error) => {
         if (__DEV__) console.warn('[comments] delete reconciliation failed', error);
       });

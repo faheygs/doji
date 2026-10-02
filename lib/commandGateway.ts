@@ -1,6 +1,6 @@
 import type { Database } from '../types/database';
 import type { AuthenticatedCommandName } from '../contracts/authenticatedCommands';
-import { reportRealtimeFailure } from './telemetry';
+import { reportApiFailure } from './apiFailureTelemetry';
 import { supabase } from './supabase';
 import { mobileReleaseIdentity } from './releaseIdentity';
 
@@ -26,6 +26,7 @@ type FunctionArgs<Name extends FunctionName> = Functions[Name]['Args'];
 type FunctionResult<Name extends FunctionName> = Functions[Name]['Returns'];
 
 export type CommandError = {
+  status?: number;
   code: string;
   details: string | null;
   hint: string | null;
@@ -42,9 +43,10 @@ function gatewayUrl(): string | null {
   return configured || null;
 }
 
-function commandError(value: unknown, fallback: string): CommandError {
+function commandError(value: unknown, fallback: string, status?: number): CommandError {
   const body = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
+    status,
     code: typeof body.code === 'string' ? body.code : 'DOJI_COMMAND_ERROR',
     details: typeof body.details === 'string' ? body.details : null,
     hint: typeof body.hint === 'string' ? body.hint : null,
@@ -76,7 +78,7 @@ async function gatewayCommand<Name extends FunctionName>(
 ): Promise<{ response: Response; payload: unknown }> {
   const release = mobileReleaseIdentity();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), COMMAND_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(new Error('Command timed out')), COMMAND_TIMEOUT_MS);
   try {
     const response = await fetch(`${baseUrl}/commands/rpc/${name}`, {
       method: 'POST',
@@ -103,6 +105,10 @@ async function gatewayCommand<Name extends FunctionName>(
       }
     }
     return { response, payload };
+  } catch (error) {
+    // Native fetch may reject with a generic AbortError instead of the deadline reason.
+    if (controller.signal.aborted) throw controller.signal.reason ?? new Error('Command timed out');
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -123,17 +129,22 @@ async function directCommand<Name extends FunctionName>(
 export async function executeCommand<Name extends FunctionName & AuthenticatedCommandName>(
   name: Name,
   args: FunctionArgs<Name>,
+  account?: { expectedUserId: string; isCurrent: () => boolean },
 ): Promise<CommandResult<Name>> {
+  const accountChanged = (): CommandResult<Name> => ({ data: null,
+    error: commandError(null, 'The account changed before this request finished.', 401) });
+  if (account && !account.isCurrent()) return accountChanged();
   const baseUrl = gatewayUrl();
   if (!baseUrl) {
-    if (__DEV__) return directCommand(name, args);
-    return {
+    if (__DEV__ && !account) return directCommand(name, args);
+    if (!__DEV__) return {
       data: null,
       error: commandError(null, 'This build is missing its secure command service configuration.'),
     };
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (account && (!account.isCurrent() || sessionData.session?.user?.id !== account.expectedUserId)) return accountChanged();
   let token = sessionData.session?.access_token;
   if (sessionError || !token) {
     return {
@@ -141,12 +152,17 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
       error: commandError(sessionError, 'Authentication required'),
     };
   }
+  if (!baseUrl) {
+    // Pin local development RPCs to the same actor as production commands.
+    return supabase.rpc(name, args as never).setHeader('Authorization', `Bearer ${token}`) as unknown as Promise<CommandResult<Name>>;
+  }
 
   const retryable = mayRetryCommand(name, args);
   let transientRetriesRemaining = retryable ? 1 : 0;
   let refreshedUnauthorizedSession = false;
   let lastFailure: unknown = null;
   for (;;) {
+    if (account && !account.isCurrent()) return accountChanged();
     try {
       const { response, payload } = await gatewayCommand(baseUrl, token, name, args);
       if (response.ok) {
@@ -154,8 +170,10 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
       }
 
       if (response.status === 401 && !refreshedUnauthorizedSession) {
+        if (account && !account.isCurrent()) return accountChanged();
         refreshedUnauthorizedSession = true;
         const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (account && (!account.isCurrent() || refreshed.session?.user?.id !== account.expectedUserId)) return accountChanged();
         const refreshedToken = refreshed.session?.access_token;
         if (!refreshError && refreshedToken) {
           token = refreshedToken;
@@ -165,13 +183,15 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
 
       if (transientRetriesRemaining > 0 && isTransientStatus(response.status)) {
         transientRetriesRemaining -= 1;
-        lastFailure = commandError(payload, `Command failed (${response.status})`);
+        lastFailure = commandError(payload, `Command failed (${response.status})`, response.status);
         await delay(TRANSIENT_RETRY_DELAY_MS);
         continue;
       }
+      const error = commandError(payload, `Command failed (${response.status})`, response.status);
+      reportApiFailure('command', name, error);
       return {
         data: null,
-        error: commandError(payload, `Command failed (${response.status})`),
+        error,
       };
     } catch (error) {
       lastFailure = error;
@@ -184,9 +204,10 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
     }
   }
 
-  reportRealtimeFailure('command-gateway', lastFailure, { command: name });
+  const error = commandError(lastFailure, 'Doji could not finish that request. Please try again.');
+  reportApiFailure('command', name, error);
   return {
     data: null,
-    error: commandError(lastFailure, 'Doji could not finish that request. Please try again.'),
+    error,
   };
 }

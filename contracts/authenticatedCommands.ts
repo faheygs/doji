@@ -35,6 +35,7 @@ export const AUTHENTICATED_COMMAND_NAMES = [
   'submit_challenge_suggestion',
   'submit_comment',
   'submit_content_report',
+  'submit_policy_report',
   'submit_moderation_appeal',
   'submit_poll_vote',
   'sync_notification_center_state',

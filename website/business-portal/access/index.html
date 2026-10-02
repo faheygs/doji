@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Doji · Business account</title>
+    <link rel="icon" href="/assets/doji-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portal.css" />
+    <link rel="stylesheet" href="/business-portal/application/application.css" />
+  </head>
+  <body class="portalPage" data-portal="business-application">
+    <header class="onboardingHeader">
+      <a class="portalBrand" href="/business/"
+        ><img src="/assets/doji-icon.png" alt="" /><span
+          >Doji<small>Business account</small></span
+        ></a
+      >
+      <button class="themeToggle" type="button" data-action="toggle-theme">
+        <span data-theme-label>Dark mode</span>
+      </button>
+    </header>
+    <main class="applicationMain">
+      <section class="onboardingCard">
+        <p class="eyebrow">Business access</p>
+        <h1 id="accessHeading">Create your business account</h1>
+        <p id="accessAvailability">Business account access is not open yet.</p>
+        <div id="accessContent" hidden>
+          <p>
+            Use a separate business email. This does not change your personal Doji account, approve
+            a business, publish campaigns or enable billing.
+          </p>
+          <p id="accountLegalNotice" hidden>
+            Before creating an account, read our
+            <a id="accountTermsLink" target="_blank" rel="noopener noreferrer"
+              >business application terms</a
+            >
+            and
+            <a id="accountPrivacyLink" target="_blank" rel="noopener noreferrer">privacy notice</a>.
+            Account agreement is recorded when you create your account. Application agreement is
+            recorded separately when you submit for review.
+          </p>
+          <form id="accountForm" class="authForm">
+            <div class="field" id="accountActionMount"></div>
+            <div class="field" id="accountNameField">
+              <label for="accountName">Your name</label
+              ><input id="accountName" maxlength="80" autocomplete="name" required />
+            </div>
+            <div class="field">
+              <label for="accountEmail">Business email</label
+              ><input
+                id="accountEmail"
+                type="email"
+                maxlength="254"
+                autocomplete="email"
+                required
+              />
+            </div>
+            <div class="field" id="accountPasswordField">
+              <label for="accountPassword">New password</label
+              ><input
+                id="accountPassword"
+                type="password"
+                minlength="12"
+                maxlength="128"
+                autocomplete="new-password"
+                required
+              /><small>Use 12–128 characters. Password managers and pasting are supported.</small>
+            </div>
+            <div id="accountAgreements">
+              <label class="consentRow"
+                ><input id="accountTerms" type="checkbox" required /><span
+                  >I represent a United States business and agree to the business account and application terms linked above.</span
+                ></label
+              >
+              <label class="consentRow"
+                ><input id="accountPrivacy" type="checkbox" required /><span
+                  >I acknowledge the privacy notice linked above.</span
+                ></label
+              >
+            </div>
+            <div id="accountVerification" class="businessVerification" hidden></div>
+            <div class="applicationActions">
+              <button class="portalButton primary" id="accountSubmit" type="submit">
+                Create account
+              </button>
+            </div>
+          </form>
+          <section id="linkConfirmation" hidden>
+            <h2>Confirm your request</h2>
+            <p>
+              Continue only if you requested this business-account email. Opening this page does not
+              use the link.
+            </p>
+            <div class="applicationActions">
+              <button class="portalButton primary" id="verifyLink" type="button">
+                Continue securely
+              </button>
+            </div>
+          </section>
+          <div id="accessMfa" hidden></div>
+          <div class="applicationActions" id="accessResume" hidden>
+            <button class="portalButton" id="resumeVerification" type="button">
+              Resume verification
+            </button>
+          </div>
+          <form id="passwordForm" class="authForm" hidden>
+            <div class="field">
+              <label for="replacementPassword">New password</label
+              ><input
+                id="replacementPassword"
+                type="password"
+                minlength="12"
+                maxlength="128"
+                autocomplete="new-password"
+                required
+              />
+            </div>
+            <div class="field">
+              <label for="repeatPassword">Confirm new password</label
+              ><input
+                id="repeatPassword"
+                type="password"
+                minlength="12"
+                maxlength="128"
+                autocomplete="new-password"
+                required
+              />
+            </div>
+            <div class="applicationActions">
+              <button class="portalButton primary" type="submit">Save password</button>
+            </div>
+          </form>
+          <div class="applicationActions">
+            <a class="portalButton" href="/business-portal/application/">Back to sign in</a>
+          </div>
+        </div>
+        <p id="accessMessage" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <script src="/portal-select.js"></script>
+    <script src="/portal.js"></script>
+    <script type="module" src="/business-portal/access/access.js"></script>
+  </body>
+</html>

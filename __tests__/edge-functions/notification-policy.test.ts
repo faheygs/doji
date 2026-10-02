@@ -67,4 +67,18 @@ describe('OS notification allowlist', () => {
       dailyEventId: 'daily-1',
     }))).toBeNull();
   });
+
+  it('routes finalized moderation removals through reviews and account', () => {
+    expect(resolvePushPolicy(event('moderation.status.changed', {
+      sendPush: true,
+      targetUserId: 'user-1',
+      decisionId: 'decision-1',
+    }, 'decision-1'))).toMatchObject({
+      preferenceKey: 'reviews_account',
+      scopeKind: 'moderation_decision',
+      scopeId: 'decision-1',
+      channelId: 'reviews-account',
+      collapseKey: 'moderation-decision:decision-1',
+    });
+  });
 });

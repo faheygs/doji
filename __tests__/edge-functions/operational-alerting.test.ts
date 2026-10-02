@@ -19,7 +19,23 @@ describe('operational alerting contract', () => {
     expect(monitor).toContain('() => wakeDomainRelay(this.env)');
     expect(monitor).toContain('HEALTH_SUSTAINED_CHECKS = 3');
     expect(monitor).toContain('HEALTH_CHECK_FAILURE_THRESHOLD = 3');
+    expect(health).toContain("'relay-or-publication-path'");
+    expect(health).toContain('realtime_retried_samples_5m');
     expect(worker).not.toContain('OPS_ALERT_WEBHOOK_URL');
+  });
+
+  it('retains the realtime publication attempt so alerts identify the delayed stage', () => {
+    const migration = read(
+      'supabase/migrations/20260925223000_classify_realtime_delivery_stage.sql',
+    );
+    const email = read('supabase/functions/send-admin-email/index.ts');
+    expect(migration).toContain('realtime_publish_attempts');
+    expect(migration).toContain('event.realtime_publish_attempts, event.attempts');
+    expect(migration).toContain("'realtime_retried_samples_5m'");
+    expect(email).toContain('Realtime publish retries (5m)');
+    expect(email).toContain('Review orchestrator relay timing');
+    expect(email).toContain('failed database acknowledgement after successful publication');
+    expect(email).not.toContain('investigate the realtime provider or network path before changing database writes');
   });
 
   it('retries one transient health timeout before paging the administrator', () => {

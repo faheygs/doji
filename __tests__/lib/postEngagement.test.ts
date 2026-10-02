@@ -2,6 +2,9 @@ import { QueryClient, type InfiniteData } from '@tanstack/react-query';
 import { refreshPostEngagement } from '../../lib/postEngagement';
 import { supabase } from '../../lib/supabase';
 import type { Post } from '../../types/database';
+jest.mock('../../stores/useAuthStore', () => ({
+  useAuthStore: { getState: () => ({ session: { user: { id: 'me' } } }) },
+}));
 
 jest.mock('../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
@@ -17,7 +20,7 @@ function post(commentCount: number, reactionCount: number): Post {
     id: 'post-1',
     user_event_id: 'event-1',
     user_id: 'owner-1',
-    type: 'text',
+    type: 'task_complete',
     is_community_poll: false,
     caption: 'hello',
     photo_url: null,
@@ -30,7 +33,7 @@ function post(commentCount: number, reactionCount: number): Post {
     comments_disabled: false,
     visibility: 'friends',
     created_at: '2026-08-21T00:00:00.000Z',
-    reaction_breakdown: {},
+    reaction_breakdown: { fire: 0, like: 0, dislike: 0, laugh: 0, wow: 0, heart: 0 },
     my_reactions: [],
   };
 }
@@ -52,7 +55,7 @@ describe('refreshPostEngagement', () => {
           post_id: 'post-1',
           comment_count: 2,
           reaction_count: 3,
-          reaction_breakdown: { FIRE: 3 },
+          reaction_breakdown: { fire: 3 },
           my_reactions: [],
         },
         error: null,

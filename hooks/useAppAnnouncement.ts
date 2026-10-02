@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
+import { rpcQueryError } from '../lib/rpcQueryError';
 
 export type AppAnnouncement = {
   id: string;
@@ -16,9 +17,10 @@ export function useAppAnnouncement(enabled: boolean) {
   const query = useQuery({
     queryKey: ['appAnnouncement', userId],
     queryFn: async (): Promise<AppAnnouncement | null> => {
-      const { data, error } = await (supabase as any).rpc('claim_active_app_announcement');
-      if (error) throw error;
-      return (Array.isArray(data) ? data[0] : null) as AppAnnouncement | null;
+      const { data, error, status } = await (supabase as any).rpc('claim_active_app_announcement');
+      if (error) throw rpcQueryError(error, { status });
+      // SETOF RPCs return [] when nothing is eligible. TanStack rejects undefined.
+      return (Array.isArray(data) ? data[0] ?? null : null) as AppAnnouncement | null;
     },
     enabled: enabled && !!userId,
     staleTime: Number.POSITIVE_INFINITY,

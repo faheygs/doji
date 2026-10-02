@@ -26,10 +26,13 @@ export function useAddComment() {
   const queryClient = useQueryClient();
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
+  const uid = session?.user?.id;
+  const isCurrentMember = () => !!uid && useAuthStore.getState().session?.user.id === uid;
   return useMutation({
+    // Keep pending callbacks attached to the account that started the command.
+    mutationKey: ['addComment', uid],
     mutationFn: async (variables: AddCommentVars) => {
-      const uid = session?.user?.id;
-      if (!uid) throw new Error('Not authenticated');
+      if (!isCurrentMember()) throw new Error('Not authenticated');
       const body = variables.body.trim();
       if (!body) throw new Error('Comment cannot be empty');
       const check = filterContent(body);
@@ -45,8 +48,9 @@ export function useAddComment() {
       return data as Comment;
     },
     onMutate: (variables) => {
-      const uid = session?.user?.id;
-      if (!uid) return undefined;
+      if (!uid || !isCurrentMember()) return undefined;
+      const body = variables.body.trim();
+      if (!body || !filterContent(body).ok) return undefined;
       variables.commandId ??= newCommandId('comment');
       const comments = queryClient.getQueriesData<InfiniteData<Comment[]>>({
         predicate: (query) =>
@@ -73,11 +77,11 @@ export function useAddComment() {
       const optimistic = createOptimisticComment({
         postId: variables.postId,
         userId: uid,
-        body: variables.body.trim(),
+        body,
         parentId: variables.parentId ?? null,
         replyToCommentId: variables.replyToCommentId ?? null,
         commandId: variables.commandId,
-        profile,
+        profile: profile?.id === uid ? profile : undefined,
       });
       queryClient.setQueriesData<InfiniteData<Comment[]>>(
         {
@@ -104,11 +108,13 @@ export function useAddComment() {
       return { comments, feeds, posts, optimistic };
     },
     onError: (_error, _variables, context) => {
+      if (!isCurrentMember()) return;
       for (const [key, data] of context?.comments ?? []) queryClient.setQueryData(key, data);
       for (const [key, data] of context?.feeds ?? []) queryClient.setQueryData(key, data);
       for (const [key, data] of context?.posts ?? []) queryClient.setQueryData(key, data);
     },
     onSuccess: (result, variables, context) => {
+      if (!isCurrentMember()) return;
       if (!variables.commandId) return;
       const authoritative: Comment = {
         ...result,

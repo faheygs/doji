@@ -18,6 +18,23 @@ describe('member moderation experience', () => {
     expect(accountStatus).toContain("decision.state === 'active' && decision.appeal_eligible");
   });
 
+  it('distinguishes an account warning from the affected content action', () => {
+    const accountStatus = source('app/(app)/profile/account-status.tsx');
+    expect(accountStatus).toContain("decision.account_action?.action === 'warning'");
+    expect(accountStatus).toContain("? 'Warning'");
+    expect(accountStatus).toContain('{label(decision.action)} · {label(decision.content_kind)}');
+  });
+
+  it('shows server-timed restrictions and keeps suspension appeals inside the app', () => {
+    const accountStatus = source('app/(app)/profile/account-status.tsx');
+    const suspended = source('app/banned.tsx');
+    expect(accountStatus).toContain("accountAccess?.state === 'temporarily_restricted'");
+    expect(accountStatus).toContain('Access returns automatically on');
+    expect(suspended).toContain('useModerationStatus()');
+    expect(suspended).toContain('Appeal decision');
+    expect(suspended).toContain('submitAppeal.mutateAsync');
+  });
+
   it('acknowledges a moderation notice and opens Account Status', () => {
     const notifications = source('components/notifications/NotificationSheet.tsx');
     expect(notifications).toContain("case 'moderation_notice'");

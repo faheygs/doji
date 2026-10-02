@@ -1,11 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +15,9 @@ import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/use
 import { formatRelativeTime } from '../../../utils/time';
 import { goBackToExplicitReturn, hrefPreservingReturnTo } from '../../../lib/navigationReturn';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
+import { ReadFailureFeedback } from '../../../components/ui/ReadFailureFeedback';
+import { InlineFeedback } from '../../../components/ui/InlineFeedback';
+import { canKeepQueryDataOnError } from '../../../lib/queryDisplayState';
 
 export default function FriendRequestsScreen() {
   const router = useRouter();
@@ -33,8 +30,11 @@ export default function FriendRequestsScreen() {
   const { colors } = useTheme();
   const requestsQuery = useFriendRequests();
   const requests = useMemo(
-    () => requestsQuery.data?.pages.flatMap((page) => page) ?? [],
-    [requestsQuery.data?.pages],
+    () =>
+      requestsQuery.error && !canKeepQueryDataOnError(requestsQuery.data, requestsQuery.error)
+        ? []
+        : (requestsQuery.data?.pages.flatMap((page) => page) ?? []),
+    [requestsQuery.data, requestsQuery.error],
   );
   const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = requestsQuery;
   const respond = useRespondToFriendRequest();
@@ -104,7 +104,7 @@ export default function FriendRequestsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {isLoading ? (
+      {isLoading && requests.length === 0 ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.text} />
         </View>
@@ -118,9 +118,36 @@ export default function FriendRequestsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+            if (
+              hasNextPage &&
+              !requestsQuery.isFetching &&
+              !isFetchingNextPage &&
+              !requestsQuery.isError
+            )
+              void fetchNextPage();
           }}
           onEndReachedThreshold={0.35}
+          ListHeaderComponent={
+            <>
+              {requestsQuery.isError ? (
+                <ReadFailureFeedback
+                  message="Could not load friend requests. Please try again."
+                  retrying={requestsQuery.isFetching}
+                  onRetry={() =>
+                    void (requestsQuery.isFetchNextPageError
+                      ? fetchNextPage({ cancelRefetch: false })
+                      : requestsQuery.refetch({ cancelRefetch: false }))
+                  }
+                />
+              ) : null}
+              {respond.isError ? (
+                <InlineFeedback
+                  message="Could not respond to this friend request. Please try again."
+                  style={{ marginBottom: Spacing.sm }}
+                />
+              ) : null}
+            </>
+          }
           ListFooterComponent={
             isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null
           }
@@ -175,12 +202,14 @@ export default function FriendRequestsScreen() {
             );
           }}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <IconFriends size={44} color={colors.textTertiary} />
-              <Text variant="body" color={colors.textSecondary}>
-                No pending friend requests
-              </Text>
-            </View>
+            requestsQuery.isError ? null : (
+              <View style={styles.empty}>
+                <IconFriends size={44} color={colors.textTertiary} />
+                <Text variant="body" color={colors.textSecondary}>
+                  No pending friend requests
+                </Text>
+              </View>
+            )
           }
         />
       )}

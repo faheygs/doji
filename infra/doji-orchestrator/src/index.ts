@@ -22,6 +22,9 @@ export interface Env {
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
   SENTRY_DSN?: string;
+  SENTRY_API_TOKEN?: string;
+  SENTRY_ORG_SLUG?: string;
+  SENTRY_PROJECT_SLUGS?: string;
   SUPABASE_JWT_SECRET?: string;
   SCALE_CACHE_VERSION?: string;
   ADMIN_PORTAL_ORIGINS?: string;

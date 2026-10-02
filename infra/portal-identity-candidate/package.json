@@ -1,0 +1,10 @@
+{
+  "name": "doji-portal-identity-candidate",
+  "private": true,
+  "type": "module",
+  "description": "Offline preparation only; no deployed entry point",
+  "dependencies": {
+    "jose": "6.2.8",
+    "pg": "8.16.3"
+  }
+}

@@ -1,3 +1,11 @@
+import { patchReactionToggle } from '../../hooks/useToggleReaction';
+import type { Post } from '../../types/database';
+
+jest.mock('../../stores/useAuthStore', () => ({ useAuthStore: jest.fn() }));
+jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
+jest.mock('../../lib/postEngagement', () => ({ refreshPostEngagement: jest.fn() }));
+jest.mock('../../lib/queryInvalidationBatcher', () => ({ scheduleQueryInvalidation: jest.fn() }));
+
 /**
  * Tests for feed utility functions defined in useFeed.ts.
  * todayRange is not exported, so we replicate the logic here.
@@ -45,68 +53,33 @@ describe('todayRange (UTC)', () => {
 });
 
 describe('patchReactionToggle (feed optimistic update logic)', () => {
-  type ReactionBreakdown = Record<string, number>;
-  type ReactionEmoji = string;
-  type Post = {
-    id: string;
-    reaction_count: number;
-    reaction_breakdown: ReactionBreakdown;
-    my_reactions: ReactionEmoji[];
-  };
-
-  function patchReactionToggle(post: Post, emoji: ReactionEmoji, active: boolean): Post {
-    const bd: Record<string, number> = { ...(post.reaction_breakdown ?? {}) };
-    const myReactions = [...(post.my_reactions ?? [])];
-
-    if (active) {
-      bd[emoji] = Math.max(0, (bd[emoji] ?? 0) - 1);
-      if (bd[emoji] <= 0) delete bd[emoji];
-      const idx = myReactions.indexOf(emoji);
-      if (idx >= 0) myReactions.splice(idx, 1);
-      return {
-        ...post,
-        reaction_count: Math.max(0, post.reaction_count - 1),
-        reaction_breakdown: bd,
-        my_reactions: myReactions,
-      };
-    } else {
-      bd[emoji] = (bd[emoji] ?? 0) + 1;
-      myReactions.push(emoji);
-      return {
-        ...post,
-        reaction_count: post.reaction_count + 1,
-        reaction_breakdown: bd,
-        my_reactions: myReactions,
-      };
-    }
-  }
-
-  const basePost: Post = {
+  const basePost = {
     id: 'p1',
     reaction_count: 2,
-    reaction_breakdown: { fire: 1, love: 1 },
+    reaction_breakdown: { fire: 1, heart: 1 },
     my_reactions: ['fire'],
-  };
+  } as Post;
 
-  it('adds a new reaction', () => {
+  it('replaces the existing reaction without increasing the total', () => {
     const result = patchReactionToggle(basePost, 'wow', false);
-    expect(result.reaction_count).toBe(3);
-    expect(result.reaction_breakdown.wow).toBe(1);
-    expect(result.my_reactions).toContain('wow');
+    expect(result.reaction_count).toBe(2);
+    expect(result.reaction_breakdown?.wow).toBe(1);
+    expect(result.my_reactions).toEqual(['wow']);
   });
 
   it('removes an existing reaction', () => {
     const result = patchReactionToggle(basePost, 'fire', true);
     expect(result.reaction_count).toBe(1);
-    expect(result.reaction_breakdown.fire).toBeUndefined();
+    expect(result.reaction_breakdown?.fire).toBeUndefined();
     expect(result.my_reactions).not.toContain('fire');
   });
 
   it('does not go below 0 reaction count', () => {
     const emptyPost: Post = {
+      ...basePost,
       id: 'p2',
       reaction_count: 0,
-      reaction_breakdown: {},
+      reaction_breakdown: undefined,
       my_reactions: [],
     };
     const result = patchReactionToggle(emptyPost, 'fire', true);
@@ -115,6 +88,6 @@ describe('patchReactionToggle (feed optimistic update logic)', () => {
 
   it('increments existing emoji count', () => {
     const result = patchReactionToggle(basePost, 'fire', false);
-    expect(result.reaction_breakdown.fire).toBe(2);
+    expect(result.reaction_breakdown?.fire).toBe(2);
   });
 });

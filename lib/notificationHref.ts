@@ -28,6 +28,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
   if (type === 'SUGGESTION_APPROVED' || type === 'SUGGESTION_REJECTED') {
     return '/(app)/profile' as Href;
   }
+  if (type === 'MODERATION') return '/(app)/profile/account-status' as Href;
   if (
     (type === 'REACTION' ||
       type === 'COMMENT' ||

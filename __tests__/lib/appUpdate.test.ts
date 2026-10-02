@@ -17,6 +17,31 @@ const policy: MobileReleasePolicy = {
 };
 
 describe('mobile app update decisions', () => {
+  it('requires older Android builds but accepts the approved Alpha build 23 and newer', () => {
+    const android23: MobileReleasePolicy = {
+      ...policy,
+      platform: 'android',
+      latest_version: '1.0.8',
+      latest_build: 23,
+      minimum_version: '1.0.8',
+      minimum_build: 23,
+      store_url: 'https://play.google.com/store/apps/details?id=com.doit.challengeapp',
+    };
+    for (const installed of [
+      { version: '1.0.7', build: 17 },
+      ...[20, 21, 22].map((build) => ({ version: '1.0.8', build })),
+    ]) {
+      expect(assessAppUpdate(installed, android23)).toEqual({ available: true, required: true });
+    }
+    for (const installed of [
+      { version: '1.0.8', build: 23 },
+      { version: '1.0.8', build: 24 },
+      { version: '1.0.9', build: 25 },
+    ]) {
+      expect(assessAppUpdate(installed, android23)).toEqual({ available: false, required: false });
+    }
+  });
+
   it('compares dotted versions numerically rather than lexically', () => {
     expect(compareVersions('1.10.0', '1.9.9')).toBe(1);
     expect(compareVersions('1.0', '1.0.0')).toBe(0);

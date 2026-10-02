@@ -1,0 +1,71 @@
+/* Public safety layout; reuse Doji site tokens and themed shared form controls. */
+.safetyShell { padding-block: 48px 72px; }
+.safetyPage .nav { min-height: 72px; }
+.safetyPage .navLinks { display: flex; font-size: 14px; }
+.safetyPage .navLinks a:not(.navCta) { display: inline; }
+.safetyHero { max-width: 760px; margin-bottom: 36px; }
+.safetyHero .eyebrow { margin-bottom: 14px; }
+.safetyShell .eyebrow { color: #b33a20; }
+.safetyHero h1 { font-size: clamp(32px,4vw,48px); line-height: 1.1; margin-bottom: 18px; }
+.safetyLead { max-width: 710px; color: var(--muted); font-size: 17px; line-height: 1.65; margin: 0; }
+.safetyAssurances { display: flex; flex-wrap: wrap; gap: 12px 22px; list-style: none; padding: 0; margin: 22px 0 0; color: var(--muted); font-size: 13px; }
+.safetyAssurances li::before { content: '✓'; color: var(--orange-dark); margin-right: 7px; font-weight: 800; }
+.safetyLayout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 40px; }
+.safetyPrimary, .safetySidebar { min-width: 0; }
+.safetyShell .supportCard { padding: 32px; border-radius: var(--radius); }
+.safetyCardHeader { margin-bottom: 22px; }
+.safetyShell h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.035em; margin-bottom: 8px; }
+.safetyShell p { line-height: 1.6; }
+.safetyCardHeader > p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: 14px; }
+.safetyNotice { padding: 16px 18px; background: var(--soft); border-radius: 12px; font-size: 13px; }
+.safetyNotice strong { font-size: 14px; }
+.safetyNotice p { margin: 5px 0 0; }
+.safetyAvailability { font-size: 13px; color: var(--muted); margin: 18px 0 0; }
+.safetyFormGroup { padding-top: 28px; }
+.safetyFormGroup + .safetyFormGroup { border-top: 1px solid var(--line); margin-top: 28px; }
+.safetyFormGroup h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 16px; letter-spacing: -.015em; margin-bottom: 20px; }
+.safetyStepNumber { display: inline-grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; color: #b33a20; background: var(--soft); border-radius: 50%; font-size: 13px; font-weight: 750; letter-spacing: 0; }
+.safetyShell fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.safetyShell .formGrid { gap: 22px 18px; }
+.safetyShell .field { align-content: start; }
+html[data-theme] .safetyShell .field label { font-size: 13px; font-weight: 650; }
+html[data-theme] .safetyShell .field input, html[data-theme] .safetyShell .field select, html[data-theme] .safetyShell .field textarea { font: inherit; font-size: 15px; border-color: var(--line); }
+html[data-theme] .safetyShell .field small { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.safetyShell .field textarea { resize: vertical; }
+.safetyShell :focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
+.safetyDeclaration { display: flex; align-items: flex-start; gap: 12px; margin-top: 22px; font-size: 13px; line-height: 1.65; }
+.safetyDeclaration input { width: 18px; height: 18px; flex-shrink: 0; margin: 3px 0 0; accent-color: var(--orange-dark); }
+.safetyVerification:not(:empty) { margin-block: 22px; }
+.safetyFeedback { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.safetyFeedback:empty { margin: 0; }
+.safetyFeedback.error { color: #b42318; }
+.safetySubmit { display: grid; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 26px; }
+.safetySubmit > p, .safetyFinePrint { font-size: 12px; color: var(--muted); margin-bottom: 0; }
+html[data-theme] .safetyShell .portalButton { font: inherit; font-size: 14px; font-weight: 700; min-height: 48px; }
+html[data-theme] .safetyShell .portalButton.primary { background: var(--orange); box-shadow: none; }
+.safetyShell .portalButton:disabled { cursor: not-allowed; }
+.safetySubmit .portalButton { justify-self: end; width: auto; min-width: 104px; justify-content: center; }
+.safetyActions { display: flex; justify-content: flex-end; padding-top: 24px; }
+.safetyGuide { padding: 12px 0 28px; }
+.safetyGuide + .safetyGuide { border-top: 1px solid var(--line); padding-top: 28px; }
+.safetyGuide h2 { font-size: 20px; }
+.safetyGuide .eyebrow { font-size: 11px; margin-bottom: 12px; }
+.safetySteps { padding: 0; list-style: none; counter-reset: step; margin: 26px 0; }
+.safetySteps li { counter-increment: step; padding: 0 0 24px 38px; position: relative; }
+.safetySteps li:last-child { padding-bottom: 0; }
+.safetySteps li::before { content: counter(step); position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 50%; font-size: 11px; font-weight: 700; background: var(--card); }
+.safetySteps strong { font-size: 14px; }
+.safetySteps p { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.safetyDeadline { border-left: 2px solid var(--orange); padding-left: 16px; font-size: 13px; }
+.safetyDeadline p, .safetyHelp p { color: var(--muted); font-size: 13px; margin-bottom: 0; }
+.safetyHelpLink { display: inline-block; margin-top: 18px; font-size: 13px; font-weight: 700; text-underline-offset: 4px; }
+.safetyShell dd { margin: 6px 0 20px; overflow-wrap: anywhere; font-family: ui-monospace,monospace; font-size: 14px; }
+.safetyReceipt { background: var(--paper); padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
+.safetyReceipt dt { font-size: 12px; color: var(--muted); }
+#statusSection { scroll-margin-top: 96px; margin-top: 24px; }
+.safetyPreview { padding: 10px 14px; border: 1px dashed var(--line); border-radius: 10px; margin-bottom: 28px; color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.safetyPreview strong { color: var(--ink); }
+.safetyShell [hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media(max-width: 920px) { .safetyLayout { grid-template-columns: minmax(0,1fr) 250px; gap: 24px; } .safetyShell .supportCard { padding: 24px; } .safetyShell .formGrid { grid-template-columns: 1fr; } }
+@media(max-width: 700px) { .safetyShell { padding-top: 24px; } .safetyLayout { grid-template-columns: 1fr; gap: 28px; } .safetyHero { margin-bottom: 28px; } .safetyLead { font-size: 15px; } .safetyAssurances { gap: 10px 14px; font-size: 12px; } .safetyShell .supportCard { padding: 22px 18px; border-radius: 20px; } .safetyShell h2 { font-size: 21px; } .safetyPage .navLinks { gap: 14px; font-size: 12px; } .safetyPage .brand { font-size: 21px; } .safetyPage .brand img { width: 34px; height: 34px; } html[data-theme] .safetyShell .field input, html[data-theme] .safetyShell .field select, html[data-theme] .safetyShell .field textarea { font-size: 16px; } .safetySidebar { padding-inline: 6px; } }

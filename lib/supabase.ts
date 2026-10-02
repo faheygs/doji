@@ -1,32 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, Platform } from 'react-native';
 import type { Database } from '../types/database';
+import { boundedSupabaseFetch } from './supabaseFetch';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-const SUPABASE_REQUEST_TIMEOUT_MS = 15_000;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Doji is missing its Supabase configuration');
 }
 
-async function boundedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController();
-  const upstreamSignal = init.signal;
-  const abort = () => controller.abort();
-  if (upstreamSignal?.aborted) controller.abort();
-  else upstreamSignal?.addEventListener('abort', abort, { once: true });
-  const timeout = setTimeout(abort, SUPABASE_REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-    upstreamSignal?.removeEventListener('abort', abort);
-  }
-}
-
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  global: { fetch: boundedFetch },
+  global: { fetch: boundedSupabaseFetch },
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
@@ -35,5 +21,15 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
   },
 });
+
+// On React Native there is no browser visibility lifecycle. Keep refresh work
+// active only while Doji is foregrounded, as recommended by Supabase, so a
+// suspended handset does not race stale refresh work after it wakes.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
 
 export type TypedSupabaseClient = typeof supabase;

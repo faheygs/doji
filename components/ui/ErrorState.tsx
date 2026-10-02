@@ -8,6 +8,7 @@ type Props = {
   title?: string;
   message?: string;
   onRetry?: () => void;
+  actionLabel?: string;
   compact?: boolean;
 };
 
@@ -15,6 +16,7 @@ export function ErrorState({
   title = 'Something went wrong',
   message = 'Please try again.',
   onRetry,
+  actionLabel,
   compact = false,
 }: Props) {
   const { colors } = useTheme();
@@ -31,10 +33,10 @@ export function ErrorState({
               onPress={onRetry}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Retry"
+              accessibilityLabel={actionLabel ?? 'Retry'}
             >
               <Text variant="label" color={colors.error}>
-                Retry
+                {actionLabel ?? 'Retry'}
               </Text>
             </TouchableOpacity>
           )}
@@ -57,10 +59,10 @@ export function ErrorState({
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Try again"
+          accessibilityLabel={actionLabel ?? 'Try again'}
         >
           <Text variant="label" color={colors.onPrimary}>
-            Try Again
+            {actionLabel ?? 'Try Again'}
           </Text>
         </TouchableOpacity>
       )}

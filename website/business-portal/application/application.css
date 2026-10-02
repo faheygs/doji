@@ -1,0 +1,103 @@
+.applicationMain {
+  max-width: 980px;
+  margin: 40px auto;
+  padding: 0 24px 60px;
+}
+.applicationMain h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  margin: 10px 0 20px;
+}
+.applicationMain .onboardingCard {
+  padding: 32px;
+}
+.applicationHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.applicationHeading > .portalButton {
+  margin-inline-start: auto;
+}
+.applicationActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 28px;
+}
+.applicationMain .applicationActions .portalButton {
+  width: auto;
+  margin-top: 0;
+}
+.applicationMain .formGrid {
+  margin-top: 28px;
+}
+.applicationMain .consentRow {
+  margin-top: 28px;
+}
+.applicationMain .consentRow,
+.applicationMain .authHint {
+  color: var(--portal-copy);
+  background: var(--portal-panel-2);
+  border: 1px solid var(--portal-line);
+  font-size: 14px;
+}
+.applicationMain .consentRow a {
+  color: inherit;
+  text-decoration: underline;
+}
+.applicationMain .portalSelectOption.highlighted {
+  outline: 2px solid var(--portal-copy);
+  outline-offset: -2px;
+}
+.applicationMain input[readonly],
+.applicationMain textarea[readonly] {
+  opacity: 1;
+}
+.applicationMain #applicationResponse,
+.applicationMain #applicationStale {
+  margin-top: 20px;
+}
+.applicationMain #businessApplicationMessage {
+  overflow-wrap: anywhere;
+}
+.businessMfaQr {
+  display: block;
+  width: 200px;
+  max-width: 100%;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+}
+.businessVerification {
+  margin-top: 24px;
+  color: var(--portal-copy);
+  min-width: 0;
+}
+.businessVerification > p {
+  font-size: 14px;
+}
+.applicationMain [data-mfa-secret] {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.applicationMain .authHint h2 {
+  color: var(--portal-copy);
+}
+@media (max-width: 640px) {
+  .applicationMain {
+    padding: 0 16px 40px;
+    margin-top: 24px;
+  }
+  .applicationMain .onboardingCard {
+    padding: 20px;
+  }
+  .applicationMain .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .applicationHeading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}

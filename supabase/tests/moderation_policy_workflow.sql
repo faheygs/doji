@@ -1,6 +1,6 @@
 begin;
 
-select plan(25);
+select plan(47);
 
 select has_column('public', 'posts', 'moderation_status', 'posts have server-owned moderation visibility');
 select has_column('public', 'comments', 'moderation_status', 'comments have server-owned moderation visibility');
@@ -14,19 +14,41 @@ select has_function('public', 'get_my_moderation_status', array[]::text[], 'memb
 select has_function('public', 'submit_moderation_appeal', array['uuid', 'text', 'text'], 'appeals use one atomic command');
 select has_function('public', 'get_admin_report_case_v2', array['uuid'], 'classified case review has a bounded read');
 select has_function('public', 'admin_decide_report_v2', array['uuid', 'text', 'text', 'text', 'text', 'text', 'text'], 'classified decisions use one atomic command');
+select has_function('public', 'admin_decide_report_v3', array['uuid', 'text', 'text', 'text', 'text', 'text', 'text', 'integer', 'text'], 'restricted dispositions use one atomic command');
 select has_function('public', 'get_admin_appeals_snapshot', array['integer'], 'appeals have a bounded operator queue');
 select has_function('public', 'admin_review_moderation_appeal', array['uuid', 'text', 'text', 'text'], 'appeal review is atomic');
-select alike(pg_get_functiondef('public.admin_decide_report_v2(uuid,text,text,text,text,text,text)'::regprocedure), '%moderation_status = ''removed''%', 'content removal is a reversible state transition');
-select unalike(pg_get_functiondef('public.admin_decide_report_v2(uuid,text,text,text,text,text,text)'::regprocedure), '%delete from public.posts%', 'classified enforcement never hard deletes posts');
-select alike(pg_get_functiondef('public.admin_decide_report_v2(uuid,text,text,text,text,text,text)'::regprocedure), '%''warning''%', 'routine removal issues an account warning');
-select alike(pg_get_functiondef('public.admin_decide_report_v2(uuid,text,text,text,text,text,text)'::regprocedure), '%restricted_safety%', 'serious cases can be quarantined into restricted review');
-select alike(pg_get_functiondef('public.admin_review_moderation_appeal(uuid,text,text,text)'::regprocedure), '%Appeals must be reviewed by a different operator%', 'appeal reviewer independence is enforced');
-select alike(pg_get_functiondef('public.admin_review_moderation_appeal(uuid,text,text,text)'::regprocedure), '%moderation_status = ''visible''%', 'successful appeals restore affected content');
+select alike(pg_get_functiondef('public.admin_decide_report_v2_legacy_20260924(uuid,text,text,text,text,text,text)'::regprocedure), '%moderation_status = ''removed''%', 'content removal is a reversible state transition');
+select unalike(pg_get_functiondef('public.admin_decide_report_v2_legacy_20260924(uuid,text,text,text,text,text,text)'::regprocedure), '%delete from public.posts%', 'classified enforcement never hard deletes posts');
+select alike(pg_get_functiondef('public.admin_decide_report_v2_legacy_20260924(uuid,text,text,text,text,text,text)'::regprocedure), '%''warning''%', 'routine removal issues an account warning');
+select alike(pg_get_functiondef('public.admin_decide_report_v2_legacy_20260924(uuid,text,text,text,text,text,text)'::regprocedure), '%restricted_safety%', 'serious cases can be quarantined into restricted review');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal_before_account_restrictions_20260924(uuid,text,text,text)'::regprocedure), '%Appeals must be reviewed by a different operator%', 'appeal reviewer independence is enforced');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal_before_account_restrictions_20260924(uuid,text,text,text)'::regprocedure), '%actor_role = ''super_admin''%', 'super admin is the final appeal authority');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal_before_account_restrictions_20260924(uuid,text,text,text)'::regprocedure), '%superAdminOverride%', 'super admin appeal authority is explicitly audited');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal_before_account_restrictions_20260924(uuid,text,text,text)'::regprocedure), '%moderation_status = ''visible''%', 'successful appeals restore affected content');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal(uuid,text,text,text)'::regprocedure), '%is_banned = false%', 'successful account appeals restore access');
 select alike(pg_get_functiondef('public.get_feed_page_snapshot_v2(uuid,text,integer,timestamptz,uuid)'::regprocedure), '%moderation_status = ''visible''%', 'feed snapshots exclude hidden content');
 select alike(pg_get_functiondef('public.get_comment_thread_snapshot(uuid,text,timestamptz,uuid,integer)'::regprocedure), '%moderation_status = ''visible''%', 'comment snapshots exclude hidden comments');
 select alike(pg_get_functiondef('public.can_read_post_media(text,uuid)'::regprocedure), '%restricted_safety%', 'restricted media requires the restricted evidence path');
 select ok(not has_function_privilege('anon', 'public.get_my_moderation_status()', 'execute'), 'anonymous users cannot read account status');
 select ok(not has_function_privilege('anon', 'public.admin_review_moderation_appeal(uuid,text,text,text)', 'execute'), 'anonymous users cannot decide appeals');
+select has_table('public', 'member_moderation_email_deliveries', 'serious enforcement email delivery is durably recorded');
+select has_table('public', 'moderation_account_content_states', 'permanent suspension content has a private restoration ledger');
+select alike(pg_get_functiondef('public.admin_decide_report_v3(uuid,text,text,text,text,text,text,integer,text)'::regprocedure), '%legal.read%', 'restricted disposition requires restricted authorization');
+select alike(pg_get_functiondef('public.admin_decide_report_v3(uuid,text,text,text,text,text,text,integer,text)'::regprocedure), '%temporary_restriction%', 'temporary restrictions are an explicit account outcome');
+select alike(pg_get_functiondef('public.reject_banned_actor_write()'::regprocedure), '%ends_at > clock_timestamp()%', 'temporary restrictions expire by server time');
+select alike(pg_get_functiondef('public.reject_banned_actor_write()'::regprocedure), '%tg_table_name in (''blocks'', ''reports'', ''device_push_endpoints'')%', 'temporary restrictions preserve reporting, blocking, and delivery controls');
+select alike(pg_get_functiondef('public.admin_triage_report(uuid,text,text,text,text)'::regprocedure), '%Restricted safety authorization required%', 'restricted triage is permission gated');
+select alike(pg_get_functiondef('public.admin_review_moderation_appeal(uuid,text,text,text)'::regprocedure), '%Restricted safety authorization required%', 'restricted appeals are permission gated');
+select unalike(pg_get_functiondef('public.purge_newly_banned_user_content()'::regprocedure), '%delete from public.posts%', 'account suspension preserves content for appeal');
+select alike(pg_get_functiondef('public.admin_decide_report_v2(uuid,text,text,text,text,text,text)'::regprocedure), '%''sendPush'', true%', 'finalized removals request account push delivery');
+select alike(pg_get_functiondef('public.admin_decide_report_v3(uuid,text,text,text,text,text,text,integer,text)'::regprocedure), '%p_severity in (''level_2'', ''level_3'')%', 'finalized serious and emergency removals request member email');
+select alike(pg_get_functiondef('public.submit_policy_report(uuid,uuid,uuid,uuid,text,text,text,text,text)'::regprocedure), '%pg_advisory_xact_lock%', 'concurrent report retries serialize before reading the command receipt');
+select alike(pg_get_functiondef('public.get_feed_page_snapshot_v2(uuid,text,integer,timestamptz,uuid)'::regprocedure), '%report.reporter_id = uid%report.status = ''pending''%', 'pending post reports are hidden from the reporter feed');
+select alike(pg_get_functiondef('public.get_comment_thread_snapshot(uuid,text,timestamptz,uuid,integer)'::regprocedure), '%has_pending_own_comment_report(comment.id)%', 'pending comment reports are hidden through the member-safe reporter check');
+select alike(pg_get_functiondef('public.get_comment_thread_snapshot(uuid,text,timestamptz,uuid,integer)'::regprocedure), '%SECURITY DEFINER%', 'member comment snapshots isolate reads from operator-table RLS');
+select ok(not has_function_privilege('authenticated', 'public.can_view_full_post(uuid,uuid)', 'execute'), 'private post authorization helper stays unavailable to direct member calls');
+select alike(pg_get_functiondef('public.get_poll_snapshot_for_feed(uuid,text)'::regprocedure), '%report.poll_vote_id = vote.id%report.status = ''pending''%', 'pending custom poll-response reports are hidden from the reporter poll snapshot');
+select has_trigger('public', 'reports', 'enforce_critical_report_quarantine', 'critical reports atomically trigger global quarantine');
 
 select * from finish();
 rollback;

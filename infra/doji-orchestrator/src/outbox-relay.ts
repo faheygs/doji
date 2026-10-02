@@ -7,7 +7,7 @@ type RelayAlarmState = { nextWakeAt: string };
 
 const OUTBOX_RECOVERY_ALARM_MS = 30_000;
 const OUTBOX_MAX_PAGES_PER_ALARM = 8;
-const UPSTREAM_TIMEOUT_MS = 12_000;
+const UPSTREAM_TIMEOUT_MS = 20_000;
 
 function fetchUpstream(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   return fetch(input, {
@@ -59,6 +59,8 @@ async function relayResult(response: Response): Promise<{
 export class OutboxRelayAlarm extends DurableObject<Env> {
   private drainTask: Promise<void> | null = null;
   private drainId: string | null = null;
+  private drainStarting = false;
+  private rerunRequested = false;
 
   private async schedule(nextWakeAt: string): Promise<void> {
     const wakeTime = Date.parse(nextWakeAt);
@@ -71,12 +73,35 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     if (request.method === 'POST') {
+      // A wake can arrive after the active relay page has checked for more work
+      // but before that drain has cleared its recovery alarm. Do not let the
+      // finishing drain erase that wake: remember it in memory and make the
+      // active task take another page before it is allowed to go idle.
+      if (this.drainTask || this.drainStarting) {
+        this.rerunRequested = true;
+        return Response.json({
+          scheduled: true,
+          draining: true,
+          drainId: this.drainId,
+          rerunRequested: true,
+        });
+      }
+
       // The alarm is crash recovery; normal dispatch starts in this request.
-      await this.schedule(new Date(Date.now() + OUTBOX_RECOVERY_ALARM_MS).toISOString());
       const acceptedAt = Date.now();
-      const drainId = this.drainId ?? crypto.randomUUID();
-      this.ctx.waitUntil(this.startDrain(drainId, acceptedAt));
-      return Response.json({ scheduled: true, draining: true, drainId });
+      const drainId = crypto.randomUUID();
+      this.drainId = drainId;
+      this.drainStarting = true;
+      try {
+        await this.schedule(new Date(Date.now() + OUTBOX_RECOVERY_ALARM_MS).toISOString());
+        this.ctx.waitUntil(this.startDrain(drainId, acceptedAt));
+        return Response.json({ scheduled: true, draining: true, drainId });
+      } catch (error) {
+        this.drainId = null;
+        throw error;
+      } finally {
+        this.drainStarting = false;
+      }
     }
     if (request.method !== 'PUT') return new Response('Method not allowed', { status: 405 });
     const input = await request.json<RelayAlarmState>();
@@ -122,10 +147,29 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
           hasMore: result.hasMore,
         }));
         if (result.hasMore) continue;
-        await this.ctx.storage.delete('failures');
-        await this.ctx.storage.delete('wake');
-        await this.ctx.storage.deleteAlarm();
+
+        if (this.rerunRequested) {
+          this.rerunRequested = false;
+          continue;
+        }
+
+        await Promise.all([
+          this.ctx.storage.delete('failures'),
+          this.ctx.storage.delete('wake'),
+          this.ctx.storage.deleteAlarm(),
+        ]);
         if (result.nextWakeAt) await this.schedule(result.nextWakeAt);
+
+        // Storage cleanup yields to other requests. If one arrived while the
+        // old alarm was being removed, restore crash recovery and take another
+        // page. The final check has no following await, so a wake cannot be
+        // acknowledged and then lost before this task returns.
+        if (this.rerunRequested) {
+          this.rerunRequested = false;
+          await this.schedule(new Date(Date.now() + OUTBOX_RECOVERY_ALARM_MS).toISOString());
+          continue;
+        }
+
         console.info('[outbox-relay] drain complete', JSON.stringify({
           drainId,
           examined,

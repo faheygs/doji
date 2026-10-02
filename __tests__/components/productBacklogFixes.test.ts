@@ -6,6 +6,31 @@ function source(relativePath: string) {
 }
 
 describe('staged product backlog regressions', () => {
+  it('keeps reporting behind an explicit post-option action', () => {
+    const card = source('components/feed/PostCard.tsx');
+    const options = source('components/feed/PostOptionsSheet.tsx');
+
+    expect(card).toContain("setPostAction('options')");
+    expect(card).toContain('<PostOptionsSheet');
+    expect(card).toContain('onReport={() => openReport(');
+    expect(card).not.toContain('<ReportSheet');
+    expect(card).not.toContain('onPress={() => setReportOpen(true)}');
+    expect(options).toContain('accessibilityLabel="Report post"');
+    expect(options).toContain('Opens the report categories for this post');
+  });
+
+  it('presents only the authenticated account theme and defaults immediately when signed out', () => {
+    const theme = source('contexts/ThemeContext.tsx');
+
+    expect(theme).toContain('presentedThemeForSession');
+    expect(theme).toContain('if (!userId || themeOwnerId !== userId)');
+    expect(theme).toContain('preference: DEFAULT_APP_THEME');
+    expect(theme).toContain('accentTheme: DEFAULT_ACCENT_THEME');
+    expect(theme).toContain('`@doit/app-theme/${userId}`');
+    expect(theme).toContain('`@doit/accent-theme/${userId}`');
+    expect(theme).toContain('AsyncStorage.multiRemove([LAST_THEME_STORAGE_KEY, LAST_ACCENT_STORAGE_KEY])');
+  });
+
   it('uses reactions given for both owner and member profile top stats', () => {
     const owner = source('app/(app)/(tabs)/profile.tsx');
     const member = source('app/(app)/member/[username].tsx');

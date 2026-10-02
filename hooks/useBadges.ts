@@ -8,6 +8,7 @@ import type {
   UserBadgeProgress,
 } from '../types/database';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 
 export function useBadgeDefinitions() {
   return useQuery<Badge[]>({
@@ -79,12 +80,11 @@ export function useUserBadgeProgress(userId: string | undefined) {
     queryKey: ['userBadgeProgress', userId],
     queryFn: async ({ signal }) => {
       if (!userId) return [];
-      const { data, error } = await runAbortableQuery(supabase
+      const { data } = await runMemberRead(supabase
         .from('user_badge_progress')
         .select('user_id, category_id, current_tier, unlocked_at')
         .eq('user_id', userId)
         .limit(100), signal);
-      if (error) throw error;
       return data ?? [];
     },
     enabled: !!userId,

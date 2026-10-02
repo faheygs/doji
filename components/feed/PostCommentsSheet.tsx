@@ -39,6 +39,8 @@ import {
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
 import { usePostCommentsSheetStyles } from './PostCommentsSheet.styles';
 import { useKeyboardToolbarHost } from '../../contexts/KeyboardToolbarContext';
+import { useReportFlow } from '../../contexts/ReportFlowContext';
+import type { ReportSubject } from './ReportSheet';
 
 type Props = {
   visible: boolean;
@@ -76,6 +78,19 @@ export function PostCommentsSheet({
   onClose,
 }: Props) {
   const { colors } = useTheme();
+  const openReport = useReportFlow();
+  const pendingReport = useRef<ReportSubject | null>(null);
+  const finishReportDismiss = useCallback(() => {
+    const subject = pendingReport.current;
+    pendingReport.current = null;
+    if (subject) openReport(subject);
+  }, [openReport]);
+  const reportAfterClose = useCallback((subject: ReportSubject) => {
+    pendingReport.current = subject;
+    Keyboard.dismiss();
+    onClose();
+    if (Platform.OS !== 'ios') requestAnimationFrame(finishReportDismiss);
+  }, [finishReportDismiss, onClose]);
   const styles = usePostCommentsSheetStyles();
   const { registerOverlayOwner } = useKeyboardToolbarHost();
   const insets = useSafeAreaInsets();
@@ -276,10 +291,11 @@ export function PostCommentsSheet({
     [colors],
   );
 
-  if (!visible) return null;
+  if (!visible && !(Platform.OS === 'ios' && pendingReport.current)) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}
+      onDismiss={Platform.OS === 'ios' ? finishReportDismiss : undefined}>
       <GestureHandlerRootView style={styles.modalRoot}>
         <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="box-none">
           <Pressable
@@ -348,6 +364,7 @@ export function PostCommentsSheet({
                 fetchEnabled={visible}
                 feedAudience={feedAudience}
                 embedInSheet
+                onReport={reportAfterClose}
               />
             </AppKeyboardViewport>
           </Animated.View>

@@ -1,5 +1,6 @@
 /// <reference path="../deno.d.ts" />
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createMediaCleanupClient, type MediaCleanupClient } from '../_shared/moderation-media-cleanup-client.ts';
 
 async function listObjectPaths(
   database: SupabaseClient,
@@ -28,16 +29,25 @@ async function listObjectPaths(
 async function removeAccountMedia(
   database: SupabaseClient,
   userId: string,
+  guarded?: MediaCleanupClient,
 ) {
+  let deferred = false;
   for (const bucketId of ['avatars', 'post-media']) {
+    if (guarded && !guarded.available()) throw new Error('Media cleanup deferred to durable recovery');
     const paths = await listObjectPaths(database, bucketId, userId);
     for (let index = 0; index < paths.length; index += 100) {
+      if (guarded) {
+        const result = await guarded.remove(bucketId, paths.slice(index, index + 100));
+        deferred ||= result.deferred.length > 0;
+        continue;
+      }
       const { error } = await database.storage
         .from(bucketId)
         .remove(paths.slice(index, index + 100));
       if (error) throw new Error(`${bucketId} removal failed: ${error.message}`);
     }
   }
+  if (deferred) throw new Error('Media cleanup deferred to durable recovery');
 }
 
 Deno.serve(async (request) => {
@@ -51,6 +61,10 @@ Deno.serve(async (request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
   const totals: Record<string, number> = {};
+  const guardedEnabled = Deno.env.get('MODERATION_MEDIA_CLEANUP_ENABLED') === 'true';
+  const cleanupQueue = () => guardedEnabled
+    ? createMediaCleanupClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, fetch, 15000, 20) : undefined;
+  let guarded: MediaCleanupClient | undefined;
   let hasMore = true;
 
   // Hard bound protects Edge runtime. Daily close calls will keep draining
@@ -68,9 +82,12 @@ Deno.serve(async (request) => {
   }
 
   let orphanedMedia = 0;
+  guarded = cleanupQueue();
   for (let batch = 0; batch < 5; batch += 1) {
-    const { data, error } = await database.rpc('claim_expired_media_upload_intents', {
-      p_limit: 500,
+    if (guarded && !guarded.available()) break;
+    const { data, error } = await database.rpc(guarded ? 'claim_media_cleanup_candidates_v1' : 'claim_expired_media_upload_intents', {
+      ...(guarded ? { p_kind: 'expired' } : {}),
+      p_limit: guarded ? 20 : 500,
     });
     if (error) return new Response(error.message, { status: 500 });
     const intents = (data ?? []) as Array<{
@@ -86,7 +103,16 @@ Deno.serve(async (request) => {
       entries.push(intent);
       byBucket.set(intent.bucket_id, entries);
     }
+    const completedIds: string[] = [];
     for (const [bucketId, bucketIntents] of byBucket) {
+      if (guarded) {
+        try {
+          const result = await guarded.remove(bucketId, bucketIntents.map(intent => intent.object_path));
+          const completed = new Set(result.completed);
+          completedIds.push(...bucketIntents.filter(intent => completed.has(intent.object_path)).map(intent => intent.id));
+        } catch { totals.media_cleanup_deferred = (totals.media_cleanup_deferred ?? 0) + bucketIntents.length; }
+        continue;
+      }
       const { error: removeError } = await database.storage
         .from(bucketId)
         .remove(bucketIntents.map((intent) => intent.object_path));
@@ -95,7 +121,7 @@ Deno.serve(async (request) => {
 
     const { data: deleted, error: deleteError } = await database.rpc(
       'delete_media_upload_intents',
-      { p_ids: intents.map((intent) => intent.id) },
+      { p_ids: guarded ? completedIds : intents.map((intent) => intent.id) },
     );
     if (deleteError) return new Response(deleteError.message, { status: 500 });
     orphanedMedia += Number(deleted ?? 0);
@@ -140,9 +166,12 @@ Deno.serve(async (request) => {
   }
 
   let deletedPostMedia = 0;
+  guarded = cleanupQueue();
   for (let batch = 0; batch < 5; batch += 1) {
-    const { data, error } = await database.rpc('claim_pending_media_deletions', {
-      p_limit: 500,
+    if (guarded && !guarded.available()) break;
+    const { data, error } = await database.rpc(guarded ? 'claim_media_cleanup_candidates_v1' : 'claim_pending_media_deletions', {
+      ...(guarded ? { p_kind: 'pending' } : {}),
+      p_limit: guarded ? 20 : 500,
     });
     if (error) return new Response(error.message, { status: 500 });
     const pending = (data ?? []) as Array<{
@@ -158,7 +187,16 @@ Deno.serve(async (request) => {
       entries.push(item);
       byBucket.set(item.bucket_id, entries);
     }
+    const completedIds: string[] = [];
     for (const [bucketId, entries] of byBucket) {
+      if (guarded) {
+        try {
+          const result = await guarded.remove(bucketId, entries.map(item => item.object_path));
+          const completed = new Set(result.completed);
+          completedIds.push(...entries.filter(item => completed.has(item.object_path)).map(item => item.id));
+        } catch { totals.media_cleanup_deferred = (totals.media_cleanup_deferred ?? 0) + entries.length; }
+        continue;
+      }
       const { error: removeError } = await database.storage
         .from(bucketId)
         .remove(entries.map((item) => item.object_path));
@@ -167,7 +205,7 @@ Deno.serve(async (request) => {
 
     const { data: deleted, error: deleteError } = await database.rpc(
       'delete_pending_media_deletions',
-      { p_ids: pending.map((item) => item.id) },
+      { p_ids: guarded ? completedIds : pending.map((item) => item.id) },
     );
     if (deleteError) return new Response(deleteError.message, { status: 500 });
     deletedPostMedia += Number(deleted ?? 0);
@@ -175,9 +213,14 @@ Deno.serve(async (request) => {
   }
 
   let deletedAccountMedia = 0;
+  guarded = cleanupQueue();
+  const accountStorage = guarded ? createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+    auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: guarded.fetch },
+  }) : database;
   for (let batch = 0; batch < 5; batch += 1) {
+    if (guarded && !guarded.available()) break;
     const { data, error } = await database.rpc('claim_account_deletion_cleanup', {
-      p_limit: 100,
+      p_limit: guarded ? 4 : 100,
     });
     if (error) return new Response(error.message, { status: 500 });
     const claims = (data ?? []) as Array<{ user_id: string; claim_token: string }>;
@@ -185,7 +228,7 @@ Deno.serve(async (request) => {
     for (const claim of claims) {
       let cleanupError: string | null = null;
       try {
-        await removeAccountMedia(database, claim.user_id);
+        await removeAccountMedia(accountStorage, claim.user_id, guarded);
         deletedAccountMedia += 1;
       } catch (claimError) {
         cleanupError = claimError instanceof Error ? claimError.message : 'Storage cleanup failed';

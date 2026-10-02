@@ -16,7 +16,8 @@ import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
 import { PostQuestionBlock, PostAnswerBlock, PostPhotoPrompt } from './PostContentBlocks';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
 import { IconLock, IconMoreVertical } from '../icons/Icons';
-import { ReportSheet } from './ReportSheet';
+import { useReportFlow } from '../../contexts/ReportFlowContext';
+import { PostOptionsSheet } from './PostOptionsSheet';
 import { Post } from '../../types/database';
 import { formatRelativeTime } from '../../utils/time';
 import { prepareProfileHref } from '../../lib/profileNavigation';
@@ -94,6 +95,7 @@ function PostCardImpl({
   initialCommentsOpen = false,
 }: Props) {
   const router = useRouter();
+  const openReport = useReportFlow();
   const navigationOrigin = useNavigationOrigin();
   const { colors } = useTheme();
   const styles = usePostCardStyles();
@@ -103,7 +105,7 @@ function PostCardImpl({
   const equippedBorder = getEquippedBorder(post.profile);
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
-  const [reportOpen, setReportOpen] = useState(false);
+  const [postAction, setPostAction] = useState<'options' | null>(null);
   const [mainMediaReady, setMainMediaReady] = useState(false);
   const media = usePostMedia(post, !blurred && realtimeActive, 'feed');
   const thumbnailMedia = usePostMedia(post, !blurred && realtimeActive, 'thumbnail');
@@ -321,10 +323,11 @@ function PostCardImpl({
         </TouchableOpacity>
         {!isOwnPost ? (
           <TouchableOpacity
-            onPress={() => setReportOpen(true)}
+            onPress={() => setPostAction('options')}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="More options"
+            accessibilityHint="Opens options for this post"
           >
             <IconMoreVertical size={20} color={colors.textTertiary} />
           </TouchableOpacity>
@@ -428,12 +431,11 @@ function PostCardImpl({
             feedAudience={feedAudience}
             onClose={closeComments}
           />
-          {reportOpen && post.user_id ? (
-            <ReportSheet
-              visible={reportOpen}
-              postId={post.id}
-              reportedUserId={post.user_id}
-              onClose={() => setReportOpen(false)}
+          {post.user_id ? (
+            <PostOptionsSheet
+              visible={postAction === 'options'}
+              onClose={() => setPostAction(null)}
+              onReport={() => openReport({ postId: post.id, reportedUserId: post.user_id! })}
             />
           ) : null}
         </>

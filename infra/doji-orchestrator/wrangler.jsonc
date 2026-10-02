@@ -6,8 +6,11 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": {
+    "ADMIN_PORTAL_EMPLOYEE_ACCOUNTS": "true",
     "SCALE_CACHE_VERSION": "v1",
-    "ADMIN_PORTAL_ORIGINS": "https://admin.dojipro.com"
+    "ADMIN_PORTAL_ORIGINS": "https://admin.dojipro.com",
+    "SENTRY_ORG_SLUG": "doji-i0",
+    "SENTRY_PROJECT_SLUGS": "react-native"
   },
   "durable_objects": {
     "bindings": [

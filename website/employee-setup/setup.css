@@ -1,0 +1,39 @@
+.employeeSetup { --line:var(--admin-border);--surface:var(--admin-card);--text:var(--admin-ink);--muted:var(--admin-muted); }
+.employeeSetup [hidden] { display:none!important; }
+.employeeSetup .portalAuth { min-height:100dvh; }
+html[data-theme] .employeeSetup .authStory { background:linear-gradient(145deg,#17191f,#24202b); color:#fff; }
+html[data-theme] .employeeSetup .authCopy p,html[data-theme] .employeeSetup .portalBrand small { color:#c5c6d1; }
+html[data-theme] .employeeSetup .authStory .portalBrand { color:#fff; }
+.employeeSetup .authCopy h1 { max-width:580px; }
+.employeeSetup .authCard { width:100%; max-width:510px; padding-block:32px; }
+.employeeSetup .authCard h2 { font-size:clamp(30px,3vw,42px);line-height:1.14;margin:12px 0 18px;outline:none; }
+.employeeSetup #setupDescription { margin:0 0 30px;line-height:1.6; }
+.employeeSetup .authForm { gap:22px; }
+.employeeSetup .field { display:grid;gap:9px; }
+.employeeSetup .field input { margin:0;min-height:52px; }
+.employeeSetup .portalButton { width:100%;min-height:52px;margin:8px 0 0;color:#17191f;font-weight:750; }
+.setupSteps { display:grid;gap:24px;padding:0;margin:40px 0 0;list-style:none; }
+.setupSteps li { display:flex;gap:16px;align-items:center;color:#d2d3da; }
+.setupSteps li>span { display:grid;place-items:center;width:42px;height:42px;border:1px solid #64616b;border-radius:14px;font-size:12px;font-weight:800; }
+.setupSteps li[aria-current] { color:#fff; }
+.setupSteps li[aria-current]>span { background:#ff684b;color:#151619;border-color:#ff684b; }
+.setupSteps small { display:block;margin-top:5px;color:#b2b4c0;font-size:13px; }
+.setupSymbol { width:64px;height:64px;display:grid;place-items:center;border-radius:20px;background:#ff65471a;color:#e7492c;font-size:32px;margin:24px 0; }
+.setupEmailCard { border:1px solid var(--line,#dfe2eb);border-radius:18px;padding:24px;margin:0 0 20px;background:var(--surface,#fff); }
+.setupEmailCard small { font-size:11px;letter-spacing:.12em;font-weight:800;color:var(--muted,#647082); }
+.setupEmailCard strong { display:block;font-size:19px;margin:12px 0;overflow-wrap:anywhere; }
+.setupEmailCard p { font-size:14px;line-height:1.65;margin:0; }
+.setupEmailCard ul { padding-left:20px;line-height:2;margin-bottom:0; }
+.setupSecondary { display:grid;gap:18px;margin:24px 0;justify-items:start; }
+.setupSecondary button { text-align:left;min-height:30px; }
+.setupNote,.setupFooter { font-size:13px;line-height:1.7;color:var(--muted,#647082);margin-top:20px; }
+.setupFooter { border-top:1px solid var(--line,#dfe2eb);padding-top:20px;margin-top:30px; }
+.setupStatus { border-radius:12px;padding:14px 16px;margin-top:20px;background:#12755712;border:1px solid #12755755;font-size:14px;line-height:1.6; }
+.setupStatus.error { background:#d9302510;border-color:#d9302570;color:var(--text,#97281e); }
+.setupStatus:focus-visible { outline:2px solid #ff6547;outline-offset:3px; }
+.setupQr { background:#fff;border:1px solid #dfe2eb;border-radius:20px;padding:20px;margin:24px auto;width:240px; }
+.setupQr img { width:100%;display:block; }
+.employeeSetup details { border:1px solid var(--line,#dfe2eb);padding:16px;border-radius:12px;margin-bottom:24px; }
+.employeeSetup code { display:block;overflow-wrap:anywhere;user-select:all; }
+.employeeSetup #setupCode { font-variant-numeric:tabular-nums;letter-spacing:.3em;font-size:24px; }
+@media(max-width:800px) { .employeeSetup .portalAuth { display:block; }html[data-theme] .employeeSetup .authStory { padding:24px;min-height:0;height:auto; }.employeeSetup .authCopy,.setupSteps { display:none; }.employeeSetup .authPanel { padding:24px; }.employeeSetup .authCard { margin:auto;padding-top:8px; } }

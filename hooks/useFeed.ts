@@ -4,7 +4,7 @@ import { type FeedAudience } from '../lib/feedAudience';
 import { fetchFeedPostsPage, nextFeedPage, type FeedPageParam } from '../lib/feedQueries';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Post, Reaction } from '../types/database';
-import { runAbortableQuery } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 export { useToggleReaction } from './useToggleReaction';
 export type { FeedAudience };
 type FeedQueryArgs = {
@@ -92,7 +92,7 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
   return useInfiniteQuery({
     queryKey: ['reactions', postId, audience, userId],
     queryFn: async ({ pageParam, signal }): Promise<Reaction[]> => {
-      const { data, error } = await runAbortableQuery(
+      const { data } = await runMemberRead(
         supabase.rpc('get_post_reaction_voters_page', {
           p_post_id: postId,
           p_audience: audience,
@@ -103,7 +103,6 @@ export function usePostReactions(postId: string, audience: FeedAudience = 'every
         signal,
       );
 
-      if (error) throw error;
       return (data ?? []) as Reaction[];
     },
     getNextPageParam: (lastPage: Reaction[]) => {
@@ -125,7 +124,7 @@ export function prefetchPostReactions(
   return client.prefetchInfiniteQuery({
     queryKey: ['reactions', args.postId, args.audience, args.userId],
     queryFn: async ({ pageParam, signal }): Promise<Reaction[]> => {
-      const { data, error } = await runAbortableQuery(
+      const { data } = await runMemberRead(
         supabase.rpc('get_post_reaction_voters_page', {
           p_post_id: args.postId,
           p_audience: args.audience,
@@ -135,7 +134,6 @@ export function prefetchPostReactions(
         }),
         signal,
       );
-      if (error) throw error;
       return (data ?? []) as Reaction[];
     },
     getNextPageParam: (lastPage: Reaction[]) => {

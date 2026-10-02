@@ -155,7 +155,9 @@ Deno.serve(async (request) => {
     : [];
 
   const ably = new Rest({ key: ablyKey });
-  const capability: Record<string, string[]> = {
+  const capability: Record<string, string[]> = adminRequest ? {
+    'doji:global': ['subscribe'],
+  } : {
     'doji:global': ['subscribe'],
     'feed:public': ['subscribe'],
     'leaderboard:global': ['subscribe'],

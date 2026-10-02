@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { syncServerClock } from '../lib/serverClock';
 import { useAuthStore } from '../stores/useAuthStore';
-import { createRequestSignal } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 
 export type UpcomingDojiState = {
   server_now: string;
@@ -18,18 +18,10 @@ export function useUpcomingDoji() {
   return useQuery({
     queryKey: ['upcomingDoji', userId] as const,
     queryFn: async ({ signal }): Promise<UpcomingDojiState | null> => {
-      const request = createRequestSignal(signal, 6_000);
-      try {
-        const { data, error } = await supabase
-          .rpc('get_upcoming_doji_state')
-          .abortSignal(request.signal);
-        if (error) throw error;
-        if (!data) return null;
-        syncServerClock(data.server_now);
-        return data;
-      } finally {
-        request.cleanup();
-      }
+      const { data } = await runMemberRead(supabase.rpc('get_upcoming_doji_state'), signal, 6_000);
+      if (!data) return null;
+      syncServerClock(data.server_now);
+      return data;
     },
     enabled: Boolean(userId),
     staleTime: 30_000,

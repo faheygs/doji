@@ -36,6 +36,17 @@ describe('notification attention receipts', () => {
     });
   });
 
+  it('maps a moderation notice to its private decision', () => {
+    const item = {
+      kind: 'moderation_notice',
+      decision_id: 'decision-1',
+    } as NotificationCenterItem;
+    expect(attentionScopeForItem(item)).toEqual({
+      scope_kind: 'moderation_decision',
+      scope_id: 'decision-1',
+    });
+  });
+
   it('reads the exact subject from a push response', () => {
     expect(attentionScopeFromPushData({
       notificationScopeKind: 'friendship',
@@ -45,5 +56,9 @@ describe('notification attention receipts', () => {
       notificationScopeKind: 'post',
       notificationScopeId: 'post-1',
     })).toBeNull();
+    expect(attentionScopeFromPushData({
+      notificationScopeKind: 'moderation_decision',
+      notificationScopeId: 'decision-1',
+    })).toEqual({ scope_kind: 'moderation_decision', scope_id: 'decision-1' });
   });
 });

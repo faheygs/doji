@@ -38,8 +38,11 @@ describe('100k hardening contracts', () => {
     const authentication = read('infra/doji-orchestrator/src/scale-read-auth.ts');
     expect(gateway).toContain('EXPO_PUBLIC_SCALE_READ_URL');
     expect(gateway).toContain('if (!baseUrl) return directRead()');
-    expect(gateway).toContain('await supabase.auth.refreshSession()');
-    expect(authentication).toContain("payload.role !== 'authenticated'");
+    expect(gateway).toContain('awaitReadSignal(supabase.auth.refreshSession(), request.signal)');
+    // Signed-token acceptance and cross-role rejection are exercised by
+    // employeeTokenIsolation.test.ts, not inferred from a literal comparison.
+    expect(authentication).toContain("authenticateRole(request, env, 'authenticated')");
+    expect(authentication).toContain('payload.role !== requiredRole');
     expect(worker).toContain('auth.userId');
     expect(worker).toContain('get_feed_page_snapshot_v2');
     expect(worker).toContain('get_public_profile_view');

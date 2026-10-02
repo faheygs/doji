@@ -27,18 +27,16 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
-import { supabase } from '../../lib/supabase';
-import { readThroughScaleGateway } from '../../lib/scaleReadGateway';
+import { fetchPollSummary, fetchPollVotersPage } from '../../lib/pollQueries';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { getEquippedBorder } from '../../lib/cosmetics';
 import { useSendFriendRequest } from '../../hooks/useProfile';
 import { useTogglePollVoteLike } from '../../hooks/usePollVoteLikes';
-import { ReportSheet } from './ReportSheet';
+import { useReportFlow } from '../../contexts/ReportFlowContext';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import type { FeedAudience } from '../../lib/feedAudience';
 import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import type { Challenge, PollOption } from '../../types/database';
-import { createRequestSignal } from '../../lib/requestSignal';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import { useRouter } from 'expo-router';
 import { prepareProfileHref } from '../../lib/profileNavigation';
@@ -106,8 +104,7 @@ function PollResultCardImpl({
     optionId: string; label: string; isOther: boolean; count: number;
   } | null>(null);
   const [voterVisible, setVoterVisible] = useState(false);
-  const [reportVote, setReportVote] = useState<{ voteId: string; userId: string } | null>(null);
-  const [reportVisible, setReportVisible] = useState(false);
+  const openReport = useReportFlow();
   const pendingReportRef = useRef<{ voteId: string; userId: string } | null>(null);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const isFriendsScope = feedAudience === 'friends';
@@ -120,21 +117,7 @@ function PollResultCardImpl({
   const { data } = useQuery<PollSnapshot>({
     queryKey: ['pollResults', dailyEventId, feedAudience, userId],
     queryFn: async ({ signal }): Promise<PollSnapshot> => {
-      const request = createRequestSignal(signal);
-      const summaryRows = await readThroughScaleGateway<PollSummaryRow[]>(
-        `/v1/polls/${encodeURIComponent(dailyEventId)}/summary?audience=${feedAudience}`,
-        async () => {
-          const { data: directData, error } = await supabase
-            .rpc('get_poll_results_summary', {
-              p_daily_event_id: dailyEventId,
-              p_audience: feedAudience,
-            })
-            .abortSignal(request.signal);
-          if (error) throw error;
-          return (directData ?? []) as PollSummaryRow[];
-        },
-        request.signal,
-      ).finally(request.cleanup);
+      const summaryRows = await fetchPollSummary(dailyEventId, feedAudience, signal);
       const snapshotRows = (summaryRows ?? []) as PollSummaryRow[];
       let myVoteOptionId: string | null = null;
       const options: PollRow[] = snapshotRows.map((row) => {
@@ -170,23 +153,7 @@ function PollResultCardImpl({
   const voterPages = useInfiniteQuery({
     queryKey: ['pollVotersDetail', dailyEventId, voterModal?.optionId, feedAudience, userId],
     queryFn: async ({ pageParam, signal }): Promise<VoterRow[]> => {
-      const request = createRequestSignal(signal);
-      try {
-        const { data: page, error } = await supabase
-          .rpc('get_poll_option_voters_page', {
-            p_daily_event_id: dailyEventId,
-            p_option_id: voterModal!.optionId,
-            p_audience: feedAudience,
-            p_limit: 40,
-            p_before_created_at: pageParam?.createdAt ?? null,
-            p_before_id: pageParam?.id ?? null,
-          })
-          .abortSignal(request.signal);
-        if (error) throw error;
-        return (page ?? []) as VoterRow[];
-      } finally {
-        request.cleanup();
-      }
+      return await fetchPollVotersPage(dailyEventId, voterModal!.optionId, feedAudience, pageParam, signal) as VoterRow[];
     },
     initialPageParam: null as { createdAt: string; id: string } | null,
     getNextPageParam: (last) => {
@@ -331,22 +298,22 @@ function PollResultCardImpl({
 
   const sheetTranslateY = useSharedValue(sheetSlideRange);
   const panStartY = useSharedValue(0);
-  const closeVoters = useCallback(() => {
-    Haptics.selectionAsync();
-    setVoterVisible(false);
+  const finishVoterDismiss = useCallback(() => {
     setVoterModal(null);
     const pendingReport = pendingReportRef.current;
     const pendingNavigation = pendingNavigationRef.current;
     pendingReportRef.current = null;
     pendingNavigationRef.current = null;
-    if (pendingNavigation) requestAnimationFrame(pendingNavigation);
+    pendingNavigation?.();
     if (pendingReport) {
-      requestAnimationFrame(() => {
-        setReportVote(pendingReport);
-        setReportVisible(true);
-      });
+      openReport({ reportedUserId: pendingReport.userId, pollVoteId: pendingReport.voteId });
     }
-  }, []);
+  }, [openReport]);
+  const closeVoters = useCallback(() => {
+    Haptics.selectionAsync();
+    setVoterVisible(false);
+    if (Platform.OS !== 'ios') requestAnimationFrame(finishVoterDismiss);
+  }, [finishVoterDismiss]);
 
   const openVoterProfile = useCallback((username: string) => {
     const href = prepareProfileHref(username, navigationOrigin);
@@ -520,6 +487,7 @@ function PollResultCardImpl({
         animationType="none"
         statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={closeVoters}
+        onDismiss={Platform.OS === 'ios' ? finishVoterDismiss : undefined}
       >
         <GestureHandlerRootView style={styles.modalGestureRoot}>
           <Animated.View
@@ -682,14 +650,6 @@ function PollResultCardImpl({
         </GestureHandlerRootView>
       </Modal> : null}
 
-      {reportVote ? (
-        <ReportSheet
-          visible={reportVisible}
-          reportedUserId={reportVote.userId}
-          pollVoteId={reportVote.voteId}
-          onClose={() => setReportVisible(false)}
-        />
-      ) : null}
     </View>
   );
 }

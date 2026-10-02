@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 import { sentryReleaseIdentity } from '../lib/releaseIdentity';
+import { sanitizeApiFailureEvent } from '../lib/apiFailureTelemetry';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -7,6 +8,8 @@ Sentry.init({
   // Enough performance telemetry to spot regressions without adding material
   // client overhead or exhausting observability quotas during a traffic spike.
   tracesSampleRate: 0.02,
+  sendDefaultPii: false,
+  beforeSend: sanitizeApiFailureEvent,
   environment: process.env.EXPO_PUBLIC_APP_ENV,
   ...sentryReleaseIdentity(),
 });
@@ -180,6 +183,19 @@ function RootLayoutInner() {
           title="Couldn't finish loading Doji"
           message="Your account is safe. Try again to restore your session."
           onRetry={() => retrySessionBootstrap.current()}
+        />
+      </StartupFrame>
+    );
+  }
+
+  if (gate.isEmployee) {
+    return (
+      <StartupFrame backgroundColor={colors.background}>
+        <ErrorState
+          title="This is your employee account"
+          message="Use this account in the Doji staff portal. Sign in with your personal account to use the app."
+          actionLabel="Sign out of this device"
+          onRetry={() => { void useAuthStore.getState().signOut(); }}
         />
       </StartupFrame>
     );

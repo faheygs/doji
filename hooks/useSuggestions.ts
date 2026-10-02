@@ -6,19 +6,19 @@ import type { ChallengeSuggestion, ChallengeSuggestionStatus } from '../types/da
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 
 export function useMySuggestions(userId: string | undefined) {
   return useQuery<ChallengeSuggestion[]>({
     queryKey: ['mySuggestions', userId],
     queryFn: async ({ signal }): Promise<ChallengeSuggestion[]> => {
       if (!userId) return [];
-      const { data, error } = await runAbortableQuery(supabase
+      const { data } = await runMemberRead(supabase
         .from('challenge_suggestions')
         .select('id, user_id, kind, body, body_hash, options, status, admin_note, selected_at, reviewed_at, reviewed_by, created_at, reviewer:profiles!challenge_suggestions_reviewed_by_fkey(id, username, display_name, avatar_url)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(100), signal);
-      if (error) throw error;
       return (data ?? []) as unknown as ChallengeSuggestion[];
     },
     enabled: !!userId,

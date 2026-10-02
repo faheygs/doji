@@ -11,7 +11,10 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
+    "scripts/fixtures",
     "__tests__",
+    "test-results",
+    "website/test-results",
     "**/__mocks__",
     "jest.setup.ts"
   ],

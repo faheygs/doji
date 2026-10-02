@@ -30,6 +30,10 @@ assert.ok(
 );
 
 console.log(JSON.stringify({
+  kind: 'offline-assumption-model',
+  capacityVerified: false,
+  productionTrafficSent: false,
+  warning: 'Latency/rate defaults are assumptions, not measured account capacity or handset delivery guarantees.',
   users,
   shards,
   pageSize,

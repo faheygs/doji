@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { FeedAudience } from '../lib/feedAudience';
 import type { Comment, Profile } from '../types/database';
-import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
+import { runAbortableQuery } from '../lib/requestSignal';
 export { useAddComment } from './useAddComment';
 export {
   useDeleteComment,
@@ -19,22 +19,15 @@ export async function fetchCommentsForPost(
   page: { beforeCreatedAt: string; beforeId: string } | null,
   parentSignal?: AbortSignal,
 ): Promise<CommentWithMeta[]> {
-  const request = createRequestSignal(parentSignal);
-  try {
-    const { data, error } = await supabase
-      .rpc('get_comment_thread_snapshot', {
-        p_post_id: postId,
-        p_audience: audience,
-        p_before_created_at: page?.beforeCreatedAt ?? null,
-        p_before_id: page?.beforeId ?? null,
-        p_limit: 50,
-      })
-      .abortSignal(request.signal);
-    if (error) throw error;
-    return (data ?? []) as CommentWithMeta[];
-  } finally {
-    request.cleanup();
-  }
+  const { data } = await runAbortableQuery(supabase
+    .rpc('get_comment_thread_snapshot', {
+      p_post_id: postId,
+      p_audience: audience,
+      p_before_created_at: page?.beforeCreatedAt ?? null,
+      p_before_id: page?.beforeId ?? null,
+      p_limit: 50,
+    }), parentSignal);
+  return (data ?? []) as CommentWithMeta[];
 }
 
 export function prefetchCommentsForPost(

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { weekStart } from '../lib/xp';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { LeaderboardEntry } from '../types/database';
-import { createRequestSignal } from '../lib/requestSignal';
+import { runMemberRead } from '../lib/runMemberRead';
 import { PERSISTED_QUERY_GC_MS } from '../lib/queryPersistence';
 
 export type LeaderboardMode = 'weekly' | 'alltime';
@@ -18,20 +18,14 @@ async function fetchLeaderboard(
   signal?: AbortSignal,
 ): Promise<LeaderboardEntry[]> {
   if (audience === 'friends' && !userId) return [];
-  const request = createRequestSignal(signal, 6_000);
-  try {
-    const { data, error } = await supabase
-      .rpc('get_leaderboard_snapshot', {
-        p_mode: mode,
-        p_audience: audience,
-        p_limit: 50,
-      })
-      .abortSignal(request.signal);
-    if (error) throw error;
-    return (data ?? []) as LeaderboardEntry[];
-  } finally {
-    request.cleanup();
-  }
+  const { data } = await runMemberRead(
+    supabase.rpc('get_leaderboard_snapshot', {
+      p_mode: mode,
+      p_audience: audience,
+      p_limit: 50,
+    }), signal, 6_000,
+  );
+  return (data ?? []) as LeaderboardEntry[];
 }
 
 function leaderboardQueryKey(

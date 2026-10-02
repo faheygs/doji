@@ -52,6 +52,7 @@ export function InlineFeedback({
   return (
     <View
       testID={testID}
+      accessible
       style={[styles.container, style]}
       accessibilityRole={tone === 'error' ? 'alert' : undefined}
       accessibilityLiveRegion={tone === 'error' ? 'assertive' : 'polite'}
