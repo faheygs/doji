@@ -1,6 +1,9 @@
 import * as Sentry from '@sentry/react-native';
+import { Platform } from 'react-native';
 import { isCancelledError } from '@tanstack/react-query';
 import { readFailureDiagnostics } from './memberReadDiagnostics';
+import { summarizeAndroidReadFailure } from './androidReadEvidence';
+import { androidTestLabStatus } from './androidTestEnvironment';
 
 type Failure = { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; message?: unknown; abortSource?: unknown; elapsedMs?: unknown; timeoutMs?: unknown };
 const seen = new WeakSet<object>();
@@ -100,14 +103,31 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
     for (const [oldKey, at] of reportedAt) if (now - at >= WINDOW_MS) reportedAt.delete(oldKey);
     reportedAt.set(key, now);
     windowCount += 1;
+    // Android incidents must survive Sentry's default contexts depth of three.
+    // contexts.api.attempts[].fields is too deep and becomes '[Object]'. Keep
+    // first-attempt fields one level shallower; terminal fields remain at api.*.
+    // Do not increase global normalization depth or change other platforms.
+    const retryContext = retry && Platform.OS === 'android' ? {
+      attempt_count: retry.attempt_count,
+      fetch_elapsed_ms: retry.fetch_elapsed_ms,
+      ...(retry.attempts.length > 1 ? { first_attempt: retry.attempts[0] } : {}),
+    } : retry;
+    const terminal = apiAttemptDetails(error);
+    const diagnosis = Platform.OS === 'android' && (area === 'query' ||
+      (area === 'command' && 'diagnostics_version' in terminal && terminal.diagnostics_version === 2))
+      ? summarizeAndroidReadFailure(terminal) : undefined;
     Sentry.withScope(scope => {
       scope.setTag('area', 'api');
       scope.setTag('operation', `${area}.${operation}`);
       scope.setTag('failure_kind', details.kind);
-      scope.setContext('api', { ...apiAttemptDetails(error), ...retry });
+      if (diagnosis) {
+        scope.setTag('failure_evidence', diagnosis.failure_evidence);
+        scope.setTag('failure_phase', diagnosis.failure_phase);
+      }
+      scope.setContext('api', { ...terminal, ...retryContext, ...diagnosis });
       scope.setFingerprint(['api', area, operation, details.kind, String(details.code ?? details.status ?? '')]);
       // Do not capture the raw exception: database messages may contain member content.
-      Sentry.captureException(new Error(`Doji ${area}.${operation} failed (${details.kind})`));
+      Sentry.captureException(new Error(`Doji ${area}.${operation} failed (${details.kind}${diagnosis ? `; ${diagnosis.summary}` : ''})`));
     });
   } catch {
     // Monitoring is never allowed to change command outcomes or break query settlement.
@@ -117,6 +137,8 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
 type BeforeSend = NonNullable<NonNullable<Parameters<typeof Sentry.init>[0]>['beforeSend']>;
 /** Drop ambient request/breadcrumb/identity data from the new handled-failure events. */
 export const sanitizeApiFailureEvent: BeforeSend = event => {
+  const testLab = androidTestLabStatus();
+  if (testLab !== undefined) event.tags = { ...event.tags, firebase_test_lab: testLab };
   if (event.tags?.area !== 'api') return event;
   event.breadcrumbs = [];
   delete event.request;

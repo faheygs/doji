@@ -4,29 +4,26 @@ import { captureWorkerException } from './sentry';
 import { sendOperationalAlert } from './operational-health';
 
 type RelayAlarmState = { nextWakeAt: string };
-
 const OUTBOX_RECOVERY_ALARM_MS = 30_000;
 const OUTBOX_MAX_PAGES_PER_ALARM = 8;
-const UPSTREAM_TIMEOUT_MS = 20_000;
-
-function fetchUpstream(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  return fetch(input, {
-    ...init,
-    signal: init.signal ?? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-  });
-}
-
-async function relayDomainEvents(env: Env): Promise<Response> {
-  return fetchUpstream(`${env.SUPABASE_URL}/functions/v1/relay-domain-events`, {
+const UPSTREAM_TIMEOUT_MS = 5_000;
+const RECOVERY_TIMEOUT_MS = 20_000;
+// An aborted HTTP response does not prove the remote invocation stopped. Keep
+// one durable lease-expiry recheck (existing DB leases are two minutes), even
+// when the next claim finds nothing because that invocation still owns rows.
+const UNCERTAIN_RECHECK_MS = 150_000;
+async function relayDomainEvents(env: Env, signal: AbortSignal, drainId: string, page: number): Promise<Response> {
+  return fetch(`${env.SUPABASE_URL}/functions/v1/relay-domain-events`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-outbox-secret': env.OUTBOX_RELAY_SECRET,
+      'x-doji-relay-request-id': `${drainId}:${page}`,
     },
     body: '{}',
+    signal,
   });
 }
-
 async function relayResult(response: Response): Promise<{
   hasMore: boolean;
   nextWakeAt: string | null;
@@ -35,7 +32,7 @@ async function relayResult(response: Response): Promise<{
   failed: number;
 }> {
   const body = await response.text();
-  if (!response.ok) throw new Error(`Outbox relay failed: ${response.status} ${body}`);
+  if (!response.ok) throw Object.assign(new Error('Relay HTTP failure'), { status: response.status });
   try {
     const parsed = JSON.parse(body) as {
       hasMore?: boolean;
@@ -44,6 +41,9 @@ async function relayResult(response: Response): Promise<{
       published?: unknown;
       failed?: unknown;
     };
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || (parsed.nextWakeAt != null && (typeof parsed.nextWakeAt !== 'string' || !Number.isFinite(Date.parse(parsed.nextWakeAt)))))
+      throw new Error('Invalid relay response');
     return {
       hasMore: parsed.hasMore === true,
       nextWakeAt: typeof parsed.nextWakeAt === 'string' ? parsed.nextWakeAt : null,
@@ -52,10 +52,9 @@ async function relayResult(response: Response): Promise<{
       failed: typeof parsed.failed === 'number' ? parsed.failed : 0,
     };
   } catch {
-    return { hasMore: false, nextWakeAt: null, examined: 0, published: 0, failed: 0 };
+    throw new Error('Invalid relay response');
   }
 }
-
 export class OutboxRelayAlarm extends DurableObject<Env> {
   private drainTask: Promise<void> | null = null;
   private drainId: string | null = null;
@@ -123,18 +122,35 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
   }
 
   private async runDrain(drainId: string, acceptedAt: number): Promise<void> {
+    let pageStartedAt = Date.now();
+    let pageNumber = 0;
+    let deadlineExpired = false;
     try {
+      const uncertainAt = await this.ctx.storage.get<number>('uncertainRecheckAt');
+      const budget = uncertainAt ? RECOVERY_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS;
       let examined = 0;
       let published = 0;
       for (let page = 0; page < OUTBOX_MAX_PAGES_PER_ALARM; page += 1) {
         if (page === 0) {
-          console.info('[outbox-relay] first claim', JSON.stringify({
+          console.info('[outbox-relay] request started', JSON.stringify({
             drainId,
-            wakeToClaimMs: Date.now() - acceptedAt,
+            wakeToRequestMs: Date.now() - acceptedAt,
           }));
         }
-        const pageStartedAt = Date.now();
-        const result = await relayResult(await relayDomainEvents(this.env));
+        pageStartedAt = Date.now();
+        pageNumber = page + 1;
+        const controller = new AbortController();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const result = await Promise.race([
+          relayDomainEvents(this.env, controller.signal, drainId, pageNumber).then(relayResult),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              deadlineExpired = true;
+              controller.abort();
+              reject(new Error('Relay deadline exceeded'));
+            }, budget);
+          }),
+        ]).finally(() => clearTimeout(timer));
         examined += result.examined;
         published += result.published;
         console.info('[outbox-relay] page', JSON.stringify({
@@ -159,6 +175,11 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
           this.ctx.storage.deleteAlarm(),
         ]);
         if (result.nextWakeAt) await this.schedule(result.nextWakeAt);
+        if (uncertainAt && uncertainAt > Date.now()) {
+          await this.schedule(new Date(uncertainAt).toISOString());
+        } else if (uncertainAt) {
+          await this.ctx.storage.delete('uncertainRecheckAt');
+        }
 
         // Storage cleanup yields to other requests. If one arrived while the
         // old alarm was being removed, restore crash recovery and take another
@@ -182,16 +203,25 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
       await this.ctx.storage.deleteAlarm();
       await this.schedule(new Date().toISOString());
     } catch (error) {
+      const status = (error as { status?: number })?.status;
+      const failureKind = deadlineExpired ? 'timeout' : status ? 'http' :
+        error instanceof Error && error.message === 'Invalid relay response' ? 'invalid_response' : 'network';
+      const safeError = new Error(`Relay ${failureKind}${status ? ` (${status})` : ''}`);
+      console.warn('[outbox-relay] request failed', JSON.stringify({
+        drainId, page: pageNumber, durationMs: Date.now() - pageStartedAt,
+        failureKind, ...(status ? { status } : {}),
+      }));
+      await this.ctx.storage.put('uncertainRecheckAt', Date.now() + UNCERTAIN_RECHECK_MS);
       const failures = (await this.ctx.storage.get<number>('failures') ?? 0) + 1;
       await this.ctx.storage.put('failures', failures);
       if (failures === 10) {
         await Promise.allSettled([
-          captureWorkerException(this.env.SENTRY_DSN, 'domain_relay_repeated_failure', error, {
+          captureWorkerException(this.env.SENTRY_DSN, 'domain_relay_repeated_failure', safeError, {
             failures,
           }),
           sendOperationalAlert(this.env, 'domain-relay-repeated-failure', {
             failures,
-            error: error instanceof Error ? error.message : String(error),
+            error: safeError.message,
           }),
         ]);
       }

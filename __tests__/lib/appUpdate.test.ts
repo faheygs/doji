@@ -17,6 +17,49 @@ const policy: MobileReleasePolicy = {
 };
 
 describe('mobile app update decisions', () => {
+  it('requires older Android releases but accepts 1.0.8 build 26 and newer', () => {
+    const android26: MobileReleasePolicy = {
+      ...policy, platform: 'android',
+      latest_version: '1.0.8', latest_build: 26,
+      minimum_version: '1.0.8', minimum_build: 26,
+      store_url: 'https://play.google.com/store/apps/details?id=com.doit.challengeapp',
+    };
+    for (const installed of [
+      { version: '1.0.7', build: 17 },
+      ...[20, 21, 22, 23, 24, 25].map(build => ({ version: '1.0.8', build })),
+    ]) {
+      expect(assessAppUpdate(installed, android26)).toEqual({ available: true, required: true });
+    }
+    for (const installed of [
+      { version: '1.0.8', build: 26 },
+      { version: '1.0.8', build: 27 },
+      { version: '1.0.9', build: 1 },
+    ]) {
+      expect(assessAppUpdate(installed, android26)).toEqual({ available: false, required: false });
+    }
+  });
+
+  it('requires older iOS releases but accepts 1.0.8 build 103 and newer', () => {
+    const ios103: MobileReleasePolicy = {
+      ...policy,
+      latest_version: '1.0.8', latest_build: 103,
+      minimum_version: '1.0.8', minimum_build: 103,
+    };
+    for (const installed of [
+      { version: '1.0.7', build: 90 },
+      ...[100, 101, 102].map(build => ({ version: '1.0.8', build })),
+    ]) {
+      expect(assessAppUpdate(installed, ios103)).toEqual({ available: true, required: true });
+    }
+    for (const installed of [
+      { version: '1.0.8', build: 103 },
+      { version: '1.0.8', build: 104 },
+      { version: '1.0.9', build: 1 },
+    ]) {
+      expect(assessAppUpdate(installed, ios103)).toEqual({ available: false, required: false });
+    }
+  });
+
   it('requires older Android builds but accepts the approved Alpha build 23 and newer', () => {
     const android23: MobileReleasePolicy = {
       ...policy,

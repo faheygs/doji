@@ -463,7 +463,7 @@ describe('outbox drain recovery', () => {
       'Invalid outbox relay wake time',
     );
   });
-  test.each(['{}', 'invalid', '{"examined":2,"published":2,"failed":0}'])(
+  test.each(['{}', '{"examined":2,"published":2,"failed":0}'])(
     'POST starts a drain and clears crash recovery after completion (%s)',
     async (body) => {
       transport.mockResolvedValue(new Response(body));
@@ -508,8 +508,63 @@ describe('outbox drain recovery', () => {
     await new OutboxRelayAlarm(fixture.ctx, env).alarm();
     expect(sendOperationalAlert).toHaveBeenCalledWith(env, 'domain-relay-repeated-failure', {
       failures: 10,
-      error: 'offline',
+      error: 'Relay network',
     });
+  });
+  test.each(['invalid', 'null', '[]', '{"nextWakeAt":"not-a-date"}'])(
+    'malformed success cannot clear durable recovery: %s', async body => {
+      transport.mockResolvedValue(new Response(body));
+      await new OutboxRelayAlarm(fixture.ctx, env).alarm();
+      expect(fixture.rows.get('failures')).toBe(1);
+      expect(fixture.storage.setAlarm).toHaveBeenLastCalledWith(NOW + 1000);
+    },
+  );
+  test.each(['headers', 'body'])(
+    'hung %s is bounded; concurrent wakes coalesce and empty retry preserves lease recovery', async stage => {
+      let late!: (value: Response) => void;
+      let signal!: AbortSignal;
+      transport.mockImplementationOnce((_url, init) => {
+        signal = init.signal;
+        return stage === 'headers'
+          ? new Promise<Response>(resolve => { late = resolve; })
+          : Promise.resolve({ ok: true, text: () => new Promise(() => {}) });
+      }).mockImplementation(async () => Response.json({}));
+      const alarm = new OutboxRelayAlarm(fixture.ctx, env);
+      await alarm.fetch(req());
+      await alarm.fetch(req());
+      expect(transport).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(5000);
+      await Promise.all(fixture.pending);
+      expect(signal.aborted).toBe(true);
+      expect(fixture.storage.setAlarm).toHaveBeenLastCalledWith(NOW + 6000);
+      expect(console.warn).toHaveBeenCalledWith('[outbox-relay] request failed',
+        expect.stringContaining('"failureKind":"timeout"'));
+      await jest.advanceTimersByTimeAsync(1000);
+      await alarm.alarm();
+      expect(fixture.rows.get('wake')).toEqual({nextWakeAt: new Date(NOW + 155000).toISOString()});
+      const count = transport.mock.calls.length;
+      if (stage === 'headers') late(Response.json({ nextWakeAt: new Date(NOW + 999999).toISOString() }));
+      await Promise.resolve();
+      expect(transport).toHaveBeenCalledTimes(count);
+      expect(fixture.rows.get('wake')).toEqual({nextWakeAt: new Date(NOW + 155000).toISOString()});
+      await jest.advanceTimersByTimeAsync(149000);
+      await alarm.alarm();
+      expect(fixture.rows.has('wake')).toBe(false);
+      expect(fixture.rows.has('uncertainRecheckAt')).toBe(false);
+    },
+  );
+  test('recovery attempt retains the cold-start budget and diagnostics omit upstream bodies', async () => {
+    fixture.rows.set('uncertainRecheckAt', NOW + 150000);
+    transport.mockImplementationOnce(() => new Promise(() => {}));
+    const task = new OutboxRelayAlarm(fixture.ctx, env).alarm();
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(fixture.rows.has('failures')).toBe(false);
+    await jest.advanceTimersByTimeAsync(15000);
+    await task;
+    expect(fixture.rows.get('failures')).toBe(1);
+    transport.mockResolvedValue(new Response('secret content', { status: 503 }));
+    await new OutboxRelayAlarm(fixture.ctx, env).alarm();
+    expect(JSON.stringify(jest.mocked(console.warn).mock.calls)).not.toContain('secret content');
   });
   test('a second wake during an active claim requests another page, not a concurrent drain', async () => {
     let finish!: (value: Response) => void;
