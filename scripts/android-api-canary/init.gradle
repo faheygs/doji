@@ -1,0 +1,23 @@
+// Local test APK only. No change to member application ID, signing or entrypoint.
+gradle.beforeProject { project ->
+  if (project.path == ':app') project.afterEvaluate {
+    def root = project.rootDir.parentFile
+    def probe = new File(root, 'scripts/android-api-canary')
+    project.android.defaultConfig.applicationId = 'com.doji.apicanary'
+    project.android.defaultConfig.versionCode = 1
+    project.android.defaultConfig.versionName = 'local-only'
+    project.android.sourceSets.release.manifest.srcFile(new File(probe, 'AndroidManifest.xml'))
+    project.android.sourceSets.main.java.setSrcDirs([new File(root, 'scripts/android-expo-read-probe/native')])
+    project.android.buildTypes.release.signingConfig = project.android.signingConfigs.debug
+    // Allows stdin provisioning into app-private storage, never secrets in an APK.
+    project.android.buildTypes.release.debuggable = true
+    project.android.buildTypes.release.minifyEnabled = false
+    project.android.buildTypes.release.shrinkResources = false
+    project.extensions.getByName('react').entryFile.set(new File(probe, 'entry.tsx'))
+    project.extensions.getByName('react').hermesCommand.set('')
+    project.layout.buildDirectory.set(new File(root, '.artifacts/android-api-canary/build'))
+    project.tasks.configureEach { task ->
+      if (task.name.toLowerCase().contains('sentry')) task.enabled = false
+    }
+  }
+}

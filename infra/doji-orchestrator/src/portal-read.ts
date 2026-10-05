@@ -3,7 +3,7 @@ import {
   authenticateEmployeePortalRequest,
   normalizedSupabaseUrl,
   type ScaleReadAuthEnv,
-} from './scale-read-auth';
+} from './scale-read-auth.ts';
 
 type PortalReadEnv = ScaleReadAuthEnv & {
   ADMIN_PORTAL_EMPLOYEE_ACCOUNTS?: string;

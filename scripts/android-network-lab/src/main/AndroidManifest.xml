@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only this disposable emulator harness allows local HTTP. No app manifest change. -->
+    <application android:label="Doji network lab" android:usesCleartextTraffic="true"
+        android:allowBackup="false" />
+    <instrumentation android:name=".NetworkLab" android:targetPackage="com.doji.networklab"
+        android:label="Synthetic loopback network checks" />
+</manifest>

@@ -67,7 +67,7 @@ const relay = fs.readFileSync(
   'utf8',
 );
 const hook = fs.readFileSync(path.join(root, 'hooks/useReportContent.ts'), 'utf8');
-const portal = fs.readFileSync(path.join(root, 'website/portal.js'), 'utf8');
+const portal = fs.readFileSync(path.join(root, 'website/portal.mts'), 'utf8');
 
 describe('hierarchical reporting contract', () => {
   it('keeps the installed-client command while adding the target-specific command', () => {
@@ -142,7 +142,7 @@ describe('hierarchical reporting contract', () => {
   });
 
   it('renders complete authorized details for ordinary and restricted report queues', () => {
-    expect(portal).toContain('function isLiveReportItem(item)');
+    expect(portal).toMatch(/function isLiveReportItem\(item:\s*WorkItem\s*\|\s*null\)/);
     expect(portal).toContain("['moderation', 'safety'].includes(item.queue)");
     expect(portal).toContain('const liveReportItem = isLiveReportItem(item)');
     expect(portal).toContain('activeCaseDetail && liveReportItem');
@@ -150,7 +150,7 @@ describe('hierarchical reporting contract', () => {
   });
 
   it('explains appeal conflicts instead of presenting a dead decision form', () => {
-    expect(portal).toContain('function appealActionBlocker(item)');
+    expect(portal).toMatch(/function appealActionBlocker\(item:\s*WorkItem\)/);
     expect(portal).toContain('Independent reviewer required');
     expect(portal).toContain('A different Doji admin with MFA and moderation access');
     expect(portal).toContain("['moderation', 'safety'].includes(activeItem.queue)");

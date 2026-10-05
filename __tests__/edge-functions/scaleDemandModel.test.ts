@@ -1,14 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { stripTypeScriptTypes } from 'node:module';
 
-const script = 'scripts/load/social-fanout-model.mjs';
-const source = readFileSync(script, 'utf8');
+const script = 'scripts/load/social-fanout-model.mts';
+const source = stripTypeScriptTypes(readFileSync(script, 'utf8'), { mode: 'strip' });
 const model = (...args: string[]) => {
   let output = '';
-  runInNewContext(source, {
-    process: { argv: ['node', script, ...args] },
-    console: { log: (value: string) => { output = value; } },
-  }, { timeout: 1000 });
+  runInNewContext(
+    source,
+    {
+      process: { argv: ['node', script, ...args] },
+      console: {
+        log: (value: string) => {
+          output = value;
+        },
+      },
+    },
+    { timeout: 1000 },
+  );
   return JSON.parse(output);
 };
 
@@ -30,9 +39,14 @@ describe('offline scale demand accounting', () => {
     expect(model('--push-actions-per-user=0').targetedProviderRequests).toBe(0);
     expect(model('--installations-per-recipient=2').targetedProviderRequests).toBe(200_000);
   });
-  it.each(['--group-bucket-seconds=30', '--native-provider-rate=5000',
-    '--burst-seconds=0', '--users=NaN', '--users=1.5', '--users=1e300'])
-  ('rejects stale capacity arguments or invalid scenarios: %s', arg => {
+  it.each([
+    '--group-bucket-seconds=30',
+    '--native-provider-rate=5000',
+    '--burst-seconds=0',
+    '--users=NaN',
+    '--users=1.5',
+    '--users=1e300',
+  ])('rejects stale capacity arguments or invalid scenarios: %s', (arg) => {
     expect(() => model(arg)).toThrow();
   });
 });

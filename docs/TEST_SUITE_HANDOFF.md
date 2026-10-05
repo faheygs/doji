@@ -24,7 +24,7 @@ any later pull request; historical results do not certify changed code.
 
 Use Node 24, npm, Git, and a local Chromium installation managed by Playwright.
 Database tests additionally require a running local Docker or Podman engine and
-the pinned images selected by [database configuration](../scripts/database/config.mjs).
+the pinned images selected by [database configuration](../scripts/database/config.mts).
 Image/browser/package downloads need network access and local disk space. Do not
 enable paid cloud resources or remote container engines for these checks.
 
@@ -37,6 +37,7 @@ Run these commands from the repository root, checking each command's exit status
 ```sh
 npm ci
 npm ci --prefix infra/portal-identity-candidate
+npm ci --prefix infra/doji-orchestrator
 npx playwright install chromium
 npm run typecheck
 npm run lint -- --quiet
@@ -79,9 +80,9 @@ The source-only run uses another empty database without retained `.env` files,
 harness, not a certified one-command full application stack or proof that raw
 `supabase db push` matches production. The harness restores specific historical
 preconditions and applies explicit later-schema test overlays. Inspect
-[replay](../scripts/database/clean-room.mjs),
-[integration](../scripts/database/integration.mjs) and
-[concurrency](../scripts/database/concurrency.mjs) for their exact scope.
+[replay](../scripts/database/clean-room.mts),
+[integration](../scripts/database/integration.mts) and
+[concurrency](../scripts/database/concurrency.mts) for their exact scope.
 
 The anonymous announcement EXECUTE revokes remain a separately gated local
 candidate in [draft SQL](drafts/announcement_member_execute_v1.sql). Testing that
@@ -107,8 +108,8 @@ a test fails. Check names must stay aligned with protection if workflows change.
 The existing 15 source-size exceptions freeze those files at their approved caps;
 the default limit remains 240 lines. Coverage thresholds and the source inventory
 must not be weakened to make a change pass. See
-[source-size policy](../scripts/check-source-size.mjs) and
-[coverage policy](../coverage-policy.cjs).
+[source-size policy](../scripts/check-source-size.mts) and
+[coverage policy](../coverage-policy.mts).
 
 ## Focused checks and failure evidence
 

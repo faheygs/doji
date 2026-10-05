@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { QueryClient, QueryObserver, focusManager } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
+import { normalize } from '@sentry/core';
+import { Platform } from 'react-native';
 import { runMemberRead } from '../../lib/runMemberRead';
 import { boundedSupabaseFetch } from '../../lib/supabaseFetch';
 import { readFailureDiagnostics } from '../../lib/memberReadDiagnostics';
@@ -17,6 +19,7 @@ jest.mock('@sentry/react-native', () => ({
 const originalFetch = global.fetch;
 const originalDev = __DEV__;
 const originalController = global.AbortController;
+const originalPlatform = Platform.OS;
 let clock = 1_900_000_000_000;
 const sbId = '8352115d-a43b-4c75-b65e-222037e846a4';
 const otherId = 'e0ac21a5-dc4d-49ed-8fc2-1b5d79f01660';
@@ -40,6 +43,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   global.fetch = originalFetch; global.AbortController = originalController;
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
   (global as any).__DEV__ = originalDev; focusManager.setFocused(true);
   jest.restoreAllMocks(); jest.useRealTimers();
 });
@@ -98,6 +102,63 @@ test('two real SDK attempts produce one incident retaining both attempts, not pr
     const event: any = { tags: { area: 'api' }, contexts: { api: context, device: { name: 'private-device' } },
       request: { url: 'private-url' }, user: { id: 'private-user' }, extra: { token: 'private-token' }, breadcrumbs: [{ message: 'private' }] };
     expect(JSON.stringify(sanitizeApiFailureEvent(event, {}))).not.toContain('private');
+  } finally { c.clear(); }
+});
+
+test('Android first/final evidence survives the installed Sentry default normalization depth', async () => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+  global.fetch = jest.fn().mockResolvedValueOnce(failure(sbId))
+    .mockResolvedValueOnce(new Response(null, { status: 504, headers: {
+      'x-doji-native-read-version': '2', 'x-doji-native-response-source': 'network',
+      'x-doji-native-request-cache-only': 'false',
+      'x-doji-native-protocol': 'h2', 'x-doji-native-network-headers-ms': '236', 'x-doji-native-prior-response-count': '0',
+    } }));
+  const c = client();
+  try {
+    await expect(c.fetchQuery({ queryKey: ['ownedShopItems', 'private-user'], queryFn: ({ signal }) => read(signal) }))
+      .rejects.toMatchObject({ status: 504 });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    const context = mockScope.setContext.mock.calls[0][1];
+    // prepareEvent normalizes the complete contexts map at depth 3 before beforeSend.
+    // The original contexts.api.attempts[].fields payload loses the objects here.
+    expect(normalize({ api: { attempts: [{ status: 504 }] } }, 3))
+      .toEqual({ api: { attempts: ['[Object]'] } });
+    const normalized = normalize({ api: context }, 3);
+    expect(normalized).toMatchObject({ api: { attempt_count: 2,
+      first_attempt: { response_status: 504, sb_request_id: sbId, status_text_available: false },
+      response_status: 504, status_text_available: false, response_type: 'missing',
+      native_response_source: 'network', native_request_cache_only: false } });
+    expect(normalized).toMatchObject({ api: { failure_evidence: 'network_http_response', failure_phase: 'after_body',
+      diagnostics_version: 2, fetch_invocations: 1, body_state: 'complete',
+      native_protocol: 'h2', native_network_headers_ms: 236, native_prior_response_count: 0,
+      first_attempt: { diagnostics_version: 2, body_state: 'complete' } } });
+    expect((Sentry.captureException as jest.Mock).mock.calls[0][0].message)
+      .toBe('Doji query.ownedShopItems failed (timeout; network HTTP response 504; phase=after_body)');
+    expect(mockScope.setTag).toHaveBeenCalledWith('failure_evidence', 'network_http_response');
+    // Detailed text changes, existing grouping and volume controls do not.
+    expect(mockScope.setFingerprint).toHaveBeenCalledWith(['api', 'query', 'ownedShopItems', 'timeout', '504']);
+    expect(context).not.toHaveProperty('attempts');
+    expect(context).not.toHaveProperty('cache_only_signature');
+    expect(context).not.toHaveProperty('sb_request_id');
+    const event: any = { tags: { area: 'api' }, contexts: normalized, request: { url: 'private-url' },
+      user: { id: 'private-user' }, extra: { token: 'private-token' }, breadcrumbs: [{ message: 'private' }] };
+    expect(JSON.stringify(sanitizeApiFailureEvent(event, {}))).not.toMatch(/private|\[Object\]/);
+  } finally { c.clear(); }
+});
+
+test('Android single-attempt failures do not invent first-retry evidence', async () => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+  global.fetch = jest.fn().mockResolvedValue(failure());
+  const c = client();
+  try {
+    await expect(c.fetchQuery({ queryKey: ['ownedShopItems'], retry: false, queryFn: ({ signal }) => read(signal) }))
+      .rejects.toMatchObject({ status: 504 });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const context = mockScope.setContext.mock.calls[0][1];
+    expect(context).toMatchObject({ attempt_count: 1, sb_request_id: sbId });
+    expect(context).not.toHaveProperty('attempts');
+    expect(context).not.toHaveProperty('first_attempt');
   } finally { c.clear(); }
 });
 

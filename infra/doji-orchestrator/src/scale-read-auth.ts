@@ -111,7 +111,7 @@ async function authenticateRole(
   if (!authorization.startsWith('Bearer ')) throw new Error('Authentication required');
   const token = authorization.slice(7);
   const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid access token');
+  if (parts.length !== 3 || parts[0] === undefined || parts[1] === undefined || parts[2] === undefined) throw new Error('Invalid access token');
   let header: JwtHeader;
   let payload: JwtPayload;
   try {

@@ -47,7 +47,8 @@ export async function readBusinessLink(
   try {
     if (typeof value !== 'string' || value.length > 2500 || !/^[\w-]+\.[\w-]+$/.test(value))
       return null;
-    const [payload, signature] = value.split('.');
+    // The exact two-component shape was validated above.
+    const [payload, signature] = value.split('.') as [string, string];
     if (
       !(await crypto.subtle.verify(
         'HMAC',

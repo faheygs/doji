@@ -1,9 +1,27 @@
 # Doji
 
-Expo/React Native app backed by Supabase Postgres/Storage/Edge Functions,
-Cloudflare Durable Objects, and Ably realtime Pub/Sub.
+Daily social challenge app, public website, safety intake, employee admin portal,
+business portal and shared infrastructure. Mobile uses Expo/React Native and
+Supabase; delivery uses Cloudflare Durable Objects and Ably.
 
 ## Start here
+
+**New developer: start with [Developer onboarding](docs/DEVELOPER_ONBOARDING.md).**
+
+| Question | Guide |
+| --- | --- |
+| What is everything and how does it connect? | [System and code map](docs/SYSTEM_MAP.md) |
+| Which vendors, dashboards and portals are involved? | [Service catalog](docs/SERVICE_CATALOG.md) |
+| How do I run it safely? | [Local development](docs/LOCAL_DEVELOPMENT.md) |
+| How do we test and release? | [Testing and releases](docs/TESTING_AND_RELEASES.md) |
+| How do accounts, permissions and secrets work? | [Security and access](docs/SECURITY_AND_ACCESS.md) |
+| What is live versus unfinished? | [Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md) |
+| Where are all the detailed records? | [Documentation index](docs/README.md) |
+
+The owner's working tree contains modified and untracked work. Obtain a reviewed
+handoff commit; do not assume a fresh clone matches production. Member login stays
+on Supabase Auth. Independent employee login is WorkOS; the business identity
+transition is not complete. See the dated current-state guide before operations.
 
 Read [DOJI_CONTEXT.md](DOJI_CONTEXT.md) before changing the product. It maps the
 complete user journey, daily challenge lifecycle, screen responsibilities, data
@@ -11,20 +29,16 @@ model, atomic commands, realtime events, notifications, economy, moderation, UI
 rules, and how every system connects. Transport/deployment details are in
 [docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md).
 
-## Testing and local setup
+## Local setup
 
-Start with the [test suite handoff](docs/TEST_SUITE_HANDOFF.md) for prerequisites,
-safe fresh-clone commands, required CI checks, evidence and remaining acceptance
-gates. Automated tests use synthetic fixtures; production credentials are not
-required. Use Node 24 and the committed lockfiles.
-
-For interactive app development only, use approved development values in
-`.env.local`; [.env.example](.env.example) documents the public placeholders.
-Automated tests do not need this file. Never commit secrets.
+Use [Local development](docs/LOCAL_DEVELOPMENT.md) and the placeholder-only
+[.env.example](.env.example). Obtain an approved isolated environment, not the
+owner's production `.env.local`. Never commit secrets.
 
 | Variable | Use |
 | --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Mobile/web Supabase client |
+| `EXPO_PUBLIC_COMMAND_GATEWAY_URL` | Authenticated atomic-command gateway; environment-specific |
 | `EXPO_PUBLIC_SCALE_READ_URL` | Optional authenticated aggregate gateway; omit for free-mode direct reads |
 | `EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED` | Use CDN feed/thumbnail variants after Storage image transforms are enabled |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | RLS-bound public client key |
@@ -34,17 +48,18 @@ Automated tests do not need this file. Never commit secrets.
 Server-role, Ably API, relay, and orchestration secrets are server-only.
 
 ```powershell
+git status --short
+node --version
 npm ci
-npm ci --prefix infra/portal-identity-candidate
 npm test -- --runInBand
-npm run typecheck
+npx tsc --noEmit
 npm run lint
 ```
 
-Linking a hosted Supabase project, pushing migrations, starting a native build,
-and deploying services are not test setup. Each requires its own reviewed scope.
-For interactive app development, obtain approved development configuration before
-running `npx expo start --dev-client`; do not copy production server secrets.
+Do **not** link or push a database as onboarding. This checkout may already be
+linked to production. Some separately deployed SQL remains under `docs/drafts`;
+bulk migration replay is not a safe way to synchronize it. The setup guide explains
+local previews, development clients and database limitations.
 
 ## Authoritative realtime
 
@@ -63,7 +78,7 @@ RLS-authorized reads. Core mutations are serialized, transactional, and idempote
 
 See [docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md).
 
-## Required server deployments
+## Server architecture
 
 Supabase Edge Functions: `schedule-daily-challenge`, `orchestrate-doji`,
 `relay-domain-events`, `fanout-doji-push`, `realtime-token`, `delete-account`,
@@ -72,14 +87,17 @@ Supabase Edge Functions: `schedule-daily-challenge`, `orchestrate-doji`,
 Cloudflare Worker: `infra/doji-orchestrator` (alarms, relay, command gateway, and
 authenticated scale-read cache).
 
-Apply migrations, deploy the Edge Functions and Worker, configure Vault/secrets, then
-invoke `schedule-daily-challenge` once. Later events chain automatically.
+This is not a complete function inventory or a deployment recipe. See the
+[Service catalog](docs/SERVICE_CATALOG.md) for employee/business/safety handlers and
+[Testing and releases](docs/TESTING_AND_RELEASES.md) for approved release boundaries.
+Do not invoke scheduling or deployment commands simply to test a UI.
 
 ## Time and participation
 
 The proposed drop time is selected inside the continental-US window (10:00 Pacific
-through 22:00 Eastern). Authorization always uses the database clock. Users have
-exactly 10 minutes after activation; the server rejects participation after close.
+through 22:00 Eastern). Authorization always uses the database clock. The standard
+window is exactly 10 minutes after activation. Existing signup-day eligibility and
+Sparks buy-in exceptions are server-authorized; clients cannot extend a deadline.
 
 ## Notifications
 
@@ -91,8 +109,10 @@ depends on OS push delivery.
 
 ## Media
 
-Native uploads use `expo-file-system` `ArrayBuffer` payloads for Supabase Storage.
-Media paths are user-scoped and enforced by storage policies. Paid scale mode can
-serve signed feed and thumbnail variants while retaining the original immutable path.
-Capacity activation needs a separately approved plan and measured headroom; see
-the [independent release acceptance gates](docs/TEST_SUITE_HANDOFF.md#independent-release-acceptance).
+Media uses server-reserved private Supabase Storage paths and resumable TUS uploads.
+Visible authorized content resolves short-lived signed URLs; persisted query data
+must not retain signed bearer URLs. Image variants and capacity controls require
+their own qualification. See [System and code map](docs/SYSTEM_MAP.md),
+[Local heavy-load evidence](docs/LOCAL_HEAVY_LOAD_2026-09-28.md) and
+[Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md). Local simulations do not
+prove 100,000 concurrent users or phone notification delivery.

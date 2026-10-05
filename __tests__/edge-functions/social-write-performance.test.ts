@@ -107,8 +107,12 @@ describe('interactive social write performance policy', () => {
     expect(outboxRelay).toContain('if (this.drainTask || this.drainStarting)');
     expect(outboxRelay).toContain('this.rerunRequested = true');
     expect(outboxRelay).toContain('if (this.rerunRequested)');
-    expect(outboxRelay).toContain('UPSTREAM_TIMEOUT_MS = 20_000');
-    expect(outboxRelay).toContain('wakeToClaimMs: Date.now() - acceptedAt');
+    // The approved recovery repair bounds first requests to five seconds,
+    // retaining the longer budget only while recovering an uncertain request.
+    expect(outboxRelay).toContain('UPSTREAM_TIMEOUT_MS = 5_000');
+    expect(outboxRelay).toContain('RECOVERY_TIMEOUT_MS = 20_000');
+    expect(outboxRelay).toContain('uncertainAt ? RECOVERY_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS');
+    expect(outboxRelay).toContain('wakeToRequestMs: Date.now() - acceptedAt');
     expect(outboxRelay).toContain('drainId');
     expect(outboxRelay).toContain("await this.ctx.storage.delete('wake');");
     expect(outboxRelay).toContain('export class OutboxRelayAlarm');

@@ -3,8 +3,8 @@
 // exact owner mapping, same-origin proxy and owner MFA acceptance are verified.
 import pg from 'pg';
 import { Rest } from 'ably';
-import { createEmployeeRuntime } from '../../../infra/portal-identity-candidate/employee-runtime.mjs';
-import { createEmployeeStorageSigner } from '../../../infra/portal-identity-candidate/employee-storage-signer.mjs';
+import { createEmployeeRuntime } from '../../../infra/portal-identity-candidate/employee-runtime.mts';
+import { createEmployeeStorageSigner } from '../../../infra/portal-identity-candidate/employee-storage-signer.mts';
 
 let handler: ((request: Request) => Promise<Response>) | undefined;
 Deno.serve(async (request: Request) => {

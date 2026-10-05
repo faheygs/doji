@@ -26,17 +26,22 @@ jobs:
       - run: npm ci
       - run: npx expo-doctor
       - run: npm ci --prefix infra/portal-identity-candidate
+      # The strict tooling/browser compiler uses this package's locked esbuild
+      # and local Worker harness types. Install before root typechecking/tests.
+      - run: npm ci --prefix infra/doji-orchestrator
       - run: npm run typecheck
       - run: npm run lint -- --quiet
       - run: npm run check:size
       - run: npm test -- --runInBand
+      - name: URI decoder security and router compatibility
+        run: node --test scripts/uri-decoder-security.test.mts
       - run: npm run test:fanout-model
       # Expo/Metro build-tool advisories are tracked separately; a critical
       # production advisory always blocks release.
       - run: npm audit --omit=dev --audit-level=critical
       - name: Typecheck Cloudflare orchestrator
         working-directory: infra/doji-orchestrator
-        run: npm ci && npm run typecheck
+        run: npm run typecheck
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -57,6 +62,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm ci --prefix infra/portal-identity-candidate
+      - run: npm ci --prefix infra/doji-orchestrator
       - run: npx playwright install --with-deps chromium
       # Fails until every named area reaches 90% statements/branches/functions/lines.
       # Local fixture artifacts only; no production credentials or deployment.

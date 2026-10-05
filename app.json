@@ -22,7 +22,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "101"
+      "buildNumber": "102"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -32,7 +32,7 @@
       },
       "package": "com.doit.challengeapp",
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 23
+      "versionCode": 25
     },
     "web": {
       "favicon": "./assets/icon.png"
@@ -80,7 +80,8 @@
         }
       ],
       "expo-status-bar",
-      "expo-video"
+      "expo-video",
+      "./plugins/withAndroidReadDiagnostics"
     ],
     "experiments": {
       "typedRoutes": true

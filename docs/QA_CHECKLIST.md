@@ -1,7 +1,13 @@
 # Doji — QA Checklist (pre-publish)
 
-Run through every item on a **real device** (or Expo Go / dev-client build).
-Mark each box when verified.
+Run release acceptance on the **exact candidate on a real device**. Development
+clients or Expo Go can cover supported UI behavior, not certify native push or
+release-only behavior. Mark each box with candidate/environment evidence.
+
+Use isolated synthetic accounts/data for mutations. Do not trigger, reschedule or
+close a production daily event to satisfy this checklist. See
+[Testing and releases](TESTING_AND_RELEASES.md); older labels below must be checked
+against current product contracts, not treated as permission to recreate old UI.
 
 ---
 
@@ -18,7 +24,7 @@ Mark each box when verified.
 ## 2. Feed
 
 - [ ] **Empty feed** — new user with no friends sees "Nothing yet" empty state
-- [ ] **Feed shows only friends + self** — add a friend, accept, verify their posts appear
+- [ ] **Feed scopes** — Friends shows the authorized friend/self set; Everyone uses its global authorized feed; blocked/restricted content stays excluded
 - [ ] **Pull to refresh** — swipe down refreshes feed content
 - [ ] **Infinite scroll** — with 20+ posts, scrolling loads more pages
 - [ ] **Post card** — displays avatar, username, relative time, photo, category badge
@@ -56,7 +62,7 @@ Mark each box when verified.
 - [ ] **Retake** — clears captures, returns to source selection
 - [ ] **Post** — uploads media, creates post, shows success toast, returns to feed
 - [ ] **Feed updates** — new post appears in feed immediately after posting
-- [ ] **Activation reset** — preparing tomorrow does not clear the feed; activating a new Doji immediately replaces the prior feed without deleting history/XP
+- [ ] **Prelive reset** — preparing tomorrow does not clear the feed; prelive clears the prior daily feed twenty minutes before activation without deleting history/XP
 - [ ] **Poll types** — generic Poll offers `Other`; Would You Rather shows exactly two choices and never `Other`
 
 ## 6. Reactions
@@ -111,7 +117,7 @@ Mark each box when verified.
 - [ ] **Theme toggle** — light/dark switches instantly
 - [ ] **Theme navigation** — push/pop and interactive-swipe transitions never reveal the opposite-theme window background
 - [ ] **Stats preview** — shows current streak, best, completed counts
-- [ ] **Delete account** — confirmation dialog → deletes all data + signs out
+- [ ] **Delete account** — confirmation invokes authorized account deletion and signs out; verify ordinary data cleanup while preserving legally/operationally required holds and protected audit evidence
 - [ ] **Sign out** — clears session, returns to welcome
 
 ## 11. Realtime
@@ -161,7 +167,7 @@ Mark each box when verified.
 3. Go to Settings → Enable notifications → verify toast
 4. Search and add a friend (use a second test account)
 5. Accept the friend request on the second account
-6. Trigger a daily challenge via Edge Function or Supabase dashboard
+6. In an approved isolated environment only, run the synthetic event fixture; in production, observe the naturally scheduled event without triggering it
 7. Open challenge → Capture proof → Post
 8. Verify post appears in both accounts' feeds
 9. React to the post from the second account

@@ -645,6 +645,7 @@ html[data-theme] .adminPortalPage .opsHero .eyebrow { color: var(--admin-muted);
 .adminPortalPage .eventHealthRow small { display: block; margin-top: 5px; color: var(--admin-muted); font-size: 10px; }
 .adminPortalPage .eventHealthTitle .healthState { margin-top: 8px; }
 .adminPortalPage .opsHero .portalButton { margin-top: 16px; color: #fff; border-color: #707581; background: #242730; }
+.adminPortalPage .opsHero .portalButton:hover { background: #303541; color: #fff; }
 .adminPortalPage .eventHealthContext { grid-column: 1 / -1; }
 .adminPortalPage .healthMetricGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px; overflow: hidden; margin-top: 16px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-border); }
 .adminPortalPage .healthMetricGrid > div { display: grid; gap: 6px; min-width: 0; padding: 15px 16px; background: var(--admin-card); }

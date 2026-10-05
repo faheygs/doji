@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.doji.testenvironment'
+version = '1.0.0'
+
+android {
+  namespace "com.doji.testenvironment"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

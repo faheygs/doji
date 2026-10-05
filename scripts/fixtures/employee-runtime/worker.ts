@@ -1,8 +1,8 @@
 // Network-disabled real Edge runtime probe; all credentials and I/O are synthetic.
 import pg from '../../../infra/portal-identity-candidate/node_modules/pg/lib/index.js';
-import {createEmployeeRuntime} from '../../../infra/portal-identity-candidate/employee-runtime.mjs';
-import {createEmployeeProxy} from '../../../infra/portal-identity-candidate/employee-proxy.mjs';
-const config={enabled:true,realm:'employee',origin:'https://admin.dojipro.com',
+import {createEmployeeRuntime} from '../../../infra/portal-identity-candidate/employee-runtime.mts';
+import {createEmployeeProxy} from '../../../infra/portal-identity-candidate/employee-proxy.mts';
+const config={enabled:true,realm:'employee' as const,origin:'https://admin.dojipro.com',
  endpoint:'https://abcdefghijklmnopqrst.supabase.co/functions/v1/employee-portal-v2',storageOrigin:'https://abcdefghijklmnopqrst.supabase.co',
  proxyKey:'ab'.repeat(32),clientId:'client_synthetic',apiKey:'sk_synthetic'+'x'.repeat(32),
  encryptionKey:'bc'.repeat(32),admissionKey:'cd'.repeat(32),
@@ -21,7 +21,7 @@ Deno.serve(async()=>{
   const runtime=createEmployeeRuntime(config,{
     createClient:()=>({connect:async()=>{},end:async()=>{},query:async(query:unknown)=>{
       sqlCalls++;
-      if(typeof query==='string' && query.startsWith('select session_user'))return {rows:[{login:'doji_employee_portal_login',current_role:'doji_employee_portal_login',privileged:false,inherits:false,permitted:true}]};
+      if(typeof query==='string' && query.startsWith('begin isolation'))return [{},{},{},{},{rows:[{login:'doji_employee_portal_login',current_role:'doji_employee_portal_login',privileged:false,inherits:false,permitted:true}]}];
       return {rows:typeof query==='object'?[{result:false}]:[]};
     }}),
     signStorage:()=>{signCalls++;throw Error('No signing expected');},

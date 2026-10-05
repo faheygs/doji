@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <!-- Strong boundary: even a broken test cannot contact a production service. -->
+  <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+  <application android:label="Doji offline read probe" tools:replace="android:label">
+    <activity android:name="com.doit.challengeapp.MainActivity">
+      <!-- No member-app links or launcher entries for this disposable probe. -->
+      <intent-filter tools:node="removeAll" />
+    </activity>
+  </application>
+</manifest>

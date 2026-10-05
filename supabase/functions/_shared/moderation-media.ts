@@ -30,7 +30,8 @@ export type RemovalControl = {
   saveOriginRemoval(): Promise<void>;
 };
 export class MediaFailure extends Error {
-  constructor(readonly code: string) { super(code); this.name = 'MediaFailure'; }
+  readonly code: string;
+  constructor(code: string) { super(code); this.code = code; this.name = 'MediaFailure'; }
 }
 const sameIdentity = (a: ObjectIdentity, b: ObjectIdentity) =>
   a.id === b.id && a.version === b.version && a.size === b.size && a.mime === b.mime;

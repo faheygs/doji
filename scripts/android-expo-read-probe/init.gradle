@@ -1,0 +1,28 @@
+// Explicit, local-only Gradle init script. Never part of an EAS/store build.
+gradle.beforeProject { project ->
+  if (project.path == ':app') {
+    project.afterEvaluate {
+      def root = project.rootDir.parentFile
+      def probe = new File(root, 'scripts/android-expo-read-probe')
+      project.android.defaultConfig.applicationId = 'com.doji.exporeadprobe'
+      project.android.defaultConfig.versionCode = 1
+      project.android.defaultConfig.versionName = 'local-only'
+      project.android.sourceSets.release.manifest.srcFile(new File(probe, 'AndroidManifest.xml'))
+      // Probe bootstrap follows this installed SDK's bundled template, not the
+      // older generated member shell. Generated autolinking sources stay enabled.
+      project.android.sourceSets.main.java.setSrcDirs([new File(probe, 'native')])
+      project.android.buildTypes.release.signingConfig = project.android.signingConfigs.debug
+      project.android.buildTypes.release.minifyEnabled = false
+      project.android.buildTypes.release.shrinkResources = false
+      project.extensions.getByName('react').entryFile.set(new File(probe, 'entry.tsx'))
+      // This older generated shell hardcodes RN's removed sdks/hermesc path.
+      // Let the installed RN plugin resolve its matching hermes-compiler package.
+      project.extensions.getByName('react').hermesCommand.set('')
+      project.layout.buildDirectory.set(new File(root, '.artifacts/android-expo-read-probe/build'))
+      // The probe has a local Sentry transport only; never upload build artifacts.
+      project.tasks.configureEach { task ->
+        if (task.name.toLowerCase().contains('sentry')) task.enabled = false
+      }
+    }
+  }
+}

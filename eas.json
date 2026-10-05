@@ -31,6 +31,9 @@
       "ios": {
         "resourceClass": "m-medium"
       },
+      "android": {
+        "resourceClass": "medium"
+      },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev",
@@ -40,6 +43,13 @@
     }
   },
   "submit": {
+    "testing": {
+      "extends": "production",
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    },
     "production": {
       "android": {
         "track": "alpha",

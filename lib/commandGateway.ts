@@ -3,6 +3,8 @@ import type { AuthenticatedCommandName } from '../contracts/authenticatedCommand
 import { reportApiFailure } from './apiFailureTelemetry';
 import { supabase } from './supabase';
 import { mobileReleaseIdentity } from './releaseIdentity';
+import { Platform } from 'react-native';
+import { beginReadDiagnostics, finishReadDiagnostics, inheritReadDiagnostics, observedMemberFetch } from './memberReadDiagnostics';
 
 const COMMAND_TIMEOUT_MS = 12_000;
 const TRANSIENT_RETRY_DELAY_MS = 250;
@@ -45,13 +47,15 @@ function gatewayUrl(): string | null {
 
 function commandError(value: unknown, fallback: string, status?: number): CommandError {
   const body = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  return {
+  const error = {
     status,
     code: typeof body.code === 'string' ? body.code : 'DOJI_COMMAND_ERROR',
     details: typeof body.details === 'string' ? body.details : null,
     hint: typeof body.hint === 'string' ? body.hint : null,
     message: typeof body.message === 'string' ? body.message : fallback,
   };
+  if (Platform.OS === 'android') inheritReadDiagnostics(value, error);
+  return error;
 }
 
 function mayRetryCommand(name: string, args: unknown): boolean {
@@ -78,9 +82,11 @@ async function gatewayCommand<Name extends FunctionName>(
 ): Promise<{ response: Response; payload: unknown }> {
   const release = mobileReleaseIdentity();
   const controller = new AbortController();
+  const diagnose = Platform.OS === 'android';
+  if (diagnose) beginReadDiagnostics(controller.signal, 'command_gateway');
   const timeout = setTimeout(() => controller.abort(new Error('Command timed out')), COMMAND_TIMEOUT_MS);
   try {
-    const response = await fetch(`${baseUrl}/commands/rpc/${name}`, {
+    const response = await (diagnose ? observedMemberFetch : fetch)(`${baseUrl}/commands/rpc/${name}`, {
       method: 'POST',
       headers: {
         accept: 'application/json',
@@ -104,13 +110,19 @@ async function gatewayCommand<Name extends FunctionName>(
         payload = { message: text };
       }
     }
+    if (diagnose) finishReadDiagnostics(controller.signal, response,
+      { abort_source: 'none', deadline_ms: COMMAND_TIMEOUT_MS });
     return { response, payload };
   } catch (error) {
     // Native fetch may reject with a generic AbortError instead of the deadline reason.
-    if (controller.signal.aborted) throw controller.signal.reason ?? new Error('Command timed out');
-    throw error;
+    const failure = controller.signal.aborted ? controller.signal.reason ?? new Error('Command timed out') : error;
+    if (diagnose) finishReadDiagnostics(controller.signal,
+      failure && typeof failure === 'object' ? failure : undefined,
+      { abort_source: controller.signal.aborted ? 'deadline' : 'none', deadline_ms: COMMAND_TIMEOUT_MS });
+    throw failure;
   } finally {
     clearTimeout(timeout);
+    if (diagnose) finishReadDiagnostics(controller.signal);
   }
 }
 
@@ -188,6 +200,7 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
         continue;
       }
       const error = commandError(payload, `Command failed (${response.status})`, response.status);
+      if (Platform.OS === 'android') inheritReadDiagnostics(response, error);
       reportApiFailure('command', name, error);
       return {
         data: null,
