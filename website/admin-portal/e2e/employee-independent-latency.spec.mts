@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../coverage-fixture.mts';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { operatorSession } from './fixtures.mts';
@@ -14,7 +14,11 @@ const types: Record<string, string> = {
 test('employee portal enters after MFA without a duplicate session read and still locks', async ({
   page,
 }) => {
-  const root = resolve('website/.admin-dist');
+  // Coverage prepares this fresh, instrumented artifact, not the developer's
+  // optional .admin-dist. Never let a stale local build make this test pass.
+  const root = resolve('website', process.env.DOJI_BROWSER_COVERAGE === '1'
+    ? '.business-admin-qa-20261002' : '.admin-dist');
+  await readFile(resolve(root, 'index.html')); // Fail at the missing fixture, not at sign-in.
   const transport = await build({
     stdin: {
       contents:
