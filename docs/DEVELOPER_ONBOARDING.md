@@ -2,7 +2,7 @@
 
 Start here when joining Doji. This handbook explains the code, service access,
 safe local development and first-change workflow. Audited against the local
-repository and existing release evidence on **October 1, 2026**; this is not a new
+repository and existing release evidence on **October 5, 2026**; this is not a new
 live audit of every vendor account. Recheck dated state before production work.
 
 ## Reading order
@@ -24,9 +24,11 @@ the filename nor an old checklist establishes deployment status. Use the
 
 ## First hour
 
-- Ask Gavin Fahey for repository access and the reviewed handoff branch/commit.
-  The owner's workspace has substantial modified/untracked work; do not assume
-  `main` contains the deployed portal or all recent documentation.
+- Ask Gavin Fahey for repository access and use reviewed `main`. PR #3 merged the
+  TypeScript conversion and regression suite at `60df53a` on October 5. Do not
+  copy the owner's retained working files or assume a source merge deploys them.
+- Run `npm run check:hygiene`. Fresh clones must not contain Supabase CLI link
+  caches, local environment values or generated test/deployment evidence.
 - Confirm your scope: mobile, portal UI, database, infrastructure or operations.
 - Inspect `git status --short`, `package.json` and the lockfile. Install with
   `npm ci`, `npm ci --prefix infra/portal-identity-candidate` and

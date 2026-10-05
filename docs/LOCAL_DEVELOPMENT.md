@@ -136,7 +136,11 @@ history and retained local fixtures need reconciliation. `supabase/config.toml`
 alone does not reproduce the deployed database, vendor secrets or WorkOS setup.
 
 - Do not run `supabase link`, `db push`, remote SQL or all draft files as onboarding.
-  An existing `.temp` link may target production.
+  Supabase `.temp` link/cache files are no longer versioned. Existing owner
+  checkouts can still have an ignored production link; inspect locally before
+  any separately authorized CLI operation. Removing files from Git does not
+  unlink an existing checkout or revoke provider access. Historical release
+  scripts intentionally fail closed without their explicitly verified link.
 - [Local employee test environment](LOCAL_EMPLOYEE_TEST_ENVIRONMENT.md) documents
   the owner's isolated Podman/WSL, database-only fixtures and allowlisted projects.
   Some scripts depend on exact Windows paths or retained `test-results` fixtures;

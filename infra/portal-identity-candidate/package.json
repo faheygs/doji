@@ -2,7 +2,7 @@
   "name": "doji-portal-identity-candidate",
   "private": true,
   "type": "module",
-  "description": "Offline preparation only; no deployed entry point",
+  "description": "Independent portal identity runtime: live employee modules and gated business replacement; candidate is a historical directory name",
   "dependencies": {
     "jose": "6.2.8",
     "pg": "8.16.3"

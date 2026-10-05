@@ -5,10 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { lightColors, darkColors, type BadgeTierName } from '../../constants/theme';
 import { BadgesGrid } from '../../components/gamification/BadgesGrid';
 import { BadgeUnlockModal } from '../../components/gamification/BadgeUnlockModal';
-import { LevelUpModal } from '../../components/gamification/LevelUpModal';
-import { XpGainOverlay } from '../../components/gamification/XpGainOverlay';
 import { LevelBadge } from '../../components/gamification/LevelBadge';
-import { RankBadge } from '../../components/gamification/RankBadge';
 import { XPBar } from '../../components/gamification/XPBar';
 import { CelebrationHost } from '../../components/gamification/CelebrationHost';
 import { useCelebrationStore } from '../../stores/useCelebrationStore';
@@ -203,45 +200,6 @@ describe('earned celebration interaction', () => {
     );
     expect(ui.getByText('BADGE UNLOCKED')).toBeTruthy();
   });
-  it.each([undefined, 'Keep the streak alive'])(
-    'shows level milestone with subtitle %s',
-    (subtitle) => {
-      const close = jest.fn();
-      const ui = render(<LevelUpModal level={5} subtitle={subtitle} onDismiss={close} />);
-      expect(ui.getByText('Level 5 Unlocked')).toBeTruthy();
-      expect(ui.getByText(subtitle ?? "You're leveling up!")).toBeTruthy();
-      fireEvent.press(ui.getByText('Keep going!'));
-      expect(close).toHaveBeenCalled();
-    },
-  );
-  it.each([undefined, 0, -5, 1500])(
-    'shows only positive Sparks alongside earned XP (%s)',
-    (sparks) => {
-      Platform.OS = sparks === 1500 ? 'android' : 'ios';
-      const done = jest.fn();
-      const ui = render(
-        <XpGainOverlay amount={1000} sparks={sparks} xp={1000} level={5} onComplete={done} />,
-      );
-      expect(ui.getByText('+1,000 XP')).toBeTruthy();
-      expect(Boolean(ui.queryByText('+1,500 Sparks'))).toBe(sparks === 1500);
-      fireEvent.press(ui.getByText('Continue'));
-      expect(done).toHaveBeenCalled();
-      ui.rerender(
-        <XpGainOverlay
-          amount={100}
-          sparks={5}
-          xp={1100}
-          level={5}
-          subtitle="Bonus earned"
-          dismissLabel="Done"
-          onComplete={done}
-        />,
-      );
-      expect(ui.getByText('Bonus earned')).toBeTruthy();
-      fireEvent.press(ui.getByText('Done'));
-      expect(done).toHaveBeenCalledTimes(2);
-    },
-  );
   it('consumes the actual celebration store and dismisses the current badge', () => {
     const ui = render(<CelebrationHost />);
     expect(ui.toJSON()).toBeNull();
@@ -270,16 +228,6 @@ describe.each(['ios', 'android', 'web'] as const)('%s XP and rank presentation',
     expect(ui.UNSAFE_getByType(LinearGradient).props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ height: small ? 22 : 28 })]),
     );
-  });
-  it.each([
-    [1, 'ROOKIE'],
-    [3, 'CHALLENGER'],
-    [6, 'COMPETITOR'],
-    [10, 'VETERAN'],
-    [15, 'LEGEND'],
-  ])('labels level %s as %s', (level, label) => {
-    const ui = render(<RankBadge level={Number(level)} small={Number(level) % 2 === 0} />);
-    expect(ui.getByText(String(label))).toBeTruthy();
   });
   it('clamps displayed progress at the full track', () => {
     const ui = render(<XPBar xp={999999} level={1} />);

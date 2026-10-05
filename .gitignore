@@ -32,8 +32,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Environment values stay local; only the reviewed placeholder template is source.
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo

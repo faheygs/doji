@@ -5,7 +5,15 @@ This is the operational entry point, not blanket permission to deploy. Read
 and the release record for the exact surface. Record checks against a specific
 source commit/artifact; old checked boxes are historical evidence only.
 
-October 2 hosted qualification is complete for commit
+Latest merged source: [PR #3](https://github.com/faheygs/doji/pull/3), `60df53a`,
+October 5, 2026. Its exact head `ce86ebd` passed all three required jobs in
+[run 37311724708](https://github.com/faheygs/doji/actions/runs/37311724708):
+4,622 Jest tests, 697 browser scenarios, 27 offline suites, 446 runtime sources
+and all 17 areas meeting every 90% threshold. This supersedes the source counts
+below, not the separate device/provider/release gates. No deployment accompanied
+the merge. This is PR-head qualification, not verification of its main-push run.
+
+Historical October 2 hosted qualification is complete for commit
 `316037270239e37961a5948e853197aea3f4d6dd` on
 `codex/quality-gates-expo-patches`: [all three quality jobs passed](https://github.com/faheygs/doji/actions/runs/37038471068).
 This qualified source snapshot is now on `main`, not a production release. The hosted
@@ -27,6 +35,7 @@ entries below retain the state and counts at their recorded times.
 | --- | --- | --- |
 | Mobile unit/component | `npm test -- --runInBand` | Mocked logic, state and component regressions; not native-device delivery |
 | Root static | `npm run typecheck`, `npm run lint`, `npm run check:size` | Separate strict app/fixture/converted-portal/tooling checks, migration inventory and style/source-size contracts; not backend authorization |
+| Repository hygiene | `npm run check:hygiene` | Rejects committed CLI/environment/build caches and signing files; validates onboarding links and template values. Filename checks are not a full secret scan or proof of dead-code removal. |
 | Admin client/health | `npm run test:admin-auth`, `npm run test:admin-health`, `node website/admin-portal/queue-health.test.mts` | Local client/session and health interpretation logic |
 | Admin browser | `npm run test:admin-e2e` | Built artifact with browser mocks, layout and interaction; prerequisites in local guide |
 | Employee isolation | `scripts/test-employee-*.mts`, `scripts/test-workos-*.mts`, `scripts/test-portal-identity-*.mts` | Select exact harness after reviewing network/fixture dependencies; not a safe bulk-run glob |

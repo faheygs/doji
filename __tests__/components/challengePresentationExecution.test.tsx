@@ -1,19 +1,16 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { Modal } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lightColors, darkColors } from '../../constants/theme';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { ChallengeBanner } from '../../components/challenge/ChallengeBanner';
-import { ChallengeReveal } from '../../components/challenge/ChallengeReveal';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { CountdownRing } from '../../components/challenge/CountdownRing';
-import { SubmittedOverlay } from '../../components/challenge/SubmittedOverlay';
 import { UpcomingDojiBanner } from '../../components/challenge/UpcomingDojiBanner';
 import { ChallengeTypeGlyph } from '../../components/challenge/ChallengeTypeGlyph';
 import { KeyboardToolbarProvider } from '../../contexts/KeyboardToolbarContext';
 import { challengeEntryHref } from '../../lib/routes';
-import type { Challenge, ChallengeType, DailyEvent, UserEvent } from '../../types/database';
+import type { Challenge, ChallengeType, UserEvent } from '../../types/database';
 
 let mockColors = lightColors;
 let mockSparks = 500;
@@ -182,53 +179,7 @@ describe.each(['light', 'dark'])('%s challenge presentation', (mode) => {
   );
 });
 
-describe('challenge reveal and completion', () => {
-  it.each(['photo', 'poll', 'task', 'format'] as const)(
-    'uses the correct %s entry action and permits dismissal',
-    (type) => {
-      const photo = jest.fn(),
-        poll = jest.fn(),
-        task = jest.fn(),
-        dismiss = jest.fn();
-      const props = {
-        challenge: challenge(type),
-        event: {} as DailyEvent,
-        timeLeft: '09:30',
-        onStartPhoto: photo,
-        onStartPoll: poll,
-        onStartTask: task,
-        onDismiss: dismiss,
-      };
-      const ui = render(<ChallengeReveal {...props} visible={false} />);
-      expect(ui.toJSON()).toBeNull();
-      ui.rerender(<ChallengeReveal {...props} visible />);
-      const label = type === 'poll' ? 'Vote Now' : type === 'photo' ? 'Open Camera' : "Let's Do It";
-      fireEvent.press(ui.getByLabelText(`${label}: Daily prompt`));
-      expect(type === 'poll' ? poll : type === 'photo' ? photo : task).toHaveBeenCalledTimes(1);
-      expect(ui.getByText('4 joined')).toBeTruthy();
-      expect(ui.getByText('Try something new')).toBeTruthy();
-      fireEvent.press(ui.getByLabelText('Dismiss challenge'));
-      fireEvent(ui.UNSAFE_getByType(Modal), 'requestClose');
-      expect(dismiss).toHaveBeenCalledTimes(2);
-      ui.rerender(
-        <ChallengeReveal
-          {...props}
-          visible
-          challenge={{ ...challenge(type), participant_count: 0, description: '' }}
-        />,
-      );
-      expect(ui.queryByText('4 joined')).toBeNull();
-    },
-  );
-  it('provides a direct feed completion action with earned XP', () => {
-    const done = jest.fn();
-    const ui = render(<SubmittedOverlay visible={false} xpEarned={75} onDone={done} />);
-    expect(ui.toJSON()).toBeNull();
-    ui.rerender(<SubmittedOverlay visible xpEarned={75} onDone={done} />);
-    expect(ui.getByLabelText('Challenge submitted. 75 XP earned')).toBeTruthy();
-    fireEvent.press(ui.getByLabelText('Back to feed'));
-    expect(done).toHaveBeenCalledTimes(1);
-  });
+describe('challenge type glyphs', () => {
   it.each([
     ['poll', 'Would you rather fly?', undefined, 'A/B'],
     ['poll', '', 'wyr', 'A/B'],

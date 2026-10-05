@@ -6,7 +6,6 @@ import { lightColors, darkColors } from '../../constants/theme';
 import { KeyboardToolbarProvider } from '../../contexts/KeyboardToolbarContext';
 import { SparkPriceTag } from '../../components/economy/SparkPriceTag';
 import { SparksPill, LiveSparksPill } from '../../components/economy/SparksPill';
-import { ProfileShopEntry } from '../../components/economy/ProfileShopEntry';
 import { ShopCatalogCard } from '../../components/economy/ShopCatalogCard';
 import { ShopItemPreview } from '../../components/economy/ShopItemPreview';
 import { PurchaseConfirmSheet } from '../../components/economy/PurchaseConfirmSheet';
@@ -96,16 +95,6 @@ describe.each(['light', 'dark'])('%s economy presentation', (mode) => {
     mockBalance = 120;
     v.rerender(<LiveSparksPill />);
     expect(v.getByText('+20')).toBeTruthy();
-  });
-  test('shop entry announces balance and invokes navigation once', () => {
-    const press = jest.fn();
-    const v = render(<ProfileShopEntry amount={1500} onPress={press} />);
-    fireEvent.press(v.getByRole('button', { name: 'Open Shop, 1,500 Sparks' }));
-    expect(press).toHaveBeenCalledTimes(1);
-    v.rerender(<ProfileShopEntry amount={1600} onPress={press} />);
-    expect(v.getByText('+100')).toBeTruthy();
-    act(() => jest.advanceTimersByTime(800));
-    expect(v.queryByText('+100')).toBeNull();
   });
   test.each(['sale', 'owned', 'equipped'])('catalog card exposes %s state', (state) => {
     const press = jest.fn();

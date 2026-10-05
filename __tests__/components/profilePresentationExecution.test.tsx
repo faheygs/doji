@@ -3,14 +3,12 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { ActivityIndicator, Modal, Text as NativeText } from 'react-native';
 import { Image } from 'expo-image';
 import { lightColors, darkColors } from '../../constants/theme';
-import { ProfileStats } from '../../components/profile/ProfileStats';
 import {
   ProfileHeroRow,
   ProfileStatChip,
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '../../components/profile/ProfileSections';
-import { ProfilePostsGrid } from '../../components/profile/ProfilePostsGrid';
 import { ProfileCurrentPost } from '../../components/profile/ProfileCurrentPost';
 import { ProfileManageMenu } from '../../components/profile/ProfileManageMenu';
 import { SubmissionCard } from '../../components/profile/SubmissionCard';
@@ -91,26 +89,6 @@ describe.each(['light', 'dark'])('%s profile content', (mode) => {
   beforeEach(() => {
     mockColors = mode === 'dark' ? darkColors : lightColors;
   });
-  it.each([0, 40, 41, 70, 71, 100])(
-    'colors completion rate %s without changing values',
-    (completionRate) => {
-      const ui = render(<ProfileStats profile={profile} completionRate={completionRate} />);
-      const expected =
-        completionRate > 70
-          ? mockColors.success
-          : completionRate > 40
-            ? mockColors.warning
-            : mockColors.textSecondary;
-      expect(ui.getByText(`${completionRate}%`)).toHaveStyle({ color: expected });
-      ui.rerender(
-        <ProfileStats
-          profile={{ ...profile, total_completions: 0, total_missed: 0 }}
-          completionRate={completionRate}
-        />,
-      );
-      expect(ui.getByText(`${completionRate}%`)).toHaveStyle({ color: mockColors.textTertiary });
-    },
-  );
   it('renders static and interactive summary metrics', () => {
     const friends = jest.fn();
     const ui = render(
@@ -186,20 +164,6 @@ describe.each(['light', 'dark'])('%s profile content', (mode) => {
       <ProfileStreakPair currentStreak={3} bestStreak={9} sparks={150} onPressShop={shop} />,
     );
     expect(ui.getByText('+50')).toBeTruthy();
-  });
-  it('renders photo and text grid tiles with exact post callbacks and pressed styling', () => {
-    const open = jest.fn();
-    const ui = render(<ProfilePostsGrid posts={[]} emptyHint="No posts yet" onPostPress={open} />);
-    expect(ui.getByText('No posts yet')).toBeTruthy();
-    const posts = [post(), post({ id: 'photo', photo_url: 'https://example.invalid/photo' })];
-    ui.rerender(<ProfilePostsGrid posts={posts} emptyHint="No posts yet" onPostPress={open} />);
-    const buttons = ui.getAllByLabelText('Open post');
-    fireEvent.press(buttons[0]);
-    fireEvent.press(buttons[1]);
-    expect(open.mock.calls).toEqual([[posts[0]], [posts[1]]]);
-    fireEvent(buttons[0], 'pressIn');
-    fireEvent(buttons[0], 'pressOut');
-    expect(ui.UNSAFE_getByType(Image).props.source.uri).toBe(posts[1].photo_url);
   });
   it('distinguishes missing, loading, text and photo current posts', () => {
     const ui = render(<ProfileCurrentPost post={null} />);

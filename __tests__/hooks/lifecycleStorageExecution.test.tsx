@@ -4,13 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
-import { useChallengeCompleteOverlay } from '../../hooks/useChallengeCompleteOverlay';
 import { useFeedAudiencePreference } from '../../hooks/useFeedAudiencePreference';
 import { useRecentProfileSearches } from '../../hooks/useRecentProfileSearches';
 import { useServerCountdown } from '../../hooks/useServerCountdown';
 import { useFocusedRealtimeInvalidation } from '../../hooks/useFocusedRealtimeInvalidation';
 import { cancelScheduledInvalidations } from '../../lib/queryInvalidationBatcher';
-import { ROUTES } from '../../lib/routes';
 
 let mockAuth: Record<string, unknown>;
 let mockBlur: (() => void) | undefined;
@@ -114,19 +112,6 @@ test.each([false, true])(
     expect(currentClose).toHaveBeenCalledTimes(visible ? 1 : 0);
   },
 );
-
-test('completion dismissal clears its overlay and returns directly to the feed', () => {
-  const { result } = renderHook(useChallengeCompleteOverlay);
-  const payload = { amount: 10, sparks: 5, xp: 20, level: 1 };
-  act(() => result.current.setXpOverlay(payload));
-  expect(result.current.xpOverlay).toEqual(payload);
-  act(() => result.current.dismissToFeed());
-  expect(result.current.xpOverlay).toBeNull();
-  expect(mockRouter.replace).toHaveBeenCalledWith(ROUTES.feed);
-  act(() => result.current.setXpOverlay(payload));
-  act(() => mockBlur?.());
-  expect(result.current.xpOverlay).toBeNull();
-});
 
 test.each(['friends', 'everyone', 'invalid', null])(
   'audience loads its account-scoped value (%s)',

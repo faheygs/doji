@@ -18,8 +18,10 @@ Supabase; delivery uses Cloudflare Durable Objects and Ably.
 | What is live versus unfinished? | [Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md) |
 | Where are all the detailed records? | [Documentation index](docs/README.md) |
 
-The owner's working tree contains modified and untracked work. Obtain a reviewed
-handoff commit; do not assume a fresh clone matches production. Member login stays
+The TypeScript migration and regression suite were merged through
+[PR #3](https://github.com/faheygs/doji/pull/3) on October 5, 2026 (`60df53a`).
+Use a clean checkout of reviewed `main`; do not copy the owner's retained working
+files or CLI caches. A source commit is not a production deployment. Member login stays
 on Supabase Auth. Independent employee login is WorkOS; the business identity
 transition is not complete. See the dated current-state guide before operations.
 
@@ -51,8 +53,11 @@ Server-role, Ably API, relay, and orchestration secrets are server-only.
 git status --short
 node --version
 npm ci
+npm ci --prefix infra/portal-identity-candidate
+npm ci --prefix infra/doji-orchestrator
 npm test -- --runInBand
-npx tsc --noEmit
+npm run typecheck
+npm run check:hygiene
 npm run lint
 ```
 
