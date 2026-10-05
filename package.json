@@ -17,6 +17,7 @@
     "check:typescript-migration": "node scripts/typescript-migration.mts && node scripts/typescript-migration.test.mts && node scripts/admin-bundle-path.test.mts && node scripts/build-bootstrap.test.mts && node scripts/build-compat.test.mts && node scripts/release-evidence.test.mts && node scripts/eas-read-client.test.mts",
     "typecheck:fixtures": "tsc --project scripts/fixtures/tsconfig.json --noEmit && node scripts/test-fixture-typecheck.mts",
     "check:size": "node scripts/check-source-size.mts",
+    "check:hygiene": "node --test scripts/repository-hygiene.test.mts && node scripts/repository-hygiene.mts && node scripts/check-onboarding-docs.mts",
     "format": "prettier --write .",
     "test": "jest",
     "test:database:prepare": "node scripts/database/prepare-images.mts",

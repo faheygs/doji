@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import { BuyInSheet } from '../../components/economy/BuyInSheet';
-import { ProfileShopEntry } from '../../components/economy/ProfileShopEntry';
+import { ProfileStreakPair } from '../../components/profile/ProfileSections';
 import { SparksPill, LiveSparksPill } from '../../components/economy/SparksPill';
 import { lightColors } from '../../constants/theme';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
@@ -155,14 +155,20 @@ describe('balance displays', () => {
 
   test('successive profile gains replace the label and reset its clear timer', () => {
     const onPress = jest.fn();
-    const view = render(<ProfileShopEntry amount={1000} onPress={onPress} />);
+    const view = render(
+      <ProfileStreakPair currentStreak={2} bestStreak={5} sparks={1000} onPressShop={onPress} />,
+    );
     fireEvent.press(view.getByRole('button', { name: 'Open Shop, 1,000 Sparks' }));
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(view.queryByText('+1000')).toBeNull();
-    view.rerender(<ProfileShopEntry amount={1100} onPress={onPress} />);
+    view.rerender(
+      <ProfileStreakPair currentStreak={2} bestStreak={5} sparks={1100} onPressShop={onPress} />,
+    );
     expect(view.getByText('+100')).toBeTruthy();
     act(() => jest.advanceTimersByTime(500));
-    view.rerender(<ProfileShopEntry amount={1150} onPress={onPress} />);
+    view.rerender(
+      <ProfileStreakPair currentStreak={2} bestStreak={5} sparks={1150} onPressShop={onPress} />,
+    );
     expect(view.queryByText('+100')).toBeNull();
     expect(view.getByText('+50')).toBeTruthy();
     act(() => jest.advanceTimersByTime(260));

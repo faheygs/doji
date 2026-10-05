@@ -6,7 +6,6 @@ import { RecentProfileSearchList } from '../../components/friends/RecentProfileS
 import { UserSearchResult } from '../../components/friends/UserSearchResult';
 import { MentionAutocomplete } from '../../components/comments/MentionAutocomplete';
 import AddFriends from '../../app/(app)/friends/add';
-import { PollCard } from '../../components/feed/PollCard';
 import type { LeaderboardEntry, Profile } from '../../types/database';
 import type { SearchProfile } from '../../hooks/useProfile';
 import type { RecentProfileSearch } from '../../lib/recentProfileSearches';
@@ -163,11 +162,6 @@ describe.each([false, true])('social discovery dark=%s', (dark) => {
     fireEvent.press(ui.getByLabelText('Mention @other'));
     expect(onSelect).toHaveBeenCalledWith('other');
     expect(ui.getByText('@unnamed')).toBeTruthy();
-  });
-  it('renders poll answer attribution without exposing another user action', () => {
-    const ui = render(<PollCard username="synthetic" optionText="Yes" />);
-    expect(ui.getByText('@synthetic voted')).toBeTruthy();
-    expect(ui.getByText('"Yes"')).toBeTruthy();
   });
 });
 it('find-people debounces, filters self and preserves origin when opening results', () => {

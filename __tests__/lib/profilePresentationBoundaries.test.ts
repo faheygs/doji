@@ -8,8 +8,6 @@ import {
   resolveAvatarBorderWidth,
 } from '../../lib/cosmetics';
 import { getRankTitle, getRankBorderColor } from '../../lib/rankTitle';
-import { isBadgeTierUpgrade, tiersUnlockedUpTo } from '../../lib/badgeCelebration';
-import { mapSuggestionKindToChallengeRow } from '../../lib/challengeSuggestions';
 import { hashSuggestionBody } from '../../lib/hashString';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';
 import { legalAcceptanceMetadata } from '../../lib/legal';
@@ -115,48 +113,6 @@ test.each([
   for (const colors of [lightColors, darkColors])
     expect(getRankBorderColor(level, colors)).toBe(colors[token]);
 });
-test.each([
-  ['bronze', ['bronze']],
-  ['silver', ['bronze', 'silver']],
-  ['gold', ['bronze', 'silver', 'gold']],
-  ['diamond', ['bronze', 'silver', 'gold', 'diamond']],
-  ['future', ['future']],
-])('unlocked tiers through %s remain ordered', (tier, expected) =>
-  expect(tiersUnlockedUpTo(tier as string)).toEqual(expected),
-);
-test.each([
-  [null, null, false],
-  ['bronze', undefined, false],
-  [undefined, 'bronze', true],
-  ['bronze', 'silver', true],
-  ['diamond', 'gold', false],
-  ['gold', 'gold', false],
-  ['future', 'future', false],
-  ['future', 'gold', true],
-  ['gold', 'future', true],
-] as const)(
-  'badge transition %p -> %p celebrates only an upgrade/change',
-  (oldTier, newTier, expected) => expect(isBadgeTierUpgrade(oldTier, newTier)).toBe(expected),
-);
-test.each([
-  ['poll', 'poll', 'social', false, false],
-  ['wyr', 'poll', 'social', false, false],
-  ['question', 'task', 'mental', false, true],
-  ['format_question', 'format', 'mental', false, true],
-  ['photo_idea', 'photo', 'creative', true, false],
-  ['legacy', 'task', 'mental', false, true],
-] as const)(
-  'suggestion %s maps its actual response contract',
-  (kind, type, category, requires_photo, requires_text) => {
-    expect(mapSuggestionKindToChallengeRow(kind)).toEqual({
-      type,
-      category,
-      requires_photo,
-      requires_text,
-      requires_video: false,
-    });
-  },
-);
 test('suggestion hash normalizes only case and spacing deterministically', () => {
   expect(hashSuggestionBody('  Same\n IDEA  ')).toBe(hashSuggestionBody('same idea'));
   expect(hashSuggestionBody('same idea')).not.toBe(hashSuggestionBody('different idea'));

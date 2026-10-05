@@ -32,6 +32,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint -- --quiet
       - run: npm run check:size
+      - run: npm run check:hygiene
       - run: npm test -- --runInBand
       - name: URI decoder security and router compatibility
         run: node --test scripts/uri-decoder-security.test.mts

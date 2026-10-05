@@ -36,6 +36,7 @@ Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 
 ## Architecture, product and standards
 
+- [Repository cleanup audit and retained candidates — October 5](REPOSITORY_CLEANUP_AUDIT_2026-10-05.md)
 - [Portal copy and contextual help](PORTAL_UI_PATTERNS.md)
 - [Doji product backlog](PRODUCT_BACKLOG.md)
 - [Production readiness audit](PRODUCTION_READINESS_AUDIT.md)

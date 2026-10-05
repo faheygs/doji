@@ -1,11 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const controlledModals = [
-  'components/notifications/NotificationSheet.tsx',
-  'components/challenge/ChallengeReveal.tsx',
-  'components/challenge/SubmittedOverlay.tsx',
-];
+const controlledModals = ['components/notifications/NotificationSheet.tsx'];
 
 const sharedSheetConsumers = [
   'components/ui/KeyboardSafeSheet.tsx',
@@ -65,7 +61,8 @@ describe('native modal lifecycle', () => {
   });
 
   it.each(['components/feed/PostCommentsThread.tsx', 'components/feed/PostCommentsSheet.tsx'])(
-    '%s waits for iOS native dismissal when handing off to reporting', file => {
+    '%s waits for iOS native dismissal when handing off to reporting',
+    (file) => {
       const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
       expect(source).toContain("if (!visible && !(Platform.OS === 'ios' && pending");
       expect(source).toContain("onDismiss={Platform.OS === 'ios' ? finish");

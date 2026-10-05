@@ -16,7 +16,6 @@ import { usePollVotesCount } from '../../hooks/usePollVotesCount';
 import { useModerationStatus } from '../../hooks/useModerationStatus';
 import { useCommentLikes } from '../../hooks/useCommentLikes';
 import { usePendingReports } from '../../hooks/useReports';
-import { useChallengeSuggestionCounts } from '../../hooks/useChallengeSuggestionCounts';
 import { usePostReactions, prefetchPostReactions } from '../../hooks/useFeed';
 import { useReactionsGivenCount } from '../../hooks/useReactionsGivenCount';
 import { syncServerClock } from '../../lib/serverClock';
@@ -141,17 +140,6 @@ test.each(cases)('%s fails closed on permissions without retrying', async (_name
   mockRead.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' }, status: 403 });
   await expect(client.fetchQuery(optionsFor(hook))).rejects.toMatchObject({ status: 403, code: '42501' });
   expect(mockRead).toHaveBeenCalledTimes(1);
-});
-
-test('both suggestion count reads retain status and count bounds', async () => {
-  mockRead.mockResolvedValue({ data: null, count: 7, error: null, status: 200 });
-  expect(await client.fetchQuery(optionsFor(() => useChallengeSuggestionCounts('member')))).toEqual({ submitted: 7, picked: 7 });
-  expect(mockRead).toHaveBeenCalledTimes(2);
-  expect(mockSelect).toHaveBeenCalledWith('id', { count: 'exact', head: true });
-  mockRead.mockClear();
-  mockRead.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' }, status: 403 });
-  await expect(client.fetchQuery(optionsFor(() => useChallengeSuggestionCounts('other')))).rejects.toMatchObject({ status: 403 });
-  expect(mockRead).toHaveBeenCalledTimes(2);
 });
 
 test.each([usePost, useCurrentProfilePost])('nested post reaction summaries use the same failure policy', async hook => {

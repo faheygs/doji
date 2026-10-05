@@ -6,7 +6,6 @@ import { useReactionsGivenCount } from '../../hooks/useReactionsGivenCount';
 import { useAppUpdatePolicy } from '../../hooks/useAppUpdatePolicy';
 import { usePollVotesCount } from '../../hooks/usePollVotesCount';
 import { useCurrentProfilePost } from '../../hooks/useCurrentProfilePost';
-import { useChallengeSuggestionCounts } from '../../hooks/useChallengeSuggestionCounts';
 import {
   useBadgeDefinitions,
   useBadgeCategories,
@@ -78,7 +77,6 @@ const guarded = [
   ['reactions', () => useReactionsGivenCount(undefined), 0],
   ['poll count', () => usePollVotesCount(undefined), 0],
   ['profile post', () => useCurrentProfilePost(undefined), null],
-  ['suggestion counts', () => useChallengeSuggestionCounts(undefined), { submitted: 0, picked: 0 }],
   ['user badges', () => useUserBadges(undefined), []],
   ['badge progress', () => useUserBadgeProgress(undefined), []],
 ] as const;
@@ -116,51 +114,6 @@ test.each([7, null])(
     expect(mockFrom).toHaveBeenCalledWith('poll_votes');
     expect(chains[0].select).toHaveBeenCalledWith('id', { count: 'exact', head: true });
     expect(chains[0].eq).toHaveBeenCalledWith('user_id', 'member');
-  },
-);
-
-test.each([
-  [8, 3],
-  [null, null],
-] as const)(
-  'suggestion totals distinguish all submissions from selected submissions (%s, %s)',
-  async (submitted, picked) => {
-    mockRead
-      .mockResolvedValueOnce({ count: submitted, error: null })
-      .mockResolvedValueOnce({ count: picked, error: null });
-    const { result } = renderHook(() => useChallengeSuggestionCounts('member'), {
-      wrapper: Wrapper,
-    });
-    await waitFor(() =>
-      expect(result.current.data).toEqual({ submitted: submitted ?? 0, picked: picked ?? 0 }),
-    );
-    expect(mockFrom.mock.calls).toEqual([['challenge_suggestions'], ['challenge_suggestions']]);
-    expect(chains[0].not).not.toHaveBeenCalled();
-    expect(chains[1].not).toHaveBeenCalledWith('selected_at', 'is', null);
-    for (const chain of chains) expect(chain.eq).toHaveBeenCalledWith('user_id', 'member');
-  },
-);
-
-test.each([0, 1])(
-  'failure of suggestion count request %s remains an error, not zero',
-  async (index) => {
-    const responses = [
-      { count: 4, error: null },
-      { count: 2, error: null },
-    ];
-    responses.forEach((response, i) =>
-      mockRead.mockResolvedValueOnce(
-        i === index
-          ? { data: null, error: { message: 'Unavailable', code: 'XX000' }, status: 503 }
-          : response,
-      ),
-    );
-    const { result } = renderHook(() => useChallengeSuggestionCounts('member'), {
-      wrapper: Wrapper,
-    });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toMatchObject({ status: 503, code: 'XX000' });
-    expect(result.current.data).toBeUndefined();
   },
 );
 

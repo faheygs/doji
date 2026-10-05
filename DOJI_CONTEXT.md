@@ -144,16 +144,6 @@ server command still reauthorize. Content-free request timing uses fixed numeric
 stages, not identities, cookies, bodies, SQL or credentials. Member Auth, shared
 Worker/database and business portal remain unchanged.
 
-October 2 employee-latency follow-up: the same-origin admin proxy pins only
-`employee-portal-v2` requests to `us-west-2`, beside its database, after explicit
-owner approval of the loss of automatic regional rerouting. Never replay uncertain
-commands in another region. Revert the admin Pages deployment to remove the pin.
-Successful employee MFA returns its freshly authorized operator to initial
-workspace entry, avoiding one duplicate session read; later refreshes and every
-server command still reauthorize. Content-free request timing uses fixed numeric
-stages, not identities, cookies, bodies, SQL or credentials. Member Auth, shared
-Worker/database and business portal remain unchanged.
-
 October 2 announcement permission candidate (LOCAL ONLY, NOT DEPLOYED):
 `docs/drafts/announcement_member_execute_v1.sql` revokes only anonymous EXECUTE
 on `claim_active_app_announcement()` and `record_app_announcement_action(uuid,text)`.

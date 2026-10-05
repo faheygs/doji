@@ -4,21 +4,23 @@ This guide lets a developer run Doji's automated regression suite from a fresh
 checkout and understand what a passing result establishes. Tests do not authorize
 deployments, live account actions, notification sends or spending.
 
-The qualified source is commit `316037270239e37961a5948e853197aea3f4d6dd`, now on
-`main`. Its [qualification run](https://github.com/faheygs/doji/actions/runs/37038471068)
-passed application, coverage and database checks on October 2, 2026:
+The latest merged qualification is PR #3, merge commit `60df53a` on `main`.
+Its exact PR head `ce86ebd` passed the
+[application, coverage and database checks](https://github.com/faheygs/doji/actions/runs/37311724708)
+on October 5, 2026, before merge:
 
-- 233 Jest suites and 4,514 unit/component tests passed.
-- 652 browser scenarios passed, with no failed, skipped or flaky scenarios.
+- 240 Jest suites and 4,622 unit/component tests passed.
+- 697 browser scenarios and 27 offline suites passed.
 - All 17 areas met 90% statements, branches, functions and lines independently,
-  covering 437 source files with no missing files. The lowest hosted metric was
-  90.55%. This is an area-level policy, not a per-file guarantee.
+  covering 446 source files with no missing files. The lowest hosted metric was
+  90.52%. This is an area-level policy, not a per-file guarantee.
 - The database harness replayed 288 migrations and passed its explicit integration,
   permission, concurrency and rollback checks. Its second source-only run passed.
 
-The [main push run](https://github.com/faheygs/doji/actions/runs/37040939610) also
-passed all three jobs for the same commit. Check the exact commit and status of
-any later pull request; historical results do not certify changed code.
+The previous October 2 qualification (`3160372`, 4,514 tests / 652 browser cases)
+remains historical evidence in [Testing and releases](TESTING_AND_RELEASES.md).
+PR qualification is not a claim about a new main-push run or any production
+deployment. Check the exact commit and status of later changes.
 
 ## Prerequisites
 
