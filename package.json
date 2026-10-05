@@ -8,25 +8,30 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit && npm run typecheck:fixtures",
-    "typecheck:fixtures": "tsc --project scripts/fixtures/tsconfig.json --noEmit && node scripts/test-fixture-typecheck.cjs",
-    "check:size": "node scripts/check-source-size.mjs",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config . --ext .ts,.tsx,.mts,.cts",
+    "typecheck": "tsc --noEmit && npm run typecheck:mocks && npm run typecheck:fixtures && npm run typecheck:portals && npm run typecheck:tooling && npm run typecheck:website && npm run check:typescript-migration",
+    "typecheck:mocks": "tsc --project __mocks__/tsconfig.json --noEmit",
+    "typecheck:website": "tsc --project website/tsconfig.json --noEmit",
+    "typecheck:portals": "tsc --project infra/portal-identity-candidate/tsconfig.json --noEmit",
+    "typecheck:tooling": "tsc --project scripts/tsconfig.tooling.json --noEmit",
+    "check:typescript-migration": "node scripts/typescript-migration.mts && node scripts/typescript-migration.test.mts && node scripts/admin-bundle-path.test.mts && node scripts/build-bootstrap.test.mts && node scripts/build-compat.test.mts && node scripts/release-evidence.test.mts && node scripts/eas-read-client.test.mts",
+    "typecheck:fixtures": "tsc --project scripts/fixtures/tsconfig.json --noEmit && node scripts/test-fixture-typecheck.mts",
+    "check:size": "node scripts/check-source-size.mts",
     "format": "prettier --write .",
     "test": "jest",
-    "test:database:prepare": "node scripts/database/prepare-images.mjs",
-    "test:database:guards": "node scripts/database/guards.test.mjs",
-    "test:database": "npm run test:database:guards && node scripts/database/clean-room.mjs",
-    "test:database:repro": "node scripts/database/reproducibility.mjs",
-    "test:coverage": "node scripts/run-coverage.cjs",
-    "test:coverage:report": "node scripts/check-coverage.cjs",
-    "test:admin-auth": "node website/admin-portal/live-client.test.mjs",
-    "test:admin-e2e": "node website/build-admin.mjs && playwright test --config=website/admin-portal/playwright.config.mjs",
-    "test:admin-health": "node website/admin-portal/health-model.test.cjs",
+    "test:database:prepare": "node scripts/database/prepare-images.mts",
+    "test:database:guards": "node scripts/database/guards.test.mts",
+    "test:database": "npm run test:database:guards && node scripts/database/clean-room.mts",
+    "test:database:repro": "node scripts/database/reproducibility.mts",
+    "test:coverage": "node scripts/run-coverage.mts",
+    "test:coverage:report": "node scripts/check-coverage.mts",
+    "test:admin-auth": "node website/admin-portal/live-client.test.mts",
+    "test:admin-e2e": "node website/build-admin.mts && playwright test --config=website/admin-portal/playwright.config.mts",
+    "test:admin-health": "node --test website/browser-source.test.mts website/admin-portal/health-model.test.mts website/admin-portal/queue-health.test.mts scripts/test-admin-health-boundaries.mts",
     "test:admin-portal": "npm run test:admin-auth && npm run test:admin-health && npm run test:admin-e2e",
-    "test:fanout-model": "node scripts/load/fanout-model.mjs",
-    "test:social-fanout-model": "node scripts/load/social-fanout-model.mjs",
-    "test:scale-bursts": "node scripts/load/social-fanout-model.mjs --burst-seconds=30 && node scripts/load/social-fanout-model.mjs --burst-seconds=60 && node scripts/load/social-fanout-model.mjs --burst-seconds=120"
+    "test:fanout-model": "node scripts/load/contracts.test.mts && node scripts/load/fanout-model.mts",
+    "test:social-fanout-model": "node scripts/load/social-fanout-model.mts",
+    "test:scale-bursts": "node scripts/load/social-fanout-model.mts --burst-seconds=30 && node scripts/load/social-fanout-model.mts --burst-seconds=60 && node scripts/load/social-fanout-model.mts --burst-seconds=120"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
@@ -40,6 +45,7 @@
     "ably": "^2.26.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "decode-uri-component": "file:vendor/decode-uri-component-compat",
     "expo": "~57.0.26",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.20",
@@ -103,6 +109,7 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
+    "decode-uri-component": "$decode-uri-component",
     "metro": "0.84.5",
     "metro-config": "0.84.5",
     "metro-transform-worker": "0.84.5",
@@ -111,14 +118,15 @@
   "jest": {
     "preset": "jest-expo",
     "transform": {
-      "\\.[jt]sx?$": "<rootDir>/jest.transform.cjs"
+      "\\.[jt]sx?$": "<rootDir>/jest.transform.cts",
+      "\\.cts$": "<rootDir>/jest.tooling-transform.cts"
     },
     "setupFiles": [
       "./jest.setup.ts"
     ],
     "moduleNameMapper": {
       "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
-      "^react-native-keyboard-controller$": "<rootDir>/__mocks__/react-native-keyboard-controller.js"
+      "^react-native-keyboard-controller$": "<rootDir>/__mocks__/react-native-keyboard-controller.ts"
     },
     "testPathIgnorePatterns": [
       "<rootDir>/.claude/",

@@ -1,5 +1,13 @@
 # Google Play release checklist
 
+Treat this as a dated operational checklist. Recheck current official Play policy
+and exact review/track state before release. See
+[Testing and releases](TESTING_AND_RELEASES.md) and
+[Current state and gaps](CURRENT_STATE_AND_GAPS.md). A completed build or approved
+closed-track release is not public availability. Mandatory updates require proven
+availability to every affected user, including confirmed closed-test eligibility;
+they are not an automatic upload step.
+
 ## Application identity
 
 - Play listing name: `Doji Connect`

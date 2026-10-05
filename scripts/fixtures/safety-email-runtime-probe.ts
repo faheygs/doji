@@ -18,7 +18,8 @@ async function equalSecret(actual: string, expected: string): Promise<boolean> {
   const [a, b] = await Promise.all([digest(actual), digest(expected)]);
   const left = new Uint8Array(a), right = new Uint8Array(b);
   let difference = 0;
-  for (let i = 0; i < left.length; i++) difference |= left[i] ^ right[i];
+  // Both buffers are SHA-256 digests (32 bytes); the loop stays inside them.
+  for (let i = 0; i < left.length; i++) difference |= left[i]! ^ right[i]!;
   return difference === 0;
 }
 

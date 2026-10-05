@@ -1,0 +1,136 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import assert from 'node:assert/strict';
+import { loadState } from './contracts.mts';
+import { offlineContainer } from '../database/contracts.mts';
+const root = 'test-results/local-query-repair-20260928';
+const { db, container } = loadState(readFileSync(`${root}/state.json`, 'utf8'));
+assert.match(db, /^heavy_load_qa_[0-9]+$/);
+assert.equal(container, 'supabase_db_employee-cutover-verify');
+const podman = 'C:/Program Files/RedHat/Podman/podman.exe';
+offlineContainer(JSON.parse(execFileSync(podman, ['inspect', container], { encoding: 'utf8' })));
+const args = [
+  'exec',
+  '-i',
+  container,
+  'psql',
+  '-X',
+  '-h',
+  '/var/run/postgresql',
+  '-U',
+  'postgres',
+  '-d',
+  db,
+  '-qAt',
+  '-v',
+  'ON_ERROR_STOP=1',
+];
+const query = (input: string) =>
+  execFileSync(podman, args, { input, encoding: 'utf8', timeout: 15000 }).trim();
+assert.equal(
+  query(
+    "select count(*) from auth.users where email is null or email not like '%@test.invalid';select count(*) from vault.secrets;",
+  ),
+  '0\n0',
+);
+function concurrent(name: string, input: string) {
+  const file = `${root}/concurrent-${name}.sql`,
+    remote = `/tmp/${db}/concurrent-${name}.sql`;
+  writeFileSync(file, input);
+  execFileSync(podman, ['cp', file, `${container}:${remote}`]);
+  const output = execFileSync(
+    podman,
+    [
+      'exec',
+      container,
+      'pgbench',
+      '-h',
+      '/var/run/postgresql',
+      '-U',
+      'postgres',
+      '-n',
+      '-c',
+      '32',
+      '-j',
+      '4',
+      '-t',
+      '1',
+      '-f',
+      remote,
+      db,
+    ],
+    { encoding: 'utf8', timeout: 30000 },
+  );
+  writeFileSync(`${root}/concurrent-${name}.txt`, output);
+}
+const key = randomUUID(),
+  pushEvent = randomUUID();
+query(
+  'create table if not exists local_load.concurrent_results(label text,result jsonb);grant insert on local_load.concurrent_results to authenticated;',
+);
+const command = `begin;\nset local statement_timeout='8s';\nselect set_config('request.jwt.claims',json_build_object('sub',local_load.id(55555),'role','authenticated')::text,true);\nset local role authenticated;\ninsert into local_load.concurrent_results values ('${key}',public.set_post_reaction(local_load.id(1,'a6'),'fire',true,'${key}'));\ncommit;\n`;
+const start = Date.now();
+concurrent('reaction', command);
+assert.equal(
+  query(
+    `select count(*),count(distinct result) from local_load.concurrent_results where label='${key}';`,
+  ),
+  '32|1',
+  'All receipt replays must return the original result',
+);
+assert.equal(
+  query(
+    `select count(*) from public.command_receipts where user_id=local_load.id(55555) and idempotency_key='${key}';select count(*) from public.reactions where user_id=local_load.id(55555) and post_id=local_load.id(1,'a6');`,
+  ),
+  '1\n1',
+);
+const commentKey = randomUUID();
+concurrent(
+  'comment',
+  `begin;\nset local statement_timeout='8s';\nselect set_config('request.jwt.claims',json_build_object('sub',local_load.id(55555),'role','authenticated')::text,true);\nset local role authenticated;\ninsert into local_load.concurrent_results values ('${commentKey}',public.submit_comment(local_load.id(1,'a6'),'Synthetic replay @load_v55556',null,'${commentKey}'));\ncommit;\n`,
+);
+assert.equal(
+  query(
+    `select count(*),count(distinct result) from local_load.concurrent_results where label='${commentKey}';`,
+  ),
+  '32|1',
+);
+assert.equal(
+  query(
+    `select count(*) from public.comments where idempotency_key='${commentKey}';select count(*) from public.comment_mentions m join public.comments c on c.id=m.comment_id where c.idempotency_key='${commentKey}';`,
+  ),
+  '1\n1',
+);
+assert.equal(
+  query(
+    `select count(*) from public.domain_event_outbox e join public.comment_mentions m on m.id=e.aggregate_id join public.comments c on c.id=m.comment_id where c.idempotency_key='${commentKey}' and e.event_type='notification.mention.created';`,
+  ),
+  '1',
+  'One durable mention alert intent, never a second producer',
+);
+const claims = `begin;\nset local statement_timeout='8s';\ninsert into local_load.concurrent_results select '${pushEvent}',to_jsonb(count(*)) from public.claim_push_delivery_targets_batch_v2('${pushEvent}',jsonb_build_array(jsonb_build_object('userId',local_load.id(55555),'endpointKey','concurrent-synthetic-endpoint')),'reviews_account',null,'moderation_decision','synthetic-no-send',clock_timestamp());\ncommit;\n`;
+concurrent('push', claims);
+assert.equal(
+  query(
+    `select count(*),sum(result::text::integer) from local_load.concurrent_results where label='${pushEvent}';`,
+  ),
+  '32|1',
+  'Exactly one concurrent handoff claim',
+);
+const report = {
+  at: new Date().toISOString(),
+  concurrentReactions: 32,
+  identicalReceipts: true,
+  reactionRows: 1,
+  concurrentComments: 32,
+  commentRows: 1,
+  mentionRows: 1,
+  mentionAlertIntents: 1,
+  concurrentPushClaims: 32,
+  successfulClaims: 1,
+  actualProviderRequests: 0,
+  wallMs: Date.now() - start,
+};
+writeFileSync(`${root}/concurrency.json`, JSON.stringify(report, null, 2));
+console.log(JSON.stringify(report));

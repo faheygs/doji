@@ -27,7 +27,7 @@ describe('admin portal operations and presentation contracts', () => {
 
   it('keeps Sentry credentials server-side and exposes only sanitized issue fields', () => {
     const gateway = source('infra/doji-orchestrator/src/portal-read.ts');
-    const client = source('website/admin-portal/live-client.js');
+    const client = source('website/admin-portal/live-client.mts');
     expect(gateway).toContain("url.pathname === '/portal/admin/platform-health'");
     expect(gateway).toContain('authorization: `Bearer ${env.SENTRY_API_TOKEN}`');
     expect(gateway).toContain('permalink: issue.permalink?.startsWith(\'https://\')');
@@ -48,7 +48,7 @@ describe('admin portal operations and presentation contracts', () => {
   });
 
   it('uses semantic decision weights, descriptive close controls, and clickable audit details', () => {
-    const portal = source('website/portal.js');
+    const portal = source('website/portal.mts');
     const html = source('website/admin-portal/index.html');
     const css = source('website/admin-portal/admin.css');
     expect(portal).toContain("'No violation', 'action-positive'");

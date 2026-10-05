@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 22, 2026
+Last updated: September 27, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -8,6 +8,42 @@ move it to **Completed** only after the relevant release or server change has be
 verified on a physical device.
 
 ## Queued
+
+### FW-034 — Optional member queries: empty announcements and actionable failures
+
+Priority: P1 — implemented locally for the next iOS/Android candidate, not released
+
+Sentry REACT-NATIVE-18 on iOS 99 exposed an empty announcement claim resolving
+`undefined`, which TanStack correctly rejects. It now returns `null` without another
+claim or an error. Existing eligible-announcement and atomic dismissal behavior remains.
+REACT-NATIVE-19 on Android 20 lacks enough historical metadata to prove its cause.
+Upcoming-Doji now retains HTTP status/SQLSTATE, distinguishes its existing six-second
+deadline from lifecycle cancellation, and uses the existing bounded transient retry.
+Sentry receives only allowlisted request diagnostics; genuine failures are not muted.
+
+Automated regression checks cover empty/eligible results, cancellation, clock safety,
+retry recovery/exhaustion and telemetry privacy. Physical iOS/Android verification and
+post-rollout Sentry review remain required before marking completed. No build launched
+or version incremented. See `MEMBER_QUERY_FIXES_NEXT_BUILD_2026-09-27.md` for the exact
+mobile-only change list and release gates. Do not bundle pending portal/backend work.
+
+### FW-032 — Verify pre-live dismissal and account-safe notification history
+
+Priority: P1 — staged locally for the next mobile candidate, not released
+
+The owner reported that Clear/swipe did not dismiss the existing 20-minute pre-live
+notice in TestFlight 1.0.8 (98). Keep that notice and countdown. Local fixes use its
+server phase timestamp for visibility/unread, serialize rapid history commands with
+per-intent rollback, and guard pending work/reads against account changes. Automated
+tests cover these transitions; physical iOS/Android pre-live, activation, restart,
+failure feedback and account-switch checks remain required. Do not mark completed
+from unit tests alone. See `NOTIFICATION_REPAIR_2026-09-26.md`.
+
+Related diagnostic gap: Sentry REACT-NATIVE-17 records `query.other (unexpected)`
+on build 98 without the original query/error information. Local instrumentation
+now recognizes the missing code-owned query roots and records a bounded exception
+type. The historical event's root cause remains undetermined; correlate any new
+occurrence after rollout rather than assuming it is the notification bug.
 
 ### FW-031 — Make native push-endpoint registration resilient to transient timeouts
 
@@ -888,6 +924,19 @@ two-account device verification remains.
   viewed by themselves and by a friend.
 
 ## Completed
+
+### September 25, 2026 — FW-032 and FW-033 iOS interaction regressions
+
+- TestFlight 1.0.8 build 96 restored the post-action boundary: the three-dot control
+  opens the post-options menu, while the explicit **Report post** action alone starts
+  the hierarchical reporting flow. Both paths were verified on a physical iPhone.
+- The same build synchronously restores Doji's default appearance at sign-out and
+  scopes cached appearance to the authenticated account. Default-theme reset and a
+  subsequent account's own theme were verified on a physical iPhone.
+- Regression coverage lives in `__tests__/components/productBacklogFixes.test.ts`.
+  Before the build, TypeScript and lint passed, as did the full Jest run of 110 suites
+  and 807 tests. Android parity remains a required check when the next Android build is
+  prepared; no Android build was requested for this verification cycle.
 
 ### September 9, 2026 — Android release stabilization
 

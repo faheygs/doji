@@ -1,0 +1,31 @@
+plugins { id 'com.android.application' version '8.12.0' }
+
+// Isolated synthetic harness, never the member application's package or signing key.
+layout.buildDirectory = file('../../.artifacts/android-network-lab/build')
+android {
+    namespace 'com.doji.networklab'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'com.doji.networklab'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName 'local-only'
+        ndk { abiFilters 'x86_64' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets.main.java.srcDir '../../plugins/android-read-diagnostics'
+}
+
+// Match the resolved shipped build, not RN's older transitive version catalog.
+// Android 26 AAB classes.dex identifies okhttp/4.12.0; reverify on mobile upgrades.
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.facebook.react:react-android:0.86.3'
+    implementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    implementation 'com.squareup.okhttp3:okhttp-tls:4.12.0'
+}

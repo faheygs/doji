@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFile, writeFile } from 'node:fs/promises';
+import { evidenceRecord, firstEvidence, releaseBaseline } from './release-evidence.mts';
+const root = 'test-results/portal-triage-release-20260927';
+const query = (file: string, key: string) => {
+  const raw = execFileSync(
+    process.execPath,
+    [
+      'node_modules/supabase/dist/supabase.js',
+      'db',
+      'query',
+      '--linked',
+      '--output-format',
+      'json',
+      '--file',
+      file,
+    ],
+    { encoding: 'utf8', timeout: 30000, maxBuffer: 2e6 },
+  );
+  return firstEvidence(JSON.parse(raw.slice(raw.indexOf('{'))), key);
+};
+const before = releaseBaseline(JSON.parse(await readFile(`${root}/database-before.json`, 'utf8')));
+const after = releaseBaseline(query('scripts/portal-triage-preflight.sql', 'baseline'));
+const names = [
+  'employee_can_read_avatar_evidence_v1(text)',
+  'get_admin_report_case_v3(uuid)',
+  'get_admin_appeal_case_v1(uuid)',
+];
+assert.equal(Object.keys(after.functions).length, Object.keys(before.functions).length + 3);
+for (const [name, value] of Object.entries(before.functions))
+  assert.deepEqual(after.functions[name], value, name);
+for (const key of ['relations', 'triggers', 'role_settings', 'avatar_bucket_public'])
+  assert.deepEqual(after[key], before[key], key);
+const unrelated = (policies: unknown) => {
+  assert.ok(Array.isArray(policies));
+  return policies
+    .map(evidenceRecord)
+    .filter(
+      (p) =>
+        !(
+          p.schemaname === 'storage' &&
+          p.tablename === 'objects' &&
+          typeof p.policyname === 'string' &&
+          ['employee_report_evidence_boundary', 'employee_avatar_evidence_read'].includes(
+            p.policyname,
+          )
+        ),
+    );
+};
+assert.deepEqual(unrelated(after.policies), unrelated(before.policies));
+const indexes = { ...evidenceRecord(after.indexes) };
+delete indexes['public.employee_avatar_decision_reference_idx'];
+assert.deepEqual(indexes, before.indexes);
+const checks = query('scripts/portal-triage-member-canary.sql', 'checks');
+await writeFile(`${root}/database-after.json`, JSON.stringify(after, null, 2));
+const undo = await readFile(`${root}/rollback-body.sql`, 'utf8');
+const guards = names
+  .map((n) => {
+    const definition = after.functions[n];
+    assert.ok(definition && typeof definition.hash === 'string');
+    return `if md5(pg_get_functiondef('public.${n}'::regprocedure))<>'${definition.hash}' then raise exception 'Rollback function drift: ${n}';end if;`;
+  })
+  .join('\n');
+await writeFile(
+  `${root}/rollback.sql`,
+  "-- Roll back portal/Worker callers first; preserve real decisions/audit data.\nbegin;\nset local statement_timeout='8s';set local lock_timeout='1s';\ndo $$begin\n" +
+    guards +
+    '\nend$$;\n' +
+    undo +
+    "\ndelete from supabase_migrations.schema_migrations where version='20260927020000' and name='employee_case_evidence';\nnotify pgrst,'reload schema';\ncommit;\n",
+);
+const record = {
+  verifiedAt: new Date().toISOString(),
+  existingFunctionsAndGrantsPreserved: Object.keys(before.functions).length,
+  allMemberPoliciesRelationsTriggersSettingsPreserved: true,
+  checks,
+  activeEvents: after.active_events,
+  overdueOutbox: after.overdue_outbox,
+  lockWaits: after.lock_waits,
+};
+await writeFile(`${root}/database-verified.json`, JSON.stringify(record, null, 2));
+console.log(JSON.stringify(record, null, 2));

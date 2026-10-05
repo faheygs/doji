@@ -20,6 +20,13 @@ required—accepted again by users.
   consequence separately based on severity, intent, and history.
 - A routine first violation normally removes the content and produces a warning;
   it does not automatically erase the entire account.
+- A finalized Level 1 or Level 2 content/profile-photo removal creates a durable
+  private in-app notice and an account-category OS push when the member has enabled
+  those alerts. Level 2 and Level 3 removals additionally send one transactional
+  email to the verified account address after the restricted reviewer records a
+  final decision. Member messages contain the operator-approved notice,
+  never reporter identity, evidence, or internal rationale. Quarantine alone is not
+  a final finding and must not notify the subject until restricted review decides it.
 - Serious, malicious, repeated, or apparently illegal conduct can justify an
   immediate suspension or permanent ban.
 - Profile photos are persistent identity content. They do not inherit the daily
@@ -243,6 +250,12 @@ report command applies the following server-owned policy and records why it acte
 
 - The reporter stops seeing the reported content immediately. This is local to that
   reporter and does not require a moderation decision.
+- The in-app flow first records the exact target (`post`, `comment`, custom poll
+  response, `profile_photo`, or `account`), then a broad category and a specific leaf
+  reason. Profile-photo and account reports are never interchangeable. A report is
+  confidential from the reported member, but authorized reviewers can identify the
+  reporter for abuse prevention and audit; the UI must not inaccurately call it
+  anonymous to Doji.
 - A report alone does not silently block the reported account or end a friendship;
   the reporter may separately choose Block for immediate account-wide separation.
 - A report alleging child exploitation/CSAM, nonconsensual intimate imagery, a
@@ -298,11 +311,24 @@ Implementation checkpoint (2026-09-24): the production contract now has reversib
 post/comment/poll-response moderation state, classified and audited portal decisions,
 routine warnings and member notices, Account Status, one server-owned appeal per
 eligible decision, independent appeal review with restoration, and quarantine routing
-to a restricted queue. The older hard-delete and mobile-admin decision paths fail
-closed. This is an engineering foundation, not legal-program completion: the staged
-avatar pipeline, restricted evidence vault, account-restriction/ban criteria, public
+to a restricted queue. Restricted reviewers can now separately record a warning,
+server-expiring temporary restriction, or permanent suspension; permanent suspension
+preserves content and restoration state rather than deleting evidence. The older
+hard-delete and mobile-admin decision paths fail closed. This is an engineering
+foundation, not legal-program completion: the staged avatar pipeline, restricted
+evidence vault, counsel-approved account-restriction/ban criteria, public
 intake/status center, legal holds/retention jobs, trained escalation coverage, policy
 publication, counsel approval, and scenario testing below are still required.
+
+Account Status must present the account outcome separately from the affected-content
+action. For example, a removed post with a routine first enforcement is an account
+warning, not a suspension; the private member read returns both facts explicitly.
+
+The operator policy catalog must cover every member-reporting branch. A member's
+selection is an allegation and may prefill a suggested policy, but the operator must
+independently confirm the policy, severity, evidence-based rationale, and member notice.
+Related-account context is bounded to counts needed for consistent review; it does not
+expose an unrestricted behavioral profile.
 
 1. Obtain counsel review of the operating entity, launch jurisdictions, Terms,
    Privacy Policy, Community Guidelines, TAKE IT DOWN process, DMCA agent/process,

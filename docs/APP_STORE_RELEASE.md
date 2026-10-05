@@ -1,5 +1,12 @@
 # App Store release checklist
 
+This is a historical operational checklist, not current approval or permission
+to deploy shared infrastructure. Recheck Apple's current official requirements
+and the exact candidate's evidence for each release. Start with
+[Testing and releases](TESTING_AND_RELEASES.md) and
+[Current state and gaps](CURRENT_STATE_AND_GAPS.md); old checked boxes below are
+not a fresh certification of today's schema, artifact or store availability.
+
 ## Build and secrets
 
 - Ship only the Supabase URL and anon key in the client.
@@ -74,7 +81,7 @@
    `schedule-daily-challenge`, `fanout-doji-push`, and `run-data-maintenance`.
 4. Configure and verify the production APNs key/team/bundle secrets. Confirm a new
    production build registers a native endpoint before testing a global launch.
-5. Deploy `infra/doji-orchestrator` and verify all four Durable Object bindings and
+5. For a separately approved Worker release, verify all five Durable Object bindings and
    the one-minute health trigger.
 6. Confirm there are no recurring `doji_*` pg_cron jobs.
 7. Confirm outbox rows publish promptly, push shards finish before expiry, and the
@@ -89,7 +96,7 @@ Automated and infrastructure gates:
 
 - [x] Production migrations match the repository and database lint is clean.
 - [x] Required Supabase Edge Functions and the Cloudflare orchestrator are deployed.
-- [ ] All four Cloudflare Durable Objects are bound to the production worker and
+- [ ] All five Cloudflare Durable Objects are bound to the production worker and
       production health shows no overdue outbox, expired shard, or alarm-repair work.
 - [x] Resend-backed operational health alerts are enabled and hourly-deduplicated.
 - [x] Sentry DSN/source-map credentials are present in EAS production; realtime
