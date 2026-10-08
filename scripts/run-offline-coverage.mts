@@ -5,6 +5,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 const files = [
   'coverage-policy.test.mts',
+  'test-workflow-review-boundaries.mts',
+  'test-workflow-event-boundaries.mts',
+  'test-workflow-contract-boundaries.mts',
   'test-employee-http.mts',
   'test-employee-browser-transport.mts',
   'test-employee-session-store-boundaries.mts',
