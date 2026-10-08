@@ -7,7 +7,10 @@ import { record, firstRecord } from './contracts.mts';
 export const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 export const image = 'public.ecr.aws/supabase/postgres:17.6.1.159';
 export const authImage = 'docker.io/supabase/gotrue:v2.197.0';
-export const storageImage = 'public.ecr.aws/supabase/storage-api:v1.69.11';
+// Official mirror, byte-identical to the ECR image from passing CI run 37826229707.
+// Pin the manifest so registry availability cannot silently change test software.
+export const storageImage =
+  'docker.io/supabase/storage-api:v1.69.11@sha256:97ed68d33417d253a45fe0a70f84324d92250a3e239bf18aa6cf87269dbf6727';
 export const engine =
   process.env.DOJI_TEST_ENGINE ||
   (process.platform === 'win32' ? 'C:/Program Files/RedHat/Podman/podman.exe' : 'docker');
