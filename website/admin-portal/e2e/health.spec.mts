@@ -1,6 +1,6 @@
 import { expect, test } from '../../coverage-fixture.mts';
 import AxeBuilder from '@axe-core/playwright';
-import { installMockBackend, seedAdminSession } from './fixtures.mts';
+import { installMockBackend, seedAdminSession, operatorSession } from './fixtures.mts';
 import type { MockOptions } from './fixtures.mts';
 import type { Page } from '@playwright/test';
 
@@ -45,14 +45,11 @@ test('app errors prevent an all-clear even after delivery recovers', async ({ pa
       },
     },
   });
-  await expect(page.locator('#platformStatusMetric')).toHaveText('Degraded');
-  await expect(page.locator('#operationsStatusPill')).toHaveText('Degraded');
+  await expect(page.locator('#platformStatusMetric')).toHaveText('Watch');
+  await expect(page.locator('#operationsStatusPill')).toHaveText('Watch');
   await expect(page.locator('.sentryPanel')).toContainText('Could not load comments');
-  const before = requests.filter((r) => r.path.endsWith('/platform-health')).length;
-  await page.getByRole('button', { name: 'Refresh health', exact: true }).click();
-  await expect
-    .poll(() => requests.filter((r) => r.path.endsWith('/platform-health')).length)
-    .toBeGreaterThan(before);
+  await expect(page.getByRole('button', {name:'Refresh health',exact:true})).toHaveCount(0);
+  await expect(page.locator('.opsAttention')).toContainText('App errors');
   expect(
     requests.filter((r) => r.method === 'POST' && !r.path.endsWith('/realtime-token')),
   ).toHaveLength(0);
@@ -122,6 +119,7 @@ for (const width of [1440, 900, 390]) {
 
 test('operations has no serious accessibility violations', async ({ page }) => {
   await open(page);
+  await page.getByText('How health is assessed', {exact:true}).click();
   for (const theme of ['light', 'dark']) {
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
     const colors = await page
@@ -142,7 +140,97 @@ test('stale data reclassifies in place without new network polling', async ({ pa
   const requests = await open(page);
   const before = requests.length;
   await page.clock.fastForward(241000);
-  await expect(page.locator('.healthSignal').first()).toContainText('Refresh needed');
+  await expect(page.locator('.healthSignal').first()).toContainText('Reading outdated');
   await expect(page.locator('.sentryPanel .healthState')).toHaveText('Feed unavailable');
   expect(requests.length).toBe(before);
+});
+
+test('overview actually reads history and never reports unloaded history as missing', async ({page}) => {
+  await seedAdminSession(page);
+  const requests = await installMockBackend(page);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/platform-health-history?**', async route => {
+    await gate;
+    await route.fulfill({json: {items: []}});
+  });
+  await page.goto('/');
+  await expect(page.locator('#portalApp')).toBeVisible();
+  await page.locator('[data-view="operations"]').click();
+  await expect(page.locator('.healthSignal').last()).toContainText('Loading history');
+  await expect(page.locator('.eventHistoryPanel')).not.toContainText('No completed');
+  release();
+  await expect(page.locator('.healthSignal').last()).toContainText('No recent summary');
+  expect(requests.filter(r => r.path.endsWith('/platform-health')).length).toBeLessThanOrEqual(2);
+});
+
+test('existing Doji events and reconnection update the visible health screen automatically', async ({page}) => {
+  const requests = await open(page);
+  await expect(page.locator('.opsReadiness')).toContainText('Event connection connected');
+  await page.getByText('How health is assessed', {exact:true}).click();
+  const before = requests.filter(r => r.path.endsWith('/platform-health')).length;
+  let burstReads = 0;
+  await page.route('**/portal/admin/platform-health', route => { burstReads++; return route.fulfill({json:{
+    generated_at:new Date().toISOString(), operational:{...operational(),outbox_exhausted:1},
+    sentry:{configured:true,available:true,issues:[]},
+  }}); });
+  await page.evaluate(() => {
+    for (let i = 0; i < 20; i++) window.dispatchEvent(new CustomEvent('test-realtime-message', {detail:{channel:'doji:global',message:{name:'challenge.closed',data:{aggregateId:'fixture',eventId:String(i)}}}}));
+  });
+  await expect(page.locator('#operationsStatusPill')).toHaveText('Critical');
+  expect(requests.filter(r => r.path.endsWith('/platform-health')).length).toBe(before);
+  expect(burstReads).toBe(1);
+  await expect(page.locator('.healthThresholds')).toHaveAttribute('open', '');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('test-realtime-connection',{detail:'disconnected'})));
+  await expect(page.locator('.opsReadiness')).toContainText('Event connection interrupted');
+  let reads = 0;
+  await page.route('**/portal/admin/platform-health', route => { reads++; return route.fulfill({json:{generated_at:new Date().toISOString(),operational:operational(),sentry:{configured:true,available:true,issues:[]}}}); });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('test-realtime-connection',{detail:'connected'})));
+  await expect(page.locator('#operationsStatusPill')).not.toHaveText('Critical');
+  expect(reads).toBe(1);
+});
+
+test('event during a slow refresh is reconciled once after the pending read', async ({page}) => {
+  await open(page);
+  let reads = 0, active = 0, maxActive = 0;
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/portal/admin/platform-health', async route => {
+    reads++; active++; maxActive=Math.max(maxActive,active);
+    const first=reads===1;
+    if (first) await gate;
+    active--;
+    await route.fulfill({json:{generated_at:new Date().toISOString(),operational:{...operational(),outbox_exhausted:first?0:1},sentry:{configured:true,available:true,issues:[]}}});
+  });
+  const event = () => page.evaluate(() => window.dispatchEvent(new CustomEvent('test-realtime-message',{detail:{channel:'doji:global',message:{name:'challenge.closed'}}})));
+  await event();
+  await expect.poll(()=>reads).toBe(1);
+  for(let i=0;i<4;i++) await event();
+  release();
+  await expect(page.locator('#operationsStatusPill')).toHaveText('Critical');
+  expect(reads).toBe(2);
+  expect(maxActive).toBe(1);
+});
+
+test('operators without health permission do not fetch health or history', async ({page}) => {
+  await seedAdminSession(page);
+  const requests = await installMockBackend(page, {session:{...operatorSession, capabilities:{moderation_read:true,operations_read:false}}});
+  await page.goto('/');
+  await expect(page.locator('#portalApp')).toBeVisible();
+  await expect(page.locator('[data-view="operations"]')).toBeHidden();
+  expect(requests.filter(r => r.path.includes('platform-health'))).toHaveLength(0);
+});
+
+test('late health replies cannot restore protected readings after lock', async ({page}) => {
+  await seedAdminSession(page);
+  await installMockBackend(page);
+  let release!:()=>void;
+  const gate = new Promise<void>(resolve => { release=resolve; });
+  await page.route('**/portal/admin/platform-health', async route => {await gate;await route.fulfill({json:{operational:operational(),sentry:{configured:true,available:true,issues:[{title:'Late protected issue'}]}}});});
+  await page.goto('/');
+  await expect(page.locator('#portalApp')).toBeVisible();
+  await page.getByRole('button',{name:'Lock session'}).click();
+  release();
+  await expect(page.locator('#portalApp')).toBeHidden();
+  await expect(page.locator('.opsGrid')).not.toContainText('Late protected issue');
 });

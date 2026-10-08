@@ -33,7 +33,7 @@ let mockMedia = {
   front_photo_url: null as string | null,
   video_url: null as string | null,
 };
-let mockPostRead: { data?: Post; isLoading: boolean; error: unknown },
+let mockPostRead: { data?: Post; isLoading: boolean; error: unknown; refetch?: jest.Mock; isFetching?: boolean },
   mockEventRead: { data?: UserEvent; isLoading: boolean };
 let mockParams: Record<string, string | string[] | undefined>;
 let mockDark = false;
@@ -74,7 +74,7 @@ jest.mock(
   'react-native-safe-area-context',
   () => jest.requireActual('react-native-safe-area-context/jest/mock').default,
 );
-jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn() }));
+jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(), impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'light' } }));
 jest.mock('expo-video', () => ({
   VideoView: require('react-native').View,
   useVideoPlayer: (_source: unknown, callback: (p: unknown) => void) => {
@@ -298,7 +298,7 @@ it.each(['loading', 'wrong post', 'absent', 'error'])('post detail safely render
   mockPostRead.isLoading = state === 'loading';
   if (state === 'wrong post') mockPostRead.data = post({ id: 'other-post' });
   if (state === 'absent') mockPostRead.data = undefined;
-  if (state === 'error') mockPostRead.error = new Error('denied');
+  if (state === 'error') mockPostRead.error = { status: 403 };
   const ui = render(shell(<PostDetail />));
   if (state === 'loading' || state === 'wrong post')
     expect(ui.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
@@ -330,3 +330,24 @@ it.each(['ios', 'web'] as const)(
     expect(ui.UNSAFE_getByType(PostCard).props.blurred).toBe(false);
   },
 );
+
+it('a failed cold post read offers retry rather than claiming the post was removed', () => {
+  const refetch = jest.fn();
+  mockPostRead = { isLoading: false, error: { status: 504 }, refetch, isFetching: false };
+  const ui = render(shell(<PostDetail />));
+  expect(ui.getByText('Could not load this post. Check your connection and try again.')).toBeTruthy();
+  expect(ui.queryByText('This post is no longer available.')).toBeNull();
+  fireEvent.press(ui.getByText('Try again'));
+  expect(refetch).toHaveBeenCalledWith({ cancelRefetch: false });
+  mockPostRead.isFetching = true; ui.rerender(shell(<PostDetail />));
+  fireEvent.press(ui.getByText('Try again')); expect(refetch).toHaveBeenCalledTimes(1);
+});
+it('a transient post refresh preserves authorized cached content, but access loss hides it', () => {
+  mockPostRead.error = { status: 503 }; mockPostRead.refetch = jest.fn();
+  const ui = render(shell(<PostDetail />));
+  expect(ui.UNSAFE_queryByType(PostCard)).not.toBeNull();
+  expect(ui.getByText('Could not refresh this post. Showing the last loaded version.')).toBeTruthy();
+  mockPostRead.error = { code: '42501' }; ui.rerender(shell(<PostDetail />));
+  expect(ui.UNSAFE_queryByType(PostCard)).toBeNull();
+  expect(ui.getByText('This post is no longer available.')).toBeTruthy();
+});

@@ -21,6 +21,9 @@ import { goBackToExplicitReturn, sanitizeReturnTo, ROUTES } from '../../../../li
 import { postDetailHref } from '../../../../lib/routes';
 import { hasUnlockedFeed } from '../../../../lib/participationGate';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../../lib/safeAreaLayout';
+import { Button } from '../../../../components/ui/Button';
+import { InlineFeedback } from '../../../../components/ui/InlineFeedback';
+import { canKeepQueryDataOnError } from '../../../../lib/queryDisplayState';
 
 export default function PostDetailScreen() {
   const params = useLocalSearchParams<{
@@ -43,8 +46,12 @@ export default function PostDetailScreen() {
   }));
   const router = useRouter();
   const { colors } = useTheme();
-  const { data: post, isLoading, error } = usePost(postId);
-  const visiblePost = post?.id === postId ? post : null;
+  const { data: post, isLoading, error, isFetching, refetch } = usePost(postId);
+  const visiblePost = post?.id === postId && (!error || canKeepQueryDataOnError(post, error)) ? post : null;
+  const failure = error as { status?: number; code?: string } | null;
+  const unavailable = [401, 403, 404].includes(failure?.status ?? 0) ||
+    ['42501', 'PGRST301', 'PGRST302', 'PGRST303'].includes(failure?.code ?? '');
+  const retry = () => { if (!isFetching) void refetch({ cancelRefetch: false }); };
   const routeIsLoading = isLoading || (!!post && post.id !== postId);
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const feedLocked = !hasUnlockedFeed(userEvent) && !userEventLoading;
@@ -82,7 +89,12 @@ export default function PostDetailScreen() {
       </View>
       {routeIsLoading ? (
         <View style={styles.centered}><ActivityIndicator color={colors.text} /></View>
-      ) : error || !visiblePost ? (
+      ) : error && !unavailable && !visiblePost ? (
+        <View style={styles.centered}>
+          <InlineFeedback message="Could not load this post. Check your connection and try again." />
+          <Button onPress={retry} disabled={isFetching}>Try again</Button>
+        </View>
+      ) : !visiblePost ? (
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center' }}>
             This post is no longer available.
@@ -96,6 +108,10 @@ export default function PostDetailScreen() {
           keyboardDismissMode="on-drag"
           scrollEventThrottle={Platform.OS === 'web' ? 16 : undefined}
         >
+          {error ? <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
+            <InlineFeedback tone="info" message="Could not refresh this post. Showing the last loaded version." />
+            <Button onPress={retry} disabled={isFetching} variant="secondary">Try again</Button>
+          </View> : null}
           <PostCard
             key={postId}
             post={visiblePost}

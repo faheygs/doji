@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   ensureAndroidNotificationChannel,
   syncPushRegistration,
@@ -28,7 +28,7 @@ jest.mock('../../lib/commandGateway', () => ({
   executeCommand: (...args: unknown[]) => mockCommand(...args),
 }));
 jest.mock('../../lib/idempotency', () => ({ newCommandId: () => 'synthetic-installation' }));
-jest.mock('../../stores/useAuthStore', () => ({ useAuthStore: { getState: () => mockState } }));
+jest.mock('../../stores/useAuthStore', () => ({ useAuthStore: { getState: () => mockState, subscribe: () => () => {} } }));
 jest.mock('../../lib/notificationsModule', () => ({
   loadNotificationsModule: async () => mockNotifications,
 }));
@@ -63,6 +63,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   await AsyncStorage.clear();
   Platform.OS = 'android';
+  AppState.currentState = 'active';
   process.env.EXPO_PUBLIC_APP_ENV = 'production';
   Constants.expoConfig = originalConfig;
   mockState = {
@@ -131,7 +132,7 @@ test('Android creates the existing four channels before asking the OS for permis
     p_app_version: '1.0.8',
     p_native_build_number: '23',
     p_release_channel: 'production',
-  });
+  }, expect.objectContaining({ expectedUserId: 'member', registrationSignal: expect.anything() }));
 });
 test('iOS uses its native token and sandbox environment without Android channel calls', async () => {
   Platform.OS = 'ios';
@@ -150,6 +151,7 @@ test('iOS uses its native token and sandbox environment without Android channel 
       p_platform: 'ios',
       p_expo_token: null,
     }),
+    expect.objectContaining({ expectedUserId: 'member' }),
   );
   expect(mockSetProfile).not.toHaveBeenCalled();
 });
@@ -160,6 +162,7 @@ test('Expo fallback failure does not discard a valid native endpoint', async () 
   expect(mockCommand).toHaveBeenCalledWith(
     'register_native_push_endpoint_v3',
     expect.objectContaining({ p_expo_token: null, p_token: 'native-token' }),
+    expect.objectContaining({ expectedUserId: 'member' }),
   );
   expect(recordOperationalFailure).toHaveBeenCalledWith('push', 'expo-token-fallback', error);
 });

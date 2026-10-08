@@ -2,6 +2,7 @@ import { boundedBody } from './bounded-body.mts';
 import { record } from './portal-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import type { EmployeeApplication, EmployeeActor } from './employee-contracts.mts';
+import { healthVersions } from './employee-health-contracts.mts';
 export interface EmployeeMonitoringConfig {
   token?: string;
   organization?: string;
@@ -10,6 +11,7 @@ export interface EmployeeMonitoringConfig {
 }
 interface HealthCache {
   until: number;
+  version: string;
   promise: Promise<Record<string, unknown>>;
 }
 // Same bounded monitoring contract as the existing portal: no new polling,
@@ -17,7 +19,11 @@ interface HealthCache {
 export function createEmployeeHealth(
   application: EmployeeApplication,
   { token, organization, projectIds = [], projectSlugs = [] }: EmployeeMonitoringConfig = {},
-  { upstream = fetch, now = Date.now }: { upstream?: PortalFetch; now?: () => number } = {},
+  {
+    upstream = fetch,
+    now = Date.now,
+    healthEventsEnabled = false,
+  }: { upstream?: PortalFetch; now?: () => number; healthEventsEnabled?: boolean } = {},
 ) {
   const configured =
     typeof token === 'string' && token.length > 0 && /^[a-z0-9-]{1,100}$/.test(organization || '');
@@ -34,12 +40,15 @@ export function createEmployeeHealth(
   function cached(
     kind: 'operations' | 'sentry',
     ttl: number,
+    version: string,
     load: () => Promise<Record<string, unknown>>,
   ) {
     const existing = kind === 'operations' ? operationsCache : sentryCache;
-    if (existing && existing.until > now()) return existing.promise;
-    const promise = Promise.resolve().then(load);
-    const cell = { until: now() + ttl, promise };
+    if (existing && existing.until > now() && existing.version === version) return existing.promise;
+    const promise = Promise.resolve()
+      .then(load)
+      .then((value) => ({ ...value, observed_at: new Date(now()).toISOString() }));
+    const cell = { until: now() + ttl, promise, version };
     if (kind === 'operations') operationsCache = cell;
     else sentryCache = cell;
     return promise;
@@ -110,29 +119,52 @@ export function createEmployeeHealth(
     )
       throw Object.assign(Error('Operations access required'), { status: 403 });
     signal.throwIfAborted();
-    const results = await Promise.allSettled([
-      cached('operations', 30000, async () => {
-        const value = await application.command(
-          actor,
-          { name: 'get_admin_operational_health_read_v1', args: {} },
-          AbortSignal.timeout(5000),
+    // Read the authoritative revision before cache lookup. Browser hints never
+    // supply cache keys or force arbitrary cache eviction.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const versions = healthEventsEnabled
+        ? healthVersions(
+            await application.command(
+              actor,
+              { name: 'get_admin_health_feed_v1', args: {} },
+              signal,
+            ),
+          )
+        : { delivery: 'legacy', history: 'legacy', sentry: 'legacy' };
+      signal.throwIfAborted();
+      const results = await Promise.allSettled([
+        cached('operations', 30000, versions.delivery, async () => {
+          const value = await application.command(
+            actor,
+            { name: 'get_admin_operational_health_read_v1', args: {} },
+            AbortSignal.timeout(5000),
+          );
+          if (!record(value)) throw Error('Invalid operational snapshot');
+          return value;
+        }),
+        cached('sentry', 60000, versions.sentry, sentry),
+      ]);
+      signal.throwIfAborted();
+      if (healthEventsEnabled) {
+        const latest = healthVersions(
+          await application.command(actor, { name: 'get_admin_health_feed_v1', args: {} }, signal),
         );
-        if (!record(value)) throw Error('Invalid operational snapshot');
-        return value;
-      }),
-      cached('sentry', 60000, sentry),
-    ]);
-    signal.throwIfAborted();
-    return {
-      generated_at: new Date(now()).toISOString(),
-      operational:
-        results[0].status === 'fulfilled'
-          ? { ...results[0].value, available: true }
-          : { available: false, healthy: false },
-      sentry:
-        results[1].status === 'fulfilled'
-          ? results[1].value
-          : { configured, available: false, issues: [] },
-    };
+        signal.throwIfAborted();
+        if (JSON.stringify(latest) !== JSON.stringify(versions)) continue;
+      }
+      return {
+        generated_at: new Date(now()).toISOString(),
+        ...(healthEventsEnabled ? { source_revisions: versions } : {}),
+        operational:
+          results[0].status === 'fulfilled'
+            ? { ...results[0].value, available: true }
+            : { available: false, healthy: false },
+        sentry:
+          results[1].status === 'fulfilled'
+            ? results[1].value
+            : { configured, available: false, issues: [] },
+      };
+    }
+    throw Object.assign(Error('Health readings changed during reconciliation'), { status: 503 });
   };
 }

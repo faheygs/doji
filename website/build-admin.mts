@@ -2,6 +2,8 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readBrowserSource } from './browser-source.mts';
+import { prefixAdminImports } from './prefix-admin-imports.mts';
+import { versionAdminWorkflow } from './version-admin-workflow.mts';
 
 const websiteRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = dirname(websiteRoot);
@@ -60,6 +62,18 @@ const campaignsEnabled = process.env.DOJI_ADMIN_CAMPAIGNS_ENABLED === 'true';
 const safetyRemovalEnabled = process.env.DOJI_ADMIN_SAFETY_REMOVAL_ENABLED === 'true';
 const businessApplicationsEnabled = process.env.DOJI_ADMIN_BUSINESS_APPLICATIONS_ENABLED === 'true';
 const businessPrivacyEnabled = process.env.DOJI_ADMIN_BUSINESS_PRIVACY_ENABLED === 'true';
+const staffWorkflowEnabled = process.env.DOJI_ADMIN_STAFF_WORKFLOW_ENABLED === 'true';
+const healthEventsEnabled = process.env.DOJI_ADMIN_HEALTH_EVENTS_ENABLED === 'true';
+if (healthEventsEnabled && !independentEmployeeIdentity)
+  throw Error('Health events require independent employee identity.');
+const unifiedSafetyEnabled = process.env.DOJI_ADMIN_UNIFIED_SAFETY_ENABLED === 'true';
+if (unifiedSafetyEnabled && (!staffWorkflowEnabled || !safetyRemovalEnabled))
+  throw Error('Unified safety requires staff workflow and safety review gates.');
+if (
+  staffWorkflowEnabled &&
+  (!independentEmployeeIdentity || !businessApplicationsEnabled || !editorialEnabled)
+)
+  throw Error('Staff workflow requires independent employee, business review and editorial gates.');
 
 if (!supabaseUrl || !supabaseAnonKey || !apiBaseUrl) {
   throw new Error('Admin deployment requires the public Supabase URL, anon key, and API base URL.');
@@ -73,7 +87,7 @@ for (const file of ['index.html', 'admin.css', 'live-client.js']) {
   if (file.endsWith('.js'))
     await writeFile(
       join(outputRoot, 'admin-portal', file),
-      readBrowserSource(`admin-portal/${file}`),
+      prefixAdminImports(readBrowserSource(`admin-portal/${file}`), assetPrefix),
     );
   else await cp(join(websiteRoot, 'admin-portal', file), join(outputRoot, 'admin-portal', file));
 }
@@ -100,6 +114,20 @@ if (businessPrivacyEnabled) {
     join(outputRoot, 'admin-portal/business-privacy.js'),
     readBrowserSource('admin-portal/business-privacy.js'),
   );
+}
+if (staffWorkflowEnabled) {
+  for (const name of [
+    'workflow-contracts',
+    'workflow-case',
+    'workflow-workspace',
+    'workflow-view',
+    'workflow-review',
+    'workflow-events',
+  ])
+    await writeFile(
+      join(outputRoot, `admin-portal/${name}.js`),
+      readBrowserSource(`admin-portal/${name}.js`),
+    );
 }
 if (businessApplicationsEnabled || businessPrivacyEnabled) {
   await writeFile(
@@ -137,6 +165,9 @@ const portalConfigSource = `window.DOJI_PORTAL_CONFIG = Object.freeze(${JSON.str
     safetyRemovalEnabled,
     businessApplicationsEnabled,
     businessPrivacyEnabled,
+    staffWorkflowEnabled,
+    healthEventsEnabled,
+    unifiedSafetyEnabled,
     supabaseUrl,
     supabaseAnonKey,
     apiBaseUrl,
@@ -152,6 +183,8 @@ const [
   editorialSource,
   safetyRemovalSource,
   selectSource,
+  authJourneySource,
+  recordPagesSource,
 ] = await Promise.all([
   readBrowserSource('admin-portal/live-client.js'),
   readBrowserSource('portal.js'),
@@ -160,6 +193,8 @@ const [
   readBrowserSource('admin-portal/editorial.js'),
   readBrowserSource('admin-portal/safety-removal.js'),
   readBrowserSource('portal-select.js'),
+  readBrowserSource('admin-portal/auth-journey.js'),
+  readBrowserSource('admin-portal/record-pages.js'),
 ]);
 let independentSource = '';
 if (independentEmployeeIdentity) {
@@ -226,8 +261,12 @@ if (independentEmployeeIdentity) {
 }
 await writeFile(
   join(outputRoot, 'admin-portal', 'admin-app-20261002d.js'),
-  `${portalConfigSource}\n${independentSource}\n${healthModelSource}\n${liveClientSource}\n${contextualHelpSource}\n${editorialSource}\n${safetyRemovalSource}\n${selectSource}\n${assetPrefix ? portalRuntimeSource.replaceAll("import('/admin-portal/", `import('${assetPrefix}/admin-portal/`) : portalRuntimeSource}\n`,
+  prefixAdminImports(
+    `${portalConfigSource}\n${independentSource}\n${healthModelSource}\n${liveClientSource}\n${contextualHelpSource}\n${recordPagesSource}\n${editorialSource}\n${safetyRemovalSource}\n${selectSource}\n${authJourneySource}\n${portalRuntimeSource}\n`,
+    assetPrefix,
+  ),
   'utf8',
 );
 
+if (staffWorkflowEnabled) await versionAdminWorkflow(outputRoot);
 console.log(`Built isolated admin portal at ${outputRoot}`);

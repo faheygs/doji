@@ -4,6 +4,7 @@
 // Encryption keys are server-only. Production requires a reviewed durable adapter.
 import { createHash } from 'node:crypto';
 import { boundedBody } from './bounded-body.mts';
+import { businessMfaCommand } from './business-mfa-session.mts';
 import { isRecord, errorStatus } from './business-contracts.mts';
 import {
   random,
@@ -43,7 +44,15 @@ const headers = () =>
 
 export function createBusinessHttp(
   config: BusinessHttpConfig,
-  { store, provider, verify, application, admission, now = Date.now }: BusinessHttpDependencies,
+  {
+    store,
+    provider,
+    verify,
+    application,
+    admission,
+    mfa,
+    now = Date.now,
+  }: BusinessHttpDependencies,
 ) {
   const policy = structuredClone(config);
   const origin = new URL(policy.origin);
@@ -233,6 +242,7 @@ export function createBusinessHttp(
             seal({ tokens, actor, csrf, created, touched: created }),
             created + 8 * 3600000,
             request.signal,
+            actor,
           );
           installed = true;
           return redirect('/business-portal/application/', [
@@ -244,12 +254,22 @@ export function createBusinessHttp(
             await provider.revoke(actor.sessionId, AbortSignal.timeout(10000)).catch(() => {});
         }
       }
-      const routes = ['/api/session', '/api/application', '/auth/logout'];
+      const mfaRoute = path === '/auth/mfa/prepare' || path === '/auth/mfa/complete';
+      const routes = [
+        '/api/session',
+        '/api/application',
+        '/api/workspace',
+        '/auth/logout',
+        '/auth/mfa/prepare',
+        '/auth/mfa/complete',
+      ];
       if (
         !routes.includes(path) ||
         !['GET', 'POST'].includes(request.method) ||
         (path === '/api/session' && request.method !== 'GET') ||
-        (path === '/auth/logout' && request.method !== 'POST')
+        (path === '/api/workspace' && request.method !== 'GET') ||
+        (path === '/auth/logout' && request.method !== 'POST') ||
+        (mfaRoute && (request.method !== 'POST' || !mfa))
       )
         throw fail(404);
       const raw = cookie(request, cookieName);
@@ -297,7 +317,9 @@ export function createBusinessHttp(
               saved.tokens = tokens;
               saved.actor = actor;
             } else saved.actor = await identity(saved.tokens, request.signal);
-            if (path === '/api/session') await application.authorize(saved.actor, request.signal);
+            if (mfa) saved.actor = mfa.attest(saved.actor, saved.mfaReceipt);
+            if (path === '/api/session' || mfaRoute)
+              await application.authorize(saved.actor, request.signal);
           } catch {
             await cell.remove();
             throw fail();
@@ -305,6 +327,26 @@ export function createBusinessHttp(
           saved.touched = now();
           request.signal.throwIfAborted();
           await cell.replace(seal(saved));
+          if (mfaRoute && mfa) {
+            try {
+              return json(
+                await businessMfaCommand(
+                  path,
+                  input,
+                  saved,
+                  () => cell.replace(seal(saved)),
+                  mfa,
+                  request.signal,
+                  now,
+                ),
+              );
+            } catch (error) {
+              // Match browser denial: invalid identity/challenge bindings remove
+              // the durable session; a simple rejected code (400) does not.
+              if ([401, 403].includes(errorStatus(error) ?? 0)) await cell.remove();
+              throw error;
+            }
+          }
           if (path === '/api/session')
             return json({
               signedIn: true,
@@ -313,9 +355,11 @@ export function createBusinessHttp(
             });
           try {
             const result =
-              request.method === 'GET'
-                ? await application.read(saved.actor, request.signal)
-                : await application.command(saved.actor, input, request.signal);
+              path === '/api/workspace'
+                ? await application.workspace(saved.actor, request.signal)
+                : request.method === 'GET'
+                  ? await application.read(saved.actor, request.signal)
+                  : await application.command(saved.actor, input, request.signal);
             return json(result);
           } catch (error) {
             const status = errorStatus(error);

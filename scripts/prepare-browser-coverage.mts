@@ -6,6 +6,8 @@ import { spawnSync } from 'node:child_process';
 import { instrument, eligible } from './coverage-instrument.mts';
 import { inventory } from './check-coverage.mts';
 import { adminBundlePath } from './admin-bundle-path.mts';
+import { buildBusinessIdentity } from '../website/build-business-identity.mts';
+import { prepareStaffWorkflowBrowser } from './prepare-staff-workflow-browser.mts';
 import {
   browserAssetPath,
   browserSourcePath,
@@ -28,6 +30,7 @@ const result = spawnSync(process.execPath, ['website/build-admin.mts'], {
     DOJI_ADMIN_API_BASE_URL: 'https://doji-orchestrator.faheygs.workers.dev',
     DOJI_ADMIN_EMPLOYEE_ACCOUNTS: 'true',
     DOJI_ADMIN_INDEPENDENT_EMPLOYEE: 'false',
+    DOJI_ADMIN_STAFF_WORKFLOW_ENABLED: 'false',
     DOJI_ADMIN_ASSET_PREFIX: '',
     DOJI_ADMIN_EDITORIAL_ENABLED: 'true',
     DOJI_ADMIN_CAMPAIGNS_ENABLED: 'true',
@@ -43,6 +46,7 @@ const bundle = path.join(
 );
 let content = fs.readFileSync(bundle, 'utf8');
 for (const relative of [
+  'admin-portal/auth-journey.js',
   'admin-portal/health-model.js',
   'admin-portal/live-client.js',
   'admin-portal/contextual-help.js',
@@ -95,6 +99,8 @@ const publicHeaders = fs
   .replace('; base-uri', '; frame-src https://challenges.cloudflare.com; base-uri');
 fs.writeFileSync(path.join(publicRoot, '_headers'), publicHeaders);
 for (const relative of inventory().filter((file) => file.startsWith('website/'))) {
+  // These maintained sources are instrumented in their dedicated bundled artifact below.
+  if (relative.startsWith('website/business-portal/identity/')) continue;
   const sourcePath = path.join(root, relative);
   if (!eligible(sourcePath)) continue;
   const name = browserAssetPath(path.relative(website, sourcePath));
@@ -108,4 +114,18 @@ for (const relative of inventory().filter((file) => file.startsWith('website/'))
   const adminTarget = path.join(admin, name);
   if (fs.existsSync(adminTarget)) fs.writeFileSync(adminTarget, code);
 }
+await buildBusinessIdentity(
+  path.join(root, 'test-results/coverage/current/business-identity-site'),
+  {
+    enabled: true,
+    origin: 'https://business.dojipro.com',
+    turnstileSiteKey: 'synthetic-browser-fixture',
+    termsVersion: 'business-terms-20260930-v1',
+    privacyVersion: 'business-privacy-20260930-v1',
+    termsUrl: 'https://business.dojipro.com/business-terms/',
+    privacyUrl: 'https://business.dojipro.com/business-privacy/',
+  },
+  true,
+);
 console.log('Prepared instrumented local admin/business/safety test artifacts.');
+prepareStaffWorkflowBrowser(true);

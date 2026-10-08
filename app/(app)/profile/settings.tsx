@@ -214,6 +214,11 @@ export default function SettingsScreen() {
         </Text>
         <View style={styles.group}>
           <SettingsRow
+            label="Report a problem"
+            subtitle="Contact support with diagnostic details"
+            onPress={() => router.push('/(app)/profile/report-problem' as Href)}
+          />
+          <SettingsRow
             label="Help & support"
             subtitle="Support, safety, and account help"
             onPress={() => {

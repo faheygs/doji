@@ -340,13 +340,15 @@ test('logout confirms server result, leaves local state locked on failure and ca
   assert.equal(f.calls.length, count);
 });
 test('clearSession reports cleanup failure without preserving local workspace access', async () => {
-  const invalidated = deferred<string>();
-  const f = fixture({ onAccessInvalidated: (message) => invalidated.resolve(message) });
+  const cleanupFailed = deferred<string>();
+  const f = fixture({ onSessionCleanupFailed: (message) => cleanupFailed.resolve(message) });
   await f.client.session();
   f.replies.push(response({}, 503));
   f.client.clearSession();
   assert.equal(f.client.hasSession(), false);
-  assert.match(await invalidated.promise, /server sign-out could not be confirmed/);
+  assert.match(await cleanupFailed.promise, /server sign-out could not be confirmed/);
+  assert.equal(f.invalidated.length, 0, 'cleanup must not recursively invalidate the session');
+  assert.equal(f.calls.filter(call => call.url.endsWith('/auth/logout')).length, 1);
 });
 test('evidence calls require both identifiers and return only the signed URL result', async () => {
   const f = fixture();

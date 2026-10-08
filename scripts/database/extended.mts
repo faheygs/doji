@@ -10,6 +10,8 @@ export const suites: [string, ...string[]][] = [
   ['scripts/test-portal-identity-business-reads.mts'],
   ['scripts/test-portal-identity-business-commands.mts'],
   ['scripts/test-portal-identity-business-enrollment.mts'],
+  ['scripts/test-business-independent-review.mts'],
+  ['scripts/test-business-independent-review.mts', '--privacy-candidate'],
   ['scripts/test-safety-removal-local.mts'],
   ['scripts/test-moderation-media-ledger.mts'],
   ['scripts/test-moderation-media-restoration.mts'],

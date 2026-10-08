@@ -1,13 +1,15 @@
 import type { Database } from '../types/database';
 import type { AuthenticatedCommandName } from '../contracts/authenticatedCommands';
-import { reportApiFailure } from './apiFailureTelemetry';
+import { apiAttemptDetails, reportApiFailure } from './apiFailureTelemetry';
+import { diagnosticSessionIsCurrent, mobileDiagnosticSnapshot, recordDiagnosticOutcome } from './mobileDiagnosticContext';
 import { supabase } from './supabase';
-import { mobileReleaseIdentity } from './releaseIdentity';
 import { Platform } from 'react-native';
-import { beginReadDiagnostics, finishReadDiagnostics, inheritReadDiagnostics, observedMemberFetch } from './memberReadDiagnostics';
+import { inheritReadDiagnostics } from './memberReadDiagnostics';
+import { commandError, gatewayCommand, type CommandError } from './commandGatewayTransport';
+import { awaitRegistration, isPushRegistrationInterrupted, PushRegistrationInterrupted, registrationDelay } from './pushRegistrationCancellation';
 
-const COMMAND_TIMEOUT_MS = 12_000;
 const TRANSIENT_RETRY_DELAY_MS = 250;
+const REGISTRATION_COMMANDS = new Set<string>(['register_native_push_endpoint', 'register_native_push_endpoint_v2', 'register_native_push_endpoint_v3']);
 const IDEMPOTENT_WITHOUT_COMMAND_KEY = new Set<string>([
   'clear_notification_history',
   'dismiss_notification',
@@ -27,13 +29,7 @@ type FunctionName = keyof Functions & string;
 type FunctionArgs<Name extends FunctionName> = Functions[Name]['Args'];
 type FunctionResult<Name extends FunctionName> = Functions[Name]['Returns'];
 
-export type CommandError = {
-  status?: number;
-  code: string;
-  details: string | null;
-  hint: string | null;
-  message: string;
-};
+export type { CommandError } from './commandGatewayTransport';
 
 export type CommandResult<Name extends FunctionName> = {
   data: FunctionResult<Name> | null;
@@ -43,19 +39,6 @@ export type CommandResult<Name extends FunctionName> = {
 function gatewayUrl(): string | null {
   const configured = process.env.EXPO_PUBLIC_COMMAND_GATEWAY_URL?.trim().replace(/\/$/, '');
   return configured || null;
-}
-
-function commandError(value: unknown, fallback: string, status?: number): CommandError {
-  const body = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  const error = {
-    status,
-    code: typeof body.code === 'string' ? body.code : 'DOJI_COMMAND_ERROR',
-    details: typeof body.details === 'string' ? body.details : null,
-    hint: typeof body.hint === 'string' ? body.hint : null,
-    message: typeof body.message === 'string' ? body.message : fallback,
-  };
-  if (Platform.OS === 'android') inheritReadDiagnostics(value, error);
-  return error;
 }
 
 function mayRetryCommand(name: string, args: unknown): boolean {
@@ -74,58 +57,6 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-async function gatewayCommand<Name extends FunctionName>(
-  baseUrl: string,
-  token: string,
-  name: Name,
-  args: FunctionArgs<Name>,
-): Promise<{ response: Response; payload: unknown }> {
-  const release = mobileReleaseIdentity();
-  const controller = new AbortController();
-  const diagnose = Platform.OS === 'android';
-  if (diagnose) beginReadDiagnostics(controller.signal, 'command_gateway');
-  const timeout = setTimeout(() => controller.abort(new Error('Command timed out')), COMMAND_TIMEOUT_MS);
-  try {
-    const response = await (diagnose ? observedMemberFetch : fetch)(`${baseUrl}/commands/rpc/${name}`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-        'x-client-info': 'doji-mobile/1.0',
-        ...(release.appVersion ? { 'x-doji-app-version': release.appVersion } : {}),
-        ...(release.nativeBuildNumber ? { 'x-doji-native-build': release.nativeBuildNumber } : {}),
-        'x-doji-platform': release.platform,
-        'x-doji-release-channel': release.releaseChannel,
-      },
-      body: JSON.stringify(args ?? {}),
-      signal: controller.signal,
-    });
-    const text = await response.text();
-    let payload: unknown = null;
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = { message: text };
-      }
-    }
-    if (diagnose) finishReadDiagnostics(controller.signal, response,
-      { abort_source: 'none', deadline_ms: COMMAND_TIMEOUT_MS });
-    return { response, payload };
-  } catch (error) {
-    // Native fetch may reject with a generic AbortError instead of the deadline reason.
-    const failure = controller.signal.aborted ? controller.signal.reason ?? new Error('Command timed out') : error;
-    if (diagnose) finishReadDiagnostics(controller.signal,
-      failure && typeof failure === 'object' ? failure : undefined,
-      { abort_source: controller.signal.aborted ? 'deadline' : 'none', deadline_ms: COMMAND_TIMEOUT_MS });
-    throw failure;
-  } finally {
-    clearTimeout(timeout);
-    if (diagnose) finishReadDiagnostics(controller.signal);
-  }
-}
-
 async function directCommand<Name extends FunctionName>(
   name: Name,
   args: FunctionArgs<Name>,
@@ -134,17 +65,21 @@ async function directCommand<Name extends FunctionName>(
 }
 
 /**
- * Executes an authenticated atomic RPC and immediately wakes the realtime relay.
+ * Executes an authenticated atomic RPC and wakes the realtime relay.
  * Direct PostgREST remains available in local environments without a gateway;
- * production builds require the gateway URL.
+ * Production requires the gateway URL.
  */
 export async function executeCommand<Name extends FunctionName & AuthenticatedCommandName>(
   name: Name,
   args: FunctionArgs<Name>,
-  account?: { expectedUserId: string; isCurrent: () => boolean },
+  account?: { expectedUserId: string; isCurrent: () => boolean; registrationSignal?: AbortSignal },
 ): Promise<CommandResult<Name>> {
+  const signal = REGISTRATION_COMMANDS.has(name) ? account?.registrationSignal : undefined;
+  const interrupted = (): CommandResult<Name> => ({ data: null,
+    error: commandError(new PushRegistrationInterrupted('superseded'), 'Push registration interrupted.') });
   const accountChanged = (): CommandResult<Name> => ({ data: null,
     error: commandError(null, 'The account changed before this request finished.', 401) });
+  if (signal?.aborted) return interrupted();
   if (account && !account.isCurrent()) return accountChanged();
   const baseUrl = gatewayUrl();
   if (!baseUrl) {
@@ -155,7 +90,11 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
     };
   }
 
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  let session;
+  try { session = await awaitRegistration(supabase.auth.getSession(), signal); }
+  catch (error) { if (isPushRegistrationInterrupted(error)) return interrupted(); throw error; }
+  const { data: sessionData, error: sessionError } = session;
+  if (signal?.aborted) return interrupted();
   if (account && (!account.isCurrent() || sessionData.session?.user?.id !== account.expectedUserId)) return accountChanged();
   let token = sessionData.session?.access_token;
   if (sessionError || !token) {
@@ -165,29 +104,53 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
     };
   }
   if (!baseUrl) {
-    // Pin local development RPCs to the same actor as production commands.
-    return supabase.rpc(name, args as never).setHeader('Authorization', `Bearer ${token}`) as unknown as Promise<CommandResult<Name>>;
+    const query = supabase.rpc(name, args as never).setHeader('Authorization', `Bearer ${token}`);
+    if (!signal) return query as unknown as Promise<CommandResult<Name>>;
+    try {
+      const result = await awaitRegistration(query.abortSignal(signal), signal);
+      return signal.aborted ? interrupted() : result as unknown as CommandResult<Name>;
+    } catch (error) { if (isPushRegistrationInterrupted(error)) return interrupted(); throw error; }
   }
 
   const retryable = mayRetryCommand(name, args);
   let transientRetriesRemaining = retryable ? 1 : 0;
   let refreshedUnauthorizedSession = false;
   let lastFailure: unknown = null;
+  const diagnosticStarted = Date.now(), diagnosticSession = mobileDiagnosticSnapshot().session_id;
+  let attempts = 0;
+  let firstAttempt: ReturnType<typeof apiAttemptDetails> | undefined;
+  const reportFailure = (error: CommandError) => reportApiFailure('command', name, error,
+    Platform.OS === 'ios' || Platform.OS === 'android' ? {
+      attempt_count: attempts, fetch_elapsed_ms: Math.min(120_000, Math.max(0, Date.now() - diagnosticStarted)),
+      attempts: [...(firstAttempt ? [firstAttempt] : []), apiAttemptDetails(error)],
+    } : undefined);
   for (;;) {
+    if (signal?.aborted) {
+      if (lastFailure) reportFailure(commandError(lastFailure, 'Command failed'));
+      return interrupted();
+    }
     if (account && !account.isCurrent()) return accountChanged();
+    attempts += 1;
     try {
-      const { response, payload } = await gatewayCommand(baseUrl, token, name, args);
+      const { response, payload } = await gatewayCommand(baseUrl, token, name, args, signal);
       if (response.ok) {
+        if (signal?.aborted) return interrupted();
+        if (signal && account && !account.isCurrent()) return accountChanged();
+        if (diagnosticSessionIsCurrent(diagnosticSession)) recordDiagnosticOutcome(name, attempts > 1 ? 'recovered' : 'success', attempts);
         return { data: payload as FunctionResult<Name>, error: null };
       }
+      const observedError = commandError(payload, `Command failed (${response.status})`, response.status);
+      if (Platform.OS === 'android' || Platform.OS === 'ios') inheritReadDiagnostics(response, observedError);
 
       if (response.status === 401 && !refreshedUnauthorizedSession) {
         if (account && !account.isCurrent()) return accountChanged();
         refreshedUnauthorizedSession = true;
-        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        const { data: refreshed, error: refreshError } = await awaitRegistration(supabase.auth.refreshSession(), signal);
+        if (signal?.aborted) return interrupted();
         if (account && (!account.isCurrent() || refreshed.session?.user?.id !== account.expectedUserId)) return accountChanged();
         const refreshedToken = refreshed.session?.access_token;
         if (!refreshError && refreshedToken) {
+          firstAttempt ??= apiAttemptDetails(observedError);
           token = refreshedToken;
           continue;
         }
@@ -195,22 +158,32 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
 
       if (transientRetriesRemaining > 0 && isTransientStatus(response.status)) {
         transientRetriesRemaining -= 1;
-        lastFailure = commandError(payload, `Command failed (${response.status})`, response.status);
-        await delay(TRANSIENT_RETRY_DELAY_MS);
+        lastFailure = observedError;
+        firstAttempt ??= apiAttemptDetails(observedError);
+        await (signal ? registrationDelay(TRANSIENT_RETRY_DELAY_MS, signal) : delay(TRANSIENT_RETRY_DELAY_MS));
         continue;
       }
-      const error = commandError(payload, `Command failed (${response.status})`, response.status);
-      if (Platform.OS === 'android') inheritReadDiagnostics(response, error);
-      reportApiFailure('command', name, error);
+      const error = observedError;
+      reportFailure(error);
       return {
         data: null,
         error,
       };
     } catch (error) {
+      if (isPushRegistrationInterrupted(error)) {
+        if (lastFailure) reportFailure(commandError(lastFailure, 'Command failed'));
+        return interrupted();
+      }
       lastFailure = error;
       if (transientRetriesRemaining > 0) {
+        firstAttempt ??= apiAttemptDetails(error);
         transientRetriesRemaining -= 1;
-        await delay(TRANSIENT_RETRY_DELAY_MS);
+        try { await (signal ? registrationDelay(TRANSIENT_RETRY_DELAY_MS, signal) : delay(TRANSIENT_RETRY_DELAY_MS)); }
+        catch (interruption) {
+          if (!isPushRegistrationInterrupted(interruption)) throw interruption;
+          reportFailure(commandError(lastFailure, 'Command failed'));
+          return interrupted();
+        }
         continue;
       }
       break;
@@ -218,7 +191,7 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
   }
 
   const error = commandError(lastFailure, 'Doji could not finish that request. Please try again.');
-  reportApiFailure('command', name, error);
+  reportFailure(error);
   return {
     data: null,
     error,

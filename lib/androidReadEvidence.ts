@@ -29,11 +29,19 @@ export function startAndroidReadEvidence(): AndroidReadEvidence {
   return data;
 }
 
+/** Shared JS evidence; native Android hints remain platform-specific. */
+export function startMemberRequestEvidence(): AndroidReadEvidence {
+  if (Platform.OS === 'android') return startAndroidReadEvidence();
+  return Platform.OS === 'ios'
+    ? { diagnostics_version: 2, app_state_start: appStateSnapshot(), fetch_invocations: 0 }
+    : {};
+}
+
 /** Observe only the existing caller's consumption, never read/clone a body for logging.
  * Keep response identity, native method receiver, value/error and cancellation intact.
  * A non-extensible response is usable without this optional observation.
  */
-export function observeAndroidReadBody(response: Response, update: (data: AndroidReadEvidence) => void): void {
+export function observeMemberResponseBody(response: Response, update: (data: AndroidReadEvidence) => void): void {
   const record = (data: AndroidReadEvidence) => { try { update(data); } catch { /* telemetry is optional */ } };
   record({ body_state: 'unread' });
   try {
@@ -72,7 +80,7 @@ type FailureEvidence = AndroidReadEvidence & {
 };
 
 /** Facts about the observed boundary, NOT a provider/root-cause verdict. */
-export function summarizeAndroidReadFailure(data: FailureEvidence) {
+export function summarizeMemberRequestFailure(data: FailureEvidence) {
   const status = data.response_status ?? data.status;
   const httpError = typeof status === 'number' && status >= 400 && status <= 599;
   const evidence = httpError ? data.native_response_source === 'local_cache_miss' ? 'local_cache_miss'
@@ -92,3 +100,7 @@ export function summarizeAndroidReadFailure(data: FailureEvidence) {
   return { failure_evidence: evidence, failure_phase: phase,
     summary: `${labels[evidence]}${httpError ? ` ${status}` : ''}; phase=${phase}` };
 }
+
+// Compatibility for existing native probe and Android-only regression callers.
+export const observeAndroidReadBody = observeMemberResponseBody;
+export const summarizeAndroidReadFailure = summarizeMemberRequestFailure;

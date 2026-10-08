@@ -6,6 +6,7 @@ import {
   createDecipheriv,
   timingSafeEqual,
 } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { isRecord } from './business-contracts.mts';
 import type { BusinessActor, BusinessAgreement } from './business-contracts.mts';
 import type { BusinessTokens } from './workos-business-provider.mts';
@@ -25,6 +26,10 @@ export interface SavedSession {
   csrf: string;
   created: number;
   touched: number;
+  mfaPending?: unknown;
+  mfaReceipt?: unknown;
+  mfaAttempts?: number;
+  mfaNextAt?: number;
 }
 export const random = () => randomBytes(32).toString('base64url');
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -101,12 +106,23 @@ export function savedSession(value: unknown): SavedSession {
     !finite(value.touched)
   )
     throw fail();
+  for (const name of ['mfaAttempts', 'mfaNextAt']) {
+    if (
+      Object.hasOwn(value, name) &&
+      (typeof value[name] !== 'number' || !Number.isSafeInteger(value[name]) || value[name] < 0)
+    )
+      throw fail();
+  }
   return {
     tokens: value.tokens,
     actor: value.actor,
     csrf: value.csrf,
     created: value.created,
     touched: value.touched,
+    ...(Object.hasOwn(value, 'mfaPending') ? { mfaPending: value.mfaPending } : {}),
+    ...(Object.hasOwn(value, 'mfaReceipt') ? { mfaReceipt: value.mfaReceipt } : {}),
+    ...(typeof value.mfaAttempts === 'number' ? { mfaAttempts: value.mfaAttempts } : {}),
+    ...(typeof value.mfaNextAt === 'number' ? { mfaNextAt: value.mfaNextAt } : {}),
   };
 }
 export function createBusinessCipher(origin: string, clientId: string, encryptionKey: string) {

@@ -144,6 +144,14 @@ describe.each(['light', 'dark'])('%s onboarding', (mode) => {
     expect(mockPermission).not.toHaveBeenCalled();
     expect(mockUpdate.mock.calls[0][0].notification_preferences.push_enabled).toBe(false);
   });
+  it('keeps interrupted setup on screen without changing preferences or completing onboarding', async () => {
+    mockPermission.mockResolvedValueOnce('deferred');
+    const ui = render(<Notifications />);
+    fireEvent.press(ui.getByRole('button', { name: 'Enable Notifications' }));
+    await waitFor(() => expect(ui.getByText('Alert setup was interrupted. Tap Enable Notifications to try again.')).toBeTruthy());
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
   it('reports permission service failure and can recover on retry', async () => {
     mockPermission.mockResolvedValueOnce('error');
     const ui = render(<Notifications />);

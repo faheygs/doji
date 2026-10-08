@@ -1,0 +1,76 @@
+create function pg_temp.ok(p boolean,label text) returns text language plpgsql as $$begin
+ if p is distinct from true then raise exception 'FAIL: %',label; end if;return 'PASS: '||label;end$$;
+select pg_temp.ok(not (select capture_enabled or sending_enabled from business_private.email_settings),'capture and sending disabled by default');
+select pg_temp.ok(business_private.claim_application_email() is null,'default claim sends nothing');
+select pg_temp.ok(not has_function_privilege('anon','business_private.claim_application_email()','execute'),'anonymous claim denied');
+select pg_temp.ok(not has_function_privilege('authenticated','business_private.claim_application_email()','execute'),'member claim denied');
+select pg_temp.ok(not has_function_privilege('doji_business','business_private.claim_application_email()','execute'),'applicant claim denied');
+select pg_temp.ok(not has_function_privilege('doji_employee','business_private.claim_application_email()','execute'),'employee claim denied');
+select pg_temp.ok(not has_function_privilege('service_role','business_private.claim_application_email()','execute'),'generic service role claim denied');
+select pg_temp.ok(not has_table_privilege('doji_business_mail','business_private.email_outbox','select,insert,update,delete'),'sender has no direct queue access');
+select pg_temp.ok(not exists(select 1 from pg_auth_members m where roleid='doji_business_mail'::regrole),'sender role unbound to any login');
+insert into portal_identity_private.realms values('business',true,'https://business.test','business-test');
+select portal_identity_private.bind_identity('business','user_mailfixture','88000000-0000-4000-8000-000000000001','synthetic-test');
+select portal_identity_private.set_principal_state('88000000-0000-4000-8000-000000000001',1,'active','synthetic-verified');
+insert into business_private.accounts(id) values('88000000-0000-4000-8000-000000000001');
+insert into business_private.applications(id,applicant_id,state) values('88000000-0000-4000-8000-000000000002','88000000-0000-4000-8000-000000000001','pending');
+create function pg_temp.event(rev bigint,kind text) returns void language sql as $$
+ insert into business_private.history(application_id,revision,actor_id,actor_kind,action,response,internal_note)
+ values('88000000-0000-4000-8000-000000000002',rev,'88000000-0000-4000-8000-000000000001','business',kind,'safe response','private-note');
+$$;
+select pg_temp.event(1,'submit');
+select pg_temp.ok((select count(*)=0 from business_private.email_outbox),'disabled capture has no backfill or side effects');
+update business_private.email_settings set capture_enabled=true;
+select pg_temp.event(2,'save');
+select pg_temp.ok((select count(*)=0 from business_private.email_outbox),'draft changes do not email');
+select pg_temp.event(3,'submit');
+select pg_temp.ok((select count(*)=1 from business_private.email_outbox),'submission has one durable receipt event');
+insert into business_private.history select * from business_private.history where revision=3 on conflict do nothing;
+select pg_temp.ok((select count(*)=1 from business_private.email_outbox),'replayed history cannot duplicate mail');
+begin;
+select pg_temp.event(4,'approve');
+rollback;
+select pg_temp.ok((select count(*)=1 from business_private.email_outbox),'rolled-back decision has no email event');
+select pg_temp.event(4,'request_changes');
+select pg_temp.event(5,'reopen');
+select pg_temp.event(6,'decline');
+select pg_temp.event(7,'approve');
+select pg_temp.ok((select count(*)=5 from business_private.email_outbox),'all review decision kinds are captured');
+select pg_temp.ok(not exists(select 1 from business_private.email_outbox q where to_jsonb(q)::text like '%private-note%' or to_jsonb(q)::text like '%safe response%'),'queue contains no form details or reviewer notes');
+update business_private.email_settings set sending_enabled=true,daily_limit=1,monthly_limit=3;
+select pg_temp.ok(business_private.claim_application_email() is null,'capacity must be freshly verified before a claim');
+update business_private.email_settings set capacity_verified_until=now()+interval '1 hour';
+update business_private.accounts set disabled=true;
+select pg_temp.ok(business_private.claim_application_email() is null,'disabled account cannot be mailed');
+update business_private.accounts set disabled=false;
+update portal_identity_private.identities set revoked=true;
+select pg_temp.ok(business_private.claim_application_email() is null,'revoked mapping cannot be mailed');
+update portal_identity_private.identities set revoked=false;
+update portal_identity_private.realms set enabled=false;
+select pg_temp.ok(business_private.claim_application_email() is null,'disabled realm cannot be mailed');
+update portal_identity_private.realms set enabled=true;
+select set_config('test.email.claim',business_private.claim_application_email()::text,false);
+select pg_temp.ok(current_setting('test.email.claim')::jsonb->>'subject'='user_mailfixture','claim uses exact independent WorkOS subject');
+select pg_temp.ok(business_private.claim_application_email() is null,'atomic daily budget blocks a second send');
+do $$begin
+ begin perform business_private.finish_application_email((current_setting('test.email.claim')::jsonb->>'id')::uuid,gen_random_uuid(),'accepted','provider-one');
+ exception when sqlstate 'PT409' then return; end; raise exception 'wrong token accepted';
+end$$;
+select pg_temp.ok(true,'wrong claim token rejected');
+select business_private.finish_application_email((current_setting('test.email.claim')::jsonb->>'id')::uuid,
+ (current_setting('test.email.claim')::jsonb->>'lease_token')::uuid,'accepted','provider-one');
+select pg_temp.ok((select count(*)=1 from business_private.email_outbox where status='accepted'),'provider acceptance recorded without claiming delivery');
+update business_private.email_settings set day=(now() at time zone 'UTC')::date-1;
+select set_config('test.email.claim',business_private.claim_application_email()::text,false);
+select business_private.finish_application_email((current_setting('test.email.claim')::jsonb->>'id')::uuid,
+ (current_setting('test.email.claim')::jsonb->>'lease_token')::uuid,'uncertain');
+select pg_temp.ok((select count(*)=1 from business_private.email_outbox where status='uncertain'),'ambiguous provider outcome remains uncertain');
+update business_private.email_settings set day=(now() at time zone 'UTC')::date-1;
+select set_config('test.email.claim',business_private.claim_application_email()::text,false);
+update business_private.email_outbox set claimed_at=now()-interval '1 day' where status='claimed';
+update business_private.email_settings set day=(now() at time zone 'UTC')::date-1;
+select pg_temp.ok(business_private.claim_application_email() is null,'monthly budget includes uncertain and expired claims');
+update business_private.email_settings set monthly_limit=4;
+update business_private.email_outbox set occurred_at=now()-interval '2 days' where status='queued';
+select pg_temp.ok(business_private.claim_application_email() is null,'old queued and expired claims are not blindly replayed');
+select pg_temp.ok((select count(*)=0 from auth.users),'no Supabase member or employee account created');

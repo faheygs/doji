@@ -12,6 +12,15 @@ interface EditorialOptions extends MockOptions {
 }
 const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const version = 'a'.repeat(32);
+test('empty announcements fill the table viewport rather than half its height', async ({page},info) => {
+  await setup(page,{read:async route=>{await route.fulfill({json:{items:[],next_cursor:null,can_write:true}});}});
+  await page.locator('.portalNav [data-view="announcements"]').click();
+  const viewport=page.locator('[data-portal-view="announcements"] .editorialTablePanel .tableWrap');
+  await expect(viewport.locator('.emptyTableRow')).toContainText('No records yet.');
+  const gap=await viewport.evaluate(el=>el.getBoundingClientRect().height-el.querySelector('table')!.getBoundingClientRect().height);
+  expect(Math.abs(gap)).toBeLessThan(2);
+  await page.screenshot({path:info.outputPath('announcements-empty.png')});
+});
 const announcement = {
   id,
   title: 'Test member notice',
@@ -97,7 +106,7 @@ const nav = (page: Page, kind:string) => page.locator(`.portalNav [data-view="${
 const dialog = (page: Page) => page.locator('dialog.editorialDialog');
 
 for (const kind of ['suggestions', 'announcements']) for (const width of [390, 1440]) {
-  test(`${kind} records use the shared right drawer at ${width}px`, async ({page}, testInfo) => {
+  test(`${kind} records use the full workspace at ${width}px`, async ({page}, testInfo) => {
     await page.setViewportSize({width,height:900});
     const {commands}=await setup(page);
     if(width<600)await page.locator('#mobileMenu').click();
@@ -107,23 +116,22 @@ for (const kind of ['suggestions', 'announcements']) for (const width of [390, 1
     await opener.click();
     const d=dialog(page);
     await expect(d.locator('.drawerHeader')).toBeVisible();
-    await expect(d).toHaveClass(/portalDrawer adminDrawer open/);
+    await expect(d).toHaveClass(/adminRecordPage/);
     const bounds=must(await d.boundingBox());
-    expect(bounds.x).toBeCloseTo(Math.max(0,width-680),0);
-    expect(bounds.y).toBe(0);expect(bounds.height).toBe(900);
-    expect(bounds.x+bounds.width).toBeCloseTo(width,0);
+    const workspace=must(await page.locator('.portalMain').boundingBox());
+    expect(bounds.width).toBeGreaterThan(workspace.width * .9);
+    expect(bounds.x).toBeGreaterThanOrEqual(workspace.x);
+    expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y+bounds.height).toBeLessThanOrEqual(900);
     await d.getByRole('button',{name:'Refresh record',exact:true}).click();
     await expect(d.getByRole('button',{name:'Refresh record',exact:true})).toBeVisible();
     await page.screenshot({path:testInfo.outputPath(`record-drawer-${kind}-${width}.png`),fullPage:true});
-    // Native modal focus may visit browser chrome, but never the inert queue.
-    // WHATWG sequential focus navigation intentionally permits browser controls.
-    for(let i=0;i<12;i++) {
-      await page.keyboard.press('Tab');
-      expect(await d.evaluate(el=>({modal:el.matches(':modal'),backgroundControlFocused:!el.contains(document.activeElement)&&document.activeElement!==document.body}))).toEqual({modal:true,backgroundControlFocused:false});
-    }
-    await d.getByRole('button',{name:'Close',exact:true}).focus();
+    expect(await d.evaluate(el=>el.matches(':modal'))).toBe(false);
+    await expect(page.locator('.portalContent')).toBeHidden();
+    await d.getByRole('button',{name:'Back to queue',exact:true}).focus();
     await page.keyboard.press('Escape');await expect(d).not.toBeVisible();await expect(opener).toBeFocused();
-    if(width>600){await opener.click();await expect(d.locator('.drawerHeader')).toBeVisible();await page.mouse.click(40,400);await expect(d).not.toBeVisible();await expect(opener).toBeFocused();}
+    await opener.click();await expect(d.locator('.drawerHeader')).toBeVisible();
+    await page.goBack();await expect(d).not.toBeVisible();await expect(opener).toBeFocused();
     expect(commands).toHaveLength(0);
   });
 }
@@ -150,7 +158,7 @@ test('existing announcement edits stay in a drawer while creation and confirmati
   await expect(d).not.toHaveClass(/portalDrawer/);
   await d.getByRole('button',{name:'Back',exact:true}).click();
   await expect(d).toHaveClass(/portalDrawer/);await expect(d.getByLabel('Change rationale')).toHaveValue('Keep this existing draft unchanged');
-  await d.getByRole('button',{name:'Close',exact:true}).click();
+  await d.getByRole('button',{name:'Back to queue',exact:true}).click();
   await page.getByRole('button',{name:'New announcement',exact:true}).click();
   await expect(d).not.toHaveClass(/portalDrawer/);await expect(d.locator('.modalHeader')).toBeVisible();
   expect(commands).toHaveLength(0);
@@ -260,7 +268,7 @@ for (const width of [390, 1440]) for (const theme of ['light', 'dark']) {
     const results=await new AxeBuilder({page}).include('.editorialDialog').analyze();
     expect(results.violations.filter(v=>['serious','critical'].includes(v.impact || ''))).toEqual([]);
     await page.screenshot({path:testInfo.outputPath(`idea-${theme}-${width}.png`),fullPage:true});
-    await d.getByRole('button',{name:'Close',exact:true}).click();
+    await d.getByRole('button',{name:'Back to queue',exact:true}).click();
     await expect(opener).toBeFocused();
   });
 }
@@ -529,7 +537,7 @@ test('bounded pages use authoritative cursor, not local slicing', async ({ page 
     read: async (route, url, item) =>
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({
+        body: JSON.stringify(!url.pathname.endsWith('editorial-page') ? item : {
           items: [item],
           can_write: true,
           next_cursor: url.searchParams.has('beforeId')
@@ -543,6 +551,11 @@ test('bounded pages use authoritative cursor, not local slicing', async ({ page 
   await host.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(host).toContainText('Page 2');
   expect(reads.at(-1)!.searchParams.get('beforeId')).toBe(id);
+  const pagesBefore=reads.filter(url=>url.pathname.endsWith('editorial-page')).length;
+  await host.getByRole('button',{name:announcement.title,exact:true}).click();
+  await dialog(page).getByRole('button',{name:'Back to queue',exact:true}).click();
+  await expect(host).toContainText('Page 2');
+  expect(reads.filter(url=>url.pathname.endsWith('editorial-page'))).toHaveLength(pagesBefore);
   await host.getByRole('button', { name: 'Previous', exact: true }).click();
   await expect(host).toContainText('Page 1');
 });

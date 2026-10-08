@@ -6,8 +6,16 @@ import { transformSync } from '../infra/doji-orchestrator/node_modules/esbuild/l
 const root = import.meta.dirname;
 const sources: Readonly<Record<string, string>> = Object.freeze({
   'portal.js': 'portal.mts',
+  'admin-portal/record-pages.js': 'admin-portal/record-pages.mts',
+  'admin-portal/workflow-contracts.js': 'admin-portal/workflow-contracts.mts',
+  'admin-portal/workflow-case.js': 'admin-portal/workflow-case.mts',
+  'admin-portal/workflow-workspace.js': 'admin-portal/workflow-workspace.mts',
+  'admin-portal/workflow-view.js': 'admin-portal/workflow-view.mts',
+  'admin-portal/workflow-events.js': 'admin-portal/workflow-events.mts',
+  'admin-portal/workflow-review.js': 'admin-portal/workflow-review.mts',
   'admin-portal/health-model.js': 'admin-portal/health-model.mts',
   'admin-portal/contextual-help.js': 'admin-portal/contextual-help.mts',
+  'admin-portal/auth-journey.js': 'admin-portal/auth-journey.mts',
   'admin-portal/business-applications.js': 'admin-portal/business-applications.mts',
   'admin-portal/safety-removal.js': 'admin-portal/safety-removal.mts',
   'admin-portal/live-client.js': 'admin-portal/live-client.mts',
@@ -31,6 +39,12 @@ const sources: Readonly<Record<string, string>> = Object.freeze({
   'safety-removal/taxonomy.js': 'safety-removal/taxonomy.mts',
 });
 const moduleAssets = new Set([
+  'admin-portal/workflow-contracts.js',
+  'admin-portal/workflow-case.js',
+  'admin-portal/workflow-workspace.js',
+  'admin-portal/workflow-view.js',
+  'admin-portal/workflow-events.js',
+  'admin-portal/workflow-review.js',
   'admin-portal/business-applications.js',
   'admin-portal/business-privacy.js',
   'business-portal/application-client.js',

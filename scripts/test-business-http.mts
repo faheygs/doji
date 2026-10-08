@@ -134,6 +134,9 @@ function fixture(overrides: Partial<BusinessHttpConfig> = {}) {
     },
   };
   const application: BusinessHttpDependencies['application'] = {
+    workspace: async () => {
+      throw Object.assign(Error('MFA required'), { status: 403 });
+    },
     async authorize() {
       if (authFails) throw Error('PRIVATE application denial');
     },

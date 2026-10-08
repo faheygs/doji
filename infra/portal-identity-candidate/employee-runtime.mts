@@ -27,6 +27,8 @@ export interface EmployeeRuntimeConfig extends Omit<
   endpoint: string;
   proxyKey: string;
   admissionKey: string;
+  staffWorkflowEnabled?: boolean;
+  healthEventsEnabled?: boolean;
 }
 interface RuntimeDependencies {
   createClient: CreatePortalSqlClient;
@@ -73,10 +75,16 @@ export function createEmployeeRuntime(
   const store = createEmployeeSessionStore({ ...policy, enabled: true }, execute, now);
   const adapter = createEmployeeApplicationAdapter(execute);
   const application = createEmployeeResources(adapter, {
+    staffWorkflowEnabled: policy.staffWorkflowEnabled === true,
+    healthEventsEnabled: policy.healthEventsEnabled === true,
     storageOrigin: policy.storageOrigin,
     signStorage,
     signRealtime,
-    health: createEmployeeHealth(adapter, policy.monitoring, { upstream, now }),
+    health: createEmployeeHealth(adapter, policy.monitoring, {
+      upstream,
+      now,
+      healthEventsEnabled: policy.healthEventsEnabled === true,
+    }),
   });
   type Provider = ReturnType<typeof createWorkosEmployeeProvider>;
   let cachedProvider: Provider | null = null,

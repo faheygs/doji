@@ -115,8 +115,8 @@ export default function SuggestChallengeScreen() {
     return minimum.ok ? maxLength(body.trim(), BODY_MAX) : minimum;
   }, [body]);
   const filledOptions = useMemo(
-    () => optionRows.map((o) => o.trim()).filter(Boolean),
-    [optionRows],
+    () => optionRows.map((o) => o.trim()).filter((o) => o && (kind !== 'poll' || o.toLowerCase() !== 'other')),
+    [optionRows, kind],
   );
   const optionsValidation = useMemo(() => {
     if (!needsOptions) return { ok: true as const };
@@ -161,6 +161,14 @@ export default function SuggestChallengeScreen() {
 
   const setOptionAt = (index: number, text: string) => {
     setOptionRows((r) => r.map((v, i) => (i === index ? text : v)));
+  };
+  const finishOption = () => {
+    if (kind !== 'poll') return;
+    setOptionRows((rows) => {
+      const choices = rows.filter((row) => row.trim().toLowerCase() !== 'other');
+      while (choices.length < 2) choices.push('');
+      return choices;
+    });
   };
 
   const submit = async () => {
@@ -350,7 +358,9 @@ export default function SuggestChallengeScreen() {
                   Answer choices
                 </Text>
                 <Text variant="micro" color={colors.textTertiary} style={styles.sectionHint}>
-                  At least two options
+                  {kind === 'poll'
+                    ? 'Add at least two choices. Doji adds “Other” automatically and removes it from entered choices.'
+                    : 'Exactly two choices'}
                 </Text>
                 {optionRows.map((row, i) => (
                   <View key={`opt-${i}`} style={styles.optionRow}>
@@ -358,6 +368,7 @@ export default function SuggestChallengeScreen() {
                       style={[styles.optionInput, { flex: 1 }]}
                       value={row}
                       onChangeText={(t) => setOptionAt(i, t)}
+                      onBlur={finishOption}
                       placeholder={`Option ${i + 1}`}
                       placeholderTextColor={colors.textTertiary}
                       editable={!saving}
@@ -389,6 +400,9 @@ export default function SuggestChallengeScreen() {
                       Add option
                     </Text>
                   </TouchableOpacity>
+                ) : null}
+                {!optionsValidation.ok && filledOptions.length > 0 ? (
+                  <InlineFeedback tone="error" message={optionsValidation.message} />
                 ) : null}
               </View>
             </>

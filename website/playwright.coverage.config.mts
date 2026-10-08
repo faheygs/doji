@@ -45,7 +45,14 @@ export default defineConfig({
     {
       name: 'business',
       testDir: './business-portal/e2e',
+      testIgnore: ['independent-*.spec.mts'],
       use: { baseURL: 'http://127.0.0.1:4212' },
+    },
+    {
+      name: 'business-independent',
+      testDir: './business-portal/e2e',
+      testMatch: 'independent-*.spec.mts',
+      use: { baseURL: 'https://business.dojipro.com' },
     },
     {
       name: 'safety-public',

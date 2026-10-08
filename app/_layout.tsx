@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import { sentryReleaseIdentity } from '../lib/releaseIdentity';
 import { sanitizeApiFailureEvent } from '../lib/apiFailureTelemetry';
+import { sanitizePushRecoveryLog } from '../lib/pushRegistrationRecovery';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -10,12 +11,16 @@ Sentry.init({
   tracesSampleRate: 0.02,
   sendDefaultPii: false,
   beforeSend: sanitizeApiFailureEvent,
+  // Only allowlisted recovery records; never collect arbitrary console/native logs.
+  enableLogs: true,
+  logsOrigin: 'js',
+  beforeSendLog: sanitizePushRecoveryLog,
   environment: process.env.EXPO_PUBLIC_APP_ENV,
   ...sentryReleaseIdentity(),
 });
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -60,6 +65,9 @@ import { StartupBrandScreen } from '../components/branding/StartupBrandScreen';
 import { AppUpdatePrompt } from '../components/system/AppUpdatePrompt';
 import { AppAnnouncementPrompt } from '../components/system/AppAnnouncementPrompt';
 import { recordOperationalFailure } from '../lib/telemetry';
+import { startMobileDiagnosticObservers } from '../lib/mobileDiagnosticObservers';
+import { setDiagnosticScreen } from '../lib/mobileDiagnosticContext';
+import { setDiagnosticActor } from '../lib/mobileDiagnosticSentry';
 
 const FONT_BOOTSTRAP_DEADLINE_MS = 2_500;
 const SESSION_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -99,12 +107,15 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
 }
 
 function RootLayoutInner() {
+  const segments = useSegments();
   const { setSession, setLoading, fetchProfile } = useAuthStore();
   const { colors, isDark } = useTheme();
   const gate = useAuthGate();
   const [sessionBootstrapError, setSessionBootstrapError] = useState(false);
   const retrySessionBootstrap = useRef<() => void>(() => {});
   useNativeNotifications(gate.canUseApp);
+  useEffect(() => startMobileDiagnosticObservers(), []);
+  useEffect(() => { setDiagnosticScreen(segments); }, [segments]);
 
   const toastConfig = useMemo(() => buildToastConfig(colors, isDark), [colors, isDark]);
 
@@ -115,6 +126,7 @@ function RootLayoutInner() {
     const applySession = (session: Awaited<ReturnType<typeof initialSessionBootstrap.get>>) => {
       if (cancelled) return;
       setSessionBootstrapError(false);
+      setDiagnosticActor(session?.user?.id ?? null);
       setSession(session);
       if (session?.user?.id) {
         void fetchProfile(session.user.id);

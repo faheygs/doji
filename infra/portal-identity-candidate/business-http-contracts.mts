@@ -1,6 +1,7 @@
 import type { createBusinessSessionStore } from './business-session-store.mts';
 import type { createWorkosBusinessProvider } from './workos-business-provider.mts';
 import type { createBusinessApplicationAdapter } from './business-application-adapter.mts';
+import type { createBusinessMfa } from './business-mfa.mts';
 
 export interface BusinessHttpConfig {
   enabled: boolean;
@@ -19,4 +20,5 @@ export interface BusinessHttpDependencies {
   application: ReturnType<typeof createBusinessApplicationAdapter>;
   admission: (input: { signup: boolean; proof: unknown; signal: AbortSignal }) => Promise<boolean>;
   now?: () => number;
+  mfa?: ReturnType<typeof createBusinessMfa>;
 }

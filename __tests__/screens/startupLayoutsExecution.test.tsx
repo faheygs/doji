@@ -133,6 +133,7 @@ jest.mock('expo-router', () => {
     DefaultTheme: { colors: {} },
     useRouter: () => mockRouter,
     usePathname: () => '/profile',
+    useSegments: () => ['(app)', '(tabs)', 'profile'],
   };
 });
 jest.mock(

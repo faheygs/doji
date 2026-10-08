@@ -5,7 +5,7 @@ jest.mock('../../lib/supabase', () => ({ supabase: { auth: {
   getSession: jest.fn().mockResolvedValue({ data: { session: { access_token: 'local-test-token' } }, error: null }),
   refreshSession: jest.fn(),
 } } }));
-jest.mock('../../lib/apiFailureTelemetry', () => ({ reportApiFailure: jest.fn() }));
+jest.mock('../../lib/apiFailureTelemetry', () => ({ ...jest.requireActual('../../lib/apiFailureTelemetry'), reportApiFailure: jest.fn() }));
 jest.mock('../../lib/releaseIdentity', () => ({ mobileReleaseIdentity: () => ({ platform: 'ios', releaseChannel: 'test' }) }));
 const originalFetch = global.fetch;
 const originalUrl = process.env.EXPO_PUBLIC_COMMAND_GATEWAY_URL;
@@ -29,7 +29,8 @@ test('one command retry preserves the key and reports the final HTTP failure wit
   expect(calls[0][1].body).toBe(calls[1][1].body);
   expect(result.error).toMatchObject({ code: '57014', status: 500 });
   expect(reportApiFailure).toHaveBeenCalledTimes(1);
-  expect(reportApiFailure).toHaveBeenCalledWith('command', 'submit_policy_report', result.error);
+  expect(reportApiFailure).toHaveBeenCalledWith('command', 'submit_policy_report', result.error,
+    expect.objectContaining({ attempt_count: 2, attempts: expect.any(Array) }));
 });
 
 test('native generic abort preserves deadline classification after the bounded retry', async () => {

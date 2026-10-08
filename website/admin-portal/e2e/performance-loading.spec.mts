@@ -1,7 +1,27 @@
 import { expect, test } from '../../coverage-fixture.mts';
 import { installMockBackend, seedAdminSession } from './fixtures.mts';
 
-test('workspace opens without fetching hidden archives, audit, access or event history', async ({
+test('audit loading is centered with the shared spinner and clears after completion', async ({page},info) => {
+  await seedAdminSession(page);
+  await installMockBackend(page);
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/portal/admin/audit?**',async route=>{await gate;await route.fulfill({json:{items:[],next_cursor:null}});});
+  await page.goto('/');
+  await expect(page.locator('#portalApp')).toBeVisible();
+  await page.locator('.portalNav [data-view="audit"]').click();
+  const state=page.locator('#auditList .queueState');
+  await expect(state).toContainText('Loading audit activity');
+  await expect(page.locator('#auditList')).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('[data-portal-view="audit"] .workspacePager')).toContainText('Loading');
+  expect(await state.evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('adminQueueSpin');
+  expect(await state.evaluate(el=>Math.abs(el.getBoundingClientRect().height-el.parentElement!.getBoundingClientRect().height))).toBeLessThan(2);
+  await page.screenshot({path:info.outputPath('audit-loading.png')});
+  release();
+  await expect(page.locator('#auditList')).toHaveAttribute('aria-busy','false');
+});
+
+test('overview loads bounded health history but not hidden archives, audit or access', async ({
   page,
 }) => {
   await seedAdminSession(page);
@@ -14,7 +34,6 @@ test('workspace opens without fetching hidden archives, audit, access or event h
     '/resolved-reports',
     '/audit',
     '/operators',
-    '/platform-health-history',
     '/work-queue',
   ]) {
     expect(
@@ -22,6 +41,7 @@ test('workspace opens without fetching hidden archives, audit, access or event h
       path,
     ).toBe(false);
   }
+  await expect.poll(() => requests.some(r => r.path.includes('/platform-health-history'))).toBe(true);
   await page.locator('[data-view="audit"]').click();
   await expect(page.locator('#auditList .auditRow').first()).toBeVisible();
   expect(

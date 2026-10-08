@@ -155,7 +155,14 @@ update public.admin_employees set status='disabled' where id='${id}';
 set local role doji_employee_application;
 select pg_temp.denied($q$select ${call('get_admin_portal_session_v3')}$q$,'42501','disabled employee denied');
 reset role;
-update public.admin_employees set status='active' where id='${id}';
+update public.admin_employees set status='active',roles=array['super_admin'] where id='${id}';
+reset role;
+select set_config('test.member',current_setting('test.member_id'),true);
+select set_config('test.claims',current_setting('request.jwt.claims'),true);
+select set_config('test.poll_bridge','yes',true);
+insert into public.badges(id,name,emoji,description,criteria_type,criteria_value) values
+ ('idea_submitted','Submitted','test','Synthetic','ideas',1),('idea_picked','Picked','test','Synthetic','ideas',1) on conflict do nothing;
+${readFileSync('scripts/test-poll-reserved-other.sql', 'utf8')}
 select portal_identity_private.revoke_session('employee','user_test','session_test','synthetic bridge revoke');
 set local role doji_employee_application;
 select pg_temp.denied($q$select ${call('get_admin_portal_session_v3')}$q$,'42501','revoked exact session denied');

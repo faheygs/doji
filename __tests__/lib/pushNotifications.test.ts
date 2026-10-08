@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 
 const mockExecuteCommand = jest.fn();
 const mockSetProfile = jest.fn();
@@ -32,6 +33,7 @@ jest.mock('../../lib/notificationsModule', () => ({
 }));
 jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: {
+    subscribe: () => () => {},
     getState: () => ({
       session: { user: { id: 'user-1' } },
       profile: { id: 'user-1', notification_token: null },
@@ -47,6 +49,7 @@ import { retryPushRegistration } from '../../lib/retryPushRegistration';
 
 describe('native push registration', () => {
   beforeEach(async () => {
+    AppState.currentState = 'active';
     await AsyncStorage.clear();
     jest.clearAllMocks();
     process.env.EXPO_PUBLIC_APP_ENV = 'production';
@@ -89,7 +92,7 @@ describe('native push registration', () => {
       await expect(pending).resolves.toBe(true);
       expect(mockGetDevicePushTokenAsync).toHaveBeenCalledTimes(2);
       expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
-      expect(mockExecuteCommand).toHaveBeenCalledWith('register_native_push_endpoint_v3', expect.objectContaining({ p_token: 'native-token-1' }));
+      expect(mockExecuteCommand).toHaveBeenCalledWith('register_native_push_endpoint_v3', expect.objectContaining({ p_token: 'native-token-1' }), expect.objectContaining({ expectedUserId: 'user-1', registrationSignal: expect.anything() }));
     } finally { jest.useRealTimers(); }
   });
 

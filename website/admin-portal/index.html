@@ -36,15 +36,17 @@
     <div class="authStory adminAuthStory">
       <a class="portalBrand" href="/"><img src="/assets/doji-icon.png" alt=""><span>Doji<small>Admin</small></span></a>
       <div class="authCopy"><p class="eyebrow">Private operations</p><h1>Run Doji from one accountable workspace.</h1><p>Review member reports, restricted-safety matters, appeals, community ideas, immutable audit history, administrator access, and production health.</p></div>
-      <p class="authFine">This isolated host requires a verified Doji account, authenticator MFA, role-scoped access, idle and absolute session limits, restricted evidence authorization, and atomic audited commands.</p>
+      <p class="authFine">Your employee workspace for review, safety and operations. Access is invitation-only, protected by an authenticator and limited to your assigned permissions.</p>
     </div>
     <div class="authPanel">
       <div class="authCard">
         <div class="authUtility"><button class="themeToggle" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button></div>
-        <p class="eyebrow">Authorized staff only</p><h2>Admin sign in</h2><p id="adminAuthDescription">Sign in with your authorized Doji account.</p>
-        <form class="authForm" id="adminSigninForm">
-          <div class="field"><label for="adminEmail">Operator email</label><input id="adminEmail" type="email" autocomplete="email" required></div>
-          <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" autocomplete="current-password" required></div>
+        <p class="eyebrow">Doji Operations</p><h2 id="adminAuthTitle" tabindex="-1">Opening admin workspace</h2><p id="adminAuthDescription">Preparing secure sign-in. Your existing session will be checked first.</p>
+        <noscript><p>JavaScript is required for secure employee sign-in. Enable it and reload this page.</p></noscript>
+        <ol class="adminAuthProgress" aria-label="Employee sign-in progress"><li data-auth-step aria-current="step"><span aria-hidden="true">1</span>Sign in</li><li data-auth-step><span aria-hidden="true">2</span>Verify</li><li data-auth-step><span aria-hidden="true">3</span>Workspace</li></ol>
+        <form class="authForm" id="adminSigninForm" hidden>
+          <div class="field"><label for="adminEmail">Operator email</label><input id="adminEmail" name="username" type="email" autocomplete="username" required></div>
+          <div class="field"><label for="adminPassword">Password</label><div class="adminPasswordControl"><input id="adminPassword" name="password" type="password" autocomplete="current-password" required><button type="button" id="adminPasswordToggle" aria-label="Show password" aria-controls="adminPassword" aria-pressed="false">Show</button></div></div>
           <button class="portalButton primary" type="submit">Sign in</button>
         </form>
         <button class="authBackButton" id="employeeRegisterToggle" type="button" hidden>Register an employee account</button>
@@ -59,7 +61,7 @@
         </form>
         <form class="authForm adminMfaChallenge" id="adminMfaChallengeForm" hidden>
           <button class="authBackButton" type="button" data-action="admin-auth-back">← Use a different account</button>
-          <div class="mfaStepHeading"><span class="mfaStepIcon" aria-hidden="true">✓</span><div><strong>Verify it’s you</strong><p id="adminMfaChallengeDescription">Enter the six-digit code from your authenticator app.</p></div></div>
+          <div class="mfaStepHeading"><span class="mfaStepIcon" aria-hidden="true">✓</span><div><strong>Authenticator code</strong><p id="adminMfaChallengeDescription">Enter the six-digit code from your authenticator app.</p></div></div>
           <div class="field"><label for="adminChallengeCode">Verification code</label><input id="adminChallengeCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div>
           <button class="portalButton primary" type="submit">Verify and continue</button>
         </form>
@@ -80,6 +82,7 @@
         </section>
         <div class="portalFormStatus" id="adminSigninStatus" role="status" aria-live="polite"></div>
         <div class="authHint" id="adminAuthHint">Your password is sent only to Doji authentication. No administrator data loads until your identity and security requirements are verified.</div>
+        <details class="adminAccessHelp"><summary>Need help getting access?</summary><p>Use the employee email from your invitation. A member or business account does not grant access here. If your invitation expired or you lost your authenticator, contact your Doji administrator. Never share your password or verification codes.</p></details>
       </div>
     </div>
   </section>
@@ -92,7 +95,7 @@
       <nav class="portalNav adminNav" aria-label="Admin workspace">
         <span class="navSectionLabel">Workspace</span>
         <button type="button" data-view="overview" data-label="Command center" aria-current="page"><span class="navIcon"><svg><use href="#admin-icon-command"/></svg></span>Command center</button>
-        <button type="button" data-view="inbox" data-label="Work queue"><span class="navIcon"><svg><use href="#admin-icon-queue"/></svg></span>Work queue <span class="navCount" id="inboxNavCount">0</span></button>
+        <button type="button" data-view="inbox" data-label="My work"><span class="navIcon"><svg><use href="#admin-icon-queue"/></svg></span>My work <span class="navCount" id="inboxNavCount">0</span></button>
         <span class="navSectionLabel">Review</span>
         <button type="button" data-view="moderation" data-label="Trust & safety"><span class="navIcon"><svg><use href="#admin-icon-shield"/></svg></span>Trust & safety</button>
         <button type="button" data-view="safety" data-label="Restricted safety"><span class="navIcon"><svg><use href="#admin-icon-legal"/></svg></span>Restricted safety <span class="navAlert" id="legalUrgentAlert" hidden></span></button>
@@ -109,14 +112,14 @@
     </aside>
     <main class="portalMain">
       <header class="portalTopbar adminTopbar">
-        <div class="topActions"><button type="button" class="iconButton mobileMenu" id="mobileMenu" aria-label="Open navigation" aria-controls="portalSidebar" aria-expanded="false">☰</button><div><p class="topbarKicker">Doji operations</p><h1 id="portalPageTitle">Command center</h1></div></div>
+        <div class="topActions"><button type="button" class="iconButton mobileMenu" id="mobileMenu" aria-label="Open navigation" aria-controls="portalSidebar" aria-expanded="false">☰</button><div><p class="topbarKicker">Doji operations</p><h1 id="portalPageTitle" tabindex="-1">Command center</h1></div></div>
         <div class="topActions adminTopActions"><button type="button" class="adminSearchButton" data-action="focus-global-search" aria-label="Search admin workspace"><svg><use href="#admin-icon-search"/></svg><span>Search workspace</span><kbd>Ctrl K</kbd></button><button class="themeToggle compact" type="button" data-action="toggle-theme" aria-label="Switch color theme"><span class="themeIcon" aria-hidden="true"></span><span data-theme-label>Dark mode</span></button><button type="button" class="portalButton sessionButton" data-action="exit-demo"><svg aria-hidden="true"><use href="#admin-icon-lock"/></svg><span>Lock session</span></button></div>
       </header>
 
       <div class="portalContent adminContent">
         <div class="portalDataBanner" id="portalDataBanner" role="status" aria-live="polite" hidden></div>
         <section class="portalView" data-portal-view="overview">
-          <div class="viewIntro adminIntro overviewHero"><div><p class="eyebrow">Doji operations</p><h2>Today’s operational priorities</h2><p>Review urgent cases and platform issues.</p><div class="overviewPulse" id="overviewPlatformPulse"><span></span>All critical systems operational</div></div><div class="introActions"><button class="portalButton" type="button" data-view-jump="audit">View audit log</button><button class="portalButton primary" type="button" data-view-jump="inbox">Open work queue</button></div></div>
+          <div class="viewIntro adminIntro overviewHero"><div><p class="eyebrow">Doji operations</p><h2>Today’s operational priorities</h2><p>Review urgent cases and platform issues.</p><div class="overviewPulse" id="overviewPlatformPulse"><span></span>All critical systems operational</div></div><div class="introActions"><button class="portalButton" type="button" data-view-jump="audit">View audit log</button><button class="portalButton primary" type="button" data-view-jump="inbox">Open my work</button></div></div>
           <div class="metricGrid adminMetricGrid"><article class="metricCard criticalMetric"><div class="metricLabel"><span class="metricDot"></span><span>Urgent deadlines</span></div><strong id="urgentMetric">0</strong><small>Reports approaching the 24-hour review target</small></article><article class="metricCard"><div class="metricLabel"><span class="metricDot"></span><span>Unassigned work</span></div><strong id="unassignedMetric">0</strong><small>Across active production queues</small></article><article class="metricCard sponsoredMetric"><div class="metricLabel"><span class="metricDot"></span><span>Restricted safety</span></div><strong id="campaignMetric">0</strong><small>Open high-risk reports and appeals</small></article><article class="metricCard healthyMetric"><div class="metricLabel"><span class="metricDot"></span><span>Platform status</span></div><strong class="wordMetric" id="platformStatusMetric">Loading</strong><small id="platformStatusText">Waiting for authoritative health</small></article></div>
           <div class="adminDashboardGrid">
             <article class="portalPanel priorityPanel"><div class="panelHeader"><div><h3>Priority work</h3></div><button class="textButton" type="button" data-view-jump="inbox">View all</button></div><div class="priorityList" id="priorityQueue"></div></article>
@@ -125,7 +128,7 @@
         </section>
 
         <section class="portalView" data-portal-view="inbox" hidden>
-          <div class="viewIntro"><div><p class="eyebrow">Unified operations</p><h2>Work queue</h2><p>Reports, appeals, and community ideas awaiting review.</p></div><button class="portalButton" type="button" data-action="claim-next">Claim next report</button></div>
+          <div class="viewIntro"><div><p class="eyebrow">Your workspace</p><h2>My work</h2><p>Requests assigned to you.</p></div><button class="portalButton" type="button" data-action="claim-next">Claim next report</button></div>
           <article class="portalPanel queuePanel"><div class="queueCommandBar"><label class="queueSearch"><span aria-hidden="true">⌕</span><input id="globalQueueSearch" type="search" placeholder="Search all authorized active work" autocomplete="off"></label><div class="queueFilters" data-queue-filters="inbox"><button class="filterButton active" data-queue-filter="all">All</button><button class="filterButton" data-queue-filter="urgent">Urgent</button><button class="filterButton" data-queue-filter="unassigned">Unassigned</button><button class="filterButton" data-queue-filter="mine">Mine</button></div><select id="inboxTypeFilter" aria-label="Filter work type"><option value="all">All work types</option><option value="moderation">Trust & safety</option><option value="safety">Restricted safety</option><option value="suggestions">Community ideas</option></select></div><div class="tableWrap"><table class="queueTable scalableTable"><thead><tr><th>Priority</th><th>Work item</th><th>Queue</th><th>Submitted</th><th>Owner</th><th>Status</th></tr></thead><tbody data-queue-body="inbox"></tbody></table></div><div class="tableFooter"><span id="queueResultCount">0 work items</span><span>Closed reports are under Resolved.</span></div></article>
         </section>
 
@@ -163,8 +166,8 @@
         </section>
 
         <section class="portalView" data-portal-view="operations" hidden>
-          <div class="viewIntro"><div><p class="eyebrow">Platform operations</p><h2>Health and delivery</h2><p>Review delivery and reported app issues after each Doji.</p></div><span class="statusPill approved" id="operationsStatusPill">Loading health</span></div>
-          <div class="opsGrid"><article class="portalPanel"><div class="healthEmpty"><strong>Loading platform health…</strong></div></article></div>
+          <div class="viewIntro"><div><p class="eyebrow">Platform operations</p><h2>Platform health</h2><p>Service readings, app errors and Doji delivery in one place.</p></div><span class="statusPill healthState" data-state="unknown" id="operationsStatusPill">Loading health</span></div>
+          <div class="opsGrid"><article class="portalPanel"><div class="queueState" data-state="loading" role="status">Loading platform health…</div></article></div>
         </section>
 
         <section class="portalView" data-portal-view="audit" hidden>

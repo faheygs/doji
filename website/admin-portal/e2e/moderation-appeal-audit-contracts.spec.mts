@@ -312,7 +312,7 @@ for (const entityType of ['report', 'moderation_appeal']) {
     });
     await page.getByRole('button', { name: 'Open related case', exact: true }).click();
     await expect.poll(() => reads).toBe(1);
-    await page.locator('#auditDetailModal').getByRole('button', { name: /Close/ }).click();
+    await page.locator('#auditDetailModal').getByRole('button', { name: 'Back to queue' }).click();
     const response = page.waitForResponse((r) => r.url().includes(`/portal/admin/${endpoint}?`));
     release();
     await response;

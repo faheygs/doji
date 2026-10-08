@@ -174,6 +174,7 @@ function formControl(form: HTMLFormElement, name: string) {
       active = null;
       intent = null;
       dialog.close();
+      window.DojiRecordPages?.hide(dialog);
       dialog.replaceChildren();
       if (!force && returnFocus instanceof HTMLElement && returnFocus.isConnected)
         returnFocus.focus();
@@ -200,8 +201,7 @@ function formControl(form: HTMLFormElement, name: string) {
       if (backdropPointer && outsideDrawer(event)) close();
       backdropPointer = false;
     });
-    // Native dialog keeps focus trapping/inert background; shared drawer classes
-    // give record inspection the same right-edge layout as other admin records.
+    // Record views use the workspace; only confirmations/create dialogs are modal.
     function shell(title: string, content: string, presentation = 'drawer') {
       const drawer = presentation === 'drawer';
       dialog.className = `portalModal editorialDialog${drawer ? ' portalDrawer adminDrawer open' : ''}`;
@@ -209,6 +209,8 @@ function formControl(form: HTMLFormElement, name: string) {
       dialog.querySelector<HTMLButtonElement>('[data-editorial-action="close"]')!.onclick = () =>
         close();
       enhance();
+      if (drawer) window.DojiRecordPages?.show(dialog, { close: () => close(), busy: () => pending });
+      else window.DojiRecordPages?.modal(dialog);
       dialog.scrollTop = 0;
       if (dialog.open) dialog.querySelector('h2')!.focus();
     }
@@ -302,6 +304,17 @@ function formControl(form: HTMLFormElement, name: string) {
       p.host.querySelectorAll('tbody tr:has([data-editorial-id])').forEach((row) => {
         row.classList.add('editorialRecordRow');
       });
+      const viewport = p.host.querySelector<HTMLElement>('.tableWrap')!;
+      viewport.setAttribute('aria-busy', String(p.loading));
+      if (!p.items.length) {
+        const cell = viewport.querySelector('td')!;
+        cell.parentElement!.classList.add('emptyTableRow');
+        const state = document.createElement('div');
+        state.className = 'queueState';
+        state.textContent = cell.textContent;
+        cell.replaceChildren(state);
+      }
+      if (p.loading) p.host.querySelector<HTMLElement>('.editorialPageStatus')!.textContent = '';
       enhanceControls(p.host);
     }
     async function load(kind: string, index = 0) {

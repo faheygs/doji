@@ -508,6 +508,12 @@ const adminPortalClient = (() => {
       const epoch = sessionEpoch;
       const Ably = await loadAbly();
       if (epoch !== sessionEpoch) return;
+      const workflowEnabled = independent && config.staffWorkflowEnabled === true;
+      const healthEnabled = independent && config.healthEventsEnabled === true;
+      const operator = workflowEnabled || healthEnabled ? await verifyPortalAccess() : null;
+      if (epoch !== sessionEpoch) return;
+      const legacyTopics =
+        (!workflowEnabled && !healthEnabled) || operator?.capabilities?.moderation_read === true;
       assertSessionFresh();
       let createdClient: Realtime | null = null;
       const client = new Ably.Realtime({
@@ -537,7 +543,16 @@ const adminPortalClient = (() => {
         }
       });
       client.connect();
-      for (const channelName of ['moderation:global', 'doji:global']) {
+      if (healthEnabled && operator?.capabilities?.operations_read === true) {
+        const accept = window.DojiPortalHealth.createHealthHintFilter();
+        await client.channels
+          .get('staff:health:operations', { params: { rewind: '2m' } })
+          .subscribe((message) => {
+            if (realtime !== createdClient || epoch !== sessionEpoch || !accept(message)) return;
+            onInvalidate?.({ type: 'staff.health.changed' });
+          });
+      }
+      for (const channelName of legacyTopics ? ['moderation:global', 'doji:global'] : []) {
         const channel = client.channels.get(channelName, { params: { rewind: '2m' } });
         await channel.subscribe((message) => {
           if (realtime !== createdClient) return;
@@ -547,6 +562,21 @@ const adminPortalClient = (() => {
             type: message?.name || 'state.updated',
           });
         });
+      }
+      if (independent && config.staffWorkflowEnabled === true) {
+        const { subscribeWorkflow } = (await import(
+          '/admin-portal/workflow-events.js' as string
+        )) as typeof import('./workflow-events.mts');
+        const channels = await portalRequest('/staff-workflow/channels', {
+          method: 'POST',
+          body: {},
+        });
+        await subscribeWorkflow(
+          client,
+          channels,
+          () => realtime === createdClient && epoch === sessionEpoch,
+          (hint) => onInvalidate?.(hint),
+        );
       }
     }
 
@@ -759,6 +789,10 @@ const adminPortalClient = (() => {
         return verifyPendingChallenge(code);
       },
       session: verifyPortalAccess,
+      workflowRequest: (
+        path: 'page' | 'inbox' | 'safety' | 'ownership' | 'command' | 'assignees',
+        input: Record<string, unknown>,
+      ) => portalRequest(`/staff-workflow/${path}`, { method: 'POST', body: input }),
       businessPage: (input: Record<string, unknown>) =>
         portalRequest('/business/page', { method: 'POST', body: input }),
       businessItem: (id: string) =>

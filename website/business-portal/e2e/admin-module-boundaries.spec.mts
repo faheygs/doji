@@ -50,6 +50,10 @@ async function mount(page: Page, kind:string, options:MountOptions = {}) {
           });
         if (mode === 'error') throw Error('Synthetic service unavailable');
         if (mode === 'empty-error') throw {};
+        if (name === 'page' && (mode === 'ten' || mode === 'empty')) {
+          if (!result || typeof result !== 'object' || !('items' in result) || !Array.isArray(result.items)) throw Error('Expected page');
+          return { items: mode === 'empty' ? [] : Array(10).fill(result.items[0]), next_cursor: null } as T;
+        }
         if (mode === 'wrong') return { id: 'different' } as T;
         if (mode === 'oversized') {
           if (!result || typeof result!=='object' || !('items' in result) || !Array.isArray(result.items)) throw Error('Expected paged fixture');
@@ -211,6 +215,60 @@ test('business module rejects disabled entry and ignores reads without capabilit
   expect(await page.evaluate(() => window.moduleFixture.calls.length)).toBe(1);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 });
+
+for (const kind of ['business', 'safety']) test(`${kind} queue keeps footer fixed for zero, one, ten, loading and failed reads`, async ({ page }, info) => {
+  await mount(page, kind);
+  await page.addStyleTag({ path: 'website/admin-portal/admin.css' });
+  await page.evaluate(() => { document.body.className = 'adminPortalPage'; document.documentElement.dataset.theme = 'dark'; });
+  const panel = page.locator(kind === 'business' ? '.businessQueuePanel' : '.safetyQueue');
+  const footer = panel.locator('.tableFooter');
+  const first = await footer.boundingBox();
+  const panelHeight = (await panel.boundingBox())!.height;
+  for (const mode of ['empty', 'ten', 'error']) {
+    await page.evaluate(async mode => { const f = window.moduleFixture; f.modes.page = mode; await f.api!.reconcile(); }, mode);
+    const box = await footer.boundingBox();
+    expect(box!.y).toBeCloseTo(first!.y, 0);
+    expect((await panel.boundingBox())!.height).toBe(panelHeight);
+    if (mode === 'error') await expect(panel).toContainText('unavailable');
+  }
+  await page.evaluate(() => { const f = window.moduleFixture; f.modes.page = 'pending'; void f.api!.reconcile(); });
+  await expect(panel.locator('.tableWrap')).toHaveAttribute('aria-busy', 'true');
+  await expect(panel.locator('.queueState')).toContainText('Loading');
+  const spinner = await panel.locator('.queueState').evaluate(el => getComputedStyle(el, '::before').animationName);
+  expect(spinner).toBe('adminQueueSpin');
+  expect((await footer.boundingBox())!.y).toBeCloseTo(first!.y, 0);
+  await page.screenshot({ path: info.outputPath(`${kind}-loading.png`), fullPage: true });
+});
+
+test('external request opens from any row cell or keyboard and offers explicit confirmed closure', async ({ page }) => {
+  await mount(page, 'safety', { view: 'moderation' });
+  const row = page.locator('[data-case-row]');
+  await row.locator('td').last().click();
+  await expect(page.locator('dialog[open]')).toBeVisible();
+  await page.getByRole('button', { name: 'Close request', exact: true }).click();
+  await expect(page.locator('#safetyAction')).toHaveValue('not_actionable');
+  await expect(page.locator('#safetyNote')).toBeFocused();
+  await page.locator('#safetyNote').fill('Synthetic review found no actionable content.');
+  await page.locator('#safetyMessage').fill('We reviewed this synthetic request and closed it.');
+  await page.getByRole('button', { name: 'Review change', exact: true }).click();
+  expect(await page.evaluate(() => window.moduleFixture.calls.filter(c => c.name === 'command'))).toHaveLength(0);
+  await page.getByRole('button', { name: 'Confirm change', exact: true }).click();
+  const calls = await page.evaluate(() => window.moduleFixture.calls.filter(c => c.name === 'command'));
+  expect(calls).toHaveLength(1);
+  expect(calls[0]!.args).toMatchObject({ p_revision: 2, p_input: { action: 'not_actionable' } });
+  await page.locator('dialog[open] [data-close]').click();
+  await row.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('dialog[open]')).toBeVisible();
+});
+
+test('read-only external case explains unavailable outcomes without offering a close command', async ({ page }) => {
+  await mount(page, 'safety', { item: { can_write: false } });
+  await open(page, 'safety');
+  await expect(page.locator('.caseOutcomeBar')).toContainText('Your current permissions do not allow changes');
+  await expect(page.getByRole('button', { name: 'Close request', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => window.moduleFixture.calls.filter(c => c.name === 'command'))).toHaveLength(0);
+});
 for (const mode of ['wrong', 'oversized'])
   test(`business invalid queue ${mode} is not empty success and can retry`, async ({ page }) => {
     await mount(page, 'business');
@@ -252,15 +310,15 @@ test('business exact paging and first-page/filter resets stay bounded', async ({
     window.moduleFixture.next = { at: 'time', id: 'cursor' };
     await window.moduleFixture.api!.load!();
   });
-  await page.getByRole('button', { name: 'Next page', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'First page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
   expect(await page.evaluate(() => window.moduleFixture.calls.at(-1)!.args)).toEqual({
     p_state: 'pending',
     p_limit: 25,
     p_after_at: 'time',
     p_after_id: 'cursor',
   });
-  await page.getByRole('button', { name: 'First page' }).click();
+  await page.getByRole('button', { name: 'Previous' }).click();
   await select(page, '#businessQueueState', 'declined');
   await expect
     .poll(() => page.evaluate(() => window.moduleFixture.calls.at(-1)!.args))
@@ -460,14 +518,14 @@ test('safety paging, closed filter, refresh and empty page preserve exact queue 
     window.moduleFixture.next = { at: 'time', id: 'cursor' };
     await window.moduleFixture.api!.reconcile();
   });
-  await page.getByRole('button', { name: 'Next page' }).click();
-  await expect(page.getByRole('button', { name: 'First page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Previous' })).toBeEnabled();
   expect(await page.evaluate(() => window.moduleFixture.calls.at(-1)!.args)).toEqual([
     { at: 'time', id: 'cursor' },
     false,
     'moderation',
   ]);
-  await page.getByRole('button', { name: 'First page' }).click();
+  await page.getByRole('button', { name: 'Previous' }).click();
   await page.getByRole('button', { name: 'Show closed' }).click();
   await expect(page.getByRole('button', { name: 'Show open' })).toBeVisible();
   expect(await page.evaluate(() => window.moduleFixture.calls.at(-1)!.args)).toEqual([
@@ -477,7 +535,7 @@ test('safety paging, closed filter, refresh and empty page preserve exact queue 
   ]);
   await page.evaluate(() => (window.moduleFixture.empty = true));
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await expect(page.locator('table')).toContainText('No requests in this page.');
+  await expect(page.locator('table')).toContainText('No requests match this view.');
 });
 for (const mode of ['error', 'empty-error'])
   test(`safety ${mode} queue has explicit retry without false empty state`, async ({ page }) => {
@@ -550,7 +608,7 @@ for (const result of ['success', 'error'])
       else f.waits.command!.reject(Error('Late failure'));
     }, result);
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(page.locator('.editorialWorkspace')).toBeEmpty();
+    await expect(page.locator('.safetyQueue')).toBeEmpty();
   });
 test('safety backdrop close restores trigger and a hidden view does not issue reconciliation reads', async ({
   page,
@@ -588,7 +646,7 @@ for (const operation of ['page', 'detail'])
       if (f.task) await f.task;
     }, operation);
     await expect(page.locator('dialog[open]')).toHaveCount(0);
-    await expect(page.locator('.editorialWorkspace')).toBeEmpty();
+    await expect(page.locator('.safetyQueue')).toBeEmpty();
   });
 for (const kind of ['profile_photo', 'account'])
   test(`restricted ${kind} handoff explains no automatic removal and requires reviewed fingerprint`, async ({

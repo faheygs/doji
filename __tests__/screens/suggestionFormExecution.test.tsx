@@ -130,6 +130,46 @@ it('adds/removes poll choices and caps the visible rows at eight', async () => {
   await submit(ui);
   expect(mockCommand.mock.calls[0][1].p_options).toEqual(['Sunrise', 'Third']);
 });
+it.each(['Other', 'other', 'OTHER', '  oThEr  ', '\tOther\n', '\u00a0Other\u00a0'])(
+  'removes reserved poll choice %j from the UI and submitted payload',
+  async (choice) => {
+    const ui = start();
+    valid(ui, 'Poll');
+    fireEvent.press(ui.getByLabelText('Add poll option'));
+    fireEvent.changeText(ui.getByPlaceholderText('Option 3'), choice);
+    fireEvent(ui.getByPlaceholderText('Option 3'), 'blur');
+    expect(ui.queryByPlaceholderText('Option 3')).toBeNull();
+    await submit(ui);
+    expect(mockCommand.mock.calls[0][1].p_options).toEqual(['Sunrise', 'Sunset']);
+  },
+);
+it('filters Other even without blur and still requires two real poll choices', async () => {
+  const ui = start();
+  valid(ui, 'Poll');
+  fireEvent.changeText(ui.getByPlaceholderText('Option 2'), 'Other');
+  expect(ui.UNSAFE_getByType(Button).props.disabled).toBe(true);
+  await submit(ui, true);
+  expect(mockCommand).not.toHaveBeenCalled();
+  fireEvent(ui.getByPlaceholderText('Option 2'), 'blur');
+  expect(ui.getByPlaceholderText('Option 2').props.value).toBe('');
+  fireEvent.changeText(ui.getByPlaceholderText('Option 2'), 'Sunset');
+  fireEvent.press(ui.getByLabelText('Add poll option'));
+  fireEvent.changeText(ui.getByPlaceholderText('Option 3'), 'Other');
+  await submit(ui, true);
+  expect(mockCommand.mock.calls[0][1].p_options).toEqual(['Sunrise', 'Sunset']);
+});
+it('reserves only the entire Other label for polls, not phrases or Would you rather', async () => {
+  const ui = start();
+  valid(ui, 'Poll');
+  fireEvent.changeText(ui.getByPlaceholderText('Option 1'), 'Help other people');
+  await submit(ui);
+  expect(mockCommand.mock.calls[0][1].p_options).toEqual(['Help other people', 'Sunset']);
+  mockCommand.mockClear();
+  valid(ui, 'Would you rather');
+  fireEvent.changeText(ui.getByPlaceholderText('Option 1'), 'Other');
+  await submit(ui);
+  expect(mockCommand.mock.calls[0][1].p_options).toEqual(['Other', 'Sunset']);
+});
 it.each([
   'short',
   'long',

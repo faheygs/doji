@@ -1,3 +1,4 @@
+import type {} from './record-pages.mts';
 import {
   applicationForm,
   applicationFields,
@@ -116,6 +117,7 @@ const checkedHistory = (rows: PrivacyHistory[], after: number, max: number, revi
 };
 
 export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyOptions) {
+  const previous: (PrivacyCase | null)[] = [];
   const allowed = () =>
     session()?.capabilities?.operator_manage === true &&
     session()?.capabilities?.legal_read === true;
@@ -162,6 +164,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     correctionRecorded = false;
     stale = pending = reconciling = reconcileAgain = false;
     dialog.close();
+    window.DojiRecordPages?.hide(dialog);
     dialog.replaceChildren();
     if (!force && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
     trigger = null;
@@ -175,7 +178,8 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     trigger = opener || document.activeElement;
     dialog.innerHTML = `<header class="drawerHeader"><h2 id="privacyTitle" tabindex="-1">${esc(title)}</h2><button type="button" class="drawerCloseButton" data-close>Close</button></header><div class="editorialDrawerContent">${html}<p id="privacyStatus" role="status" aria-live="polite"></p></div>`;
     dialog.querySelector<HTMLButtonElement>('[data-close]')!.onclick = () => close();
-    dialog.showModal();
+    window.DojiRecordPages?.show(dialog, { close: () => close(), busy: () => pending });
+    if (!dialog.open) dialog.showModal();
     dialog.querySelector('h2')!.focus();
     enhance(dialog);
   }
@@ -225,6 +229,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     makeIntent: () => PrivacyIntent | null,
     apply: PrivacyClient['businessPrivacyCommand'],
   ) {
+    window.DojiRecordPages?.sync(dialog);
     const panel = document.createElement('section');
     panel.id = 'privacyConfirmation';
     panel.hidden = true;
@@ -470,6 +475,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     }
   }
   function syncCorrectionFields() {
+    window.DojiRecordPages?.sync(dialog);
     const enabled =
       !pending &&
       !stale &&
@@ -658,7 +664,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     root.hidden = !allowed();
     if (!allowed()) return;
     if (!root.childElementCount) {
-      root.innerHTML = `<header class="panelHeader"><div><h3>Business privacy requests</h3><p>Restricted to authorized privacy operators. Requests are recorded after support verification; this does not publish a public intake.</p></div></header><div class="editorialActions">${button('privacyShow', 'Open privacy queue')}${button('privacyNew', 'Record request', true)}</div><div id="privacyQueue"></div>`;
+      root.innerHTML = `<details class="businessPrivacySection"><summary>Business privacy support <span>Data access, corrections and account closure</span></summary><p>This is separate from application approval. Use it when a verified business-account holder asks support for their data, a correction, account closure or erasure. Opening the queue only displays requests; logging a request does not close an account or erase data.</p><div class="editorialActions">${button('privacyShow', 'View privacy requests')}${button('privacyNew', 'Log verified privacy request')}</div><div id="privacyQueue"></div></details>`;
       root.querySelector<HTMLButtonElement>('#privacyShow')!.onclick = () => {
         active = true;
         void load();
@@ -679,6 +685,8 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
       state = filter;
     const valid = () => stamp === queueGeneration && auth === epoch() && allowed();
     const target = root.querySelector<HTMLElement>('#privacyQueue')!;
+    target.className = 'portalPanel privacyQueuePanel';
+    target.innerHTML = '<div class="panelHeader"><h3>Business privacy requests</h3></div><div class="tableWrap" aria-busy="true"><div class="queueState" role="status">Loading privacy requests…</div></div><div class="tableFooter"><span>Loading</span><div><button class="portalButton" disabled>Previous</button><button class="portalButton" disabled>Next</button></div></div>';
     try {
       const rows = await client.businessPrivacyPage({
         p_state: state,
@@ -692,7 +700,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
         if (row.state !== state) throw Error('invalid');
       });
       next = rows.length === 25 ? rows.at(-1)! : null;
-      target.innerHTML = `<div class="editorialFilter"><label for="privacyState">Privacy request state</label><select id="privacyState">${Object.entries(
+      target.innerHTML = `<div class="panelHeader"><div class="editorialFilter"><label for="privacyState">Privacy request state</label><select id="privacyState">${Object.entries(
         states,
       )
         .map(
@@ -701,30 +709,38 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
         )
         .join(
           '',
-        )}</select>${button('privacyRefresh', 'Refresh privacy queue')}</div><p>${rows.length} ${rows.length === 1 ? 'record' : 'records'} on this page · earliest assessed deadline first</p><div class="businessAdminGrid">${rows.map((row) => `<button type="button" class="businessAdminCard" data-privacy-case="${esc(row.id)}"><span class="businessAvatar" aria-hidden="true">P</span><span class="businessCardBody"><strong>${esc(kinds[row.kind])}</strong><span>${esc(row.id)}</span><span>Due ${esc(date(row.due_at))}</span></span><span class="rowChevron" aria-hidden="true">›</span></button>`).join('') || '<p>No requests in this page.</p>'}</div><div class="editorialActions">${button('privacyFirst', 'First page')}${button('privacyNext', 'Next page')}</div><p role="status"></p>`;
+        )}</select></div>${button('privacyRefresh', 'Refresh privacy queue')}</div><div class="queuePageSummary"><span><strong>${rows.length}</strong> requests on this page</span><span>Earliest assessed deadline first · not queue-wide totals</span></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>Request</th><th>Reference</th><th>Assessed deadline</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr tabindex="0" data-privacy-row="${esc(row.id)}" aria-label="Review ${esc(kinds[row.kind])}"><td><button type="button" class="textButton" data-privacy-case="${esc(row.id)}">${esc(kinds[row.kind])}</button></td><td>${esc(row.id.slice(0, 8).toUpperCase())}</td><td>${esc(date(row.due_at))}</td><td><span class="statusPill">${esc(states[row.state])}</span></td></tr>`).join('') || '<tr class="emptyTableRow"><td colspan="4"><div class="queueState">No requests match this view.</div></td></tr>'}</tbody></table></div><div class="tableFooter"><span role="status">Page ${previous.length + 1} · ${rows.length} shown · up to 25 per page</span><div>${button('privacyFirst', 'Previous')}${button('privacyNext', 'Next')}</div></div>`;
       enhance(target);
       target.querySelector<HTMLSelectElement>('#privacyState')!.onchange = () => {
         filter = target.querySelector<HTMLSelectElement>('#privacyState')!.value;
         cursor = null;
+        previous.length = 0;
         void load();
       };
       target.querySelector<HTMLButtonElement>('#privacyRefresh')!.onclick = () => void load();
-      target.querySelector<HTMLButtonElement>('#privacyFirst')!.disabled = !cursor;
+      target.querySelector<HTMLButtonElement>('#privacyFirst')!.disabled = !previous.length;
       target.querySelector<HTMLButtonElement>('#privacyFirst')!.onclick = () => {
-        cursor = null;
+        cursor = previous.pop() ?? null;
         void load();
       };
       target.querySelector<HTMLButtonElement>('#privacyNext')!.disabled = !next;
       target.querySelector<HTMLButtonElement>('#privacyNext')!.onclick = () => {
+        previous.push(cursor);
         cursor = next;
         void load();
       };
-      target.querySelectorAll<HTMLButtonElement>('[data-privacy-case]').forEach((node) => {
-        node.onclick = () => void open(node.dataset.privacyCase!, node);
+      target.querySelectorAll<HTMLElement>('[data-privacy-row]').forEach((node) => {
+        node.onclick = () => void open(node.dataset.privacyRow!, node);
+        node.onkeydown = (event) => {
+          if (event.target === node && ['Enter', ' '].includes(event.key)) {
+            event.preventDefault();
+            void open(node.dataset.privacyRow!, node);
+          }
+        };
       });
     } catch {
       if (valid()) {
-        target.innerHTML = `<p role="status">Privacy queue unavailable. No empty-queue or deadline assurance can be made.</p>${button('privacyRetry', 'Retry privacy queue')}`;
+        target.innerHTML = `<div class="tableWrap"><div class="queueState" role="status">Privacy queue unavailable. No empty-queue or deadline assurance can be made.</div></div><div class="tableFooter queueErrorFooter">${button('privacyRetry', 'Retry privacy queue')}</div>`;
         target.querySelector('button')!.onclick = () => void load();
       }
     } finally {
@@ -738,6 +754,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
     }
   }
   return {
+    open: (id: string) => { if (!allowed()) throw Error('Privacy review access unavailable'); return open(id, document.activeElement); },
     isOpen: () => dialog.open,
     async reconcile() {
       if (!allowed()) {
@@ -804,6 +821,7 @@ export function createBusinessPrivacy({ root, client, session, epoch }: PrivacyO
       receipts.clear();
       active = loading = loadAgain = false;
       cursor = next = null;
+      previous.length = 0;
       filter = 'open';
       root.replaceChildren();
       root.hidden = true;

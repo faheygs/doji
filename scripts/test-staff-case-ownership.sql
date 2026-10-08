@@ -1,0 +1,91 @@
+create function pg_temp.ok(value boolean,label text) returns text language plpgsql as $$begin
+ if value is distinct from true then raise exception 'FAIL: %',label; end if; return 'PASS: '||label; end$$;
+create function pg_temp.denied(q text,label text,code text default '42501') returns text language plpgsql as $$begin
+ begin execute q; exception when others then if sqlstate=code then return 'PASS: '||label; end if; raise; end;
+ raise exception 'FAIL: expected denial %',label; end$$;
+create function pg_temp.employee(suffix integer,aal text default 'aal2') returns void language plpgsql as $$begin
+ perform set_config('request.jwt.claims',jsonb_build_object('sub','98000000-0000-4000-8000-'||lpad(suffix::text,12,'0'),'role','doji_employee','aal',aal)::text,true); end$$;
+select pg_temp.employee(1);
+set local role doji_employee;
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')$q$,'disabled by default','55000');
+reset role;
+update staff_workflow_private.settings set enabled=true;
+set local role doji_employee;
+select pg_temp.ok(public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')->>'revision'='0','unassigned suggestion starts at revision zero');
+select pg_temp.ok(public.get_admin_case_ownership_v1('business_application','99000000-0000-4000-8000-000000000002')->>'state'='pending','pending business source visible');
+select pg_temp.ok(not (public.get_admin_case_ownership_v1('business_application','99000000-0000-4000-8000-000000000002') ? 'details'),'ownership read does not disclose application details');
+select pg_temp.ok(jsonb_array_length(public.get_admin_owned_work_page_v1()->'items')=2,'combined page includes business and community work');
+select pg_temp.ok(not (public.get_admin_owned_work_page_v1() ? 'total'),'bounded page does not invent a total');
+select set_config('test.first_page',public.get_admin_owned_work_page_v1('all','all',1)::text,true);
+select pg_temp.ok(jsonb_array_length(current_setting('test.first_page')::jsonb->'items')=1,'page size is bounded');
+select pg_temp.ok(jsonb_array_length(public.get_admin_owned_work_page_v1('all','all',1,
+ (current_setting('test.first_page')::jsonb#>>'{next_cursor,at}')::timestamptz,
+ current_setting('test.first_page')::jsonb#>>'{next_cursor,key}')->'items')=1,'keyset advances to next item');
+select pg_temp.ok(public.get_admin_owned_work_page_v1('all','all',1,
+ (current_setting('test.first_page')::jsonb#>>'{next_cursor,at}')::timestamptz,
+ current_setting('test.first_page')::jsonb#>>'{next_cursor,key}')#>>'{items,0,key}'<>
+ current_setting('test.first_page')::jsonb#>>'{items,0,key}','keyset page does not repeat previous item');
+select pg_temp.denied($q$select public.get_admin_owned_work_page_v1('all','all',51)$q$,'unbounded page size rejected','22023');
+select pg_temp.denied($q$select public.get_admin_owned_work_page_v1('all','all',25,now(),null)$q$,'partial cursor rejected','22023');
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('report','99000000-0000-4000-8000-000000000001')$q$,'existing report ownership is not replaced','22023');
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('suggestion',gen_random_uuid())$q$,'unknown source rejected','P0002');
+select pg_temp.denied($q$select * from staff_workflow_private.ownership$q$,'employee cannot read private tables');
+select pg_temp.denied($q$update staff_workflow_private.settings set enabled=false$q$,'employee cannot change gate');
+select pg_temp.employee(1,'aal1');
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')$q$,'MFA required');
+select pg_temp.employee(4);
+select pg_temp.ok(jsonb_array_length(public.get_admin_owned_work_page_v1()->'items')=1,'business reviewer combined page excludes suggestions');
+select pg_temp.ok(public.get_admin_owned_work_page_v1()#>>'{items,0,kind}'='business_application','business-only page has correct source');
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')$q$,'business reviewer cannot access suggestions');
+select pg_temp.ok(public.get_admin_case_ownership_v1('business_application','99000000-0000-4000-8000-000000000002')->>'can_decide'='false','business triage ownership does not grant approval authority');
+select pg_temp.employee(5);
+select pg_temp.denied($q$select public.get_admin_case_ownership_v1('business_application','99000000-0000-4000-8000-000000000002')$q$,'disabled employee denied');
+select pg_temp.employee(3);
+select set_config('test.version',public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')->>'source_version',true);
+select pg_temp.ok(public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',0,current_setting('test.version'),'claim',null,'97000000-0000-4000-8000-000000000001')->>'revision'='1','operations employee claims suggestion');
+select pg_temp.ok(public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',0,current_setting('test.version'),'claim',null,'97000000-0000-4000-8000-000000000001')->>'replayed'='true','lost-response retry replays receipt');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'release',null,'97000000-0000-4000-8000-000000000001')$q$,'same request ID cannot change intent','22023');
+select pg_temp.ok(public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')->>'owner_label'='Operations','staff display name, not member profile');
+select pg_temp.ok(jsonb_array_length(public.get_admin_owned_work_page_v1('all','mine')->'items')=1,'mine uses employee UUID');
+select pg_temp.ok(jsonb_array_length(public.get_admin_owned_work_page_v1('all','unassigned')->'items')=1,'claimed item leaves unassigned filter');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'assign','98000000-0000-4000-8000-000000000002',gen_random_uuid())$q$,'non-manager cannot assign another employee');
+select pg_temp.employee(2);
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',0,current_setting('test.version'),'claim',null,gen_random_uuid())$q$,'stale revision cannot steal claim','PT409');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'claim',null,gen_random_uuid())$q$,'fresh claim cannot steal existing assignment','PT409');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'assign','98000000-0000-4000-8000-000000000004',gen_random_uuid())$q$,'cannot assign suggestion to business-only employee');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'assign','98000000-0000-4000-8000-000000000005',gen_random_uuid())$q$,'cannot assign disabled employee');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'assign','91000000-0000-4000-8000-000000000001',gen_random_uuid())$q$,'member cannot be staff owner');
+select pg_temp.ok(public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',1,current_setting('test.version'),'assign','98000000-0000-4000-8000-000000000001',gen_random_uuid())->>'revision'='2','administrator explicitly reassigns');
+select pg_temp.employee(3);
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',2,current_setting('test.version'),'release',null,gen_random_uuid())$q$,'former owner cannot release someone else assignment');
+select pg_temp.employee(1);
+select pg_temp.ok(public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',2,current_setting('test.version'),'release',null,gen_random_uuid())->>'revision'='3','owner can release');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',3,'stale-source','claim',null,gen_random_uuid())$q$,'stale source cannot be claimed','PT409');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',3,current_setting('test.version'),'approve',null,gen_random_uuid())$q$,'ownership endpoint cannot make decisions','22023');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',null,current_setting('test.version'),'claim',null,gen_random_uuid())$q$,'missing revision rejected','22023');
+select pg_temp.ok(public.admin_case_ownership_command_v1('business_application','99000000-0000-4000-8000-000000000002',0,'1','assign','98000000-0000-4000-8000-000000000004',gen_random_uuid())->>'revision'='1','business reviewer can be assigned triage');
+reset role;
+select pg_temp.ok((select count(*)=3 from staff_workflow_private.history where kind='suggestion'),'exactly one history entry per successful change');
+select pg_temp.ok((select count(*)=4 from staff_workflow_private.receipts),'denials and retry create no extra receipts');
+select pg_temp.ok((select revision=1 and state='pending' from business_private.applications where id='99000000-0000-4000-8000-000000000002'),'claim does not approve or alter business application');
+select pg_temp.ok((select count(*)=0 from business_private.organizations),'assignment creates no business organization');
+select pg_temp.ok((select status='pending' from public.challenge_suggestions where id='99000000-0000-4000-8000-000000000001'),'ownership does not publish suggestion');
+update public.challenge_suggestions set status='rejected' where id='99000000-0000-4000-8000-000000000001';
+set local role doji_employee;
+select pg_temp.ok(public.get_admin_case_ownership_v1('suggestion','99000000-0000-4000-8000-000000000001')->>'can_claim'='false','closed source exposes no claim action');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',3,current_setting('test.version'),'claim',null,gen_random_uuid())$q$,'decision racing claim makes source conflict','PT409');
+reset role;
+update public.admin_employees set status='disabled' where id='98000000-0000-4000-8000-000000000003';
+select pg_temp.employee(3);
+set local role doji_employee;
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',0,current_setting('test.version'),'claim',null,'97000000-0000-4000-8000-000000000001')$q$,'revoked operator cannot replay old receipt');
+reset role;
+select pg_temp.ok(not has_function_privilege('authenticated','public.get_admin_case_ownership_v1(text,uuid)','execute'),'member has no read grant');
+select pg_temp.ok(not has_function_privilege('anon','public.admin_case_ownership_command_v1(text,uuid,bigint,text,text,uuid,uuid)','execute'),'anonymous has no write grant');
+select pg_temp.ok(not has_function_privilege('doji_business','public.get_admin_case_ownership_v1(text,uuid)','execute'),'business identity has no staff grant');
+set local request.jwt.claims='{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1"}';
+set local role authenticated;
+select pg_temp.ok((select count(*)=1 from public.profiles where id=auth.uid()),'ordinary member own-profile read remains available without employee MFA');
+select pg_temp.denied($q$select public.get_admin_owned_work_page_v1()$q$,'ordinary member cannot read combined staff queue');
+select pg_temp.denied($q$select public.admin_case_ownership_command_v1('suggestion','99000000-0000-4000-8000-000000000001',3,'x','claim',null,gen_random_uuid())$q$,'ordinary member cannot issue ownership command');
+reset role;

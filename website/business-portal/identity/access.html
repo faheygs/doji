@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Doji · Business account</title>
+    <link rel="icon" href="/assets/doji-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portal.css" />
+    <link rel="stylesheet" href="/business-portal/application/application.css" />
+    <link rel="stylesheet" href="/business-portal/access/access.css" />
+  </head>
+  <body class="portalPage" data-portal="business-application">
+    <header class="onboardingHeader">
+      <a class="portalBrand" href="/"
+        ><img src="/assets/doji-icon.png" alt="" /><span>Doji<small>For Business</small></span></a
+      >
+      <button class="themeToggle" type="button" data-action="toggle-theme">
+        <span data-theme-label>Dark mode</span>
+      </button>
+    </header>
+    <main class="applicationMain identityMain">
+      <section class="onboardingCard">
+        <p class="eyebrow">Doji for Business</p>
+        <h1 id="identityHeading">Opening your business portal…</h1>
+        <p id="identityIntro">Checking whether you’re already signed in.</p>
+        <p class="identityHint" id="identityProgress" hidden>
+          Step 1 of 3 · Account setup → Business details → Doji review
+        </p>
+        <p class="identitySwitch" id="identitySigninPrompt" hidden>
+          Already have a business account?
+          <a id="identitySigninLink" href="?mode=signin">Sign in</a>
+        </p>
+        <p class="identitySwitch" id="identityRegisterPrompt" hidden>
+          New to Doji for Business?
+          <a id="identityRegisterLink" href="?mode=register">Register</a>
+        </p>
+        <p id="identityMessage" role="status" aria-live="polite">Checking business access…</p>
+        <noscript>Enable JavaScript to securely sign in to your business portal.</noscript>
+        <form id="identityForm" class="authForm" hidden>
+          <label class="field"
+            >Email address
+            <input
+              id="identityEmail"
+              name="email"
+              type="email"
+              autocomplete="email"
+              inputmode="email"
+              autocapitalize="none"
+              spellcheck="false"
+              maxlength="254"
+              aria-describedby="identityEmailHint"
+              required
+            />
+          </label>
+          <p id="identityEmailHint" class="identityHint">
+            Use the email you want to manage your business with.
+          </p>
+          <div id="identityAgreements">
+            <label class="consentRow"
+              ><input id="identityTerms" type="checkbox" required /><span
+                >I represent a United States business and agree to the
+                <a id="identityTermsLink" target="_blank" rel="noopener noreferrer"
+                  >business terms</a
+                >.</span
+              ></label
+            >
+            <label class="consentRow"
+              ><input id="identityPrivacy" type="checkbox" required /><span
+                >I acknowledge the
+                <a id="identityPrivacyLink" target="_blank" rel="noopener noreferrer"
+                  >privacy notice</a
+                >.</span
+              ></label
+            >
+          </div>
+          <p id="identityExplanation" class="identityHint">
+            Next, create your password and verify your email securely. Then add your business
+            details.
+          </p>
+          <div id="identityVerification" class="businessVerification"></div>
+          <div class="applicationActions">
+            <button id="identityContinue" type="submit" class="portalButton primary">
+              Continue
+            </button>
+          </div>
+        </form>
+        <div class="applicationActions identityBack">
+          <a href="https://dojipro.com/support/" target="_blank" rel="noopener noreferrer"
+            >Need help?</a
+          >
+          <a href="/">Back to Doji for Business</a>
+        </div>
+      </section>
+    </main>
+    <script src="/business-portal/config.js"></script>
+    <script src="/portal-select.js"></script>
+    <script src="/portal.js"></script>
+    <script type="module" src="/business-portal/access/access.js"></script>
+  </body>
+</html>

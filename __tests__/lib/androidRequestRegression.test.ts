@@ -15,7 +15,7 @@ jest.mock('../../lib/supabase', () => ({ supabase: { auth: {
 jest.mock('../../lib/releaseIdentity', () => ({ mobileReleaseIdentity: () => ({
   platform: 'android', appVersion: 'synthetic', nativeBuildNumber: 'synthetic', releaseChannel: 'test',
 }) }));
-jest.mock('../../lib/apiFailureTelemetry', () => ({ reportApiFailure: jest.fn() }));
+jest.mock('../../lib/apiFailureTelemetry', () => ({ ...jest.requireActual('../../lib/apiFailureTelemetry'), reportApiFailure: jest.fn() }));
 
 // Execute the real historical source, not a guessed replacement implementation.
 // This is a source comparison, not a claim this commit is an accepted device APK.

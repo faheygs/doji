@@ -22,6 +22,7 @@ const mockState = () => ({
 jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(mockState()), {
     getState: () => mockState(),
+    subscribe: () => () => {},
   }),
 }));
 jest.mock('expo-router', () => ({
@@ -77,6 +78,7 @@ beforeEach(() => {
   jest.useFakeTimers({ now: Date.parse('2026-10-02T00:00:00Z') });
   jest.clearAllMocks();
   Platform.OS = 'android';
+  AppState.currentState = 'active';
   mockUser = 'member';
   mockProfile = { id: 'member', is_banned: false };
   mockNavigation = { key: 'root' };
@@ -97,9 +99,14 @@ beforeEach(() => {
       onResponse = callback as typeof onResponse;
       return { remove: removeResponses };
     });
+  const stateListeners = new Set<(state: AppStateStatus) => void>();
+  onState = state => {
+    AppState.currentState = state;
+    [...stateListeners].forEach(callback => callback(state));
+  };
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
-    onState = callback;
-    return { remove: removeState };
+    stateListeners.add(callback);
+    return { remove: () => { stateListeners.delete(callback); removeState(); } };
   });
   jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
     if (typeof task === 'function') afterNavigation.push(task);
@@ -136,7 +143,7 @@ test('native foreground presentation remains silent and registration happens on 
     shouldShowBanner: false,
     shouldShowList: false,
   });
-  expect(mockSync).toHaveBeenCalledWith('member');
+  expect(mockSync).toHaveBeenCalledWith('member', { signal: expect.anything() });
   act(() => onState('background'));
   await settle();
   expect(mockSync).toHaveBeenCalledTimes(1);
@@ -144,7 +151,7 @@ test('native foreground presentation remains silent and registration happens on 
   await settle();
   expect(mockSync).toHaveBeenCalledTimes(2);
   unmount();
-  expect(removeState).toHaveBeenCalledTimes(1);
+  expect(removeState).toHaveBeenCalled();
   expect(removeResponses).toHaveBeenCalledTimes(1);
 });
 test.each(['signed out', 'missing profile', 'different profile'])(
@@ -202,11 +209,12 @@ test('permission response after unmount cannot start registration', async () => 
   );
   expect(mockSync).not.toHaveBeenCalled();
 });
-test('a newer foreground sync supersedes the older permission request', async () => {
+test('a background/foreground cycle supersedes the older permission request', async () => {
   const pending = deferred<Notifications.NotificationPermissionsStatus>();
   jest.mocked(Notifications.getPermissionsAsync).mockReturnValueOnce(pending.promise);
   renderHook(() => useNativeNotifications(true));
   await settle();
+  act(() => onState('background'));
   act(() => onState('active'));
   await settle();
   expect(mockSync).toHaveBeenCalledTimes(1);
@@ -223,6 +231,38 @@ test('permanent registration errors are reported without retry loops', async () 
   expect(mockReport).toHaveBeenCalledWith('push', 'endpoint-registration', failure);
   expect(mockSync).toHaveBeenCalledTimes(1);
   expect(mockRecord).not.toHaveBeenCalled();
+});
+
+test('duplicate active events share the current registration instead of superseding it', async () => {
+  const pending = deferred<boolean>(); mockSync.mockReturnValueOnce(pending.promise);
+  renderHook(() => useNativeNotifications(true)); await settle();
+  act(() => { onState('active'); onState('active'); }); await settle();
+  expect(mockSync).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve(true));
+});
+
+test.each(['inactive', 'background'] as const)('%s immediately cancels backoff; return to foreground reconciles once', async state => {
+  mockSync.mockRejectedValueOnce(new Error('Network request failed')).mockResolvedValue(true);
+  renderHook(() => useNativeNotifications(true)); await settle();
+  const timersBefore = jest.getTimerCount();
+  expect(mockRecord).toHaveBeenCalledWith('push', 'endpoint-registration-retry', expect.any(Error), { attempt: 1 });
+  act(() => onState(state));
+  // React's test scheduler can also own a timer. The registration timer itself
+  // must be removed synchronously, without advancing the simulated clock.
+  expect(jest.getTimerCount()).toBe(timersBefore - 1);
+  await settle();
+  await act(async () => jest.advanceTimersByTime(120_000));
+  expect(mockSync).toHaveBeenCalledTimes(1);
+  act(() => { onState('active'); onState('active'); }); await settle();
+  expect(mockSync).toHaveBeenCalledTimes(2); expect(mockReport).not.toHaveBeenCalled();
+});
+
+test('background startup waits for foreground before requesting permission or registration', async () => {
+  AppState.currentState = 'background';
+  renderHook(() => useNativeNotifications(true)); await settle();
+  expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled(); expect(mockSync).not.toHaveBeenCalled();
+  act(() => onState('active')); await settle();
+  expect(mockSync).toHaveBeenCalledTimes(1);
 });
 test('transient token failure retries on the bounded policy and records the attempt', async () => {
   const failure = new Error(
@@ -318,7 +358,7 @@ test('notification tap waits for app access and navigator readiness, then marks 
     p_receipts: [
       { scope_kind: 'daily_event', scope_id: 'day', seen_at: '2026-10-02T00:00:00.000Z' },
     ],
-  });
+  }, { expectedUserId: 'member', isCurrent: expect.any(Function) });
   act(() => onResponse(response(data, 'different-native-id')));
   await navigate();
   expect(mockRouter.push).toHaveBeenCalledTimes(1);
@@ -371,4 +411,27 @@ test('unmount cancels a queued navigation task without acknowledging the push', 
   await navigate();
   expect(mockRouter.push).not.toHaveBeenCalled();
   expect(Notifications.clearLastNotificationResponseAsync).not.toHaveBeenCalled();
+});
+
+test.each(['account', 'background', 'unmount'])('delayed attention acknowledgement stops after %s', async reason => {
+  const { unmount } = renderHook(() => useNativeNotifications(true)); await settle();
+  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day' })));
+  await navigate();
+  if (reason === 'account') mockUser = 'other';
+  else if (reason === 'background') act(() => onState('background'));
+  else unmount();
+  await act(async () => afterNavigation.forEach(callback => callback()));
+  expect(mockCommand).not.toHaveBeenCalled();
+});
+
+test('native cleanup and attention transport rejections are observed without raw error content', async () => {
+  jest.mocked(Notifications.clearLastNotificationResponseAsync).mockRejectedValue(new Error('private native details'));
+  mockCommand.mockRejectedValue(new Error('private transport details'));
+  renderHook(() => useNativeNotifications(true)); await settle();
+  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day' })));
+  await navigate();
+  await act(async () => afterNavigation.forEach(callback => callback()));
+  expect(mockRecord).toHaveBeenCalledWith('push', 'response-clear-deferred', expect.any(Error));
+  expect(mockRecord).toHaveBeenCalledWith('push', 'attention-seen-deferred', expect.any(Error));
+  for (const call of mockRecord.mock.calls) expect(String(call[2])).not.toContain('private');
 });

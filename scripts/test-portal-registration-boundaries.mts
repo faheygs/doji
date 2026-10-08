@@ -64,12 +64,30 @@ for (const patch of [
   { origin: `${config.origin}/path` },
   { actionSecret: null },
   { actionSecret: 'short' },
+  { actionSecret: 'a'.repeat(24) },
   { actionSecret: 'a'.repeat(257) },
 ])
   test(`reject invalid registration configuration ${JSON.stringify(patch)}`, () =>
     assert.throws(() => Reflect.apply(fixture, undefined, [true, patch])));
 test('missing executor rejects before admission', () =>
   assert.throws(() => Reflect.apply(createBusinessRegistrationAction, undefined, [config, null])));
+
+test('25-character provider secret still requires its exact HMAC', async () => {
+  const actionSecret = 'synthetic-provider-key-12';
+  assert.equal(actionSecret.length, 25);
+  const f = fixture(true, { actionSecret });
+  const raw = JSON.stringify(action);
+  const signed = createHmac('sha256', actionSecret).update(`${now}.${raw}`).digest('hex');
+  const result = await f.handle(
+    request(action, {
+      headers: { 'workos-signature': `t=${now}, v1=${signed}` },
+    }),
+  );
+  assert.equal(result.status, 200);
+  assert.equal(f.calls.length, 1);
+  assert.equal((await f.handle(request())).status, 401);
+  assert.equal(f.calls.length, 1);
+});
 
 test('disabled registration never parses or reserves anything', async () => {
   const f = fixture(true, { enabled: false });

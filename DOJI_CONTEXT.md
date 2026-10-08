@@ -1,5 +1,355 @@
 # Doji: authoritative product and system context
 
+## October 6 MDT expanded cross-platform diagnostics (LOCAL ONLY; supersedes parity-only scope below)
+
+The owner requested fuller iOS and Android evidence before either next build.
+Member-mobile diagnostics now persist a separate random installation ID under
+`@doji/diagnostic-installation:v1` and use a new random session ID on process start
+and account transitions. These are diagnostic correlation identifiers, not auth,
+push, advertising or hardware IDs, and do not identify a named person. Storage
+failure falls back to an explicitly memory-only ID; requests never await storage.
+Account IDs are compared only in memory, never transmitted by this instrumentation.
+Session transitions clear the 24-entry diagnostic timeline; late requests retain
+their original context and cannot inherit the new account's timeline.
+
+Handled API events retain code-owned screen templates, allowlisted RPC/table/scale
+endpoint labels, random request IDs, concurrent-request counts, first/final retry
+evidence, bounded timing with explicit cap indication, UTC request boundaries,
+start/settlement lifecycle/network observations, and validated provider response
+IDs/status/body-state/size/cache/retry hints. SDK-native device/model, OS, emulator,
+battery/memory/storage and app-build facts survive a strict field whitelist when
+available. Names, emails, device names, hardware IDs, IPs, SSIDs, URLs/query filters,
+credentials and request/response content remain excluded from these API reports.
+Native Android cache/Test Lab hints remain Android-only and do not prove root cause.
+
+`expo-network` is pinned to the installed Expo SDK's recommended 57.0.2. It observes
+OS network changes and samples state at observer startup/foreground, without active
+reachability probes, polling, permissions prompts or gating requests. iOS reachability
+is not evidence of server reachability; every snapshot labels its OS-only provenance
+and sample age. Missing modules/failed observations leave unknown evidence. A bounded
+timeline of lifecycle, navigation, memory warnings and request outcomes is attached to
+later incidents; successful retries do not send a separate Sentry event. Other JS
+errors receive explicitly processing-time (not request-time) diagnostic context.
+Correlation tags are synchronized through the existing SDK's native scope; actual
+native crash-envelope acceptance still requires native release/device verification.
+
+No timeout, retry, command payload, auth, query gating, event grouping, rate budget,
+performance sample rate, backend, portal or paid setting changes. No replay/screenshots
+or bulk log stream enabled. This is not shipped and does not repair/prove the timeout
+origin or restore missing historical evidence. New native binaries are required on
+both platforms; review store privacy declarations for the new diagnostic identifier
+before submission. Native device tests and live Sentry-envelope checks remain release
+gates, not passed by local mocks/autolinking checks.
+
+Local validation: 105 suites / 1,287 tests passed across mobile libraries, startup,
+auth flows/account isolation and command execution. App TypeScript, scoped ESLint
+and whitespace checks passed. Expo autolinking resolves `expo-network` 57.0.2 for
+Apple and Android; this is module-discovery evidence, not a native build or device
+test. No build, upload, production Sentry probe or deployment was performed.
+
+## October 6 MDT iOS request-diagnostic parity (LOCAL ONLY)
+
+Shared mobile request evidence now includes iOS as well as Android: allowlisted
+start/failure AppState, method, fetch invocation count, request phase and existing
+body-consumption timing. iOS command errors retain request evidence through error
+conversion. Query first-attempt fields remain shallow enough for Sentry's default
+normalization; terminal fields stay directly under `contexts.api`. Failure summaries
+distinguish observed client deadlines from HTTP responses without claiming an upstream
+root cause. Native cache/protocol hints and Test Lab attribution remain Android-only.
+
+No extra requests or body reads, retry/deadline changes, auth changes, persistent
+identifiers, network-transition tracking or recovery events are added. Existing
+privacy filtering, grouping and alert budgets remain intact. The 182 focused local
+tests pass; these are JS/SDK controls, not native iPhone acceptance. This is not in
+iOS build 103, does not recover historical missing evidence and is not a timeout
+root-cause repair. A separately authorized iOS build/release and device verification
+are still required. No backend or portal deployment is included.
+
+## October 6 admin sign-in readiness and cleanup-loop repair
+
+The admin credential form stays hidden until its controller/session restoration
+settles, avoiding a visible editable form that late initialization clears or disables.
+Username/current-password semantics support password managers; credentials are not
+stored. A separately reproduced client cleanup loop was also fixed: failed server
+sign-out after local expiry now emits `onSessionCleanupFailed`, not another access
+invalidation. The locked screen may show a warning without clearing a new password,
+stealing focus, or automatically requesting logout again. Local access stays revoked;
+MFA, idle/absolute expiry and explicit server sign-out rules are unchanged. This is
+an admin-static/browser repair, not an Edge, database, member or business deployment.
+Exact release evidence is in `test-results/admin-signin-cleanup-20261006/` and the
+current section of `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md`.
+
+## October 6 UTC employee workflow LIVE on the main admin portal
+
+Employee endpoint v14 fixes workflow realtime authorization for limited business
+reviewers without giving them moderation access. It signs only fresh authorized
+staff channels, adds legacy global/moderation topics only for currently authorized
+moderation staff, and preserves the 15-minute token lifetime. Auth/provider/MFA/
+session modules, member token issuance, Pages Worker/configuration and business
+deployments are unchanged. The main admin UI now uses loaded-page summaries
+and explicit overdue labels instead of the old report-scoped overview counters.
+The owner approved one labelled synthetic business case and temporary employee
+for live assignment/denial/realtime testing, followed by access removal. Normal
+MFA, claim/replay, permission denials, actual Ably delivery, automatic renewal
+across token expiry, reconnect and access revocation passed. The synthetic provider
+user is deleted, test access removed and the labelled application closed with
+audit retained. Pages `04c55826-80a5-4923-a2fa-33a7d4d4f38b` is live at
+`https://admin.dojipro.com/`; the preview redirects there. Owner session restoration
+and current six-queue reads passed. No real-case command, member change, paid
+feature or applicant email was part of this release. Other case-family mutations
+remain locally fixture-tested, not claimed as destructive live acceptance.
+See the current promotion section of `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md`.
+
+## Earlier October 5 MDT / October 6 UTC gated preview record
+
+The owner-approved preview now runs at
+`https://admin.dojipro.com/identity/employee-preview/`; the current admin homepage
+and member authentication remain unchanged. Additive workflow SQL and four
+concurrent indexes are installed; all three workflow gates are enabled. Employee
+endpoint v13 enables the explicit workflow flag while preserving the existing
+auth/session/provider modules and settings. Admin Pages deployment is
+`ad01d00e-e153-45c6-9b46-6a91f4e518a8`; only preview assets and the retired preview
+redirect changed. Business/public site deployments are unchanged. No new costs.
+Owner-session read checks verified the six-queue inbox, ownership filters,
+eligible-assignee reads and business review handoff without changing any cases.
+Local release-shaped install/rollback, 165 transport/workflow checks and 87 exact
+runtime tests passed. Actual provider hint delivery, reduced-role live acceptance
+and full root promotion remain pending; connected status is not delivery proof.
+Shared trigger/outbox overhead exists; no physical-isolation/zero-risk claim.
+See `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md` for exact artifacts, rollback and
+remaining acceptance. Historical preparation notes below are superseded by this
+release status, not evidence that the gates are still disabled.
+
+### Preparation history
+
+The admin workflow audit confirmed missing business entries in the core inbox and
+hardcoded Unassigned labels without ownership commands for ideas/appeals. A local,
+disabled candidate now adds atomic ownership and a two-source page for business
+applications and community ideas. It does not replace report/takedown ownership,
+grant decision permissions, or alter member/source commands. Production remains
+unchanged. The local independent employee bridge and gated browser request routes
+now support these contracts and a bounded, case-authorized assignee directory;
+the deployed dispatcher and member contracts are unchanged. A default-off local UI
+now connects this two-source workspace to Overview, Inbox, Businesses and Ideas,
+with confirmed ownership commands and handoff to existing review screens. Its 21
+offline browser scenarios cover the compiled portal, permissions, conflicts,
+uncertain retries, lock cleanup and accessibility. The owner subsequently approved
+expanded LOCAL backend preparation. A separately disabled six-source inbox now
+combines reports, appeals, ideas, business applications, external intake and business
+privacy. New appeal/privacy ownership preserves independent appeal review and never
+starts privacy execution; reports/intake retain their original ownership stores.
+Disabled identifier-only event producers and an employee-MFA channel allowlist are
+prepared, including queue-only hints for restriction transitions/dependencies.
+The subsequent local UI now consumes the six-source inbox, shows Ready/Waiting,
+Mine/Unassigned, assessed deadlines and source-specific review handoffs, and hides
+superseded aggregate/queue panels under the same gate. Employee-only capability
+signing and targeted staff subscriptions are implemented but disabled in production.
+28 offline browser scenarios and 163 workflow/transport checks pass, alongside
+existing admin auth and 160 health/browser-source tests. These are not a hosted
+all-role end-to-end acceptance or production load qualification. Live provider
+delivery, token-revocation behavior, shared impact review and release acceptance
+remain gated. No production activation occurred. See `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md`
+for tested scope, performance limits and deployment gates.
+The subsequent local qualification populates 30,000 synthetic rows across all six
+queues. Before/after partial-index phases each pass 1,260 filtered/keyset reads and
+360 absent/disabled/enabled-trigger source updates. A concurrent employee-inbox /
+member AAL1 profile-read/report-RPC test and retaining rollback pass. Three additive
+queue indexes are LOCAL candidates only; production needs concurrent-index/size/
+lock review and separate approval. Some Unassigned paths still scan qualifying
+rows; these measurements are not production capacity or a full hosted acceptance.
+Owner subsequently approved the gated employee preview with shared-database
+additions, preserving the current homepage/member auth and no new costs. Live
+read-only preflight found no candidate installation and employee endpoint v11.
+Cloudflare deployment access expired; authorization timed out awaiting owner, so
+no production change was attempted. A preview-only compiled-import path defect
+was corrected locally; 29 offline browser and 165 workflow/transport checks pass.
+Resume with fresh Cloudflare authorization and deployment baseline, not root
+promotion or real moderation writes.
+
+## October 5 MDT / October 6 UTC: business session continuity
+
+Business access now composes the existing application view in the same document.
+A verified returning session is handed to that view in memory, with a canonical
+history replacement instead of a page reload and duplicate session read. Unknown
+sessions show a neutral opening state; direct application entries likewise hide
+signed-out actions until restoration settles. No tokens or account data are stored
+in browser storage or embedded in HTML. Hosted WorkOS sign-in/callback and MFA
+remain unchanged; this does not complete the custom provider-UI replacement.
+The four-file static release was verified live at 2026-10-06T00:22:04Z. All 40
+business browser scenarios passed against the exact release artifact; actual
+owner-session acceptance remains pending. Backend/member/employee contracts and
+other sites were unchanged. See the account-realm release record for rollback.
+
+## October 5: business first-application default-field repair
+
+Owner signup and hosted authentication succeeded, but first application submission
+returned HTTP 400. The US country was displayed while absent from the event-only
+draft payload. Independent business Save/Submit now snapshots all rendered,
+allowlisted form values, covering defaults and silent browser autofill. HTTP 400
+application messages preserve entries and no longer incorrectly suggest signing in.
+The defect was reproduced before repair; 25 focused browser tests now pass. Only
+business static scripts changed; backend, database, member and employee systems did
+not. Live asset/access checks passed; owner resubmission acceptance is still pending.
+
+## October 5, 20:10 UTC: email-first business registration
+
+Register now opens a compact, shared-component email form, not a consent-only gate.
+The entered email is passed only as WorkOS's documented `login_hint` on the already
+validated authorization URL. It is not an identity claim, application draft, or
+browser-storage entry. Hosted password setup/email verification and the verified
+callback remain authoritative; business details follow authentication. Consent,
+Turnstile, PKCE/state, admission caps and all backend/member/employee contracts are
+unchanged. Three static account-page assets were released; 22 focused browser
+tests and live asset/access-boundary checks passed. Real owner signup remains pending.
+
+## October 5, 19:59 UTC: public business front door
+
+`business.dojipro.com/` serves a public business-focused website (HTTP 200), never
+an automatic application redirect or session read. It reuses the main site's
+design foundation with clear Sign in/Register links to the respective account
+modes. Account pages retain session restoration, legal consent and security checks;
+the action dropdown is removed. This was a business Pages presentation-only release:
+worker/config/legal assets and all backend/member/employee settings are unchanged.
+The account-separation record contains deployment, rollback and 22 passing browser
+checks. Real owner signup/recovery remains pending. No paid capability was enabled.
+
+## October 5, 19:12 UTC: business signup enabled for owner acceptance
+
+Following explicit owner approval, the business WorkOS password method and
+business-only realm/session/registration/enrollment/read/command/privacy gates
+are enabled. Ten-account admission and October 7 23:59:59 UTC expiry remain;
+there were zero accounts/reservations after activation. Registration Action
+verification/error-denial remains mandatory. Member Supabase Auth and employee
+identity/session settings are unchanged, with existing contract fingerprints and
+deployment IDs verified. Campaigns, billing and business realtime stay disabled.
+The live signup page is open for the owner to accept terms and create/verify a
+password-protected business account. Production signup/callback, application and
+recovery acceptance remain pending, not passed. The release record documents the
+atomic activation, rollback rehearsal, bounded health checks and retaining freeze.
+Historical states below are superseded by this activation.
+
+## October 5, 19:04 UTC: business runtime connected, signup still gated
+
+The approved business-only runtime credentials, Edge function and Pages proxy are
+installed. Actual WorkOS-signed registration qualification succeeded with the
+expected Deny while database admission remains closed. Registration Action errors
+also deny. Pages strips only Supabase's infrastructure `__cf_bm` cookie, preserving
+the strict business-auth cookie boundary; hosted anonymous/cross-origin checks
+return 401/403. The business JWT audience matches its independent client.
+Member/employee credentials, contracts and other Pages deployments were checked
+unchanged; shared infrastructure still carries residual risk. No polling, member
+auth, realtime, push, release-policy or paid feature change occurred. Final bounded
+business activation and real owner signup/recovery remain outstanding. See the
+account-separation record for exact deployment and evidence; older notes below
+describe the preceding disabled preparation, not the latest runtime state.
+
+## October 5: independent business workspace MFA qualified in staging, not deployed
+
+The business-only runtime now prepares and consumes session-bound WorkOS TOTP
+challenges inside its encrypted durable session lease. Enrollment is not proof;
+assurance requires exact challenge verification and provider factor ownership.
+Staging exposed that new factors are absent from the user's factor list until
+first verification; the sealed enrollment response binds that first challenge,
+and ownership is rechecked after success. A wrong code consumes the challenge
+without logging the user out or granting workspace access. An explicit new
+attempt is rate-limited; no automatic provider retry occurs.
+
+The independent browser uses the existing business MFA component and the existing
+approved-business workspace SQL read. Logout/revocation fences late responses and
+clears setup keys/workspace data. Member Supabase Auth and employee MFA/session
+code are unchanged. Campaigns, billing and business realtime remain disabled.
+Free business-staging enrollment and subsequent fresh-code verification passed
+at 17:44 UTC; synthetic users were removed. This is not production signup, reset
+email delivery, or owner device acceptance. Production runtime/Pages connection
+and independent-directory privacy fulfillment remain release gates. See the
+account-separation record for evidence and current local regression results.
+
+## October 5, 16:47 UTC: business database bridge installed, activation disabled
+
+The reviewed enrollment, reads, commands, registration and review overlays are now
+installed. Six existing business-only function definitions changed intentionally;
+unrelated member/employee contracts, existing grants, RLS and employee settings were
+preserved. The transaction rehearsal also verified restoration of those six
+definitions. Business enrollment, reads, commands, registration and sessions remain
+disabled; no business realm, account or independent principal was seeded.
+
+The dedicated SQL login was prepared and rollback-rehearsed at 16:49 UTC. After
+explicit owner approval of its four role memberships and two-connection limit,
+installation and TLS/disabled-gate verification passed at 17:02:25 UTC. Existing
+contract fingerprints and member/employee isolation guards were preserved. The
+credential stays in protected local storage; Edge runtime credentials/configuration,
+WorkOS configuration and Pages cutover have not been installed. Signup is not live;
+workspace MFA and directory-specific privacy fulfillment remain gates. See the
+account-separation release record for exact evidence. Historical preparation notes below
+describe earlier checkpoints, not the current bridge deployment state.
+
+## October 5: independent business endpoint installed DISABLED
+
+After explicit shared-configuration approval, `business-portal-v2` version 1 was
+installed and source-verified at 16:38 UTC. Only `BUSINESS_V2_ENABLED=false` was
+added; no WorkOS key, SQL credential or `BUSINESS_V2_CONFIG` was installed. Direct
+session/start/registration requests return empty no-store 503 before initialization.
+Existing 16 function sources, credential digests, public/Auth RPCs, RLS policies,
+roles and all three Pages deployments were preserved. Supabase incremented existing
+function versions once and refreshed some system-secret timestamps; values did not
+change. Member authentication remains Supabase and employee behavior is unchanged
+by this release. Anonymous boundary/static checks matched before/after; this is
+not signed-in device acceptance or proof of zero transient cold starts.
+The business website is still the prior deployment, not an independent-auth cutover.
+See `docs/ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md` for evidence and gates.
+
+## October 5: independent business runtime and onboarding assembled locally
+
+The business-only candidate now composes the existing restricted SQL adapter,
+encrypted session/flow store, WorkOS verifier/provider, signed registration Action,
+Turnstile admission and same-origin Pages proxy. It forwards only business cookies;
+employee cookies, browser bearer tokens and region-routing headers are not forwarded.
+Registration uses the existing US **business** attestation, not an IP geofence.
+Provider signing-key retrieval is bounded/coalesced and fails closed on failed refresh.
+
+`website/build-business-identity.mts` assembles a separate artifact from maintained
+TypeScript. Its account page uses the shared dropdown/theme/verification controls
+and hosted WorkOS password setup/reset; its application page uses the existing
+atomic draft/submit controller. Browser tests cover consent, restored sessions,
+conflict-preserved drafts, status rendering and sign-out fencing. No new polling,
+member/employee authentication changes, realtime, billing or campaign publishing.
+Approved-workspace MFA and independent-directory privacy fulfillment remain gates;
+the application-only candidate does not pretend those features are complete.
+
+Read-only production checks October 5 around 15:35 UTC still show business Pages
+deployment `b891687f-f7a6-47b3-998d-9c74a27525fc`, no `business-portal-v2` endpoint
+and no `BUSINESS_V2_CONFIG`. Existing employee endpoint remains active at version 8.
+Shared-project configuration can refresh existing Edge functions; separate owner
+approval was requested for an initially disabled business endpoint/configuration,
+with existing secret/source preservation, outside-window health checks and rollback.
+No production configuration, database or Pages changes were made by this preparation.
+
+## October 5: independent business review compatibility prepared, not deployed
+
+The approved business identity follow-up now has a local review/privacy overlay,
+`docs/drafts/portal_identity_business_review_v1.sql`. Staff approval uses the exact
+active business principal and identity mapping; a disabled/revoked registry entry
+cannot fall back to a legacy Auth row. Existing member/employee identities remain
+ineligible. Review keeps the existing atomic command, revision, receipt and audit
+contracts and locks the identity before the business account, matching resolution.
+Privacy access explicitly identifies the independent directory and the need for a
+separate provider export. Legacy Supabase erasure rejects independent principals:
+absence of an Auth row is not evidence of WorkOS deletion. The independent
+provider-erasure lifecycle remains a cutover gate, not a completed feature.
+
+At 2026-10-05T14:37:55Z, the offline clean-room database suite passed 288 migrations,
+13 extended suites and 51 new independent-business review checks, including exact
+rollback, rollback-drift rejection, member/Auth preservation and existing privacy
+regression. No production mutation or deployment occurred. Live read-only checks
+still show the legacy business frontend; WorkOS business callback URLs are unset,
+email/password is disabled and its registration Action is unconfigured. Provider
+configuration, hosting and lifecycle qualification remain open; this is not an
+end-to-end business launch acceptance. Owner subsequently approved the included
+WorkOS business verification/reset emails and provider rate limits in place of
+the old 30-email cap, conditional on no additional cost. Default emails are already
+enabled in WorkOS; no paid add-on or live legacy email-cap change was made. The
+ten-account admission limit and expiry remain in place for the candidate.
+
 ## October 4 MDT / October 5 UTC: TypeScript source migration complete, no cutover
 
 Owner approved the business identity/dependent approval/privacy follow-up and
@@ -1981,6 +2331,20 @@ See `docs/PORTAL_ISOLATION_RELEASE_2026-09-25.md` for scope, tests and rollback.
   session lifecycle, push configuration or announcement publication changed.
   See docs/COMMUNITY_IDEA_RETRIAGE_RELEASE_2026-09-27.md for evidence and rollback.
 
+### Reserved Other in community polls (2026-10-05)
+
+- The live atomic editorial approval command filters exact case-insensitive `Other`
+  choices, including JavaScript trim whitespace, only when first creating a general
+  poll from a suggestion. It retains order, requires at least two real choices,
+  and appends exactly one `is_other=true` write-in at position 99.
+- Original suggestion options and audit evidence remain intact. Existing linked
+  challenges, re-review, WYR choices, rewards, permissions, scheduling and voting
+  behavior are unchanged. Neither of the owner's two queued ideas was approved.
+- The local mobile form removes reserved entries on blur and filters the submit
+  payload even without blur. That UI change is not shipped; the live approval
+  safeguard also protects submissions from older clients.
+- See `docs/POLL_RESERVED_OTHER_RELEASE_2026-10-05.md` for checks and rollback.
+
 ### Android 21 incident follow-up (prepared 2026-09-28; not released)
 
 - Current user-event, release-policy, leaderboard, paged friends and badge progress
@@ -2235,3 +2599,315 @@ error conversion. Atomic RPCs, auth, request bodies, retry budgets, iOS and shar
 services are unchanged. This is not a deployed release or an identified repair
 of the production 504 origin. See
 docs/ANDROID_27_POST_504_INVESTIGATION_2026-10-04.md for evidence and limitations.
+
+# October 5: approved independent-business privacy completion (installed disabled)
+
+The business-only privacy candidate adds owner-operated, exact-case WorkOS identity
+export and erasure. Existing employee-MFA privacy review must prepare an unheld
+erasure case before the operator can claim it. One durable execution authorizes at
+most one provider DELETE; uncertain outcomes require exact-user GET reconciliation.
+The primary-erasure transaction clears business application/snapshot/free-text and
+retry-result data, removes exact business sessions/membership, and tombstones only
+the business principal. Agreement/audit evidence remains for reviewed retention.
+Identity-profile export is explicitly partial: staff combine it with the application
+case export and separately assess provider security records/backups before closure.
+No browser/API role receives privacy-operator access. No timer or automatic erasure
+is introduced. Supabase member accounts, employee accounts, push and realtime remain
+unchanged. The additive SQL was deployed and verified at 18:27 UTC with its
+execution gate disabled. The updated callback runtime remains local, and business
+signup is not live. Exact installation evidence is recorded in the account-realm
+preparation document.
+
+## October 5: business applicant journey (live at 21:41 UTC)
+
+The later business runtime/signup cutover supersedes the earlier disabled-launch
+snapshot above. Business registration and existing-account access now lead to a
+state-aware business home, not a permanently disabled application form. The
+October 5 presentation release adds account/details/review progress, an explicit
+check-answers step, a server-confirmed receipt (reference and submitted time),
+print/save, applicant-safe activity, reviewer response and next-step guidance.
+Draft, pending, changes-requested, approved and declined states have distinct copy.
+Returning pending applicants see the same receipt without resubmitting. Approval
+still requires the existing authenticator check to open the restricted workspace;
+campaign publishing and billing remain disabled. No review-time SLA is invented.
+
+This release changes only five business presentation assets. Business Worker,
+public configuration and auth contracts are byte-identical; admin/main website
+deployments are unchanged. Live Pages ID: `0f3f7070-ecce-4b8b-9dd0-36dbf658c978`;
+rollback ID: `4a8fd4ca-2ccb-45a3-a7c2-53151c0dc3e8`. Evidence is under
+`test-results/business-journey-20261005/`. Thirty synthetic browser tests, focused
+model/artifact/controller tests, website/tooling typechecks, lint and size checks
+passed; an existing pending application was verified read-only in live Chrome.
+
+Email receipts are NOT live. The separately owner-approved local email candidate
+is `docs/drafts/business_email_outbox_v1.sql` with freeze rollback and a pure
+message-preparation module in `infra/business-email-candidate/`. Its offline
+database tests pass, including existing member RPC/grant/RLS preservation. Both
+capture and sending default off; no sender, provider integration, schedule or
+production SQL was deployed. See the account-realm preparation document for gates.
+
+### October 5: local admin sign-in journey candidate (not deployed)
+
+The admin presentation candidate adds explicit sign-in/verification/workspace
+progress, session-restoration busy state, password visibility control, actionable
+MFA failure guidance, invitation/access help, and a compact phone sign-in layout.
+The existing employee transport, mandatory MFA and server permissions remain the
+authority. Passwords, one-time codes and enrollment material are cleared from the
+UI after use and on lock. Locking still erases sensitive drafts and case data;
+the UI now states this instead of implying that unsaved work survives a lock.
+Workspace navigation focuses its heading for keyboard/screen-reader orientation.
+No new reads, polling, provider configuration or production deployment is included.
+
+This is not completion of Doji-owned authentication everywhere. Employee password
+recovery/invitation setup still uses the existing hosted WorkOS path. Business
+hosted authentication also remains unchanged. Those flows require their own
+provider-backed implementation and realm-isolation/recovery regression checks;
+the business email queue remains local-only and sending-gated as described above.
+
+### October 6: admin queue navigation scope
+
+The combined staff review workspace belongs only to Command center and Work queue.
+Businesses, Community ideas, Trust & safety and Restricted safety retain their own
+domain tables, filters and review actions, without a duplicate all-area inbox.
+Cross-area ownership management remains available in the combined workspace.
+Leaving those main pages invalidates pending inbox reads and clears hidden rows;
+domain navigation and hints do not load the combined inbox. Returning performs a
+fresh bounded authorized read. No server permissions, auth or member behavior change.
+
+### October 6: consistent admin queue presentation
+
+Admin review tables share a bounded fixed-height shell, centered loading/empty/error
+states, scrollable records and bottom-right Previous/Next controls. Business
+applications and external/privacy requests use tables with click/keyboard row
+opening. Cursor-backed queues retain prior page cursors locally; filters and lock
+reset pagination, without new total-count queries or polling. Page summaries are
+explicitly page-scoped, not global counts. Business privacy support is a separate,
+explained expandable section for verified data-access/correction/closure requests.
+External removal drawers expose existing outcome actions near the top, including
+Close request; this still prepares the existing `not_actionable` command requiring
+rationale, requester response and confirmation. Completed removal keeps its evidence
+requirements; read-only staff are told why actions are unavailable. No case is
+automatically closed, no deadline history erased and no permission bypass added.
+
+### October 6: admin navigation and unified safety — initial local qualification
+
+Owner approved local preparation/testing of a shared employee-only safety read,
+with deployment explicitly gated. Command center now has review-area shortcuts;
+My work defaults/resets to server-filtered `mine` and does not duplicate the dashboard.
+Team/unassigned views are deliberate filters. Hidden legacy inbox reads are skipped.
+Announcements empty rows fill their viewport; Audit log uses the shared centered
+spinner and busy pagination. Repetitive page-count prose is removed from the main view.
+
+`docs/drafts/staff_safety_queue_v1.sql` adds disabled-by-default
+`get_admin_safety_work_page_v1` through the verified independent employee bridge.
+It filters area, open/closed status, kind and ownership BEFORE merging bounded report,
+appeal and external-intake sources using timestamp+typed-ID keysets. The portal's
+separate `unifiedSafetyEnabled` flag selects one table per area and suppresses old
+in-app/external list reads; existing exact detail/decision commands remain in use.
+Source attribution is on rows; restricted permission boundaries remain enforced.
+No member Auth, member RPC, RLS, Worker, notification or release-policy change.
+Production shared infrastructure is still shared; local tests do not establish zero risk.
+
+### October 6: unified safety release — LIVE, 14:45 UTC
+
+After separate owner approval, the additive employee-only safety read and bridge
+were installed default-off, exact employee runtime v15 verified, then the safety
+gate enabled and admin UI released. Final admin deployment is
+`07c321f6-0987-45c0-bfa0-a925dd798ea3`. The signed-in browser verified personal
+assignments, no duplicate dashboard inbox, single per-area safety tables and
+mixed-source closed history; no real case/ownership/decision was changed.
+Cache-safe workflow imports and admin script/CSS URLs use content-derived revision
+`f1afa7052e620457`, fixing stale-module/style mixing discovered in live acceptance.
+Member contracts/auth, all other Edge deployments, Worker, business/public sites,
+credentials, notification and release-policy settings were preserved. Incomplete
+platform-health coverage is separate, not resolved by this UI/read release.
+See `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md` for test evidence and exact
+rollback order: old admin artifact, saved employee v14, then additive SQL inverse.
+
+### October 6: platform operations health — local, not deployed
+
+The portal health candidate separates severity from monitoring coverage, loads
+bounded event history on Command center, and distinguishes quiet traffic, loading,
+stale/missing readings and service failures. Sentry issue groups require review,
+not an unsupported current-outage claim. Existing event/reconnect/foreground
+reconciliation is coalesced and serialized; no new polling or shared deployment.
+The complete service-health event feed is still a separately gated requirement.
+See `docs/PLATFORM_OPERATIONS_HEALTH_2026-10-06.md` for scope and remaining work.
+
+Owner subsequently approved local shared health-event preparation/testing. The
+default-off candidate adds employee-operations-only source/revision invalidations
+for delivery observations and admin Doji summaries, version-aware cache reads and
+targeted visible-page reconciliation. Member access is denied; existing collector
+response/recovery and member RPC/RLS definitions remain unchanged. Offline SQL,
+rollback, collector failures, browser races and scoped member regressions passed.
+No deployment or new polling. Shared outbox capacity/free-tier headroom and exact
+live qualification remain release gates; Sentry/provider-wide immediate monitoring
+is still incomplete. See the same health record for bounds, evidence and rollback.
+
+### October 6: platform-health UI released; shared feed blocked on cost gate
+
+Admin-only deployment `5f9c93d5-c72f-4693-b22a-dd32257e8ab8`, revision
+`fc05ff9ee7be87fc`, now serves the health presentation/reconciliation changes.
+All 14 exact-package browser checks passed; live asset hashes and unchanged backend,
+business/public deployment fingerprints were verified. The proxy is byte-preserved.
+Authenticated live Operations layout/read acceptance passed after owner sign-in;
+the screen explicitly reports limited visibility. Exact rollback is retained in
+`test-results/admin-unified-safety-cache-20261006-v2/site`.
+Owner approved shared-health deployment conditionally, but Ably's authenticated
+current package is $29/month plus usage, so the no-additional-cost condition is not
+established. Shared SQL/collector/runtime were not deployed; browser health events
+remain disabled. No new billing or plan changes. Full immediate service monitoring
+is not complete; see the health release record for the remaining gates.
+
+### Admin full-workspace record navigation (October 6)
+
+Live October 7 03:16 UTC: admin deployment
+`9f87f318-80a0-4700-9096-b567411c4066`, revision `44f8a4109ab0852d`.
+Exact-package browser checks and live asset/contract verification passed. The
+business/public sites and mobile builds were not deployed. Evidence/rollback:
+`docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md`.
+
+Admin safety reports/appeals, removal requests, community ideas, announcements,
+business applications/privacy and audit details use the main workspace rather
+than a right-edge drawer. The shared `record-pages.mts` presenter keeps each
+controller's existing authorized reads, command validation, confirmations,
+idempotency and cleanup. Queue DOM remains mounted but hidden while a record is
+open; Back to queue/browser Back restores its filters, cursor and opener focus
+without issuing an additional queue read. Existing realtime/foreground
+reconciliation remains authoritative and can update those mounted queues.
+Sidebar navigation closes the current record through its controller; pending
+commands block page departure. Lock/expiry clears protected data as before.
+No protected record is serialized into browser history or storage: the temporary
+history entry contains only a random navigation token and is not a shareable URL.
+Small confirmations/creation and ownership dialogs retain their existing role.
+Record action footers reserve layout space; moved submit buttons retain their
+original form association and native validation. Read-only permissions remain
+unchanged. Lazy business-review assets now share the admin workflow cache revision.
+This is admin UI only: no member-app, database/RLS/RPC, shared Worker, relay, push,
+business-site authentication or health-feed activation. Start review plus atomic
+auto-assignment is a separate, still-gated shared-system proposal.
+
+### Push registration foreground lifecycle — October 8, 2026 (local preparation)
+
+The iOS 1.0.9 (104) incident exposed registration attempts continuing while the
+app was backgrounded. Its client-deadline evidence does not establish an HTTP
+504 or a server root cause. The following mobile-only correction is implemented
+locally; it is not in the released binaries and does not authorize a build.
+
+- Native endpoint registration is foreground/account-bound on both iOS and
+  Android. Inactive/background, account replacement, push disablement, or hook
+  disposal cancels that run, including token waits, registration HTTP/body waits
+  and bounded retry backoff. Late native results cannot resume obsolete work.
+- Foreground entry reconciles once through the existing single-flight/serialized
+  registration path. Duplicate active events share current work. Existing token
+  rotation, six-hour confirmed-receipt policy, v3/v2/v1 missing-RPC fallback and
+  retry budgets remain; no polling, new background task or token cache is added.
+- Only the three native registration commands opt into the lifecycle signal.
+  Account identity is checked before authenticated dispatch/refresh/retry. The
+  installed React Native AbortController drops abort reasons, so a local WeakMap
+  preserves first-abort classification without changing the global polyfill.
+- Cancellation is a local interruption, not remote rollback or confirmed success.
+  No receipt/profile token is written from an unconfirmed response; foreground
+  reconciliation replays the existing idempotent desired-state command when
+  necessary. Registration/unregistration and receipt storage remain client-side
+  serialized; abort alone cannot guarantee server commit ordering.
+- Genuine observed HTTP rejections/deadlines remain reportable. Lifecycle-only
+  interruptions record bounded local diagnostic context, not a timeout incident.
+  No Sentry rule, sampling, mute or resolution setting changes.
+- Permission setup returns `deferred` when registration is interrupted. Settings
+  offers retry without falsely declaring OS permission denied or alerts enabled;
+  onboarding does not complete from that result. Explicit opt-in can register
+  while the saved master switch is off, without changing it before success.
+
+No database, Worker, provider configuration, portal, auth-provider, challenge
+window, participation or notification-delivery contract changes. Physical-device
+acceptance (foreground/background/resume, opt-in, rotation and sign-out) remains
+required on future exact candidate builds; automated tests are not device proof.
+
+Local validation: 39 related Jest suites / 946 tests passed, including the
+installed React Native abort polyfill, cancellation during token/auth/fetch/body
+and backoff, foreground resumption, account/logout races, receipt/fallback policy,
+real HTTP/deadline preservation, Settings/onboarding, auth and member commands.
+Mobile `tsc --noEmit`, scoped ESLint and scoped whitespace checks passed. No build,
+upload, deployment, production mutation or Sentry configuration change was made.
+
+### Push recovery correlation and source maps — October 8, 2026 (local only)
+
+Owner explicitly approved narrowly filtered recovery logs to the existing Sentry
+project. After a reported native-registration API incident, a subsequent confirmed
+server acknowledgement can emit one info-level Sentry Log with the original event
+ID, existing pseudonymous diagnostic installation/session IDs, app/build/platform
+and elapsed recovery time. This is not another error issue and does not change
+alert rules, sampling, issue resolution or muting. No names, member IDs, tokens,
+request bodies or arbitrary messages are allowed. `beforeSendLog` drops other
+logs and rebuilds attributes from a whitelist; it also refuses records with
+ambient scope attributes because this SDK serializes those after the callback.
+Native/console log collection is not enabled.
+
+Correlation is in memory for the current diagnostic session only, expires after
+24 hours, and never bridges an account change or process restart. At most three
+recovery records are attempted in any rolling hour per running process. Routine
+success, cached receipts and cancelled/unconfirmed requests do not establish
+recovery. A pending incident bypasses a previously confirmed receipt on the next
+normal foreground registration attempt so only a new server acknowledgement can
+clear it; there is no polling or new retry budget. Logs are best-effort SDK delivery,
+not durable proof of ingestion or notification delivery. No log is proof of no error.
+
+Authenticated Sentry inspection of event `997e12597a43431dada72dab52b4ba91`
+(iOS 1.0.9/104, issue 7780087517) confirmed uploaded source maps but missing event
+Debug IDs. Both frozen 1.0.9 source manifests lacked the Metro config. Added the
+TypeScript `metro.config.cts` using Sentry's Expo defaults, with replay disabled,
+and included it in the EAS allowlist and tooling typecheck. Local iOS and Android
+exports contain matching runtime/map Debug IDs and round-trip the error-capture
+position to `lib/apiFailureTelemetry.ts`. This is not native compilation or live
+Sentry symbolication proof; an exact future binary/event must verify those.
+Do not upload different maps for the already released binaries.
+
+Read-only capacity checks: Sentry Developer Logs usage was 0 B / 5 GB at $0,
+with no payment method; no billing/settings change. Expo Starter included build
+credit was fully used ($45/$45), leaving $0. No paid/cloud builds were started.
+Existing no-additional-cost constraint remains. Bundle proof is local under
+`test-results/push-recovery-20261008`; these working-checkout exports are not
+frozen release candidates and do not select the next version/build numbers.
+
+Final local validation: 40 unique related Jest suites / 965 tests passed,
+including both-platform event-ID correlation, rolling log limits, account/TTL
+expiry, privacy filtering, cache bypass and interrupted/unconfirmed responses.
+App and tooling TypeScript checks, scoped ESLint and whitespace checks passed.
+The two source-map export proofs were generated with uploads disabled. Physical
+device acceptance and a symbolicated event from each next native build remain
+outstanding; no production recovery logs have been sent by these local tests.
+
+Owner requested preparation only after reviewing the exhausted Expo credit.
+The next-build overlay is staged with SHA-256 verification against both frozen
+1.0.9 baselines; see `docs/NEXT_MOBILE_BUILD_2026-10-08.md`. This is not an EAS
+queue entry or automatic job. Keep each platform's existing upload allowlist
+and add only Metro configuration. Build/version selection, fresh capacity checks,
+exact-candidate checks and physical acceptance remain future release gates.
+
+### Next-build support and recovery polish — October 8, 2026 (local only)
+
+Owner approved preparing the pending poll “Other” form cleanup, a member support
+entry point and a focused interruption/recovery pass for the next mobile builds.
+Settings now links to Report a problem. Its selectable preview and user-initiated
+share/email draft contain only app version/build/platform and existing pseudonymous
+diagnostic installation/session IDs. No new identity, request body, token, account
+identifier, automatic email, backend support ticket or automatic telemetry is
+created. The preview resets on account/focus changes; the account is rechecked
+before opening an external composer. Opening or dismissing it is not submission.
+References describe the current session, not necessarily an earlier incident.
+
+Concrete recovery fixes distinguish temporary post-read failures from removal and
+offer manual retry, preserving authorized cached content only for transient errors.
+Delayed notification acknowledgement is guarded against account changes,
+backgrounding and unmount; cleanup/acknowledgement rejections are observed locally.
+Existing atomic commands, participation rules and retry budgets stay unchanged.
+Poll suggestions discard reserved “Other” inputs even when submitting without
+blur; would-you-rather options are unchanged. The previously deployed approval
+guard remains authoritative; no new server change is included.
+
+The v2 offline overlay preserves the frozen iOS104/Android29 baselines and excludes
+portal/backend changes. 54 selected suites / 1,171 tests, app/tooling TypeScript,
+scoped lint, size guard and both local JS/source-map exports passed. Native/device
+acceptance remains outstanding. See `docs/NEXT_MOBILE_BUILD_2026-10-08.md` for the
+v2 package and exact-build gates. No cloud build, upload, release or cost occurred.

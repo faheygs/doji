@@ -41,7 +41,7 @@ test('unavailable native API level is omitted', () => {
   Object.defineProperty(Platform, 'Version', { configurable: true, get() { throw Error('private'); } });
   expect(startAndroidReadEvidence()).not.toHaveProperty('android_api_level');
 });
-test.each(['ios', 'web'])('%s records no additional fields and never wraps a response', async os => {
+test.each(['web'])('%s records no additional fields and never wraps a response', async os => {
   Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
   expect(startAndroidReadEvidence()).toEqual({});
   const controller = new AbortController(), response = new Response('[]');
@@ -72,7 +72,8 @@ test('real SDK error preserves phase, lifecycle, method and safe correlation wit
   expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
-test('body deadline snapshots reading, and late completion cannot rewrite evidence', async () => {
+test.each(['android', 'ios'])('%s body deadline snapshots reading, and late completion cannot rewrite evidence', async os => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
   jest.useFakeTimers(); let release!: (value: string) => void;
   global.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true, headers: new Headers(),
     text: () => new Promise(resolve => { release = resolve; }) });

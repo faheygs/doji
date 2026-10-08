@@ -1,8 +1,23 @@
 import { isTransientPushRegistrationError, retryPushRegistration } from '../../lib/retryPushRegistration';
+import { PushRegistrationInterrupted } from '../../lib/pushRegistrationCancellation';
 
 const tokenError = (reason: string) => new Error(`Fetching the token failed: java.util.concurrent.ExecutionException: java.io.IOException: ${reason}`);
 
 afterEach(() => jest.useRealTimers());
+
+test('background interruption immediately clears backoff and does not wait for a suspended timer', async () => {
+  jest.useFakeTimers();
+  const controller = new AbortController();
+  const register = jest.fn().mockRejectedValue(tokenError('SERVICE_NOT_AVAILABLE'));
+  const pending = retryPushRegistration(register, () => false, jest.fn(), controller.signal);
+  await jest.advanceTimersByTimeAsync(0);
+  expect(jest.getTimerCount()).toBe(1);
+  controller.abort(new PushRegistrationInterrupted('background'));
+  expect(await pending).toBe(false);
+  expect(jest.getTimerCount()).toBe(0);
+  await jest.advanceTimersByTimeAsync(120_000);
+  expect(register).toHaveBeenCalledTimes(1);
+});
 
 test.each(['SERVICE_NOT_AVAILABLE', 'INTERNAL_SERVER_ERROR', 'InternalServerError'])(
   'recovers from native %s using a bounded delayed retry', async reason => {

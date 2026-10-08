@@ -95,13 +95,14 @@ for (const [name, patch, expected] of [
   test(name, () =>
     assert.equal(evaluate({ ...base, operational: { ...operational, ...patch } }).state, expected),
   );
-test('recent app errors override healthy delivery', () => {
+test('reported app errors require review without asserting a current outage', () => {
   const status = evaluate({
     ...base,
     sentry: { available: true, configured: true, issues: [{ title: 'Could not load comments' }] },
   });
-  assert.equal(status.state, 'degraded');
+  assert.equal(status.state, 'watch');
   assert.equal(status.delivery, 'healthy');
+  assert.match(status.summary, /not proof of a current outage/);
 });
 test('failed Sentry is not an empty success', () =>
   assert.equal(
@@ -127,3 +128,46 @@ test('expired pushes are visible despite legacy healthy boolean', () =>
   assert.equal(eventState({ ...event, push_shards_expired: 1 }), 'critical'));
 test('stale history cannot claim complete coverage', () =>
   assert.equal(evaluate({ ...base, historyFailed: true }).state, 'unknown'));
+
+test('quiet traffic is partial measurement, not missing monitoring or an outage', () => {
+  const result = evaluate({...base, operational: {...operational, realtime_sample_count_5m: 0}});
+  assert.equal(result.quiet, true);
+  assert.equal(result.coverage, 'partial');
+  assert.equal(result.title, 'Quiet delivery window');
+  assert.equal(result.attention.length, 0);
+  assert.equal(result.state, 'unknown');
+});
+test('first load distinguishes pending data from missing history', () => {
+  const result = evaluate({loaded: false, historyLoaded: false});
+  assert.equal(result.coverage, 'loading');
+  assert.equal(result.title, 'Checking platform health');
+  assert.equal(result.signals.at(-1)?.label, 'Loading history');
+  assert.ok(result.signals.slice(0, 5).every(s => s.label === 'Loading'));
+});
+test('an actually empty completed history read is not loading', () => {
+  assert.equal(evaluate({...base, history: [], historyLoaded: true}).signals.at(-1)?.label, 'No recent summary');
+});
+test('failed initial history read is not stuck loading', () => {
+  assert.equal(evaluate({...base, history: [], historyLoaded: false, historyFailed: true}).signals.at(-1)?.label, 'History unavailable');
+});
+test('missing feed is different from low sample count', () => {
+  assert.equal(evaluate({...base, sentry: {configured: true, available: false}}).coverage, 'unavailable');
+  assert.equal(evaluate({...base, operational: {...operational, realtime_sample_count_5m: 3}}).coverage, 'partial');
+});
+test('a critical signal remains visible even when another measurement is missing', () => {
+  const result = evaluate({...base, operational: {...operational, outbox_exhausted: 1}, sentry: {available:false}});
+  assert.equal(result.state, 'critical');
+  assert.equal(result.coverage, 'unavailable');
+  assert.equal(result.attention[0]?.name, 'Realtime outbox');
+});
+test('a healthy snapshot does not claim universal app coverage', () => {
+  const result = evaluate(base);
+  assert.equal(result.coverage, 'current');
+  assert.match(result.summary, /Unmeasured services are not included/);
+});
+test('future timestamps are unverified', () => {
+  assert.equal(evaluate({...base, operational: {...operational, checked_at: new Date(now+61000).toISOString()}}).coverage, 'unavailable');
+});
+test('missing event counters cannot claim a complete healthy event', () => {
+  assert.equal(eventState({...event,outbox_exhausted:undefined}), 'unknown');
+});

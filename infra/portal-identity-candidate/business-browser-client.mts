@@ -52,9 +52,11 @@ export function createBusinessBrowserClient(
     if (!response.ok) {
       const error = Object.assign(
         Error(
-          response.status === 409
-            ? 'This record changed. Refresh before trying again.'
-            : 'Business access could not be completed. Please retry or sign in again.',
+          path === '/api/application' && data !== undefined && response.status === 400
+            ? 'Some application details were not accepted. Check the required fields and HTTPS website address, then submit again. Your entries are still here.'
+            : response.status === 409
+              ? 'This record changed. Refresh before trying again.'
+              : 'Business access could not be completed. Please retry or sign in again.',
         ),
         { status: response.status, ...(response.status === 409 ? { code: 'PT409' } : {}) },
       );
@@ -114,6 +116,59 @@ export function createBusinessBrowserClient(
     onClear(fn: () => void) {
       listeners.add(fn);
       return () => listeners.delete(fn);
+    },
+    async factors() {
+      const result = await protectedCall('/auth/mfa/prepare', { enroll: false });
+      if (!isRecord(result)) throw Error('Authenticator could not be prepared.');
+      if (result.enrollmentRequired === true) return [];
+      if (result.challengeReady !== true) throw Error('Authenticator could not be prepared.');
+      return [{ id: 'server-bound-challenge', status: 'verified' }];
+    },
+    async enroll() {
+      const result = await protectedCall('/auth/mfa/prepare', { enroll: true });
+      if (
+        !isRecord(result) ||
+        result.challengeReady !== true ||
+        typeof result.enrollmentSecret !== 'string' ||
+        !/^[A-Z2-7]{16,128}$/.test(result.enrollmentSecret)
+      )
+        throw Error('Authenticator setup could not be verified.');
+      return { id: 'server-bound-challenge', totp: { secret: result.enrollmentSecret } };
+    },
+    async verifyFactor(id: string, code: string) {
+      if (id !== 'server-bound-challenge' || !/^\d{6}$/.test(code))
+        throw Error('Enter a six-digit authenticator code.');
+      let result: unknown;
+      try {
+        result = await protectedCall('/auth/mfa/complete', { code });
+      } catch (error) {
+        if (session && ![401, 403].includes(errorStatus(error) ?? 0))
+          throw Object.assign(
+            Error(
+              'Verification was not completed. Wait 30 seconds, then select Open business workspace to try a new code. No access was granted.',
+            ),
+            { restartMfa: true },
+          );
+        throw error;
+      }
+      if (!isRecord(result) || result.assurance !== 'aal2')
+        throw Error('Authenticator verification failed.');
+      // Re-read authoritative session; never upgrade assurance from browser state.
+      if (!(await restore()) || session?.assurance !== 'aal2')
+        throw Error('Business verification expired.');
+    },
+    async workspace() {
+      const result = await protectedCall('/api/workspace');
+      if (
+        !isRecord(result) ||
+        typeof result.organization_id !== 'string' ||
+        typeof result.brand_name !== 'string' ||
+        typeof result.role !== 'string' ||
+        result.campaigns_enabled !== false ||
+        result.billing_enabled !== false
+      )
+        throw Error('Business workspace could not be verified.');
+      return { brand: result.brand_name, role: result.role };
     },
     async signin(fields: { signup: boolean } & Record<string, unknown> = { signup: false }) {
       const stamp = generation;

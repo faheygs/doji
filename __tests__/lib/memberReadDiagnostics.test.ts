@@ -38,6 +38,7 @@ const client = () => new QueryClient({ queryCache: createApiQueryCache(), defaul
 } });
 beforeEach(() => {
   jest.clearAllMocks(); (global as any).__DEV__ = false;
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
   global.AbortController = require('abort-controller').AbortController;
   clock += 120_000; jest.spyOn(Date, 'now').mockImplementation(() => clock);
 });
@@ -147,8 +148,8 @@ test('Android first/final evidence survives the installed Sentry default normali
   } finally { c.clear(); }
 });
 
-test('Android single-attempt failures do not invent first-retry evidence', async () => {
-  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+test.each(['android', 'ios'])('%s single-attempt failures do not invent first-retry evidence', async os => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
   global.fetch = jest.fn().mockResolvedValue(failure());
   const c = client();
   try {

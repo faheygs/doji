@@ -52,6 +52,16 @@ export function createBusinessApplicationAdapter(execute: BusinessExecute) {
     );
   return {
     read,
+    workspace(actor: unknown, signal?: AbortSignal) {
+      const args = identity(actor);
+      if (args[4] !== true) throw denied();
+      return run(
+        'doji_identity_resolver',
+        'select portal_identity_private.read_business_workspace($1,$2,$3,$4,$5) as result',
+        args,
+        signal,
+      );
+    },
     async authorize(actor: unknown, signal?: AbortSignal) {
       await read(actor, signal);
     },

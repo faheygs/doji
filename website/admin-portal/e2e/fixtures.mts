@@ -215,7 +215,17 @@ export async function installBrowserStubs(page: Page) {
             this.onConnection = callback;
           },
         };
-        this.channels = { get: () => ({ subscribe() {}, unsubscribe() {} }) };
+        this.channels = { get: (name: string) => ({
+          subscribe(callback: (message: {name: string; data?: unknown}) => void) {
+            window.addEventListener('test-realtime-message', (event) => {
+              const detail = (event as CustomEvent).detail;
+              if (detail.channel === name) callback(detail.message);
+            });
+          }, unsubscribe() {},
+        }) };
+        window.addEventListener('test-realtime-connection', event => {
+          this.onConnection?.({current: (event as CustomEvent).detail});
+        });
       }
       close() {}
       connect() {

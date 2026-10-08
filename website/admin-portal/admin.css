@@ -1,4 +1,90 @@
 /* Doji operations console — deliberately scoped so the business portal stays independent. */
+/* Shared queue shell: stable viewport, state presentation, and bottom-right paging. */
+.adminPortalPage { --queue-height: clamp(540px, 68dvh, 800px); }
+html[data-theme] .adminPortalPage .portalView:has(> .queuePanel),
+html[data-theme] .adminPortalPage .editorialWorkspace { height: auto; min-height: 0; }
+html[data-theme] .adminPortalPage :is(.queuePanel, .editorialTablePanel, .safetyQueue, .businessQueuePanel, .privacyQueuePanel, .staffWorkflow) { display: flex; flex-direction: column; gap: 0; height: var(--queue-height); min-height: var(--queue-height); flex: none; padding: 0; overflow: hidden; border: 1px solid var(--admin-border); border-radius: 18px; background: var(--admin-card); }
+html[data-theme] .adminPortalPage :is(.queuePanel, .editorialTablePanel, .safetyQueue, .businessQueuePanel, .privacyQueuePanel, .staffWorkflow) > .tableWrap { position: relative; flex: 1 1 0; min-height: 0; margin: 0; overflow: auto; }
+html[data-theme] .adminPortalPage :is(.queuePanel, .editorialTablePanel, .safetyQueue, .businessQueuePanel, .privacyQueuePanel, .staffWorkflow) > :is(.panelHeader, .queueCommandBar) { margin: 0; padding: 18px 22px; flex: none; border-bottom: 1px solid var(--admin-border); }
+html[data-theme] .adminPortalPage :is(.queuePanel, .editorialTablePanel, .safetyQueue, .businessQueuePanel, .privacyQueuePanel, .staffWorkflow) thead { position: sticky; top: 0; z-index: 1; background: var(--admin-card); }
+html[data-theme] .adminPortalPage .tableFooter { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex: none; flex-wrap: wrap; gap: 12px; min-height: 72px; margin: 0; padding: 14px 20px; font-size: 12px; border-top: 1px solid var(--admin-border); }
+html[data-theme] .adminPortalPage .tableFooter > div, .adminPortalPage .queueTools { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+html[data-theme] .adminPortalPage .tableFooter .portalButton { min-height: 40px; padding: 9px 16px; font-size: 13px; }
+.adminPortalPage .tableFooter button:disabled { opacity: .45; cursor: default; }
+html[data-theme] .adminPortalPage .queueErrorFooter { justify-content: flex-end; }
+.adminPortalPage .queueState { min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; text-align: center; padding: 24px; color: var(--admin-muted); font-size: 14px; }
+.adminPortalPage .tableWrap > .queueState { height: 100%; box-sizing: border-box; }
+.adminPortalPage .tableWrap > table:has(.emptyTableRow) { height: 100%; }
+.adminPortalPage .tableWrap > table:has(.emptyTableRow) thead { height: 48px; }
+.adminPortalPage [aria-busy="true"] .queueState::before { content: ''; width: 30px; height: 30px; border: 3px solid var(--admin-border); border-top-color: var(--admin-coral); border-radius: 50%; animation: adminQueueSpin .8s linear infinite; }
+@keyframes adminQueueSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .adminPortalPage [aria-busy="true"] .queueState::before { animation: none; } }
+.adminPortalPage .emptyTableRow { pointer-events: none; }
+.adminPortalPage .queuePageSummary { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 12px 22px; border-bottom: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 12px; }
+.adminPortalPage .queuePageSummary strong { color: var(--admin-ink); font-size: 16px; margin-right: 5px; }
+html[data-theme] .adminPortalPage .queueSummaryStrip > span { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 20px; border-radius: 12px; box-shadow: none; color: var(--admin-muted); font-size: 12px; }
+html[data-theme] .adminPortalPage .queueSummaryStrip strong { color: var(--admin-ink); font-size: 24px; line-height: 1.15; }
+.adminPortalPage .queueSummaryStrip::before { grid-column: 1 / -1; color: var(--admin-muted); font-size: 12px; }
+.adminPortalPage .staffWorkflow > p:empty { display: none; }
+.adminPortalPage .staffOverviewLinks { display: flex; gap: 12px; flex-wrap: wrap; }
+.adminPortalPage .staffOverview { margin: 20px 0; }
+.adminPortalPage .staffOverview h3 { margin: 0 0 16px; }
+.adminPortalPage .auditList > .queueState { height: 100%; }
+.adminPortalPage.unifiedSafetyEnabled [data-portal-view="moderation"] > .queuePanel,
+.adminPortalPage.unifiedSafetyEnabled [data-portal-view="safety"] > .queuePanel,
+.adminPortalPage.unifiedSafetyEnabled [data-portal-view="moderation"] > .queueSummaryStrip,
+.adminPortalPage.unifiedSafetyEnabled [data-portal-view="safety"] > .queueSummaryStrip { display: none; }
+.adminPortalPage .safetyQueue { margin-top: 24px; }
+.adminPortalPage .safetyQueue .statusPill { display: inline-flex; width: auto; }
+.adminPortalPage .caseOutcomeBar { border-top: 1px solid var(--admin-border); padding: 14px 24px max(14px, env(safe-area-inset-bottom)); margin: 0; background: var(--admin-card); max-height: 45dvh; overflow: auto; }
+.adminPortalPage .caseOutcomeBar .editorialActions { margin: 0; }
+.adminPortalPage .caseOutcomeBar h3 { margin: 0; font-size: 15px; }
+.adminPortalPage .caseOutcomeBar p { margin: 8px 0 0; font-size: 13px; }
+.adminPortalPage .caseOutcomeBar .portalButton { min-height: 44px; padding: 10px 14px; font-size: 13px; }
+@media (max-width: 480px) {
+  .adminPortalPage .caseOutcomeBar { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+}
+.adminPortalPage .businessPrivacySection { border: 1px solid var(--admin-border); border-radius: 16px; padding: 20px; margin-top: 24px; }
+.adminPortalPage .businessPrivacySection summary { cursor: pointer; color: var(--admin-ink); font-weight: 700; }
+.adminPortalPage .businessPrivacySection summary span { display: block; margin-top: 6px; color: var(--admin-muted); font-weight: 400; font-size: 13px; }
+.adminPortalPage .businessPrivacySection .privacyQueuePanel { margin-top: 20px; }
+.adminPortalPage .staffWorkflow > :is(p, .queueFilters, .workflowFilters) { margin: 8px 22px; flex: none; }
+.adminPortalPage :is(.safetyQueue, .businessQueuePanel, .privacyQueuePanel) .tableWrap td { white-space: normal; }
+.adminPortalPage tr[tabindex="0"]:focus-visible { outline: 2px solid var(--admin-coral); outline-offset: -2px; }
+@media (max-width: 720px) {
+  .adminPortalPage { --queue-height: 820px; }
+  .adminPortalPage .panelHeader, .adminPortalPage .editorialFilter { flex-wrap: wrap; }
+  .adminPortalPage .tableFooter > span { font-size: 11px; }
+  html[data-theme] .adminPortalPage :is(.safetyQueue, .businessQueuePanel, .privacyQueuePanel) .queueTable :is(th, td) { display: table-cell; }
+  .adminPortalPage :is(.safetyQueue, .businessQueuePanel, .privacyQueuePanel) .queueTable { min-width: 620px; }
+  html[data-theme] .adminPortalPage .staffWorkflow > .queueCommandBar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+  html[data-theme] .adminPortalPage .staffWorkflow > .queueCommandBar .field { min-width: 0; width: 100%; }
+  html[data-theme] .adminPortalPage .staffWorkflow > .queueCommandBar .portalSelect { width: 100%; min-width: 0; }
+  html[data-theme] .adminPortalPage .staffWorkflow > .panelHeader { flex-direction: row; flex-wrap: nowrap; gap: 8px; padding: 14px 12px; }
+  .adminPortalPage .staffWorkflow > .panelHeader h3 { font-size: 15px; }
+  .adminPortalPage .staffWorkflow > .panelHeader button { font-size: 12px; padding: 9px; }
+}
+.adminPortalPage .adminAuthProgress { display: flex; gap: 16px; padding: 0; margin: 24px 0; list-style: none; }
+.adminPortalPage .adminAuthProgress li { display: flex; align-items: center; gap: 8px; color: var(--admin-muted); font-size: 13px; font-weight: 650; }
+.adminPortalPage .adminAuthProgress li > span { display: grid; place-items: center; border: 1px solid var(--admin-border); border-radius: 50%; width: 26px; height: 26px; flex: 0 0 26px; }
+.adminPortalPage .adminAuthProgress [aria-current="step"] { color: var(--admin-ink); }
+.adminPortalPage .adminAuthProgress [aria-current="step"] > span { background: var(--admin-coral); color: #17181d; border-color: var(--admin-coral); }
+.adminPortalPage .adminAuthProgress .complete > span { border-color: var(--admin-coral); color: var(--admin-ink); }
+.adminPortalPage .adminPasswordControl { position: relative; }
+.adminPortalPage .adminPasswordControl input { padding-right: 76px; }
+.adminPortalPage .adminPasswordControl button { position: absolute; right: 4px; top: 4px; bottom: 4px; min-width: 64px; border: 0; border-radius: 10px; background: transparent; color: var(--admin-ink); font: inherit; font-size: 13px; cursor: pointer; }
+.adminPortalPage .adminPasswordControl button:focus-visible { outline: 2px solid var(--admin-coral); outline-offset: -2px; }
+.adminPortalPage .adminAccessHelp { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--admin-border); font-size: 14px; color: var(--admin-muted); }
+.adminPortalPage .adminAccessHelp summary { color: var(--admin-ink); cursor: pointer; font-weight: 650; }
+.adminPortalPage .adminAccessHelp p { margin-bottom: 0; font-size: 14px; line-height: 1.6; }
+.adminPortalPage .authForm[aria-busy="true"] button[type="submit"] { cursor: progress; }
+.adminPortalPage #adminAuthTitle:focus, .adminPortalPage #portalPageTitle:focus { outline: none; }
+@media (max-width: 420px) { .adminPortalPage .adminAuthProgress { gap: 10px; } .adminPortalPage .adminAuthProgress li { gap: 5px; font-size: 12px; } }
+@media (max-width: 720px) {
+  .adminPortalPage .adminAuthStory { min-height: 0; padding: 20px; }
+  .adminPortalPage .adminAuthStory .authCopy, .adminPortalPage .adminAuthStory .authFine { display: none; }
+  .adminPortalPage .authPanel { padding: 24px 18px; align-items: start; }
+}
 .adminPortalPage .safetyRemovalDialog .eyebrow,.adminPortalPage .safetyRemovalDialog .field small { color: var(--admin-muted); }
 .adminPortalPage .safetyRemovalDialog .editorialActions { justify-content: flex-end; }
 .adminPortalPage .safetyHistory > div { padding-bottom: 20px; }
@@ -386,7 +472,8 @@ html[data-theme] .adminPortalPage .adminMetricGrid .metricCard {
 
 .adminPortalPage .adminMetricGrid .criticalMetric::before { background: #ff6474; }
 .adminPortalPage .adminMetricGrid .sponsoredMetric::before { background: #8c70f3; }
-.adminPortalPage .adminMetricGrid .healthyMetric::before { background: #42cd91; }
+.adminPortalPage .adminMetricGrid .healthyMetric::before { background: var(--admin-muted); }
+.adminPortalPage .adminMetricGrid .healthyMetric .metricDot { background: var(--admin-muted); }
 .adminPortalPage .adminMetricGrid .metricCard::after { width: 110px; height: 110px; right: -50px; bottom: -58px; opacity: .9; }
 .adminPortalPage .metricLabel { display: flex; align-items: center; gap: 9px; }
 .adminPortalPage .metricLabel > span { color: var(--admin-muted); font-size: 12px; font-weight: 720; }
@@ -408,7 +495,7 @@ html[data-theme] .adminPortalPage .portalPanel,
   box-shadow: var(--admin-shadow);
 }
 
-html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
+html[data-theme] .adminPortalPage .portalPanel:not(:is(.queuePanel, .editorialTablePanel, .safetyQueue, .businessQueuePanel, .privacyQueuePanel, .staffWorkflow)) { padding: 24px; }
 .adminPortalPage .panelHeader h3 { color: var(--admin-ink); font-size: 17px; }
 .adminPortalPage .panelHeader p { margin-top: 5px; color: var(--admin-muted); font-size: 11px; }
 .adminPortalPage .priorityPanel { min-height: 0; align-self: start; }
@@ -473,7 +560,8 @@ html[data-theme] .adminPortalPage .portalPanel { padding: 24px; }
 .adminPortalPage .totpManual summary { color: var(--admin-ink); font-weight: 760; cursor: pointer; }
 .adminPortalPage .totpManual p { margin: 10px 0 8px; line-height: 1.45; }
 .adminPortalPage .totpManual code { display: block; overflow-wrap: anywhere; padding: 9px; border-radius: 8px; background: var(--admin-canvas); color: var(--admin-ink); font-size: 11px; letter-spacing: .06em; user-select: all; }
-.adminPortalPage .overviewPulse[data-tone="attention"] { color: #b54708; }
+.adminPortalPage .overviewPulse[data-tone="attention"] { color: #ffcf8a; }
+.adminPortalPage .overviewPulse[data-tone="attention"] span { background: #ffcf8a; box-shadow: 0 0 0 5px rgba(255,207,138,.12); }
 
 .adminPortalPage .portalView:not([data-portal-view="overview"]) > .viewIntro { min-height: 128px; align-items: end; margin-bottom: 22px; padding: 4px 2px; }
 .adminPortalPage .portalView > .viewIntro > div { min-width: 0; }
@@ -622,6 +710,33 @@ html[data-theme="dark"] .adminPortalPage .portalButton.action-warning { color: #
 .adminPortalPage .auditMetadata dt { color: var(--admin-muted); font-size: 10px; font-weight: 800; }
 .adminPortalPage .auditMetadata dd { margin: 0; overflow-wrap: anywhere; color: var(--admin-ink); font-size: 11px; font-weight: 700; text-align: right; }
 .adminPortalPage .opsGrid { align-items: stretch; }
+.adminPortalPage .opsReleasePolicy { grid-column: 1 / -1; }
+.adminPortalPage .opsReadiness { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-column: 1 / -1; gap: 1px; border: 1px solid var(--admin-border); border-radius: 16px; overflow: hidden; background: var(--admin-border); }
+.adminPortalPage .opsReadiness > div { display: grid; align-content: start; gap: 8px; padding: 20px; background: var(--admin-card); min-width: 0; }
+.adminPortalPage .opsReadiness span { color: var(--admin-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.adminPortalPage .opsReadiness strong { color: var(--admin-ink); font-size: 14px; }
+.adminPortalPage .opsReadiness small, .adminPortalPage .healthSignal > small { display: block; color: var(--admin-muted); font-size: 11px; line-height: 1.6; }
+.adminPortalPage .opsReadiness [data-updating="true"] strong::before { content: ''; display: inline-block; vertical-align: middle; width: 12px; height: 12px; border: 2px solid var(--admin-border); border-top-color: currentColor; border-radius: 50%; animation: adminQueueSpin 1s linear infinite; margin-right: 8px; }
+.adminPortalPage .opsUpdateScope { grid-column: 1 / -1; color: var(--admin-muted); font-size: 12px; line-height: 1.6; }
+.adminPortalPage .opsAttention, .adminPortalPage .opsCoverage { grid-column: 1 / -1; padding: 20px; }
+.adminPortalPage .opsAttention h3 { margin: 0 0 14px; }
+.adminPortalPage .opsAttention ul, .adminPortalPage .opsCoverage ul { display: grid; gap: 16px; padding: 0; margin: 0; list-style: none; }
+.adminPortalPage .opsAttention li { display: grid; grid-template-columns: auto minmax(160px,.5fr) minmax(0,1fr); gap: 14px; align-items: start; font-size: 12px; }
+.adminPortalPage .opsAttention li > span:last-child { color: var(--admin-muted); line-height: 1.6; }
+.adminPortalPage .opsCoverage ul { grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 20px; }
+.adminPortalPage .opsCoverage li { display: grid; gap: 6px; padding: 14px; background: var(--admin-shell); border-radius: 10px; }
+.adminPortalPage .opsCoverage li span, .adminPortalPage .opsCoverage li small { color: var(--admin-muted); font-size: 12px; line-height: 1.6; }
+.adminPortalPage .opsGrid summary { cursor: pointer; color: var(--admin-ink); font-weight: 700; font-size: 14px; }
+.adminPortalPage .opsGrid summary:focus-visible { outline: 2px solid var(--admin-ink); outline-offset: 6px; }
+.adminPortalPage .opsHero[data-tone="unknown"] { background: var(--admin-card); border-color: var(--admin-border); }
+.adminPortalPage .opsHero[data-tone="unknown"] h3, .adminPortalPage .opsHero[data-tone="unknown"] strong { color: var(--admin-ink); }
+.adminPortalPage .opsHero[data-tone="unknown"] p, .adminPortalPage .opsHero[data-tone="unknown"] span { color: var(--admin-muted); }
+@media (max-width: 800px) {
+  .adminPortalPage .opsReadiness, .adminPortalPage .opsCoverage ul { grid-template-columns: 1fr; }
+  .adminPortalPage .opsAttention li { grid-template-columns: auto minmax(0,1fr); }
+  .adminPortalPage .opsAttention li > span:last-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { .adminPortalPage .opsReadiness [data-updating="true"] strong::before { animation: none; } }
 .adminPortalPage .healthSignalGrid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,290px),1fr)); gap: 14px; grid-column: 1 / -1; }
 .adminPortalPage .healthSignal { padding: 20px; border: 1px solid var(--admin-border); border-left: 4px solid var(--health-color); border-radius: 14px; background: var(--admin-card); }
 .adminPortalPage .healthSignal > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -818,8 +933,49 @@ html[data-theme] .adminPortalPage .opsHero .eyebrow { color: var(--admin-muted);
 .adminPortalPage .editorialDialog .drawerHeader { position: sticky; top: 0; z-index: 101; background: var(--portal-panel); }
 .adminPortalPage .editorialDialog .drawerHeader h2 { overflow-wrap: anywhere; }
 .adminPortalPage .editorialDrawerContent { padding: 26px 30px; }
+.adminPortalPage .safetyRemovalDialog.portalDrawer[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.adminPortalPage .safetyRemovalDialog.portalDrawer > .editorialDrawerContent { min-height: 0; overflow: auto; overscroll-behavior: contain; scroll-padding-block: 24px; }
 .adminPortalPage .businessReviewDialog .field small, .adminPortalPage .businessReviewDialog .eyebrow { color: var(--admin-muted); }
 .adminPortalPage .businessReviewDialog .editorialDrawerContent > p { overflow-wrap: anywhere; }
+
+/* Full workspace record pages. Queue DOM stays mounted so its filters/cursors survive. */
+.adminPortalPage .recordPageActive > .portalContent { display: none; }
+html[data-theme] .adminPortalPage .portalMain > .adminRecordPage {
+  position: relative; inset: auto; z-index: 1; transform: none; transition: none;
+  display: flex; flex-direction: column; width: calc(100% - 48px); max-width: none;
+  height: calc(100dvh - 128px); min-height: 360px; max-height: none;
+  margin: 24px; padding: 0; overflow: hidden; box-sizing: border-box;
+  border: 1px solid var(--admin-border); border-radius: 18px;
+  background: var(--admin-card); color: var(--admin-ink); box-shadow: none;
+}
+.adminPortalPage .adminRecordPage > :is(.drawerHeader,.modalHeader) { flex: 0 0 auto; position: static; padding: 22px 28px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .adminRecordPage .drawerCloseButton { min-height: 44px; height: auto; max-height: none; white-space: nowrap; }
+.adminPortalPage .adminRecordPage > .editorialDrawerContent { flex: 1; min-height: 0; overflow: auto; padding: 24px 28px; overscroll-behavior: contain; }
+.adminPortalPage .adminRecordPage .formGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.adminPortalPage .adminRecordPage .formGrid > .field.full:has(input:not([type=checkbox])) { grid-column: auto; }
+.adminPortalPage .adminRecordPage .editorialDrawerContent > .formGrid:first-of-type { padding-bottom: 20px; border-bottom: 1px solid var(--admin-border); }
+.adminPortalPage .adminRecordPage .editorialDrawerContent > form { padding: 24px; margin-block: 28px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-shell); }
+.adminPortalPage .recordPageFooter { flex: 0 0 auto; padding: 16px 28px; max-height: 40%; overflow: auto; background: var(--admin-card); border-top: 1px solid var(--admin-border); }
+.adminPortalPage .recordPageFooter > :is(.editorialActions,.drawerActions) { margin: 0; justify-content: flex-end; }
+.adminPortalPage .adminRecordPage:has(#businessReviewForm[hidden],#decisionPanel[hidden]) > .recordPageFooter { display: none; }
+.adminPortalPage .adminRecordPage > .caseOutcomeBar { flex: 0 0 auto; background: var(--admin-card); }
+.adminPortalPage .adminRecordPage .caseOutcomeBar .editorialActions { position: static; padding: 0; border: 0; }
+.adminPortalPage .adminRecordPage > .editorialDrawerContent:has(+ .caseOutcomeBar) { padding-bottom: 24px; }
+.adminPortalPage .adminRecordBody { flex: 1; min-height: 0; overflow: auto; padding-bottom: 24px; overscroll-behavior: contain; }
+.adminPortalPage #caseDrawer.adminRecordPage #drawerActions:empty { display: none; }
+.adminPortalPage .auditDetailModal.adminRecordPage > form { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.adminPortalPage .auditDetailModal.adminRecordPage .auditDetailBody { flex: 1; overflow: auto; min-height: 0; }
+.adminPortalPage .auditDetailModal.adminRecordPage .modalActions { flex: 0 0 auto; }
+@media (max-width: 700px) {
+  html[data-theme] .adminPortalPage .portalMain > .adminRecordPage { width: calc(100% - 24px); margin: 12px; height: calc(100dvh - 104px); min-height: 280px; }
+  .adminPortalPage .adminRecordPage > :is(.drawerHeader,.modalHeader), .adminPortalPage .adminRecordPage > .editorialDrawerContent { padding: 16px; }
+  .adminPortalPage .recordPageFooter { padding: 16px; }
+  .adminPortalPage .adminRecordPage .formGrid { grid-template-columns: minmax(0,1fr); }
+  .adminPortalPage .adminRecordPage .editorialDrawerContent > form { padding: 16px; }
+  .adminPortalPage .adminRecordPage > .drawerHeader { flex-direction: column; align-items: stretch; gap: 14px; }
+  .adminPortalPage .adminRecordPage > .drawerHeader .drawerCloseButton { order: -1; align-self: flex-start; }
+  .adminPortalPage .adminRecordPage > .drawerHeader h2 { font-size: 22px; line-height: 1.25; }
+}
 .adminPortalPage #businessAdminGrid > .editorialFilter { flex-wrap: wrap; margin-bottom: 20px; }
 .adminPortalPage #businessPrivacy { margin-top: 32px; }
 .adminPortalPage #privacyQueue .editorialFilter { flex-wrap: wrap; margin: 24px 0; }
@@ -839,3 +995,28 @@ html[data-theme="dark"] .adminPortalPage .priorityBadge.low { color: #8fe3bc; }
 .adminPortalPage .operatorRoleForm .portalButton { width: auto; justify-self: end; }
 .adminPortalPage .auditExportFeedback { margin: 0 0 16px; }
 html[data-theme] .adminPortalPage .auditExportFeedback[data-tone="neutral"] { color: var(--admin-ink); background: var(--admin-card); border-color: var(--admin-border); }
+.staffWorkflow { margin-top: 24px; }
+.adminPortalPage.staffWorkflowEnabled .adminDashboardGrid { grid-template-columns: minmax(0, 1fr); }
+.adminPortalPage.staffWorkflowEnabled .adminMetricGrid { grid-template-columns: minmax(0, 1fr); }
+.adminPortalPage .staffWorkflow .workflowPageSummary { padding: 12px 16px; background: var(--admin-canvas); border: 1px solid var(--admin-border); border-radius: 12px; }
+.adminPortalPage .staffWorkflow .workflowOverdue { font-weight: 700; }
+.adminPortalPage.staffWorkflowEnabled .scheduleList > .emptyState { display: block; width: 100%; }
+.staffWorkflow .queueCommandBar { flex-wrap: wrap; }
+.staffWorkflow .queueCommandBar .field { min-width: 200px; flex: 1; }
+.staffWorkflow .queueTable td:last-child .portalButton { margin: 4px; }
+.staffWorkflow .queueTable td:last-child { text-align: right; }
+.adminPortalPage .staffWorkflow p, .adminPortalPage .staffWorkflowDialog p { color: var(--admin-ink); }
+.staffWorkflow > .field { max-width: 320px; margin: 16px 0; }
+.staffWorkflow .queueFilters { flex-wrap: wrap; }
+.adminPortalPage .staffWorkflow button:disabled, .adminPortalPage .staffWorkflowDialog button:disabled { opacity: .45; cursor: default; }
+.staffWorkflowDialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; }
+.staffWorkflowDialog .introActions { flex-wrap: wrap; justify-content: flex-end; margin-top: 24px; }
+.staffWorkflowDialog .field { display: grid; gap: 8px; margin-top: 16px; }
+@media (max-width: 680px) {
+  .adminPortalPage.staffWorkflowEnabled .adminMetricGrid { grid-template-columns: minmax(0, 1fr); }
+  .adminPortalPage .staffWorkflow .queueTable thead { display: none; }
+  .adminPortalPage .staffWorkflow .queueTable tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); border-bottom: 1px solid var(--admin-border); }
+  .adminPortalPage .staffWorkflow .queueTable tbody td { display: block; padding: 8px; white-space: normal; overflow-wrap: anywhere; }
+  .adminPortalPage .staffWorkflow .queueTable td[data-label]::before { content: attr(data-label) ': '; font-weight: 700; }
+  .adminPortalPage .staffWorkflow .queueTable td:last-child { text-align: right; padding-bottom: 16px; }
+}
