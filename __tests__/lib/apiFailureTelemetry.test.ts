@@ -1,4 +1,6 @@
 import * as Sentry from '@sentry/react-native';
+import { Platform } from 'react-native';
+import { hasPendingPushRegistrationIncident, reportPushRegistrationRecovery } from '../../lib/pushRegistrationRecovery';
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { apiFailureDetails, queryFailureOperation, reportApiFailure, sanitizeApiFailureEvent } from '../../lib/apiFailureTelemetry';
 import { queryClient } from '../../lib/queryClient';
@@ -7,6 +9,7 @@ import { rpcQueryError } from '../../lib/rpcQueryError';
 const mockScope = { setTag: jest.fn(), setContext: jest.fn(), setFingerprint: jest.fn() };
 jest.mock('@sentry/react-native', () => ({
   init: jest.fn(), addBreadcrumb: jest.fn(), captureException: jest.fn(),
+  logger: { info: jest.fn() },
   withScope: (callback: any) => callback(mockScope),
 }));
 
@@ -71,7 +74,7 @@ test('unexpected failures retain a safe exception type without raw details', () 
   reportApiFailure('query', 'upcomingDoji', new TypeError('private details'));
   expect(mockScope.setContext).toHaveBeenCalledWith('api', expect.objectContaining({ error_type: 'TypeError' }));
   reportApiFailure('query', 'appAnnouncement', { name: 'private-user-name', message: 'private content' });
-  expect(mockScope.setContext).toHaveBeenLastCalledWith('api', expect.objectContaining({ error_type: 'api_object' }));
+  expect(mockScope.setContext.mock.calls.filter(([name]) => name === 'api').at(-1)[1]).toMatchObject({ error_type: 'api_object' });
   expect(JSON.stringify(mockScope.setContext.mock.calls)).not.toContain('private');
 });
 
@@ -105,9 +108,11 @@ test('SDK deadline failures remain incidents with content-free request diagnosti
   expect(mockScope.setContext).toHaveBeenCalledWith('api', {
     kind: 'timeout', status: undefined, code: undefined, error_type: 'TimeoutError',
     abort_source: 'deadline', response_received: false,
+    failure_evidence: 'client_deadline', failure_phase: 'unknown',
+    summary: 'client deadline reached; phase=unknown',
   });
   expect(JSON.stringify(mockScope.setContext.mock.calls)).not.toContain('private');
-  expect((Sentry.captureException as jest.Mock).mock.calls[0][0].message).toBe('Doji query.upcomingDoji failed (timeout)');
+  expect((Sentry.captureException as jest.Mock).mock.calls[0][0].message).toBe('Doji query.upcomingDoji failed (timeout; client deadline reached; phase=unknown)');
 });
 
 test('known lifecycle cancellations remain silent, but unexplained SDK aborts do not', () => {
@@ -139,7 +144,26 @@ test('request timing is numeric, bounded and contains no identity or raw message
   });
   expect(mockScope.setContext).toHaveBeenCalledWith('api', expect.objectContaining({ elapsed_ms: 8000, deadline_ms: 8000 }));
   reportApiFailure('query', 'friendship', { status: 503, elapsedMs: 99999999, timeoutMs: 'private-token' });
-  expect(mockScope.setContext).toHaveBeenLastCalledWith('api', expect.objectContaining({ elapsed_ms: 120000 }));
-  expect(mockScope.setContext.mock.calls.at(-1)[1]).not.toHaveProperty('deadline_ms');
+  const api = mockScope.setContext.mock.calls.filter(([name]) => name === 'api').at(-1)[1];
+  expect(api).toMatchObject({ elapsed_ms: 120000 });
+  expect(api).not.toHaveProperty('deadline_ms');
   expect(JSON.stringify(mockScope.setContext.mock.calls)).not.toContain('private');
+});
+
+test.each(['ios', 'android'] as const)('%s retains the actual Sentry event ID for a later confirmed recovery', os => {
+  const originalOS = Platform.OS;
+  Platform.OS = os;
+  jest.spyOn(Date, 'now').mockReturnValue(os === 'ios' ? 1_900_000_000_000 : 1_900_000_120_000);
+  const id = '997e12597a43431dada72dab52b4ba91';
+  (Sentry.captureException as jest.Mock).mockReturnValueOnce(id);
+  try {
+    reportApiFailure('command', 'register_native_push_endpoint_v3', { name: 'TimeoutError' });
+    expect(hasPendingPushRegistrationIncident()).toBe(true);
+    expect(Sentry.logger.info).not.toHaveBeenCalled();
+    reportPushRegistrationRecovery();
+    expect(Sentry.logger.info).toHaveBeenCalledWith('Doji push registration recovered', expect.objectContaining({
+      failure_event_id: id, acknowledgement: 'server_confirmed', platform: os,
+    }));
+    expect(hasPendingPushRegistrationIncident()).toBe(false);
+  } finally { Platform.OS = originalOS; }
 });

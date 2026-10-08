@@ -235,9 +235,9 @@ test('queue pages use exact deadline and ID cursor; filter resets it', async ({ 
   // Resolve within the queue under test, never the last currently mounted pager.
   await page
     .locator('#privacyQueue')
-    .getByRole('button', { name: 'Next page', exact: true })
+    .getByRole('button', { name: 'Next', exact: true })
     .click();
-  await expect(page.locator('#privacyQueue')).toContainText('No requests in this page');
+  await expect(page.locator('#privacyQueue')).toContainText('No requests match this view');
   expect(requests[1]!).toEqual({
     p_state: 'open',
     p_after_due: base.due_at,
@@ -303,7 +303,7 @@ test('pending command is single-flight and locking discards its late completion'
   await drawer.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect.poll(() => requests).toBe(1);
   await expect(drawer.getByRole('button', { name: 'Confirm', exact: true })).toBeDisabled();
-  await expect(drawer.getByRole('button', { name: 'Close', exact: true })).toBeDisabled();
+  await expect(drawer.getByRole('button', { name: 'Back to queue', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Lock session', exact: true }).evaluate((b) => { if (!(b instanceof HTMLElement)) throw Error("Expected HTML button"); b.click(); });
   release();
   await expect(page.locator('.businessPrivacyDialog')).toBeEmpty();
@@ -312,7 +312,8 @@ test('pending command is single-flight and locking discards its late completion'
 });
 async function queue(page: Page) {
   await page.locator('[data-view="businesses"]').click();
-  await page.getByRole('button', { name: 'Open privacy queue', exact: true }).click();
+  await page.locator('.businessPrivacySection summary').click();
+  await page.getByRole('button', { name: 'View privacy requests', exact: true }).click();
 }
 async function open(page: Page) {
   await queue(page);
@@ -330,7 +331,7 @@ async function action(page: Page, name:string) {
 test('privacy disabled makes no requests and shows no controls', async ({ page }) => {
   const { calls } = await setup(page, { enabled: false });
   await page.locator('[data-view="businesses"]').click();
-  await expect(page.getByRole('button', { name: 'Open privacy queue', exact: true })).toHaveCount(
+  await expect(page.getByRole('button', { name: 'View privacy requests', exact: true })).toHaveCount(
     0,
   );
   expect(privacyCalls(calls)).toHaveLength(0);
@@ -344,7 +345,7 @@ for (const missing of ['operator_manage', 'legal_read'])
       },
     });
     await page.locator('[data-view="businesses"]').click();
-    await expect(page.getByRole('button', { name: 'Open privacy queue', exact: true })).toHaveCount(
+    await expect(page.getByRole('button', { name: 'View privacy requests', exact: true })).toHaveCount(
       0,
     );
     expect(privacyCalls(calls)).toHaveLength(0);
@@ -355,7 +356,8 @@ test('privacy reads are lazy and case drawer is exact, structured and bounded', 
   const { calls } = await setup(page);
   await page.locator('[data-view="businesses"]').click();
   expect(privacyCalls(calls)).toHaveLength(0);
-  await page.getByRole('button', { name: 'Open privacy queue', exact: true }).click();
+  await page.locator('.businessPrivacySection summary').click();
+  await page.getByRole('button', { name: 'View privacy requests', exact: true }).click();
   await page.locator('[data-privacy-case]').click();
   const drawer = page.locator('dialog[open]');
   await expect(drawer.getByLabel('Business account ID', { exact: true })).toHaveValue(account);
@@ -375,7 +377,7 @@ test('closure needs explicit confirmation and unchanged retry retains its key ac
   expect(calls.filter((c) => c.path.endsWith('command_v1'))).toHaveLength(0);
   await drawer.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(drawer.locator('#privacyStatus')).toContainText('could not be confirmed');
-  await drawer.getByRole('button', { name: 'Close', exact: true }).click();
+  await drawer.getByRole('button', { name: 'Back to queue', exact: true }).click();
   await page.locator('[data-privacy-case]').click();
   drawer = await action(page, 'Close business access');
   await drawer.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -519,7 +521,8 @@ test('new request validates identity and assessed deadline before confirmed writ
 }) => {
   const { calls } = await setup(page);
   await page.locator('[data-view="businesses"]').click();
-  await page.getByRole('button', { name: 'Record request', exact: true }).click();
+  await page.locator('.businessPrivacySection summary').click();
+  await page.getByRole('button', { name: 'Log verified privacy request', exact: true }).click();
   const drawer = page.locator('dialog[open]');
   await drawer.getByLabel('Verified business account ID').fill(account);
   await drawer.getByRole('combobox', { name: 'Request type', exact: true }).click();

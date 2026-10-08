@@ -2,6 +2,7 @@
 // Never wrap withSession in a DB transaction, or use a browser/service-role token.
 import { createHash, randomBytes } from 'node:crypto';
 import { isRecord, errorStatus } from './business-contracts.mts';
+import type { BusinessActor } from './business-contracts.mts';
 export interface BusinessStoreConfig {
   enabled: boolean;
   realm: 'business';
@@ -77,8 +78,34 @@ export function createBusinessSessionStore(
   return Object.freeze({
     putFlow: (key: string, value: string, expires: number, signal?: AbortSignal) =>
       put('flow', key, value, expires, signal),
-    putSession: (key: string, value: string, expires: number, signal?: AbortSignal) =>
-      put('session', key, value, expires, signal),
+    async putSession(
+      key: string,
+      value: string,
+      expires: number,
+      signal?: AbortSignal,
+      actor?: BusinessActor,
+    ) {
+      // Legacy local fixtures retain the original store primitive; the independent
+      // HTTP callback always supplies the verified actor and uses the atomic bind.
+      if (!actor) return put('session', key, value, expires, signal);
+      const ttl = Math.ceil(expires - now());
+      if (
+        actor.realm !== 'business' ||
+        !/^[a-f0-9]{64}$/.test(key) ||
+        !Number.isSafeInteger(ttl) ||
+        ttl < 1 ||
+        ttl > 28800000
+      )
+        throw denied();
+      const result = await execute(
+        'doji_business_session',
+        'select business_session_private.put_bound_session($1,$2,$3,$4::integer,$5,$6,$7,$8) as result',
+        [scope, key, value, ttl, actor.issuer, actor.audience, actor.subject, actor.sessionId],
+        signal ? AbortSignal.any([signal, AbortSignal.timeout(4000)]) : AbortSignal.timeout(4000),
+      );
+      if (!isRecord(result) || result.state !== 'ok')
+        throw denied(isRecord(result) && result.state === 'capacity' ? 429 : 503);
+    },
     async consumeFlow(key: string, accept: (value: string) => boolean, signal?: AbortSignal) {
       const peek = await run('peek', 'flow', key, null, null, null, null, signal);
       if (peek?.state === 'missing') return null;

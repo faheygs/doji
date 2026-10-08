@@ -36,6 +36,39 @@ async function fixture(page: Page, { accessible = true, label = true, options = 
 }
 const trigger = (page: Page) => page.locator('#choice + .portalSelectTrigger');
 
+test('closing other menus preserves the explicitly retained dropdown', async ({ page }) => {
+  await fixture(page);
+  await trigger(page).click();
+  await page.evaluate(() => {
+    const wrapper = document.querySelector<HTMLElement>('#choice')?.parentElement;
+    if (!wrapper) throw Error('Missing dropdown wrapper');
+    window.DojiPortalSelect.close(wrapper);
+  });
+  await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('option', { name: 'Charlie' }).click();
+  await expect(page.locator('#choice')).toHaveValue('c');
+});
+
+test('keyboard navigation recovers when choices arrive in an initially empty dropdown', async ({
+  page,
+}) => {
+  await fixture(page, { options: false });
+  await trigger(page).focus();
+  await trigger(page).press('End');
+  await page.locator('#choice').evaluate((select: HTMLSelectElement) => {
+    select.innerHTML =
+      '<option value="b" disabled>Unavailable</option><option value="a">Alpha</option>';
+    select.selectedIndex = -1;
+    window.DojiPortalSelect.refresh(select);
+  });
+  await expect(trigger(page)).toHaveText('Choose an option');
+  await trigger(page).focus();
+  await trigger(page).press('ArrowDown');
+  await trigger(page).press('Enter');
+  await expect(page.locator('#choice')).toHaveValue('a');
+  expect(await page.evaluate(() => window.changes)).toEqual(['a']);
+});
+
 test('dropdown enhancement rejects detached elements and detects a damaged trigger', async ({
   page,
 }) => {

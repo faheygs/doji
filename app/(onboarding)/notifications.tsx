@@ -74,6 +74,10 @@ export default function OnboardingNotificationsScreen() {
     setLoading(true);
     try {
       const result = await requestPushPermissionAndRegisterToken();
+      if (result === 'deferred') {
+        setSetupError('Alert setup was interrupted. Tap Enable Notifications to try again.');
+        return;
+      }
       if (result === 'error') {
         setSetupError('Could not connect this phone to alerts. Check your connection and try again.');
         return;

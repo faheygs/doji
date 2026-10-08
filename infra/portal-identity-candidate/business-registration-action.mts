@@ -1,6 +1,7 @@
 // Candidate only. Dedicated WorkOS BUSINESS environment Actions secret, never
 // reused for employee or production environments. Configure provider errors=DENY.
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { boundedBody } from './bounded-body.mts';
 import { isRecord } from './business-contracts.mts';
 interface RegistrationConfig {
@@ -28,7 +29,9 @@ export function createBusinessRegistrationAction(
     new URL(cfg.origin).origin !== cfg.origin ||
     !cfg.origin.startsWith('https://') ||
     typeof cfg.actionSecret !== 'string' ||
-    cfg.actionSecret.length < 32 ||
+    // Accept the owner-approved provider-issued 25-character secret. The
+    // signature, freshness and default-deny checks below remain mandatory.
+    cfg.actionSecret.length < 25 ||
     cfg.actionSecret.length > 256 ||
     typeof execute !== 'function'
   )

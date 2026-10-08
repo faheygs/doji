@@ -219,11 +219,15 @@ export default function NotificationSettingsScreen() {
     }
     try {
       const result = await requestPushPermissionAndRegisterToken(profile?.id);
-      setPermStatus(result === 'granted' ? 'granted' : 'denied');
+      if (result === 'granted' || result === 'denied') setPermStatus(result);
+      else if (result === 'undetermined') setPermStatus('unknown');
       if (result === 'granted') {
         const saved = await persistCategories({ push_enabled: true }, 'push_enabled');
         if (!saved) return;
         setPageFeedback({ tone: 'success', message: 'Alerts are enabled on this phone.' });
+      } else if (result === 'deferred') {
+        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
+        setPageFeedback({ tone: 'info', message: 'Alert setup was interrupted. Try again to finish connecting this phone.' });
       } else if (result === 'error') {
         setPrefs(
           mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),

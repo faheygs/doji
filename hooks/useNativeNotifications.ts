@@ -11,20 +11,27 @@ import { recordOperationalFailure, reportOperationalFailure } from '../lib/telem
 import { attentionScopeFromPushData } from '../lib/notificationAttention';
 import { executeCommand } from '../lib/commandGateway';
 import { retryPushRegistration } from '../lib/retryPushRegistration';
+import { createPushRegistrationScope } from '../lib/pushRegistrationScope';
+import { awaitRegistration, isPushRegistrationInterrupted } from '../lib/pushRegistrationCancellation';
 
-async function markNotificationResponseSeen(data: unknown): Promise<void> {
+async function markNotificationResponseSeen(data: unknown, expectedUserId: string, isCurrent: () => boolean): Promise<void> {
   const scope = attentionScopeFromPushData(data);
   if (!scope) return;
-  await executeCommand('mark_notification_attention_seen', {
+  if (!isCurrent()) return;
+  const { error } = await executeCommand('mark_notification_attention_seen', {
     p_receipts: [{ ...scope, seen_at: new Date().toISOString() }],
-  });
+  }, { expectedUserId, isCurrent });
+  if (error) recordOperationalFailure('push', 'attention-seen-deferred', new Error('Attention acknowledgement not confirmed'));
 }
 
-function markAfterNavigationSettles(data: unknown): void {
+function markAfterNavigationSettles(data: unknown, expectedUserId: string, isCurrent: () => boolean): void {
   InteractionManager.runAfterInteractions(() => {
     // A response is only consumed after the destination transition has mounted.
     // If the app is interrupted first, the durable attention row remains unseen.
-    void markNotificationResponseSeen(data);
+    if (!isCurrent() || AppState.currentState !== 'active') return;
+    void markNotificationResponseSeen(data, expectedUserId, isCurrent).catch(() => {
+      recordOperationalFailure('push', 'attention-seen-deferred', new Error('Attention acknowledgement unavailable'));
+    });
   });
 }
 
@@ -48,6 +55,8 @@ export function useNativeNotifications(canUseApp: boolean): void {
   const [pendingResponse, setPendingResponse] = useState<PendingNotificationResponse | null>(null);
   const handledResponseKeysRef = useRef(new Set<string>());
   const notificationsModuleRef = useRef<typeof import('expo-notifications') | null>(null);
+  const mountedRef = useRef(false);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
   const userId = session?.user?.id;
@@ -74,11 +83,12 @@ export function useNativeNotifications(canUseApp: boolean): void {
   useEffect(() => {
     if (Platform.OS === 'web' || !userId || profileId !== userId) return;
     let disposed = false;
-    let latestSyncRun = 0;
+    let activeScope: ReturnType<typeof createPushRegistrationScope> | undefined;
 
     async function syncPushEndpoint() {
-      const run = ++latestSyncRun;
-      const cancelled = () => disposed || run !== latestSyncRun;
+      if (disposed || (activeScope && activeScope.check())) return;
+      let scope: ReturnType<typeof createPushRegistrationScope> | undefined;
+      const cancelled = () => disposed || !!scope?.signal.aborted;
       try {
         const activeProfile = useAuthStore.getState().profile;
         const enabled =
@@ -87,24 +97,31 @@ export function useNativeNotifications(canUseApp: boolean): void {
         if (!enabled) {
           await unregisterCurrentPushInstallation();
           const current = useAuthStore.getState().profile;
-          if (!disposed && current) {
+          if (!disposed && current && current.id === userId) {
             useAuthStore.getState().setProfile({ ...current, notification_token: null });
           }
           return;
         }
-        const Notifications = await import('expo-notifications');
-        const { status } = await Notifications.getPermissionsAsync();
+        scope = createPushRegistrationScope(userId!);
+        activeScope = scope;
+        if (!scope.check()) return;
+        const Notifications = await awaitRegistration(import('expo-notifications'), scope.signal);
+        const { status } = await awaitRegistration(Notifications.getPermissionsAsync(), scope.signal);
         if (cancelled() || status !== 'granted') return;
 
         await retryPushRegistration(
-          () => syncPushRegistration(userId),
+          () => syncPushRegistration(userId, { signal: scope!.signal }),
           cancelled,
           (error, attempt) => recordOperationalFailure('push', 'endpoint-registration-retry', error, { attempt }),
+          scope.signal,
         );
       } catch (error) {
-        if (cancelled()) return;
+        if (cancelled() || isPushRegistrationInterrupted(error)) return;
         if (__DEV__) console.warn('[pushToken] sync failed', error);
         reportOperationalFailure('push', 'endpoint-registration', error);
+      } finally {
+        scope?.dispose();
+        if (activeScope === scope) activeScope = undefined;
       }
     }
 
@@ -114,7 +131,7 @@ export function useNativeNotifications(canUseApp: boolean): void {
     });
     return () => {
       disposed = true;
-      latestSyncRun += 1;
+      activeScope?.cancel();
       subscription.remove();
     };
   }, [profileId, profileIsBanned, profilePushEnabled, userId]);
@@ -159,6 +176,7 @@ export function useNativeNotifications(canUseApp: boolean): void {
       Platform.OS === 'web' ||
       !canUseApp ||
       !rootNavigationState?.key ||
+      !userId ||
       !pendingResponse
     ) {
       return;
@@ -171,10 +189,13 @@ export function useNativeNotifications(canUseApp: boolean): void {
       if (!href || !safePush(router, href)) return;
       handledResponseKeysRef.current.add(pendingResponse.key);
       setPendingResponse((current) => current?.key === pendingResponse.key ? null : current);
-      markAfterNavigationSettles(pendingResponse.data);
-      void notificationsModuleRef.current?.clearLastNotificationResponseAsync();
+      markAfterNavigationSettles(pendingResponse.data, userId, () => mountedRef.current &&
+        useAuthStore.getState().session?.user?.id === userId);
+      void notificationsModuleRef.current?.clearLastNotificationResponseAsync().catch(() => {
+        recordOperationalFailure('push', 'response-clear-deferred', new Error('Native response cleanup unavailable'));
+      });
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [canUseApp, pendingResponse, rootNavigationState?.key, router]);
+  }, [canUseApp, pendingResponse, rootNavigationState?.key, router, userId]);
 }

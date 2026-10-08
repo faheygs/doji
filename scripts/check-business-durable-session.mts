@@ -247,6 +247,7 @@ try {
     refresh: async () => assert.fail('Unexpected refresh in callback/restore test'),
   };
   const application: BusinessHttpDependencies['application'] = {
+    workspace: async () => assert.fail('Unexpected workspace in session test'),
     authorize: async () => {},
     read: async () => ({ id: 'synthetic', state: 'draft', revision: 1, details: {} }),
     command: async () => assert.fail('Unexpected business write in session test'),
@@ -262,7 +263,16 @@ try {
         privacyVersion: 'synthetic-v1',
       },
       {
-        store: createBusinessSessionStore(cfg, execute),
+        // This isolated store-only database intentionally has no identity schema.
+        // Exact principal binding is exercised against the full schema by the
+        // --privacy-candidate database suite, not simulated in this fixture.
+        store: {
+          ...createBusinessSessionStore(cfg, execute),
+          putSession: async (key, value, expires, signal, identity) => {
+            assert.equal(identity?.subject, actor.subject);
+            return store.putSession(key, value, expires, signal);
+          },
+        },
         provider,
         application,
         verify: async () => actor,

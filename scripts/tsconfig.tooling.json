@@ -13,5 +13,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["./**/*.mts", "./**/*.cts", "../plugins/**/*.cts", "../vendor/**/*.cts", "../coverage-policy.mts", "../eslint.config.mts", "../babel.config.cts", "../jest.transform.cts", "../jest.tooling-transform.cts", "../jest.coverage.config.cts"]
+  "include": ["./**/*.mts", "./**/*.cts", "../plugins/**/*.cts", "../vendor/**/*.cts", "../infra/business-email-candidate/**/*.mts", "../coverage-policy.mts", "../eslint.config.mts", "../babel.config.cts", "../metro.config.cts", "../jest.transform.cts", "../jest.tooling-transform.cts", "../jest.coverage.config.cts"]
 }

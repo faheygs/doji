@@ -1,10 +1,17 @@
 // Server-side boundary: accepts only a verified employee identity, never a UUID
 // supplied by the portal. The database reauthorizes each fixed atomic operation.
 import { employeeRouteContracts } from './employee-route-contracts.mts';
+import { employeeWorkflowContracts, employeeWorkflowSql } from './employee-workflow-contracts.mts';
+import { employeeHealthContracts, employeeHealthSql } from './employee-health-contracts.mts';
 import { record } from './portal-contracts.mts';
 import type { EmployeeActor, EmployeeCommand, PortalExecute } from './employee-contracts.mts';
+const contracts = Object.freeze({
+  ...employeeRouteContracts,
+  ...employeeWorkflowContracts,
+  ...employeeHealthContracts,
+});
 export const employeeOperations = Object.freeze(
-  Object.fromEntries(Object.entries(employeeRouteContracts).map(([name, c]) => [name, c.fields])),
+  Object.fromEntries(Object.entries(contracts).map(([name, c]) => [name, c.fields])),
 );
 const fail = (status: number) => Object.assign(Error('Employee operation unavailable'), { status });
 export function createEmployeeApplicationAdapter(execute: PortalExecute) {
@@ -20,7 +27,7 @@ export function createEmployeeApplicationAdapter(execute: PortalExecute) {
     )
       throw fail(403);
     if (!input || !Object.hasOwn(employeeOperations, input.name)) throw fail(403);
-    const contract = employeeRouteContracts[input.name];
+    const contract = contracts[input.name];
     if (!contract) throw fail(403);
     const fields = contract.fields;
     const supplied = input.args;
@@ -69,7 +76,11 @@ export function createEmployeeApplicationAdapter(execute: PortalExecute) {
     try {
       return await execute(
         'doji_employee_application',
-        'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
+        Object.hasOwn(employeeHealthContracts, input.name)
+          ? employeeHealthSql
+          : Object.hasOwn(employeeWorkflowContracts, input.name)
+            ? employeeWorkflowSql
+            : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
         [actor.issuer, actor.audience, actor.subject, actor.sessionId, true, input.name, encoded],
         signal,
       );

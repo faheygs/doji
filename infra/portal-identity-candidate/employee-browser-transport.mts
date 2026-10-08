@@ -3,31 +3,15 @@
 import { portalRouteFor } from '../doji-orchestrator/src/portal-read.ts';
 import { record } from './portal-contracts.mts';
 import { errorStatus } from './business-contracts.mts';
+import { employeeDirectRoute, type EmployeeFeatureGates } from './employee-direct-routes.mts';
 import type { PortalFetch } from './portal-contracts.mts';
-interface BrowserConfig {
+interface BrowserConfig extends EmployeeFeatureGates {
   independentEmployeeIdentity: boolean;
-  businessApplicationsEnabled?: boolean;
-  businessPrivacyEnabled?: boolean;
   onAccessInvalidated?: (message: string) => void;
+  onSessionCleanupFailed?: (message: string) => void;
 }
 const fail = (message = 'Sign in again to continue.', status = 401) =>
   Object.assign(Error(message), { status });
-const direct: Readonly<Record<string, string>> = Object.freeze({
-  '/safety/page': 'get_admin_safety_removals_v1',
-  '/safety/case': 'get_admin_safety_removal_v1',
-  '/safety/target': 'get_admin_safety_target_v1',
-  '/safety/create-report': 'admin_create_safety_report_v1',
-  '/safety/command': 'admin_safety_removal_command_v1',
-  '/business/page': 'get_admin_business_applications_page_v1',
-  '/business/item': 'get_admin_business_application_v1',
-  '/business/command': 'admin_business_application_command_v1',
-  '/business-privacy/page': 'get_admin_business_privacy_page_v1',
-  '/business-privacy/case': 'get_admin_business_privacy_case_v1',
-  '/business-privacy/access': 'get_admin_business_privacy_access_v1',
-  '/business-privacy/correction': 'get_admin_business_privacy_correction_v1',
-  '/business-privacy/open': 'admin_business_privacy_open_v1',
-  '/business-privacy/command': 'admin_business_privacy_command_v1',
-});
 export function createEmployeeBrowserTransport(
   config: BrowserConfig,
   {
@@ -239,9 +223,14 @@ export function createEmployeeBrowserTransport(
     verifyTotpEnrollment: complete,
     signOut: logout,
     clearSession() {
-      void logout().catch(() =>
-        config.onAccessInvalidated?.('Workspace locked; server sign-out could not be confirmed.'),
-      );
+      const cleanup = logout();
+      const cleanupEpoch = epoch;
+      void cleanup.catch(() => {
+        // Already locked locally. Cleanup failure is not a second invalidation:
+        // that callback clears the UI and requests logout again, creating a loop.
+        if (epoch === cleanupEpoch)
+          config.onSessionCleanupFailed?.('Workspace locked; server sign-out could not be confirmed.');
+      });
     },
     async request(
       path: string,
@@ -250,16 +239,8 @@ export function createEmployeeBrowserTransport(
       if (path === '/portal/admin/session') return session();
       if (path === '/portal/admin/realtime-token') return rpc('portal_realtime_token_v1', {});
       if (path === '/portal/admin/platform-health') return rpc('portal_platform_health_v1', {});
-      if (Object.hasOwn(direct, path)) {
-        if (method !== 'POST') throw fail('Invalid portal request.', 400);
-        if (path.startsWith('/business/') && config.businessApplicationsEnabled !== true)
-          throw fail('Business review is not enabled.', 403);
-        if (path.startsWith('/business-privacy/') && config.businessPrivacyEnabled !== true)
-          throw fail('Business privacy is not enabled.', 403);
-        const operation = direct[path];
-        if (!operation) throw fail('Portal operation unavailable.', 404);
-        return rpc(operation, body);
-      }
+      const operation = employeeDirectRoute(path, method, config);
+      if (operation) return rpc(operation, body);
       const url = new URL(path, origin);
       if (url.origin !== origin) throw fail('Invalid portal destination.', 400);
       const route = portalRouteFor(url);

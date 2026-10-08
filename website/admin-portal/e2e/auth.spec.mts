@@ -2,6 +2,68 @@ import { expect, test } from '../../coverage-fixture.mts';
 import { installMockBackend } from './fixtures.mts';
 import { present } from '../../test-values.mts';
 
+for (const authMode of ['enrollment'] as const) {
+  test(`cancelled ${authMode} ignores a late verification failure`, async ({ page }) => {
+    const requests = await installMockBackend(page, { authMode });
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let verificationRequests = 0;
+    await page.route('**/auth/v1/factors/*/verify', async (route) => {
+      verificationRequests++;
+      await pending;
+      await route.fulfill({ status: 422, json: { message: 'Late synthetic code failure' } });
+    });
+    await page.goto('/');
+    await page.locator('#adminEmail').fill('operator@example.test');
+    await page.locator('#adminPassword').fill('synthetic-password');
+    await page.locator('#adminSigninForm button[type="submit"]').click();
+    const form = page.locator('#adminTotpVerifyForm');
+    await form.locator('input').fill('123456');
+    await form.locator('button[type="submit"]').click();
+    await expect.poll(() => verificationRequests).toBe(1);
+    // Form submission events can also come from keyboard/script integrations.
+    // A duplicate event must not start another verification while this one waits.
+    await form.dispatchEvent('submit');
+    await page.locator('[data-action="admin-auth-back"]:visible').click();
+    await expect(page.locator('#adminSigninForm')).toBeVisible();
+    release();
+    await expect(form.locator('button[type="submit"]')).toBeEnabled();
+    await expect(page.locator('#adminSigninStatus')).not.toContainText('Late synthetic');
+    await expect(page.locator('#portalApp')).toBeHidden();
+    expect(verificationRequests).toBe(1);
+    expect(requests.filter((request) => request.path.includes('/portal/admin/'))).toEqual([]);
+    expect(await page.evaluate(() => sessionStorage.getItem('doji-admin-session-v1'))).toBeNull();
+  });
+}
+
+test('verified phone MFA identifies the delivery method without opening the workspace', async ({
+  page,
+}) => {
+  const requests = await installMockBackend(page, { authMode: 'challenge' });
+  await page.route('**/auth/v1/token?grant_type=password', (route) =>
+    route.fulfill({
+      json: {
+        access_token: `test.${Buffer.from(JSON.stringify({ aal: 'aal1' })).toString('base64url')}.signature`,
+        user: {
+          id: 'synthetic-operator',
+          factors: [{ id: 'phone-1', factor_type: 'phone', status: 'verified' }],
+        },
+      },
+    }),
+  );
+  await page.goto('/');
+  await page.locator('#adminEmail').fill('operator@example.test');
+  await page.locator('#adminPassword').fill('synthetic-password');
+  await page.locator('#adminSigninForm button[type="submit"]').click();
+  await expect(page.locator('#adminMfaChallengeDescription')).toHaveText(
+    'Enter the six-digit code sent to your verified phone.',
+  );
+  await expect(page.locator('#portalApp')).toBeHidden();
+  expect(requests.filter((request) => request.path.includes('/portal/admin/'))).toEqual([]);
+});
+
 test('loads no administrator data before authentication and enters with AAL2', async ({ page }) => {
   const requests = await installMockBackend(page);
   await page.goto('/');

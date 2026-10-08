@@ -98,7 +98,8 @@ test('overlapping queue refreshes coalesce and a failed read has an explicit ret
   let release!:()=>void,reads=0;const gate=new Promise<void>(r=>{release=r;});
   await page.route('**/rest/v1/rpc/get_admin_business_applications_page_v1',async route=>{reads++;if(reads===1)await gate;await route.fulfill({status:503,json:{message:'Queue unavailable'}});});
   const refresh=page.getByRole('button',{name:'Refresh applications',exact:true});await refresh.click();await expect.poll(()=>reads).toBe(1);
-  await refresh.click();await refresh.click();expect(reads).toBe(1);release();
+  // Loading replaces the toolbar; foreground hints still coalesce into one follow-up read.
+  await page.evaluate(()=>{document.dispatchEvent(new Event('visibilitychange'));document.dispatchEvent(new Event('visibilitychange'));});expect(reads).toBe(1);release();
   await expect(page.getByRole('button',{name:'Retry applications',exact:true})).toBeVisible();await expect.poll(()=>reads).toBe(2);
   await expect(page.locator('[data-application-id]')).toHaveCount(0);
 });

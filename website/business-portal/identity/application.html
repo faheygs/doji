@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Your business · Doji</title>
+    <link rel="icon" href="/assets/doji-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portal.css" />
+    <link rel="stylesheet" href="/business-portal/application/application.css" />
+    <link rel="stylesheet" href="/business-portal/application/journey.css" />
+  </head>
+  <body class="portalPage" data-portal="business-application">
+    <a class="journeySkip" href="#businessMain">Skip to content</a>
+    <header class="onboardingHeader">
+      <a class="portalBrand" href="/"
+        ><img src="/assets/doji-icon.png" alt="" /><span>Doji<small>For Business</small></span></a
+      >
+      <nav class="headerActions" aria-label="Business navigation">
+        <a href="#businessMain" aria-current="page">Your business</a>
+        <a href="https://dojipro.com/support/" target="_blank" rel="noopener noreferrer">Help</a>
+        <button class="themeToggle" type="button" data-action="toggle-theme">
+          <span data-theme-label>Dark mode</span>
+        </button>
+        <button class="portalButton" id="businessSignout" type="button" hidden>Sign out</button>
+      </nav>
+    </header>
+    <main class="applicationMain journeyMain" id="businessMain">
+      <section class="onboardingCard" id="applicationAccess">
+        <p class="eyebrow">Doji for Business</p>
+        <h1 id="businessAccessHeading">Opening your business portal…</h1>
+        <p id="businessAvailability">Checking your business account…</p>
+        <div class="applicationActions" id="applicationAccessActions" hidden>
+          <a class="portalButton" href="/business-portal/access/?mode=signin">Sign in</a>
+          <a class="portalButton primary" href="/business-portal/access/?mode=register"
+            >Register your business</a
+          >
+        </div>
+      </section>
+      <div id="applicationWorkspace" hidden>
+        <header class="journeyHeading">
+          <div>
+            <p class="eyebrow">Your business</p>
+            <h1 id="businessHeading" tabindex="-1">Loading your business home…</h1>
+            <p id="businessIntro"></p>
+          </div>
+          <button class="portalButton" id="applicationRefresh" type="button">Refresh status</button>
+        </header>
+        <ol class="journeyProgress" aria-label="Business onboarding progress" id="businessProgress">
+          <li id="progressAccount">
+            <span class="stepNumber">1</span
+            ><span>Account<small id="progressAccountText">Complete</small></span>
+          </li>
+          <li id="progressDetails">
+            <span class="stepNumber">2</span
+            ><span>Business details<small id="progressDetailsText">Not started</small></span>
+          </li>
+          <li id="progressReview">
+            <span class="stepNumber">3</span
+            ><span>Doji review<small id="progressReviewText">Not submitted</small></span>
+          </li>
+        </ol>
+        <p
+          id="applicationReadStatus"
+          class="journeyReadStatus"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <p
+          id="businessApplicationMessage"
+          class="journeyFeedback"
+          role="status"
+          aria-live="polite"
+          tabindex="-1"
+        ></p>
+        <div id="applicationStale" class="authHint" hidden>
+          Your application changed since this page was loaded. Your unsaved details are still here.
+          Review them before loading the current application.
+          <button type="button" class="portalButton" id="applicationReload">
+            Load current record
+          </button>
+        </div>
+        <div class="journeyColumns">
+          <div class="journeyContent">
+            <section
+              class="onboardingCard journeyStatus"
+              id="businessStatusCard"
+              hidden
+              aria-labelledby="applicationStatusTitle"
+            >
+              <p class="eyebrow" id="applicationState"></p>
+              <h2 id="applicationStatusTitle" tabindex="-1"></h2>
+              <p id="applicationStatusDescription"></p>
+              <div class="journeyResponse" id="applicationResponsePanel" hidden>
+                <h3>A note from Doji</h3>
+                <p id="applicationResponse"></p>
+              </div>
+              <dl class="journeyReceipt" id="applicationReceipt" hidden>
+                <div>
+                  <dt>Application reference</dt>
+                  <dd id="applicationReference"></dd>
+                </div>
+                <div id="applicationSubmittedRow">
+                  <dt>Submitted</dt>
+                  <dd id="applicationSubmitted"></dd>
+                </div>
+              </dl>
+              <div class="applicationActions" id="applicationReceiptActions" hidden>
+                <button class="portalButton" id="applicationPrint" type="button">
+                  Print or save receipt
+                </button>
+              </div>
+            </section>
+            <section
+              class="onboardingCard"
+              id="applicationEditor"
+              hidden
+              aria-labelledby="applicationEditorTitle"
+            >
+              <form id="businessApplicationForm">
+                <div id="applicationEditPanel">
+                  <h2 id="applicationEditorTitle">Tell us about your business</h2>
+                  <p class="journeyMuted">
+                    All fields are required. You can save an unfinished draft and return later.
+                  </p>
+                  <div id="applicationFields"></div>
+                  <p id="applicationSaveStatus" role="status" aria-live="polite"></p>
+                  <div class="applicationActions" id="applicationActions">
+                    <button class="portalButton" id="applicationSave" type="button">
+                      Save draft
+                    </button>
+                    <button class="portalButton primary" id="applicationReview" type="submit">
+                      Review application
+                    </button>
+                  </div>
+                </div>
+                <div id="applicationReviewPanel" hidden>
+                  <h2 id="applicationReviewTitle" tabindex="-1">Check your application</h2>
+                  <p>Make sure these details are correct before sending them to Doji for review.</p>
+                  <div id="applicationReviewSummary"></div>
+                  <label class="consentRow" id="applicationConsent"
+                    ><input id="businessTerms" type="checkbox" /><span
+                      >I am authorized to represent this business, confirm this information is
+                      accurate, and accept the
+                      <a id="businessTermsLink" rel="noopener noreferrer" target="_blank"
+                        >application terms</a
+                      >
+                      and acknowledge the
+                      <a id="businessPrivacyLink" rel="noopener noreferrer" target="_blank"
+                        >privacy notice</a
+                      >.</span
+                    ></label
+                  >
+                  <p class="journeyMuted">
+                    Submitting does not enable billing, book a placement or publish a campaign.
+                  </p>
+                  <div class="applicationActions">
+                    <button class="portalButton" id="applicationEdit" type="button">
+                      Edit details
+                    </button>
+                    <button class="portalButton primary" id="applicationSubmit" type="button">
+                      Submit for review
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </section>
+            <details class="onboardingCard journeyDetails" id="applicationDetails" hidden>
+              <summary>View submitted business details</summary>
+              <div id="applicationDetailsSummary"></div>
+            </details>
+            <section class="onboardingCard" id="applicationHistory" hidden>
+              <h2>Application activity</h2>
+              <ol class="journeyHistory" id="applicationHistoryList"></ol>
+              <p id="applicationHistoryMore" class="journeyMuted" hidden>
+                Showing the latest 30 updates.
+              </p>
+            </section>
+            <section class="onboardingCard" id="businessWorkspaceActions" hidden>
+              <h2>Your approved business</h2>
+              <p>
+                Your application is approved. Verify your authenticator to open your secured
+                workspace.
+              </p>
+              <div class="applicationActions">
+                <button class="portalButton primary" id="businessOpenWorkspace" type="button">
+                  Open business workspace
+                </button>
+              </div>
+              <div id="businessWorkspaceMfa" hidden></div>
+              <section class="authHint" id="businessVerifiedWorkspace" hidden>
+                <h3>Workspace access verified</h3>
+                <p id="businessWorkspaceSummary"></p>
+                <p>
+                  Your business account is ready. Campaign publishing and billing are not enabled.
+                  Contact Doji to discuss next steps for your business.
+                </p>
+                <a href="https://dojipro.com/support/" target="_blank" rel="noopener noreferrer"
+                  >Contact Doji</a
+                >
+              </section>
+            </section>
+          </div>
+          <aside class="journeyAside">
+            <section class="onboardingCard">
+              <h2 id="businessNextTitle">Your next step</h2>
+              <p id="businessNextText"></p>
+            </section>
+            <section class="onboardingCard">
+              <h2>We’re here to help</h2>
+              <p>
+                Questions about your application or account? Contact Doji and include your
+                application reference, if available.
+              </p>
+              <a href="https://dojipro.com/support/" target="_blank" rel="noopener noreferrer"
+                >Contact support</a
+              >
+            </section>
+            <p class="journeyMuted">
+              No payment details required. Campaign publishing and billing are not open yet.
+            </p>
+          </aside>
+        </div>
+      </div>
+      <p id="businessSignedOutMessage" role="status" aria-live="polite"></p>
+    </main>
+    <footer class="journeyFooter">
+      <a href="/">Doji for Business</a
+      ><a href="/business-terms/" target="_blank" rel="noopener noreferrer">Business terms</a
+      ><a href="/business-privacy/" target="_blank" rel="noopener noreferrer">Privacy notice</a
+      ><a href="https://dojipro.com/support/" target="_blank" rel="noopener noreferrer">Support</a>
+    </footer>
+    <script src="/business-portal/config.js"></script>
+    <script src="/portal-select.js"></script>
+    <script src="/portal.js"></script>
+    <script type="module" src="/business-portal/application/application.js"></script>
+  </body>
+</html>

@@ -1,0 +1,63 @@
+/* Account-form layout only; shared portal fields, buttons and theme tokens stay authoritative. */
+.identityMain {
+  max-width: 640px;
+}
+.identityMain h1 {
+  font-size: clamp(26px, 4vw, 32px);
+  line-height: 1.18;
+  margin-bottom: 12px;
+}
+.identityMain #identityIntro {
+  color: var(--portal-muted);
+  line-height: 1.6;
+}
+.identityMain .identitySwitch {
+  margin: 16px 0 24px;
+  font-size: 14px;
+}
+.identityMain a {
+  color: var(--portal-copy);
+  text-underline-offset: 3px;
+}
+.identityMain .identityHint {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.identityMain #identityEmailHint {
+  margin-top: -7px;
+}
+.identityMain #identityMessage:empty {
+  display: none;
+}
+.identityMain #identityMessage {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.identityMain .consentRow {
+  margin-top: 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.identityMain .consentRow input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+.identityMain .businessVerification {
+  margin-top: 0;
+}
+.identityMain .applicationActions {
+  padding-top: 8px;
+}
+.identityMain .identityBack {
+  padding-top: 24px;
+  font-size: 13px;
+}
+.identityMain a:focus-visible {
+  outline: 2px solid var(--portal-copy);
+  outline-offset: 4px;
+}

@@ -38,7 +38,11 @@ test.each(['ios', 'web'])('%s never reads Android native state or adds tags', os
   mockOS = os;
   const event = { message: 'unchanged' };
   expect(require('../../lib/apiFailureTelemetry').sanitizeApiFailureEvent(event)).toBe(event);
-  expect(event).toEqual({ message: 'unchanged' });
+  if (os === 'web') expect(event).toEqual({ message: 'unchanged' });
+  else expect(event).toMatchObject({ message: 'unchanged', contexts: {
+    diagnostic: { platform: 'ios', context_origin: 'event_processing_unattributed' },
+  } });
+  expect(event).not.toHaveProperty('tags.firebase_test_lab');
   expect(mockNative).not.toHaveBeenCalled();
 });
 

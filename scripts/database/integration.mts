@@ -96,6 +96,10 @@ export async function integration(room: TestRoom) {
     'scripts/test-editorial-local.sql',
     'scripts/test-announcement-campaigns.sql',
   ]);
+  batch('Reserved poll Other approval', [
+    'scripts/test-editorial-local.sql',
+    'scripts/test-poll-reserved-other.sql',
+  ]);
   // The editorial test deliberately ends as an AAL1 employee. Fixture inserts
   // for the next suite must return to the local test administrator first.
   test(

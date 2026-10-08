@@ -21,6 +21,17 @@ export const applicationFields = [
 ] as const;
 export type ApplicationField = (typeof applicationFields)[number][0];
 export type ApplicationDetails = Partial<Record<ApplicationField, string>>;
+// Read the actual displayed controls at command time. Defaults and browser autofill
+// may not dispatch input/change events; never silently omit them from a new draft.
+export function applicationFormValues(form: HTMLFormElement): ApplicationDetails {
+  const data = new FormData(form);
+  return Object.fromEntries(
+    applicationFields.flatMap(([key]) => {
+      const value = data.get(key);
+      return typeof value === 'string' ? [[key, value]] : [];
+    }),
+  );
+}
 export function applicationForm(
   details: ApplicationDetails = {},
   readOnly = false,

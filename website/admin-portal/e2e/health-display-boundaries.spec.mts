@@ -142,9 +142,12 @@ for (const kind of ['missing', 'unavailable', 'empty', 'malformed', 'linked', 'c
     await operations(page);
     const panel = page.locator('.sentryPanel');
     await expect(panel).toContainText('Counts are Sentry group totals, not per-Doji totals.');
-    if (['missing', 'unavailable'].includes(kind))
-      await expect(panel).toContainText('No all-clear can be inferred');
-    else if (['empty', 'malformed'].includes(kind))
+    if (['missing', 'unavailable', 'malformed'].includes(kind)) {
+      await expect(panel).toContainText('App-error readings unverified.');
+      await expect(panel).toContainText('Empty or outdated results are not an all-clear.');
+      await expect(panel.locator('.healthState')).toHaveAttribute('data-state', 'unknown');
+      await expect(panel).not.toContainText('No unresolved production issues returned.');
+    } else if (kind === 'empty')
       await expect(panel).toContainText('cannot verify account loading or comment success');
     else {
       await expect(panel.locator('a.sentryIssueRow').first()).toHaveAttribute(
@@ -270,7 +273,7 @@ test('operational read failure does not render stale realtime p95 as current', a
   await operations(page);
   await expect(page.locator('.opsHeroMetric strong')).toHaveText('—');
   await expect(page.locator('.opsHeroMetric')).toContainText('stale / unavailable');
-  await expect(page.locator('.opsGrid')).toContainText(
-    'No unavailable signal is being treated as healthy',
-  );
+  await expect(page.locator('.opsHero')).toHaveAttribute('data-state', 'unknown');
+  await expect(page.locator('.healthSignal').filter({ hasText: 'Realtime delivery' })).toHaveAttribute('data-state', 'unknown');
+  await expect(page.locator('.opsHero')).not.toContainText('All measured signals healthy');
 });

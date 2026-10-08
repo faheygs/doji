@@ -52,7 +52,7 @@ function present<T>(value: T | undefined): T {
 test('missing whole response is unknown, never healthy', () => {
   const r = evaluate();
   assert.equal(r.state, 'unknown');
-  assert.match(r.title, /incomplete/);
+  assert.match(r.title, /unverified/);
 });
 test('complete measured snapshot explicitly limits its success claim', () => {
   const r = evaluate(base);
@@ -83,10 +83,10 @@ for (const [patch, label] of [
   [{ realtime_sample_count_5m: 0 }, 'No recent traffic'],
   [{ realtime_sample_count_5m: null }, 'Telemetry missing'],
   [{ realtime_sample_count_5m: 19 }, 'Limited sample'],
-  [{ checked_at: at(-180001) }, 'Refresh needed'],
-  [{ checked_at: at(60001) }, 'Refresh needed'],
-  [{ checked_at: null }, 'Refresh needed'],
-  [{ available: false }, 'Refresh needed'],
+  [{ checked_at: at(-180001) }, 'Reading outdated'],
+  [{ checked_at: at(60001) }, 'Reading outdated'],
+  [{ checked_at: null }, 'Reading outdated'],
+  [{ available: false }, 'Reading outdated'],
 ] as const)
   test(`missing or insufficient telemetry: ${label} ${JSON.stringify(patch)}`, () => {
     const r = withOperational(patch);
@@ -149,15 +149,12 @@ for (const count of [1, 25])
         issues: Array.from({ length: count }, () => ({ id: 'synthetic' })),
       },
     });
-    assert.equal(r.state, 'degraded');
+    assert.equal(r.state, 'watch');
     assert.match(present(r.signals[4]).detail, /not a live outage count/);
     assert(present(r.signals[4]).detail.startsWith(count === 25 ? '25+' : '1 '));
   });
-test('malformed issue list is handled as a bounded empty result, not complete feature verification', () =>
-  assert.match(
-    present(evaluate({ ...base, sentry: { ...base.sentry, issues: {} } }).signals[4]).detail,
-    /feature success rates are not covered/,
-  ));
+test('malformed issue list cannot appear as zero issues', () =>
+  assert.equal(present(evaluate({...base,sentry:{...base.sentry,issues:{}}}).signals[4]).state, 'unknown'));
 for (const field of ['observed_through', 'closes_at', 'fires_at'])
   test(`event recency accepts supported ${field} timestamp`, () => {
     const row = { ...event, observed_through: undefined, [field]: at(-3600000) };

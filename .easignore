@@ -32,6 +32,7 @@
 !/plugins/android-read-diagnostics/expoClientPatch.cts
 !/app.json
 !/babel.config.cts
+!/metro.config.cts
 !/eas.json
 !/google-services.json
 !/index.ts

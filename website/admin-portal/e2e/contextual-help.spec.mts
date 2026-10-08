@@ -62,7 +62,7 @@ for (const width of [1440, 390]) {
       await expect(page.locator('#caseDrawer')).toHaveAttribute('aria-hidden', 'false');
     }
     await help.click();
-    await page.getByRole('button', { name: 'Close details', exact: true }).click();
+    await page.getByRole('button', { name: 'Back to queue', exact: true }).click();
     await expect(page.locator('.contextualHelp:popover-open')).toHaveCount(0);
     expect(
       requests.filter((r) => r.method === 'POST' && !r.path.endsWith('/realtime-token')),
@@ -78,10 +78,10 @@ test('health definitions use the same help pattern without hiding coverage limit
   await page.goto('/');
   await expect(page.locator('#portalApp')).toBeVisible();
   await page.getByRole('button', { name: 'Platform operations', exact: true }).click();
+  await page.getByText('How health is assessed',{exact:true}).click();
   await expect(page.locator('.healthThresholds > p')).toBeVisible();
   await expect(page.locator('.healthThresholds > p')).toContainText('Not directly measured');
-  await page.getByRole('button', { name: 'Help: Health coverage', exact: true }).click();
-  await expect(page.locator('.contextualHelp:popover-open')).toContainText('Critical');
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.contextualHelp:popover-open')).toHaveCount(0);
+  await expect(page.locator('.healthThresholds')).toContainText('Critical');
+  await page.getByText('How health is assessed',{exact:true}).click();
+  await expect(page.locator('.healthThresholds > p')).toBeHidden();
 });

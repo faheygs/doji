@@ -1,4 +1,550 @@
-# Account separation: preparation and provider provisioning, not a portal cutover
+# Account separation: implementation and release record
+
+## October 5: first-application submission defect repaired
+
+The owner completed hosted authentication and reached the application form. Bounded
+function invocation logs show auth start 200, registration Action 200, callback 303,
+session/application GET 200, followed by application POST 400 at 20:13:56 UTC.
+A bounded read showed one business account and no application records. No raw
+session, provider token or form contents were retrieved for diagnosis.
+
+Root cause reproduced in the browser fixture: a new application draft starts empty,
+but the form renders a preselected US country. Since the single-option country
+control is never changed, event-only draft capture omits it. The existing database
+validator rejects the incomplete submission. URL validation was separately checked
+read-only and accepts an ordinary HTTPS URL; no validator/database patch was needed.
+
+The independent applicant UI now reads allowlisted, rendered form values before
+Save/Submit, capturing preselected values and browser autofill without requiring
+input events. It retains existing atomic commands, idempotency keys, concurrency
+checks and drafts on failure. Application HTTP 400 gets an actionable form error,
+not the generic sign-in suggestion. No backend, worker, credentials or SQL changes.
+
+Regression evidence: the new first-submission test failed before repair and passes
+after it. All 25 focused browser tests and six artifact/browser-client tests pass,
+along with website/tooling TypeScript, lint, source-size and whitespace checks.
+Exactly three static business scripts changed; live hashes and 401/403 boundaries
+passed. Evidence/rollback identity: `test-results/business-submit-default-country-20261005/`.
+The previous Pages deployment `abe32036-41ad-4a7d-82e1-6ed17868fc84` is retained for
+rollback. Admin/main-site deployments and deployment configuration are unchanged.
+Owner was told to Save draft before refreshing; real post-fix submission remains
+pending. No real application was submitted or approved by the agent.
+
+## October 5, 20:10 UTC: email-first account form deployed
+
+The owner rejected the consent-only registration screen. Register now opens a
+compact form with a required email field, shared controls/theme tokens, compact
+consent rows and right-aligned Continue. The redundant current-mode button is gone;
+existing users get a Sign in link. Password creation/email verification stays on
+hosted WorkOS, with business details collected after verified authentication.
+
+The email is passed directly to WorkOS as documented `login_hint` after the browser
+client validates the exact authorization origin/path/callback. It is a UI hint,
+never a trusted subject or authorization claim; PKCE/state are untouched. It is
+not sent to our `/auth/start`, persisted in browser storage, or treated as a draft.
+Reference: https://workos.com/docs/reference/authkit/authentication/get-authorization-url
+
+Deployment: `abe32036-41ad-4a7d-82e1-6ed17868fc84`; rollback:
+`94c0d712-faa6-4473-a5d2-83c80e7d760f`. Exactly three static files changed:
+account HTML, bundled account script and its new scoped layout CSS. Worker,
+deployment config, backend, WorkOS settings, legal text, caps/expiry, employee and
+member systems are unchanged. Admin/main-site deployment IDs were checked unchanged.
+
+All 22 focused browser tests passed, including malformed/empty email denial,
+encoded email handoff, preserved state/PKCE/callback, no email in our auth payload
+or browser storage, consent/security denial and existing session/application/MFA
+regressions. Both artifact tests, website/tooling TypeScript, targeted lint and
+source-size checks passed. Desktop/mobile light/dark screenshots were inspected.
+Live assets matched exact hashes and anonymous/cross-origin session boundaries
+remained 401/403. The live form rendered successfully in the browser.
+
+Evidence: `test-results/business-account-form-20261005/`; live screenshot:
+`D:/ChallengeApp/DoIt/test-results/business-registration-live-20261005.png`.
+Provider navigation was mocked in regression tests; no production account was
+created. Real owner signup/callback/application/recovery acceptance remains pending.
+
+## October 5, 19:59 UTC: public business homepage deployed
+
+The owner requested a public business-focused website at the domain root, not an
+application landing screen. `business.dojipro.com/` now returns the static public
+homepage with the main site's shared design foundation. Header Sign in and Register
+links select their exact access mode directly; the account-action dropdown is gone.
+The public homepage makes no session/API calls and stays public even when a visitor
+has a business session. Only account pages restore sessions and route to onboarding.
+Existing application bookmarks still work; their signed-out shell now offers clear
+Sign in/Register links. Root/brand links return to the public business homepage.
+
+The business-only Pages deployment is `94c0d712-faa6-4473-a5d2-83c80e7d760f`.
+Its predecessor `17cd269f-1431-419d-8d83-f22425f1f49f` is the rollback target.
+Only seven presentation/navigation assets changed; the packaged worker, public
+runtime configuration, legal documents and deployment bindings are unchanged.
+Admin/main-site deployment IDs were verified unchanged. No SQL, Edge, WorkOS,
+credentials, member/employee settings, billing, campaign or admission change.
+Campaign availability is described as not open; no invented clients or metrics.
+
+All 22 focused browser tests passed, including desktop/mobile root presentation,
+direct account modes, consent/security, session restoration, draft preservation,
+review states and workspace MFA. Both local artifact tests, website/tooling
+TypeScript, targeted lint, source-size and whitespace checks passed. Live root
+HTTP 200 and exact asset hashes passed; anonymous/cross-origin boundaries remained
+401/403. A live browser visual check confirmed root content and account links.
+Evidence: `test-results/business-home-20261005/`; screenshot:
+`D:/ChallengeApp/DoIt/test-results/business-home-live-20261005.png`.
+This UI release does not complete the outstanding real owner signup/recovery test.
+
+## October 5, 19:12 UTC: owner-approved business signup activated
+
+The owner explicitly approved final business signup/onboarding activation after
+the provider-generated signed Action test. WorkOS business Production email/password
+is now enabled with its existing policy (minimum ten characters, complexity 3).
+Hosted signup was already enabled; no employee setting, paid feature or billing
+setting was changed. The exact business JWT audience and default callback remain
+pinned to the independent business client and `/auth/callback`.
+
+`scripts/activate-business-onboarding.mts` captured the disabled settings, rehearsed
+the exact activation in a rolled-back transaction, and verified valid admission,
+idempotent replay, mismatched replay denial and wrong-scope denial. The rehearsal
+restored the exact prior settings and did not consume a registration slot.
+The subsequent single guarded transaction enabled only the business realm,
+encrypted session store, registration, enrollment, reads, commands and private
+privacy bridge. Registration/enrollment each retain a ten-account lifetime cap
+and `2026-10-07T23:59:59Z` expiry. Flow/session limits remain 100. No account was
+created by activation, and counters remained zero at verification.
+
+Post-activation checks passed: existing function/grant/RLS/role fingerprints,
+employee realm/session settings, existing business feature settings and all Pages
+deployment IDs were unchanged. Anonymous admin and member Auth boundaries and
+business static routes returned their expected statuses. These are bounded
+contract/health checks, not proof of uninterrupted service or signed-in device
+acceptance. Campaigns, billing and business realtime remain disabled.
+
+Evidence and retaining freeze:
+`test-results/business-onboarding-activation-20261005/` contains `before.json`,
+`rehearsed.json`, `activated.json`, `verified.json`, and `freeze-business-only.sql`.
+The freeze disables business access only, keeps consumed caps/accounts/history,
+and refuses unexpected directory/generation/policy changes. It does not revoke
+member/employee sessions or delete any provider accounts.
+
+The live account page rendered signup, explicit US-business/legal agreement
+controls and a completed managed security check. Owner handoff is at
+`https://business.dojipro.com/business-portal/access/`: the owner must accept
+terms, choose a password and verify email. Actual production signup/callback,
+application save/submit, reset and owner acceptance are **still pending**; enabled
+configuration and the page rendering are not represented as those tests passing.
+Proof: `D:/ChallengeApp/DoIt/test-results/business-signup-live-20261005.png` and
+`business-password-enabled-20261005.png`. Local tooling TypeScript, targeted lint,
+source-size and whitespace checks passed. No new app build or deployment was needed
+for this settings-only activation.
+
+## October 5, 19:04 UTC: business runtime connected; WorkOS-signed test passed
+
+After the owner's specific credential-installation approval, the business-only
+Supabase configuration and exact `business-portal-v2` runtime were installed and
+verified. The matching server-only proxy key was installed on `doji-business`;
+the final Pages deployment is `17cd269f-1431-419d-8d83-f22425f1f49f`.
+Member and employee credential values, existing contracts/RLS/roles and other
+Pages deployments were checked unchanged. Shared infrastructure is not physical
+isolation; these bounded checks are not continuous availability proof.
+
+Hosted qualification identified Supabase's infrastructure `__cf_bm` cookie as
+the cause of a proxy 503. The proxy now discards only that upstream cookie and
+continues to reject malformed or non-business authentication cookies. Eleven
+proxy tests and native Cloudflare runtime checks passed. Hosted same-origin
+anonymous reads return 401, cross-origin reads return 403, and browser assets
+match the packaged hashes. Only business Pages required this follow-up deployment.
+
+WorkOS business Production now has the registration Action enabled at
+`https://business.dojipro.com/auth/workos-registration`, with errors configured
+to deny registration. Its own synthetic signed test returned **Succeeded**, an
+expected signed **Deny**, and a 1,243 ms response time. This verifies actual
+provider-to-hosted signature compatibility, not merely a locally generated HMAC.
+No account was created. The business JWT template already pins the exact business
+client audience. Evidence: `test-results/business-v2-runtime-20261005/`, plus
+`D:/ChallengeApp/DoIt/test-results/business-workos-provider-test-20261005.png`.
+
+The database session, registration, enrollment, realm/read/command and privacy
+activation gates remain closed; password login is not yet enabled. Public signup
+is therefore **not complete**. Final bounded activation must preserve ten-account
+admission, US attestation and October 7 23:59:59 UTC expiry, then qualify the
+owner's real signup, verification, callback and recovery. Campaigns, billing and
+business realtime remain off. No paid feature or billing setting was changed.
+
+Final tooling TypeScript, targeted lint, source-size and whitespace checks passed.
+The final proxy changes have focused/native/hosted verification; they were made
+after the full coverage run below and are not claimed to be included in that run.
+
+## October 5: earlier package preparation (superseded by installation above)
+
+The owner saved the existing business Action secret through the protected local
+handoff. Its 25-character length exposed an incompatible local 32-character
+minimum. After explicit owner approval, the business-only validator accepts a
+minimum of 25; HMAC verification, freshness, replay admission and default-deny
+remain unchanged. All 41 registration-boundary tests and seven runtime tests
+passed, including exact 25-character signatures and rejection with the wrong key.
+
+`scripts/release-business-v2-runtime.mts prepare` captured production baselines,
+downloaded the previous business Edge runtime for rollback, and packaged exact
+Edge/Pages source. Evidence is `test-results/business-v2-runtime-20261005/`.
+Runtime configuration remains only in ignored, ACL-protected local storage.
+The configure command was blocked before execution by the safety reviewer pending
+explicit authorization of the secret payload and production Supabase destination.
+No new production credentials, runtime deployment, Pages binding, Action setting
+or signup gate was changed. The owner has been asked to approve business-only
+Supabase credentials and the corresponding Cloudflare doji-business proxy secret.
+
+The complete coverage pipeline finished at 18:44:56 UTC with every stage passing,
+716 browser tests and 17/17 areas above 90% in all four metrics. The small signing-key
+compatibility edit was separately verified with the 41 and seven tests above;
+those added tests were not part of that pipeline's earlier offline stage.
+
+## October 5, 18:27 UTC: independent business privacy bridge installed disabled
+
+The approved additive SQL was rehearsed in a rolled-back transaction, then
+installed once and verified with `privacyEnabled=false`. Evidence:
+`test-results/business-independent-privacy-20261005/verified-1791224829317.json`.
+Existing function bodies/grants/RLS/settings and deployment inventories were
+preserved. No customer erasure, signup activation or portal cutover occurred.
+The clean-room database suite passed all 14 extended suites, including exact-case
+privacy, bound-session deletion, rollback and member-permission preservation.
+All 34 offline test files passed; full typecheck/lint and local Edge/Cloudflare
+runtime qualification passed. The latest native Edge evidence is
+`test-results/business-edge-runtime-3IEa34`.
+
+Runtime secrets and WorkOS Action wiring remain outstanding. The existing Action
+signing secret is redacted from browser automation; a loopback-only one-field
+handoff asks the owner to save it under protected ignored local storage. This does
+not rotate credentials or change WorkOS settings. A fresh complete coverage run
+is required after the new privacy sources; the earlier 17/17 report below applies
+to the preceding source state, not these additions.
+
+The owner separately approved preparation, testing and deployment of exact-account
+business WorkOS export/deletion. The candidate is additive: existing member,
+employee and legacy business function bodies/ACLs are not replaced. Privacy operator
+functions remain private to the database owner; the business web login receives
+only a new bound-session insertion function. An authenticated staff privacy case,
+disabled target account, matching directory, no legal hold and a durable execution
+ID are required before provider deletion. Replaying an execution never authorizes
+a second DELETE. Provider timeout/error does not mean deletion succeeded.
+
+`scripts/business-privacy-operator.mts` is a manual exact-case handoff, not an API or
+automatic job. It loads only the pinned production business directory credential.
+It saves confidential output under ACL-protected, ignored `.artifacts/business-privacy/`;
+no personal data or provider tokens go to the console or release evidence. Export is
+labelled identity-profile-only and must be combined with the existing staff case
+export. Security logs, retained agreements/audit metadata and backup retention need
+separate staff assessment; primary erasure never auto-completes the privacy case.
+
+The SQL candidate and retaining rollback are
+`docs/drafts/portal_identity_business_privacy_v1.sql` and `.rollback.sql`.
+The release runner checks source hashes, existing contracts/grants/RLS/settings,
+the event window, disabled business gates, and unchanged deployment inventories.
+It rehearses inside a rolled-back transaction before a single installation.
+No actual customer erasure, member/employee mutation, paid feature, signup activation
+or production portal cutover is authorized by running this preparation alone.
+
+## October 5, 17:44 UTC: business MFA/provider qualification, local workspace integration
+
+The independent business runtime now supports CSRF-protected MFA preparation and
+completion, plus its existing approved-workspace SQL read. Pending challenges and
+receipts are bound to exact business subject/session/client inside the encrypted
+durable store. Admission is persisted before provider effects, completion consumes
+the challenge before verification, and no automatic retry occurs. Five preparations
+per local session and a 30-second preparation cooldown bound attempts. A rejected
+code preserves the signed-in session but grants no workspace access; the UI clears
+the consumed challenge and offers an explicit fresh attempt.
+
+The real WorkOS staging check exposed that unverified enrollment factors are not
+listed before first verification. The implementation now uses the exact sealed
+enrollment response for that first challenge, then requires provider ownership
+after verification. Existing-factor challenges require ownership both before and
+after verification. Reusing an already accepted TOTP was rejected; the qualified
+second challenge uses the next 30-second code. Setup keys are never logged or
+persisted in pending state. No account metadata, email match or factor existence
+alone confers MFA assurance.
+
+`scripts/check-business-mfa-staging.mts` explicitly pins the business staging
+environment/client, verifies signed token identity, has a 24-request ceiling,
+and never connects to SQL or production. Successful evidence is
+`test-results/business-mfa-staging/1791222302651.json`, with completed=true,
+cleanedUp=true and at=2026-10-05T17:44:30.104Z. Sixteen provider requests verified enrollment, a fresh
+existing-factor challenge and session-bound receipts. The run revoked its session
+and deleted only its synthetic user. Earlier failed qualification accounts were
+also removed; the first cleanup parser was corrected to accept the provider's
+empty successful revoke response. No real member, employee or business account
+was changed.
+
+Browser presentation reuses the shared business MFA component, including manual
+setup-key entry when no compatible QR image is present. Approved status exposes
+the workspace action; the server still rechecks MFA and organization approval.
+Logout/revocation clears both the key and workspace; paid features stay disabled.
+The initial 207 business browser tests passed, and all 19 independent browser
+flows passed again after adding wrong-code recovery. The 164 focused server,
+SQL boundary, employee-provider and session-reader tests passed.
+
+Final local verification at 17:57 UTC: 4,551 Jest tests across 241 suites passed;
+716 browser tests passed with zero skipped, failed or flaky cases; all 33 offline
+files passed after correcting optional MFA-state restoration compatibility.
+The merged report passes **17/17 areas at 90% or higher in all four metrics**;
+business branches are 90.24%, portal-identity branches 92.60%. Missing reports: zero.
+The original combined runner retains its initial offline failure in `run-status.json`
+(exit 1); it was not rewritten as a clean run. After that correction, the old
+generated Node coverage directory was replaced and the entire offline allowlist
+rerun successfully before final merging/gating. `offline-results.json` records
+that passing rerun; `areas.json` records the passing final coverage gate.
+Full TypeScript checks, lint, source-size and whitespace checks passed. Existing
+local network-isolated Supabase Edge and Cloudflare runtime tests passed; latest
+Edge evidence is `test-results/business-edge-runtime-dsDBWk`.
+
+[WorkOS pricing](https://workos.com/pricing) lists AuthKit MFA as included.
+[AuthKit MFA API](https://workos.com/docs/reference/authkit/mfa) and
+[challenge API](https://workos.com/docs/reference/mfa/challenge) define the
+enrollment/challenge contracts used. No custom domain, SMS, enterprise SSO,
+paid feature or billing setting was enabled. Runtime credentials/configuration,
+registration Action wiring, real production signup/recovery acceptance, Pages
+cutover and independent-directory privacy export/erasure remain outstanding.
+The existing business endpoint is still disabled; signup is **not live**.
+
+## October 5, 17:13 UTC: exact business callback saved
+
+After action-time owner approval, WorkOS business production application
+`app_01M3T51386CC5CTSWR69NFWAH7` (client
+`client_01M3T51363MDZZK6X8DB7NS32N`, environment
+`environment_01M3T5131BPKBR7F6P2MAG6SBJ`) now allows exactly
+`https://business.dojipro.com/auth/callback` as its default redirect URI.
+The saved application settings visibly confirmed the exact destination. No wildcard,
+employee callback, member setting, password method, signup gate or paid feature
+was changed. Other application redirect fields remain unset. This allowlist entry
+does not mean the business website/runtime is connected or signup is live.
+Screenshot evidence: `D:/ChallengeApp/DoIt/test-results/business-callback-saved-20261005.png`.
+The four focused offline callback/HTTP/workflow/proxy/runtime test files completed
+with 62 reported test entries passing, zero failures/skips. Initial sandbox startup
+failed with `spawn EPERM` before assertions; the authorized subprocess-capable run
+passed. These synthetic checks are not real provider signup/reset acceptance.
+
+## October 5, 17:02 UTC: restricted SQL login installed and verified
+
+After explicit owner approval of the exact permanent access grant, the prepared
+`doji_business_portal_login` was installed once. TLS certificate/hostname verification
+and all four restricted-role disabled-gate checks passed at 17:02:25 UTC. The
+existing contract fingerprint remained unchanged; the event-window guard was clear.
+Role attribute, membership, direct-table denial and member/employee isolation guards
+passed. No business realm or account was created and all business gates remain off.
+Evidence: `test-results/business-sql-login-20261005/verified-1791219745221.json`
+and `apply-started.json`. Do not rerun `apply`; use `verify` for bounded checks.
+The server-only credential remains in protected ignored local storage, not installed
+in Edge configuration or exposed to the browser. No paid feature was enabled.
+
+## October 5, 16:47 UTC: disabled database bridge installed
+
+The reviewed business enrollment, reads, commands, registration and review overlays
+were installed after a rollback-only live rehearsal. Existing member/employee
+function contracts, grants, RLS and employee settings were preserved. Six existing
+business-only function definitions changed deliberately: application command,
+administrative application command, privacy target/access, and erasure claim/finish.
+Independent principals cannot silently fall through to legacy Supabase Auth erasure.
+The rehearsal verified exact restoration of these six definitions using the saved
+rollback. Existing function, secret and Pages inventories stayed unchanged during
+this database phase.
+
+Enrollment, reads, commands, registration and session gates remain false. No business
+realm, account or independent principal was created. The deployment used a release
+lock, bounded lock/statement timeouts, contract concurrency checks and an event-window
+guard. Evidence: `test-results/business-independent-bridge-20261005/`, especially
+`verified-1791218820173.json`, `rehearsed.json` and `rollback.sql`. Do not reapply the
+installation; use the release script's read-only verification mode when needed.
+
+The transport login, `doji_business_portal_login`, was subsequently installed as
+recorded above. Its local preparation and rolled-back rehearsal passed at 16:49:55 UTC. Access:
+two connections, NOINHERIT, no administrator/bypass privileges, no direct table
+access, and only `doji_business_session`, `doji_business_registration`,
+`doji_business_enrollment` and `doji_identity_resolver` memberships. No member or
+employee role is included. The credential is server-only, protected and gitignored.
+Rollback disables the login and revokes those four memberships.
+
+The safety review initially blocked production login creation before execution.
+The owner subsequently approved the exact access grant; the single installation
+above completed successfully. Preparation evidence remains in
+`test-results/business-sql-login-20261005/candidate.json` and `rehearsed.json`.
+Sensitive credential/install files remain under
+the ignored `.artifacts/business-runtime/` directory and must not be published.
+
+No runtime credential/configuration, WorkOS change or Pages cutover was made in this
+phase. Independent signup remains **not live**. Real signup/verification/reset and
+session acceptance, approved-workspace MFA, and independent-directory privacy
+fulfillment remain activation gates. No paid feature or billing change was enabled.
+Tooling type checks, lint, source-size, hygiene and whitespace checks passed.
+
+## October 5, 16:38 UTC: approved disabled business endpoint installed
+
+Owner separately approved installing the endpoint disabled with preservation and
+before/after checks. The minimum installation needed only the non-sensitive
+`BUSINESS_V2_ENABLED=false` flag. Runtime secrets and `BUSINESS_V2_CONFIG` remain
+absent; no new SQL login, schema change, WorkOS setting or Pages cutover occurred.
+
+- Exact endpoint: `business-portal-v2`, ID `df6dbc1e-e7f4-41cf-9cf5-a2019007bef0`,
+  version 1. Platform ACTIVE means deployed, **not** business access enabled.
+- Bundle SHA-256: `0ea41548d4c2c5f350cd2b86cfab7528776e88ecd9fe9a017f0cb018f612717a`.
+  Downloaded runtime sources matched the packaged maintained sources byte-for-byte
+  after newline normalization. Type-only imports erased by the provider bundler
+  are not runtime dependencies; the checker traverses TypeScript value imports.
+- `/api/session`, `/auth/start` and `/auth/workos-registration` returned empty
+  no-store 503 responses, before any provider/session/SQL work can initialize.
+- All 16 pre-existing function contracts/source hashes were preserved. Supabase
+  incremented their version numbers once when the disabled flag was added;
+  `employee-portal-v2` is now version 9 with its prior source unchanged.
+- All existing secret SHA-256 values were preserved. The current CLI calls that
+  digest field `value`; some system-secret `updated_at` timestamps refreshed during
+  deployment. Verification resumed read-only after correcting those metadata checks;
+  neither the secret write nor endpoint deployment was repeated.
+- Public/Auth function/grant, RLS-policy and role fingerprints match the baseline.
+  All three Pages deployment IDs are unchanged. Admin session boundary remained
+  401 without a cookie, admin HTML 200, business root 302 to its existing application
+  page, application HTML 200, and keyless Auth health boundary 401. Response bodies
+  match baseline hashes. These are bounded unauthenticated checks, not a real
+  member login or continuous availability/cold-start measurement.
+- Outside the event window: next event `2026-10-05T22:49:57.700Z`. The bounded overdue
+  outbox check returned zero before and after. No extra recurring monitor was started.
+
+Evidence: `test-results/business-independent-disabled-20261005/`, including
+`baseline.json`, `configured.json`, exact source package/downloads and
+`verified-1791218285003.json` in the managed checkout. Release script is
+`scripts/release-business-independent-disabled.mts`; `verify` does not redeploy.
+Local tooling type checks, source-size guard and diff whitespace checks passed.
+
+Rollback posture: the new endpoint already remains disabled and no caller/site is
+connected to it. Leave its flag false; do not roll back existing function versions
+or rotate existing credentials. If removal is required, first verify the exact
+endpoint ID/version/hash above and the unchanged disabled flag, then remove only
+that new endpoint. Keeping the false flag avoids another project-wide refresh.
+Do not run an old whole-project deployment or delete evidence/account records.
+
+Independent signup is **not live**. Remaining provider/runtime credentials,
+restricted SQL qualification, real verification/reset/session checks, workspace MFA
+and independent-directory privacy fulfillment still gate activation. No paid add-on,
+upgrade, billing change, member Auth migration or employee permission change occurred.
+
+## October 5: business runtime and application browser connection
+
+Local preparation now includes `business-runtime.mts`, `business-proxy.mts`,
+`business-admission.mts` and `business-pages-worker.mts`. The exact business-only
+composition uses pinned provider verification, restricted SQL roles, encrypted
+opaque sessions, signed registration reservation, single-use Turnstile admission
+and bounded/no-retry requests. No service-role key is passed into this runtime.
+The existing US business-country/legal attestation remains; an owner traveling
+outside the US is not rejected solely by their IP country.
+
+`website/build-business-identity.mts` creates a dedicated local artifact, with
+shared controls and hosted provider password entry/reset. The existing application
+controller supplies draft editing, atomic submission, conflict preservation,
+read-only decision states and sign-out clearing. Build tests reject broad output
+paths, unexpected legal configuration and accidental public secret serialization.
+Coverage instruments the maintained sources in a separate synthetic browser project,
+not generated JavaScript or real provider sessions.
+
+Verification completed October 5 at 16:00:38 UTC: the clean full coverage run passed
+all 17 areas at or above 90% for statements, branches, functions and lines. It ran
+4,551 Jest tests (241 suites), 31 offline suites and 713 browser tests, with no
+browser skips, failures or flaky retries. The business portal branch result is
+90.56%; portal identity branches are 92.46%. Evidence is in
+`test-results/coverage/current/run-status.json` and `areas.json` in this checkout.
+Focused checks include 20 server/transport/admission tests, 16 mocked onboarding
+browser journeys, two package-boundary tests and nine disabled-entrypoint tests.
+
+The local-only `supabase/functions/business-portal-v2` entrypoint returns unavailable
+before initialization unless explicitly enabled, validates the exact business
+provider/project configuration, and never receives a service-role key. Native
+Cloudflare/workerd testing passed with `nodejs_compat` and `enable_request_signal`;
+these flags are required for its eventual Pages deployment. The isolated Supabase
+Edge-runtime probe also passed: SQL driver loaded, callback 303, session and
+application 200, revoked session 401, zero external requests. Its synthetic test
+keys use portable WebCrypto rather than a Deno-unsupported Node private-key export.
+Evidence: `test-results/business-edge-runtime-Vv3w5M/result.json`. No live database,
+provider account, signup or email delivery was exercised by these runtime probes.
+
+Fresh read-only checks at 15:34–15:35 UTC: `business-portal-v2` absent,
+`BUSINESS_V2_CONFIG` absent, employee endpoint version 8 active, business Pages
+`b891687f-f7a6-47b3-998d-9c74a27525fc` successful and static. Existing Cloudflare
+CLI authentication was refreshed normally; no new scopes or paid services enabled.
+Owner was asked separately about initially disabled business endpoint/configuration
+installation because shared Supabase secret changes can refresh existing Edge
+functions. Preserve existing secrets/code, check versions and health before/after,
+avoid the Doji window and keep business-only rollback. No live changes yet.
+
+Remaining launch gates: hosted runtime/configuration and exact restricted database
+login; provider callback/registration/password settings; real same-email business
+verification/reset/session qualification; approved-workspace MFA; independent
+directory privacy fulfillment; and any necessary exact legacy account mapping.
+The current application candidate hides unqualified workspace access rather than
+claiming it works or reducing its MFA requirement. Ten-account/October 7 limits,
+member Supabase Auth and employee permissions remain unchanged.
+
+## October 5: business review/privacy overlay and provider readiness check
+
+Prepared in the isolated `codex/business-onboarding` checkout, not the dirty owner
+checkout. Nothing in this section is deployed or changes the live employee portal.
+
+- `drafts/portal_identity_business_review_v1.sql` adapts five exact, fingerprinted
+  existing function bodies without changing their signatures or grants. Independent
+  approval requires the active business registry identity and legal agreement; no
+  same-email lookup, fake Auth row or employee/member conversion is introduced.
+- Registry presence is authoritative: revocation, disabled/deleted/pending state,
+  realm freeze and wrong-realm mappings cannot fall through to legacy eligibility.
+  Staff decisions acquire identity locks before the account lock. Existing command
+  receipts, revision checks, immutable submission evidence and audits remain intact.
+- Restricted privacy access returns `identity_source` and
+  `provider_export_required`; WorkOS identity data is not fabricated from Auth.
+  Existing correction/closure commands operate on the exact business account.
+  Legacy erasure claim/finish fail closed for independent principals, including
+  terminal replay: missing Supabase Auth data is not proof of WorkOS erasure.
+- The rollback checks installed definitions for drift before restoring the exact
+  prior functions. It freezes only business realm/enrollment/read/command gates
+  and retains identities, legal evidence and decision history. Member Auth and
+  employee realm flags are unchanged. This is an offline rollback, not a live one.
+- `npm run test:database` passed at **2026-10-05T14:37:55.330Z**: 288 migrations,
+  13 extended suites, including **51 independent-business review assertions**,
+  existing legacy privacy regression, member/RLS/function-grant preservation,
+  drift rejection and concurrency suites. Bounded local evidence is in
+  `test-results/database/clean-room.json`; all synthetic overlays rolled back.
+
+Authenticated, read-only WorkOS inspection after the owner's sign-in confirmed:
+
+- Business production environment `environment_01M3T5131BPKBR7F6P2MAG6SBJ`,
+  client `client_01M3T51363MDZZK6X8DB7NS32N`; its bounded first user page is empty.
+- Hosted AuthKit and signup are enabled, but **Email + Password is disabled**.
+  Application redirects, homepage, initiate-login, sign-out, signup, invitation
+  and reset URL fields all show **Not set**. Registration and authentication
+  Actions are not configured. No dashboard settings or credentials were changed.
+- Live `business.dojipro.com` still serves the legacy Supabase business frontend.
+  Do not enable the provider or switch the frontend before the independent
+  endpoint, callback, registration guard and lifecycle qualification are ready.
+
+Open cutover work: restricted business runtime/hosting and frontend packaging,
+provider settings and registration guard, real same-email signup/recovery/session
+qualification, approved-workspace MFA handling, directory-specific privacy
+export/erasure, and exact legacy-account mapping if required. The existing
+US-only ten-account admission and October 7 expiry are not silently extended.
+Owner approved replacing the old 30-email total cap for the independent business
+flow with included WorkOS verification/password-reset emails and provider rate
+limits, conditional on no added cost. October 5 verification of WorkOS's official
+pricing lists AuthKit free for the first one million monthly active users, with
+email/password and email verification included; its default-email documentation
+covers password reset. The business dashboard shows WorkOS as the enabled email
+provider and verification/password-reset emails already enabled. No settings,
+billing, credentials or paid add-ons were changed, and no email was sent.
+
+Use the default provider/domain, not paid custom domains or a new paid email
+service. Retain the ten-account limit, expiry and anti-abuse registration controls.
+The legacy Supabase handler's cap remains unchanged until a qualified business
+cutover; this approval is not permission to loosen member or employee controls.
+Default provider rate limits are not equivalent to a lifetime cap, nor is published
+free-tier pricing a perpetual billing guarantee. Stop if the actual configuration
+requires a charge. Shared-domain delivery is best-effort, so real inbox/recovery
+acceptance remains required. References:
+[WorkOS pricing](https://workos.com/pricing),
+[email domains](https://workos.com/docs/custom-domains/email),
+[WorkOS Actions](https://workos.com/docs/authkit/actions),
+[custom emails](https://workos.com/docs/authkit/custom-emails), and
+[rate limits](https://workos.com/docs/reference/rate-limits).
 
 ## October 4 MDT / October 5 UTC: approved business follow-up and TypeScript migration
 
@@ -889,3 +1435,164 @@ still works. Roll back only the affected portal; retain receipts and attribution
 Do not globally revoke member sessions, merge emails, reset passwords or restore
 deleted accounts automatically. Password changes or deletions in another provider
 cannot be undone by the registry rollback and require a separate recovery plan.
+
+## October 5 business journey and email preparation
+
+Business journey presentation is live (Pages `0f3f7070-ecce-4b8b-9dd0-36dbf658c978`,
+verified 21:41 UTC). The release script pins the previous deployment, compares all
+asset hashes, permits only five presentation changes, and verifies unchanged
+runtime/config plus admin/main website IDs. The live pending applicant receipt,
+submission time, activity and next step were inspected without writing a record.
+The 30 independent-business browser tests passed at mobile/desktop sizes and in
+both themes. No member behavior or employee authentication changed.
+
+Owner separately approved local preparation of submission/decision email, with
+deployment and sending gated. The candidate and freeze rollback are in
+`docs/drafts/business_email_outbox_v1*.sql`; `scripts/test-business-email-outbox.mts`
+creates/removes a labelled, network-disabled clean room. Its 30 checks cover
+permission denial, disabled defaults, transactional capture/rollback, dedupe,
+realm/account revocation, atomic quota reservation, ambiguous outcomes, unchanged
+public/Auth function definitions and grants, RLS policies, and member table ACLs.
+The message module has no network/send API and is tested independently by
+`scripts/test-business-email-message.mts`.
+
+The candidate queue contains no recipient address. A future sender must resolve
+the exact subject through the pinned **business** WorkOS environment, freshly
+check `email_verified`, and recheck current business eligibility before dispatch.
+Never use member/employee Auth, a form field or an email-matching lookup. Email
+contains a reference and a fixed sign-in link, not form details, tokens or reviewer
+notes. Disabled/deleted identities are excluded; queue FKs cascade with primary
+business erasure. Claimed/ambiguous sends require reconciliation, not blind retry.
+The portal does not claim that mail was sent, and its receipt works without mail.
+
+Still required before a separate email release:
+
+- Verify the actual provider plan, remaining daily/monthly capacity and all other
+  senders sharing that capacity. Configure a bounded reserved allowance that
+  cannot cause overage; the SQL ceiling alone is not evidence of free capacity.
+- Implement/test the dedicated sender, provider acceptance handling, cancellation,
+  expired-claim reconciliation, privacy retention/export, and monitoring without
+  reusing member Workers or introducing unapproved recurring database reads.
+- Re-run full business/member regression and concurrency checks, capture live
+  definitions/grants, approve deployment separately, then canary one owner-approved
+  recipient. No backlog replay or claims of inbox delivery without evidence.
+- Rollback: stop/drain the sender, disable capture/sending and revoke its entry
+  functions using the candidate rollback. Retain evidence; already in-flight
+  provider requests cannot be recalled. Trigger failure would roll back the
+  business transaction, so fault behavior is an explicit pre-release test gate.
+
+Research consulted October 5 (primary sources):
+
+- [GOV.UK confirmation pages](https://design-system.service.gov.uk/patterns/confirmation-pages/)
+  and [check answers](https://design-system.service.gov.uk/patterns/check-answers/)
+  informed receipt, next-step and review patterns, adapted to existing Doji controls.
+- [WorkOS user API](https://workos.com/docs/reference/authkit/user) defines the exact
+  user lookup and `email_verified` field; its verification/reset emails are not
+  arbitrary application-decision mail.
+- [Cloudflare Email Service pricing](https://developers.cloudflare.com/email-service/platform/pricing/)
+  restricts free-plan sending to account-verified destinations; that is not a
+  solution for arbitrary new business recipients.
+- [Resend pricing](https://resend.com/pricing) and
+  [free-tier announcement](https://resend.com/blog/new-free-tier) describe a limited
+  free allowance; current account capacity has not been verified or allocated here.
+
+No email candidate has been deployed, no provider send has been attempted, and no
+paid service, upgrade or new build was enabled by this work.
+
+## October 5 local admin journey follow-through
+
+The owner requested a cohesive employee sign-in and workspace experience as well
+as Doji-owned authentication across both portals. The local admin candidate now
+connects its existing credential, authenticator enrollment/challenge, restoration,
+workspace and locked states with consistent headings/progress and access guidance.
+It prevents duplicate form submissions, clears password/code/QR material, keeps
+failed-password feedback visible, and focuses the destination workspace heading.
+The mobile sign-in form is no longer below a full-height introductory panel.
+Existing sensitive-draft clearing on lock is preserved and disclosed. This is UI
+work only: no employee backend, WorkOS setting, database, member app or production
+deployment changed.
+
+Do not describe the whole owned-auth request as complete: employee password
+recovery and invitation setup still use hosted WorkOS, and business hosted auth
+is unchanged. Remaining implementation must use provider-backed password/reset,
+verification and invitation APIs with separate employee/business directory keys,
+fixed same-origin routes, request bounds, generic account-existence responses,
+short-lived one-use state and no credential/token logging or browser persistence.
+Employee invitation and mandatory MFA are not optional; business registration
+must retain its current admission, agreement, verification and capacity gates.
+
+Primary WorkOS references rechecked October 5:
+
+- [Custom UI example](https://github.com/workos/workos-custom-ui-authkit-example)
+  demonstrates using their APIs behind an owned UI; it is not a drop-in replacement
+  for Doji's realm separation, admission controls or permissions.
+- [Password reset API](https://workos.com/docs/reference/authkit/password-reset)
+  creates one-use reset state and revokes that provider user's active sessions on
+  reset. Doji's own durable-session invalidation must be verified too.
+- [Email/reset URL configuration](https://workos.com/docs/authkit/custom-emails)
+  documents the custom reset destination and token parameter. Do not change the
+  production URL until the matching token-handling page and server endpoint are
+  qualified. Do not disable included provider mail to merely change UI branding.
+
+Release must test the same email across all three account realms, expired/replayed
+links, failed/expired MFA, recovery revocation, signed-out/returning-user behavior,
+permission denial, and member session survival. Keep the current working hosted
+recovery path until its replacement is verified. The business-only mail queue
+keeps its independent local-preparation/sending gate; no new cost is authorized.
+
+Local validation for this admin candidate:
+
+- Initial full admin run: 478 passed. The expanded admin/business run had 508
+  passes and caught one post-MFA denial-copy regression; the auth-flow revision
+  guard was corrected. The final focused auth/loading/lock/permission suite then
+  passed all 37 checks, including that exact regression. Eight DOM boundary tests
+  also passed after enabling their normal per-document coverage collection.
+- All 30 independent-business journeys passed in the expanded run. No provider
+  calls or actual account/moderation writes were made; these are mocked browser
+  tests, not proof of live custom recovery/invitation behavior.
+- 113 source/compiler/admin-health boundary tests passed; website and tooling
+  strict typechecks, targeted lint, source-size and whitespace guards passed.
+  The TypeScript inventory is clean. The existing local business mail module is
+  now explicitly included in the tooling typecheck project, not excluded.
+- Matching-source coverage snapshots for `auth-journey.mts`: 69/69 statements,
+  55/55 lines, 13/13 functions, 37/38 branches (97.36%). This is component evidence,
+  not a new full-repository 17-area coverage certification.
+- Desktop and 390px light/dark sign-in screenshots were inspected; mobile sign-in
+  fits in the initial 844px viewport. Automated WCAG A/AA checks on that surface
+  passed. No production release or hosted recovery cutover was performed.
+
+## October 5 MDT / October 6 UTC: business session continuity released
+
+The reported registration-screen flash came from rendering signed-out copy before
+session restoration. Access then performed a full application-page navigation,
+which restored the same cookie session again. The business static artifact now
+composes the maintained account/application views, hands off the exact verified
+client in memory and uses history replacement to preserve the application URL.
+No session is serialized to HTML, history, localStorage or sessionStorage.
+Direct application entries show neutral loading until the existing server check
+settles. Sign-out still clears protected fields immediately; failed application
+reads stay in the business home without initiating another login. Hosted WorkOS
+sign-in, callback validation, consent, CAPTCHA, MFA, commands and permissions are
+unchanged. This is not the remaining custom password/reset/invitation UI cutover.
+
+Verification: all 40 independent-business browser scenarios passed both locally
+instrumented and against the exact production artifact, including delayed session
+success/401/503, one session request/no second document navigation, direct entry,
+read failure, logout clearing, submission/receipt, stale drafts and MFA boundaries.
+Two artifact-isolation checks, strict website/tooling typechecks and targeted lint
+passed. These mocked-provider tests do not replace real owner-session acceptance.
+
+The guarded release changed only access HTML/JS and application HTML/JS. It caught
+an unrelated local admin change in `portal.js`; the exact previously deployed
+shared asset was retained instead. No runtime/config/legal/CSS or other site
+changes were packaged. Live asset hashes, 401 anonymous session and 403 cross-portal
+origin checks passed at 2026-10-06T00:22:04.613Z. No emails or member actions sent.
+
+- Business deployment: `e8ebfc1e-2a64-464a-b252-d25b1d425afc`.
+- Exact prior business deployment for rollback: `0f3f7070-ecce-4b8b-9dd0-36dbf658c978`.
+- Admin remains `a4ee3e2f-80b6-4dc7-b894-9494d6303822`;
+  main site remains `d352e4ed-89ec-47c4-b8e2-bfea5688acc3`.
+- Bounded local evidence: `test-results/business-session-flow-20261005/`.
+- Release command: `scripts/release-business-session-flow.mts`; recorded modes must
+  not be rerun as a new deployment. Rollback restores only the prior business Pages
+  deployment; do not change database, WorkOS, shared relay or member sessions.

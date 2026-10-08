@@ -140,6 +140,10 @@ test('decrypted sessions cannot replace structural runtime validation with a typ
     { ...saved, csrf: 'bad' },
     { ...saved, created: '1' },
     { ...saved, touched: NaN },
+    { ...saved, mfaAttempts: '0' },
+    { ...saved, mfaAttempts: -1 },
+    { ...saved, mfaNextAt: NaN },
+    { ...saved, mfaNextAt: 0.5 },
     ...[
       null,
       {},
@@ -150,6 +154,16 @@ test('decrypted sessions cannot replace structural runtime validation with a typ
   ]) {
     assert.throws(() => savedSession(value), { status: 401 });
   }
+});
+test('sealed business session preserves optional MFA state without altering legacy shape', () => {
+  const state = {
+    ...saved,
+    mfaAttempts: 2,
+    mfaNextAt: 123,
+    mfaPending: { bound: true },
+    mfaReceipt: { bound: true },
+  };
+  assert.deepEqual(savedSession(state), state);
 });
 const command: BusinessCommand = {
   p_action: 'save',

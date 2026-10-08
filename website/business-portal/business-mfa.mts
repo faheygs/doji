@@ -77,7 +77,13 @@ export function createBusinessMfa(
           onError(error instanceof Error ? error.message : String(error));
       }
     } catch (error) {
-      if (stamp === generation) onError(error instanceof Error ? error.message : String(error));
+      if (stamp === generation) {
+        // Independent sessions consume challenges before verification. Do not
+        // encourage resubmitting the consumed challenge after a denied code or
+        // uncertain network response; legacy clients retain their own behavior.
+        if (error instanceof Error && 'restartMfa' in error && error.restartMfa === true) clear();
+        onError(error instanceof Error ? error.message : String(error));
+      }
     } finally {
       if (stamp === generation) busy = false;
       submit.disabled = false;
@@ -101,27 +107,25 @@ export function createBusinessMfa(
         if (!factor) {
           const next = await client.enroll();
           if (stamp !== generation) return;
-          if (
-            !next?.id ||
-            typeof next.totp?.secret !== 'string' ||
-            typeof next.totp?.qr_code !== 'string'
-          )
+          if (!next?.id || typeof next.totp?.secret !== 'string')
             throw Error('Authenticator setup could not be loaded.');
           factor = next;
           // SVG is an image source, never inserted as active markup.
           const qr = next.totp.qr_code;
-          if (!qr.startsWith('<svg') && !qr.startsWith('data:image/svg+xml'))
+          if (qr !== undefined && !qr.startsWith('<svg') && !qr.startsWith('data:image/svg+xml'))
             throw Error('Authenticator image could not be loaded.');
-          image.src = qr.startsWith('<svg')
-            ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr)}`
-            : qr;
+          image.hidden = qr === undefined;
+          if (qr !== undefined)
+            image.src = qr.startsWith('<svg')
+              ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr)}`
+              : qr;
           secret.textContent = next.totp.secret;
           setup.hidden = false;
         }
         copy.textContent =
           factor.status === 'verified'
             ? 'Enter the code from your existing business authenticator.'
-            : 'Scan the code or enter the setup key, then verify a code from your authenticator.';
+            : 'Add the setup key to your authenticator app, then enter its six-digit code.';
         form.hidden = false;
         input.focus();
         return true;

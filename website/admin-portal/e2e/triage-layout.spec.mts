@@ -28,9 +28,12 @@ test('queue pages stay bounded and Previous reuses already authorized rows', asy
   const rows = page.locator('[data-queue-body="moderation"] [data-work-id]');
   const pager = page.locator('[data-active-paging="moderation"]');
   await expect(rows).toHaveCount(25);
+  const panel = page.locator('[data-portal-view="moderation"] .queuePanel');
+  const fullHeight = await panel.evaluate(node => node.getBoundingClientRect().height);
   await expect(pager.getByRole('button', { name: 'Previous' })).toBeDisabled();
   await pager.getByRole('button', { name: 'Next' }).click();
   await expect(rows).toHaveCount(5);
+  expect(await panel.evaluate(node => node.getBoundingClientRect().height)).toBe(fullHeight);
   await expect(rows.first()).toContainText('Review item 26');
   await expect(pager).toContainText('Page 2');
   await expect(pager.getByRole('button', { name: 'Next' })).toBeDisabled();
@@ -45,12 +48,15 @@ test('queue pages stay bounded and Previous reuses already authorized rows', asy
       if (!table) throw Error('Missing table wrapper');
       return {
         bottom: panel.getBoundingClientRect().bottom,
+        heightOfPanel: panel.getBoundingClientRect().height,
+        footerBottom: panel.querySelector('.workspacePager')?.getBoundingClientRect().bottom,
         viewport: innerHeight,
         scroll: table.scrollHeight,
         height: table.clientHeight,
       };
     });
-  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(geometry.heightOfPanel).toBeCloseTo(Math.min(800, Math.max(540, geometry.viewport * .68)), 0);
+  expect(geometry.footerBottom).toBeCloseTo(geometry.bottom - 1, 0);
   expect(geometry.scroll).toBeGreaterThan(geometry.height);
   await page.screenshot({ path: 'test-results/triage-paged-desktop.png' });
 });
@@ -73,8 +79,10 @@ test('overdue cases are recognizable and close controls do not stretch', async (
   await expect(page.locator('#priorityQueue')).not.toContainText(urgent.id);
   await page.locator('#priorityQueue [data-work-id]').click();
   await expect(page.locator('#drawerContent')).toContainText('Drugs');
-  const close = page.getByRole('button', { name: 'Close details' });
-  expect(present(must(await close.boundingBox())).height).toBeLessThanOrEqual(40);
+  const close = page.locator('#caseDrawer').getByRole('button', { name: 'Back to queue' });
+  const closeBounds = present(must(await close.boundingBox()));
+  expect(closeBounds.height).toBeGreaterThanOrEqual(44);
+  expect(closeBounds.height).toBeLessThanOrEqual(60);
   const space = await page.evaluate(() => {
     const facts = document.querySelector('.caseFactsGrid');
     if (!facts?.nextElementSibling) throw Error('Missing case facts');
@@ -84,13 +92,14 @@ test('overdue cases are recognizable and close controls do not stretch', async (
   });
   expect(space).toBeGreaterThanOrEqual(20);
   await expect(page.locator('#copyCaseReference')).toContainText('Copy reference');
-  await expect(page.locator('#caseDrawer')).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await expect(page.locator('#caseDrawer')).toHaveClass(/adminRecordPage/);
+  await expect(page.locator('#caseDrawer')).toHaveCSS('transform', 'none');
   await page.screenshot({ path: 'test-results/triage-overdue-desktop.png' });
   await close.click();
 });
 
 for (const width of [390, 900]) {
-  test(`queue footer stays within the screen at ${width}px`, async ({ page }) => {
+  test(`fixed-height queue footer remains reachable without horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await seedAdminSession(page);
     await installMockBackend(page);
@@ -100,6 +109,9 @@ for (const width of [390, 900]) {
     await page.getByRole('button', { name: 'Trust & safety', exact: true }).click();
     const pager = page.locator('[data-active-paging="moderation"]');
     await expect(pager).toBeVisible();
+    // Uniform queue height is intentional; small screens scroll the page to its
+    // bottom-pinned controls instead of shrinking empty/short queues.
+    await pager.scrollIntoViewIfNeeded();
     const rect = present(must(await pager.boundingBox()));
     expect(rect.y + rect.height).toBeLessThanOrEqual(844);
     const dimensions = await page.evaluate(() => ({

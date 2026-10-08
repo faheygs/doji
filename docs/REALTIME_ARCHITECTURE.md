@@ -1,5 +1,232 @@
 # Doji authoritative realtime architecture
 
+October 6 MDT expanded mobile diagnostic candidate (LOCAL ONLY): a dedicated random
+installation ID is stored asynchronously on the handset, with per-process/account-
+transition session IDs. This is not a server identity, authorization input or push
+registration key. Request-local snapshots and WeakMaps keep errors attached to the
+original session; an account transition clears the bounded in-memory timeline.
+No member identifiers or content are added to API telemetry. Code-owned screen and
+endpoint templates, concurrency, capped timing, safe SDK-native device facts and
+first/final retry evidence are included. Other JS errors are labeled processing-time,
+not request-time. Existing native Sentry scope receives only diagnostic correlation
+tags; native-envelope acceptance remains unverified until device testing.
+
+The SDK-matched `expo-network` 57.0.2 listener plus startup/foreground state reads
+are passive OS observations, not network probes or recurring polling. They neither
+set TanStack online state nor change query execution, transport, retries, auth or
+reconnect handling. Stale async snapshots lose to newer events and post-cleanup
+callbacks are ignored. Success/recovery entries stay in the bounded local timeline;
+they are not extra Sentry events. Privacy allowlists, failure budgets and grouping
+remain in force. No server, Worker, database, event payload, invalidation, durable
+alarm, participation-window, push or portal deployment is included. New iOS/Android
+binaries, native acceptance and store disclosure review remain separate release gates.
+
+October 6 MDT iOS diagnostic parity (LOCAL ONLY): request-scoped JS evidence and
+shallow Sentry retry context now apply to both mobile platforms. iOS command error
+conversion preserves the final request's phase, bounded timing, app state and
+allowlisted response correlation hints. Existing text/json consumers are observed;
+logging does not consume or clone bodies. Android native hints remain Android-only.
+No event, invalidation, reconciliation, subscription, polling, alarm, push, session,
+request/retry/deadline or server contract changes. No recovery or network-transition
+events are introduced. Local JS/SDK tests are not native iOS acceptance or a shipped
+fix; iOS build 103 remains unchanged and a new release is separately gated.
+
+October 6 admin browser cleanup follow-up: a failed server sign-out is reported
+separately from access invalidation. Expiry still clears protected data and stops
+realtime locally, but a cleanup failure cannot recursively reset the sign-in UI
+or enqueue another logout. No new polling, subscriptions, token lifetime, provider
+or server contract is introduced. The credential form becomes visible only after
+startup/session restoration settles. Member and business sessions are untouched.
+
+October 6 UTC employee endpoint v14: workflow-enabled token issuance authorizes the
+current employee session and exact staff-channel allowlist. It no longer calls the
+moderation-only legacy capability RPC for business-only reviewers. Legacy
+`moderation:global`/`doji:global` subscribe grants require moderation authority in
+both fresh checks; a limited reviewer receives only their allowed staff topics.
+The main admin browser follows that same distinction. Flag-off behavior and
+member token issuance remain unchanged. This changes only the employee resource
+module; no relay, schema, role, provider/session or paid-setting change occurred.
+The 15-minute TTL remains explicit: revocation blocks new authorized reads/tokens,
+not already-issued identifier-only subscriptions immediately. Live synthetic
+delivery, renewal across the original token expiry, reconnect/release delivery and
+revoked-access denial all passed; temporary provider access was deleted and
+labelled audit retained. Main admin Pages `04c55826-80a5-4923-a2fa-33a7d4d4f38b`
+was promoted at 04:42 UTC with existing Worker/configuration preserved. Member
+issuance and shared relay behavior are unchanged. See the promotion record in
+`ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md` for final evidence.
+
+Historical October 5 MDT / October 6 UTC gated staff-workflow release: the separately
+approved gated employee preview is live at `/identity/employee-preview/`, with
+employee endpoint v13 and all three workflow database gates enabled. The current
+admin homepage, business/public deployments, shared relay code/config and member
+Supabase authentication are unchanged. Ten additive staff-only hint triggers use
+the existing durable outbox; four concurrently-created indexes are valid/ready.
+Existing member/domain functions, ACLs and RLS fingerprints were preserved.
+Hints remain identifiers only and lead to authorized, bounded reads; no polling.
+The existing owner session and queue/review reads work. A connected realtime
+indicator does not prove actual event delivery. Existing 15-minute token TTL is
+unchanged; current authority is checked on reads, with no immediate subscription
+revocation claim. Full provider/token/reduced-role hosted acceptance and root
+promotion remain pending. Shared gate/trigger/outbox overhead still exists.
+Rollback fences all gates before restoring employee v11/admin baseline, then
+removes only candidate grants/triggers, retaining ownership/history/indexes.
+See `ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md` for exact evidence and limits.
+The following preparation history describes earlier default-off states and is
+superseded by this release status.
+
+October 5 MDT staff-workflow preparation: `staff_case_ownership_v1.sql` is a
+disabled local candidate for business/idea ownership only. It emits no events,
+push or applicant messages and creates no polling. Activation is blocked until
+targeted staff invalidation and remaining-source integration are qualified. The
+independent employee bridge and default-off browser workspace are locally tested.
+Existing portal view/session/foreground reconciliation invokes bounded, coalesced
+two-source reads when visible; no timer polling or new event producer was added.
+Session epochs/generations prevent late responses restoring data after lock, and
+source/ownership versions prevent stale confirmed commands. Enabling the candidate
+in production remains separately gated.
+Subsequent owner-approved LOCAL expansion adds `staff_workflow_extended_v1.sql`
+and `staff_workflow_events_v1.sql`, both disabled by default. The bounded six-source
+read uses current employee authority; the employee bridge accepts only fixed
+operations and verified MFA identity. In the isolated database only, enabling the
+gates produces durable outbox events in the same transaction as source/ownership
+changes. Topics are `staff:workflow:{moderation,restricted,ideas,business,privacy}`.
+Case events contain only kind/ID; queue-only events contain kind, with no case ID
+for former audiences, deleted reports/appeals or appeal-dependency changes.
+Account-action and original-decision changes invalidate the affected appeal queues.
+Receipt retries create no duplicate write/event; rolled-back writes leave no event.
+Local six-source qualification now measures absent/disabled/enabled candidate
+triggers with real source updates and per-sample rollback: disabled/absent emit
+zero staff hints; enabled emits exactly one. Shared gate reads/locks and durable
+outbox writes still have overhead. An open employee inbox transaction coexists
+with an ordinary member profile read and atomic report command in the isolated
+database; this bounded test is not production load or provider delivery evidence.
+The local employee resource adapter now optionally adds only the database-returned
+allowlisted staff channels to its existing subscribe-only token. The server runtime
+flag defaults false; no production config is enabled. The fixed `/staff-workflow/channels`
+route provides the same authorized list to the independently authenticated employee
+browser. Unknown/wildcard/duplicate channels are rejected before signing/subscribing.
+No member token is used. Existing realtime token TTL remains 900,000 ms: this is
+not an immediate provider-side revocation mechanism; reduction/revocation behavior
+must be qualified before release and current authority is rechecked on all reads.
+
+`workflow-events.mts` consumes the actual relay's flattened payload envelope,
+deduplicates up to 128 event IDs, and coalesces bursts using one event-driven 250 ms
+timeout (not interval polling). Staff hints refresh the authorized inbox and open
+review state, not the entire dashboard. Existing review reconciliation preserves
+drafts; ownership confirmations are not silently rewritten or submitted. Hidden
+documents do not consume hints into reads; foreground/reconnect reconciliation
+fetches current state. Lock clears queued work and epoch checks fence late callbacks.
+Offline compiled-portal tests exercise the subscription-to-inbox path. No shared
+relay code/config changes were needed: its existing generic publisher and message
+builder support these topics. Provider delivery has not been tested or enabled.
+No polling is added. Even disabled triggers read a shared settings row: this is not
+physical isolation or proof of zero member performance impact. Production lock,
+cardinality, competing-load and full member regression review remains gated.
+The retaining rollback disables both gates and removes the ten candidate triggers,
+preserving ownership/history/receipts and already committed identifier events.
+
+Existing report/takedown ownership,
+domain decision commands, member authorization and realtime behavior are unchanged.
+See `ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md` for qualification and remaining gates.
+
+October 5 MDT / October 6 UTC business session-flow release: the access entry
+hands its already verified in-memory business client to the application controller
+inside the same document. It removes one redundant session read and document load;
+direct application entries still restore through the existing server boundary.
+Existing atomic commands, session epochs, sign-out cleanup and bounded foreground/
+online reconciliation remain intact. No polling, new events, subscription,
+backend/Worker configuration, member or employee change. Hosted provider navigation
+and MFA remain authoritative and unchanged. Exact-artifact browser tests and live
+static/access-boundary checks passed; owner-session acceptance remains pending.
+
+October 5 business submission repair: the independent applicant UI snapshots its
+rendered form before the existing atomic Save/Submit command, so defaults/autofill
+are included. No additional writes, retry, polling, event or backend changes. The
+existing concurrency and idempotency controls remain intact; all changes are in
+business static scripts. Owner signup succeeded; post-fix submission is pending.
+
+October 5, 20:10 UTC account-form presentation: business registration collects an
+email and forwards it as an untrusted WorkOS UI hint after existing authorization
+URL validation. No new API, storage, polling, event or session-authority contract;
+verified provider identity remains authoritative. Only three static account-page
+assets changed; proxy/runtime/config and member/employee systems are unchanged.
+
+October 5 public business homepage: the domain root is now a static marketing
+entry with explicit Sign in/Register links, not an application redirect. It makes
+no session/API read and creates no polling, subscription or realtime work. The
+business-only presentation deployment leaves the bundled proxy/runtime, database,
+auth providers, member/employee contracts and business realtime gate unchanged.
+
+October 5, 19:12 UTC business activation: owner-approved independent business
+realm, session, registration, enrollment, reads, commands and privacy gates are
+enabled with the retained ten-account cap and October 7 expiry. WorkOS password
+sign-in is enabled. Existing business realtime remains false; no new event
+producer, polling, subscription, Worker, push, challenge alarm or release-policy
+change was made. Member/employee contracts/settings and other deployments passed
+bounded preservation checks. Real owner signup/application/recovery acceptance is
+pending. The account-separation release record contains the exact retaining freeze.
+
+October 5, 19:04 UTC business connection update: the independent business Edge
+runtime and Pages proxy are deployed; WorkOS's signed registration test succeeded
+with Deny while database admission remains closed. The only hosted forwarding fix
+discards Supabase's upstream infrastructure cookie; business-auth cookie validation
+remains fail-closed. No realtime producer, polling, member authentication, Worker,
+push, alarm or release-policy change was made. Business realtime stays disabled.
+Final business activation and real owner signup/recovery are still pending.
+The following entries are historical preparation states.
+
+October 5 business workspace MFA (LOCAL / STAGING ONLY): verification uses the
+existing serialized encrypted business-session lease and exact WorkOS subject,
+session and challenge bindings. Approved workspace reads still use the existing
+authorized SQL contract; no client-owned organization or approval claim is trusted.
+There is no polling, new event producer, subscription, member call, push, alarm or
+release-policy change. The browser clears private state on logout and rejects late
+responses. Real staging first-enrollment and existing-factor verification passed;
+the production endpoint remains disabled and the business Pages cutover is pending.
+
+October 5, 16:47 UTC business bridge installation: the reviewed business enrollment,
+reads, commands, registration and review overlays are installed but their gates
+remain disabled. Six existing business-only function definitions changed; existing
+grants, RLS, member/employee contracts and employee settings were verified preserved.
+The rollback rehearsal restored the six original definitions exactly. No realtime
+producer, subscription, polling, push, alarm or release-policy change was deployed.
+Business realtime remains disabled. Following explicit owner approval, the separate
+SQL login was installed and verified at 17:02:25 UTC with two connections and only
+four reviewed role memberships. TLS and disabled-gate checks passed; existing
+member/employee contract fingerprints and isolation guards were preserved. The
+credential remains local; no Edge runtime credential, WorkOS setting or Pages
+cutover occurred.
+Earlier LOCAL ONLY notes below record preparation before this disabled installation.
+
+October 5, 16:38 UTC disabled business endpoint installation: only the exact
+`business-portal-v2` function and `BUSINESS_V2_ENABLED=false` were installed.
+It denies requests before session/provider/SQL initialization, so no business
+producer, subscription, polling or member work is enabled. Existing functions,
+secret values, RPC/RLS/role fingerprints and Pages deployments were verified
+preserved. No Worker, database, push, alarm or release-policy deployment occurred.
+Shared secret installation refreshed existing function version metadata once;
+anonymous boundary checks matched before/after, not a continuous availability proof.
+
+October 5 business runtime/browser assembly (LOCAL ONLY): the independent business
+application renderer preserves drafts on revision conflict, clears protected state
+before sign-out completes, and reconciles authorized reads on online/foreground
+events without polling. Writes still use the existing atomic command adapter.
+The new Pages proxy forwards business-only cookies to its exact dedicated endpoint;
+it does not forward employee credentials or copy the employee Oregon routing pin.
+No member reads, channels, push, activation/close alarms or release policies change.
+Application onboarding is not approved-workspace MFA or provider-erasure acceptance.
+
+October 5 business review compatibility (LOCAL ONLY): the new
+`drafts/portal_identity_business_review_v1.sql` overlay resolves staff approval
+against the independent business principal, preserving the existing atomic review
+command, receipts and identifier-only event behavior. Identity/realm shared locks
+precede the account lock to serialize decisions with revocation. Privacy correction
+and closure retain their existing business-only commands; legacy Auth erasure is
+denied for independent principals pending a directory-specific executor. No event
+payload, channel, alarm, push eligibility, polling or member session changes.
+Business realtime, billing and campaign publishing remain disabled. The offline
+clean-room regression passed October 5 at 14:37:55 UTC; no live rollout occurred.
+
 October 4 MDT / October 5 UTC TypeScript migration (LOCAL ONLY): identity boundary
 source imports are moving from `.mjs` to strictly checked `.mts`. This changes no
 realtime event, authorization grant, channel, alarm, push, member session or
@@ -1484,6 +1711,18 @@ introduced. Missing historical links fail closed rather than guessing from text.
 Only three links supported by exact approval receipts were recovered at release.
 See COMMUNITY_IDEA_RETRIAGE_RELEASE_2026-09-27.md for tests and safe write-pause rollback.
 
+### Reserved Other normalization (released 2026-10-05)
+
+First approval of a general community poll removes submitted exact `Other` labels
+after case/whitespace normalization, then adds one server-owned write-in. Two real
+choices are required before any challenge is inserted. Submitted options remain
+unchanged for audit; WYR and existing linked poll options are never rewritten.
+This runs inside the existing employee-only atomic command and its transaction,
+before the unchanged suggestion status update, reward triggers and identifier-only
+invalidation events. No event, reconnect, push, polling, scheduler, vote or member
+authentication contract changes. The local app's form/payload filter is unshipped;
+the server approval guard already protects old-client submissions.
+
 ### Member read failure boundary (candidate 2026-09-28; not deployed)
 
 `runMemberRead` centralizes the existing request-signal/RPC-error contract for
@@ -1750,3 +1989,235 @@ retry decisions, realtime subscriptions or server state. Absence is not proof of
 a human tester, and old events cannot be retrospectively attributed. Coverage
 is JS error events through this hook, not native crash envelopes. This has not
 been deployed and does not establish the production 504 origin.
+
+# October 5: independent-business privacy/session binding contract
+
+Independent business callback persistence now supplies its verified business actor
+to `business_session_private.put_bound_session`. Identity and account locks serialize
+the insert with closure/deletion, and the session record stores only its opaque
+business principal alongside its existing encrypted envelope. Exact-case privacy
+erasure can remove those sessions without reading or revoking member/employee
+sessions. This adds no polling, schedule, provider webhook, push or new event type.
+Privacy invalidation retains the existing identifiers-only, business-realtime gate.
+The additive SQL was installed and verified at 18:27 UTC with the privacy gate
+disabled. The updated runtime using the bound-session function remains local;
+the live business endpoint is still disabled pending runtime/provider cutover.
+
+## October 5: business journey presentation and local-only mail candidate
+
+The later live business cutover supersedes the preceding historical disabled
+runtime snapshot. The 21:41 UTC journey presentation release uses the existing
+independent-business session and authorized application reads/atomic commands.
+Receipt/history UI projects existing applicant-safe `id`, `submitted_at`, `history`
+and `response`; internal notes and staff actors are never displayed. Check-answers
+is local UI only; one explicit final confirmation invokes the existing idempotent
+submit command. Unknown/malformed reads fail closed; stale edits remain protected.
+No periodic polling, new realtime subscriptions, events, push or member changes.
+Existing foreground/online reconciliation and manual refresh remain in place.
+
+The email outbox SQL is LOCAL ONLY, not a migration in the deployment chain.
+Its sole producer is an after-insert trigger on private business history, in the
+same transaction as a successful submission/decision. It stores opaque references,
+revision, kind and time, not email addresses, business details or reviewer notes.
+One application/revision yields at most one queued item. A dedicated unbound
+NOLOGIN role may claim only with an explicit fresh capacity gate; daily/monthly
+reservations serialize in a business-only settings row. Claimed/uncertain outcomes
+are not automatically replayed. Provider acceptance is never labelled delivery.
+No sender calls, scheduled job, production grants or enabled switches exist yet.
+
+### Local admin authentication presentation candidate, October 5
+
+`admin-portal/auth-journey.mts` is bundled only into the admin artifact, ahead of
+the existing portal controller. It owns presentation (phase copy, progress,
+busy controls and secret-field cleanup), not credentials, sessions or authority.
+The controller retains the existing password -> authenticator -> authorized
+workspace flow and its one-use independent employee MFA transaction. Failed
+independent MFA returns to fresh credentials rather than offering a consumed
+flow again; legacy MFA retry semantics are preserved. A separate UI auth-flow
+revision keeps explicit Back/new-flow responses from being overwritten without
+suppressing wrong-password feedback when the transport invalidates its session.
+
+Existing workspace epochs, protected-data clearing, role filtering, bounded
+reads and foreground reconciliation remain intact. No realtime subscription,
+database contract, retrying write, member authentication or business transport
+change is part of this local candidate. Recovery/invitation provider routes and
+email sending have not been replaced or enabled. No production deployment yet.
+
+### October 6: admin combined-inbox visibility
+
+The combined staff inbox reconciles only on Command center and Work queue, not on
+individual domain pages. Navigating away advances its read generation and drops
+coalesced refreshes, preventing a late response from restoring hidden queue rows.
+Domain review reconciliation and an open ownership dialog retain their existing
+authorized lifecycle. No new events, polling, backend or member contracts change.
+
+### October 6: admin queue shell and pagination
+
+The fixed-height queue presentation does not change event subscriptions, read
+authorization or RPCs. Business, privacy, external-removal and staff inbox Previous
+navigation reuses locally retained server cursors; filter/session clearing resets
+the stack. No client-generated offsets or global-count scans are introduced.
+Loading/failure clears stale rows, and existing generation/epoch fences still
+discard responses after navigation, permission loss or lock. Row opening and case
+outcome shortcuts only open/prepare existing review forms. Writes still require
+explicit confirmation and existing atomic audited commands with revision checks.
+
+### October 6: unified safety read — qualification and release
+
+The owner-approved candidate uses the existing staff report/appeal/intake event
+channels and reconnect/foreground reconciliation. No event schema, publication,
+topic authorization or polling changes. Command center no longer loads the staff
+inbox; My work and each safety area load only the visible authorized page.
+Switching areas resets cursors/filters and increments generation, fencing late
+responses. Existing employee session epochs still clear rows and ownership dialogs.
+With the separate unified-safety UI flag enabled, external-intake modules are
+detail-only: they retain exact case freshness checks for open drawers, not extra
+list reads. Existing atomic, audited moderation commands remain unchanged.
+
+The additive shared read and bridge wrapper default disabled. Following separate
+owner deployment approval, they were installed and enabled on October 6, with
+exact employee runtime v15 and final admin deployment
+`07c321f6-0987-45c0-bfa0-a925dd798ea3`. Existing function/ACL/RLS/role/session
+fingerprints and unrelated deployments were preserved. Live authorized reads
+verified open and closed area separation without moderation writes.
+Content-derived versioning of the complete lazy workflow graph prevents cached
+old modules or styles from mixing with the new controller after normal reload.
+There is still no new polling or event contract. Rollback restores the old
+portal/runtime first, then the preserved employee dispatcher and removes only
+this candidate read/setting; no case data is deleted. Exact evidence and rollback
+versions are in `docs/ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md`.
+
+### October 6: local platform-health presentation and reconciliation
+
+Platform operations now has a local candidate that explicitly separates the Ably
+connection state from health-snapshot freshness. Existing non-staff hints still
+invalidate authorized visible reads; bursts are coalesced, refresh batches serialized,
+and an intervening hint schedules one follow-up batch. Hidden pages defer until
+foreground reconciliation; lock/logout fences results. No polling has been added.
+Overview also requests the existing bounded 12-summary health history, avoiding a
+false missing-history state before operations is opened.
+
+This is NOT a new production health event contract. Operational health and Sentry
+do not yet publish employee-only change hints; caches can delay observations.
+Operations-only channel authorization, source revisions/cache invalidation, and
+health-producer notifications require separate shared-system approval and regression
+qualification. See `docs/PLATFORM_OPERATIONS_HEALTH_2026-10-06.md`. Member delivery,
+alarms, auth and notification contracts are unchanged by this local candidate.
+
+Subsequent owner approval covers preparation/testing, NOT deployment. Local health
+candidate uses `staff:health:operations` / `staff.health.changed`, with only source
+and monotonic string revision. The service-only writer and admin-history trigger
+atomically use the existing outbox; no member table trigger or new polling. Current
+employee operations authority and enabled database gate are required for tokens.
+Version reads before/after cached health reads prevent installing pre-event cache
+entries; one bounded retry, then unavailable. Browser replay deduplication is
+per-source/per-connection and hints invalidate only visible health views; existing
+reconnect/foreground reconciliation recovers missed hints. Lock clears/fences state.
+Default-off collector sidecar has a 2-second deadline/no retry; history publication
+failure does not abort original telemetry persistence. Events share relay resources
+and aggregate health metrics, so capacity qualification is still required. Sentry
+and other providers have no new event producers. SQL inverse and local evidence are
+in `docs/PLATFORM_OPERATIONS_HEALTH_2026-10-06.md`; production remains unchanged.
+
+October 6 release update: the presentation and existing-event reconciliation layer
+is now live in admin deployment `5f9c93d5-c72f-4693-b22a-dd32257e8ab8` (revision
+`fc05ff9ee7be87fc`). There is still no new production health-event contract:
+`healthEventsEnabled` is false and shared SQL, collector and employee runtime are
+unchanged. Conditional deployment approval did not clear the cost gate: the current
+Ably account is metered Standard, not Free. No incremental spend was approved.
+Exact-package 14 browser checks and live artifact/member-contract fingerprint checks
+passed; authenticated live Operations presentation/read acceptance also passed,
+without claiming shared-feed delivery or complete monitoring. Existing member delivery,
+alarms, auth, notification rules and shared relay deployment remain unchanged.
+
+### Admin record-page navigation — October 6
+
+Published October 7 03:16 UTC as admin deployment
+`9f87f318-80a0-4700-9096-b567411c4066`; live asset hashes and unchanged backend
+contract fingerprints verified. Shared health events remain disabled.
+
+The admin-only record presenter moves existing detail controllers into full-width
+workspace views. It adds no reads, events, subscriptions, timers or writes.
+Queues remain mounted while hidden, preserving filter/cursor state when the user
+returns. Existing authorized event invalidation, reconnect/foreground reads,
+stale-revision guards and draft-preserving reconciliation are unchanged. Closing
+a record continues to invalidate pending detail work and erase evidence through
+the owning controller; session lock/expiry does not rehydrate records on browser
+Forward. Browser history contains a random navigation token, never record content.
+Footer relocation preserves form association and command boundaries. Only the
+admin static bundle, review modules and stylesheet change; member auth/reads,
+atomic moderation RPCs, shared realtime infrastructure and disabled health feed
+remain untouched. See the admin workflow release record for verification/status.
+
+### Mobile push-registration interruption — October 8, 2026 (local only)
+
+`useNativeNotifications` owns one foreground/account-bound retry run. Its scope
+subscribes to existing AppState/auth-store transitions, cancels on inactive or
+background/account invalidation/unmount, and is disposed on settlement. A return
+to active starts fresh reconciliation; repeated active signals do not duplicate
+an in-flight run. There is no recurring polling or background-execution grant.
+
+`syncPushRegistration` rechecks eligibility across asynchronous token/storage
+boundaries and passes an account-bound cancellation signal only to the existing
+register_native_push_endpoint v3/v2/v1 atomic commands. Native promises that
+cannot be cancelled are observed but their late results are ignored. The command
+gateway cancels fetch/body observation and retry delays, cleans listeners/timers,
+and preserves the first cancellation/deadline reason even with React Native's
+reason-less AbortController polyfill. Other commands do not opt into this signal.
+Known HTTP failures and genuine foreground deadlines are not hidden by a later
+background transition. Interrupted setup is explicitly `deferred` in Settings
+and onboarding, not success or permission denial.
+
+Client serialization, receipt fingerprints/TTL, fallback rules and bounded retry
+budgets remain. Cancellation cannot prove a remote write rolled back; a new
+foreground run uses the existing idempotent desired-state registration contract.
+Unregister invalidates current client runs and removes receipts in the same
+client mutation queue. No stronger server-side ordering guarantee is introduced.
+No new realtime events, topics, RPCs, database changes, push delivery scheduling
+or member participation dependencies are introduced. This is prepared source,
+not a release; exact-build physical-device validation remains outstanding.
+
+### Approved push-recovery logs / stack mapping — October 8, 2026 (local only)
+
+The existing API failure reporter can retain the Sentry event ID of a native
+push-registration error in memory, scoped to the current diagnostic session.
+The next normal eligible foreground registration bypasses an old receipt if
+that incident remains pending. Only an acknowledged existing atomic registration
+RPC, followed by the current-account/lifecycle checks, emits the correlated
+recovery log. Cancellation, cached success or stale-account results never do.
+This changes neither realtime contracts nor retry/polling budgets. The recovery
+is registration acceptance, not proof a push was delivered or that every error
+in the app is fixed.
+
+Owner-approved Sentry Logs fields are restricted to the original error event ID,
+existing diagnostic IDs, app/build/platform, elapsed time and fixed outcome
+labels. Correlation expires after 24 hours or session/account change, is lost
+on process restart, and is capped at three log attempts per rolling hour per
+process. The JS-only log filter rejects all other messages, removes ambient
+attributes, and fails closed if SDK scope attributes could bypass that filter.
+SDK transport metadata still applies; ingestion remains best effort. No alert,
+resolution, sampling, provider, backend or paid-setting change is involved.
+
+The Sentry Expo Metro config now injects runtime Debug IDs matching source maps
+on both mobile exports. Local round-trip mapping checks pass, but native Hermes
+composition, uploaded next-build artifacts and live event symbolication remain
+release/device acceptance gates. No replacement maps were uploaded for 1.0.9.
+Cloud builds are blocked by exhausted included Expo credit under the standing
+no-additional-cost requirement. No new mobile binary or deployment exists yet.
+
+### Next-build member recovery/support boundaries — October 8, 2026
+
+Local-only preparation adds no topics, events, RPCs, polling or shared deployment.
+The existing delayed notification-attention command now checks mounted state,
+foreground state and the original authenticated actor before dispatch, passing
+that actor guard to the existing command gateway. Native cleanup and command
+rejections are observed without new retry loops. This guard does not prove that a
+destination rendered or that a remote write was rolled back after dispatch.
+
+Post detail keeps permitted cached data on transient read failure and exposes a
+manual refetch; authentication/permission failures do not retain that data. This
+does not bypass the feed participation gate or alter server authorization.
+Report a problem reads the existing diagnostic snapshot locally and shares only
+its allowlisted preview when the user opens the OS share sheet/email composer.
+It introduces no diagnostic subscriber, background request or support database.
+No message is sent automatically and no successful ticket submission is claimed.

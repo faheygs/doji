@@ -119,6 +119,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     const active = query(`.portalNav [data-view="${view}"]`);
     const title = byId('portalPageTitle');
     if (title && active) title.textContent = active.dataset.label || active.textContent.trim();
+    if (portalType === 'admin' && !app.hidden) title?.focus({ preventScroll: true });
     setSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.dispatchEvent(new CustomEvent('portal:view', { detail: view }));
@@ -1362,6 +1363,10 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         liveClient = window.DojiAdminPortalClient.create({
           ...adminConfig,
           onAccessInvalidated: (message) => expireLiveSession(message),
+          onSessionCleanupFailed: (message) => {
+            if (auth.dataset.authPhase === 'locked' && !adminSigninForm.hasAttribute('aria-busy'))
+              setSigninStatus(message, 'error');
+          },
         }) as unknown as PortalClient;
       } catch (error) {
         console.error(error);
@@ -1385,6 +1390,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     const globalSearchModal = byId('globalSearchModal');
     byId('auditDetailModal').classList.add('portalDrawer', 'adminDrawer', 'open');
     byId('auditDetailModal').setAttribute('aria-labelledby', 'auditDetailTitle');
+    byId('auditDetailModal').addEventListener('close', () => window.DojiRecordPages?.hide(byId('auditDetailModal')));
     globalSearchModal.setAttribute('aria-label', 'Search loaded work');
     byId('globalSearchInput').setAttribute('aria-label', 'Search loaded work');
     const adminStateKey = 'doji-admin-prototype-state-v1';
@@ -1415,9 +1421,17 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     let auditSearchTerm = '';
     let auditSearchTimer: ReturnType<typeof setTimeout> | undefined = undefined;
     let liveRefreshTimer: ReturnType<typeof setTimeout> | undefined = undefined;
+    let healthConnection = 'connecting';
+    let healthReceivedAt: string | undefined;
+    let liveRefreshRunning = false;
+    let liveRefreshPending = false;
+    let liveRefreshFull = false;
     let sessionExpiryTimer: ReturnType<typeof setTimeout> | undefined = undefined;
     let lastActivityPersistedAt = 0;
     let workspaceEpoch = 0;
+    // Auth rejection may clear the workspace; only an explicit new/back flow
+    // makes its own error stale. Do not hide wrong-password/code feedback.
+    let authFlowEpoch = 0;
     let activePages: Record<string, ActivePage> = {};
     let queueWindows: Record<string, QueueWindow> = {};
     const queuePageSize = 25;
@@ -1472,6 +1486,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         ? ['safety', 'moderation'].map((view) =>
             window.DojiSafetyRemoval.create({
               view,
+              detailOnly: adminConfig.unifiedSafetyEnabled === true,
               client: client(),
               session: () => liveSession,
               epoch: () => workspaceEpoch,
@@ -1558,7 +1573,60 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
             return null;
           })
       : Promise.resolve(null);
+    const workflowReady =
+      liveMode &&
+      employeeMode &&
+      adminConfig.independentEmployeeIdentity === true &&
+      adminConfig.staffWorkflowEnabled === true
+        ? (
+            import('/admin-portal/workflow-workspace.js' as string) as Promise<
+              typeof import('./admin-portal/workflow-workspace.mts')
+            >
+          )
+            .then(({ createWorkflowWorkspace, workflowReview }) =>
+              createWorkflowWorkspace({
+                unifiedSafety: adminConfig.unifiedSafetyEnabled === true,
+                request: (path, body) => client().workflowRequest(path, body),
+                epoch: () => workspaceEpoch,
+                active: () => !!liveSession && client().hasSession(),
+                actor: () => liveSession?.user_id || '',
+                changed: () => {
+                  editorial?.reconcile();
+                  safetyRemoval.reconcile();
+                  if (businessReview?.isOpen()) void businessReview.reconcile();
+                  if (businessPrivacy?.isOpen()) void businessPrivacy.reconcile();
+                  if (activeItem && !moderationSubmitting && !triageSubmitting)
+                    void loadLiveReportCase(activeItem.id, { preserveDraft: true });
+                },
+                enhance: (root) =>
+                  queryAll('select', root).forEach((select) => enhancePortalSelect(select, true)),
+                review: workflowReview({
+                  epoch: () => workspaceEpoch,
+                  active: () => !!liveSession && client().hasSession(),
+                  business: businessReviewReady,
+                  privacy: businessPrivacyReady,
+                  intake: safetyModules.at(-1),
+                  idea: editorial,
+                  report: (id) => client().reportCase(id),
+                  appeal: (id) => client().appealCase(id),
+                  drawer: openDrawer,
+                }),
+              }),
+            )
+            .catch(() => {
+              const notice = document.createElement('p');
+              notice.setAttribute('role', 'status');
+              notice.textContent =
+                'Unified review workspace could not load. Refresh the page to retry.';
+              query('[data-portal-view="overview"]').append(notice);
+              return null;
+            })
+        : Promise.resolve(null);
     function reconcileBusinessReview() {
+      const workflowEpoch = workspaceEpoch;
+      void workflowReady.then((module) => {
+        if (workflowEpoch === workspaceEpoch) module?.reconcile();
+      });
       const privacyEpoch = workspaceEpoch;
       void businessPrivacyReady.then((module) => {
         if (privacyEpoch !== workspaceEpoch || !liveSession) return;
@@ -2073,7 +2141,9 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         priority: appeal.severity === 'level_3' ? 'critical' : 'high',
         summary: appeal.statement,
         visibility: 'Original decision remains active',
-        owner: 'Unassigned',
+        owner: adminConfig.staffWorkflowEnabled
+          ? 'See ownership in review workspace'
+          : 'Unassigned',
         source: 'In-app appeal',
         nextStep:
           'A reviewer other than the original decision-maker must independently uphold or reverse the decision.',
@@ -2224,6 +2294,15 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
             () => client().platformHealth(),
             (value) => {
               livePlatformHealth = value as Health;
+              healthReceivedAt = new Date().toISOString();
+            },
+          ],
+          [
+            'history',
+            'operations_read',
+            () => client().platformHealthHistory(12),
+            (value) => {
+              livePlatformHealthHistory = value as HealthHistory;
             },
           ],
         ],
@@ -2234,6 +2313,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
             () => client().platformHealth(),
             (value) => {
               livePlatformHealth = value as Health;
+              healthReceivedAt = new Date().toISOString();
             },
           ],
           [
@@ -2413,16 +2493,50 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
       }
     }
 
-    function scheduleLiveRefresh() {
+    function scheduleLiveRefresh(scope: 'all' | 'health' = 'all') {
+      // Event-triggered only: never poll in the background or overlap batches.
+      if (document.hidden || !liveSession || !liveClient?.hasSession()) return;
+      if (
+        scope === 'health' &&
+        !['overview', 'operations'].includes(
+          query<HTMLElement>('.portalView:not([hidden])')?.dataset.portalView || '',
+        )
+      )
+        return;
+      liveRefreshFull ||= scope === 'all';
+      if (liveRefreshRunning) {
+        liveRefreshPending = true;
+        return;
+      }
       if (liveRefreshTimer) return;
+      const epoch = workspaceEpoch;
       liveRefreshTimer = setTimeout(
         () => {
           liveRefreshTimer = undefined;
-          refreshLiveData().catch((error) => {
-            if (!liveSession || !client().hasSession()) return;
-            console.error('[admin-portal] realtime reconciliation failed', error);
-            byId('operatorSession').innerHTML = '<i></i> Live data · reconnecting';
-          });
+          if (epoch !== workspaceEpoch || document.hidden) return;
+          liveRefreshRunning = true;
+          const full = liveRefreshFull;
+          liveRefreshFull = false;
+          // A navigation/initial read may predate this hint. Awaiting that read is
+          // not reconciliation: follow it with one coalesced fresh read.
+          if (viewReads.has('platform') || viewReads.has('history')) liveRefreshPending = true;
+          (full
+            ? refreshLiveData()
+            : loadViewData(query<HTMLElement>('.portalView:not([hidden])')?.dataset.portalView)
+          )
+            .catch((error) => {
+              if (epoch !== workspaceEpoch || !liveSession || !client().hasSession()) return;
+              console.error('[admin-portal] realtime reconciliation failed', error);
+              byId('operatorSession').innerHTML = '<i></i> Live data · reconnecting';
+            })
+            .finally(() => {
+              if (epoch !== workspaceEpoch) return;
+              liveRefreshRunning = false;
+              if (liveRefreshPending) {
+                liveRefreshPending = false;
+                scheduleLiveRefresh(liveRefreshFull ? 'all' : 'health');
+              }
+            });
         },
         250 + Math.floor(Math.random() * 250),
       );
@@ -2431,13 +2545,29 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     async function startLiveRealtime() {
       if (!liveClient?.startRealtime) return;
       try {
-        await client().startRealtime(scheduleLiveRefresh, (state) => {
-          if (!liveSession) return;
-          const label = state === 'connected' ? 'Live updates connected' : `Live updates: ${state}`;
-          byId('operatorSession').innerHTML = `<i></i> ${escapeHtml(label)}`;
-        });
+        await client().startRealtime(
+          (hint) => {
+            if (hint.type === 'staff.health.changed') scheduleLiveRefresh('health');
+            else if (hint.type.startsWith('staff.')) {
+              const epoch = workspaceEpoch;
+              void workflowReady.then((module) => {
+                if (epoch === workspaceEpoch) module?.invalidate(hint);
+              });
+            } else scheduleLiveRefresh();
+          },
+          (state) => {
+            if (!liveSession) return;
+            healthConnection = state;
+            renderOperations();
+            const label =
+              state === 'connected' ? 'Live updates connected' : `Live updates: ${state}`;
+            byId('operatorSession').innerHTML = `<i></i> ${escapeHtml(label)}`;
+          },
+        );
       } catch (error) {
         client().stopRealtime?.();
+        healthConnection = 'unavailable';
+        renderOperations();
         console.error('[admin-portal] realtime startup failed', error);
         byId('operatorSession').innerHTML = '<i></i> Live updates unavailable';
       }
@@ -2707,7 +2837,9 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         viewLoading.has('resolved') &&
         !liveResolvedReports.length
       ) {
-        body.innerHTML = '<tr><td colspan="8" role="status">Loading resolved cases…</td></tr>';
+        body.innerHTML =
+          '<tr class="emptyTableRow"><td colspan="8"><div class="queueState" role="status">Loading resolved cases…</div></td></tr>';
+        body.closest('.tableWrap')?.setAttribute('aria-busy', 'true');
         return;
       }
       let items =
@@ -2737,7 +2869,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         ? visibleQueueRows(type, items)
             .map((item) => tableMarkup(type, item))
             .join('')
-        : `<tr class="emptyTableRow"><td colspan="6">No work matches these filters.</td></tr>`;
+        : `<tr class="emptyTableRow"><td colspan="6"><div class="queueState">${type === 'campaigns' && !adminConfig.campaignsEnabled ? 'Sponsorship review is not connected yet.' : 'No work matches these filters.'}</div></td></tr>`;
       if (
         usesPage &&
         (page?.loading ||
@@ -2745,8 +2877,9 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
           (!liveSession?.capabilities?.moderation_read &&
             !liveSession?.capabilities?.operations_read))
       ) {
-        body.innerHTML = `<tr class="emptyTableRow"><td colspan="6">${escapeHtml(page?.loading ? 'Loading authorized work…' : page?.error || 'Your role can sign in, but does not grant moderation or editorial queue access. A super admin can assign the additional role if needed.')}</td></tr>`;
+        body.innerHTML = `<tr class="emptyTableRow"><td colspan="6"><div class="queueState" role="status">${escapeHtml(page?.loading ? 'Loading authorized work…' : page?.error || 'Your role can sign in, but does not grant moderation or editorial queue access. A super admin can assign the additional role if needed.')}</div></td></tr>`;
       }
+      body.closest('.tableWrap')?.setAttribute('aria-busy', String(usesPage && !!page?.loading));
       visibleQueueRows(type, items);
       renderQueuePager(
         type,
@@ -2774,6 +2907,13 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     }
 
     async function loadActiveQueue(type: string | undefined, more = false) {
+      if (adminConfig.unifiedSafetyEnabled && (type === 'safety' || type === 'moderation')) return;
+      if (
+        type === 'inbox' &&
+        adminConfig.staffWorkflowEnabled &&
+        adminConfig.independentEmployeeIdentity
+      )
+        return;
       if (
         !type ||
         !liveMode ||
@@ -2914,7 +3054,12 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         query<HTMLElement>('small', byId('urgentMetric').parentElement!).textContent =
           'Reports due within 4 hours or already overdue';
         setLegalUrgentAlert(restrictedSafetyCount);
-        byId('unassignedMetric').textContent = String(metrics.unassigned_work || 0);
+        byId('unassignedMetric').textContent = adminConfig.staffWorkflowEnabled
+          ? '—'
+          : String(metrics.unassigned_work || 0);
+        if (adminConfig.staffWorkflowEnabled)
+          query<HTMLElement>('small', byId('unassignedMetric').parentElement!).textContent =
+            'See each queue for current ownership; no combined total is available';
         byId('campaignMetric').textContent = String(restrictedSafetyCount);
         byId('inboxNavCount').textContent = String(liveWork.length);
         byId('moderationOpenCount').textContent = String(metrics.open_reports || 0);
@@ -3134,12 +3279,15 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         history: livePlatformHealthHistory?.items || [],
         failed: Boolean(liveDataErrors.platform),
         historyFailed: Boolean(liveDataErrors.history),
+        loaded: Boolean(livePlatformHealth || liveDataErrors.platform),
+        historyLoaded: Boolean(livePlatformHealthHistory),
         generatedAt: livePlatformHealth?.generated_at,
       });
     }
 
     function renderOperations() {
       if (!liveMode || !liveSnapshot) return;
+      if (!liveSession?.capabilities?.operations_read) return;
       const operational = livePlatformHealth?.operational || {};
       const sentry = livePlatformHealth?.sentry || {
         configured: false,
@@ -3152,6 +3300,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         : [];
       const healthStatus = platformHealthStatus();
       const operationalUnavailable = healthStatus.stale;
+      const appSignal = healthStatus.signals.find((item) => item.name.startsWith('App errors'))!;
       const historyUnavailable = Boolean(liveDataErrors.history);
       const policies = Array.isArray(liveSnapshot.release_policies)
         ? liveSnapshot.release_policies
@@ -3166,6 +3315,10 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         : '<div class="emptyState">No release policy rows were returned.</div>';
       const grid = query('[data-portal-view="operations"] .opsGrid');
       if (!grid) return;
+      const expanded = new Set(
+        Array.from(grid.querySelectorAll('details[open]'), (el) => el.className),
+      );
+      const focusedSummary = document.activeElement?.closest('details')?.className;
       const statusPill = byId('operationsStatusPill');
       if (statusPill) {
         statusPill.textContent = healthStatus.label;
@@ -3195,9 +3348,11 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
                 : `<div class="sentryIssueRow" data-level="${escapeHtml(issue.level || 'error')}">${body}</div>`;
             })
             .join('')
-        : sentry.available && !liveDataErrors.platform
+        : appSignal.state !== 'unknown'
           ? '<div class="healthEmpty"><strong>No unresolved production issues returned.</strong><span>This query does not include resolved issues or unreported failures. It cannot verify account loading or comment success.</span></div>'
-          : '<div class="healthEmpty healthUnavailable"><strong>Sentry coverage unavailable.</strong><span>No all-clear can be inferred. Check the read-only connection or refresh the portal.</span></div>';
+          : !livePlatformHealth && viewLoading.has('platform')
+            ? '<div class="queueState" data-state="loading" role="status">Loading app-error readings…</div>'
+            : '<div class="healthEmpty healthUnavailable"><strong>App-error readings unverified.</strong><span>Check the monitoring connection. Empty or outdated results are not an all-clear.</span></div>';
       const historyRows = eventHistory.length
         ? eventHistory
             .map((history) => {
@@ -3224,63 +3379,91 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
               return `<article class="eventHealthRow" data-tone="${state === 'healthy' ? 'healthy' : 'attention'}"><span class="eventHealthRail"></span><div class="eventHealthTitle"><strong>${escapeHtml(history.title || 'Daily Doji')}</strong><small>${escapeHtml(new Date(history.fires_at).toLocaleString())} · ${settled ? 'Finalized' : 'Settling'}</small><span class="statusPill healthState" data-state="${state}">${window.DojiPortalHealth.labels[state]}</span></div><div><span>Realtime p95 / max</span><strong>${value('realtime_p95_ms')} / ${value('realtime_max_ms')} ms</strong><small>${value('realtime_sample_count')} samples · ${value('realtime_over_5s')} over 5s</small></div><div><span>Outbox</span><strong>${value('outbox_unpublished')} unpublished</strong><small>${value('outbox_exhausted')} exhausted</small></div><div><span>Push</span><strong>${value('push_shards_completed')} / ${value('push_shards_total')}</strong><small>${value('push_shards_expired')} expired · ${value('push_shards_exhausted')} exhausted</small></div><div><span>Participation</span><strong>${value('participant_count')} people · ${value('post_count')} posts</strong></div><div><span>Issue-lifetime overlap</span><strong>${sentry.available && !liveDataErrors.platform ? eventIssueCount + ' groups' : 'Unknown'}</strong><small>Not confirmed events in this window</small></div></article>`;
             })
             .join('')
-        : historyUnavailable
-          ? '<div class="healthEmpty healthUnavailable"><strong>Recent Doji health could not be refreshed.</strong><span>The last successful history remains preserved; retry after connectivity is restored.</span></div>'
-          : '<div class="healthEmpty"><strong>No completed Doji health summaries yet.</strong><span>The service monitor will add the first summary shortly after a production Doji closes.</span></div>';
-      const healthNotice = operationalUnavailable
-        ? '<div class="portalPanel healthUnavailable"><strong>Live operational health is temporarily unavailable.</strong><span>Values below are the last authoritative snapshot and may be stale. No unavailable signal is being treated as healthy.</span></div>'
-        : '';
+        : !livePlatformHealthHistory && viewLoading.has('history')
+          ? '<div class="queueState" data-state="loading" role="status">Loading recent Doji results…</div>'
+          : historyUnavailable
+            ? '<div class="healthEmpty healthUnavailable"><strong>Recent Doji health could not be refreshed.</strong><span>The last successful history remains preserved; retry after connectivity is restored.</span></div>'
+            : '<div class="healthEmpty"><strong>No completed Doji health summaries yet.</strong><span>The service monitor will add the first summary shortly after a production Doji closes.</span></div>';
       const healthSignals = healthStatus.signals
         .map(
           (item) =>
-            `<article class="healthSignal" data-state="${item.state}"><div><h4>${escapeHtml(item.name)}</h4><span class="statusPill healthState" data-state="${item.state}">${item.label}</span></div><p>${escapeHtml(item.detail)}</p></article>`,
+            `<article class="healthSignal" data-state="${item.state}"><div><h4>${escapeHtml(item.name)}</h4><span class="statusPill healthState" data-state="${item.state}">${item.label}</span></div><p>${escapeHtml(item.detail)}</p><small>${escapeHtml(item.name.startsWith('Recent Doji') ? 'Source: finalized / settling event summaries' : item.name.startsWith('App errors') ? `Snapshot received ${formatTimestamp(healthReceivedAt, 'not yet')} · Sentry cache up to 60s` : `Observed ${formatTimestamp(checkedAt, 'not yet')} · database delivery metrics`)}</small></article>`,
         )
         .join('');
       const issueStatus = healthStatus.signals.find((item) =>
         item.name.startsWith('App errors'),
       )!.state;
-      grid.innerHTML = `${healthNotice}
-        <article class="portalPanel opsHero" data-tone="${healthStatus.state === 'healthy' ? 'healthy' : 'attention'}">
+      const updating = viewLoading.has('platform') || viewLoading.has('history');
+      const connectionLabel =
+        healthConnection === 'connected'
+          ? 'Event connection connected'
+          : healthConnection === 'connecting'
+            ? 'Connecting to events'
+            : 'Event connection interrupted';
+      const coverageGaps = [
+        [
+          'Member app',
+          'Sign-in, feed, comments, reactions and crash-free sessions',
+          'Reported errors only; no end-to-end success-rate feed.',
+        ],
+        [
+          'Supabase',
+          'Database, member authentication and storage',
+          'Delivery counters only; no provider-wide availability signal.',
+        ],
+        [
+          'Cloudflare & Ably',
+          'Hosting, orchestration and realtime delivery',
+          'Delivery latency and this browser connection only; no complete service status feed.',
+        ],
+        [
+          'WorkOS & email',
+          'Employee / business sign-in and email delivery',
+          'No continuous authentication or email-delivery health feed.',
+        ],
+      ]
+        .map(
+          ([name, scope, detail]) =>
+            `<li><strong>${name}</strong><span>${scope}</span><small>${detail}</small></li>`,
+        )
+        .join('');
+      grid.innerHTML = `
+        <article class="portalPanel opsHero" data-state="${healthStatus.state}" data-tone="${healthStatus.state === 'healthy' ? 'healthy' : healthStatus.state === 'unknown' ? 'unknown' : 'attention'}">
           <div><p class="eyebrow">Measured platform health</p><h3>${escapeHtml(healthStatus.title)}</h3>
-          <p>${escapeHtml(healthStatus.summary)}</p><p>Delivery checked ${escapeHtml(formatTimestamp(checkedAt, 'not available'))}. These are separate observation windows, not a guarantee that every app feature works.</p>
-          <button type="button" class="portalButton" id="refreshOperationsHealth">Refresh health</button></div>
+          <p>${escapeHtml(healthStatus.summary)}</p></div>
           <div class="opsHeroMetric"><strong>${!operationalUnavailable && Number(operational.realtime_sample_count_5m) > 0 && Number.isFinite(operational.realtime_p95_ms_5m) ? Number(operational.realtime_p95_ms_5m) + ' ms' : '—'}</strong><span>Realtime p95 · last 5 minutes${operationalUnavailable ? ' · stale / unavailable' : ''}</span></div>
         </article>
+        <section class="opsReadiness" aria-label="Monitoring status">
+          <div><span>Measurements</span><strong>${healthStatus.coverageLabel}</strong><small>Delivery observed ${escapeHtml(formatTimestamp(checkedAt, 'not yet'))}</small></div>
+          <div data-connection="${escapeHtml(healthConnection)}"><span>Automatic updates</span><strong>${connectionLabel}</strong><small>Rechecks on available events, reconnect and return to this tab.</small></div>
+          <div aria-live="polite" data-updating="${updating}"><span>Snapshot</span><strong>${updating ? 'Updating readings…' : 'Latest received'}</strong><small>${escapeHtml(formatTimestamp(healthReceivedAt, 'No successful read yet'))}</small></div>
+        </section>
+        <div class="opsUpdateScope">${adminConfig.healthEventsEnabled ? 'Delivery and Doji-summary changes refresh this view automatically. Sentry and other unconnected providers remain snapshot-based.' : 'Health changes and Sentry issues do not yet publish their own update events. An event connection does not mean every reading is live.'}</div>
+        ${healthStatus.attention.length ? `<section class="portalPanel opsAttention" aria-label="Needs attention"><h3>Needs attention</h3><ul>${healthStatus.attention.map((s) => `<li><span class="healthState" data-state="${s.state}">${s.label}</span><strong>${escapeHtml(s.name)}</strong><span>${escapeHtml(s.detail)}</span></li>`).join('')}</ul></section>` : ''}
         <section class="healthSignalGrid" aria-label="Health signals">${healthSignals}</section>
-        <article class="portalPanel healthThresholds" data-help-container><h3 data-help-label>Health coverage</h3>
-          <dl data-context-help>
+        <details class="portalPanel healthThresholds"><summary>How health is assessed</summary>
+          <dl>
             <div><dt><span class="healthState" data-state="healthy">Healthy</span></dt><dd>Fresh telemetry; at least 20 realtime samples; p95 below 1s, no sample over 5s, and no backlog or provider credential failures.</dd></div>
-            <div><dt><span class="healthState" data-state="watch">Watch</span></dt><dd>Realtime p95 reaches 1s, any sample exceeds 5s, or a recent Doji missed a delivery target even if delivery has recovered.</dd></div>
-            <div><dt><span class="healthState" data-state="degraded">Degraded</span></dt><dd>Realtime p95 exceeds 5s with at least 20 samples; any overdue outbox / stale push work; server health fails; or Sentry returns unresolved production issues from its 24h window.</dd></div>
+            <div><dt><span class="healthState" data-state="watch">Watch</span></dt><dd>Realtime p95 reaches 1s, any sample exceeds 5s, a recent Doji missed a delivery target, or Sentry returns unresolved production issues. Low-sample latency and reported errors need investigation; neither alone establishes a platform outage.</dd></div>
+            <div><dt><span class="healthState" data-state="degraded">Degraded</span></dt><dd>Realtime p95 exceeds 5s with at least 20 samples; overdue outbox or stale push work; or the server health guardrail fails.</dd></div>
             <div><dt><span class="healthState" data-state="critical">Critical</span></dt><dd>Any realtime sample exceeds 30s, work exhausts retries, or APNs credentials fail. A past event also flags expired push shards as critical.</dd></div>
-            <div><dt><span class="healthState" data-state="unknown">Needs verification</span></dt><dd>Missing or failed reads, delivery data older than 3 minutes, or insufficient samples. Missing measurements never mean zero failures.</dd></div>
+            <div><dt><span class="healthState" data-state="unknown">Limited visibility</span></dt><dd>Missing or failed reads, snapshots older than 3 minutes, or insufficient samples. Quiet traffic is not a failure. Missing measurements never mean zero failures.</dd></div>
           </dl><p>Not directly measured here: account, feed, comment and reaction request success rates, session continuity, or crash-free sessions. Sentry captures reported errors only. A healthy delivery queue cannot rule out these failures.</p>
-        </article>
+        </details>
+        <details class="portalPanel opsCoverage"><summary>Services with partial or missing monitoring</summary><ul>${coverageGaps}</ul></details>
         <article class="portalPanel sentryPanel"><div class="panelHeader"><div><h3>Crashes and production errors</h3><p>Sentry · up to 25 unresolved production issue groups · last 24 hours. Counts are Sentry group totals, not per-Doji totals.</p></div><span class="statusPill healthState" data-state="${issueStatus}">${issueStatus === 'unknown' ? healthStatus.signals.find((item) => item.name.startsWith('App errors'))!.label : issues.length + (issues.length >= 25 ? '+' : '') + ' unresolved'}</span></div><div class="sentryIssueList">${issueRows}</div></article>
-        <article class="portalPanel"><div class="panelHeader"><div><h3>Release policy</h3></div></div><div class="releaseRows">${releases}</div></article>`;
-      byId('refreshOperationsHealth').addEventListener('click', async () => {
-        const button = byId('refreshOperationsHealth');
-        button.disabled = true;
-        button.textContent = 'Refreshing…';
-        try {
-          await refreshLiveData();
-        } catch (error) {
-          liveDataErrors.platform = 'Health refresh failed';
-          renderMetrics();
-          renderOperations();
-          renderDataHealthBanner();
-          showToast('Health refresh failed. Last values may be stale.');
-        } finally {
-          button.disabled = false;
-          button.textContent = 'Refresh health';
-        }
-      });
+        <article class="portalPanel opsReleasePolicy"><div class="panelHeader"><div><h3>Release policy</h3></div></div><div class="releaseRows">${releases}</div></article>`;
       window.DojiContextualHelp?.enhance(grid);
-      grid.insertAdjacentHTML('afterbegin', eventContext);
+      grid.insertAdjacentHTML('beforeend', eventContext);
       grid.insertAdjacentHTML(
         'beforeend',
         `<article class="portalPanel eventHistoryPanel"><div class="panelHeader"><div><h3>Recent Doji health</h3><p>Finalized event-level delivery summaries · newest first</p></div><span class="statusPill">${eventHistory.length} events</span></div><div class="eventHealthList">${historyRows}</div></article>`,
       );
+      grid.querySelectorAll('details').forEach((el) => {
+        el.open = expanded.has(el.className);
+        if (focusedSummary === el.className)
+          el.querySelector('summary')?.focus({ preventScroll: true });
+      });
     }
 
     function businesses() {
@@ -3532,14 +3715,26 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
           ).disabled = false;
         }
       });
-      byId('auditDetailModal').showModal();
+      const auditPage = byId('auditDetailModal');
+      window.DojiRecordPages?.show(auditPage, { close: () => { auditPage.close(); window.DojiRecordPages?.hide(auditPage); }, busy: () => false });
+      if (!auditPage.open) auditPage.showModal();
     }
 
     function renderAudit(filter = auditFilter, term = auditSearchTerm) {
+      byId('auditList').setAttribute('aria-busy', String(viewLoading.has('audit') || auditLoading));
       if (liveMode && viewLoading.has('audit') && !liveAudit.length) {
         byId('auditList').innerHTML =
-          '<div class="emptyState" role="status">Loading audit activity…</div>';
+          '<div class="queueState" role="status">Loading audit activity…</div>';
         byId('auditResultCount').textContent = 'Loading…';
+        renderQueuePager(
+          'audit',
+          byId('auditList').closest('.queuePanel'),
+          [],
+          false,
+          loadMoreAuditEvents,
+          () => renderAudit(),
+          true,
+        );
         return;
       }
       const normalized = term.trim().toLowerCase();
@@ -4717,8 +4912,9 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
       renderDrawerActions();
       renderDrawerTab();
       drawer.classList.add('open');
-      drawerBackdrop.classList.add('open');
+      if (!window.DojiRecordPages) drawerBackdrop.classList.add('open');
       drawer.setAttribute('aria-hidden', 'false');
+      window.DojiRecordPages?.show(drawer, { close: closeDrawer, busy: () => moderationSubmitting || triageSubmitting });
       if (liveMode && ['moderation', 'safety'].includes(activeItem.queue)) {
         return loadLiveReportCase(activeItem.id);
       }
@@ -4732,6 +4928,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
       drawer.classList.remove('open');
       drawerBackdrop.classList.remove('open');
       drawer.setAttribute('aria-hidden', 'true');
+      window.DojiRecordPages?.hide(drawer);
       activeItem = null;
       activeCaseDetail = null;
       activeAppealDetail = null;
@@ -5277,6 +5474,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         | import('./admin-portal/live-contracts.d.mts').AuthSession,
     ) {
       const epoch = workspaceEpoch;
+      const authEpoch = authFlowEpoch;
       try {
         await refreshLiveData(
           adminConfig.independentEmployeeIdentity === true &&
@@ -5288,29 +5486,38 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         );
       } catch (error) {
         // MFA has consumed its enrollment; never offer the completed QR form again.
+        if (authEpoch !== authFlowEpoch) return;
         resetAdminAuth();
-        throw new Error(
-          `Sign-in verified, but portal access could not be loaded. ${error instanceof Error ? error.message : 'Please sign in again.'}`,
-        );
+        const message = `Sign-in verified, but portal access could not be loaded. ${error instanceof Error ? error.message : 'Please sign in again.'}`;
+        setSigninStatus(message, 'error');
+        throw new Error(message);
       }
       if (epoch !== workspaceEpoch || !liveSession || !client().hasSession()) return;
       void startLiveRealtime();
       startSessionGuard();
+      window.DojiAdminJourney?.clearSecrets();
       setSigninStatus('');
       enterDemo(liveSession.capabilities?.operations_read ? 'overview' : 'inbox');
     }
 
     function clearProtectedWorkspace() {
       workspaceEpoch += 1;
+      window.DojiAdminJourney?.clearSecrets();
       editorial?.clear();
       safetyRemoval?.clear();
       businessReview?.clear();
       businessPrivacy?.clear();
+      void workflowReady.then((module) => module?.clear());
       if (liveRefreshTimer) clearTimeout(liveRefreshTimer);
       if (auditSearchTimer) clearTimeout(auditSearchTimer);
       if (queueSearchTimer) clearTimeout(queueSearchTimer);
       if (sessionExpiryTimer) clearInterval(sessionExpiryTimer);
       liveRefreshTimer = undefined;
+      healthConnection = 'connecting';
+      healthReceivedAt = undefined;
+      liveRefreshRunning = false;
+      liveRefreshPending = false;
+      liveRefreshFull = false;
       auditSearchTimer = undefined;
       sessionExpiryTimer = undefined;
       closeDrawer();
@@ -5412,6 +5619,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
       liveClient?.clearSession();
       clearProtectedWorkspace();
       showAdminAuthStep('credentials');
+      window.DojiAdminJourney?.phase('locked', true);
       setSigninStatus(message, 'error');
     }
 
@@ -5439,6 +5647,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     }
 
     function showAdminAuthStep(step: string) {
+      window.DojiAdminJourney?.phase(step);
       employeeRegisterForm.hidden = !employeeMode || independentEmployeeMode || step !== 'register';
       employeeRegisterToggle.hidden =
         !employeeMode || independentEmployeeMode || step !== 'credentials';
@@ -5450,6 +5659,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     }
 
     function resetAdminAuth() {
+      authFlowEpoch += 1;
       liveClient?.clearSession();
       clearProtectedWorkspace();
       showAdminAuthStep('credentials');
@@ -5528,21 +5738,28 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
         return;
       }
       const submit = query<HTMLButtonElement>('button[type="submit"]', adminSigninForm);
+      if (submit.disabled) return;
+      const epoch = workspaceEpoch;
+      const authEpoch = ++authFlowEpoch;
+      const email = byId('adminEmail').value.trim();
+      const password = byId('adminPassword').value;
+      const finishBusy = window.DojiAdminJourney?.busy(adminSigninForm, 'Signing in…');
       submit.disabled = true;
       setSigninStatus(
         employeeMode ? 'Verifying your employee account…' : 'Verifying your Doji account…',
       );
       try {
-        const result = await client().signIn(
-          byId('adminEmail').value.trim(),
-          byId('adminPassword').value,
-        );
+        const pendingSignin = client().signIn(email, password);
+        window.DojiAdminJourney?.clearSecrets();
+        const result = await pendingSignin;
+        if (epoch !== workspaceEpoch) return;
         if ('authenticated' in result && result.authenticated) {
           await completeLiveSignin();
         } else if ('requiresEnrollment' in result && result.requiresEnrollment) {
           showAdminAuthStep('enrollment');
           setSigninStatus('Creating your secure authenticator QR code…');
           const enrollment = await client().enrollTotp();
+          if (epoch !== workspaceEpoch) return;
           if (!enrollment.qrCode || !enrollment.secret)
             throw new Error('Doji authentication did not return a complete setup code. Try again.');
           byId('adminTotpQr').src = enrollment.qrCode;
@@ -5560,44 +5777,77 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
           setTimeout(() => byId('adminChallengeCode').focus(), 0);
         }
       } catch (error) {
+        if (authEpoch !== authFlowEpoch) return;
         client().clearSession();
         showAdminAuthStep('credentials');
         setSigninStatus(error instanceof Error ? error.message : 'Sign in failed.', 'error');
       } finally {
+        finishBusy?.();
+        byId('adminPassword').value = '';
         submit.disabled = false;
       }
     });
     adminMfaChallengeForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const submit = query<HTMLButtonElement>('button[type="submit"]', adminMfaChallengeForm);
+      if (submit.disabled) return;
+      const epoch = workspaceEpoch;
+      const code = byId('adminChallengeCode').value;
+      const authEpoch = authFlowEpoch;
+      const finishBusy = window.DojiAdminJourney?.busy(adminMfaChallengeForm, 'Verifying…');
       submit.disabled = true;
       setSigninStatus('Verifying your code…');
       try {
-        const result = await client().verifyPendingChallenge(byId('adminChallengeCode').value);
+        const result = await client().verifyPendingChallenge(code);
+        if (epoch !== workspaceEpoch) return;
         await completeLiveSignin(result);
       } catch (error) {
+        if (authEpoch !== authFlowEpoch) return;
+        if (independentEmployeeMode) {
+          client().clearSession();
+          showAdminAuthStep('credentials');
+        }
         setSigninStatus(
-          error instanceof Error ? error.message : 'The verification code could not be confirmed.',
+          independentEmployeeMode
+            ? 'The code could not be verified. Sign in again for a fresh security check.'
+            : error instanceof Error
+              ? error.message
+              : 'The verification code could not be confirmed.',
           'error',
         );
       } finally {
+        finishBusy?.();
+        byId('adminChallengeCode').value = '';
         submit.disabled = false;
       }
     });
     adminTotpVerifyForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const submit = query<HTMLButtonElement>('button[type="submit"]', adminTotpVerifyForm);
+      if (submit.disabled) return;
+      const epoch = workspaceEpoch;
+      const code = byId('adminTotpCode').value;
+      const authEpoch = authFlowEpoch;
+      const finishBusy = window.DojiAdminJourney?.busy(adminTotpVerifyForm, 'Finishing setup…');
       submit.disabled = true;
       setSigninStatus('Finishing authenticator setup…');
       try {
-        const result = await client().verifyTotpEnrollment(byId('adminTotpCode').value);
+        const result = await client().verifyTotpEnrollment(code);
+        if (epoch !== workspaceEpoch) return;
         await completeLiveSignin(result);
       } catch (error) {
+        if (authEpoch !== authFlowEpoch) return;
+        if (independentEmployeeMode) {
+          client().clearSession();
+          showAdminAuthStep('credentials');
+        }
         setSigninStatus(
           error instanceof Error ? error.message : 'The authenticator code could not be verified.',
           'error',
         );
       } finally {
+        finishBusy?.();
+        byId('adminTotpCode').value = '';
         submit.disabled = false;
       }
     });
@@ -5628,11 +5878,11 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
     });
     byId('inboxTypeFilter').addEventListener('change', () => queueChanged('inbox'));
     document.addEventListener('portal:view', (event) => {
+      reconcileBusinessReview();
       if (
         event.detail === 'businesses' &&
         (businessReviewEnabled || adminConfig.businessPrivacyEnabled === true)
       ) {
-        reconcileBusinessReview();
         return;
       }
       if (liveMode && liveSession && !(editorial && event.detail === 'suggestions'))
@@ -5939,15 +6189,12 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
           window.DojiContextualHelp?.enhance();
         }
       }
-      byId('adminEmail').value = '';
-      byId('adminPassword').value = '';
       query<HTMLButtonElement>('button[type="submit"]', adminSigninForm).textContent = 'Sign in';
       byId('adminAuthHint').textContent =
         'Your password is sent only to Doji authentication. No administrator data loads until your identity and security requirements are verified.';
       if (employeeMode)
         byId('adminAuthHint').textContent =
           'Employee access requires administrator approval and an authenticator. Your personal app account remains separate.';
-      showAdminAuthStep('credentials');
       const claimNext = query<HTMLButtonElement>('[data-action="claim-next"]');
       if (claimNext) claimNext.textContent = 'Claim next report';
       query('[data-action="new-announcement"]')?.setAttribute('hidden', '');
@@ -5962,14 +6209,24 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
               ),
             );
           clearProtectedWorkspace();
+          showAdminAuthStep('credentials');
+          window.DojiAdminJourney?.phase('locked', true);
+          setSigninStatus('');
         }),
       );
       renderAll();
       if (liveClient && (independentEmployeeMode || client().hasSession())) {
+        // The static form starts hidden. Do not offer editable credentials and
+        // then erase/disable them when a slow bundle or session read catches up.
+        showAdminAuthStep('restoring');
         setSigninStatus('Restoring your protected session…');
         refreshLiveData()
           .then(() => {
-            if (!client().hasSession() || !liveSession) return;
+            if (!client().hasSession() || !liveSession) {
+              showAdminAuthStep('credentials');
+              setSigninStatus('');
+              return;
+            }
             setSigninStatus('');
             enterDemo(liveSession.capabilities?.operations_read ? 'overview' : 'inbox');
             void startLiveRealtime();
@@ -5978,6 +6235,7 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
           .catch((error) => {
             client().clearSession();
             clearProtectedWorkspace();
+            showAdminAuthStep('credentials');
             if (independentEmployeeMode && error.status === 401) setSigninStatus('');
             else
               setSigninStatus(
@@ -5985,8 +6243,9 @@ import type { createBusinessPrivacy } from './admin-portal/business-privacy.mts'
                 'error',
               );
           });
-      }
+      } else showAdminAuthStep('credentials');
     } else {
+      showAdminAuthStep('credentials');
       renderAll();
     }
   }

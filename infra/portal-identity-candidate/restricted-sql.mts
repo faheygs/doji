@@ -2,6 +2,8 @@
 // must never hold a connection across WorkOS HTTP calls. No service-role key,
 // browser SQL, member JWT, database-owner connection or native Auth integration.
 import { record } from './portal-contracts.mts';
+import { employeeWorkflowSql } from './employee-workflow-contracts.mts';
+import { employeeHealthSql } from './employee-health-contracts.mts';
 import type { PortalRealm } from './portal-contracts.mts';
 import type { SqlParameter } from './employee-contracts.mts';
 import type { ClientConfig } from 'pg';
@@ -26,6 +28,7 @@ const operations: Readonly<
 > = Object.freeze({
   business: Object.freeze({
     doji_business_session: Object.freeze({
+      'select business_session_private.put_bound_session($1,$2,$3,$4::integer,$5,$6,$7,$8) as result': 8,
       'select business_session_private.execute_store($1,$2,$3,$4,$5,$6::integer,$7,$8) as result': 8,
     }),
     doji_business_registration: Object.freeze({
@@ -36,11 +39,14 @@ const operations: Readonly<
     }),
     doji_identity_resolver: Object.freeze({
       'select portal_identity_private.read_business_application($1,$2,$3,$4,$5) as result': 5,
+      'select portal_identity_private.read_business_workspace($1,$2,$3,$4,$5) as result': 5,
       'select portal_identity_private.business_application_command($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::uuid) as result': 11,
     }),
   }),
   employee: Object.freeze({
     doji_employee_application: Object.freeze({
+      [employeeHealthSql]: 7,
+      [employeeWorkflowSql]: 7,
       'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result': 7,
     }),
     doji_employee_session: Object.freeze({

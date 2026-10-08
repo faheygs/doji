@@ -1,5 +1,8 @@
 import { Platform } from 'react-native';
-import { AndroidReadEvidence, appStateSnapshot, observeAndroidReadBody, startAndroidReadEvidence } from './androidReadEvidence';
+import { AndroidReadEvidence, appStateSnapshot, observeMemberResponseBody, startMemberRequestEvidence } from './androidReadEvidence';
+import { mobileDiagnosticSnapshot, diagnosticSessionIsCurrent } from './mobileDiagnosticContext';
+import { newCommandId } from './idempotency';
+import { safeDiagnosticEndpoint } from './diagnosticOperations';
 
 /** Read-only, request-scoped diagnostics. Never retains URLs, bodies or credentials.
  * Weak keys prevent one concurrent request/account from borrowing another's response.
@@ -22,23 +25,53 @@ type ReadDiagnostics = AndroidReadEvidence & {
   native_protocol?: 'http/1.0' | 'http/1.1' | 'h2' | 'h2_prior_knowledge';
   native_network_headers_ms?: number;
   native_prior_response_count?: number;
-  abort_source?: 'none' | 'deadline';
+  abort_source?: 'none' | 'deadline' | 'parent';
   deadline_ms?: number;
   elapsed_ms?: number;
+  elapsed_capped?: boolean;
+  request_id?: string;
+  in_flight_start?: number;
+  in_flight_end?: number;
+  endpoint?: string;
+  fetch_error_name?: string;
+  response_content_length?: number;
+  response_age_seconds?: number;
+  retry_after_seconds?: number;
 };
-type Entry = { startedAt: number; data: ReadDiagnostics };
+type Runtime = ReturnType<typeof mobileDiagnosticSnapshot>;
+type Entry = { startedAt: number; data: ReadDiagnostics; runtime?: Runtime };
 const requests = new WeakMap<AbortSignal, Entry>();
 const failures = new WeakMap<object, ReadDiagnostics>();
+const failureContexts = new WeakMap<object, Runtime>();
+let inFlight = 0;
 const elapsed = (start: number) => Math.min(120_000, Math.max(0, Math.round(Date.now() - start)));
 
 export function beginReadDiagnostics(signal: AbortSignal, transport: ReadDiagnostics['transport']): void {
-  requests.set(signal, { startedAt: Date.now(), data: { transport, stage: 'before_fetch', ...startAndroidReadEvidence() } });
+  const mobile = Platform.OS === 'ios' || Platform.OS === 'android';
+  if (requests.has(signal)) finishReadDiagnostics(signal);
+  inFlight += 1;
+  requests.set(signal, { startedAt: Date.now(), ...(mobile ? { runtime: mobileDiagnosticSnapshot() } : {}),
+    data: { transport, stage: 'before_fetch', ...startMemberRequestEvidence(),
+      ...(mobile ? { request_id: newCommandId('diag'), in_flight_start: inFlight } : {}) } });
 }
 
 export function finishReadDiagnostics(signal: AbortSignal, error?: object,
-  command?: { abort_source: 'none' | 'deadline'; deadline_ms: number }): void {
+  command?: { abort_source: 'none' | 'deadline' | 'parent'; deadline_ms: number }): void {
   const entry = requests.get(signal);
+  if (entry) inFlight = Math.max(0, inFlight - 1);
+  if (entry?.runtime && error) {
+    const current = diagnosticSessionIsCurrent(entry.runtime.session_id) ? mobileDiagnosticSnapshot() : undefined;
+    failureContexts.set(error, { ...entry.runtime, request_started_at_ms: entry.startedAt,
+      request_settled_at_ms: Date.now(), wall_elapsed_ms: Math.min(86_400_000, Math.max(0, Date.now() - entry.startedAt)),
+      ...(current ? { ...(current.installation_id ? { installation_id: current.installation_id, installation_storage: current.installation_storage } : {}),
+        screen_at_settlement: current.screen, network_type_at_settlement: current.network_type,
+        network_connected_at_settlement: current.network_connected, network_reachable_at_settlement: current.network_reachable,
+        network_sample_age_ms_at_settlement: current.network_sample_age_ms,
+        network_changes_during_request: Number(current.network_changes) - Number(entry.runtime.network_changes),
+        lifecycle_changes_during_request: Number(current.lifecycle_changes) - Number(entry.runtime.lifecycle_changes) } : { session_changed: true }) });
+  }
   if (entry && error) failures.set(error, { ...entry.data,
+    ...(entry.runtime ? { in_flight_end: inFlight, elapsed_capped: Date.now() - entry.startedAt > 120_000 } : {}),
     ...(command ? { abort_source: command.abort_source, deadline_ms: command.deadline_ms,
       elapsed_ms: elapsed(entry.startedAt) } : {}),
     ...(entry.data.diagnostics_version === 2 ? { app_state_failure: appStateSnapshot() } : {}) });
@@ -53,6 +86,13 @@ export function readFailureDiagnostics(error: unknown): Readonly<ReadDiagnostics
 export function inheritReadDiagnostics(source: unknown, target: object): void {
   const data = readFailureDiagnostics(source);
   if (data) failures.set(target, { ...data });
+  const context = readDiagnosticContext(source);
+  if (context) failureContexts.set(target, context);
+}
+
+export function readDiagnosticContext(error: unknown): Runtime | undefined {
+  const context = error && typeof error === 'object' ? failureContexts.get(error) : undefined;
+  return context ? { ...context } : undefined;
 }
 
 /** Exact allowlisted response hints, not a claim about which system caused failure. */
@@ -60,6 +100,13 @@ function responseHints(response: Response, method: string): Partial<ReadDiagnost
   const hints: Partial<ReadDiagnostics> = {};
   if (Number.isInteger(response.status) && response.status >= 100 && response.status <= 599) {
     hints.response_status = response.status;
+  }
+  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    for (const [header, field, max] of [['content-length', 'response_content_length', 50_000_000],
+      ['age', 'response_age_seconds', 86_400], ['retry-after', 'retry_after_seconds', 86_400]] as const) {
+      const raw = response.headers.get(header);
+      if (raw && /^\d{1,8}$/.test(raw) && Number(raw) <= max) hints[field] = Number(raw);
+    }
   }
   const requestId = response.headers.get('sb-request-id');
   if (requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
@@ -113,22 +160,26 @@ function responseHints(response: Response, method: string): Partial<ReadDiagnost
 export async function observedMemberFetch(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
   const entry = init.signal ? requests.get(init.signal) : undefined;
   if (!entry) return fetch(input, init);
-  const android = entry.data.diagnostics_version === 2;
+  const mobile = entry.data.diagnostics_version === 2;
   entry.data = { transport: entry.data.transport, stage: 'fetch', dispatch_ms: elapsed(entry.startedAt),
-    ...(android ? { diagnostics_version: 2, app_state_start: entry.data.app_state_start,
-      android_api_level: entry.data.android_api_level,
+    ...(mobile ? { diagnostics_version: 2, app_state_start: entry.data.app_state_start,
+      request_id: entry.data.request_id, in_flight_start: entry.data.in_flight_start, endpoint: safeDiagnosticEndpoint(input),
+      ...(entry.data.android_api_level !== undefined ? { android_api_level: entry.data.android_api_level } : {}),
       fetch_invocations: Math.min(100, (entry.data.fetch_invocations ?? 0) + 1) } : {}) };
   const snapshot = entry.data;
   let method = '';
   try {
     method = (init.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase();
-    if (android) entry.data.request_method = method === 'GET' || method === 'HEAD' || method === 'POST' ? method : 'other';
+    if (mobile) entry.data.request_method = method === 'GET' || method === 'HEAD' || method === 'POST' ? method : 'other';
   } catch { /* malformed optional method observation must not replace fetch behavior */ }
   let response: Response;
   try {
     response = await fetch(input, init);
   } catch (error) {
     entry.data.stage = 'fetch_rejected';
+    if (mobile && error instanceof Error && ['Error', 'TypeError', 'AbortError', 'TimeoutError'].includes(error.name)) {
+      entry.data.fetch_error_name = error.name;
+    }
     throw error;
   }
   // Broken/absent response headers must not change the request's real outcome.
@@ -137,7 +188,7 @@ export async function observedMemberFetch(input: RequestInfo | URL, init: Reques
   try {
     Object.assign(entry.data, responseHints(response, method));
   } catch { /* best effort */ }
-  if (android) observeAndroidReadBody(response, data => {
+  if (mobile) observeMemberResponseBody(response, data => {
     // Ignore settlement after timeout/cancellation, or an obsolete response from
     // an earlier fetch in the same read (e.g. a 401 before token refresh).
     if (init.signal && requests.get(init.signal) === entry && entry.data === snapshot) Object.assign(snapshot, data);

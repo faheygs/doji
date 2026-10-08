@@ -153,6 +153,7 @@ describe.each([false, true])('account controls dark=%s', (dark) => {
     for (const [label, path] of [
       ['Edit profile', '/profile/edit'],
       ['Notification settings', '/notifications'],
+        ['Report a problem', '/profile/report-problem'],
       ['Terms of Use', '/legal/terms'],
       ['Privacy Policy', '/legal/privacy'],
       ['Account status', '/profile/account-status'],
@@ -375,7 +376,7 @@ describe.each(['ios', 'android', 'web'] as const)('%s notification preferences',
         DEFAULT_NOTIFICATION_PREFERENCES.doji_live,
       );
     });
-    it.each(['granted', 'denied', 'error', 'throw'])('handles enable result %s', async (result) => {
+    it.each(['granted', 'denied', 'error', 'throw', 'deferred'])('handles enable result %s', async (result) => {
       if (result === 'throw') mockRegister.mockRejectedValue(new Error('native'));
       else mockRegister.mockResolvedValue(result);
       const ui = render(<NotificationSettings />);
@@ -391,6 +392,10 @@ describe.each(['ios', 'android', 'web'] as const)('%s notification preferences',
         );
         await act(async () => mockDialog.mock.calls[0][0].actions[1].onPress());
         expect(Linking.openSettings).toHaveBeenCalled();
+      } else if (result === 'deferred') {
+        expect(ui.getByText('Alert setup was interrupted. Try again to finish connecting this phone.')).toBeTruthy();
+        expect(mockUpdate).not.toHaveBeenCalled();
+        expect(mockDialog).not.toHaveBeenCalled();
       } else
         expect(
           ui.getByText(

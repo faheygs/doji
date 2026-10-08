@@ -59,7 +59,8 @@ test('unkeyed command failure retains POST/HTTP/body/native evidence with no rep
   expect(normalize({ api: details }, 3)).toMatchObject({ api: { transport: 'command_gateway',
     request_method: 'POST', response_status: 504, native_response_source: 'network',
     native_network_headers_ms: 14, body_state: 'complete', abort_source: 'none', deadline_ms: 12000 } });
-  expect(JSON.stringify(details)).not.toMatch(/private|Bearer|request_friendship/);
+  expect(details).toMatchObject({ endpoint: 'rpc:request_friendship' });
+  expect(JSON.stringify(details)).not.toMatch(/private|Bearer|https?:/);
   expect(reportApiFailure).toHaveBeenCalledTimes(1);
 });
 test('command deadline is distinct from an HTTP response and preserves failure context', async () => {
@@ -83,7 +84,10 @@ test('iOS command result and single dispatch remain unchanged and exclude Androi
   expect(result.error).toMatchObject({ status: 504, code: 'DOJI_COMMAND_ERROR' });
   expect(global.fetch).toHaveBeenCalledTimes(1);
   expect(apiAttemptDetails(result.error)).not.toHaveProperty('native_response_source');
-  expect(apiAttemptDetails(result.error)).not.toHaveProperty('diagnostics_version');
+  expect(apiAttemptDetails(result.error)).toMatchObject({ diagnostics_version: 2,
+    request_method: 'POST', response_status: 504, body_state: 'complete',
+    abort_source: 'none', deadline_ms: 12000 });
+  expect(apiAttemptDetails(result.error)).not.toHaveProperty('android_api_level');
 });
 test('successful Android commands keep their exact result and emit no failure', async () => {
   global.fetch = jest.fn().mockResolvedValue(new Response('{"ok":true}', { status: 200 }));

@@ -1,13 +1,21 @@
 import { QueryCache } from '@tanstack/react-query';
 import { apiAttemptDetails, queryFailureOperation, reportApiFailure } from './apiFailureTelemetry';
+import { diagnosticSessionIsCurrent, mobileDiagnosticSnapshot, recordDiagnosticOutcome } from './mobileDiagnosticContext';
 
 /** Keep the first retry failure and the terminal attempt together in ONE existing
- * rate-limited incident. No per-attempt events, persistent IDs, or success logging.
+ * rate-limited incident. Recovery is an in-memory breadcrumb, not another event.
  */
 export function createApiQueryCache(): QueryCache {
-  type Sequence = { start: number; count: number; first?: ReturnType<typeof apiAttemptDetails> };
+  type Sequence = { start: number; count: number; session?: string | number | boolean; first?: ReturnType<typeof apiAttemptDetails> };
   const sequences = new WeakMap<object, Sequence>();
   const cache = new QueryCache({
+    onSuccess: (_data, query) => {
+      const sequence = sequences.get(query);
+      if (sequence && diagnosticSessionIsCurrent(sequence.session)) {
+        recordDiagnosticOutcome(queryFailureOperation(query.queryKey), sequence.count ? 'recovered' : 'success', sequence.count + 1);
+      }
+      sequences.delete(query);
+    },
     onError: (error, query) => {
       const sequence = sequences.get(query);
       sequences.delete(query);
@@ -22,8 +30,8 @@ export function createApiQueryCache(): QueryCache {
     if (event.type === 'removed') sequences.delete(event.query);
     if (event.type !== 'updated') return;
     const { query, action } = event;
-    if (action.type === 'fetch') sequences.set(query, { start: Date.now(), count: 0 });
-    if (action.type === 'success' || (action.type === 'setState' && query.state.fetchStatus === 'idle')) {
+    if (action.type === 'fetch') sequences.set(query, { start: Date.now(), count: 0, session: mobileDiagnosticSnapshot().session_id });
+    if (action.type === 'setState' && query.state.fetchStatus === 'idle') {
       sequences.delete(query);
     }
     if (action.type === 'failed') {

@@ -3,6 +3,7 @@
 // Supabase Auth tokens nor unrestricted storage/realtime keys reach the browser.
 const fail = (status = 403) => Object.assign(Error('Employee resource unavailable'), { status });
 import { record } from './portal-contracts.mts';
+import { healthVersions } from './employee-health-contracts.mts';
 import type {
   EmployeeApplication,
   EmployeeActor,
@@ -28,6 +29,8 @@ export function validEvidence(bucket: unknown, path: unknown) {
   );
 }
 export interface EmployeeResourceConfig {
+  staffWorkflowEnabled?: boolean;
+  healthEventsEnabled?: boolean;
   storageOrigin: string;
   signStorage: SignStorage;
   signRealtime: SignRealtime;
@@ -35,7 +38,14 @@ export interface EmployeeResourceConfig {
 }
 export function createEmployeeResources(
   application: EmployeeApplication,
-  { storageOrigin, signStorage, signRealtime, health }: EmployeeResourceConfig,
+  {
+    storageOrigin,
+    signStorage,
+    signRealtime,
+    health,
+    staffWorkflowEnabled = false,
+    healthEventsEnabled = false,
+  }: EmployeeResourceConfig,
 ) {
   if (
     typeof application?.authorize !== 'function' ||
@@ -104,11 +114,36 @@ export function createEmployeeResources(
       }
       if (input?.name === 'portal_realtime_token_v1') {
         if (!input.args || Object.keys(input.args).length) throw fail(400);
-        const capability = await application.command(
-          actor,
-          { name: 'get_admin_realtime_token_capabilities', args: {} },
-          signal,
-        );
+        // Workflow-only reviewers need no moderation grant. This is the current
+        // server-authorized employee session, never browser-supplied permissions.
+        const operator =
+          staffWorkflowEnabled || healthEventsEnabled
+            ? await application.authorize(actor, signal)
+            : null;
+        if (
+          (staffWorkflowEnabled || healthEventsEnabled) &&
+          (!record(operator) ||
+            !uuid(operator.user_id) ||
+            !record(operator.capabilities) ||
+            typeof operator.capabilities.moderation_read !== 'boolean')
+        )
+          throw fail();
+        const moderation =
+          record(operator) &&
+          record(operator.capabilities) &&
+          operator.capabilities.moderation_read === true;
+        const capability =
+          staffWorkflowEnabled || healthEventsEnabled
+            ? {
+                userId: record(operator) ? operator.user_id : null,
+                isAdmin: true,
+                authorizedPostIds: [],
+              }
+            : await application.command(
+                actor,
+                { name: 'get_admin_realtime_token_capabilities', args: {} },
+                signal,
+              );
         if (
           !record(capability) ||
           !uuid(capability.userId) ||
@@ -119,11 +154,54 @@ export function createEmployeeResources(
           throw fail();
         signal.throwIfAborted();
         // Preserve existing admin channels and TTL. Never accept channels from UI.
+        const channels = staffWorkflowEnabled
+          ? await application.command(
+              actor,
+              { name: 'get_admin_staff_event_channels_v1', args: {} },
+              signal,
+            )
+          : [];
+        const allowed = ['moderation', 'restricted', 'ideas', 'business', 'privacy'].map(
+          (k) => `staff:workflow:${k}`,
+        );
+        if (
+          !Array.isArray(channels) ||
+          channels.length > 5 ||
+          new Set(channels).size !== channels.length ||
+          !channels.every((c) => allowed.includes(c))
+        )
+          throw fail();
+        const operations =
+          healthEventsEnabled &&
+          record(operator) &&
+          record(operator.capabilities) &&
+          operator.capabilities.operations_read === true;
+        if (operations)
+          healthVersions(
+            await application.command(
+              actor,
+              { name: 'get_admin_health_feed_v1', args: {} },
+              signal,
+            ),
+          );
+        if (staffWorkflowEnabled && !channels.length && !operations) throw fail();
+        // Both fresh reads must agree before legacy moderation topics are granted.
+        const legacyChannels =
+          (!staffWorkflowEnabled && !healthEventsEnabled) ||
+          (moderation && (!staffWorkflowEnabled || channels.includes('staff:workflow:moderation')));
+        if (!legacyChannels && !channels.length && !operations) throw fail();
+        signal.throwIfAborted();
         const request = await signRealtime(
           {
             clientId: capability.userId,
             ttl: 900000,
-            capability: { 'doji:global': ['subscribe'], 'moderation:global': ['subscribe'] },
+            capability: {
+              ...(legacyChannels
+                ? { 'doji:global': ['subscribe'], 'moderation:global': ['subscribe'] }
+                : {}),
+              ...Object.fromEntries(channels.map((c) => [c, ['subscribe']])),
+              ...(operations ? { 'staff:health:operations': ['subscribe'] } : {}),
+            },
           },
           signal,
         );

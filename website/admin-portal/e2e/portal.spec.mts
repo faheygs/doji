@@ -15,7 +15,7 @@ async function openPortal(page: Page, options:MockOptions = {}) {
   const requests = await installMockBackend(page, options);
   await page.goto('/');
   await expect(page.locator('#portalApp')).toBeVisible();
-  await expect(page.locator('#platformStatusMetric')).toHaveText(/Healthy|Needs verification|Watch|Degraded|Critical/);
+  await expect(page.locator('#platformStatusMetric')).toHaveText(/Healthy|Limited visibility|Watch|Degraded|Critical/);
   return requests;
 }
 
@@ -117,7 +117,7 @@ test('audit entries are inspectable and export the server-filtered view', async 
   await page.locator('#auditList button').first().click();
   await expect(page.locator('#auditDetailModal')).toHaveAttribute('open', '');
   await expect(page.locator('#auditDetailModal')).toContainText('req-test-1');
-  await page.locator('#auditDetailModal').getByRole('button', { name: /Close/ }).click();
+  await page.locator('#auditDetailModal').getByRole('button', { name: 'Back to queue' }).click();
 
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: /Export/ }).click();

@@ -8,10 +8,25 @@ import type {
 import { testEmployee, testRecord, present } from './employee-test-fixtures.mts';
 const origin = 'https://abcdefghijklmnopqrst.supabase.co',
   id = '11111111-1111-4111-8111-111111111111';
-function fixture(patch: { denied?: boolean; result?: Record<string, unknown>; url?: string } = {}) {
+function fixture(
+  patch: {
+    denied?: boolean;
+    result?: Record<string, unknown>;
+    url?: string;
+    workflow?: boolean;
+    channels?: unknown;
+    operator?: unknown;
+  } = {},
+) {
   const calls: [string, unknown][] = [];
   const app: EmployeeApplication = {
-    authorize: async () => ({ user_id: id }),
+    authorize: async () => {
+      calls.push(['session', {}]);
+      if (patch.denied) throw Object.assign(Error('denied'), { status: 403 });
+      return patch.operator === undefined
+        ? { user_id: id, capabilities: { moderation_read: true } }
+        : patch.operator;
+    },
     command: async (actor, input) => {
       calls.push(['authorize', input]);
       if (patch.denied) throw Object.assign(Error('denied'), { status: 403 });
@@ -24,10 +39,12 @@ function fixture(patch: { denied?: boolean; result?: Record<string, unknown>; ur
         };
       if (input.name === 'get_admin_realtime_token_capabilities')
         return { userId: id, isAdmin: true, authorizedPostIds: [], ...patch.result };
+      if (input.name === 'get_admin_staff_event_channels_v1') return patch.channels;
       return { ordinary: true };
     },
   };
   const resource = createEmployeeResources(app, {
+    staffWorkflowEnabled: patch.workflow,
     storageOrigin: origin,
     signStorage: async (args) => {
       calls.push(['storage', args]);
@@ -121,6 +138,83 @@ test('invalid realtime capability cannot be signed', async () => {
     const f = fixture({ result });
     await assert.rejects(f.run('portal_realtime_token_v1', {}), { status: 403 });
     assert.equal(f.calls.length, 1);
+  }
+});
+test('enabled workflow signs only the currently authorized employee channels', async () => {
+  const f = fixture({
+    workflow: true,
+    channels: ['staff:workflow:moderation', 'staff:workflow:business'],
+  });
+  await f.run('portal_realtime_token_v1', {});
+  const request = testRecord(present(f.calls.at(-1))[1]);
+  assert.deepEqual(request.capability, {
+    'doji:global': ['subscribe'],
+    'moderation:global': ['subscribe'],
+    'staff:workflow:moderation': ['subscribe'],
+    'staff:workflow:business': ['subscribe'],
+  });
+  assert.equal(f.calls.filter(([name]) => name === 'authorize').length, 1);
+  assert.equal(f.calls.filter(([name]) => name === 'session').length, 1);
+});
+
+test('business reviewer receives only business events, with unchanged token lifetime', async () => {
+  const f = fixture({
+    workflow: true,
+    operator: { user_id: id, capabilities: { moderation_read: false } },
+    channels: ['staff:workflow:business'],
+  });
+  await f.run('portal_realtime_token_v1', {});
+  const request = testRecord(present(f.calls.at(-1))[1]);
+  assert.deepEqual(request.capability, { 'staff:workflow:business': ['subscribe'] });
+  assert.equal(request.ttl, 900000);
+  assert.equal(
+    f.calls.some(([, value]) => testRecord(value).name === 'get_admin_realtime_token_capabilities'),
+    false,
+  );
+});
+
+test('permission drift cannot grant legacy moderation topics', async () => {
+  const f = fixture({ workflow: true, channels: ['staff:workflow:business'] });
+  await f.run('portal_realtime_token_v1', {});
+  assert.deepEqual(testRecord(present(f.calls.at(-1))[1]).capability, {
+    'staff:workflow:business': ['subscribe'],
+  });
+});
+
+test('disabled or malformed current employee authorization never signs tokens', async () => {
+  for (const operator of [
+    null,
+    {},
+    { user_id: 'invalid' },
+    { user_id: id },
+    { user_id: id, capabilities: { moderation_read: 'true' } },
+  ]) {
+    const f = fixture({ workflow: true, operator, channels: ['staff:workflow:business'] });
+    await assert.rejects(f.run('portal_realtime_token_v1', {}));
+    assert.equal(
+      f.calls.some(([name]) => name === 'realtime'),
+      false,
+    );
+  }
+  const f = fixture({ workflow: true, denied: true });
+  await assert.rejects(f.run('portal_realtime_token_v1', {}));
+  assert.equal(
+    f.calls.some(([name]) => name === 'realtime'),
+    false,
+  );
+});
+test('unknown or malformed staff authorization cannot reach realtime signing', async () => {
+  for (const channels of [
+    [],
+    ['*'],
+    ['user:member:events'],
+    ['staff:workflow:business', 'staff:workflow:business'],
+    {},
+    null,
+  ]) {
+    const f = fixture({ workflow: true, channels });
+    await assert.rejects(f.run('portal_realtime_token_v1', {}));
+    assert.equal(f.calls.filter(([name]) => name === 'realtime').length, 0);
   }
 });
 test('browser cannot choose resource TTL, capability or call intermediate checks', async () => {

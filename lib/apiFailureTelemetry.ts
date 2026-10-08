@@ -1,9 +1,13 @@
 import * as Sentry from '@sentry/react-native';
+import { notePushRegistrationIncident } from './pushRegistrationRecovery';
 import { Platform } from 'react-native';
 import { isCancelledError } from '@tanstack/react-query';
-import { readFailureDiagnostics } from './memberReadDiagnostics';
-import { summarizeAndroidReadFailure } from './androidReadEvidence';
+import { readDiagnosticContext, readFailureDiagnostics } from './memberReadDiagnostics';
+import { summarizeMemberRequestFailure } from './androidReadEvidence';
 import { androidTestLabStatus } from './androidTestEnvironment';
+import { diagnosticSessionIsCurrent, diagnosticTimeline, mobileDiagnosticSnapshot,
+  recordDiagnosticOutcome, safeNativeDiagnosticContexts } from './mobileDiagnosticContext';
+export { queryFailureOperation } from './diagnosticOperations';
 
 type Failure = { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; message?: unknown; abortSource?: unknown; elapsedMs?: unknown; timeoutMs?: unknown };
 const seen = new WeakSet<object>();
@@ -11,18 +15,6 @@ const reportedAt = new Map<string, number>();
 const WINDOW_MS = 60_000;
 let windowStart = 0;
 let windowCount = 0;
-// Only code-owned root names may leave the device, never complete query keys.
-const QUERY_ROOTS = new Set(['feed', 'lockedFeed', 'post', 'profilePost', 'profile', 'publicProfile',
-  'comments', 'commentLikes', 'postReactions', 'reactions', 'pollResults', 'pollVotersDetail', 'userEvent',
-  'friends', 'friendRequests', 'friendCount', 'blockedUsers', 'leaderboard', 'notifications',
-  'notificationCenter', 'friendship', 'searchUsers', 'mentionSearch', 'badges', 'shop', 'shopItems', 'userShopItems', 'moderationStatus',
-  'mobileReleasePolicy', 'upcomingDoji', 'appAnnouncement', 'userBadges', 'badgeCategories',
-  'badgeTiers', 'userBadgeProgress', 'challengeSuggestionCounts', 'pollVotesCount', 'reactionsGiven',
-  'profileFriends', 'mySuggestions', 'pendingSuggestions', 'shopCatalog', 'ownedShopItems', 'isBlocked', 'admin']);
-
-export function queryFailureOperation(key: readonly unknown[]): string {
-  return typeof key[0] === 'string' && QUERY_ROOTS.has(key[0]) ? key[0] : 'other';
-}
 
 /** Classify locally; raw server messages, IDs, arguments and SQL details never leave here. */
 export function apiFailureDetails(error: unknown) {
@@ -92,6 +84,10 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
       seen.add(error);
     }
     const details = apiFailureDetails(error);
+    const requestContext = readDiagnosticContext(error);
+    // An old account's delayed request must not acquire the new account's timeline.
+    const currentSession = !requestContext || diagnosticSessionIsCurrent(requestContext.session_id);
+    if (currentSession) recordDiagnosticOutcome(operation, details.kind === 'cancelled' ? 'cancelled' : 'failed', retry?.attempt_count ?? 1);
     if (details.kind === 'cancelled') return;
     Sentry.addBreadcrumb({ category: `api.${area}`, level: 'warning', message: operation, data: details });
     if (__DEV__ || ['authorization', 'rejected', 'rate_limit', 'network'].includes(details.kind)) return;
@@ -103,19 +99,20 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
     for (const [oldKey, at] of reportedAt) if (now - at >= WINDOW_MS) reportedAt.delete(oldKey);
     reportedAt.set(key, now);
     windowCount += 1;
-    // Android incidents must survive Sentry's default contexts depth of three.
+    // Mobile incidents must survive Sentry's default contexts depth of three.
     // contexts.api.attempts[].fields is too deep and becomes '[Object]'. Keep
     // first-attempt fields one level shallower; terminal fields remain at api.*.
-    // Do not increase global normalization depth or change other platforms.
-    const retryContext = retry && Platform.OS === 'android' ? {
+    // Do not increase global normalization depth or change web reporting.
+    const mobile = Platform.OS === 'android' || Platform.OS === 'ios';
+    const retryContext = retry && mobile ? {
       attempt_count: retry.attempt_count,
       fetch_elapsed_ms: retry.fetch_elapsed_ms,
       ...(retry.attempts.length > 1 ? { first_attempt: retry.attempts[0] } : {}),
     } : retry;
     const terminal = apiAttemptDetails(error);
-    const diagnosis = Platform.OS === 'android' && (area === 'query' ||
+    const diagnosis = mobile && (area === 'query' ||
       (area === 'command' && 'diagnostics_version' in terminal && terminal.diagnostics_version === 2))
-      ? summarizeAndroidReadFailure(terminal) : undefined;
+      ? summarizeMemberRequestFailure(terminal) : undefined;
     Sentry.withScope(scope => {
       scope.setTag('area', 'api');
       scope.setTag('operation', `${area}.${operation}`);
@@ -125,9 +122,22 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
         scope.setTag('failure_phase', diagnosis.failure_phase);
       }
       scope.setContext('api', { ...terminal, ...retryContext, ...diagnosis });
+      if (mobile) {
+        const runtime = requestContext ?? mobileDiagnosticSnapshot();
+        scope.setContext('diagnostic', { ...runtime, context_origin: requestContext ? 'request_start' : 'report_time_unattributed' });
+        if (runtime.installation_id) scope.setTag('diagnostic_installation', String(runtime.installation_id));
+        if (runtime.session_id) scope.setTag('diagnostic_session', String(runtime.session_id));
+        // Separate shallow contexts survive default normalization without raw breadcrumbs.
+        for (const [index, item] of (currentSession ? diagnosticTimeline() : []).entries()) {
+          scope.setContext(`diagnostic_step_${index}`, { at: item.timestamp, category: item.category, ...item.data });
+        }
+      }
       scope.setFingerprint(['api', area, operation, details.kind, String(details.code ?? details.status ?? '')]);
       // Do not capture the raw exception: database messages may contain member content.
-      Sentry.captureException(new Error(`Doji ${area}.${operation} failed (${details.kind}${diagnosis ? `; ${diagnosis.summary}` : ''})`));
+      const id = Sentry.captureException(new Error(`Doji ${area}.${operation} failed (${details.kind}${diagnosis ? `; ${diagnosis.summary}` : ''})`));
+      if (area === 'command' && mobile && currentSession) {
+        notePushRegistrationIncident(operation, id, (requestContext ?? mobileDiagnosticSnapshot()).session_id);
+      }
     });
   } catch {
     // Monitoring is never allowed to change command outcomes or break query settlement.
@@ -135,15 +145,31 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
 }
 
 type BeforeSend = NonNullable<NonNullable<Parameters<typeof Sentry.init>[0]>['beforeSend']>;
-/** Drop ambient request/breadcrumb/identity data from the new handled-failure events. */
+/** Retain only purpose-built diagnostic context and allowlisted native facts on API events. */
 export const sanitizeApiFailureEvent: BeforeSend = event => {
   const testLab = androidTestLabStatus();
   if (testLab !== undefined) event.tags = { ...event.tags, firebase_test_lab: testLab };
-  if (event.tags?.area !== 'api') return event;
+  if (event.tags?.area !== 'api') {
+    // Other JS errors get processing-time context, never mislabeled request evidence.
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      const runtime = mobileDiagnosticSnapshot();
+      event.contexts = { ...event.contexts, diagnostic: { ...runtime, context_origin: 'event_processing_unattributed' } };
+      for (const [index, item] of diagnosticTimeline().entries()) {
+        event.contexts[`diagnostic_step_${index}`] = { at: item.timestamp, category: item.category, ...item.data };
+      }
+    }
+    return event;
+  }
   event.breadcrumbs = [];
   delete event.request;
   delete event.user;
   delete event.extra;
-  event.contexts = { api: event.contexts?.api };
+  const context = event.contexts ?? {};
+  event.contexts = { api: context.api, ...safeNativeDiagnosticContexts(context),
+    ...(context.diagnostic ? { diagnostic: context.diagnostic } : {}) };
+  for (let index = 0; index < 24; index++) {
+    const key = `diagnostic_step_${index}`;
+    if (context[key]) event.contexts[key] = context[key];
+  }
   return event;
 };

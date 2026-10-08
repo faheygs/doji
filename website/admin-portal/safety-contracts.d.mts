@@ -14,6 +14,7 @@ export interface SafetySummary {
   detail?: string;
 }
 export interface SafetyCase extends SafetySummary {
+  assigned_to?: string | null;
   queue: string;
   closed_at?: string | null;
   can_write?: boolean;
@@ -76,9 +77,10 @@ export interface SafetyClient {
   safetyCommand(input: SafetyCommand): Promise<{ id: string; outcome: string; revision: number }>;
 }
 export interface SafetyOptions {
+  detailOnly?: boolean;
   client: SafetyClient;
   session():
-    | { capabilities?: { legal_read?: boolean; moderation_read?: boolean } }
+    | { user_id?: string; capabilities?: { legal_read?: boolean; moderation_read?: boolean } }
     | null
     | undefined;
   epoch(): number;
@@ -87,7 +89,7 @@ export interface SafetyOptions {
   view?: string;
 }
 export interface SafetyRemovalModule {
-  create(options: SafetyOptions): { reconcile(): Promise<void>; clear(): void };
+  create(options: SafetyOptions): { open(id: string): Promise<void>; reconcile(): Promise<void>; clear(): void };
 }
 declare global {
   interface Window {

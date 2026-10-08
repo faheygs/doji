@@ -53,7 +53,9 @@ ${sqlBody('docs/drafts/business_public_admission_v1.sql')}
 ${readFileSync('scripts/test-business-public-admission.sql', 'utf8')}
 ${sqlBody('docs/drafts/business_signup_legal_v1.sql')}
 ${sqlBody('docs/drafts/business_privacy_v1.sql')}
+${identityCandidate ? ['portal_identity_business_enrollment_v1', 'portal_identity_business_reads_v1', 'portal_identity_business_review_v1'].map((name) => sqlBody('docs/drafts/' + name + '.sql')).join('\n') : ''}
 ${readFileSync('scripts/test-business-privacy.sql', 'utf8')}
+${identityCandidate ? sqlBody('docs/drafts/portal_identity_business_review_v1.rollback.sql') : ''}
 ${sqlBody('docs/drafts/business_privacy_v1.rollback.sql')}
 select pg_temp.check_true(not (select enabled from business_private.privacy_settings),'privacy rollback freezes workflow without deleting cases');
 select pg_temp.check_true(not has_function_privilege('service_role','public.claim_business_erasure_v1(uuid,uuid)','execute'),'privacy rollback removes executor access');

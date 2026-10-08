@@ -12,7 +12,11 @@ export interface PortalConfig {
   independentEmployeeIdentity?: boolean;
   businessApplicationsEnabled?: boolean;
   businessPrivacyEnabled?: boolean;
+  staffWorkflowEnabled?: boolean;
+  healthEventsEnabled?: boolean;
+  unifiedSafetyEnabled?: boolean;
   onAccessInvalidated?(message: string): void;
+  onSessionCleanupFailed?(message: string): void;
 }
 export interface AuthFactor {
   id: string;
@@ -47,6 +51,7 @@ export interface RequestOptions {
   body?: Record<string, unknown>;
 }
 export interface InvalidationHint {
+  workKind?: unknown;
   type: string;
   aggregateId?: unknown;
   eventId?: unknown;

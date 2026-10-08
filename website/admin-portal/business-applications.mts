@@ -1,4 +1,5 @@
 // Gated, lazily loaded admin integration. Production flag remains off.
+import type {} from './record-pages.mts';
 import {
   applicationForm,
   businessStateLabel,
@@ -84,6 +85,8 @@ export function createBusinessReview({
   onSaved = () => {},
 }: ReviewOptions) {
   if (enabled !== true) throw Error('Business review is not enabled.');
+  root.classList.add('businessQueuePanel', 'portalPanel');
+  const previous: (Cursor | null)[] = [];
   let generation = 0,
     record: ReviewApplication | null = null,
     pending = false,
@@ -115,6 +118,7 @@ export function createBusinessReview({
     stale = false;
     reconciling = reconcileAgain = false;
     dialog.close();
+    window.DojiRecordPages?.hide(dialog);
     dialog.replaceChildren();
     if (!force && returnFocus instanceof HTMLElement && returnFocus.isConnected)
       returnFocus.focus();
@@ -149,6 +153,7 @@ export function createBusinessReview({
     stale = false;
     dialog.innerHTML = `<header class="drawerHeader"><h2 id="businessReviewTitle" tabindex="-1">${escape(item.details?.brand_name || 'Business application')}</h2><button class="drawerCloseButton" type="button" data-close>Close</button></header><div class="editorialDrawerContent"><p class="eyebrow">${escape(businessStateLabel(item.state))} · Submission ${escape(item.latest_submission?.submission)}</p><p>Application ${escape(item.id)} · Revision ${escape(item.revision)}</p><section aria-label="Submitted business application">${applicationForm(item.details, true, 'businessReview')}</section><p>Application terms: ${escape(item.latest_submission?.terms_version)} · Privacy: ${escape(item.latest_submission?.privacy_version)}</p><p>Approval grants business workspace access only. Campaign publishing and billing remain disabled. Reopening suspends that workspace.</p><form id="businessReviewForm"${!canWrite() ? ' hidden' : ''}><div class="field"><label for="businessReviewDecision">Decision</label><select id="businessReviewDecision" required><option value="">Choose a decision</option>${(item.state === 'pending' ? ['approve', 'decline', 'request_changes'] : ['approved', 'declined'].includes(item.state) ? ['reopen'] : []).map((action) => `<option value="${action}">${actions[action]}</option>`).join('')}</select></div><div class="field"><label for="businessReviewResponse">Response to applicant</label><textarea id="businessReviewResponse" required minlength="8" maxlength="1000" rows="3"></textarea><small>The applicant can see this response. Do not include private reviewer information.</small></div><div class="field"><label for="businessReviewNote">Internal review rationale</label><textarea id="businessReviewNote" required minlength="8" maxlength="2000" rows="3"></textarea><small>Restricted staff only. Explain the evidence supporting this decision.</small></div><div class="editorialActions"><button type="submit" class="portalButton primary">Review decision</button></div><section id="businessReviewConfirm" hidden><h3>Confirm decision</h3><p id="businessReviewSummary"></p><div class="editorialActions"><button type="button" class="portalButton" id="businessReviewBack">Back</button><button type="button" class="portalButton primary" id="businessReviewApply">Confirm</button></div></section></form><p role="status" aria-live="polite"></p><h3>Recent case history</h3>${(item.history || []).map((entry) => `<article class="editorialPreview"><strong>${escape(actions[entry.action] || entry.action)}</strong><p>${escape(entry.response)}</p><p>${escape(entry.internal_note)}</p></article>`).join('')}${item.history_has_more ? '<p>Showing the most recent 30 entries. Older history is retained; extended history navigation is not available in this candidate.</p>' : ''}</div>`;
     dialog.querySelector<HTMLButtonElement>('[data-close]')!.onclick = () => close();
+    window.DojiRecordPages?.sync(dialog);
     const decision = dialog.querySelector('select')!;
     window.DojiPortalSelect.enhance(decision, true);
     const form = dialog.querySelector('form')!;
@@ -192,7 +197,7 @@ export function createBusinessReview({
         auth = epoch(),
         submitted = intent;
       pending = true;
-      form
+      dialog
         .querySelectorAll<
           HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement
         >('button,input,select,textarea')
@@ -218,7 +223,7 @@ export function createBusinessReview({
       } finally {
         if (valid(stamp, auth)) {
           pending = false;
-          form
+          dialog
             .querySelectorAll<
               HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement
             >('button,input,select,textarea')
@@ -240,7 +245,8 @@ export function createBusinessReview({
     dialog.innerHTML =
       '<header class="drawerHeader"><h2 id="businessReviewTitle">Loading application…</h2><button type="button" class="drawerCloseButton">Close</button></header><p role="status"></p>';
     dialog.querySelector('button')!.onclick = () => close();
-    dialog.showModal();
+    window.DojiRecordPages?.show(dialog, { close: () => close(), busy: () => pending });
+    if (!dialog.open) dialog.showModal();
     try {
       const item = await client.detail(id);
       if (!valid(stamp, auth)) return;
@@ -262,6 +268,7 @@ export function createBusinessReview({
     const stamp = ++queueGeneration,
       auth = epoch();
     const current = () => stamp === queueGeneration && auth === epoch() && canRead();
+    root.innerHTML = '<div class="panelHeader"><h3>Business applications</h3></div><div class="tableWrap" aria-busy="true"><div class="queueState" role="status">Loading applications…</div></div><div class="tableFooter"><span>Loading</span><div><button class="portalButton" disabled>Previous</button><button class="portalButton" disabled>Next</button></div></div>';
     try {
       const page = await client.page({
         p_state: filter,
@@ -273,27 +280,33 @@ export function createBusinessReview({
       if (!Array.isArray(page?.items) || page.items.length > 25)
         throw Error('The application queue could not be verified.');
       next = page.next_cursor;
-      root.innerHTML = `<div class="editorialFilter"><label for="businessQueueState">Application status</label><select id="businessQueueState">${['pending', 'changes_requested', 'approved', 'declined'].map((value) => `<option value="${value}"${filter === value ? ' selected' : ''}>${businessStateLabel(value)}</option>`).join('')}</select><button class="portalButton" type="button" data-refresh>Refresh applications</button></div><div class="businessAdminGrid">${page.items.map((item) => `<button type="button" class="businessAdminCard" data-application-id="${escape(item.id)}"><span class="businessAvatar" aria-hidden="true">${escape((item.brand_name || '').charAt(0))}</span><span class="businessCardBody"><span class="businessCardHeading"><strong>${escape(item.brand_name || 'Business application')}</strong><span class="statusPill">${escape(businessStateLabel(item.state))}</span></span></span><span class="rowChevron" aria-hidden="true">›</span></button>`).join('') || '<p>No applications in this view.</p>'}</div><div class="editorialActions"><button type="button" class="portalButton" data-first${!cursor ? ' disabled' : ''}>First page</button><button type="button" class="portalButton" data-next${!next ? ' disabled' : ''}>Next page</button></div><p role="status"></p>`;
+      root.innerHTML = `<div class="panelHeader"><div class="editorialFilter"><label for="businessQueueState">Application status</label><select id="businessQueueState">${['pending', 'changes_requested', 'approved', 'declined'].map((value) => `<option value="${value}"${filter === value ? ' selected' : ''}>${businessStateLabel(value)}</option>`).join('')}</select></div><button class="portalButton" type="button" data-refresh>Refresh applications</button></div><div class="queuePageSummary"><span><strong>${page.items.length}</strong> applications on this page</span><span>${escape(businessStateLabel(filter))} · not queue-wide totals</span></div><div class="tableWrap"><table class="queueTable"><thead><tr><th>Business</th><th>Reference</th><th>Status</th></tr></thead><tbody>${page.items.map((item) => `<tr tabindex="0" data-application-row="${escape(item.id)}" aria-label="Review ${escape(item.brand_name || 'business application')}"><td><button type="button" class="textButton" data-application-id="${escape(item.id)}">${escape(item.brand_name || 'Business application')}</button></td><td>${escape(item.id.slice(0, 8).toUpperCase())}</td><td><span class="statusPill">${escape(businessStateLabel(item.state))}</span></td></tr>`).join('') || '<tr class="emptyTableRow"><td colspan="3"><div class="queueState">No applications match this view.</div></td></tr>'}</tbody></table></div><div class="tableFooter"><span role="status">Page ${previous.length + 1} · ${page.items.length} shown · up to 25 per page</span><div><button type="button" class="portalButton" data-first${!previous.length ? ' disabled' : ''}>Previous</button><button type="button" class="portalButton" data-next${!next ? ' disabled' : ''}>Next</button></div></div>`;
       const select = root.querySelector('select')!;
       window.DojiPortalSelect.enhance(select, true);
       select.onchange = () => {
         filter = select.value;
         cursor = null;
+        previous.length = 0;
         void load();
       };
-      root.querySelectorAll<HTMLButtonElement>('[data-application-id]').forEach((button) => {
-        button.onclick = () => {
-          void open(button.dataset.applicationId!, button);
+      root.querySelectorAll<HTMLElement>('[data-application-row]').forEach((row) => {
+        row.onclick = (event) => void open(row.dataset.applicationRow!, event.target instanceof HTMLElement && event.target.closest('button') || row);
+        row.onkeydown = (event) => {
+          if (event.target === row && ['Enter', ' '].includes(event.key)) {
+            event.preventDefault();
+            void open(row.dataset.applicationRow!, row);
+          }
         };
       });
       root.querySelector<HTMLButtonElement>('[data-first]')!.onclick = () => {
-        cursor = null;
+        cursor = previous.pop() ?? null;
         void load();
       };
       root.querySelector<HTMLButtonElement>('[data-refresh]')!.onclick = () => {
         void load();
       };
       root.querySelector<HTMLButtonElement>('[data-next]')!.onclick = () => {
+        previous.push(cursor);
         cursor = next;
         void load();
       };
@@ -304,7 +317,11 @@ export function createBusinessReview({
         const node = document.createElement('p');
         node.setAttribute('role', 'status');
         node.textContent = error.message;
-        root.append(node);
+        node.className = 'queueState';
+        const viewport = document.createElement('div');
+        viewport.className = 'tableWrap';
+        viewport.append(node);
+        root.append(viewport);
         const retry = document.createElement('button');
         retry.type = 'button';
         retry.className = 'portalButton';
@@ -312,7 +329,10 @@ export function createBusinessReview({
         retry.onclick = () => {
           void load();
         };
-        root.append(retry);
+        const footer = document.createElement('div');
+        footer.className = 'tableFooter queueErrorFooter';
+        footer.append(retry);
+        root.append(footer);
       }
     } finally {
       if (stamp === queueGeneration) {
@@ -373,6 +393,7 @@ export function createBusinessReview({
       queueGeneration++;
       pending = loading = reconciling = loadAgain = reconcileAgain = false;
       cursor = next = null;
+      previous.length = 0;
       root.replaceChildren();
     },
     destroy() {

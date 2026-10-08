@@ -13,6 +13,8 @@ type Props = {
   numberOfLines?: number;
   ellipsizeMode?: RNTextProps['ellipsizeMode'];
   onPress?: () => void;
+  selectable?: boolean;
+  accessibilityLabel?: string;
 };
 
 export function Text({
@@ -23,6 +25,8 @@ export function Text({
   numberOfLines,
   ellipsizeMode,
   onPress,
+  selectable,
+  accessibilityLabel,
 }: Props) {
   const { colors } = useTheme();
   return (
@@ -31,6 +35,8 @@ export function Text({
       numberOfLines={numberOfLines}
       ellipsizeMode={ellipsizeMode}
       onPress={onPress}
+      selectable={selectable}
+      accessibilityLabel={accessibilityLabel}
     >
       {children}
     </RNText>
