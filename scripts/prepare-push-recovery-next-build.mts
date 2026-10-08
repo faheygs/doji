@@ -6,9 +6,10 @@ import { dirname, resolve } from 'node:path';
 import { evidenceRecord as record } from './release-evidence.mts';
 
 const source = resolve('.');
-const root = resolve('test-results/push-recovery-next-build-20261008-v2');
+const root = resolve('test-results/push-recovery-next-build-20261008-v4');
 const baselineRoot = resolve('test-results/mobile-logging-20261007-v109');
 const runtime = [
+  'plugins/android-read-diagnostics/expoClientPatch.cts',
   'app/_layout.tsx', 'app/(app)/notifications.tsx', 'app/(onboarding)/notifications.tsx',
   'hooks/useNativeNotifications.ts', 'lib/pushNotifications.ts', 'lib/retryPushRegistration.ts',
   'lib/commandGateway.ts', 'lib/memberReadDiagnostics.ts', 'lib/apiFailureTelemetry.ts',
@@ -20,6 +21,9 @@ const runtime = [
   'app/(app)/post/[id]/index.tsx',
 ];
 const checks = [
+  'package.json', 'package-lock.json', 'scripts/dependency-security.test.mts',
+  '__tests__/lib/pushRecoveryIntegration.test.ts',
+  '__tests__/lib/expoClientPatch.test.ts',
   '__tests__/lib/pushRegistrationRecovery.test.ts', '__tests__/lib/pushRegistrationLifecycle.test.ts',
   '__tests__/lib/pushGatewayCancellation.test.ts', '__tests__/lib/pushNotifications.test.ts',
   '__tests__/lib/pushRegistrationBoundaries.test.ts', '__tests__/lib/retryPushRegistration.test.ts',
@@ -77,6 +81,19 @@ if (mode === 'prepare') {
     const target = resolve(root, 'platform-overlays', platform, '.easignore');
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, patched, { flag: 'wx' });
+    // Preserve each release's scripts/configuration; only reviewed dependency
+    // declarations change. The tested lockfile pins their transitive patches.
+    const originalPackage = read(resolve(baselineRoot, platform, 'upload/package.json'));
+    const currentPackage = read(resolve(source, 'package.json'));
+    for (const key of ['devDependencies', 'overrides'])
+      assert.deepEqual(originalPackage[key], currentPackage[key], `Review ${platform} ${key} drift`);
+    const dependencies = record(originalPackage.dependencies);
+    const currentDependencies = record(currentPackage.dependencies);
+    for (const name of ['expo', 'expo-constants', 'expo-image-manipulator',
+      'expo-linking', 'expo-notifications', 'expo-router']) dependencies[name] = currentDependencies[name];
+    assert.deepEqual(dependencies, currentDependencies, 'Unreviewed mobile dependency drift');
+    writeFileSync(resolve(dirname(target), 'package.json'), JSON.stringify(originalPackage, null, 2) + '\n', { flag: 'wx' });
+    copyFileSync(resolve(source, 'package-lock.json'), resolve(dirname(target), 'package-lock.json'));
   }
   const files = Object.fromEntries(walk(root).sort().map(file => [file, digest(resolve(root, file))]));
   writeFileSync(resolve(root, 'manifest.json'), JSON.stringify({

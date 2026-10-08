@@ -32,9 +32,9 @@ The October 8 request is preparation only, not permission to start at credit res
 Release source: `C:/Users/gfahe/.codex/worktrees/quality-gates/DoIt`.
 Do not build the older `D:/ChallengeApp/DoIt` checkout or the entire dirty source
 tree. The preparation script stages only the reviewed mobile changes and test
-sources under `test-results/push-recovery-next-build-20261008-v2`, with SHA-256 hashes.
-The original v1 package and export evidence are retained, not overwritten. Use v2;
-v1 predates the support/poll/recovery additions and helper extraction.
+sources under `test-results/push-recovery-next-build-20261008-v4`, with SHA-256 hashes.
+The original v1/v2/v3 packages and export evidence are retained, not overwritten.
+Use v4: v2 predates the dependency repairs; v3 predates the reviewed native patch guard.
 
 Run from the release source:
 
@@ -43,13 +43,16 @@ node scripts/prepare-push-recovery-next-build.mts verify
 ```
 
 The package is an overlay, NOT an upload-ready application or installable binary.
-It records verified frozen 1.0.9 baselines (iOS104 / Android29), 21 runtime files,
-16 verification files and platform-specific upload allowlists. Each allowlist
+It records verified frozen 1.0.9 baselines (iOS104 / Android29), 22 runtime files,
+21 verification files and platform-specific upload allowlists. Each allowlist
 preserves that platform's existing entries and adds only `metro.config.cts`.
 The older iOS baseline uses a generated Babel JS config; do not replace its
 allowlist wholesale with the working checkout's CTS/Android allowlist.
-Existing baseline dependencies/native diagnostics and platform configuration stay
-unchanged. Unrelated portal and backend work is not part of this package.
+The six Expo SDK57 patch upgrades and tested lockfile are included in each
+platform overlay; original per-platform package scripts/configuration are preserved.
+The lockfile also patches the transitive shell-quote vulnerability. Native
+diagnostics and platform configuration stay unchanged. Unrelated portal and
+backend work is not part of this package.
 
 ## Verified now
 
@@ -93,6 +96,18 @@ unchanged. Unrelated portal and backend work is not part of this package.
   billing settings changed during this testing request.
 
 ### Build-time gates
+
+October 8 dependency revision: Expo 57.0.27, constants 57.0.21,
+image-manipulator 57.0.21, linking 57.0.12, notifications 57.0.22, router
+57.0.25; shell-quote resolves to 1.12.0. The earlier v2 verification above is
+historical, not acceptance of these native dependency changes. Fresh local
+exports use `test-results/push-recovery-20261008-v3`; exact native binary/device
+checks remain required before release. No cloud builds are authorized here.
+The Android passive observer's Expo version guard now permits only 57.0.27:
+its normalized ExpoFetchModule.kt SHA-256 remains
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`,
+identical to the previously reviewed source. Hash checking, one-observer insertion,
+idempotence and rejection of unreviewed versions/modifications remain enforced.
 
 1. Verify the overlay/baseline hashes and review any subsequent source changes.
 2. Recheck Expo plan, credit, delayed usage and active jobs. Last verified credit

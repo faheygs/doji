@@ -34,8 +34,8 @@ jobs:
       - run: npm run check:size
       - run: npm run check:hygiene
       - run: npm test -- --runInBand
-      - name: URI decoder security and router compatibility
-        run: node --test scripts/uri-decoder-security.test.mts
+      - name: Dependency security and router compatibility
+        run: node --test scripts/uri-decoder-security.test.mts scripts/dependency-security.test.mts
       - run: npm run test:fanout-model
       # Expo/Metro build-tool advisories are tracked separately; a critical
       # production advisory always blocks release.

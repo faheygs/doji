@@ -49,6 +49,16 @@ Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 
 These are dated evidence, not fresh verification of a store or production system.
 
+## October 5–8 follow-up records
+
+- [Admin workflow foundation and release history](ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md)
+- [Platform operations health: release and gated shared feed](PLATFORM_OPERATIONS_HEALTH_2026-10-06.md)
+- [Reserved poll Other option release](POLL_RESERVED_OTHER_RELEASE_2026-10-05.md)
+- [Mobile diagnostic logging 1.0.9 release](MOBILE_LOGGING_RELEASE_2026-10-07.md)
+- [Next mobile build: held preparation and regression evidence](NEXT_MOBILE_BUILD_2026-10-08.md)
+
+### October 2–4 records
+
 - [Mobile release 1.0.8 — iOS 102 / Android 24](MOBILE_BUILDS_102_24_2026-10-02.md)
 - [iOS URI-decoder repair — 1.0.8 build 103](IOS_URI_SECURITY_BUILD_103_2026-10-02.md)
 - [iOS 1.0.8 (103): dependency advisory disposition](IOS_103_SECURITY_ASSESSMENT_2026-10-03.md)

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { instrument, eligible } from './coverage-instrument.mts';
 import { inventory } from './check-coverage.mts';
 import { adminBundlePath } from './admin-bundle-path.mts';
+import { versionWorkflowImports } from '../website/version-admin-workflow.mts';
 import {
   browserSourcePath,
   browserAssetPath,
@@ -38,9 +39,13 @@ export function prepareStaffWorkflowBrowser(coverage = false, preview = false) {
   });
   if (result.status !== 0) throw Error('Synthetic staff workflow build failed');
   if (!coverage) return;
+  const html = fs.readFileSync(path.join(output, 'index.html'), 'utf8');
+  const revision = html.match(/admin-app-[A-Za-z0-9_-]+\.js\?v=([a-f0-9]{16})["']/)?.[1];
+  if (!revision) throw Error('Missing workflow fixture revision');
+  const version = (source: string) => versionWorkflowImports(source, revision);
   const bundle = path.join(
     output,
-    adminBundlePath(fs.readFileSync(path.join(output, 'index.html'), 'utf8')),
+    adminBundlePath(html),
   );
   let content = fs.readFileSync(bundle, 'utf8');
   for (const asset of [
@@ -54,10 +59,10 @@ export function prepareStaffWorkflowBrowser(coverage = false, preview = false) {
     'portal.js',
   ]) {
     const file = browserSourcePath(asset);
-    const source = readBrowserSource(asset);
+    const source = version(readBrowserSource(asset));
     if (!content.includes(source)) throw Error(`Missing bundled source: ${asset}`);
     content = content.replace(source, () =>
-      compileBrowserSource(asset, instrument(fs.readFileSync(file, 'utf8'), file).code),
+      version(compileBrowserSource(asset, instrument(fs.readFileSync(file, 'utf8'), file).code)),
     );
   }
   fs.writeFileSync(bundle, content);
@@ -72,7 +77,7 @@ export function prepareStaffWorkflowBrowser(coverage = false, preview = false) {
     if (!fs.existsSync(target)) continue;
     fs.writeFileSync(
       target,
-      compileBrowserSource(asset, instrument(fs.readFileSync(file, 'utf8'), file).code),
+      version(compileBrowserSource(asset, instrument(fs.readFileSync(file, 'utf8'), file).code)),
     );
   }
 }

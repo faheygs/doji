@@ -7,7 +7,7 @@ import { resolve, join } from 'node:path';
 const require = createRequire(import.meta.url);
 const platform = process.argv[2];
 assert.ok(platform === 'ios' || platform === 'android', 'Specify ios or android');
-const root = resolve('test-results/push-recovery-20261008-v2', platform);
+const root = resolve('test-results/push-recovery-20261008-v3', platform);
 const output = join(root, 'bundle');
 if (process.argv[3] !== '--verify-existing') {
   assert.ok(!existsSync(root), 'Preserve existing local export evidence');
