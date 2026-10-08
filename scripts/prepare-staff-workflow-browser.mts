@@ -50,6 +50,7 @@ export function prepareStaffWorkflowBrowser(coverage = false, preview = false) {
   let content = fs.readFileSync(bundle, 'utf8');
   for (const asset of [
     'admin-portal/auth-journey.js',
+    'admin-portal/record-pages.js',
     'admin-portal/health-model.js',
     'admin-portal/live-client.js',
     'admin-portal/contextual-help.js',

@@ -186,12 +186,12 @@ async function decision(page: Page) {
   await page.locator('#businessReviewNote').fill('Synthetic reviewed evidence.');
   await page.getByRole('button', { name: 'Review decision', exact: true }).click();
 }
-async function workflow(page: Page, action = 'claim') {
+async function workflow(page: Page, action = 'reviewing') {
   await select(page, '#safetyAction', action);
   await page.locator('#safetyNote').fill('Synthetic reviewed rationale.');
   if (action !== 'claim')
     await page.locator('#safetyMessage').fill('Synthetic requester response.');
-  await page.getByRole('button', { name: 'Review change', exact: true }).click();
+  await page.locator('.caseOutcomeBar button[type="submit"]').click();
 }
 
 test('business module rejects disabled entry and ignores reads without capability', async ({
@@ -241,18 +241,17 @@ for (const kind of ['business', 'safety']) test(`${kind} queue keeps footer fixe
 });
 
 test('external request opens from any row cell or keyboard and offers explicit confirmed closure', async ({ page }) => {
-  await mount(page, 'safety', { view: 'moderation' });
+  await mount(page, 'safety', { view: 'moderation', item: { assigned_to: 'synthetic-reviewer' } });
   const row = page.locator('[data-case-row]');
   await row.locator('td').last().click();
   await expect(page.locator('dialog[open]')).toBeVisible();
-  await page.getByRole('button', { name: 'Close request', exact: true }).click();
+  await select(page, '#safetyAction', 'not_actionable');
   await expect(page.locator('#safetyAction')).toHaveValue('not_actionable');
-  await expect(page.locator('#safetyNote')).toBeFocused();
   await page.locator('#safetyNote').fill('Synthetic review found no actionable content.');
   await page.locator('#safetyMessage').fill('We reviewed this synthetic request and closed it.');
-  await page.getByRole('button', { name: 'Review change', exact: true }).click();
+  await page.getByRole('button', { name: 'Close request', exact: true }).click();
   expect(await page.evaluate(() => window.moduleFixture.calls.filter(c => c.name === 'command'))).toHaveLength(0);
-  await page.getByRole('button', { name: 'Confirm change', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm: Close request', exact: true }).click();
   const calls = await page.evaluate(() => window.moduleFixture.calls.filter(c => c.name === 'command'));
   expect(calls).toHaveLength(1);
   expect(calls[0]!.args).toMatchObject({ p_revision: 2, p_input: { action: 'not_actionable' } });
@@ -554,7 +553,7 @@ for (const mode of ['error', 'empty-error'])
 test('completed intimate-image removal requires copies and access verification and preserves exact workflow payload', async ({
   page,
 }) => {
-  await mount(page, 'safety');
+  await mount(page, 'safety', { item: { assigned_to: 'synthetic-reviewer' } });
   await open(page, 'safety');
   await select(page, '#safetyAction', 'removed');
   await expect(page.locator('#safetyCopies')).toHaveAttribute('required', '');
@@ -564,7 +563,7 @@ test('completed intimate-image removal requires copies and access verification a
   await workflow(page, 'removed');
   await expect(page.locator('dialog')).toContainText('does not itself remove content');
   await page.evaluate(() => (window.moduleFixture.modes.command = 'wrong'));
-  await page.getByRole('button', { name: 'Confirm change' }).click();
+  await page.getByRole('button', { name: 'Confirm: Record removal', exact: true }).click();
   await expect(page.locator('[data-feedback]')).toContainText('Save could not be confirmed');
   expect(
     await page.evaluate(() => {
@@ -591,11 +590,11 @@ test('safety closed case allows reopening, not content identification', async ({
 });
 for (const result of ['success', 'error'])
   test(`safety late ${result} save cannot restore a locked case`, async ({ page }) => {
-    await mount(page, 'safety');
+    await mount(page, 'safety', { item: { assigned_to: 'synthetic-reviewer' } });
     await open(page, 'safety');
     await workflow(page);
     await page.evaluate(() => (window.moduleFixture.modes.command = 'pending'));
-    await page.getByRole('button', { name: 'Confirm change' }).click();
+    await page.getByRole('button', { name: 'Confirm: Start review', exact: true }).click();
     await page.evaluate(() =>
       document.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true })),
     );
@@ -692,7 +691,7 @@ test('changed safety target discards pending inspection and empty provider error
 test('overlapping safety reconciliation coalesces and rejects unverified revisions', async ({
   page,
 }) => {
-  await mount(page, 'safety');
+  await mount(page, 'safety', { item: { assigned_to: 'synthetic-reviewer' } });
   await open(page, 'safety');
   await page.locator('#safetyNote').fill('Preserved review notes.');
   await page.evaluate(async () => {

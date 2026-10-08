@@ -445,7 +445,7 @@ async function review(page: Page, write = true) {
     },
     { details, write },
   );
-  await page.getByRole('button', { name: 'Example Pending review', exact: true }).click();
+  await page.getByRole('row', { name: 'Review Example', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 for (const width of [390, 1440])

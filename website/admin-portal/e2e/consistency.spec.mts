@@ -106,9 +106,15 @@ for (const width of [390, 900, 1440])
       await page.locator('#auditList button').first().click();
       await inspect('audit-detail', '#auditDetailModal');
       const auditBounds = present(must(await page.locator('#auditDetailModal').boundingBox()));
-      expect(auditBounds.x + auditBounds.width).toBeCloseTo(width, 0);
-      expect(auditBounds.y).toBe(0);
-      expect(auditBounds.height).toBe(900);
+      const mainBounds = present(must(await page.locator('.portalMain').boundingBox()));
+      const margin = width <= 700 ? 12 : 24;
+      // Record pages fill the workspace inside its responsive margins, not a
+      // viewport-edge modal drawer. Preserve the geometry/accessibility checks.
+      await expect(page.locator('#auditDetailModal')).toHaveClass(/adminRecordPage/);
+      expect(auditBounds.x).toBeCloseTo(mainBounds.x + margin, 0);
+      expect(auditBounds.width).toBeCloseTo(mainBounds.width - 2 * margin, 0);
+      expect(auditBounds.height).toBe(900 - (width <= 700 ? 104 : 128));
+      expect(auditBounds.y).toBeGreaterThan(0);
       await page.keyboard.press('Escape');
       await page.keyboard.press('Control+k');
       await inspect('search', '#globalSearchModal');
