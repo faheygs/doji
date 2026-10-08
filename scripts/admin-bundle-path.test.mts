@@ -28,7 +28,22 @@ test('missing, external, traversal and duplicate entries fail closed', () => {
     '<script src="/admin-portal/admin-app-a.js?v=../secret"></script>',
     '<script src="/admin-portal/admin-app-a.js?v=0123456789abcdef&file=other"></script>',
     '<script src="/admin-portal/admin-app-a.js#fragment"></script>',
+    '<script src="//identity/employee-preview/admin-portal/admin-app-a.js"></script>',
+    '<script src="/identity/employee-preview/../admin-portal/admin-app-a.js"></script>',
+    '<script src="/arbitrary-prefix/admin-portal/admin-app-a.js"></script>',
+    '<script src="/identity/employee-preview/admin-portal/admin-app-a.js"></script>'.repeat(2),
   ]) {
     assert.throws(() => adminBundlePath(html));
   }
+});
+
+test('known employee preview prefix maps to the same generated local bundle', () => {
+  assert.equal(
+    adminBundlePath('<script src="/identity/employee-preview/admin-portal/admin-app-release.js?v=0123456789abcdef" defer></script>'),
+    'admin-portal/admin-app-release.js',
+  );
+  assert.throws(() => adminBundlePath(
+    '<script src="/admin-portal/admin-app-a.js"></script>' +
+    '<script src="/identity/employee-preview/admin-portal/admin-app-b.js"></script>',
+  ));
 });

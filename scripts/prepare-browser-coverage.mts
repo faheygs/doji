@@ -130,3 +130,6 @@ await buildBusinessIdentity(
 );
 console.log('Prepared instrumented local admin/business/safety test artifacts.');
 prepareStaffWorkflowBrowser(true);
+// The prefixed-route regression needs its own generated asset prefix. Never
+// depend on an ignored preview directory left behind by a previous local run.
+prepareStaffWorkflowBrowser(true, true);

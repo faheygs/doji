@@ -6,6 +6,7 @@ import { instrument, eligible } from './coverage-instrument.mts';
 import { inventory } from './check-coverage.mts';
 import { adminBundlePath } from './admin-bundle-path.mts';
 import { versionWorkflowImports } from '../website/version-admin-workflow.mts';
+import { prefixAdminImports } from '../website/prefix-admin-imports.mts';
 import {
   browserSourcePath,
   browserAssetPath,
@@ -42,7 +43,10 @@ export function prepareStaffWorkflowBrowser(coverage = false, preview = false) {
   const html = fs.readFileSync(path.join(output, 'index.html'), 'utf8');
   const revision = html.match(/admin-app-[A-Za-z0-9_-]+\.js\?v=([a-f0-9]{16})["']/)?.[1];
   if (!revision) throw Error('Missing workflow fixture revision');
-  const version = (source: string) => versionWorkflowImports(source, revision);
+  const version = (source: string) => versionWorkflowImports(
+    prefixAdminImports(source, preview ? '/identity/employee-preview' : ''),
+    revision,
+  );
   const bundle = path.join(
     output,
     adminBundlePath(html),
