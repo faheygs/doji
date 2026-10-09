@@ -233,7 +233,10 @@ describe('employee Community Ideas', () => {
         }),
     );
     const pending = f.controller.reviewIdea(input, signal());
-    while (!f.calls.length) await new Promise((resolve) => setTimeout(resolve, 0));
+    while (!f.calls.length)
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
     const denied = expect(pending).rejects.toThrow();
     const logout = f.controller.signOut();
     release();

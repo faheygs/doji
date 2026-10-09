@@ -193,7 +193,10 @@ describe('privacy commands', () => {
     const pending = f.controller.changePrivacy(input(), signal());
     const denied = expect(pending).rejects.toThrow();
     // Wait until dispatch so this checks late-result fencing, not only preflight.
-    while (!f.calls.length) await new Promise((resolve) => setTimeout(resolve, 0));
+    while (!f.calls.length)
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
     const signedOut = f.controller.signOut();
     release();
     await Promise.all([signedOut, denied]);

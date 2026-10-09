@@ -256,7 +256,9 @@ describe('existing moderation commands', () => {
     );
     const pending = f.controller.moderate(input, new AbortController().signal);
     const rejected = expect(pending).rejects.toThrow();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
     const logout = f.controller.signOut();
     release();
     await logout;

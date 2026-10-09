@@ -127,7 +127,10 @@ describe('employee-only access management', () => {
         }),
     );
     const pending = f.controller.changeEmployeeRole(input, signal());
-    while (!f.calls.length) await new Promise((resolve) => setTimeout(resolve, 0));
+    while (!f.calls.length)
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
     const denied = expect(pending).rejects.toThrow();
     const logout = f.controller.signOut();
     release();
