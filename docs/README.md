@@ -49,6 +49,14 @@ Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 
 These are dated evidence, not fresh verification of a store or production system.
 
+## October 9 admin migration
+
+- [Connected announcement release and admin root promotion](ADMIN_ANNOUNCEMENT_CONNECTED_2026-10-09.md)
+- [Admin dashboard reference plan](ADMIN_DASHBOARD_REFERENCE_PLAN_2026-10-09.md)
+- [Material UI design audit](ADMIN_MUI_DESIGN_AUDIT_2026-10-09.md)
+- [Real-world admin UX research](ADMIN_REAL_WORLD_UX_RESEARCH_2026-10-09.md)
+- [Reference dashboard implementation](ADMIN_REFERENCE_IMPLEMENTATION_2026-10-09.md)
+
 ## October 5–8 follow-up records
 
 - [React web migration foundation and cutover gates](WEB_REACT_MIGRATION_2026-10-08.md)
