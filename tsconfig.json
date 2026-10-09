@@ -11,6 +11,7 @@
   },
   "exclude": [
     "node_modules",
+    "web",
     "supabase/functions",
     "scripts/fixtures",
     "__tests__",

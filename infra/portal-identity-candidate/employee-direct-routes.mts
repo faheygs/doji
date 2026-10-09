@@ -1,10 +1,12 @@
 // Employee-only same-origin routing. No new shared Worker/member endpoints.
 export interface EmployeeFeatureGates {
+  announcementComposeEnabled?: boolean;
   businessApplicationsEnabled?: boolean;
   businessPrivacyEnabled?: boolean;
   staffWorkflowEnabled?: boolean;
 }
 const direct: Readonly<Record<string, string>> = Object.freeze({
+  '/announcements/compose': 'admin_announcement_compose_v1',
   '/safety/page': 'get_admin_safety_removals_v1',
   '/safety/case': 'get_admin_safety_removal_v1',
   '/safety/target': 'get_admin_safety_target_v1',
@@ -33,6 +35,8 @@ export function employeeDirectRoute(path: string, method: string, config: Employ
     throw Object.assign(Error(message), { status });
   };
   if (method !== 'POST') deny('Invalid portal request.', 400);
+  if (path === '/announcements/compose' && config.announcementComposeEnabled !== true)
+    deny('Announcement composition is not enabled.', 403);
   if (path.startsWith('/business/') && config.businessApplicationsEnabled !== true)
     deny('Business review is not enabled.', 403);
   if (path.startsWith('/business-privacy/') && config.businessPrivacyEnabled !== true)

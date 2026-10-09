@@ -136,10 +136,12 @@
       "^react-native-keyboard-controller$": "<rootDir>/__mocks__/react-native-keyboard-controller.ts"
     },
     "testPathIgnorePatterns": [
+      "<rootDir>/web/",
       "<rootDir>/.claude/",
       "[/\\\\]test-results[/\\\\]"
     ],
     "modulePathIgnorePatterns": [
+      "<rootDir>/web/",
       "<rootDir>/.claude/",
       "[/\\\\]test-results[/\\\\]"
     ],

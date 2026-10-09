@@ -12,6 +12,11 @@ export default [
       'coverage/**',
       'test-results/**',
       'website/test-results/**',
+      'web/**/node_modules/**',
+      'web/**/dist/**',
+      'web/**/.next/**',
+      'web/**/out/**',
+      'web/test-results/**',
       // Downloaded SDKs/build artifacts are not maintained application source.
       '.artifacts/**',
       '.claude/**',

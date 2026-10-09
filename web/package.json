@@ -1,0 +1,45 @@
+{
+  "name": "doji-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace @doji/admin",
+    "dev:business": "npm run dev --workspace @doji/business",
+    "dev:site": "npm run dev --workspace @doji/site",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspace @doji/site",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config .",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "build": "npm run build --workspaces --if-present",
+    "test:artifacts": "node tests/artifacts.ts",
+    "test:connected-artifacts": "node tests/connected-artifacts.ts",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:artifacts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "24.10.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "@typescript-eslint/parser": "8.71.1",
+    "@typescript-eslint/eslint-plugin": "8.71.1",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "jsdom": "30.1.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}
