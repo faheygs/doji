@@ -1,0 +1,42 @@
+{
+  "name": "@doji/portal-data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./employee": "./src/employee-session.ts",
+    "./announcements": "./src/announcements.ts",
+    "./idea-record": "./src/idea-record.ts",
+    "./privacy-record": "./src/privacy-record.ts",
+    "./privacy-create": "./src/privacy-create.ts",
+    "./privacy-data": "./src/privacy-data.ts",
+    "./privacy-command": "./src/privacy-command.ts",
+    "./idea-archive": "./src/idea-archive.ts",
+    "./idea-archive-path": "./src/idea-archive-path.ts",
+    "./idea-command": "./src/idea-command.ts",
+    "./employee-audit": "./src/employee-audit.ts",
+    "./audit-entry": "./src/audit-entry.ts",
+    "./audit-export": "./src/audit-export.ts",
+    "./employee-team": "./src/employee-team.ts",
+    "./employee-queues": "./src/employee-queues.ts",
+    "./business-record": "./src/business-record.ts",
+    "./business-claim": "./src/business-claim.ts",
+    "./business-decision": "./src/business-decision.ts",
+    "./business-assignees": "./src/business-assignees.ts",
+    "./employee-health": "./src/employee-health.ts",
+    "./safety-record": "./src/safety-record.ts",
+    "./safety-command": "./src/safety-command.ts",
+    "./safety-target": "./src/safety-target.ts",
+    "./safety-report": "./src/safety-report.ts",
+    "./moderation-record": "./src/moderation-record.ts",
+    "./moderation-evidence": "./src/moderation-evidence.ts",
+    "./moderation-command": "./src/moderation-command-contracts.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.104.1"
+  },
+  "peerDependencies": {
+    "react": "19.3.0"
+  }
+}

@@ -6,11 +6,13 @@ import { record, firstRecord } from './contracts.mts';
 
 export const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 export const image = 'public.ecr.aws/supabase/postgres:17.6.1.159';
-export const authImage = 'docker.io/supabase/gotrue:v2.197.0';
-// Official mirror, byte-identical to the ECR image from passing CI run 37826229707.
-// Pin the manifest so registry availability cannot silently change test software.
+// Official ECR mirrors verified against the Docker Hub manifests on October 9.
+// Same test software; avoid Docker Hub token timeouts seen in CI 37993327086.
+// Pin both multi-platform manifests so registry changes cannot change test software.
+export const authImage =
+  'public.ecr.aws/supabase/gotrue:v2.197.0@sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b';
 export const storageImage =
-  'docker.io/supabase/storage-api:v1.69.11@sha256:97ed68d33417d253a45fe0a70f84324d92250a3e239bf18aa6cf87269dbf6727';
+  'public.ecr.aws/supabase/storage-api:v1.69.11@sha256:97ed68d33417d253a45fe0a70f84324d92250a3e239bf18aa6cf87269dbf6727';
 export const engine =
   process.env.DOJI_TEST_ENGINE ||
   (process.platform === 'win32' ? 'C:/Program Files/RedHat/Podman/podman.exe' : 'docker');

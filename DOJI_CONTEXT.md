@@ -1,5 +1,76 @@
 # Doji: authoritative product and system context
 
+## October 9 announcement acceptance deployment (20:20 UTC)
+
+Owner approved the separate employee-only database/runtime deployment. The two additive
+announcement functions and scoped employee runtime v17 are deployed; composition is
+enabled at the React /connected acceptance entry. The main legacy entry is unchanged.
+The release backports only announcement changes onto captured v15, preserving its staff
+override and existing health behavior; it does not deploy unrelated local health work.
+Hosted session restore, queue reads, realtime connection and new-form rendering passed.
+No announcement was created or sent. Live write acceptance and main-entry cutover remain
+gated. See docs/ADMIN_ANNOUNCEMENT_CONNECTED_2026-10-09.md for exact release/rollback.
+
+## October 9 connected announcement workflow preparation (LOCAL ONLY)
+
+React announcement new/edit, atomic save/publish/schedule, existing audited cancellation
+and exact same-session retry are wired locally behind independent default-off client
+and employee-runtime flags. A new fixed employee identity bridge is prepared separately;
+existing member functions/grants/behavior remain unchanged in offline regressions.
+The loaded form version is pinned; pending intent is memory-only, cleared on identity
+loss, and never automatically retried. Existing announcement/audit invalidation and
+reconnect reconciliation are reused. No deployment or real announcement was made.
+Release/rollback gates: docs/ADMIN_ANNOUNCEMENT_CONNECTED_2026-10-09.md.
+
+## October 9 local announcement editor migration preparation
+
+React preview now covers the complete announcement settings, explicit UTC
+scheduling, immutable atomic-command payload preparation and fail-closed draft
+hydration. This is local-only: no connected command transport, database deployment,
+sending, member behavior or realtime change. Existing production announcement
+commands remain authoritative. The authenticated /connected design deployment and
+legacy default entry described below are unchanged. Remaining wiring, cancellation
+and separate shared-deployment gates are recorded in
+docs/WEB_REACT_MIGRATION_2026-10-08.md.
+
+## October 9 approved admin design hosted at /connected
+
+The Home/Team and queue/record presentation described below is now deployed to the
+existing authenticated React acceptance entry at https://admin.dojipro.com/connected.
+Deployment: d9130763-8f5f-491e-9756-028c7c890e89. This supersedes the LOCAL ONLY
+deployment status of those presentation entries, not their scope restrictions.
+The default legacy portal is unchanged because React announcement creation/publishing
+parity remains gated. Business and main-site deployments, API proxy, security headers,
+member app and shared systems are unchanged. All 133 packaged browser tests passed;
+hosted read-only Home, Team, business queue/detail and connected queue status verified.
+Evidence and rollback are documented in docs/ADMIN_REFERENCE_IMPLEMENTATION_2026-10-09.md.
+
+## October 9 reference-led admin queues and records (LOCAL ONLY)
+
+After accepting Home/Team, the owner approved extending that visual direction.
+Core work queues retain area-specific columns, bounded cursor paging and existing
+status filters. Full-page records use a shared admin-only layout: main content and
+history beside a desktop ownership/context summary, with command forms below.
+Business, safety, reports/appeals, ideas, privacy, audit and announcements preserve
+their authorized data, warnings and existing actions. Keyboard row activation is
+read-only navigation. No command, member, server, realtime or deployment change.
+See docs/ADMIN_REFERENCE_IMPLEMENTATION_2026-10-09.md.
+
+## October 9 reference-led admin Home and Team presentation (LOCAL ONLY)
+
+The researched desktop direction is now applied locally to Home and Team & Access.
+Home separates the Daily Doji, bounded work snapshot, short attention list and compact
+navigation shortcuts. Team browsing no longer reserves space for a permanent editor:
+Manage access switches to a focused full-page view within the same /team route.
+The directory and command form remain mounted, preserving search/page state and exact
+uncertain command intent. Back to team is guarded while a command is busy, uncertain,
+rejected pending reconciliation, or awaiting confirmation. This is not a new durable
+command store or a guarantee across page reloads. A selected employee's email is fixed
+in that editor; granting another account starts from the directory. Existing atomic
+role commands, audit reasons, confirmation and reauthorization remain authoritative.
+No API, provider, member, event, polling or deployment change is included.
+See docs/ADMIN_REFERENCE_IMPLEMENTATION_2026-10-09.md for scope and acceptance.
+
 ## October 6 MDT expanded cross-platform diagnostics (LOCAL ONLY; supersedes parity-only scope below)
 
 The owner requested fuller iOS and Android evidence before either next build.
@@ -2911,3 +2982,207 @@ portal/backend changes. 54 selected suites / 1,171 tests, app/tooling TypeScript
 scoped lint, size guard and both local JS/source-map exports passed. Native/device
 acceptance remains outstanding. See `docs/NEXT_MOBILE_BUILD_2026-10-08.md` for the
 v2 package and exact-build gates. No cloud build, upload, release or cost occurred.
+
+### React web migration foundation — October 8, 2026
+
+The owner requested React web applications: Next.js for the public site and Vite
+for the independent admin/business portals, using shared MUI components and
+TanStack Query. The local `web/` npm workspace has its own dependency lock and
+strict TypeScript/test/build gates. It is excluded from member compilation/test
+discovery and remains excluded by the EAS mobile-only upload allowlist.
+
+This is an unconnected migration preview, not a production replacement. Current
+`website/` builds, portal transports, legal routes and deployments remain unchanged.
+The first slice contains branded shared components, an announcement design preview,
+a business front door and a statically rendered public homepage. Production auth,
+commands and realtime adapters plus complete route parity remain outstanding.
+Existing Ably authorization/invalidation contracts must be reused; no Socket.IO,
+new socket connection, polling, email sending or feature-gate enablement was added.
+
+See `docs/WEB_REACT_MIGRATION_2026-10-08.md` for the route/adapter inventory and
+independent cutover/rollback gates. The announcement preview does not bypass the
+existing required-reason or separate draft/publish commands. A true single-command
+publish flow requires a separately approved shared-system change.
+
+The owner subsequently approved local preparation/testing only of the employee atomic
+announcement command. The candidate in
+`docs/drafts/employee_announcement_compose_v1.sql` composes existing draft/publish
+commands in one server transaction, uses a labelled system audit summary, and preserves
+permissions, idempotency and member eligibility. It has no production migration, gateway
+route or frontend activation. Deployment and independent employee bridge integration
+remain gated; see the migration record for its contract, tests and rollback.
+
+The owner then redirected implementation to the whole-platform migration and deferred
+individual workflow redesign. The local UI exploration now includes all 12 admin
+navigation areas, distinct overview/My work, full-page synthetic record layouts, a
+business workspace preview separate from its public homepage, and a shared public/
+business marketing hero. All data remains illustrative and disconnected. The atomic
+announcement candidate is parked; it is not a migration prerequisite. Existing
+production auth, workflows and deployments remain authoritative.
+
+The local React Platform health exploration now includes explicitly synthetic overview
+metrics, bounded per-Doji graphs, service coverage details, issue inspection and history.
+Disconnected/stale scenarios never assert current health. This adds no monitoring source,
+production read, polling, socket, backend or member behavior change. See the web migration
+record for existing telemetry boundaries and the separately gated live integration work.
+
+The next local migration slice adds a separate employee React integration entry. It wraps
+the existing same-origin WorkOS employee transport, memory-only session caches, validated
+staff queue reads and the existing authorized staff event channels. Foreground/reconnect
+refreshes invalidate reads; event payloads never supply records. Idle expiry, logout and
+permission changes clear private state and close session-owned sockets. Tests intercept
+all provider/API access. The default preview and live deployments remain unchanged; this
+candidate is not complete workflow parity or production acceptance. Health/business event
+gates, member authentication, shared services and the parked announcement command are
+unchanged. See the web migration record for the remaining per-surface release checks.
+
+The local employee React candidate now includes a full-page business application read
+and self-assignment through the existing atomic staff ownership command. It uses exact
+identity/source/ownership versions, explicit idempotent retries, session fencing and
+authorized read invalidation; opening a record always reconciles ownership. Business
+decisions now use the existing atomic review command with capability checks, confirmation,
+strict receipts and identical uncertain retries. Pending decisions require self-assignment
+in the UI; this does not replace the server's independent decision permissions. Other record
+families remain incomplete. Business ownership now also supports field-free release and
+manager-authorized reassignment through the same atomic command, using a bounded eligible
+reviewer directory and immutable uncertain retries. The web migration uses standard MUI
+components with a shared Doji brand theme: orange/violet, light/dark surfaces, typography
+and accessible white-on-deep-orange primary actions. The owner explicitly superseded the
+literal default-styles rule while retaining standard MUI controls and behavior, including
+a verification-code TextField instead of six custom slots. No live case, production artifact,
+database, member behavior or email gate changed. See the web migration record for tests
+and the remaining cutover requirements.
+
+The local employee React candidate also connects Operations to existing bounded health
+and 12-summary history reads. It preserves health assessment thresholds, missing/stale
+evidence, permissions, source observation times and app-issue counting semantics. The
+session-scoped operations cache reconciles on entry, foreground/online return and existing
+socket recovery; no health feed, provider channel or polling is enabled. Graphs and issue
+tables use projected authorized data only. Production cutover remains incomplete and gated;
+see the migration record's current blocker list. No member/shared service change is included.
+
+The local candidate now opens external safety requests as full-page records and reuses
+the existing native safety command for claim and confirmed workflow outcomes. Ownership,
+restricted permissions, expected revisions, bounded projection and immutable uncertain
+retries are preserved. Exact-content linking and report/appeal decisions still need porting;
+this is not a production moderation replacement. Community MUI charts replace custom SVGs,
+load only with Operations, and preserve missing readings. No production deployment,
+shared command, email, member behavior or provider gate changed.
+
+Report and appeal rows in the local React candidate now open authorized full-page records.
+Report assignment is read from native triage; appeal assignment uses the existing staff
+ownership read. The appeal displays its exact original decision separately from current
+content and explicitly identifies missing historical snapshots. The next local slice adds
+bounded authorized storage references to the session-only cache; signed media URLs stay
+in transient component state, require explicit inspection and expire locally. Existing
+report, appeal and assignment command adapters now have local tests, but are not release
+qualified. An offline replay of 289 migrations confirmed that an identical restricted
+decision retry changes restriction start and end times. No production occurrence is
+asserted. The owner separately approved the repair, which deployed at 2026-10-09 03:44 UTC
+after isolated retry/member regressions and a live transactional rollback rehearsal. Only
+the report-decision and appeal-review wrappers changed; 418 other function definitions,
+grants, policies and receipt routing were verified unchanged. Whole-command locks and
+early receipt returns prevent repeated expiry/restoration effects; new receipts bind the
+request payload with SHA-256. No live case was modified. The React portal migration itself
+is still unreleased; its remaining parity and artifact gates apply.
+
+The local React employee candidate now includes Community Ideas detail, field-free claim
+and release, and confirmed existing editorial decisions. Version changes block stale forms;
+unconfirmed requests retain their exact retry intent. Audit browsing is an authorized
+25-row read with search, categories and validated cursors. Both use shared default-MUI
+loading/table controls; empty or failed later pages can return to their prior page.
+Idea manager reassignment now uses the existing case-scoped eligible directory and atomic
+ownership command. It requires employee-management authority and fresh ownership/version
+agreement; an uncertain result retains the selected target and request key. These additions
+are not deployed and do not alter server commands, member behavior or email gates. See the
+web migration record for tests, bundle limits and remaining independent-surface cutovers.
+
+The local employee candidate now adds the bounded independent employee directory and
+confirmed role changes through existing employee-only commands. Uncertain changes retain
+the original payload/key; confirmed changes reauthorize before reconciling private caches.
+Audit details are full-page authorized projections. Explicit CSV export preserves the
+existing 5,000-event cap and column contract, reports truncation, neutralizes spreadsheet
+formulas and discards late results after logout or permission changes. No member account,
+role, session or production artifact changed. Remaining cutover work stays documented.
+
+The local React candidate now supports server-filtered closed safety queues and bounded
+Community Ideas history (all/pending/accepted/declined). Status filters survive a record
+round trip; returning reconciles the first page. My work remains current-employee open
+assignments. Audit records can open known related reports/appeals through fresh authorized
+reads, with restricted evidence still gated independently. This adds no command, polling,
+provider setting or production deployment. The migration record retains the remaining
+workflow and per-surface release gates.
+
+The local React employee candidate now opens business privacy requests as full-page
+records. The dedicated queue uses the existing state-filtered privacy page
+read, ordered by assessed deadline and ID, with at most 25 records. Details show the
+actual staff assignee, assessed deadline, retention hold and paged case history of up
+to 30 revisions. Legal-read and employee-management permissions are both required.
+Raw case fields such as cleanup email are not retained. My work opens the same
+authorized record. Explicit claim/release/reassignment uses existing atomic staff commands;
+claiming requires no outcome fields. Confirmed privacy actions support holds, business
+access closure, erasure preparation, access/closure/erasure completion and denial through
+the existing privacy command. Preparation is not deletion, and completion sends no email.
+Verified privacy request creation and explicit protected application access are now
+connected locally. Current-draft correction checks both application and case revisions,
+retains the recorded address and preserves submitted snapshots and agreements. Correction
+completion requires the recorded correction in loaded case history. WorkOS-held identity
+exports and actual requester delivery remain separate; no complete export is implied.
+The production portal stays authoritative pending cutover qualification.
+The UI coordinates active decisions with the current assignee and rechecks before sending;
+ownership is not an added atomic authorization precondition in the existing privacy RPC.
+Unknown outcomes retain identical payloads and request keys for explicit retry, even if
+later reads fail. Successful receipts are not replayed merely because refresh fails.
+No production, database, provider, email or member behavior changes with this addition.
+
+React report and appeal records now show local case history from the existing authorized
+case response. Report workflow is capped at 50 returned events and paged locally; evidence
+access is a separate summary. Appeal history is bound to the original decision, with missing
+reviewer/date information stated explicitly. Opaque audit metadata is not retained.
+Access-counter changes preserve typed outcomes; real workflow, evidence, ownership and
+decision changes still block stale forms. This is local migration work, not a live release.
+
+React moderation ownership now has field-free Start review and release controls. Open
+appeals also support manager reassignment through existing eligible-reviewer reads and
+atomic revision-checked ownership commands. Reports keep their native claim/release policy;
+arbitrary report transfer is not a new UI permission. Fresh case checks prevent stale
+dispatch. Exact uncertain retries remain available at record level after changed ownership
+or failed reads, and a confirmed receipt is never replayed because refresh failed.
+No server, production, member or provider change accompanies these local controls.
+
+React external requests now connect locally to exact-content inspection and atomic report
+creation through the existing employee contracts. Assigned reviewers verify an exact ID,
+review a bounded text-only target and explicitly confirm ordinary review versus restricted
+quarantine consequences. Raw media references are not retained or fetched. Case revision
+and fingerprint are rechecked; the server's locked validation stays authoritative. Unknown
+receipts retain the exact request/key across failed or changed reads. Linked moderation
+records reauthorize independently and return to the external request. This is migration
+preparation, not a production deployment or new member/server behavior.
+
+The connected React admin now lands on a role-filtered Overview navigation hub rather
+than redirecting to My work. It adds no aggregate query or duplicate queue; My work
+remains the signed-in employee's assigned cases. Announcement list and full-page detail
+use existing editorial reads with operations permission, 25-row server keyset paging,
+and explicit field projection. They remain read-only in this candidate. Creation,
+editing, publishing and cancellation still use the production portal; the prepared
+atomic compose command is not deployed. Display state is not proof of member delivery.
+
+October 9 hosted acceptance: the connected React admin is available at
+`https://admin.dojipro.com/connected`, alongside the unchanged production homepage.
+Deployment `7669938e-8f03-4de7-a841-4c14af5c8b94` preserves the existing proxy and all
+provider configuration. Owner-session read-only route checks passed; queue realtime
+connected. Announcement writes and default-entry cutover remain incomplete. Business
+React and the public Next.js site were not released. See the migration record for exact
+artifacts, rollback and the existing health-feed limitations.
+
+October 9 local design revision makes React Overview a portal home with a greeting,
+Daily Doji card, three scoped counts, up to four attention links and permission-filtered
+quick access. Its existing staff inbox read remains bounded to 25 oldest open items;
+My work remains personal assignments. Operations readers additionally use the existing
+command-center snapshot with limit=1, projecting only next_event and generated_at.
+Event labels describe that server snapshot, not live activation inferred from a clock.
+Team & access uses searchable employee cards and a persistent role editor, not a table.
+The existing verified-account role command, confirmation, audit and uncertain-intent
+guards are unchanged; no invitation is sent. Shared MUI branding remains centralized.
+There is no new server contract or member behavior. The hosted acceptance entry above
+is unchanged. See docs/ADMIN_MUI_DESIGN_AUDIT_2026-10-09.md.

@@ -3,6 +3,7 @@
 // browser SQL, member JWT, database-owner connection or native Auth integration.
 import { record } from './portal-contracts.mts';
 import { employeeWorkflowSql } from './employee-workflow-contracts.mts';
+import { employeeAnnouncementSql } from './employee-announcement-contracts.mts';
 import { employeeHealthSql } from './employee-health-contracts.mts';
 import type { PortalRealm } from './portal-contracts.mts';
 import type { SqlParameter } from './employee-contracts.mts';
@@ -47,6 +48,7 @@ const operations: Readonly<
     doji_employee_application: Object.freeze({
       [employeeHealthSql]: 7,
       [employeeWorkflowSql]: 7,
+      [employeeAnnouncementSql]: 7,
       'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result': 7,
     }),
     doji_employee_session: Object.freeze({
@@ -58,7 +60,8 @@ const operations: Readonly<
 const unavailable = (code?: unknown) =>
   Object.assign(
     Error('Portal database operation unavailable'),
-    typeof code === 'string' && ['42501', '22023', '22P02', 'PT409', '55000'].includes(code)
+    typeof code === 'string' &&
+      ['42501', '22023', '22P02', 'PT409', '55000', '40001', 'P0001'].includes(code)
       ? { code }
       : {},
   );

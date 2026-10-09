@@ -14,6 +14,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Imported employee contracts use the repository's locked SDK types.
+      # No mobile lifecycle scripts run in the isolated web quality job.
+      - run: npm ci --ignore-scripts --prefix ..
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm run build:connected --workspace @doji/admin
+      - run: npm run test:connected-artifacts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: npm audit --audit-level=high
+
   application:
     runs-on: ubuntu-latest
     timeout-minutes: 20

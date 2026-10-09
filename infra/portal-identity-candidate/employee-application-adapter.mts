@@ -3,6 +3,10 @@
 import { employeeRouteContracts } from './employee-route-contracts.mts';
 import { employeeWorkflowContracts, employeeWorkflowSql } from './employee-workflow-contracts.mts';
 import { employeeHealthContracts, employeeHealthSql } from './employee-health-contracts.mts';
+import {
+  employeeAnnouncementContract,
+  employeeAnnouncementSql,
+} from './employee-announcement-contracts.mts';
 import { record } from './portal-contracts.mts';
 import type { EmployeeActor, EmployeeCommand, PortalExecute } from './employee-contracts.mts';
 const contracts = Object.freeze({
@@ -14,8 +18,12 @@ export const employeeOperations = Object.freeze(
   Object.fromEntries(Object.entries(contracts).map(([name, c]) => [name, c.fields])),
 );
 const fail = (status: number) => Object.assign(Error('Employee operation unavailable'), { status });
-export function createEmployeeApplicationAdapter(execute: PortalExecute) {
+export function createEmployeeApplicationAdapter(
+  execute: PortalExecute,
+  options: { announcementComposeEnabled?: boolean } = {},
+) {
   if (typeof execute !== 'function') throw fail(503);
+  const announcementComposeEnabled = options.announcementComposeEnabled === true;
   async function command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
     if (
       actor?.realm !== 'employee' ||
@@ -26,8 +34,13 @@ export function createEmployeeApplicationAdapter(execute: PortalExecute) {
       actor.issuer !== `https://api.workos.com/user_management/${actor.audience}`
     )
       throw fail(403);
-    if (!input || !Object.hasOwn(employeeOperations, input.name)) throw fail(403);
-    const contract = contracts[input.name];
+    const compose = input?.name === 'admin_announcement_compose_v1';
+    if (
+      !input ||
+      (compose ? !announcementComposeEnabled : !Object.hasOwn(employeeOperations, input.name))
+    )
+      throw fail(403);
+    const contract = compose ? employeeAnnouncementContract : contracts[input.name];
     if (!contract) throw fail(403);
     const fields = contract.fields;
     const supplied = input.args;
@@ -76,21 +89,28 @@ export function createEmployeeApplicationAdapter(execute: PortalExecute) {
     try {
       return await execute(
         'doji_employee_application',
-        Object.hasOwn(employeeHealthContracts, input.name)
-          ? employeeHealthSql
-          : Object.hasOwn(employeeWorkflowContracts, input.name)
-            ? employeeWorkflowSql
-            : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
+        compose
+          ? employeeAnnouncementSql
+          : Object.hasOwn(employeeHealthContracts, input.name)
+            ? employeeHealthSql
+            : Object.hasOwn(employeeWorkflowContracts, input.name)
+              ? employeeWorkflowSql
+              : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
         [actor.issuer, actor.audience, actor.subject, actor.sessionId, true, input.name, encoded],
         signal,
       );
     } catch (error) {
+      // Legacy announcement validation/version failures roll back atomically.
+      // Do not present a definite rejection as an uncertain publication.
+      const announcementWrite =
+        compose || (input.name === 'admin_editorial_command_v1' && args.p_kind === 'announcements');
       const statuses: Record<string, number> = {
         42501: 403,
         22023: 400,
         '22P02': 400,
         PT409: 409,
         55000: 409,
+        ...(announcementWrite ? { '40001': 409, P0001: 400 } : {}),
       };
       throw fail(
         record(error) && typeof error.code === 'string' ? statuses[error.code] || 503 : 503,

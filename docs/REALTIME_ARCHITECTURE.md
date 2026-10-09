@@ -1,5 +1,23 @@
 # Doji authoritative realtime architecture
 
+October 9 20:20 UTC announcement acceptance update: owner-approved additive SQL and
+employee runtime v17 are deployed with composition enabled for /connected. No change
+to identifier hints, channels, member auth, push, timers or polling. Existing runtime
+health behavior was preserved rather than bundling unrelated local health changes.
+Browser session restore and connected queue status were observed after deployment.
+No live announcement write/delivery was tested; root cutover remains gated. This
+supersedes the local-only deployment status immediately below.
+
+October 9 connected announcement migration (LOCAL ONLY): confirmed employee compose
+or cancellation receipts invalidate the existing authorized announcements/audit query
+areas. Existing moderation.announcement create/save/publish/cancel identifier hints
+and foreground/reconnect reconciliation remain authoritative. No new event payload,
+channel, polling or member invalidation behavior. The new employee-only compose
+bridge and both client/server flags remain undeployed/default-off. Uncertain commands
+retain one exact memory-only session intent for explicit retry; they do not infer
+member delivery or current status from an old receipt. See
+docs/ADMIN_ANNOUNCEMENT_CONNECTED_2026-10-09.md.
+
 October 6 MDT expanded mobile diagnostic candidate (LOCAL ONLY): a dedicated random
 installation ID is stored asynchronously on the handset, with per-process/account-
 transition session IDs. This is not a server identity, authorization input or push
@@ -2221,3 +2239,248 @@ Report a problem reads the existing diagnostic snapshot locally and shares only
 its allowlisted preview when the user opens the OS share sheet/email composer.
 It introduces no diagnostic subscriber, background request or support database.
 No message is sent automatically and no successful ticket submission is claimed.
+
+### React web migration boundary — October 8, 2026
+
+The local `web/` workspace introduces React UI previews and memory-only TanStack
+Query helpers, not a replacement realtime system. Keys include portal realm,
+identity, session epoch and read area. Invalidation marks authorized reads stale;
+it never installs event payloads as server state. No production socket or API is
+connected by this foundation and no provider gate is enabled.
+
+Before any React portal cutover, adapters must preserve existing topic/payload
+authorization, coalescing, stale-epoch rejection, foreground/reconnect reads and
+subscription cleanup. QueryClient disposal must accompany transport teardown;
+it cannot revoke an already dispatched command. Automatic focus/reconnect query
+refetch is disabled until those bounded, authorized lifecycle adapters are tested.
+Member auth/realtime/push, shared database/Worker behavior and disabled business
+or health-feed gates are unchanged. Full migration and deployment gates are in
+`WEB_REACT_MIGRATION_2026-10-08.md`.
+
+The separately approved local announcement compose candidate adds no event topic,
+socket or polling. It uses the existing server commands and claim eligibility, with
+atomic rollback if publishing fails. Future React integration must invalidate its
+authorized announcement reads after a confirmed command and reconcile on return;
+neither a socket message nor a saved future draft proves publication. The candidate
+is not connected to the independent employee bridge or deployed.
+
+The separate local React employee candidate now prepares session-owned staff sockets using
+the existing employee channel read, token transport and workflow event validators. It does
+not add topics or enable health/business feeds. Hints are deduplicated within a bounded
+set and coalesced into active authorized `work`/`safety` TanStack reads, with one trailing
+refresh for events during an in-flight read. Foreground, online and socket reconnection
+recheck employee authority before refreshing. Hidden tabs do not read on hints; returning
+to the foreground reconciles them. Cache/session epochs fence late results, and logout or
+capability changes close the prior socket. Local SDK/network fixtures verify these paths;
+no production socket or provider setting has been activated by this migration work.
+
+Business application detail and ownership reads in the local employee candidate use the
+same session-scoped `work` area, so existing validated staff hints and foreground/socket
+reconciliation refresh them. Explicit claim, release and reassignment reuse the existing
+atomic command and invalidate authorized reads after its validated receipt; events never set the owner
+directly. Every record entry rechecks ownership because navigation cannot cancel a server
+write already dispatched. No new topic, polling loop, relay or member contract is added.
+
+The eligible-reviewer picker also uses the authenticated `work` area, bounded to 25
+employees per case-specific cursor page and read only while its dialog is open. Existing
+staff hints and foreground/reconnect reconciliation invalidate those authorized reads.
+Permission/read errors clear selectable options; page changes clear the selected target.
+Server eligibility remains authoritative at command time. No directory data is carried
+in events or persisted across employee sessions.
+
+Business review decisions in the same local candidate also invalidate authorized `work`
+reads after a validated existing-command receipt. Background version/ownership changes
+block prepared decisions; unknown outcomes retain the identical retry intent until the
+receipt or a newer authorized revision allows reconciliation. A refresh returning the
+same revision is not proof that a timed-out write did not happen. No event directly sets
+application status, and no provider, email-delivery or production setting is changed.
+
+The local connected Operations route now owns two bounded `operations` queries: the
+existing platform-health read and at most 12 archived Doji summaries. Entry rechecks them;
+foreground/online and existing employee-socket connection recovery invalidate active
+authorized queries after reauthorization. Staff case hints still invalidate only work
+and safety, never Operations. No health topic is subscribed or enabled. A single local
+timer at the next evidence expiry/assessment boundary updates labels, never network data.
+Failed reads clear displayed source data; logout/permission changes fence results and
+discard the session cache. Shared collectors, relay, database and member contracts stay
+unchanged. Actual hosted integration remains a release gate, not proved by local fixtures.
+
+External-request detail in the local React employee candidate uses the session-scoped
+`safety` query area. Existing validated external-intake hints and foreground/reconnect
+reconciliation invalidate authorized detail and queue reads. Confirmed native safety
+commands invalidate `work` and `safety`; they do not install optimistic ownership or
+outcomes. Read errors hide private case content without discarding an unconfirmed command
+intent. A later identical retry keeps its original expected revision and idempotency key.
+The deferred MUI chart dependency changes rendering only, with no new event, query,
+subscription, polling or shared-system contract.
+
+Report and appeal detail queries in the local React candidate also use the session-scoped
+`safety` area, keyed by record kind, ID and safety area. They reconcile on entry and through
+existing authorized staff hints and foreground/reconnect handling. Report ownership comes
+from native report triage; appeal ownership is a separate authorized staff ownership read.
+Failed reads hide previously displayed case data. The projection now retains bounded
+authorized storage references but not signed URLs. Events never supply evidence or the
+original appealed decision. Explicit media inspection requests existing employee-only
+signed access; the transient URL is cleared on expiry, reconciliation or unmount without
+automatic refetch. Confirmed existing-command receipts invalidate authorized work and
+safety reads. Unknown commands keep their exact payload and key; a changed record alone
+does not prove the command outcome. These local adapters remain unreleased. The separately
+approved server replay repair deployed at 2026-10-09 03:44 UTC: the report and appeal wrappers
+now lock and return their saved receipt before any repeated side effect. Newly completed
+receipts bind their request payload; historical receipts return the saved outcome without
+reapplying enforcement. Targeted and concurrent retry tests preserve expiry, reversal,
+audit, notices and outbox contents. Initial commands retain their existing atomic event
+emission; retries emit no extra event. No new topic, polling, member authentication,
+challenge timing or push rule is introduced.
+
+Community Ideas detail in the local React candidate uses session-scoped `work` queries
+keyed by suggestion ID. Existing idea hints invalidate authorized reads; opening a record
+reconciles both editorial and ownership versions. Confirmed ownership/editorial commands
+invalidate `work` and `audit`; uncertain outcomes retain their exact payload and key.
+The editorial replay contract returns current authorized data, not necessarily the status
+first saved by that command. A changed read alone does not resolve an unknown outcome.
+
+The new local audit route uses a separate `audit` query area with category, search and
+cursor keys. Authorized staff hints and socket recovery invalidate active audit queries
+only for employees with operations access. Entry, foreground and online reconciliation
+remain in place. This reuses existing hints; it is not a complete per-audit-event feed.
+No health event is inferred from staff activity, no new topic or poll is introduced, and
+logout/permission changes clear and fence all private results. Hosted cutover is pending.
+
+The local employee directory uses the separate session-scoped `team` query area, gated
+by employee-management permission. It reconciles on entry, foreground/online return and
+socket recovery. Confirmed role commands reauthorize the actor before invalidating team,
+audit and work queries; unknown results keep the exact original command for explicit retry.
+For employees already authorized to read moderation, the same session-owned socket also
+subscribes to the existing `moderation:global` topic. Validated
+`moderation.employee.access_changed` identifiers trigger deduplicated, coalesced
+reauthorization and authorized query invalidation, never direct role installation.
+Employees without that topic's moderation permission still use foreground/reconnect and
+post-command reconciliation; this is not a universal immediate access-change feed.
+No provider policy, channel contract, database write or member behavior changes.
+Audit detail is projected from the authorized page; CSV export is an explicit bounded,
+uncached read fenced to the captured employee session, not a realtime subscription.
+
+Open/closed safety reads in the local React candidate share the existing `safety` area,
+with closed state and cursor in the key; one area's rows cannot populate another state.
+Idea history uses `work` keys scoped by status and timestamp/ID cursor. Existing identifier
+hints invalidate these authorized reads; entry and foreground/online/reconnect reconcile
+them without polling. Returning from a record retains the status filter, starts at the
+first page and rechecks authorization. Failed reads hide old rows. Audit-to-case links
+perform the same independently authorized case reads and never install audit metadata
+as case evidence. No server event, token policy, member behavior or production setting changes.
+
+The local React idea reassignment dialog shares the business eligible-reviewer picker.
+Its session-scoped `work` key includes case kind, ID and reviewer cursor, preventing
+business and idea directory results from colliding. It reads at most 25 eligible employees
+per explicit page, only while open. Existing work invalidations and entry/foreground/
+reconnect reconciliation refresh eligibility; a refresh clears the visible selection.
+Confirmation rechecks source version and ownership revision. The existing atomic command
+is authoritative for target eligibility and concurrency; uncertain retries keep the exact
+target and request key. Confirmed assignment invalidates work and audit reads without
+changing member decisions, notices, polling or production settings.
+
+Privacy queue and full-page detail reads in the local React candidate use session-scoped
+`work` keys containing state/deadline/ID cursor or case ID/history revision cursor.
+Existing authorized `staff:workflow:privacy` identifier hints invalidate these reads;
+socket reconnect, foreground/online return and route entry reconcile authorization and
+current data. No event payload becomes case content and no interval poll is added.
+The detail read also checks staff ownership source version against the case revision.
+Failed reads hide private details and history; logout or capability changes fence late
+responses and dispose the private cache. Each history page is a fresh bounded case read,
+not an appended cross-revision snapshot. Opening the page does not read application
+access data or dispatch a privacy/ownership command. Hosted qualification remains pending.
+
+Privacy action controls now dispatch existing employee-only ownership and privacy commands
+only after explicit user action. Confirmed receipts invalidate authorized `work` and `audit`
+reads. Unknown outcomes keep the original command/key across changed or failed reads;
+neither an identifier hint nor a newer revision proves that an uncertain command failed.
+Assignee-directory reads reuse case-kind-scoped `work` keys and bounded 25-person pages.
+Logout, scope disposal and permission changes fence late results. No new event, socket,
+poll, server contract, erasure executor, email sender or production deployment is added.
+
+Explicit protected access and correction reads share the authorized privacy work area,
+keyed by case ID, case revision and history cursor where applicable. They run only while
+their panel is open; identifier hints and foreground/reconnect invalidate current reads.
+Protected access unmounts its zero-retention query when hidden. Correction preserves edits
+across refresh, blocks stale revisions, and rechecks authorized case/application state
+before the existing atomic command. Confirmed creation/correction invalidates work and audit;
+an uncertain result retains its exact deeply frozen payload/key even after changed reads.
+No interval, new topic, provider read, requester email or member behavior is added.
+
+React moderation history is projected from the same authorized report/appeal response as
+current evidence, in the existing session-scoped safety query. It adds no subscription or
+read endpoint. Existing identifier invalidation and foreground/reconnect reconciliation
+replace the bounded history; local ten-entry paging never calls the server. Failed reads
+remove history with the protected case. Decision fingerprints exclude only the evidence-view
+summary because case reads can increment it; workflow and authoritative case changes still
+invalidate prepared outcomes. No event payload becomes timeline content and no polling,
+automatic command or member behavior is introduced.
+
+React appeal assignee reads reuse the authorized work area, keyed by case kind, case ID
+and directory cursor, with 25-person pages. Existing work hints and reconnect/foreground
+reconciliation invalidate those reads; no new topic or interval is added. Explicit report
+and appeal ownership actions recheck current case state before the existing atomic command.
+Confirmed moderation receipts invalidate work, safety and audit. An unknown receipt retains
+the exact original command/key even when identifier reconciliation changes ownership or
+the next read fails; only an explicit identical retry can resend it. Failed refresh after
+a verified receipt does not make the command uncertain again. This remains local migration
+work with no member contract or production change.
+
+React exact-target inspection uses a zero-retention safety query keyed by employee session,
+external case, case revision, target kind and exact target ID. Only an explicit inspection
+enables it; normal identifier invalidation and foreground/reconnect reauthorize the active
+read. Editing the target removes the prior preview, and case revision changes reset it.
+Inspection refresh is disabled during report submission or an uncertain receipt. A separate
+explicit preflight read compares the original fingerprint before the existing atomic
+handoff. No media signing, submitted-URL fetch, search, polling or new topic is introduced.
+Confirmed report receipts invalidate work, safety and audit. Unknown outcomes retain exact
+intent across reconciliation, with no automatic command. This remains local portal work.
+
+React announcement reads use the session-scoped announcements query area. Existing
+moderation.announcement create/save/publish/cancel hints invalidate announcements and
+audit only when the employee has operations read, moderation read and the existing
+staff moderation channel grant. Hints require a valid aggregate UUID and bounded event
+ID, are deduplicated/coalesced, and never supply rendered content. The existing socket
+reconnect and foreground reconciliation reauthorize active reads. Operations-only
+employees do not gain the moderation topic: they reconcile on reconnect/foreground,
+without a claim of immediate announcement events. No provider grant, new topic, polling,
+database change or member behavior is added. Failed reads clear rendered announcement data.
+
+October 9 hosted React admin acceptance uses the existing authorized queue socket and
+same-origin API proxy at `/connected`; the original admin homepage remains unchanged.
+The owner session visibly reached connected queue status. This validates connection,
+not synthetic event delivery or every role. Health events remain disabled, as in the
+existing release, and Operations displays the unavailable Sentry feed explicitly.
+No provider grant, server deployment or additional polling was introduced.
+
+The October 9 local React Overview intake query uses the existing session-scoped work
+area with an overview discriminator. Existing authorized work hints and reconnect or
+foreground reconciliation invalidate its single bounded 25-row inbox page. Events never
+install records or counts. Snapshot counts are computed from authorized returned rows,
+not global totals; failed reads hide prior rows. No new channel or recurring query is added.
+
+The home Daily Doji card is operations-read gated and reuses the existing command-center
+snapshot at limit=1. Only occurrence metadata and server generated_at enter its
+session-scoped operations cache with a home-doji discriminator. Reconnect/foreground
+reconciliation reauthorizes and refreshes it; no event activation topic or live-status
+claim is added while health hints remain disabled. Failed reads hide the old occurrence.
+Team directory cards continue using the existing team cache, authorized access hints
+and foreground reconciliation. Search and eight-card paging are local to the bounded
+100-account directory; selecting a person never issues a write. The role editor remains
+mounted across reads and selection so uncertain commands retain their original intent.
+
+The subsequent reference-led presentation separates Team browsing and access editing
+visually within that same mounted route. Back to the directory cannot discard a busy
+or unresolved access command, and a selected account's email stays fixed in its editor.
+Directory paging reuses the shared pagination component and still operates only over
+the authorized bounded response. Home and Team add no query, socket, event, refresh
+interval or shared-server contract. Auth/session teardown and existing reauthorization
+remain unchanged; full browser reload is not a durable command-recovery mechanism.
+
+The October 9 queue/record presentation extension also preserves existing query keys,
+cursor boundaries, event invalidation and reconciliation. The new admin RecordLayout
+only arranges already-authorized content and ownership metadata. It does not fetch
+evidence, dispatch commands, install events, add polling or alter member behavior.
+Record command forms remain under their existing permission/revision/idempotency
+guards; loading and failed reads still withhold previous private record content.
