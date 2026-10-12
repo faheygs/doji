@@ -77,6 +77,7 @@ These are dated evidence, not fresh verification of a store or production system
 
 ## October 5–8 follow-up records
 
+- [Mobile 1.0.10 builds and acceptance gates — October 12](MOBILE_RECOVERY_BUILDS_2026-10-12.md)
 - [React web migration foundation and cutover gates](WEB_REACT_MIGRATION_2026-10-08.md)
 - [Admin workflow foundation and release history](ADMIN_WORKFLOW_FOUNDATION_2026-10-05.md)
 - [Platform operations health: release and gated shared feed](PLATFORM_OPERATIONS_HEALTH_2026-10-06.md)

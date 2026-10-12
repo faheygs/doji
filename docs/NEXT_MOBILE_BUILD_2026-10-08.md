@@ -1,5 +1,11 @@
 # Next mobile build — prepared, owner-triggered only
 
+**October 12 update:** the owner explicitly requested both builds and approved
+one attempt per platform at $3 expected total overage. Follow the
+[1.0.10 build execution record](MOBILE_RECOVERY_BUILDS_2026-10-12.md).
+The original preparation and evidence below remain historical; do not rerun the
+old overlay over the refreshed candidates or launch duplicate jobs.
+
 Status: held for the next owner-requested iOS and Android build. No cloud job,
 submission, automatic monitor, schedule, spending approval or update enforcement.
 The October 8 request is preparation only, not permission to start at credit reset.

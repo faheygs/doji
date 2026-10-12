@@ -139,3 +139,33 @@ acceptance artifact was removed. Other dated scripts remain where they explain
 recorded releases or preserve recovery/qualification behavior; age alone is not
 proof of retirement. All three deleted files are recoverable from parent main
 commit `e642f00afa56daed29a3fd58315d09f35c9083b3` in Git history.
+
+## Original main checkout reconciliation — October 12
+
+The owner requested syncing the original `D:/ChallengeApp/DoIt` checkout after
+VS Code showed 1,045 dirty paths: 132 modified, 17 deleted and 896 untracked.
+Its `main` was still at `d8f884d`, 35 commits behind verified GitHub main
+`55d3eaa`; the reviewed source had been merged from the separate quality-gates
+worktree, not synchronized into this older working directory.
+
+A read-only content comparison before synchronization found 886 dirty files
+matching the reviewed worktree after CRLF normalization, 142 differing files
+whose contents already exist in reachable Git history, 17 deletions and zero
+unrecognized file contents. Untracked-path membership alone was not treated as
+proof of content equality.
+
+The complete tracked/untracked dirty state was retained locally with
+`git stash push --include-untracked`, named `owner-main-before-sync-20261012`.
+Its immutable recovery commit is `95630fae2a82737b5347521847edc7a037680e63`, also
+anchored by local ref `refs/backup/owner-main-before-sync-20261012`. This private
+recovery snapshot is not pushed. Recover selected files from that snapshot in a
+separate recovery checkout; do not apply the whole old snapshot over current main.
+Ignored credentials, native outputs, release evidence and the two old agent
+worktrees were left in place. No recursive deletion or hard reset was used.
+
+Original main then fast-forwarded to `55d3eaa` and showed a clean Git status.
+The remaining release evidence/helpers and deferred FW-035 backlog entry are
+submitted through a new PR with unchanged required quality gates. After that PR
+merges, both working copies must fast-forward to its exact merge commit and be
+checked clean. Source synchronization does not deploy code, install dependencies,
+change store submissions or enable the deferred report feature.

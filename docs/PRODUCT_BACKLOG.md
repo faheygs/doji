@@ -1,6 +1,6 @@
 # Doji product backlog
 
-Last updated: September 27, 2026
+Last updated: October 12, 2026
 
 This is the persistent list of confirmed future product work and unresolved
 regression checks. Add new user-reported behavior here before implementation and
@@ -8,6 +8,42 @@ move it to **Completed** only after the relevant release or server change has be
 verified on a physical device.
 
 ## Queued
+
+### FW-035 — Track in-app problem reports, diagnostics and health history
+
+Status: Deferred at owner request October 12, 2026; record requirements only.
+No implementation, deployment, provider change or new mobile build authorized.
+
+The owner confirmed email-only problem reports are insufficient: reports must be
+durably logged with useful details and tracked over time to understand recurring
+problems and platform/app health. Current Report a problem opens an email draft
+with diagnostic references; it does not create a tracked support record.
+
+- Submit directly in the app, with a description and a preview of attached
+  diagnostics. Show a report number and success only after server acknowledgement;
+  handle offline, failed and uncertain submissions without losing or duplicating
+  the user's report.
+- Attach bounded, sanitized diagnostic context: app/build/platform, device model
+  and OS, screen, timestamps, network/lifecycle state, recent relevant actions and
+  failures, and installation/session references. Correlate Sentry events and Doji
+  occurrences where evidence supports the link; do not claim guessed matches.
+- Provide one authorized admin queue and full-page report detail, with assignee,
+  priority, status, notes and an auditable timeline. Completed records remain in
+  the same dataset, accessible through filters rather than a separate history table.
+- Connect reports to health/history views: trends by release, platform and feature,
+  recurring issues, resolution times and related incidents. Keep user-reported
+  symptoms distinct from verified telemetry and measured service health.
+- Define access, retention and deletion rules before implementation. Exclude
+  passwords, tokens, private messages and unrestricted request bodies; email may
+  be an optional notification, never the authoritative record.
+- Before resuming, approve the separate mobile/shared-database/API/admin scope,
+  member-isolation impact, capacity and rollback plan. Use atomic idempotent writes,
+  authorized reads and identifier-only realtime invalidation with reconnect and
+  foreground reconciliation. Test permissions, account changes, replay/uncertainty,
+  offline failures, privacy and member regressions. Preserve saved history on rollback.
+
+This feature is not included in submitted 1.0.10 iOS 105 / Android 30. Source work,
+shared deployment and a future mobile build/release remain separate gates.
 
 ### FW-034 — Optional member queries: empty announcements and actionable failures
 
