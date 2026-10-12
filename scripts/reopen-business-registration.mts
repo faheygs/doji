@@ -10,8 +10,12 @@ import { fingerprint, windowGuard } from './business-bridge-release-guards.mts';
 const root = resolve(import.meta.dirname, '..');
 const [mode, input] = process.argv.slice(2);
 assert.ok(['prepare', 'rehearse', 'activate', 'verify', 'freeze'].includes(mode ?? ''));
-const query = (q: string) =>
-  cli<{ rows: Record<string, any>[] }>([
+interface RegistrationState {
+  session: { enabled:boolean; registration_enabled:boolean; registration_until:string; registration_limit:number; registrations_used:number; generation:string; scope_hash:string };
+  enrollment: { enabled:boolean; admission_until:string; account_limit:number; accounts_used:number };
+}
+const query = <T extends Record<string, unknown> = Record<string, unknown>>(q: string) =>
+  cli<{ rows: T[] }>([
     'db',
     'query',
     q,
@@ -25,7 +29,7 @@ const stateSQL = `select jsonb_build_object(
  'session',(select to_jsonb(s) from business_session_private.settings s where singleton),
  'enrollment',(select to_jsonb(s) from portal_identity_private.business_enrollment_settings s where singleton))`;
 const readState = () =>
-  query(`begin read only;set local statement_timeout='5s';${stateSQL} state;rollback;`)[0]!.state;
+  query<{state:RegistrationState}>(`begin read only;set local statement_timeout='5s';${stateSQL} state;rollback;`)[0]!.state;
 const jsonSQL = (v: unknown) => `'${JSON.stringify(v).replaceAll("'", "''")}'::jsonb`;
 const folder =
   mode === 'prepare'

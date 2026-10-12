@@ -5,6 +5,23 @@ import { verifyTap } from './tap.mts';
 import { readFileSync } from 'node:fs';
 import { suites } from './extended.mts';
 import { offlineContainer, firstRecord, errorOutput } from './contracts.mts';
+import {pullWithRateLimitRetry} from './image-pull-retry.mts';
+
+test('explicit image preparation retries only bounded registry rate limits',async()=>{
+ const delays:number[]=[];let calls=0;
+ await pullWithRateLimitRetry(()=>{calls++;if(calls<3)throw Object.assign(Error('pull failed'),{stderr:'toomanyrequests: Rate exceeded'});},async ms=>{delays.push(ms);},()=>{});
+ assert.equal(calls,3);assert.deepEqual(delays,[15000,30000]);
+});
+test('image preparation never retries permanent failures or accepts exhausted limits',async()=>{
+ for(const message of ['unauthorized','manifest unknown','certificate verify failed']){
+  let calls=0;
+  await assert.rejects(pullWithRateLimitRetry(()=>{calls++;throw Error(message);},async()=>{throw Error('Unexpected wait');},()=>{}));
+  assert.equal(calls,1);
+ }
+ let calls=0;const delays:number[]=[];
+ await assert.rejects(pullWithRateLimitRetry(()=>{calls++;throw Error('429 Too Many Requests');},async ms=>{delays.push(ms);},()=>{}),/429/);
+ assert.equal(calls,4);assert.deepEqual(delays,[15000,30000,60000]);
+});
 
 test('untrusted local engine payloads fail closed and errors remain bounded by callers', () => {
   for (const value of [
