@@ -169,3 +169,13 @@ submitted through a new PR with unchanged required quality gates. After that PR
 merges, both working copies must fast-forward to its exact merge commit and be
 checked clean. Source synchronization does not deploy code, install dependencies,
 change store submissions or enable the deferred report feature.
+
+PR #11's first exact-head run passed application, database and web-migration,
+but the coverage gate correctly rejected admin branches at 89.99% against the
+unchanged 90% minimum despite 840 passing browser scenarios. Added five synthetic
+workflow regressions for cursor paging/filter reset, review-open failure, empty
+authorization/inactive reconciliation and closed-case labels/actions. The focused
+instrumented run passed and exercised ten previously missed branches; the updated
+head still requires the full CI gate. No runtime behavior or coverage policy changed.
+Separate locked installs in the original checkout completed for root, web and both
+infrastructure packages; original-checkout root/web/Worker typechecks passed.
