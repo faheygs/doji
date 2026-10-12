@@ -1,6 +1,12 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/browser',
+  // These suites use isolated production-origin fixtures and their own package configs.
+  testIgnore: [
+    'business-portal-migration.spec.ts',
+    'public-migration.spec.ts',
+    'business-access-design.spec.ts',
+  ],
   outputDir: './test-results',
   use: { browserName: 'chromium', trace: 'retain-on-failure' },
   webServer: [

@@ -84,7 +84,13 @@ export function createBusinessHttp(
   async function body(request: Request) {
     if (request.headers.get('content-type') !== 'application/json') throw fail(400);
     if (!request.body) throw fail(400);
-    const bytes = await boundedBody(request.body, request.signal, 16384);
+    const bytes = await boundedBody(
+      request.body,
+      request.signal,
+      policy.setupEnabled === true && new URL(request.url).pathname === '/api/setup'
+        ? 49152
+        : 16384,
+    );
     let value: unknown;
     try {
       value = JSON.parse(new TextDecoder().decode(bytes));
@@ -256,6 +262,7 @@ export function createBusinessHttp(
       }
       const mfaRoute = path === '/auth/mfa/prepare' || path === '/auth/mfa/complete';
       const routes = [
+        ...(policy.setupEnabled === true ? ['/api/setup'] : []),
         '/api/session',
         '/api/application',
         '/api/workspace',
@@ -328,6 +335,29 @@ export function createBusinessHttp(
           request.signal.throwIfAborted();
           await cell.replace(seal(saved));
           if (mfaRoute && mfa) {
+            let companyName: string | undefined;
+            if (policy.setupEnabled === true) {
+              const setup = await application.setup(saved.actor, undefined, request.signal);
+              if (
+                !isRecord(setup) ||
+                !isRecord(setup.profile) ||
+                typeof setup.profile.brand_name !== 'string'
+              )
+                throw fail(403);
+              companyName = setup.profile.brand_name;
+            } else if (path === '/auth/mfa/prepare' && input?.enroll === true) {
+              // Existing pre-setup route also uses an authorized server read,
+              // not a browser-supplied name or opaque WorkOS user identifier.
+              const approved = await application.read(saved.actor, request.signal);
+              if (
+                !isRecord(approved) ||
+                approved.state !== 'approved' ||
+                !isRecord(approved.details) ||
+                typeof approved.details.brand_name !== 'string'
+              )
+                throw fail(403);
+              companyName = approved.details.brand_name;
+            }
             try {
               return json(
                 await businessMfaCommand(
@@ -338,6 +368,7 @@ export function createBusinessHttp(
                   mfa,
                   request.signal,
                   now,
+                  companyName,
                 ),
               );
             } catch (error) {
@@ -355,11 +386,18 @@ export function createBusinessHttp(
             });
           try {
             const result =
-              path === '/api/workspace'
-                ? await application.workspace(saved.actor, request.signal)
-                : request.method === 'GET'
-                  ? await application.read(saved.actor, request.signal)
-                  : await application.command(saved.actor, input, request.signal);
+              policy.setupEnabled === true && (path === '/api/setup' || path === '/api/workspace')
+                ? await application.setup(
+                    saved.actor,
+                    request.method === 'POST' ? input : undefined,
+                    request.signal,
+                    path === '/api/workspace',
+                  )
+                : path === '/api/workspace'
+                  ? await application.workspace(saved.actor, request.signal)
+                  : request.method === 'GET'
+                    ? await application.read(saved.actor, request.signal)
+                    : await application.command(saved.actor, input, request.signal);
             return json(result);
           } catch (error) {
             const status = errorStatus(error);

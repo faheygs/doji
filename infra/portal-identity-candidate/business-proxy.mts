@@ -9,7 +9,20 @@ export interface BusinessProxyConfig {
   origin: string;
   endpoint: string;
   proxyKey: string;
+  ownedAuthEnabled?: boolean;
+  maintenanceEnabled?: boolean;
+  setupEnabled?: boolean;
 }
+const ownedRoutes: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  '/auth/owned/bootstrap': ['GET'],
+  '/auth/owned/signin': ['POST'],
+  '/auth/owned/register': ['POST'],
+  '/auth/owned/verify': ['POST'],
+  '/auth/owned/mfa': ['POST'],
+  '/auth/owned/recover': ['POST'],
+  '/auth/owned/reset': ['POST'],
+  '/auth/owned/reset-events': ['POST'],
+});
 const routes: Readonly<Record<string, readonly string[]>> = Object.freeze({
   '/auth/start': ['POST'],
   '/auth/callback': ['GET'],
@@ -20,9 +33,12 @@ const routes: Readonly<Record<string, readonly string[]>> = Object.freeze({
   '/api/session': ['GET'],
   '/api/application': ['GET', 'POST'],
   '/api/workspace': ['GET'],
+  '/api/setup': ['GET', 'POST'],
 });
 const callback = '/auth/callback';
 const registration = '/auth/workos-registration';
+const resetEvents = '/auth/owned/reset-events';
+const isWebhook = (path: string) => path === registration || path === resetEvents;
 const reply = (status: number) =>
   new Response(null, {
     status,
@@ -39,28 +55,35 @@ function validate(config: BusinessProxyConfig) {
     throw Error('Business transport configuration unavailable');
   return structuredClone(config);
 }
-function route(url: URL, method: string) {
+function route(url: URL, method: string, owned = false) {
+  if (owned && [callback, '/auth/start', registration].includes(url.pathname)) return false;
+  const allowed = owned && url.pathname.startsWith('/auth/owned/') ? ownedRoutes : routes;
   return (
-    Object.hasOwn(routes, url.pathname) &&
-    routes[url.pathname]?.includes(method) &&
+    !url.hash &&
+    Object.hasOwn(allowed, url.pathname) &&
+    allowed[url.pathname]?.includes(method) &&
     (url.pathname === callback ? url.search.length <= 4096 : !url.search)
   );
 }
-function requestHeaders(request: Request, path: string) {
+function requestHeaders(request: Request, path: string, owned = false) {
   const headers = new Headers();
-  const names =
-    path === registration
-      ? ['content-type', 'workos-signature']
-      : ['content-type', 'x-doji-csrf', 'origin', 'sec-fetch-site'];
+  const names = isWebhook(path)
+    ? ['content-type', 'workos-signature']
+    : ['content-type', 'x-doji-csrf', 'origin', 'sec-fetch-site'];
   for (const name of names) {
     const value = request.headers.get(name);
     if (value !== null) headers.set(name, value);
   }
-  if (path !== registration) {
+  if (!isWebhook(path)) {
     const cookies = (request.headers.get('cookie') || '')
       .split(';')
       .map((s) => s.trim())
-      .filter((s) => /^__Host-doji_business(?:_login)?=/.test(s));
+      .filter((s) =>
+        (owned
+          ? /^__Host-doji_business(?:_owned_binding|_owned_flow)?=/
+          : /^__Host-doji_business(?:_login)?=/
+        ).test(s),
+      );
     if (cookies.length) headers.set('cookie', cookies.join('; '));
   }
   return headers;
@@ -72,10 +95,16 @@ export function createBusinessProxy(config: BusinessProxyConfig, upstream: Porta
     try {
       if (policy.enabled !== true) return reply(503);
       const url = new URL(request.url);
-      if (url.origin !== policy.origin || !route(url, request.method)) return reply(404);
+      if (policy.maintenanceEnabled === true && url.pathname !== resetEvents) return reply(503);
+      if (
+        url.origin !== policy.origin ||
+        (url.pathname === '/api/setup' && policy.setupEnabled !== true) ||
+        !route(url, request.method, policy.ownedAuthEnabled)
+      )
+        return reply(404);
       if (
         url.pathname !== callback &&
-        url.pathname !== registration &&
+        !isWebhook(url.pathname) &&
         ((request.headers.get('origin') !== policy.origin &&
           !(
             request.method === 'GET' &&
@@ -87,8 +116,10 @@ export function createBusinessProxy(config: BusinessProxyConfig, upstream: Porta
         return reply(403);
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(15000)]);
       const body =
-        request.method === 'POST' ? await boundedBody(request.body, signal, 16384) : undefined;
-      const headers = requestHeaders(request, url.pathname);
+        request.method === 'POST'
+          ? await boundedBody(request.body, signal, url.pathname === '/api/setup' ? 49152 : 16384)
+          : undefined;
+      const headers = requestHeaders(request, url.pathname, policy.ownedAuthEnabled);
       headers.set('x-doji-portal-proxy-key', policy.proxyKey);
       headers.set('x-doji-client-ip', request.headers.get('cf-connecting-ip') || '');
       stage = 'upstream';
@@ -127,9 +158,11 @@ export function createBusinessProxy(config: BusinessProxyConfig, upstream: Porta
         if (value.startsWith('__cf_bm=')) continue;
         // Only this realm's exact host-only secure cookie contract may escape.
         if (
-          !/^__Host-doji_business(?:_login)?=(?:[A-Za-z0-9_-]{43})?; Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=(?:0|300|28800)$/.test(
-            value,
-          )
+          !(
+            policy.ownedAuthEnabled === true
+              ? /^__Host-doji_business(?:_owned_binding|_owned_flow)?=(?:[A-Za-z0-9_-]{43})?; Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=(?:0|300|28800)$/
+              : /^__Host-doji_business(?:_login)?=(?:[A-Za-z0-9_-]{43})?; Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=(?:0|300|28800)$/
+          ).test(value)
         ) {
           console.warn('business_proxy_boundary', 'cookie', response.status);
           return reply(503);
@@ -169,11 +202,13 @@ export function createBusinessEdgeIngress(
       if ((url.origin !== endpoint.origin && !internal) || !url.pathname.startsWith(prefix + '/'))
         return reply(404);
       const target = new URL(policy.origin + url.pathname.slice(prefix.length) + url.search);
-      if (!route(target, request.method)) return reply(404);
+      if (policy.maintenanceEnabled === true && target.pathname !== resetEvents) return reply(503);
+      if (target.pathname === '/api/setup' && policy.setupEnabled !== true) return reply(404);
+      if (!route(target, request.method, policy.ownedAuthEnabled)) return reply(404);
       return await handler(
         new Request(target, {
           method: request.method,
-          headers: requestHeaders(request, target.pathname),
+          headers: requestHeaders(request, target.pathname, policy.ownedAuthEnabled),
           body: request.body,
           signal: request.signal,
           ...(request.body ? { duplex: 'half' } : {}),

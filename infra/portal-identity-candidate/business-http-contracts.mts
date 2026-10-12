@@ -12,6 +12,7 @@ export interface BusinessHttpConfig {
   encryptionKey: string;
   termsVersion: string;
   privacyVersion: string;
+  setupEnabled?: boolean;
 }
 export interface BusinessHttpDependencies {
   store: ReturnType<typeof createBusinessSessionStore>;

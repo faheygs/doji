@@ -14,6 +14,8 @@ Deno.serve(async (request: Request) => {
       if (
         !config ||
         config.realm !== 'business' ||
+        (config.ownedAuth?.enabled === true) !==
+          (Deno.env.get('BUSINESS_OWNED_AUTH_ENABLED') === 'true') ||
         config.clientId !== 'client_01M3T51363MDZZK6X8DB7NS32N' ||
         origin !== 'https://tvixsmqxotuvyjqzmjla.supabase.co'
       )
@@ -24,6 +26,7 @@ Deno.serve(async (request: Request) => {
         {
           ...config,
           enabled: true,
+          maintenanceEnabled: Deno.env.get('BUSINESS_AUTH_MAINTENANCE') === 'true',
           origin: 'https://business.dojipro.com',
           endpoint: origin + '/functions/v1/business-portal-v2',
         },

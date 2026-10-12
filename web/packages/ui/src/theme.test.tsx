@@ -32,10 +32,23 @@ describe('shared Doji Material UI theme', () => {
       expect(actual.typography.button.textTransform).toBe('none');
       expect(Object.keys(actual.components ?? {})).toEqual([
         'MuiPaper',
+        'MuiOutlinedInput',
         'MuiTableCell',
         'MuiListItemButton',
         'MuiButton',
       ]);
+      expect(actual.components?.MuiOutlinedInput?.styleOverrides?.input).toEqual({
+        '&:-webkit-autofill': {
+          WebkitBoxShadow: `0 0 0 100px ${actual.palette.background.paper} inset`,
+          WebkitTextFillColor: actual.palette.text.primary,
+          caretColor: actual.palette.text.primary,
+        },
+        '&:autofill': {
+          boxShadow: `0 0 0 100px ${actual.palette.background.paper} inset`,
+          WebkitTextFillColor: actual.palette.text.primary,
+          caretColor: actual.palette.text.primary,
+        },
+      });
       for (const surface of [actual.palette.background.default, actual.palette.background.paper]) {
         for (const foreground of [
           actual.palette.text.primary,

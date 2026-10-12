@@ -28,6 +28,19 @@ export interface BusinessMfaReceipt {
 }
 const id = (value: unknown, prefix: string): value is string =>
   typeof value === 'string' && new RegExp(`^${prefix}_[A-Za-z0-9]{1,80}$`).test(value);
+// TOTP issuer/account labels are presentation only, never an identity lookup.
+// Colons delimit the issuer in authenticator URIs, so normalize company colons.
+export function businessAuthenticatorName(companyName: unknown) {
+  if (
+    typeof companyName !== 'string' ||
+    companyName.length > 200 ||
+    /[\u0000-\u001f\u007f]/.test(companyName)
+  )
+    throw fail(403);
+  const account = companyName.replace(/:/g, ' – ').trim().replace(/\s+/g, ' ');
+  if (!account) throw fail(403);
+  return { issuer: 'Doji Business', account };
+}
 export function createBusinessMfa(config: Config, upstream: PortalFetch = fetch, now = Date.now) {
   const policy = { ...config };
   if (!id(policy.clientId, 'client') || !/^sk_[A-Za-z0-9_-]{20,}$/.test(policy.apiKey))
@@ -86,9 +99,16 @@ export function createBusinessMfa(config: Config, upstream: PortalFetch = fetch,
     return { challengeId: value.id, expires };
   }
   return {
-    async prepare(value: VerifiedBusinessActor, enroll: boolean, signal: AbortSignal) {
+    async prepare(
+      value: VerifiedBusinessActor,
+      enroll: boolean,
+      signal: AbortSignal,
+      companyName?: string,
+    ) {
+      const label = enroll ? businessAuthenticatorName(companyName) : null;
       const listed = await factors(value, signal);
       let factorId: string, pendingChallenge: unknown, secret: string | undefined;
+      let qrCode: string | undefined;
       if (listed.length) {
         if (enroll) throw fail(409); // Never replace a factor or reset MFA here.
         factorId = listed[0]!.id;
@@ -98,7 +118,7 @@ export function createBusinessMfa(config: Config, upstream: PortalFetch = fetch,
         const result = await request(
           `/user_management/users/${value.subject}/auth_factors`,
           signal,
-          { type: 'totp', totp_issuer: 'Doji Businesses', totp_user: value.subject },
+          { type: 'totp', totp_issuer: label!.issuer, totp_user: label!.account },
         );
         const factor = result.authentication_factor;
         if (
@@ -112,6 +132,14 @@ export function createBusinessMfa(config: Config, upstream: PortalFetch = fetch,
           throw fail(503);
         factorId = factor.id;
         secret = factor.totp.secret; // Returned only once to the bound enrollment UI; never stored.
+        // WorkOS supplies an inline PNG. Never fetch an external QR service or
+        // render provider HTML/SVG; enrollment material remains response-only.
+        if (
+          typeof factor.totp.qr_code === 'string' &&
+          factor.totp.qr_code.length <= 24576 &&
+          /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(factor.totp.qr_code)
+        )
+          qrCode = factor.totp.qr_code;
         pendingChallenge = result.authentication_challenge;
       }
       actor(value);
@@ -122,7 +150,11 @@ export function createBusinessMfa(config: Config, upstream: PortalFetch = fetch,
         enrollment: enroll,
         ...challenge(pendingChallenge, factorId),
       };
-      return { pending, ...(secret ? { enrollmentSecret: secret } : {}) };
+      return {
+        pending,
+        ...(secret ? { enrollmentSecret: secret } : {}),
+        ...(qrCode ? { enrollmentQr: qrCode } : {}),
+      };
     },
     async complete(
       value: VerifiedBusinessActor,

@@ -247,6 +247,7 @@ try {
     refresh: async () => assert.fail('Unexpected refresh in callback/restore test'),
   };
   const application: BusinessHttpDependencies['application'] = {
+    setup: async () => assert.fail('Unexpected setup in durable session test'),
     workspace: async () => assert.fail('Unexpected workspace in session test'),
     authorize: async () => {},
     read: async () => ({ id: 'synthetic', state: 'draft', revision: 1, details: {} }),

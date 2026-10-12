@@ -10,6 +10,7 @@ export async function businessMfaCommand(
   mfa: ReturnType<typeof createBusinessMfa>,
   signal: AbortSignal,
   now = Date.now,
+  companyName?: string,
 ) {
   if (!input) throw fail(400);
   if (path === '/auth/mfa/prepare') {
@@ -19,13 +20,14 @@ export async function businessMfaCommand(
     saved.mfaNextAt = now() + 30000;
     delete saved.mfaPending;
     await persist(); // Persist admission before any provider call; no automatic retry.
-    const result = await mfa.prepare(saved.actor, input.enroll, signal);
+    const result = await mfa.prepare(saved.actor, input.enroll, signal, companyName);
     if ('pending' in result) {
       saved.mfaPending = result.pending;
       await persist();
       return {
         challengeReady: true,
         ...(result.enrollmentSecret ? { enrollmentSecret: result.enrollmentSecret } : {}),
+        ...(result.enrollmentQr ? { enrollmentQr: result.enrollmentQr } : {}),
       };
     }
     saved.mfaNextAt = 0; // Permit the explicitly requested enrollment next; session cap still applies.

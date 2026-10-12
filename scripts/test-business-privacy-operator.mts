@@ -167,3 +167,34 @@ test('disabled or malformed operator never touches providers or SQL', async () =
   await assert.rejects(fixture().op.erase('invalid', execution));
   await assert.rejects(fixture().op.erase(id, 'invalid'));
 });
+
+test('opt-in brand export requires its private SQL contract and rechecks the case', async () => {
+  const brand = {
+    organization_id: execution,
+    revision: 2,
+    details: {
+      description: 'Our brand',
+      website: 'https://example.com',
+      primary_color: '#123456',
+      secondary_color: '#ABCDEF',
+      logo: '',
+    },
+  };
+  for (const value of [brand, null, undefined, { details: {} }]) {
+    let calls = 0;
+    const op = createBusinessPrivacyOperator(
+      { ...config, includeBusinessSetup: true },
+      async () => {
+        calls++;
+        return { ...target, kind: 'access', state: 'open', revision: 1, brand_profile: value };
+      },
+      async () => Response.json({ object: 'user', id: 'user_business' }),
+    );
+    if (value === brand || value === null) {
+      const result = await op.exportIdentity(id, 1);
+      assert.equal(result.scope, 'identity_and_brand_profile');
+      assert.deepEqual(result.brand_profile, value);
+    } else await assert.rejects(op.exportIdentity(id, 1));
+    assert.equal(calls, 2);
+  }
+});

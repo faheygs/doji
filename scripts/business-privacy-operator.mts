@@ -32,9 +32,12 @@ const config = {
   realm: 'business' as const,
   clientId: String(business.clientId),
   apiKey: String(business.apiKey),
+  includeBusinessSetup: process.argv.includes('--include-business-setup'),
 };
 const functions = {
-  export: 'export_business_identity_target',
+  export: config.includeBusinessSetup
+    ? 'export_business_setup_target'
+    : 'export_business_identity_target',
   claim: 'claim_business_identity_erasure',
   finish: 'finish_business_identity_erasure',
 } as const;
@@ -79,7 +82,7 @@ try {
     { flag: 'wx' },
   );
   console.log(
-    `${mode === 'export' ? 'Identity-only export' : 'Erasure execution result'} saved in protected ${output}. Staff must review remaining retention/provider evidence before closing the privacy case.`,
+    `${mode === 'export' ? (config.includeBusinessSetup ? 'Identity and brand export' : 'Identity-only export') : 'Erasure execution result'} saved in protected ${output}. Staff must review remaining retention/provider evidence before closing the privacy case.`,
   );
 } catch {
   throw Error(

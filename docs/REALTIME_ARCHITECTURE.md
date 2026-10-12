@@ -1,5 +1,13 @@
 # Doji authoritative realtime architecture
 
+October 12: business setup/workspace acceptance passed after owner completion.
+Branded application/recovery HTML is deployed to the existing two business-only
+runtimes. The email change adds no events, queries, polling, triggers, token or
+recipient changes. Capture/sending/wakeup remain off with receipts/budgets retained.
+No shared relay, provider setting, member service or realtime gate was deployed.
+The common renderer is also prepared for code-owned shared messages, not deployed
+to those services. See `docs/EMAIL_BRANDING_2026-10-11.md` for remaining boundaries.
+
 October 9 20:20 UTC announcement acceptance update: owner-approved additive SQL and
 employee runtime v17 are deployed with composition enabled for /connected. No change
 to identifier hints, channels, member auth, push, timers or polling. Existing runtime

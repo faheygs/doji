@@ -12,6 +12,55 @@ test('runtime refuses cross-realm configuration', async () => {
   );
 });
 
+test('new MFA enrollment uses the authorized company, not a browser override', async () => {
+  for (const setupEnabled of [false, true]) {
+    for (const approved of [false, true]) {
+      const f = await businessFixture(
+        { setupEnabled },
+        {
+          noFactor: true,
+          application: {
+            state: approved ? 'approved' : 'submitted',
+            revision: 1,
+            details: { brand_name: 'Testing' },
+          },
+          ...(approved ? { approvedBrandName: 'Testing approved snapshot' } : {}),
+        },
+      );
+      const callback = await f.runtime(await f.begin());
+      const cookie = callback.headers
+        .getSetCookie()
+        .find((c) => c.startsWith('__Host-doji_business='))!
+        .split(';')[0]!;
+      const session = (await (
+        await f.runtime(f.request('/api/session', undefined, cookie))
+      ).json()) as { csrf: string };
+      const headers = { 'x-doji-csrf': session.csrf };
+      const forged = await f.runtime(
+        f.request('/auth/mfa/prepare', { enroll: true, companyName: 'Forged' }, cookie, headers),
+      );
+      assert.equal(forged.status, approved ? 400 : 403);
+      assert.deepEqual(f.enrollments, []);
+      const response = await f.runtime(
+        f.request('/auth/mfa/prepare', { enroll: true }, cookie, headers),
+      );
+      assert.equal(response.status, approved ? 200 : 403);
+      assert.deepEqual(
+        f.enrollments,
+        approved
+          ? [
+              {
+                type: 'totp',
+                totp_issuer: 'Doji Business',
+                totp_user: setupEnabled ? 'Testing approved snapshot' : 'Testing',
+              },
+            ]
+          : [],
+      );
+    }
+  }
+});
+
 test('business MFA requires session and CSRF; server receipt survives restore without changing identity', async () => {
   const f = await businessFixture();
   const callback = await f.runtime(await f.begin());

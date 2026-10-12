@@ -3,11 +3,13 @@ import { createHash } from 'node:crypto';
 import { boundedBody } from './bounded-body.mts';
 import { record } from './portal-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
+import { isBrandDetails } from './business-setup-contract.mts';
 export interface BusinessPrivacyOperatorConfig {
   enabled: boolean;
   realm: 'business';
   clientId: string;
   apiKey: string;
+  includeBusinessSetup?: boolean;
 }
 export type BusinessPrivacySql = (
   operation: 'export' | 'claim' | 'finish',
@@ -51,6 +53,7 @@ export function createBusinessPrivacyOperator(
       state: value.state,
       revision: value.revision,
       delete_authorized: value.delete_authorized,
+      ...(policy.includeBusinessSetup === true ? { brand_profile: value.brand_profile } : {}),
     };
   }
   async function request(subject: string, method: 'GET' | 'DELETE') {
@@ -127,12 +130,25 @@ export function createBusinessPrivacyOperator(
         current.subject !== t.subject
       )
         throw unavailable();
+      if (
+        policy.includeBusinessSetup === true &&
+        current.brand_profile !== null &&
+        (!record(current.brand_profile) ||
+          !isBrandDetails(current.brand_profile.details) ||
+          typeof current.brand_profile.organization_id !== 'string' ||
+          !uuid.test(current.brand_profile.organization_id))
+      )
+        throw unavailable();
       return {
         case_id: caseId,
         account_id: t.account_id,
         identity_source: 'workos_business',
         identity,
-        scope: 'identity_profile_only',
+        ...(policy.includeBusinessSetup === true ? { brand_profile: current.brand_profile } : {}),
+        scope:
+          policy.includeBusinessSetup === true
+            ? 'identity_and_brand_profile'
+            : 'identity_profile_only',
         additional_review:
           'Combine with the case application export; assess provider security records and retention separately.',
       };

@@ -105,6 +105,7 @@ async function setup(
   const commands:(Record<string,unknown>&{p_details:Record<string,unknown>})[] = [];
   let reads = 0,
     tokens = 0,
+    tokenGate:Promise<void>|null = null,
     readGate:Promise<void>|null = null;
   await page.route('https://business-test.supabase.co/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -126,6 +127,7 @@ async function setup(
       tokens++;
       expect(route.request().headers().authorization).toBe('Bearer test-access');
       expect(route.request().postDataJSON()).toEqual({});
+      if (tokenGate) await tokenGate;
       return route.fulfill({
         json: {
           topic: 'business:78000000-0000-4000-8000-000000000001:events',
@@ -168,6 +170,9 @@ async function setup(
     },
     holdReads: (value:Promise<void>|null) => {
       readGate = value;
+    },
+    holdTokens: (value:Promise<void>|null) => {
+      tokenGate = value;
     },
     counts: () => ({ reads, tokens }),
     change: (value:Partial<typeof application>) => {
@@ -251,12 +256,18 @@ test('business subscription rejects cross-account and duplicate hints; foregroun
     document.dispatchEvent(new Event('visibilitychange'));
   });
   expect(await page.evaluate(() => window.businessRealtimeTest.closed)).toBe(1);
+  let releaseToken!:()=>void;
+  f.holdTokens(new Promise<void>(resolve => { releaseToken = resolve; }));
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect.poll(() => f.counts().tokens).toBe(2);
-  expect(await page.evaluate(() => window.businessRealtimeTest.topics)).toEqual([
+  // Receiving a token request is not subscription completion. Hold the reply
+  // to prove that the second channel attaches only after authorization returns.
+  expect(await page.evaluate(() => window.businessRealtimeTest.topics)).toHaveLength(1);
+  releaseToken();
+  await expect.poll(() => page.evaluate(() => window.businessRealtimeTest.topics)).toEqual([
     'business:78000000-0000-4000-8000-000000000001:events',
     'business:78000000-0000-4000-8000-000000000001:events',
   ]);

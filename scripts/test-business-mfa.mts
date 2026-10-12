@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBusinessMfa } from '../infra/portal-identity-candidate/business-mfa.mts';
+import {
+  businessAuthenticatorName,
+  createBusinessMfa,
+} from '../infra/portal-identity-candidate/business-mfa.mts';
 import { businessMfaCommand } from '../infra/portal-identity-candidate/business-mfa-session.mts';
 import type {
   SavedSession,
@@ -36,11 +39,17 @@ function fixture(
       assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${config.apiKey}`);
       if (options.status) return new Response(null, { status: options.status });
       if (String(url).endsWith('/auth_factors')) {
-        if (init?.method === 'POST')
+        if (init?.method === 'POST') {
+          assert.deepEqual(JSON.parse(String(init.body)), {
+            type: 'totp',
+            totp_issuer: 'Doji Business',
+            totp_user: 'Testing',
+          });
           return Response.json({
             authentication_factor: { ...factor, totp: { secret: 'ABCDEFGHIJKLMNOP' } },
             authentication_challenge: options.challenge ?? challenge,
           });
+        }
         return Response.json(options.list ?? { data: [factor] });
       }
       if (String(url).endsWith('/verify'))
@@ -77,10 +86,10 @@ test('existing TOTP challenge creates no MFA assurance until successful verifica
 test('enrollment requires explicit intent and cannot replace an existing factor', async () => {
   const f = fixture({ list: { data: [] } });
   assert.deepEqual(await f.mfa.prepare(actor, false, signal()), { enrollmentRequired: true });
-  const result = await f.mfa.prepare(actor, true, signal());
+  const result = await f.mfa.prepare(actor, true, signal(), 'Testing');
   assert.equal('enrollmentSecret' in result && result.enrollmentSecret, 'ABCDEFGHIJKLMNOP');
   assert.ok('pending' in result && !JSON.stringify(result.pending).includes('ABCDEFGHIJKLMNOP'));
-  await assert.rejects(fixture().mfa.prepare(actor, true, signal()));
+  await assert.rejects(fixture().mfa.prepare(actor, true, signal(), 'Testing'));
 });
 for (const list of [
   {},
@@ -312,10 +321,26 @@ test('new enrollment is absent from provider list until verified; post-verificat
       },
       () => at,
     );
-    const prepared = await mfa.prepare(actor, true, signal());
+    const prepared = await mfa.prepare(actor, true, signal(), 'Testing');
     assert.ok('pending' in prepared && prepared.pending.enrollment);
     const complete = mfa.complete(actor, prepared.pending, '123456', signal());
     if (attached) assert.equal(mfa.attest(actor, await complete).mfaVerified, true);
     else await assert.rejects(complete);
   }
+});
+test('authenticator label uses the approved company and rejects missing or unsafe names', async () => {
+  assert.deepEqual(businessAuthenticatorName('  Northstar  '), {
+    issuer: 'Doji Business',
+    account: 'Northstar',
+  });
+  assert.deepEqual(businessAuthenticatorName('Acme: Studio'), {
+    issuer: 'Doji Business',
+    account: 'Acme – Studio',
+  });
+  for (const value of [undefined, '', '   ', 'bad\nname', 'x'.repeat(201)]) {
+    assert.throws(() => businessAuthenticatorName(value));
+  }
+  const f = fixture({ list: { data: [] } });
+  await assert.rejects(f.mfa.prepare(actor, true, signal()));
+  assert.equal(f.calls.length, 0);
 });

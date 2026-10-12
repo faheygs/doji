@@ -1,5 +1,19 @@
 # Doji: authoritative product and system context
 
+## October 12 business acceptance and branded email release (LIVE)
+
+Owner completed approved-business setup. Hosted workspace verification before and
+after the email release shows the saved Testing brand, owner access and active
+authenticator protection. Publishing/billing and public signup remain closed.
+Branded application and owned-recovery HTML is now deployed only to
+`business-application-mail` and `business-portal-v2`; downloaded sources match.
+No email was sent during this deployment. Automatic capture/sending/wakeup remain
+off; prior receipts and consumed budgets are retained. Database/member contracts,
+unrelated runtimes, configuration digests and all Pages deployments are unchanged.
+Code-owned shared/admin/member/legacy email presentation is prepared and tested
+locally but NOT deployed. WorkOS and Supabase Auth provider templates remain a
+separate release boundary. See `docs/EMAIL_BRANDING_2026-10-11.md`.
+
 ## October 9 announcement acceptance deployment (20:20 UTC)
 
 Owner approved the separate employee-only database/runtime deployment. The two additive

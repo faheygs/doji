@@ -5,7 +5,10 @@ import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-export function createActionSecretCapture(persist: (secret: string) => void) {
+export function createActionSecretCapture(
+  persist: (secret: string) => void,
+  purpose: 'registration' | 'recovery' = 'registration',
+) {
   const csrf = randomBytes(32).toString('hex');
   let saved = false;
   const server = createServer(async (req, res) => {
@@ -20,8 +23,25 @@ export function createActionSecretCapture(persist: (secret: string) => void) {
       'Content-Security-Policy',
       "default-src 'none'; form-action 'self'; frame-ancestors 'none'; style-src 'unsafe-inline'",
     );
-    const page = (error = '') =>
+    const render = (error = '') =>
       `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doji business signing secret</title><style>body{font:17px system-ui;max-width:650px;margin:48px auto;padding:24px;background:#fafafa;color:#171717}input{box-sizing:border-box;width:100%;padding:14px;margin:12px 0}button{display:block;margin:20px 0 0 auto;padding:12px 24px}label{font-weight:650}.error{color:#a20}</style><h1>${saved ? 'Saved securely' : 'Connect business registration'}</h1>${saved ? '<p>The business Action signing secret is saved on this computer. No deployment or provider setting was changed. Return to the chat.</p>' : `<p>In the open <strong>WorkOS business Production → Actions → Configuration</strong> page, copy <strong>Signing secret</strong> and paste it below.</p><p>This is not an API key or client ID. It stays on this computer and is not printed in chat.</p>${error ? `<p class="error" role="alert">${error}</p>` : ''}<form action="/capture" method="post"><input type="hidden" name="csrf" value="${csrf}"><label for="secret">Business Action signing secret</label><input type="password" id="secret" name="secret" autocomplete="off" spellcheck="false" required maxlength="256"><button type="submit">Save</button></form>`}</html>`;
+    const page = (error = '') => {
+      const html = render(error);
+      return purpose === 'registration'
+        ? html
+        : html
+            .replaceAll('Connect business registration', 'Connect business recovery')
+            .replaceAll(
+              'Business Action signing secret',
+              'Business recovery webhook signing secret',
+            )
+            .replaceAll(
+              'business Action signing secret',
+              'business recovery webhook signing secret',
+            )
+            .replaceAll('Actions → Configuration', 'Webhooks → Dedicated reset endpoint')
+            .replaceAll('Actions signing secret', 'dedicated webhook signing secret');
+    };
     if (req.headers.host !== new URL(origin).host)
       return res.writeHead(403).end('Local access only');
     if (req.method === 'GET' && ['/', '/capture'].includes(req.url || '')) return res.end(page());

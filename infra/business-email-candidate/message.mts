@@ -1,4 +1,5 @@
 // Local-only mail preparation. No provider client, API key, network or send function.
+import { renderBusinessEmailHtml } from './theme.mts';
 export interface BusinessMailJob {
   id: string;
   application_id: string;
@@ -33,6 +34,7 @@ export function prepareBusinessMail(
   job: BusinessMailJob,
   providerUser: unknown,
   pinned: { issuer: string; audience: string },
+  options: { setupEnabled?: boolean } = {},
 ) {
   if (
     job.issuer !== pinned.issuer ||
@@ -58,11 +60,32 @@ export function prepareBusinessMail(
     !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(user.email)
   )
     throw Error('Verified business email required');
-  const [subject, introduction] = notices[job.kind]!;
+  const [subject, defaultIntroduction] = notices[job.kind]!;
+  const setup = options.setupEnabled === true && job.kind === 'approve';
+  const introduction = setup
+    ? 'Your business application has been approved. Finish setting up your brand and authenticator to open your business workspace.'
+    : defaultIntroduction;
+  // Navigation only, never an authentication capability. Current business
+  // sign-in, approval, ownership and MFA are rechecked at the destination.
+  const destination = setup
+    ? 'Finish setup: https://business.dojipro.com/business-portal/setup/'
+    : 'View your application: https://business.dojipro.com/business-portal/access/?mode=signin';
   return {
     to: user.email,
     subject,
     idempotencyKey: 'business-application/' + job.id,
-    text: `${introduction}\n\nApplication reference: ${job.application_id}\n\nView your application: https://business.dojipro.com/business-portal/access/?mode=signin\n\nNeed help? https://dojipro.com/support/\n\nDoji for Business`,
+    html: renderBusinessEmailHtml({
+      title: subject,
+      preheader: introduction,
+      summary: introduction,
+      action: {
+        label: setup ? 'Finish setup' : 'View application',
+        href: setup
+          ? 'https://business.dojipro.com/business-portal/setup/'
+          : 'https://business.dojipro.com/business-portal/access/?mode=signin',
+      },
+      details: [{ label: 'Application reference', value: job.application_id }],
+    }),
+    text: `${introduction}\n\nApplication reference: ${job.application_id}\n\n${destination}\n\nNeed help? https://dojipro.com/support/\n\nDoji for Business`,
   };
 }
