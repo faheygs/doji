@@ -559,7 +559,7 @@ describe('safe email rendering contracts', () => {
   test('valid timestamps are UTC', () => {
     expect(formatEmailTimestamp('2026-10-02T01:02:00Z')).toContain('UTC');
   });
-  test('minimal email uses neutral defaults and transactional footer', () => {
+  test('minimal email uses the shared brand accent and transactional footer', () => {
     const value = renderDojiEmail({
       preheader: 'Preview',
       eyebrow: 'Update',
@@ -568,7 +568,8 @@ describe('safe email rendering contracts', () => {
     });
     expect(value.html).toContain('&lt;Title&gt;');
     expect(value.html).toContain('Line1<br>Line2');
-    expect(value.html).toContain('#6f7788');
+    expect(value.html).toContain('border-top:4px solid #ff643c');
+    expect(value.html).toContain('alt="Doji logo"');
     expect(value.text).toContain('transactional message');
     expect(value.text).not.toContain('Reference:');
   });
