@@ -117,3 +117,25 @@ No coverage threshold, source-size allowance, permissions or production settings
 are relaxed. Native/device, provider acceptance, production schema reconciliation,
 disabled health/business feeds and broad business launch remain separate gates
 in [Current state](CURRENT_STATE_AND_GAPS.md).
+
+## Follow-up retirement pass
+
+After PR #8 merged, the owner requested another pass for obsolete files. Removed:
+
+- `docs/examples/push-registration.example.tsx`: unused copy-and-paste Expo-token
+  fallback hook. It calls the old `register_push_token` flow and installs a separate
+  notification handler. Current guidance and production behavior are in
+  `lib/pushNotifications.ts`, `hooks/useNativeNotifications.ts` and the realtime
+  architecture document; retaining the example would teach a superseded approach.
+- `scripts/download-android-22.mts` and `scripts/mobile-download-android-24.mts`:
+  one-shot downloaders hardcoded to Android 1.0.8 builds 22 and 24. Neither has
+  a consumer in imports, package scripts, CI, tests or documentation. Released
+  Android 1.0.9 build 29 supersedes both; these are not rollback commands or
+  reusable download tooling. The shared EAS read client and its tests remain.
+
+Tracked-reference searches found no references to these three paths before
+removal. No production module, test, migration, release record, binary or private
+acceptance artifact was removed. Other dated scripts remain where they explain
+recorded releases or preserve recovery/qualification behavior; age alone is not
+proof of retirement. All three deleted files are recoverable from parent main
+commit `e642f00afa56daed29a3fd58315d09f35c9083b3` in Git history.
