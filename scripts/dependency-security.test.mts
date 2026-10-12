@@ -30,6 +30,11 @@ test('archived test artifacts are ignored on both host path formats', () => {
     assert.equal(ignored('C:\\repo\\test-results\\archive\\test.ts'), true);
     assert.equal(ignored('/repo/test-results/archive/test.ts'), true);
     assert.equal(ignored('/repo/website/test-results/test.ts'), true);
+    assert.equal(ignored('/repo/web/packages/ui/theme.test.tsx'), true);
+    assert.equal(ignored('C:\\repo\\web\\tests\\browser\\home.spec.ts'), true);
+    assert.equal(ignored('/repo/.claude/worktrees/old/test.ts'), true);
+    assert.equal(ignored('C:\\repo\\.claude\\worktrees\\old\\test.ts'), true);
+    assert.equal(ignored('/repo/website/active.test.mts'), false);
     assert.equal(ignored('/repo/__tests__/lib/test.ts'), false);
     assert.equal(ignored('C:\\repo\\__tests__\\lib\\test.ts'), false);
   }

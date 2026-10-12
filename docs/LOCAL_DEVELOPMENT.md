@@ -11,8 +11,8 @@ not provision a complete staging environment or authorize production access.
   run the separate strict compiler checks as well. This does not change the
   store-build runtime configuration or qualify historical scripts on every Node version.
 - npm and the committed lockfiles. Root `.npmrc` does not enable legacy peer deps.
-- Chrome for local portal Playwright runs; the test configuration uses Chrome
-  outside CI. Playwright browser installation is a separate prerequisite in CI.
+- Chrome for retained `website/` Playwright runs outside CI. The React `web/`
+  suite uses installed Playwright Chromium locally and in CI.
 - Android Studio/JDK/emulator for a local Android native build; macOS/Xcode for a
   local iOS native build. Windows cannot run `expo run:ios`.
 - A container runtime and the approved database fixture only for database tests;
@@ -48,6 +48,8 @@ npm run dev:site --prefix web
 The apps bind loopback at ports 4310/4311/4312. Defaults are disconnected preview
 configuration, not permission to connect a production employee/business session.
 The public Next app exports static files; there is no Next API/auth server.
+Its retained safety compiler needs the locked `infra/doji-orchestrator`
+dependencies even for a web-only build; that install does not run a Worker.
 `npm run check --prefix web` validates types, lint, units, builds and artifacts.
 `npm run test:browser --prefix web` needs installed Playwright Chromium and those
 ports free. Package-only acceptance configs need their exact prepared artifacts.

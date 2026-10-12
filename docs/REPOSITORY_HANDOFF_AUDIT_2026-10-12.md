@@ -84,6 +84,29 @@ Retesting exposed an unrelated dialog-entry timing race in the accessibility
 check. It now waits for full MUI opacity before measuring contrast, following
 the other dialog suites, without changing UI or weakening assertions. All five
 privacy-action tests then passed three consecutive runs (15/15).
+The subsequent complete local browser run passed 149 tests with the same two
+package-only skips and no failures.
+
+Staged Gitleaks 8.30.1 scanning and GitGuardian passed. A complete source-only
+snapshot scan reported 12 reviewed findings: synthetic test values/idempotency
+keys, PEM formatting/validation code, a deployment version identifier, and the
+existing Firebase public client configuration. No private credential was found;
+provider-side key restriction auditing was not part of this scan.
+
+Fresh hosted CI caught a web-job setup gap: the Next safety asset compiler
+imports the existing locked esbuild from `infra/doji-orchestrator`. The web job
+now installs that package too (no Worker execution/deployment).
+Expo Doctor also detected five patches published October 12. The owner explicitly
+approved source/build-dependency updates: Expo 57.0.28, dev client 57.0.20,
+Router 57.0.26, splash screen 57.0.10 and jest-expo 57.0.6. This does not authorize
+a build, submission or deployment; device acceptance remains a later release gate.
+Unrelated font/Radix dependency updates were excluded from the lockfile. Expo's
+Android fetch source was reviewed and remains LF-normalized SHA-256
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`;
+only the exact supported SDK version pin changes, not the observer or hash guard.
+The Windows Jest exclusion now recognizes native separators for the separately
+tested web workspace and retained agent checkouts; regression assertions cover
+Windows/POSIX and retain active mobile/website test discovery.
 
 The PR's exact-head application, database, coverage and web-migration jobs must
 all pass before normal protected merge. Hosted CI/PR is the final evidence for
