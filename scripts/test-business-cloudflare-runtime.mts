@@ -54,8 +54,26 @@ try {
   });
   const denial = await denied.json();
   assert.deepEqual(denial, { status: 403, location: null, cookies: [], calls: 0 });
+  const owned = await runtime.dispatchFetch('https://business.dojipro.com/auth/owned/bootstrap', {
+    headers: {
+      origin: 'https://business.dojipro.com',
+      cookie: '__Host-doji_employee=private',
+      authorization: 'Bearer synthetic-member',
+      'sec-fetch-site': 'same-origin',
+    },
+  });
+  assert.deepEqual(await owned.json(), {
+    status: 200,
+    location: null,
+    calls: 1,
+    cookies: [
+      '__Host-doji_business_owned_binding=' +
+        'x'.repeat(43) +
+        '; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=300',
+    ],
+  });
   console.log(
-    'PASS: real local workerd preserves business callback, secure cookies and cross-realm denial; no provider/database requests.',
+    'PASS: real local workerd preserves legacy/owned business cookies and cross-realm denial; no provider/database requests.',
   );
 } finally {
   await runtime.dispose();

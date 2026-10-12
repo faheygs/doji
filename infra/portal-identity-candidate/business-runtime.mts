@@ -17,11 +17,16 @@ import type { BusinessProxyConfig } from './business-proxy.mts';
 import type { RestrictedSqlConfig, CreatePortalSqlClient } from './restricted-sql.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import type { JSONWebKeySet } from 'jose';
+import {
+  createBusinessOwnedRuntime,
+  type BusinessOwnedRuntimeConfig,
+} from './business-owned-runtime.mts';
 export interface BusinessRuntimeConfig extends BusinessHttpConfig, BusinessProxyConfig {
   database: Omit<RestrictedSqlConfig, 'realm'>;
   apiKey: string;
   actionSecret: string;
   turnstileSecret: string;
+  ownedAuth?: BusinessOwnedRuntimeConfig;
 }
 interface Dependencies {
   createClient: CreatePortalSqlClient;
@@ -42,8 +47,18 @@ export function createBusinessRuntime(
   const policy = structuredClone(config);
   if (policy.realm !== 'business' || policy.origin !== 'https://business.dojipro.com')
     throw Error('Business runtime configuration unavailable');
-  const execute = createRestrictedSql({ ...policy.database, realm: 'business' }, createClient);
-  const store = createBusinessSessionStore({ ...policy, enabled: true }, execute, now);
+  const owned = policy.ownedAuth?.enabled === true;
+  if (policy.ownedAuthEnabled !== undefined && policy.ownedAuthEnabled !== owned)
+    throw Error('Business authentication mode mismatch');
+  const execute = createRestrictedSql(
+    { ...policy.database, realm: 'business', ownedBusinessAuth: owned },
+    createClient,
+  );
+  const store = createBusinessSessionStore(
+    { ...policy, enabled: true, ownedAuthEnabled: owned },
+    execute,
+    now,
+  );
   const application = createBusinessApplicationAdapter((role, sql, params, signal) =>
     execute(role, sql, params, signal || AbortSignal.timeout(4000)),
   );
@@ -100,16 +115,33 @@ export function createBusinessRuntime(
   );
   // Validates configuration eagerly without spending a request or admitting anyone.
   createBusinessAdmission(policy, { ip: '' }, upstream);
-  return createBusinessEdgeIngress(policy, async (request, client) => {
-    if (new URL(request.url).pathname === '/auth/workos-registration') return registration(request);
-    return createBusinessHttp(policy, {
-      store,
-      provider,
-      application,
-      now,
-      verify: async (request) => (await verifier())(request),
-      admission: createBusinessAdmission(policy, client, upstream),
-      mfa,
-    })(request);
-  });
+  const ownedHandler = owned
+    ? createBusinessOwnedRuntime(policy, {
+        store,
+        provider,
+        application,
+        now,
+        execute,
+        upstream,
+        verify: async (request) => (await verifier())(request),
+      })
+    : null;
+  return createBusinessEdgeIngress(
+    { ...policy, ownedAuthEnabled: owned },
+    async (request, client) => {
+      if (ownedHandler && new URL(request.url).pathname.startsWith('/auth/owned/'))
+        return ownedHandler(request, client);
+      if (new URL(request.url).pathname === '/auth/workos-registration')
+        return registration(request);
+      return createBusinessHttp(policy, {
+        store,
+        provider,
+        application,
+        now,
+        verify: async (request) => (await verifier())(request),
+        admission: createBusinessAdmission(policy, client, upstream),
+        mfa,
+      })(request);
+    },
+  );
 }

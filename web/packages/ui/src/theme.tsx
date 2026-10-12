@@ -34,6 +34,23 @@ export function createDojiTheme(mode: 'light' | 'dark', desktopWorkspace = false
     shape: { borderRadius: 12 },
     components: {
       MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          input: {
+            // Replace MUI's blue autofill inset, not browser/password-manager behavior.
+            '&:-webkit-autofill': {
+              WebkitBoxShadow: `0 0 0 100px ${dark ? '#1a1b20' : '#ffffff'} inset`,
+              WebkitTextFillColor: dark ? '#f7f5f2' : '#101114',
+              caretColor: dark ? '#f7f5f2' : '#101114',
+            },
+            '&:autofill': {
+              boxShadow: `0 0 0 100px ${dark ? '#1a1b20' : '#ffffff'} inset`,
+              WebkitTextFillColor: dark ? '#f7f5f2' : '#101114',
+              caretColor: dark ? '#f7f5f2' : '#101114',
+            },
+          },
+        },
+      },
       MuiTableCell: {
         styleOverrides: {
           head: {

@@ -53,6 +53,16 @@ test('MFA prepare and enrollment require complete server response contracts', as
   f.set({ challengeReady: true, enrollmentSecret: 'ABCDEFGHIJKLMNOP' });
   assert.equal((await f.client.enroll()).totp.secret, 'ABCDEFGHIJKLMNOP');
 });
+test('enrollment permits only a bounded inline PNG QR and always retains manual fallback', async () => {
+  const f = fixture(); await f.client.restore();
+  for (const qrCode of ['https://qr.example/secret', 'data:image/svg+xml,<svg/>', 'data:image/png;base64,' + 'a'.repeat(25000)]) {
+    f.set({ challengeReady: true, enrollmentSecret: 'ABCDEFGHIJKLMNOP', enrollmentQr: qrCode });
+    assert.equal((await f.client.enroll()).totp.qrCode, undefined);
+  }
+  const qr = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+  f.set({ challengeReady: true, enrollmentSecret: 'ABCDEFGHIJKLMNOP', enrollmentQr: qr });
+  assert.equal((await f.client.enroll()).totp.qrCode, qr);
+});
 test('verification never promotes browser assurance without authoritative restore', async () => {
   const f = fixture();
   await f.client.restore();

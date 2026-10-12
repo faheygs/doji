@@ -134,6 +134,7 @@ function fixture(overrides: Partial<BusinessHttpConfig> = {}) {
     },
   };
   const application: BusinessHttpDependencies['application'] = {
+    setup: async () => assert.fail('Unexpected setup in legacy HTTP test'),
     workspace: async () => {
       throw Object.assign(Error('MFA required'), { status: 403 });
     },

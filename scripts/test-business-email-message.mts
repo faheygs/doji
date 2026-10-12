@@ -10,6 +10,21 @@ const job = {
   audience: 'client_business',
 };
 const user = { id: 'user_fixture', email: 'business@test.invalid', email_verified: true };
+test('approved setup email contains navigation only, not a sign-in or access token', () => {
+  const result = prepareBusinessMail({ ...job, kind: 'approve' }, user, job, {
+    setupEnabled: true,
+  });
+  assert.match(
+    result.text,
+    /Finish setup: https:\/\/business.dojipro.com\/business-portal\/setup\//,
+  );
+  assert.doesNotMatch(result.text, /token|password|user_fixture/);
+  for (const link of result.text.match(/https:\/\/\S+/g) ?? []) {
+    assert.equal(new URL(link).search, '');
+    assert.equal(new URL(link).hash, '');
+  }
+  assert.match(result.text, /authenticator/);
+});
 test('all transactional messages use the verified business recipient and private portal link', () => {
   for (const kind of ['submit', 'approve', 'decline', 'request_changes', 'reopen']) {
     const result = prepareBusinessMail(
@@ -18,6 +33,10 @@ test('all transactional messages use the verified business recipient and private
       job,
     );
     assert.equal(result.to, user.email);
+    assert.match(result.html, /Doji logo/);
+    assert.match(result.html, /DOJI FOR BUSINESS/);
+    assert.match(result.html, />View application<\/a>/);
+    assert.match(result.html, /background:#b83b1b/);
     assert.match(result.text, /Application reference: 12345678/);
     assert.match(
       result.text,

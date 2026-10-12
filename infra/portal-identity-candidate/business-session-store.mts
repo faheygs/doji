@@ -8,6 +8,7 @@ export interface BusinessStoreConfig {
   realm: 'business';
   origin: string;
   clientId: string;
+  ownedAuthEnabled?: boolean;
 }
 export interface HeldBusinessSession {
   value: string;
@@ -37,6 +38,7 @@ export function createBusinessSessionStore(
   )
     throw denied();
   const scope = createHash('sha256').update(`${config.origin}|${config.clientId}`).digest('hex');
+  const owned = config.ownedAuthEnabled === true;
   const run = async (
     op: 'put' | 'peek' | 'take' | 'acquire' | 'remove' | 'replace' | 'release',
     kind: 'flow' | 'session',
@@ -52,7 +54,9 @@ export function createBusinessSessionStore(
     try {
       const result = await execute(
         'doji_business_session',
-        'select business_session_private.execute_store($1,$2,$3,$4,$5,$6::integer,$7,$8) as result',
+        owned
+          ? 'select business_session_private.execute_owned_store_v1($1,$2,$3,$4,$5,$6::integer,$7,$8) as result'
+          : 'select business_session_private.execute_store($1,$2,$3,$4,$5,$6::integer,$7,$8) as result',
         [scope, op, kind, key, value, ttl, lease, expected],
         signal ? AbortSignal.any([signal, AbortSignal.timeout(4000)]) : AbortSignal.timeout(4000),
       );
@@ -85,6 +89,8 @@ export function createBusinessSessionStore(
       signal?: AbortSignal,
       actor?: BusinessActor,
     ) {
+      // Owned authentication must use the ticket/fence-aware installer instead.
+      if (owned) throw denied();
       // Legacy local fixtures retain the original store primitive; the independent
       // HTTP callback always supplies the verified actor and uses the atomic bind.
       if (!actor) return put('session', key, value, expires, signal);

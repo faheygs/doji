@@ -2,6 +2,11 @@
 // application controller; tokens/cookies are never read by JavaScript or persisted.
 import { errorStatus, isBusinessApplication, isRecord } from './business-contracts.mts';
 import type { BusinessSession } from './business-contracts.mts';
+import {
+  isSetupCommand,
+  setupProfile,
+  type BusinessSetupCommand,
+} from './business-setup-contract.mts';
 export interface BusinessBrowserConfig {
   origin: string;
   enabled: boolean;
@@ -113,6 +118,18 @@ export function createBusinessBrowserClient(
     hasSession: () => session !== null,
     epoch: () => generation,
     assurance: () => session?.assurance || null,
+    async setup() {
+      return setupProfile(await protectedCall('/api/setup'));
+    },
+    async setupCommand(command: BusinessSetupCommand) {
+      if (!isSetupCommand(command)) throw Error('Check your business setup details.');
+      return setupProfile(await protectedCall('/api/setup', command));
+    },
+    async dashboard() {
+      const profile = setupProfile(await protectedCall('/api/workspace'));
+      if (!profile.setup_complete) throw Error('Finish business setup first.');
+      return profile;
+    },
     onClear(fn: () => void) {
       listeners.add(fn);
       return () => listeners.delete(fn);
@@ -133,7 +150,13 @@ export function createBusinessBrowserClient(
         !/^[A-Z2-7]{16,128}$/.test(result.enrollmentSecret)
       )
         throw Error('Authenticator setup could not be verified.');
-      return { id: 'server-bound-challenge', totp: { secret: result.enrollmentSecret } };
+      const qrCode =
+        typeof result.enrollmentQr === 'string' &&
+        result.enrollmentQr.length <= 24576 &&
+        /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(result.enrollmentQr)
+          ? result.enrollmentQr
+          : undefined;
+      return { id: 'server-bound-challenge', totp: { secret: result.enrollmentSecret, qrCode } };
     },
     async verifyFactor(id: string, code: string) {
       if (id !== 'server-bound-challenge' || !/^\d{6}$/.test(code))

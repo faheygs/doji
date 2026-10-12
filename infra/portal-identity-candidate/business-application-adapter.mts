@@ -3,6 +3,7 @@
 // token. Existing private functions reauthorize and execute each command atomically.
 import { isRecord } from './business-contracts.mts';
 import type { BusinessAgreement } from './business-contracts.mts';
+import { businessSetupSql, isSetupCommand } from './business-setup-contract.mts';
 type SqlValue = string | boolean | number | null;
 export type BusinessExecute = (
   role: 'doji_identity_resolver' | 'doji_business_enrollment',
@@ -52,6 +53,23 @@ export function createBusinessApplicationAdapter(execute: BusinessExecute) {
     );
   return {
     read,
+    setup(actor: unknown, input?: unknown, signal?: AbortSignal, workspace = false) {
+      if (input !== undefined && !isSetupCommand(input))
+        throw Object.assign(Error('Check your business setup details.'), { status: 400 });
+      const command = input === undefined ? null : input;
+      return run(
+        'doji_identity_resolver',
+        businessSetupSql,
+        [
+          ...identity(actor),
+          command ? command.action : workspace ? 'workspace' : 'read',
+          command?.revision ?? null,
+          command?.details ? JSON.stringify(command.details) : null,
+          command?.requestId ?? null,
+        ],
+        signal,
+      );
+    },
     workspace(actor: unknown, signal?: AbortSignal) {
       const args = identity(actor);
       if (args[4] !== true) throw denied();

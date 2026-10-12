@@ -5,6 +5,9 @@ import { record } from './portal-contracts.mts';
 import { employeeWorkflowSql } from './employee-workflow-contracts.mts';
 import { employeeAnnouncementSql } from './employee-announcement-contracts.mts';
 import { employeeHealthSql } from './employee-health-contracts.mts';
+import { employeeHistorySql } from './employee-history-contracts.mts';
+import { businessOwnedSql } from './business-owned-sql.mts';
+import { businessSetupSql } from './business-setup-contract.mts';
 import type { PortalRealm } from './portal-contracts.mts';
 import type { SqlParameter } from './employee-contracts.mts';
 import type { ClientConfig } from 'pg';
@@ -17,6 +20,7 @@ export interface RestrictedSqlConfig {
   username: string;
   password: string;
   ca?: string;
+  ownedBusinessAuth?: boolean;
 }
 export interface PortalSqlClient {
   connect(): Promise<unknown>;
@@ -39,6 +43,7 @@ const operations: Readonly<
       'select portal_identity_private.complete_business_enrollment($1,$2,$3,$4,$5,$6,$7,$8,$9) as result': 9,
     }),
     doji_identity_resolver: Object.freeze({
+      [businessSetupSql]: 9,
       'select portal_identity_private.read_business_application($1,$2,$3,$4,$5) as result': 5,
       'select portal_identity_private.read_business_workspace($1,$2,$3,$4,$5) as result': 5,
       'select portal_identity_private.business_application_command($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::uuid) as result': 11,
@@ -47,6 +52,7 @@ const operations: Readonly<
   employee: Object.freeze({
     doji_employee_application: Object.freeze({
       [employeeHealthSql]: 7,
+      [employeeHistorySql]: 7,
       [employeeWorkflowSql]: 7,
       [employeeAnnouncementSql]: 7,
       'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result': 7,
@@ -76,6 +82,7 @@ export function createRestrictedSql(
   if (
     !config ||
     !own(operations, config.realm) ||
+    (config.ownedBusinessAuth === true && config.realm !== 'business') ||
     typeof createClient !== 'function' ||
     typeof config.host !== 'string' ||
     !/^[a-z0-9.-]+\.pooler\.supabase\.com$/.test(config.host) ||
@@ -93,8 +100,17 @@ export function createRestrictedSql(
         )))
   )
     throw unavailable();
-  const policy = structuredClone(config),
-    queries = operations[policy.realm];
+  const policy = structuredClone(config);
+  const queries =
+    policy.ownedBusinessAuth === true
+      ? {
+          ...operations.business,
+          doji_business_session: {
+            ...operations.business.doji_business_session,
+            ...businessOwnedSql,
+          },
+        }
+      : operations[policy.realm];
   const login = `doji_${policy.realm}_portal_login`;
   const options = Object.freeze({
     host: policy.host,
@@ -121,10 +137,17 @@ export function createRestrictedSql(
     // Exact string checks before opening a socket; a parameter cannot choose SQL,
     // role, schema, principal, query timeout, database or transaction behavior.
     if (
+      typeof sql !== 'string' ||
+      !Array.isArray(params) ||
+      (policy.ownedBusinessAuth === true &&
+        (sql.includes('put_bound_session(') ||
+          sql.includes('execute_store(') ||
+          (sql.includes('execute_owned_store_v1(') &&
+            params[1] === 'put' &&
+            params[2] === 'session'))) ||
       !own(queries, role) ||
       !queries[role] ||
       !own(queries[role], sql) ||
-      !Array.isArray(params) ||
       params.length !== queries[role][sql] ||
       !signal ||
       signal.aborted ||

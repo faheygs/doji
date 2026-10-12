@@ -23,6 +23,20 @@ Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 - `docs/drafts/*.sql` are change/rollback artifacts, **not an ordered installation
   directory**. Do not bulk apply them. See the local setup and release guides.
 
+## Business onboarding and email release records
+
+- [Owned authentication preparation](BUSINESS_OWNED_AUTH_PREPARATION_2026-10-10.md)
+- [Owned authentication guard](BUSINESS_OWNED_AUTH_GUARD_2026-10-10.md)
+- [Owned authentication cutover](BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md)
+- [Recovery email](BUSINESS_RECOVERY_EMAIL_2026-10-10.md)
+- [Reset recovery](BUSINESS_RESET_RECOVERY_2026-10-10.md)
+- [Existing test-account access](BUSINESS_EXISTING_TEST_ACCESS_2026-10-11.md)
+- [Password feedback](BUSINESS_PASSWORD_FEEDBACK_2026-10-11.md)
+- [Password feedback release](BUSINESS_PASSWORD_RELEASE_2026-10-11.md)
+- [Onboarding preparation](BUSINESS_ONBOARDING_PREPARATION_2026-10-11.md)
+- [Onboarding rollout and acceptance](BUSINESS_ONBOARDING_ROLLOUT_2026-10-11.md)
+- [Email branding and release boundaries](EMAIL_BRANDING_2026-10-11.md)
+
 ## Handbook
 
 - [Current state and handoff gaps](CURRENT_STATE_AND_GAPS.md)

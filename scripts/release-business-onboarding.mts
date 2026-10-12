@@ -1,64 +1,103 @@
-// Exact owner-approved business-only release. Never pushes the dirty migration tree.
+// Owner-approved gated onboarding rollout. Never enables public registration,
+// billing, campaigns, automatic email, or changes member/employee deployments.
 import assert from 'node:assert/strict';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import {cli,cf,hash,ref} from './prepare-safety-launch.mts';
-import {evidenceRecord,evidenceAt,evidenceArray,evidenceText,firstEvidence} from './release-evidence.mts';
-import type {PagesReleaseProject} from './release-evidence.mts';
-export const folder='test-results/business-release-20260930';
-const sources=['business_applications_v1.sql','business_auth_v1.sql','business_public_admission_v1.sql','business_signup_legal_v1.sql','business_privacy_v1.sql'];
+import { readFile, writeFile, mkdir, cp, access } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { cli, cf, ref, hash, inventory } from './prepare-safety-launch.mts';
+import { database, functions, secrets, pages, health } from './business-disabled-release-reads.mts';
+import { evidenceRecord as record, evidenceRows as rows } from './release-evidence.mts';
+const root='test-results/business-onboarding-release-20261011';
+const secure='.artifacts/business-onboarding-release-20261011';
+const previous='test-results/business-existing-test-access-20261011/site';
 const mode=process.argv[2];
-assert.ok(mode&&['capture','assemble','rehearse','install-disabled','verify'].includes(mode));
-assert.equal((await readFile('supabase/.temp/project-ref','utf8')).trim(),ref);
-await mkdir(folder,{recursive:true});
-const save=(name:string,value:unknown)=>writeFile(`${folder}/${name}.json`,JSON.stringify(value,null,2),{flag:'wx'});
-const read=(name:string)=>readFile(`${folder}/${name}.json`,'utf8').then(s=>evidenceRecord(JSON.parse(s)));
-const query=(q:string)=>cli(['db','query',q,'--linked','--output-format','json']);
-const baselineSql=`select jsonb_build_object(
- 'business_installed',to_regnamespace('business_private') is not null,
- 'role_installed',exists(select 1 from pg_roles where rolname='doji_business'),
- 'functions',(select jsonb_object_agg(p.oid::regprocedure::text,jsonb_build_object('definition',md5(pg_get_functiondef(p.oid)),'acl',p.proacl::text)) from pg_proc p where p.pronamespace='public'::regnamespace and p.prokind='f'),
- 'policies',(select jsonb_agg(to_jsonb(p) order by schemaname,tablename,policyname) from pg_policies p where schemaname in('public','storage')),
- 'relations',(select jsonb_object_agg(c.oid::regclass::text,jsonb_build_object('acl',c.relacl::text,'rls',c.relrowsecurity,'forced',c.relforcerowsecurity)) from pg_class c where c.relnamespace in('public'::regnamespace,'storage'::regnamespace) and c.relkind in('r','p','v','m')),
- 'auth_triggers',(select jsonb_object_agg(t.tgname,md5(pg_get_triggerdef(t.oid))) from pg_trigger t where tgrelid='auth.users'::regclass and not tgisinternal),
- 'jobs',(select jsonb_agg(jsonb_build_object('id',jobid,'name',jobname,'schedule',schedule,'active',active,'command',md5(command)) order by jobid) from cron.job),
- 'release_policy',(select jsonb_agg(to_jsonb(p) order by platform) from public.mobile_release_policy p),
- 'active_events',(select count(*) from public.daily_events where fires_at<=clock_timestamp() and fires_at+interval '10 minutes'>clock_timestamp()),
- 'lock_waits',(select count(*) from pg_stat_activity where backend_type='client backend' and wait_event_type='Lock')
-) checks;`;
-const snapshot=()=>firstEvidence(query(`begin read only; set local statement_timeout='8s'; ${baselineSql} rollback;`),'checks');
-const compare=(before:Record<string,unknown>,after:Record<string,unknown>)=>{
- for(const [key,value] of Object.entries(evidenceRecord(before.functions)))assert.deepEqual(evidenceRecord(after.functions)[key],value,`Existing function changed: ${key}`);
- for(const [key,value] of Object.entries(evidenceRecord(before.relations)))assert.deepEqual(evidenceRecord(after.relations)[key],value,`Existing relation changed: ${key}`);
- for(const [key,value] of Object.entries(evidenceRecord(before.auth_triggers)))assert.equal(evidenceRecord(after.auth_triggers)[key],value,`Existing Auth trigger changed: ${key}`);
- for(const key of ['policies','jobs','release_policy'])assert.deepEqual(after[key],before[key],key);
-};
-if(mode==='capture'){
- const database=snapshot();assert.equal(database.business_installed,false);assert.equal(database.role_installed,false);
- assert.equal(database.active_events,0);assert.equal(database.lock_waits,0);
- const pages:Record<string,unknown>={};for(const name of ['doji-business','doji-admin','doji-site']){const p=await cf<PagesReleaseProject>(`/pages/projects/${name}`);assert.ok(p.canonical_deployment);pages[name]={deployment:p.canonical_deployment.id,url:p.canonical_deployment.url,domains:p.domains,branch:p.production_branch};}
- await save('baseline',{at:new Date().toISOString(),database,pages,functions:evidenceRecord(cli(['functions','list','--project-ref',ref,'--output-format','json'])).functions,secrets:cli(['secrets','list','--project-ref',ref,'--output-format','json'])});
- console.log('Saved fresh existing-contract hashes, provider deployments and secret digests; no credentials or member content.');
-} else if(mode==='assemble'){
- const contents=await Promise.all(sources.map(name=>readFile(`docs/drafts/${name}`,'utf8')));
- const body=contents.map(source=>source.replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'')).join('\n');
- const sql=`begin;\nset local lock_timeout='2s';set local statement_timeout='8s';\nselect pg_advisory_xact_lock(hashtextextended('doji-business-release-20260930',0));\ndo $$begin if to_regnamespace('business_private') is not null or exists(select 1 from pg_roles where rolname='doji_business') then raise exception 'Business release already installed or conflicting'; end if; end$$;\ncreate temp table business_prior_functions on commit drop as select oid,pg_get_functiondef(oid) definition,proacl from pg_proc where pronamespace='public'::regnamespace and prokind='f';\n${body}\ndo $$begin if exists(select 1 from business_prior_functions f left join pg_proc p using(oid) where p.oid is null or f.definition is distinct from pg_get_functiondef(p.oid) or f.proacl is distinct from p.proacl) then raise exception 'Member/staff contract drift'; end if; end$$;\ncommit;\n`;
- await writeFile(`${folder}/install-disabled.sql`,sql,{flag:'wx'});
- await save('candidate',{at:new Date().toISOString(),sources:sources.map((name,i)=>({name,sha256:hash(evidenceText(contents[i]))})),sha256:hash(sql),mode:'business-only-disabled',memberChanges:false});
- console.log('Exact additive disabled SQL assembled; no authenticator grant, signup, realtime, jobs or member edits.');
-} else if(mode==='rehearse'||mode==='install-disabled'){
- const before=evidenceAt(await read('baseline'),'database'),candidate=await read('candidate');
- const sql=await readFile(`${folder}/install-disabled.sql`,'utf8');assert.equal(hash(sql),candidate.sha256);
- for(const source of evidenceArray(candidate.sources))assert.equal(hash(await readFile(`docs/drafts/${evidenceText(source.name)}`)),source.sha256);
- const fresh=snapshot();compare(before,fresh);assert.equal(fresh.business_installed,false);assert.equal(fresh.role_installed,false);assert.equal(fresh.active_events,0);assert.equal(fresh.lock_waits,0);
- if(mode==='install-disabled')assert.equal((await read('rehearsal')).passed,true);
- await save(mode==='rehearse'?`rehearse-started-${Date.now()}`:`${mode}-started`,{at:new Date().toISOString(),sha256:candidate.sha256});
- const filename=`${folder}/${mode==='rehearse'?'rehearsal':'install-disabled'}.sql`;
- if(mode==='rehearse')await writeFile(filename,sql.replace(/commit;\s*$/,'rollback;'));
- cli(['db','query','--file',filename,'--linked','--output-format','json']);
- const after=snapshot();compare(before,after);assert.equal(after.business_installed,mode==='install-disabled');
- await save(mode==='rehearse'?'rehearsal':'installed-disabled',{at:new Date().toISOString(),sha256:candidate.sha256,passed:true,existingContractsUnchanged:true});
- console.log(`${mode} verified. Existing member/staff functions, grants, RLS, schedules and release policies unchanged.`);
+assert.ok(['prepare','rehearse','database','verify-database'].includes(mode || ''));
+const query=(sql:string)=>rows(cli(['db','query',sql,'--linked','--workdir','D:/ChallengeApp/DoIt','--output-format','json']));
+const read=async(p:string)=>record(JSON.parse(await readFile(p,'utf8')));
+const save=(name:string,value:unknown)=>writeFile(`${root}/${name}.json`,JSON.stringify(value,null,2),{flag:'wx'});
+const drafts=['business_setup_v1.sql','business_setup_privacy_v1.sql','business_email_outbox_v1.sql','business_email_dispatch_v1.sql'];
+const memberState=`jsonb_build_object(
+ 'functions',(select jsonb_agg(jsonb_build_array(p.oid,pg_get_functiondef(p.oid),p.proacl::text) order by p.oid) from pg_proc p where p.prokind='f' and p.pronamespace in('public'::regnamespace,'auth'::regnamespace)),
+ 'policies',(select jsonb_agg(to_jsonb(p) order by schemaname,tablename,policyname) from pg_policies p),
+ 'relations',(select jsonb_agg(jsonb_build_array(c.oid,c.relacl::text,c.relrowsecurity,c.relforcerowsecurity) order by c.oid) from pg_class c where c.relnamespace in('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace)),
+ 'realms',(select jsonb_agg(to_jsonb(r) order by realm) from portal_identity_private.realms r),
+ 'business_settings',(select to_jsonb(s) from business_private.settings s where singleton),
+ 'session_settings',(select to_jsonb(s) from business_session_private.settings s where singleton),
+ 'acceptance',(select to_jsonb(s) from business_session_private.owned_auth_acceptance s where singleton),
+ 'enrollment',(select to_jsonb(s) from portal_identity_private.business_enrollment_settings s where singleton))`;
+const guard=`do $$begin
+ if not pg_try_advisory_xact_lock(hashtextextended('doji-business-onboarding-v1',0)) then raise exception 'Concurrent release';end if;
+ if exists(select 1 from public.daily_events where fires_at<=clock_timestamp()+interval '25 minutes' and fires_at+interval '15 minutes'>clock_timestamp() limit 1) or exists(select 1 from public.domain_event_outbox where published_at is null and available_at<clock_timestamp()-interval '60 seconds' limit 1) then raise exception 'Protected member window';end if;
+end$$;`;
+async function unchanged() {
+ const b=await read(`${root}/baseline.json`),d=database();
+ assert.equal(d.event_window,false);assert.equal(d.overdue_sample,0);
+ for(const key of ['contracts','policies']) assert.equal(d[key],record(b.database)[key],key);
+ assert.deepEqual(functions(),b.functions);assert.deepEqual(secrets(),b.secrets);assert.deepEqual(await pages(),b.pages);
+ const actual=record(query(`begin read only;set local statement_timeout='5s';select ${memberState} state;rollback;`)[0]?.state);
+ assert.deepEqual(actual,b.memberState,'Member, realm or admission state changed');
+}
+if(mode==='prepare') {
+ await assert.rejects(access(`${root}/baseline.json`));await mkdir(root,{recursive:true});
+ execFileSync('git',['check-ignore',`${secure}/runtime-before.json`],{stdio:'pipe'});
+ await mkdir(secure,{recursive:false});
+ const owner=execFileSync('whoami',[],{encoding:'utf8'}).trim();
+ execFileSync('icacls',[secure,'/inheritance:r','/grant:r',`${owner}:(OI)(CI)F`,'SYSTEM:(OI)(CI)F'],{stdio:'pipe'});
+ const raw=(await readFile('.artifacts/business-recovery-acceptance-20261011/password-release-runtime.env','utf8')).trim().slice('BUSINESS_V2_CONFIG='.length);
+ const secretList=secrets();assert.equal(hash(raw),secretList.find(s=>s.name==='BUSINESS_V2_CONFIG')?.value);
+ const config=record(JSON.parse(raw));assert.equal(config.signupEnabled,false);assert.equal(record(config.ownedAuth).acceptanceOnly,true);
+ await writeFile(`${secure}/runtime-before.json`,raw,{flag:'wx'});
+ const project=record(await cf('/pages/projects/doji-business'));
+ await writeFile(`${secure}/pages-before.json`,JSON.stringify(project),{flag:'wx'});
+ const d=database();assert.equal(d.event_window,false);assert.equal(d.overdue_sample,0);
+ const p=await pages();assert.equal(record(p['doji-business']).id,'4803a3ed-269c-414f-96ec-f504050ddfaf');
+ const old=await read('test-results/business-existing-test-access-20261011/prepared.json');
+ assert.deepEqual(await inventory(previous),old.site);
+ const state=record(query(`begin read only;set local statement_timeout='5s';select ${memberState} state;rollback;`)[0]?.state);
+ const installed=query(`begin read only;select to_regclass('business_private.setup_settings')::text setup,to_regclass('business_private.email_settings')::text mail;rollback;`)[0];
+ assert.deepEqual(installed,{setup:null,mail:null});
+ await save('baseline',{at:new Date().toISOString(),database:d,pages:p,functions:functions(),secrets:secretList,memberState:state,health:await health()});
+ await cp(previous,`${root}/pages-before`,{recursive:true,errorOnExist:true});
+ await mkdir(`${root}/edge-before`);
+ cli(['functions','download','business-portal-v2','--project-ref',ref,'--use-api','--workdir',resolve(root,'edge-before')],false);
+ await save('rollback-manifest',{pages:await inventory(`${root}/pages-before`),edge:await inventory(`${root}/edge-before`)});
+ let body='';const sourceHashes:Record<string,string>={};
+ for(const name of drafts) {
+  const sql=(await readFile(`docs/drafts/${name}`,'utf8')).replaceAll('\r\n','\n');
+  sourceHashes[name]=hash(sql);body+=sql.replace(/^begin;|^commit;/gm,'')+'\n';
+ }
+ const expected=JSON.stringify(state).replaceAll("'","''");
+ const sql=`begin;set local lock_timeout='2s';set local statement_timeout='8s';${guard}
+ do $$begin if ${memberState} is distinct from '${expected}'::jsonb then raise exception 'Release baseline drift';end if;end$$;
+ create temp table onboarding_functions_before as select oid,pg_get_functiondef(oid) definition,proacl from pg_proc where prokind='f';
+ create temp table onboarding_roles_before as select oid,rolname,rolcanlogin,rolsuper,rolinherit,rolbypassrls from pg_roles;
+ ${body}
+ do $$begin
+ if exists(select 1 from onboarding_functions_before b left join pg_proc p on p.oid=b.oid where p.oid is null or b.definition is distinct from pg_get_functiondef(p.oid) or b.proacl is distinct from p.proacl) then raise exception 'Existing function changed';end if;
+ if exists(select 1 from onboarding_roles_before b left join pg_roles r on r.oid=b.oid where r.oid is null or (b.rolcanlogin,b.rolsuper,b.rolinherit,b.rolbypassrls) is distinct from (r.rolcanlogin,r.rolsuper,r.rolinherit,r.rolbypassrls)) then raise exception 'Existing role changed';end if;
+ if ${memberState} is distinct from '${expected}'::jsonb then raise exception 'Member/admission state changed';end if;
+ if exists(select 1 from business_private.setup_settings where enabled) or exists(select 1 from business_private.email_settings where capture_enabled or sending_enabled) then raise exception 'Expected closed gates';end if;
+ end$$;
+ commit;`;
+ await writeFile(`${root}/install.sql`,sql,{flag:'wx'});
+ await writeFile(`${root}/rehearse.sql`,sql.replace(/commit;$/,'rollback;'),{flag:'wx'});
+ await save('prepared',{sourceHashes,install:hash(sql),rehearse:hash(await readFile(`${root}/rehearse.sql`))});
+ console.log('Rollback packages/config preserved; private onboarding installation prepared with all new gates disabled.');
 } else {
- const before=evidenceAt(await read('baseline'),'database'),after=snapshot();compare(before,after);
- console.log(JSON.stringify({businessInstalled:after.business_installed,existingContractsUnchanged:true,activeEvents:after.active_events,lockWaits:after.lock_waits}));
+ const prepared=await read(`${root}/prepared.json`);
+ for(const [file,expected] of Object.entries(record(prepared.sourceHashes))) assert.equal(hash((await readFile(`docs/drafts/${file}`,'utf8')).replaceAll('\r\n','\n')),expected,file);
+ await unchanged();
+ if(mode==='rehearse'||mode==='database') {
+  if(mode==='database') await read(`${root}/rehearsed.json`);
+  const file=mode==='rehearse'?'rehearse':'install';assert.equal(hash(await readFile(`${root}/${file}.sql`)),prepared[file]);
+  await save(`${mode}-started`,{at:new Date().toISOString()});
+  cli(['db','query','--file',resolve(root,`${file}.sql`),'--linked','--workdir','D:/ChallengeApp/DoIt','--output-format','json']);
+  await unchanged();
+  await save(mode==='rehearse'?'rehearsed':'database-installed',{at:new Date().toISOString(),hash:prepared[file]});
+  console.log(mode==='rehearse'?'Production transaction rehearsal rolled back; member contracts unchanged.':'Private onboarding/privacy/mail contracts installed DISABLED; existing member and portal contracts unchanged.');
+ } else {
+  const state=query(`begin read only;select (select enabled from business_private.setup_settings where singleton) setup_enabled,(select capture_enabled or sending_enabled from business_private.email_settings where singleton) mail_enabled,(select count(*) from business_private.brand_profiles) profiles,(select count(*) from business_private.email_outbox) mail_jobs;rollback;`)[0];
+  assert.deepEqual(state,{setup_enabled:false,mail_enabled:false,profiles:0,mail_jobs:0});
+  await save('database-verified',{at:new Date().toISOString(),state});console.log(JSON.stringify(state));
+ }
 }

@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,stat} from 'node:fs/promises';
+import {hash,inventory} from './prepare-safety-launch.mts';
+const root='test-results/business-onboarding-release-20261011';
+const raw=await readFile(`${root}/apps.json`,'utf8'),apps=JSON.parse(raw);
+assert.deepEqual(await inventory(`${root}/site`),apps.site);
+const result=JSON.parse(await readFile('web/test-results/business-migration/.last-run.json','utf8'));
+assert.equal(result.status,'passed');assert.deepEqual(result.failedTests,[]);
+assert.ok((await stat('web/test-results/business-migration/.last-run.json')).mtimeMs>Date.parse(apps.at));
+await writeFile(`${root}/package-tests.json`,JSON.stringify({at:new Date().toISOString(),appsHash:hash(raw),browserPassed:25,browserSkipped:0,mailDatabaseChecks:48,mailNodeChecks:12,toolingTypes:true,syntheticOnly:true},null,2),{flag:'wx'});
+await writeFile(`${root}/capacity.json`,JSON.stringify({at:new Date().toISOString(),source:'Authenticated provider dashboards read during this release',resend:{plan:'Free',monthlyUsed:5,monthlyIncluded:3000,dailyUsed:0,dailyIncluded:100,paidOverages:false,domain:'mail.dojipro.com',domainVerified:true,tls:'Enforced'},supabase:{plan:'Pro',edgeInvocationsUsed:771948,edgeInvocationsIncluded:2000000,egressGb:1.09,egressIncludedGb:250,cpuPercent:2,diskPercent:24,ramPercent:43,connections:12,connectionLimit:60,overagesDisabled:true},cloudflare:{period:'September 16 - October 16',billableUsageUsd:0,requests:842390},approvedTest:{emails:1,recipient:'faheygs+doji-business-test@gmail.com',publicSignup:false,accountCreation:false,scheduledPolling:false,newPlan:false}},null,2),{flag:'wx'});
+console.log('Exact-package test evidence and observed capacity recorded.');

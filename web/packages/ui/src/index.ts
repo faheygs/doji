@@ -7,4 +7,5 @@ export { BrandLockup } from './BrandLockup';
 export { VerificationCode } from './VerificationCode';
 export { Identity } from './Identity';
 export { AccountMenu } from './AccountMenu';
+export { AccountCard } from './AccountCard';
 export { WorkspaceIcon } from './WorkspaceIcon';

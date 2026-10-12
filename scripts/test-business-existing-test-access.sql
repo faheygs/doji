@@ -1,0 +1,20 @@
+-- Run after the existing acceptance test: expired window, spent creation slot.
+select pg_temp.ok(not (select existing_account_access from business_session_private.owned_auth_acceptance),'persistent access defaults off');
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'signin',repeat('6',64),repeat('b',64),repeat('c',64))->>'state'='denied','expired access remains denied before activation');
+update business_session_private.owned_auth_acceptance set existing_account_access=true;
+select pg_temp.denied($q$update business_session_private.owned_auth_acceptance set reserved_at=null,reservation_hash=null,agreement_hmac=null$q$,'persistent access cannot reopen creation slot','23514');
+set local role doji_business_session;
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'signin',repeat('6',64),repeat('b',64),repeat('c',64))->>'state'='allowed','existing test account can sign in after cutoff');
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'verify',repeat('7',64),repeat('b',64),repeat('c',64))->>'state'='allowed','verification remains available');
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'mfa',repeat('8',64),repeat('b',64),repeat('c',64))->>'state'='allowed','MFA remains available');
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'register',repeat('9',64),repeat('b',64),repeat('c',64))->>'state'='denied','expired registration stays closed');
+select pg_temp.ok(not business_session_private.reserve_owned_acceptance_v1(repeat('a',64),repeat('b',64),repeat('9',64),repeat('2',64)),'signup slot stays spent');
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'signin',repeat('9',64),repeat('d',64),repeat('c',64))->>'state'='denied','other identities stay denied');
+select pg_temp.denied($q$update business_session_private.owned_auth_acceptance set existing_account_access=true$q$,'restricted role cannot enable its own access');
+reset role;
+select pg_temp.ok((select bool_and(expires_at<=clock_timestamp()+interval '5 minutes') from business_session_private.owned_auth_tickets),'session admission tickets retain five-minute expiry');
+update business_session_private.owned_auth_buckets set attempts=10 where kind='identity' and key_hash=repeat('b',64);
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'signin',repeat('9',64),repeat('b',64),repeat('c',64))->>'state'='limited','persistent account retains attempt limits');
+update business_session_private.owned_auth_acceptance set existing_account_access=false;
+select pg_temp.ok(business_session_private.admit_owned_acceptance_v1(repeat('a',64),'signin',repeat('9',64),repeat('b',64),repeat('c',64))->>'state'='denied','retaining rollback closes persistent access');
+select pg_temp.ok((select reserved_at is not null from business_session_private.owned_auth_acceptance),'rollback retains reservation history');

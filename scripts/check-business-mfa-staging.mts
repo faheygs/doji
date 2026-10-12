@@ -126,7 +126,7 @@ try {
   assert.deepEqual(await mfa.prepare(actor, false, AbortSignal.timeout(15000)), {
     enrollmentRequired: true,
   });
-  const enrolled = await mfa.prepare(actor, true, AbortSignal.timeout(15000));
+  const enrolled = await mfa.prepare(actor, true, AbortSignal.timeout(15000), 'Synthetic business');
   evidence.stage = 'verify-enrollment';
   assert.ok('pending' in enrolled && enrolled.enrollmentSecret);
   assert.equal(mfa.attest(actor, enrolled.pending).mfaVerified, false);

@@ -125,11 +125,15 @@ export function savedSession(value: unknown): SavedSession {
     ...(typeof value.mfaNextAt === 'number' ? { mfaNextAt: value.mfaNextAt } : {}),
   };
 }
-export function createBusinessCipher(origin: string, clientId: string, encryptionKey: string) {
+export function createBusinessCipher<T = LoginFlow | SavedSession>(
+  origin: string,
+  clientId: string,
+  encryptionKey: string,
+) {
   const key = Buffer.from(encryptionKey, 'hex');
   const aad = Buffer.from(`doji-business-v1|${origin}|${clientId}`);
   return {
-    seal(data: LoginFlow | SavedSession): string {
+    seal(data: T): string {
       const iv = randomBytes(12),
         cipher = createCipheriv('aes-256-gcm', key, iv);
       cipher.setAAD(aad);

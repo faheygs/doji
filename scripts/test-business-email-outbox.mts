@@ -19,12 +19,19 @@ try {
     where relnamespace in ('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace);`);
   const before = contracts();
   room.sql('set role postgres;\n' + source('docs/drafts/business_email_outbox_v1.sql'));
+  room.sql('set role postgres;\n' + source('docs/drafts/business_email_dispatch_v1.sql'));
+  room.sql('set role postgres;\n' + source('docs/drafts/business_email_hosted_v1.sql'));
   const output = room.sql(
-    'set role postgres;\n' + source('scripts/test-business-email-outbox.sql'),
+    'set role postgres;\n' +
+      source('scripts/test-business-email-outbox.sql') +
+      '\n' +
+      source('scripts/test-business-email-dispatch.sql') + '\n' + source('scripts/test-business-email-hosted.sql'),
   );
   const checks = output.split('\n').filter((line) => line.startsWith('PASS:'));
   assert.ok(checks.length >= 20);
   console.log(checks.join('\n'));
+  room.sql('set role postgres;\n' + source('docs/drafts/business_email_hosted_v1.rollback.sql'));
+  room.sql('set role postgres;\n' + source('docs/drafts/business_email_dispatch_v1.rollback.sql'));
   room.sql('set role postgres;\n' + source('docs/drafts/business_email_outbox_v1.rollback.sql'));
   assert.equal(
     room.sql('select capture_enabled or sending_enabled from business_private.email_settings'),
