@@ -18,6 +18,14 @@ Supabase; delivery uses Cloudflare Durable Objects and Ably.
 | What is live versus unfinished? | [Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md) |
 | Where are all the detailed records? | [Documentation index](docs/README.md) |
 
+External-service responsibilities are explicit in the [service catalog](docs/SERVICE_CATALOG.md):
+Supabase (member auth/data/media), WorkOS (independent portal identity/MFA),
+Cloudflare (DNS, hosting, coordination, Turnstile and mail routing), Ably (realtime),
+Resend (transactional email), Expo/EAS (native builds/submission), Apple/APNs and
+Google Play/Firebase FCM (distribution/push), Sentry (diagnostics), and
+GitHub/Actions/GitGuardian (source, CI and secret checks). The catalog separates
+active integrations from gated features, retired systems and development tools.
+
 The source baseline includes the TypeScript migration, React web workspace and
 business onboarding/email work ([PR #7](https://github.com/faheygs/doji/pull/7),
 October 12, 2026, `96a612b`).

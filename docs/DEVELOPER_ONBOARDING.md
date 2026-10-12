@@ -30,6 +30,10 @@ the filename nor an old checklist establishes deployment status. Use the
 - Run `npm run check:hygiene`. Fresh clones must not contain Supabase CLI link
   caches, local environment values or generated test/deployment evidence.
 - Confirm your scope: mobile, portal UI, database, infrastructure or operations.
+- Read the service catalog before requesting vendor access. Be able to explain
+  Supabase versus WorkOS identity, Ably versus database truth, Resend versus
+  Cloudflare forwarding/provider auth mail, and EAS versus app-store distribution.
+  A library or prepared integration is not proof a hosted service is enabled.
 - Inspect `git status --short`, `package.json` and the lockfile. Install with
   `npm ci`, `npm ci --prefix infra/portal-identity-candidate` and
   `npm ci --prefix infra/doji-orchestrator`; strict tooling and browser builds

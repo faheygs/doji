@@ -53,6 +53,10 @@ JS artifacts are versioned exceptions. Exact versions come from package/lockfile
 - Update current-state/system-map/scoped instructions when ownership, stack,
   entry points or requirements change. Keep rollout history distinct from current
   guidance; verify live flags before any independently authorized release.
+- Keep `docs/SERVICE_CATALOG.md` current when adding, replacing, retiring or enabling
+  any external service. Name its purpose, affected surface, source owner, account/
+  environment, secret-storage location and current/gated/legacy/dev-only status.
+  Include capacity/release/rollback requirements; never commit credential values.
 
 Read `DOJI_CONTEXT.md` and `docs/REALTIME_ARCHITECTURE.md` completely before making
 cross-screen, backend, realtime, notification, economy, profile, or challenge-flow
