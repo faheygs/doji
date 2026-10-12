@@ -1,22 +1,34 @@
 # Service catalog
 
+**Service inventory owner: Gavin Fahey. Source/release-record review: October 12,
+2026.** This is the canonical list of external services and why Doji uses them.
+Read it alongside the [system map](SYSTEM_MAP.md) for internal code ownership and
+[current state](CURRENT_STATE_AND_GAPS.md) for release gates.
+
 This is the navigation and responsibility map for services found in the audited
 source and release records. URLs and project names are identifiers, **not access
 grants**. Ask the owner for named, task-scoped access. No service's current billing
 allowance, account membership or availability was freshly verified for this doc.
 Existing plans are not permission to incur new costs.
 
+The hosting/product rows describe established integrations, not a claim that every
+feature is enabled. Prepared/gated, legacy and development-only uses are explicitly
+called out below. Account administration belongs to the owner; engineering access
+is granted per service and environment, never inherited from an admin-portal role.
+
 ## Hosting and product operations
 
 | Service | What Doji uses it for | Dashboard and identifiers | Source or evidence |
 | --- | --- | --- | --- |
-| GitHub | Source/reviews and checked-in quality workflow | Owner-provided repository invitation | `.github/workflows/quality.yml`; never share a credential-bearing Git remote |
+| GitHub and GitHub Actions | Monorepo source, pull requests, protected main and application/database/web/coverage CI | Owner-provided repository invitation | [.github/workflows/quality.yml](../.github/workflows/quality.yml); source merge is not deployment |
 | Supabase | Postgres, member Auth, Storage, Edge Functions, Vault and protected database APIs | [Project dashboard](https://supabase.com/dashboard/project/tvixsmqxotuvyjqzmjla); project `tvixsmqxotuvyjqzmjla` | `supabase/`, `lib/supabase.ts`, `types/database.ts` |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | [Dashboard](https://ably.com/dashboard); owner identifies the production app before granting access | `lib/realtimeClient.ts`, `realtime-token`, relay and employee resource signer |
 | WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); separate employee/business staging and production environments | `infra/portal-identity-candidate/`, owned-auth/onboarding records |
+| Resend | Transactional email: member moderation notices, admin operational alerts, owned business password recovery and separately gated application notices | [Dashboard](https://resend.com/); business sending domain `mail.dojipro.com`; business sending key separate from shared email key | [Relay sender](../supabase/functions/relay-domain-events/index.ts), [admin sender](../supabase/functions/send-admin-email/index.ts), [business recovery](../infra/portal-identity-candidate/business-owned-recovery-email.mts), [application sender](../infra/business-email-candidate/dispatch.mts) |
+| Cloudflare Email Routing / dedicated safety email API | Inbound support forwarding and selected employee-address forwarding; a separate narrow sender delivers urgent safety-intake alerts | Cloudflare account email configuration; owner approves exact destinations | [Safety transport](../supabase/functions/_shared/safety-removal-cloudflare.ts), [email release record](CLOUDFLARE_SAFETY_EMAIL_2026-09-28.md); not general mailbox hosting |
 | Expo and EAS | Native development builds, cloud build/signing, store submission and legacy push fallback transport | [Project](https://expo.dev/accounts/faheybaby/projects/doit-challenge-app); project `064b68b6-f138-4962-8aeb-f00970ba39c8` | `app.json`, `eas.json`, `.easignore`, `scripts/verify-build-env.mjs` |
 | Apple Developer and App Store Connect | Bundle/signing, APNs credentials, TestFlight, review and iOS distribution | [Developer](https://developer.apple.com/account/), [App Store Connect](https://appstoreconnect.apple.com/); app `6768727326` | `docs/APP_STORE_RELEASE.md`, mobile release records |
 | Google Play Console | Android signing/distribution, closed testing and production-access review | [App console](https://play.google.com/console/u/0/developers/6661342012009308283/app/4972908027141050312); Alpha track `4699325792611215201` | `docs/GOOGLE_PLAY_RELEASE.md`, Android 23 record |
@@ -28,6 +40,36 @@ The app's bundle identifier and Android package are both `com.doit.challengeapp`
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
 
+## Responsibility boundaries and usage status
+
+| Need | Service responsible | Status / what it does not own |
+| --- | --- | --- |
+| Member login, recovery, authoritative data and private media | Supabase Auth, Postgres and Storage | Current member boundary; WorkOS must not replace it. RLS/RPCs, not browser roles, authorize data. |
+| Employee/business login and authenticator MFA | Separate WorkOS realms plus Doji's portal runtime | Current integration. Doji owns portal presentation, approval, permissions and session enforcement; WorkOS identity alone does not grant workspace access. |
+| Public/admin/business websites | Cloudflare Pages (`doji-site`, `doji-admin`, `doji-business`) | Separate release artifacts. Vite/Next are build frameworks, not separate hosting vendors; the public Next site is a static export. |
+| DNS, abuse protection and server coordination | Cloudflare DNS, Turnstile, Workers and Durable Objects | Separate Cloudflare products with separate responsibilities. One-shot alarms own challenge transitions; push delivery does not. |
+| Connected-client updates | Ably | Current member realtime transport. Identifier hints trigger authorized reads; Ably is not database truth. Business realtime and the employee health event feed remain gated in the last release record. |
+| Background phone notifications | Apple APNs and Firebase Cloud Messaging (FCM) | Primary native transports from the committed outbox. Expo push is only a bounded older-client fallback; acceptance by a provider is not proof the phone displayed an alert. |
+| Build and distribute the native app | Expo/EAS, Apple Developer/App Store Connect, Google Play | EAS builds/signs/submits approved artifacts; Apple/Google own store review and distribution. A Git merge does not update installed apps. |
+| Errors and diagnostics | Sentry | App/Worker reporting and source maps; bounded Sentry reads inform portal health. Not a complete uptime monitor or proof every user action succeeded. |
+| Application email | Resend, dedicated Cloudflare safety sender, WorkOS and Supabase Auth mail paths | Different message families and credentials; see the routing table below. Business automatic application-mail capture/sending/wakeup remain off in the last acceptance record. |
+
+## Development, testing and repository services
+
+| Service or tool | Purpose and status | Evidence / boundary |
+| --- | --- | --- |
+| GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
+| npm registry | Downloads locked JavaScript/TypeScript dependencies for local and CI builds; dependency audit metadata | Root and `web/` package/lockfiles. Not app hosting; preserve the separate lockfiles and do not upgrade automatically. |
+| ngrok via `@expo/ngrok` | Installed optional development-tunnel integration for Expo | [Root manifest](../package.json); not a production API/socket service or evidence that a tunnel is currently running. Opening a tunnel is not part of offline tests. |
+| Gitleaks | Locally executed secret scanner used in the handoff audit | [Audit evidence](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); a tool, not an additional hosted application backend. |
+
+Jest, Playwright, Vitest, axe, TypeScript, ESLint, Docker/Podman, Android tooling,
+MUI and TanStack Query are test/development tools or libraries, not extra hosted
+production services. Their roles are in the [system map](SYSTEM_MAP.md) and
+[test handoff](TEST_SUITE_HANDOFF.md). The local Android `test-lab.mts` probe tests
+a Firebase Test Lab marker on an owned emulator; its name does not establish a
+paid Firebase Test Lab subscription or an active cloud device-test service.
+
 ## Email systems are different things
 
 | Path | Current responsibility | Do not confuse it with |
@@ -37,6 +79,33 @@ current consoles before deciding availability, review state or enforcement.
 | Cloudflare Email Routing | Existing support routing; selected approach for new `name@dojipro.com` employee forwarding | A mailbox that stores mail or automatically sends replies as that address |
 | WorkOS hosted email | Separate employee invitation/recovery flow in AuthKit | Supabase member password reset or a company mailbox |
 | Supabase member Auth mail | Member confirmation/recovery path controlled by Auth configuration | The custom business or employee identity handlers |
+
+The exact message routes are:
+
+- Member moderation notices: `relay-domain-events` calls Resend; admin operational
+  alerts use `send-admin-email` with Resend. Both use shared Doji email rendering.
+- Business password recovery: WorkOS remains the identity authority, while
+  `business-owned-recovery-email.mts` sends the Doji-owned reset email through
+  Resend. The business policy requires WorkOS default reset mail to be suppressed;
+  do not enable a second sender or substitute the employee/member reset flow.
+- Business application/approval/setup notices: `business-application-mail` uses
+  the private dispatcher in `infra/business-email-candidate/` and Resend. The
+  sender is deployed, but automatic capture/sending/wakeup remain gated. A verified
+  one-off test email is not permission to enable continuous sending.
+- External safety intake alerts: `safety-removal-alerts` uses the dedicated
+  Cloudflare sender, not Resend, with a verified approved destination and no
+  submission details in the alert.
+- Provider-owned verification/invitation/security email: WorkOS handles its
+  employee/business message families; Supabase Auth controls member auth mail.
+  Do not infer the configured SMTP transport from the visible sender address.
+- Inbound support/work-address forwarding: Cloudflare Email Routing forwards to
+  approved mailboxes. It does not store a mailbox or replace outbound senders.
+
+Doji-owned email must use the logo, name, brand colors and button actions, with an
+accessible plain-text alternative. Current business branding is deployed; shared
+renderer changes and provider-managed templates have separate release status.
+See [Email branding](EMAIL_BRANDING_2026-10-11.md) rather than assuming all provider
+emails are controlled by our renderer.
 
 Dashboards: [Resend](https://resend.com/), [Cloudflare](https://dash.cloudflare.com/),
 [WorkOS](https://dashboard.workos.com/), [Supabase Auth](https://supabase.com/dashboard/project/tvixsmqxotuvyjqzmjla).
@@ -149,3 +218,26 @@ Google social login. No launched Stripe/RevenueCat business billing path is
 established by this audit. Campaign, billing and business realtime flags remain
 disabled in the recorded launch. WorkOS staging is not a full application staging
 environment or a replacement for isolated database/storage/Worker resources.
+
+SMS MFA/Twilio is not provisioned in the recorded current state. EAS Update/OTA
+deployment is not established as an approved release path by this catalog; Expo
+usage alone does not authorize publishing an update. Do not create or reactivate
+any service just because its name appears in code, a dependency or a historical note.
+
+## Keep the inventory current
+
+Any change adding, replacing, retiring or enabling a service must update this
+catalog and the affected system-map/current-state entries in the same change:
+
+1. Name the provider/product, its exact purpose, affected app/portal and source entry.
+2. Identify the owner-approved account/project/environment and dashboard, using
+   public identifiers only; record where secrets belong, never their values.
+3. State whether usage is current, gated/prepared, legacy or development-only.
+4. Record data sent, authorization boundaries, operational dependency and failure
+   behavior in the linked contract/release record; do not imply physical isolation.
+5. Verify capacity/cost under separate authorization before enabling usage. Preserve
+   release/rollback evidence and say which feature flags or acceptance gates remain.
+
+When a provider setting cannot be confirmed from source, label it unverified and
+obtain task-scoped access. Do not turn a documentation audit into provider changes,
+email sends, cloud builds or deployment.
