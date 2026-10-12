@@ -53,7 +53,7 @@ test('business root stays public and preview never asks for credentials', async 
   ).toEqual([]);
   await page.getByRole('link', { name: 'Register your business' }).click();
   await expect(
-    page.getByText('Authentication is not connected in this migration preview.'),
+    page.getByText('This preview does not connect to business accounts.', { exact: false }),
   ).toBeVisible();
   await expect(page.locator('input[type=password]')).toHaveCount(0);
   expect(calls).toEqual([]);
