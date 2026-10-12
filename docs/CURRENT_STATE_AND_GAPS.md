@@ -18,12 +18,13 @@ member actions, email sending or provider configuration changes.
 | Business email | Branded HTML deployed to business runtime and application sender | Automatic capture/sending/wakeup off; budgets/receipts retained; no automatic uncertain-mail resend |
 | Public site | Next.js 16 static export; legal and safety routes preserved | No Next server. Safety retains its isolated controller, private status/receipt and approved configuration |
 | Shared email branding | Common renderer and code-owned shared/employee messages prepared | Not deployed to shared/member services; provider-owned WorkOS/Supabase templates are separate work |
-| Next mobile changes | Push-registration cancellation/recovery correlation, source-map and support/recovery work prepared | Not in installed 1.0.9; no next build allocated or automatically queued |
+| Next mobile changes | 1.0.10 iOS 105 / Android 30 finished October 12; iOS available to existing TestFlight group and Waiting for Review; Android closed Alpha Changes in review | See dated build record; physical-device acceptance outstanding, iOS manual release preserved, no mandatory-update change; not in installed 1.0.9 |
 
 ## Recorded evidence
 
 - [Mobile 1.0.9 release and enforcement](MOBILE_LOGGING_RELEASE_2026-10-07.md),
-  [next-build preparation and device gates](NEXT_MOBILE_BUILD_2026-10-08.md).
+  [next-build preparation and device gates](NEXT_MOBILE_BUILD_2026-10-08.md),
+  [1.0.10 build execution](MOBILE_RECOVERY_BUILDS_2026-10-12.md).
 - [React migration](WEB_REACT_MIGRATION_2026-10-08.md),
   [admin history/health release](EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md),
   [queue consistency](ADMIN_QUEUE_CONSISTENCY_2026-10-09.md),
