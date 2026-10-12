@@ -10,6 +10,11 @@ assert.match(html, /name="description"/);
 assert.match(html, /rel="canonical" href="https:\/\/dojipro\.com\/"/);
 assert.match(html, /name="robots" content="noindex, nofollow"/);
 assert.match(read('../apps/site/out/robots.txt'), /Disallow: \//);
+const safetyPreview = read('../apps/site/out/safety-removal/config.js');
+assert.match(safetyPreview, /"enabled":false/);
+assert.match(safetyPreview, /"preview":true/);
+assert.match(safetyPreview, /"endpoint":""/);
+assert.match(safetyPreview, /"siteKey":""/);
 for (const app of ['admin', 'business']) {
   const output = read(`../apps/${app}/dist/index.html`);
   assert.match(output, /name="robots" content="noindex,nofollow"/);
@@ -27,18 +32,32 @@ for (const app of ['admin', 'business']) {
   );
   if (app === 'business') {
     const strength = scripts.filter((name) => name.startsWith('password-strength-'));
-    assert.equal(strength.length, 1, 'Password guidance dictionary must remain independently deferred');
+    assert.equal(
+      strength.length,
+      1,
+      'Password guidance dictionary must remain independently deferred',
+    );
     const strengthBytes = gzipSync(readFileSync(new URL(strength[0]!, directory))).length;
-    assert.ok(strengthBytes <= 900 * 1024, 'Deferred password dictionary exceeds its library budget');
+    assert.ok(
+      strengthBytes <= 900 * 1024,
+      'Deferred password dictionary exceeds its library budget',
+    );
     assert.ok(!output.includes(strength[0]!), 'Password dictionary must not preload at sign-in');
     // Matches the approved onboarding packager: 256 KiB for all non-dictionary routes.
     // Clean build measures 229.2 KiB, including application, branding and MFA.
     assert.ok(bytes - strengthBytes <= 256 * 1024, 'Business routes exceed the onboarding budget');
-    const initialNames = [...output.matchAll(/(?:src|href)="[^"]*\/([^/"?]+\.js)"/g)].map(m => m[1]!);
-    const initialBytes = [...new Set(initialNames)].reduce((sum,name) => sum + gzipSync(readFileSync(new URL(name,directory))).length,0);
+    const initialNames = [...output.matchAll(/(?:src|href)="[^"]*\/([^/"?]+\.js)"/g)].map(
+      (m) => m[1]!,
+    );
+    const initialBytes = [...new Set(initialNames)].reduce(
+      (sum, name) => sum + gzipSync(readFileSync(new URL(name, directory))).length,
+      0,
+    );
     assert.ok(initialBytes <= 180 * 1024, 'Business initial load exceeds its sign-in budget');
     assert.equal(chartBytes, 0, 'Business must not include admin charts');
-    console.log(`Business routes ${( (bytes-strengthBytes)/1024).toFixed(1)} KiB; initial ${(initialBytes/1024).toFixed(1)} KiB; deferred dictionary ${(strengthBytes/1024).toFixed(1)} KiB gzip`);
+    console.log(
+      `Business routes ${((bytes - strengthBytes) / 1024).toFixed(1)} KiB; initial ${(initialBytes / 1024).toFixed(1)} KiB; deferred dictionary ${(strengthBytes / 1024).toFixed(1)} KiB gzip`,
+    );
     continue;
   }
   if (app === 'admin') {

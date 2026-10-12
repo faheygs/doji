@@ -37,6 +37,7 @@ export function TeamAccessPanel({
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
   const [editing, setEditing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState('');
   const editorHeading = useRef<HTMLHeadingElement>(null);
@@ -54,7 +55,7 @@ export function TeamAccessPanel({
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
-  const pages = Math.max(1, Math.ceil(filtered.length / 8));
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
   function open(email: string, button: HTMLButtonElement) {
     if (manage(email) === false) return;
@@ -178,7 +179,7 @@ export function TeamAccessPanel({
                   gap: 2.5,
                 }}
               >
-                {filtered.slice((current - 1) * 8, current * 8).map((item) => (
+                {filtered.slice((current - 1) * pageSize, current * pageSize).map((item) => (
                   <Card
                     key={item.id}
                     variant="outlined"
@@ -238,16 +239,21 @@ export function TeamAccessPanel({
                 <Typography variant="body2" color="text.secondary">
                   {filtered.length} matching {filtered.length === 1 ? 'account' : 'accounts'}
                 </Typography>
-                {pages > 1 && (
+                {
                   <TablePagination
                     component="div"
                     count={filtered.length}
-                    rowsPerPage={8}
-                    rowsPerPageOptions={[]}
+                    rowsPerPage={pageSize}
+                    rowsPerPageOptions={[8, 16, 24]}
+                    labelRowsPerPage="People per page:"
+                    onRowsPerPageChange={(event) => {
+                      setPageSize(Number(event.target.value));
+                      setPage(1);
+                    }}
                     page={current - 1}
                     onPageChange={(_, value) => setPage(value + 1)}
                   />
-                )}
+                }
               </Stack>
             </>
           )}

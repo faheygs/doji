@@ -18,12 +18,30 @@ Supabase; delivery uses Cloudflare Durable Objects and Ably.
 | What is live versus unfinished? | [Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md) |
 | Where are all the detailed records? | [Documentation index](docs/README.md) |
 
-The TypeScript migration and regression suite were merged through
-[PR #3](https://github.com/faheygs/doji/pull/3) on October 5, 2026 (`60df53a`).
+The source baseline includes the TypeScript migration, React web workspace and
+business onboarding/email work ([PR #7](https://github.com/faheygs/doji/pull/7),
+October 12, 2026, `96a612b`).
 Use a clean checkout of reviewed `main`; do not copy the owner's retained working
 files or CLI caches. A source commit is not a production deployment. Member login stays
-on Supabase Auth. Independent employee login is WorkOS; the business identity
-transition is not complete. See the dated current-state guide before operations.
+on Supabase Auth. Employee and business identities are independent WorkOS realms,
+with Doji-owned portal UI. Business public signup, publishing/billing and realtime
+remain closed/gated in the last release record. See the dated current-state guide.
+
+## Monorepo boundaries
+
+| Part | Stack and entry |
+| --- | --- |
+| Mobile | Root package: Expo 57 / React Native 0.86 / React 19.2; `app/` routes |
+| Admin and business | `web/apps/admin`, `web/apps/business`: Vite 8 / React 19.3 / MUI 9 |
+| Public site | `web/apps/site`: Next.js 16 static export for Cloudflare Pages |
+| Shared web | `web/packages/ui` (Doji theme/components), `portal-data` (authorized TanStack Query adapters) |
+| Retained web contracts | `website/`: auth/application/safety controllers, legal sources and packaging; still used by React |
+| Portal server | `infra/portal-identity-candidate`: live independent WorkOS runtimes and restricted SQL |
+| Shared backend | `supabase/`: Postgres/RLS/RPC + Deno; `infra/doji-orchestrator`: Cloudflare alarms/relay/gateways |
+
+Root [agent requirements](AGENTS.md) and scoped guides in `web`, `website`,
+`infra`, `supabase`, `scripts` and the Next app define ownership and safe changes.
+Tests/mocks are maintained regression inputs, not disposable sample code.
 
 Read [DOJI_CONTEXT.md](DOJI_CONTEXT.md) before changing the product. It maps the
 complete user journey, daily challenge lifecycle, screen responsibilities, data
@@ -55,11 +73,17 @@ node --version
 npm ci
 npm ci --prefix infra/portal-identity-candidate
 npm ci --prefix infra/doji-orchestrator
+npm ci --prefix web
 npm test -- --runInBand
 npm run typecheck
 npm run check:hygiene
 npm run lint
 ```
+
+For web, run `npm run check --prefix web` and `npm run test:browser --prefix web`
+(Playwright Chromium required). Loopback previews use
+`npm run dev:admin --prefix web`, `dev:business` and `dev:site` on ports
+4310, 4311 and 4312. These are not automatically connected to production login.
 
 Do **not** link or push a database as onboarding. This checkout may already be
 linked to production. Some separately deployed SQL remains under `docs/drafts`;

@@ -10,6 +10,8 @@ import {
   Typography,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import InboxOutlined from '@mui/icons-material/InboxOutlined';
+import ErrorOutline from '@mui/icons-material/ErrorOutlined';
 
 export function PreviewNotice() {
   return (
@@ -116,6 +118,13 @@ export function TableFrame({
             }}
           >
             {state === 'loading' && <CircularProgress size={32} aria-label={`Loading ${label}`} />}
+            {state === 'empty' && <InboxOutlined color="disabled" sx={{ fontSize: 48 }} />}
+            {state === 'error' && <ErrorOutline color="error" sx={{ fontSize: 40 }} />}
+            {state === 'empty' && (
+              <Typography component="p" variant="h6">
+                No matching records
+              </Typography>
+            )}
             <Typography color="text.secondary">
               {state === 'loading'
                 ? `Loading ${label}…`

@@ -4,7 +4,7 @@ import { MarketingHero, PreviewNotice } from '@doji/ui';
 export default function HomePage() {
   return (
     <>
-      <PreviewNotice />
+      {process.env.DOJI_SITE_RELEASE !== 'true' && <PreviewNotice />}
       <MarketingHero
         eyebrow="The daily social challenge"
         title={
@@ -20,7 +20,7 @@ export default function HomePage() {
             <Button href="#how" size="large" variant="contained">
               See how it works
             </Button>
-            <Button href="https://dojipro.com/support/" size="large" variant="outlined">
+            <Button href="/support/" size="large" variant="outlined">
               Get support
             </Button>
           </>
@@ -69,7 +69,7 @@ export default function HomePage() {
           Report and block controls help keep your experience in your hands. Read our community
           guidelines and privacy policy to learn more.
         </Typography>
-        <Button href="https://dojipro.com/community-guidelines/" variant="outlined">
+        <Button href="/community-guidelines/" variant="outlined">
           Community guidelines
         </Button>
       </Box>

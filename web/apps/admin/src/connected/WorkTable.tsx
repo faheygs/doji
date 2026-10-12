@@ -48,6 +48,11 @@ const states: Record<string, string> = {
   completed: 'Completed',
   removed: 'Removal recorded',
   pending_review: 'Pending review',
+  pending: 'Pending review',
+  approved: 'Approved',
+  rejected: 'Declined',
+  declined: 'Declined',
+  changes_requested: 'Changes requested',
 };
 export function workColumns(area: string) {
   if (area === 'businesses') return ['Business', 'Received', 'Assignee', 'Status'];
@@ -81,12 +86,18 @@ export function WorkTable({
   actor,
   label,
   closed = false,
+  returnFilter,
+  dateLabel,
+  personalState,
 }: {
-  rows: WorkRow[];
+  rows: (WorkRow & { assignmentKnown?: boolean })[];
   area: string;
   actor: EmployeeOperator;
   label: string;
   closed?: boolean;
+  returnFilter?: string;
+  dateLabel?: string;
+  personalState?: string;
 }) {
   const navigate = useNavigate();
   const columns = workColumns(area);
@@ -109,14 +120,25 @@ export function WorkTable({
                   column === 'Assignee' ? '20%' : index === 0 ? (mixed ? '30%' : '42%') : undefined,
               }}
             >
-              {column}
+              {dateLabel && ['Received', 'Submitted'].includes(column) ? dateLabel : column}
             </TableCell>
           ))}
         </TableRow>
       </TableHead>
       <TableBody>
         {rows.map((row) => {
-          const path = workPath(row, area, actor, closed);
+          const basePath = workPath(row, area, actor, closed);
+          let path =
+            basePath && returnFilter
+              ? basePath + '?filter=' + encodeURIComponent(returnFilter)
+              : basePath;
+          if (path && personalState) {
+            const [pathname, search] = path.split('?');
+            const params = new URLSearchParams(search);
+            params.set('from', 'my-work');
+            params.set('workState', personalState);
+            path = pathname + '?' + params;
+          }
           const status = row.status ?? row.work_state;
           return (
             <TableRow
@@ -178,7 +200,11 @@ export function WorkTable({
               </TableCell>
               {area !== 'my-work' && (
                 <TableCell>
-                  {row.assigned_to === actor.user_id ? (
+                  {row.assignmentKnown === false ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Not returned
+                    </Typography>
+                  ) : row.assigned_to === actor.user_id ? (
                     <Identity name={actor.display_name} detail="Assigned to you" />
                   ) : (
                     <Identity

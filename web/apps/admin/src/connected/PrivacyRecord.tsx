@@ -27,6 +27,8 @@ import { PrivacyActions } from './PrivacyActions';
 import { usePrivacyCommand } from './usePrivacyCommand';
 import { PrivacyAccess } from './PrivacyAccess';
 import { PrivacyCorrection } from './PrivacyCorrection';
+import { useBatchPagination } from './useBatchPagination';
+import { personalReturn } from './personal-return';
 
 export function PrivacyRecord({
   controller,
@@ -48,17 +50,31 @@ export function PrivacyRecord({
     refetchOnMount: 'always',
     queryFn: ({ signal }) => readPrivacyRecord(controller, id, after, signal),
   });
-  if (!allowed) return <Alert severity="error">Privacy review access is unavailable.</Alert>;
   const item = query.isError ? undefined : query.data;
+  const paged = useBatchPagination({
+    rows: item?.history ?? [],
+    batchSize: 30,
+    batchPage: Math.floor(after / 30) + 1,
+    scope: id,
+    loading: query.isFetching,
+    failed: query.isError,
+    hasNext: item?.nextRevision != null,
+    reset: () => setAfter(0),
+    previous: () => setAfter(Math.max(0, after - 30)),
+    next: () => {
+      if (item?.nextRevision != null) setAfter(item.nextRevision);
+    },
+  });
+  if (!allowed) return <Alert severity="error">Privacy review access is unavailable.</Alert>;
   const filter = params.get('state') ?? '';
   const back =
     params.get('from') === 'my-work'
-      ? '/my-work'
+      ? personalReturn(params)!
       : '/business-privacy' + (Object.hasOwn(privacyStates, filter) ? '?state=' + filter : '');
   return (
     <>
       <Button component={Link} to={back}>
-        {back === '/my-work' ? 'Back to my work' : 'Back to privacy requests'}
+        {params.get('from') === 'my-work' ? 'Back to my work' : 'Back to privacy requests'}
       </Button>
       <PageHeader
         title="Business privacy request"
@@ -180,20 +196,7 @@ export function PrivacyRecord({
               }
               state={item.history.length ? 'ready' : 'empty'}
               emptyMessage="No history entries on this page."
-              footer={
-                <QueuePagination
-                  page={Math.floor(after / 30) + 1}
-                  count={item.history.length}
-                  rowsPerPage={30}
-                  state={item.history.length ? 'ready' : 'empty'}
-                  hasPrevious={after > 0 && !query.isFetching}
-                  hasNext={item.nextRevision !== null && !query.isFetching}
-                  previous={() => setAfter(Math.max(0, after - 30))}
-                  next={() => {
-                    if (item.nextRevision !== null) setAfter(item.nextRevision);
-                  }}
-                />
-              }
+              footer={<QueuePagination {...paged.pagination} />}
             >
               <Table stickyHeader aria-label="Privacy case history" sx={{ minWidth: 700 }}>
                 <TableHead>
@@ -204,7 +207,7 @@ export function PrivacyRecord({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {item.history.map((entry) => (
+                  {paged.rows.map((entry) => (
                     <TableRow key={entry.revision}>
                       <TableCell>{entry.revision}</TableCell>
                       <TableCell>{entry.action.replaceAll('_', ' ')}</TableCell>

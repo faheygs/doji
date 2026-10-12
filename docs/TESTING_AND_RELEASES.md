@@ -5,13 +5,13 @@ This is the operational entry point, not blanket permission to deploy. Read
 and the release record for the exact surface. Record checks against a specific
 source commit/artifact; old checked boxes are historical evidence only.
 
-Latest merged source: [PR #3](https://github.com/faheygs/doji/pull/3), `60df53a`,
-October 5, 2026. Its exact head `ce86ebd` passed all three required jobs in
-[run 37311724708](https://github.com/faheygs/doji/actions/runs/37311724708):
-4,622 Jest tests, 697 browser scenarios, 27 offline suites, 446 runtime sources
-and all 17 areas meeting every 90% threshold. This supersedes the source counts
-below, not the separate device/provider/release gates. No deployment accompanied
-the merge. This is PR-head qualification, not verification of its main-push run.
+Recorded merged baseline: [PR #7](https://github.com/faheygs/doji/pull/7),
+`96a612b`, October 12, 2026. Exact head `6875bbf` passed application, database,
+coverage and web-migration in [run 38256389247](https://github.com/faheygs/doji/actions/runs/38256389247):
+4,667 Jest tests, all 17 independent 90% area gates and the separate React web
+checks. See [current cleanup audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md) and
+the new PR's exact-head checks for subsequent changes. This is source qualification,
+not a production deployment or replacement for device/provider acceptance.
 
 Historical October 2 hosted qualification is complete for commit
 `316037270239e37961a5948e853197aea3f4d6dd` on
@@ -36,6 +36,7 @@ entries below retain the state and counts at their recorded times.
 | Mobile unit/component | `npm test -- --runInBand` | Mocked logic, state and component regressions; not native-device delivery |
 | Root static | `npm run typecheck`, `npm run lint`, `npm run check:size` | Separate strict app/fixture/converted-portal/tooling checks, migration inventory and style/source-size contracts; not backend authorization |
 | Repository hygiene | `npm run check:hygiene` | Rejects committed CLI/environment/build caches and signing files; validates onboarding links and template values. Filename checks are not a full secret scan or proof of dead-code removal. |
+| React web | `npm run check --prefix web`, connected build/artifact checks and `npm run test:browser --prefix web` | Independent types/lint/Vitest, Vite/Next builds, bundle/SEO/preview guards and Playwright; package-only configs require exact artifacts |
 | Admin client/health | `npm run test:admin-auth`, `npm run test:admin-health`, `node website/admin-portal/queue-health.test.mts` | Local client/session and health interpretation logic |
 | Admin browser | `npm run test:admin-e2e` | Built artifact with browser mocks, layout and interaction; prerequisites in local guide |
 | Employee isolation | `scripts/test-employee-*.mts`, `scripts/test-workos-*.mts`, `scripts/test-portal-identity-*.mts` | Select exact harness after reviewing network/fixture dependencies; not a safe bulk-run glob |
@@ -129,8 +130,8 @@ coverage path and two source-contract test paths. A regression assertion now
 requires `website/portal.mts` in the shared-website area; it is not excluded or
 silently replaced by generated-bundle coverage.
 
-Source migration is separate from the unfinished business identity lifecycle
-and production cutover. Tests, coverage and packaging must still qualify each
+Source migration is separate from business identity lifecycle acceptance
+and production releases. Tests, coverage and packaging must still qualify each
 future release artifact. The conversion does not itself require a mobile build,
 account migration or production deployment. Historical scripts retain their
 release-specific assertions; typechecking them does not requalify those recipes
@@ -925,10 +926,10 @@ acceptance gates, not failures repaired by source-size exceptions.
 
 | Surface | Artifact/runtime | Required caution |
 | --- | --- | --- |
-| Public site | Cloudflare Pages `doji-site`, selected `website` output | Public content, legal versions and safety configuration are not employee/business config |
+| Public site | Cloudflare Pages `doji-site`, Next static export plus verified safety/legal assets/headers | Public/legal/safety configuration is not employee/business config; no Next server |
 | Employee admin | Admin Pages artifact plus same-origin employee proxy | Root WorkOS mode/feature flags must be preserved; no member session revocation |
 | Employee server | `supabase/functions/employee-portal-v2` plus packaged identity runtime | Source imports the `infra/portal-identity-candidate` runtime; use the reviewed packaging process, not an unverified raw folder deploy |
-| Business | Separate Pages application and dedicated Edge/SQL contracts | Current Supabase-based admission is not the completed WorkOS business realm |
+| Business | Vite/React Pages plus independent WorkOS business Edge/SQL | Owned UI does not replace server approval/setup/MFA; public admission and automatic sends remain gated |
 | Shared database | Exact approved atomic SQL scope | Installed drafts and migration ledger must be reconciled; no broad `db push` |
 | Orchestrator | `infra/doji-orchestrator`, five Durable Object bindings | Shared alarms, member commands, reads and push; portal UI deploy does not include it |
 | Mobile | EAS native binaries, then Apple/Play submission | Build completion, upload, review and user availability are different states |
@@ -940,7 +941,7 @@ release document links them. Review guards and fresh state first.
 
 ## Mobile build and store handoff
 
-- `app.json` currently records version 1.0.8, iOS 101 and Android 23. These are not
+- `app.json` is a source template and can lag frozen release packages. These are not
   automatically the next unused build numbers; query the authorized store/build
   records before allocating a new one.
 - Review `eas.json` environment, signing, project and submission profiles. Its

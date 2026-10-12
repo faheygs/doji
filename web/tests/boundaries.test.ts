@@ -8,8 +8,14 @@ describe('web and member isolation', () => {
     const config = JSON.parse(read('../../tsconfig.json'));
     const root = JSON.parse(read('../../package.json'));
     expect(config.exclude).toContain('web');
-    expect(root.jest.testPathIgnorePatterns).toContain('<rootDir>/web/');
-    expect(root.jest.modulePathIgnorePatterns).toContain('<rootDir>/web/');
+    for (const patterns of [root.jest.testPathIgnorePatterns, root.jest.modulePathIgnorePatterns]) {
+      const ignored = (path: string) =>
+        patterns.some((pattern: string) => new RegExp(pattern).test(path));
+      expect(ignored('/repo/web/packages/ui/theme.test.tsx')).toBe(true);
+      expect(ignored('C:\\repo\\web\\tests\\browser\\home.spec.ts')).toBe(true);
+      expect(ignored('/repo/__tests__/lib/mobile.test.ts')).toBe(false);
+      expect(ignored('C:\\repo\\__tests__\\lib\\mobile.test.ts')).toBe(false);
+    }
     const upload = read('../../.easignore').split(/\r?\n/);
     expect(upload).toContain('/*');
     expect(upload.some((line) => line.startsWith('!/web'))).toBe(false);

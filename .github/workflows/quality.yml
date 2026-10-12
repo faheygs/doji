@@ -32,6 +32,8 @@ jobs:
       # Imported employee contracts use the repository's locked SDK types.
       # No mobile lifecycle scripts run in the isolated web quality job.
       - run: npm ci --ignore-scripts --prefix ..
+      # The static site's retained safety compiler uses this locked esbuild.
+      - run: npm ci --prefix ../infra/doji-orchestrator
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm run build:connected --workspace @doji/admin

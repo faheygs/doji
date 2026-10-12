@@ -3,12 +3,15 @@ import { validAuditExportPath } from './audit-export';
 import { validIdeaArchivePath } from './idea-archive-path';
 import { validAnnouncementPath } from './announcement-path';
 const postReads = new Set([
+  '/staff-workflow/personal',
+  '/announcements/lifecycle',
   '/staff-workflow/inbox',
   '/staff-workflow/safety',
   '/staff-workflow/channels',
   '/staff-workflow/ownership',
   '/staff-workflow/assignees',
   '/business/item',
+  '/business/page',
   '/business-privacy/page',
   '/business-privacy/case',
   '/business-privacy/access',

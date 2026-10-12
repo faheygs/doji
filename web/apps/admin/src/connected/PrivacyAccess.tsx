@@ -15,6 +15,7 @@ import { QueuePagination, RecordSection, TableFrame } from '@doji/ui';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
 import type { PrivacyRecord } from '@doji/portal-data/privacy-record';
 import { applicationFields, readPrivacyAccess } from '@doji/portal-data/privacy-data';
+import { useBatchPagination } from './useBatchPagination';
 export function PrivacyApplicationDetails({ details }: { details: Record<string, string> }) {
   return (
     <Box component="dl" sx={{ m: 0 }}>
@@ -75,6 +76,20 @@ function ProtectedInformation({
     queryFn: ({ signal }) => readPrivacyAccess(controller, item, after, signal),
   });
   const data = query.isError || query.isFetching ? undefined : query.data;
+  const paged = useBatchPagination({
+    rows: data?.history ?? [],
+    batchSize: 30,
+    batchPage: cursors.length,
+    scope: item.id,
+    loading: query.isFetching,
+    failed: query.isError,
+    hasNext: data?.next != null,
+    reset: () => setCursors([0]),
+    previous: () => setCursors(cursors.slice(0, -1)),
+    next: () => {
+      if (data?.next != null) setCursors([...cursors, data.next]);
+    },
+  });
   return (
     <RecordSection title="Protected application information">
       <Stack sx={{ gap: 2 }}>
@@ -147,7 +162,7 @@ function ProtectedInformation({
               <Typography>No submitted snapshots.</Typography>
             )}
             <Typography variant="h6">Application history</Typography>
-            {data.history.map((entry) => (
+            {paged.rows.map((entry) => (
               <Box key={entry.revision}>
                 <Typography>
                   {entry.action.replaceAll('_', ' ')} · Revision {entry.revision} ·{' '}
@@ -159,18 +174,7 @@ function ProtectedInformation({
               </Box>
             ))}
             {!data.history.length && <Typography>No history entries on this page.</Typography>}
-            <QueuePagination
-              page={cursors.length}
-              count={data.history.length}
-              rowsPerPage={30}
-              state={data.history.length ? 'ready' : 'empty'}
-              hasPrevious={cursors.length > 1}
-              hasNext={data.next !== null}
-              previous={() => setCursors(cursors.slice(0, -1))}
-              next={() => {
-                if (data.next !== null) setCursors([...cursors, data.next]);
-              }}
-            />
+            <QueuePagination {...paged.pagination} />
           </>
         )}
       </Stack>

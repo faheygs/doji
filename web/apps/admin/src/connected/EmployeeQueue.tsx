@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, Button, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { PageHeader, QueuePagination, TableFrame } from '@doji/ui';
 import { portalKey } from '@doji/portal-data';
@@ -13,6 +13,8 @@ import {
   type QueueCursor,
 } from '@doji/portal-data/employee-queues';
 import { WorkTable } from './WorkTable';
+import { QueueStatusFilter } from './QueueStatusFilter';
+import { personalFilter, readPersonalWork } from '@doji/portal-data/personal-work';
 
 /** No fixture fallback. Every row must pass the existing employee queue validator. */
 export function EmployeeQueue({
@@ -24,26 +26,36 @@ export function EmployeeQueue({
 }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const [params, setParams] = useSearchParams();
+  const [pageSize, setPageSize] = useState(25);
   const safety = area === 'trust-safety' || area === 'restricted-safety';
   const closed = safety && params.get('closed') === '1';
-  const [paging, setPaging] = useState({ closed, cursors: [null] as QueueCursor[] });
-  const cursors = paging.closed === closed ? paging.cursors : [null];
+  const personal = area === 'my-work' && controller.historyReadsEnabled;
+  const personalState = personalFilter(params.get('state'));
+  const scope = area + ':' + closed + ':' + (personal ? personalState : 'legacy');
+  const [paging, setPaging] = useState({ scope, cursors: [null] as QueueCursor[] });
+  if (paging.scope !== scope) setPaging({ scope, cursors: [null] });
+  const cursors = paging.scope === scope ? paging.cursors : [null];
   const setCursors = (update: (values: QueueCursor[]) => QueueCursor[]) =>
-    setPaging({ closed, cursors: update(cursors) });
+    setPaging({ scope, cursors: update(cursors) });
   const allowed = !!state.operator && canReadQueue(state.operator, area);
   const cursor = cursors.at(-1) ?? null;
   const query = useQuery({
     queryKey: state.session
       ? portalKey(state.session, area.includes('safety') ? 'safety' : 'work', {
           area,
+          pageSize: String(pageSize),
           closed: String(closed),
+          history: personal ? personalState : 'legacy',
           at: cursor?.at ?? '',
           key: cursor?.key ?? '',
         })
       : ['denied'],
     enabled: allowed && !!state.session,
     refetchOnMount: 'always',
-    queryFn: ({ signal }) => readEmployeeQueue(controller, area, cursor, signal, closed),
+    queryFn: ({ signal }) =>
+      personal
+        ? readPersonalWork(controller, personalState, cursor, signal, pageSize)
+        : readEmployeeQueue(controller, area, cursor, signal, closed, pageSize),
   });
   if (!allowed) return <Alert severity="error">You do not have access to this queue.</Alert>;
   const rows = query.isError ? [] : (query.data?.items ?? []);
@@ -60,27 +72,40 @@ export function EmployeeQueue({
         title={queueDefinitions[area].label}
         description={
           area === 'my-work'
-            ? 'Open work assigned to you.'
+            ? 'Work assigned to you.'
             : (closed ? 'Closed cases' : 'Open work') + ' · oldest first'
-        }
-        action={
-          area === 'community-ideas' && (
-            <Button component={Link} to="/community-ideas/archive">
-              View idea history
-            </Button>
-          )
         }
       />
       <TableFrame
         label={queueDefinitions[area].label}
         state={tableState}
-        emptyMessage={closed ? 'No closed cases in this view.' : 'No open work in this view.'}
+        emptyMessage={
+          personal
+            ? 'No assigned work matches this status.'
+            : closed
+              ? 'No closed cases in this view.'
+              : 'No open work in this view.'
+        }
         toolbar={
           <Stack
             direction="row"
             sx={{ gap: 2, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}
           >
-            {safety ? (
+            {personal ? (
+              <TextField
+                size="small"
+                select
+                label="Work status"
+                value={personalState}
+                onChange={(event) => {
+                  setParams(event.target.value === 'open' ? {} : { state: event.target.value });
+                }}
+              >
+                <MenuItem value="open">Open</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="all">All assigned work</MenuItem>
+              </TextField>
+            ) : safety ? (
               <TextField
                 size="small"
                 select
@@ -88,20 +113,24 @@ export function EmployeeQueue({
                 value={closed ? 'closed' : 'open'}
                 onChange={(event) => {
                   const nextClosed = event.target.value === 'closed';
-                  setPaging({ closed: nextClosed, cursors: [null] });
                   setParams(nextClosed ? { closed: '1' } : {});
                 }}
               >
                 <MenuItem value="open">Open cases</MenuItem>
                 <MenuItem value="closed">Closed cases</MenuItem>
               </TextField>
+            ) : area === 'community-ideas' || area === 'businesses' ? (
+              <QueueStatusFilter
+                area={area}
+                value={area === 'community-ideas' ? 'pending' : 'open'}
+              />
             ) : (
               <Typography variant="subtitle2">
                 {area === 'my-work' ? 'Assigned to you' : 'Awaiting review'}
               </Typography>
             )}
             <Typography variant="caption" color="text.secondary">
-              Oldest first · 25 per page
+              Oldest first
             </Typography>
           </Stack>
         }
@@ -110,7 +139,11 @@ export function EmployeeQueue({
           <QueuePagination
             page={cursors.length}
             count={rows.length}
-            rowsPerPage={25}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(size) => {
+              setPageSize(size);
+              setCursors(() => [null]);
+            }}
             state={tableState}
             hasPrevious={cursors.length > 1 && !query.isFetching}
             hasNext={!!query.data?.next_cursor && !query.isFetching && !query.isError}
@@ -128,6 +161,7 @@ export function EmployeeQueue({
           actor={state.operator!}
           label={queueDefinitions[area].label}
           closed={closed}
+          {...(personal ? { personalState } : {})}
         />
       </TableFrame>
     </>

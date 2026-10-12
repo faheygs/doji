@@ -14,7 +14,13 @@ export function hygieneIssues(files: readonly string[]): string[] {
         path,
       ) ||
       /^(supabase\/\.temp|\.claude|\.codex|artifacts|\.artifacts)\//.test(path) ||
-      /^website\/\.(admin-dist|business-dist|safety-preview|business-admin-qa-[^/]+)\//.test(path)
+      /^website\/\.(admin-dist|business-dist|safety-preview|business-admin-qa-[^/]+)\//.test(
+        path,
+      ) ||
+      /^web\/(?:apps\/[^/]+\/(?:dist|out|\.next|generated)|playwright-report)\//.test(path) ||
+      /^web\/apps\/site\/public\/legacy-safety\//.test(path) ||
+      path === 'web/apps/site/public/safety-removal/config.js' ||
+      /^web\/apps\/[^/]+\/next-env\.d\.ts$/.test(path)
     ) {
       issues.push(`${path}: generated/local state must not be committed`);
     }
@@ -24,6 +30,9 @@ export function hygieneIssues(files: readonly string[]): string[] {
     }
     if (/\.(jks|p8|p12|key|mobileprovision|tsbuildinfo)$/.test(path)) {
       issues.push(`${path}: signing material or compiler cache must stay local`);
+    }
+    if (/\.(bak|tmp|temp|log)$/.test(name) || name === '.last-run.json') {
+      issues.push(`${path}: transient output must not be committed`);
     }
   }
   return issues;

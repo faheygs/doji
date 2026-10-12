@@ -31,6 +31,7 @@ const AuditDetail = lazy(() =>
 export function AuditRecord({ controller }: { controller: EmployeeSessionController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const [category, setCategory] = useState<AuditCategory>('activity');
+  const [pageSize, setPageSize] = useState(25);
   const [draft, setDraft] = useState(''),
     [search, setSearch] = useState('');
   const [cursors, setCursors] = useState<AuditCursor[]>([null]);
@@ -41,6 +42,7 @@ export function AuditRecord({ controller }: { controller: EmployeeSessionControl
     queryKey: state.session
       ? portalKey(state.session, 'audit', {
           category,
+          pageSize: String(pageSize),
           search,
           at: cursor?.occurred_at ?? '',
           id: cursor?.id ?? '',
@@ -48,7 +50,8 @@ export function AuditRecord({ controller }: { controller: EmployeeSessionControl
       : ['denied'],
     enabled: allowed,
     refetchOnMount: 'always',
-    queryFn: ({ signal }) => readEmployeeAudit(controller, category, search, cursor, signal),
+    queryFn: ({ signal }) =>
+      readEmployeeAudit(controller, category, search, cursor, signal, pageSize),
   });
   if (!allowed) return <Alert severity="error">Audit access is unavailable.</Alert>;
   const items = query.isError ? [] : (query.data?.items ?? []);
@@ -137,7 +140,11 @@ export function AuditRecord({ controller }: { controller: EmployeeSessionControl
           <QueuePagination
             page={cursors.length}
             count={items.length}
-            rowsPerPage={25}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(size) => {
+              setPageSize(size);
+              setCursors([null]);
+            }}
             state={status}
             hasPrevious={cursors.length > 1 && !query.isFetching}
             hasNext={!!query.data?.next && !query.isFetching && !query.isError}

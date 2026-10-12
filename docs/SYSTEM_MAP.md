@@ -9,10 +9,10 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 | Surface | Address or entry | Source and packaging | Identity |
 | --- | --- | --- | --- |
 | Member app | iOS/Android Doji; `doit` deep links | `app/`, `components/`, `hooks/`, `lib/`; Expo/EAS | Supabase Auth; no WorkOS member migration |
-| Public website | `https://dojipro.com/` | `website/index.html`, policy/support folders; `doji-site` Pages | Public information |
+| Public website | `https://dojipro.com/` | `web/apps/site` Next static export; legal sources retained in `website`; `doji-site` Pages | Public information |
 | Safety and Removal Center | `https://dojipro.com/safety-removal/` | `website/safety-removal/`, dedicated Edge handlers | No account/attachments; Turnstile and private status code |
-| Employee admin | `https://admin.dojipro.com/` | `website/admin-portal/`, `portal.mts`, `build-admin.mts`; `doji-admin` Pages | Independent WorkOS + MFA, opaque cookie and Postgres staff permissions |
-| Business application portal | `https://business.dojipro.com/` | `website/business-portal/application/`, `access/`, `build-business.mts`; `doji-business` Pages | Released bounded Supabase-based business boundary; independent WorkOS transition incomplete |
+| Employee admin | `https://admin.dojipro.com/` | `web/apps/admin`, retained browser adapters and exact proxy packaging; `doji-admin` Pages | Independent WorkOS + MFA, opaque cookie and Postgres staff permissions |
+| Business application portal | `https://business.dojipro.com/` | `web/apps/business`, retained application controller, owned auth/setup; `doji-business` Pages | Independent WorkOS business realm, approval/setup/MFA workspace gate |
 | Business marketing | Public `/business/` source | `website/business/index.html` | Marketing source does not prove campaign capability |
 | Business workspace prototype | Local `/business-portal/` | `website/business-portal/index.html`, prototype branch in `portal.mts` | Sample/browser-local state, not production billing or campaign backend |
 | Legacy mobile admin routes | `app/(app)/admin/` | Existing React Native screens/hooks | Legacy surface; a member token cannot become a WorkOS employee credential |
@@ -26,9 +26,9 @@ terms/privacy are built separately with versioned URLs by
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.24 | Native toolchain and modules |
+| Expo | 57.0.28 | Native toolchain and modules |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.22 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.26 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |
@@ -40,13 +40,16 @@ terms/privacy are built separately with versioned URLs by
 | Database | Supabase Postgres, RLS/RPCs, Vault, `pg_net` | State, authorization, receipts and outbox |
 | Edge | Supabase Deno TypeScript functions | Privileged integrations with handler-owned authorization |
 | Orchestrator | Cloudflare Worker and Durable Objects | Alarms, relay, fanout, maintenance, health and member gateways |
-| Websites/portals | HTML/CSS/TypeScript; esbuild emits browser JavaScript and employee transport/Pages Worker | Shared components and separate artifacts; not Next.js |
+| React web | React 19.3.0, MUI 9.4.0, Vite 8.3.4, Next 16.4.0, TanStack Query 5.104.1 | Vite admin/business SPAs, Next static public site, shared MUI/Emotion theme |
+| Retained browser contracts | HTML/CSS/TypeScript, esbuild registry | Auth/application/safety adapters, legal content and exact proxy/artifact packaging still used by React |
 | Independent identity runtime | `jose` 6.2.8, `pg` 8.16.3, WorkOS APIs | Verified external identities and restricted durable sessions |
 | Quality | Jest, React Native Testing Library, Playwright/axe, ESLint, Prettier, Supabase tests | Unit, contract, accessibility, browser and database checks |
 
 Sources: [root package](../package.json), [lockfile](../package-lock.json),
 [Worker package](../infra/doji-orchestrator/package.json),
 [identity package](../infra/portal-identity-candidate/package.json).
+Web versions are separately locked in [web workspace](../web/package.json) and
+its app/package manifests. Do not collapse web React 19.3 into mobile React 19.2.
 Do not upgrade packages merely to match a tutorial.
 
 ## How requests connect
@@ -136,8 +139,11 @@ gateway must not silently stampede the database via a direct fallback.
 | `supabase/migrations/`, `supabase/tests/` | SQL history and DB contract tests |
 | `supabase/functions/` | Integration entrypoints and shared server helpers |
 | `infra/doji-orchestrator/` | Shared production Worker and its package/lockfile |
-| `infra/portal-identity-candidate/` | Live employee modules and unfinished business replacement; name is historical |
-| `website/` | Public, admin, business, safety sources and separate build scripts |
+| `infra/portal-identity-candidate/` | Live independent employee AND business identity/session runtimes; name is historical |
+| `web/apps/{admin,business,site}/` | Primary React UI: Vite admin/business, Next static public site |
+| `web/packages/{ui,portal-data}/` | Shared MUI branding/components and authorized session-scoped data adapters |
+| `web/tests/` | Vitest/Playwright fixtures, connected and exact-package artifact regressions |
+| `website/` | Retained browser controllers, legal/safety sources and release packagers; active dependencies |
 | `__tests__/`, `lib/__tests__/`, `website/*/e2e/` | App/contract/browser regressions |
 | `scripts/` | Mixed local tools and historical production operations; inspect before executing |
 | `docs/`, `docs/drafts/` | Handbook, designs, release evidence and SQL; not all drafts are unapplied |
@@ -152,8 +158,11 @@ Mobile uses `constants/theme.ts`, `ThemeContext`, `components/ui` and shared
 avatar/frame components. Reuse `AppDialog`, `AppSheetModal`, keyboard-aware fields
 and `ReadFailureFeedback`; preserve light/dark, accessibility and Reduce Motion.
 
-Portals share `website/portal.css` and `website/portal-select.mts` (emitted as `.js`). Records open in
-right-side drawers; creation and consequential confirmations use established
-modals. Main CTAs align right. Show labelled original submission fields, not JSON.
+React portals share `web/packages/ui` (MUI/Emotion Doji theme and standard controls).
+Full-page records replace drawers; MUI dialogs handle consequential confirmations.
+Home uses greeting/next Doji/attention cards; Team uses a directory and role editor.
+Queues use meaningful columns, status/history filters, clear empty/error/loading
+states and bounded MUI pagination. CTAs align consistently, not stretched across
+desktop forms. Show labelled original submission fields, not JSON.
 Preserve dirty drafts, block proven stale revisions and clear protected state on
 lock/logout. See [Portal UI patterns](PORTAL_UI_PATTERNS.md).

@@ -14,12 +14,16 @@ export const metadata: Metadata = {
   description:
     'Doji is a realtime social daily-challenge app. Show up, make your move, and see what your friends did.',
   alternates: { canonical: '/' },
-  // Preview must not be indexed; release gate changes this alongside the complete route map.
-  robots: { index: false, follow: false },
+  // Only the separately qualified release build is indexable.
+  robots: {
+    index: process.env.DOJI_SITE_RELEASE === 'true',
+    follow: process.env.DOJI_SITE_RELEASE === 'true',
+  },
+  icons: { icon: '/doji-icon.png' },
 };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light">
       <body>
         <AppRouterCacheProvider>
           <DojiTheme>
@@ -51,9 +55,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <BrandLockup />
                 </Link>
                 <Stack direction="row" sx={{ gap: 1 }}>
-                  <Button href="#how">How it works</Button>
+                  <Button href="/#how">How it works</Button>
                   <Button href="https://business.dojipro.com/">For business</Button>
-                  <Button href="https://dojipro.com/support/">Support</Button>
+                  <Button href="/support/">Support</Button>
                 </Stack>
               </Stack>
               <Box component="main" id="main">
@@ -73,8 +77,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               >
                 <Typography variant="body2">© 2026 Doji. Built for shared moments.</Typography>
                 <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2 }}>
-                  {['privacy', 'terms', 'community-guidelines', 'support'].map((path) => (
-                    <Link key={path} href={'https://dojipro.com/' + path + '/'}>
+                  {[
+                    'privacy',
+                    'terms',
+                    'community-guidelines',
+                    'child-safety',
+                    'safety-removal',
+                    'support',
+                    'delete-account',
+                    'delete-data',
+                  ].map((path) => (
+                    <Link key={path} href={'/' + path + '/'}>
                       {path.replaceAll('-', ' ')}
                     </Link>
                   ))}

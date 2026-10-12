@@ -11,7 +11,7 @@ certification. [AGENTS.md](../AGENTS.md) remains the standing owner policy.
 | --- | --- | --- |
 | Member app | Supabase Auth | Remains Supabase; portal work must not migrate/reset/revoke member credentials or sessions |
 | Employee admin | Separate WorkOS employee production directory | Required authenticator MFA; exact verified subject maps to independent employee identity; opaque host cookie |
-| Business | Released Supabase-based dedicated business flow; independent WorkOS replacement incomplete | Do not claim full same-email credential independence until its separate cutover is verified |
+| Business | Independent WorkOS business realm behind Doji-owned MUI forms and opaque business session | Separate from employee/member credentials; approval, branding setup and authenticator MFA gate workspace access; public signup remains closed |
 
 The target is that the same email can have independent member, employee and business
 accounts. **Email is contact information, not the authorization key.** Never merge

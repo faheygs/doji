@@ -1,6 +1,7 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeSessionController } from './employee-session';
 import { ideaVersion } from './idea-record';
+import { checkedPageSize } from './page-size';
 
 import {
   ideaFilters,
@@ -18,11 +19,12 @@ export {
 const bad = () => Error('Idea history could not be verified.');
 const timestamp = (v: unknown): v is string =>
   typeof v === 'string' && v.length <= 80 && Number.isFinite(Date.parse(v));
-export function ideaArchive(value: unknown, filter: IdeaFilter, cursor: IdeaCursor) {
+export function ideaArchive(value: unknown, filter: IdeaFilter, cursor: IdeaCursor, pageSize = 25) {
+  checkedPageSize(pageSize);
   if (
     !record(value) ||
     !Array.isArray(value.items) ||
-    value.items.length > 25 ||
+    value.items.length > pageSize ||
     typeof value.can_write !== 'boolean' ||
     !ideaFilters.includes(filter)
   )
@@ -69,7 +71,13 @@ export function ideaArchive(value: unknown, filter: IdeaFilter, cursor: IdeaCurs
   if (value.next_cursor !== null) {
     const tail = items.at(-1),
       raw = value.next_cursor;
-    if (items.length !== 25 || !tail || !record(raw) || raw.at !== tail.at || raw.id !== tail.id)
+    if (
+      items.length !== pageSize ||
+      !tail ||
+      !record(raw) ||
+      raw.at !== tail.at ||
+      raw.id !== tail.id
+    )
       throw bad();
     next = { at: tail.at, id: tail.id };
   }
@@ -80,12 +88,13 @@ export function readIdeaArchive(
   filter: IdeaFilter,
   cursor: IdeaCursor,
   signal: AbortSignal,
+  pageSize = 25,
 ) {
   return controller.read(
     'operations_read',
-    ideaArchivePath(filter, cursor),
+    ideaArchivePath(filter, cursor, pageSize),
     undefined,
-    (value) => ideaArchive(value, filter, cursor),
+    (value) => ideaArchive(value, filter, cursor, pageSize),
     signal,
   );
 }

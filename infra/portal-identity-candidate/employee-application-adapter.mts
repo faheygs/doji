@@ -8,6 +8,7 @@ import {
   employeeAnnouncementSql,
 } from './employee-announcement-contracts.mts';
 import { record } from './portal-contracts.mts';
+import { employeeHistoryContracts, employeeHistorySql } from './employee-history-contracts.mts';
 import type { EmployeeActor, EmployeeCommand, PortalExecute } from './employee-contracts.mts';
 const contracts = Object.freeze({
   ...employeeRouteContracts,
@@ -20,10 +21,11 @@ export const employeeOperations = Object.freeze(
 const fail = (status: number) => Object.assign(Error('Employee operation unavailable'), { status });
 export function createEmployeeApplicationAdapter(
   execute: PortalExecute,
-  options: { announcementComposeEnabled?: boolean } = {},
+  options: { announcementComposeEnabled?: boolean; historyReadsEnabled?: boolean } = {},
 ) {
   if (typeof execute !== 'function') throw fail(503);
   const announcementComposeEnabled = options.announcementComposeEnabled === true;
+  const historyReadsEnabled = options.historyReadsEnabled === true;
   async function command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
     if (
       actor?.realm !== 'employee' ||
@@ -35,12 +37,21 @@ export function createEmployeeApplicationAdapter(
     )
       throw fail(403);
     const compose = input?.name === 'admin_announcement_compose_v1';
+    const history = !!input && Object.hasOwn(employeeHistoryContracts, input.name);
     if (
       !input ||
-      (compose ? !announcementComposeEnabled : !Object.hasOwn(employeeOperations, input.name))
+      (history
+        ? !historyReadsEnabled
+        : compose
+          ? !announcementComposeEnabled
+          : !Object.hasOwn(employeeOperations, input.name))
     )
       throw fail(403);
-    const contract = compose ? employeeAnnouncementContract : contracts[input.name];
+    const contract = history
+      ? employeeHistoryContracts[input.name]
+      : compose
+        ? employeeAnnouncementContract
+        : contracts[input.name];
     if (!contract) throw fail(403);
     const fields = contract.fields;
     const supplied = input.args;
@@ -53,6 +64,11 @@ export function createEmployeeApplicationAdapter(
     )
       throw fail(400);
     const args = { ...contract.defaults, ...supplied };
+    if (
+      history &&
+      (!Number.isInteger(args.p_limit) || Number(args.p_limit) < 1 || Number(args.p_limit) > 25)
+    )
+      throw fail(400);
     let encoded;
     try {
       encoded = JSON.stringify(args);
@@ -89,13 +105,15 @@ export function createEmployeeApplicationAdapter(
     try {
       return await execute(
         'doji_employee_application',
-        compose
-          ? employeeAnnouncementSql
-          : Object.hasOwn(employeeHealthContracts, input.name)
-            ? employeeHealthSql
-            : Object.hasOwn(employeeWorkflowContracts, input.name)
-              ? employeeWorkflowSql
-              : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
+        history
+          ? employeeHistorySql
+          : compose
+            ? employeeAnnouncementSql
+            : Object.hasOwn(employeeHealthContracts, input.name)
+              ? employeeHealthSql
+              : Object.hasOwn(employeeWorkflowContracts, input.name)
+                ? employeeWorkflowSql
+                : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
         [actor.issuer, actor.audience, actor.subject, actor.sessionId, true, input.name, encoded],
         signal,
       );

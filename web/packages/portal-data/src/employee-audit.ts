@@ -1,6 +1,7 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeSessionController } from './employee-session';
 import { auditEntry } from './audit-entry';
+import { checkedPageSize } from './page-size';
 export const auditCategories = ['activity', 'all', 'decision', 'access', 'system'] as const;
 export type AuditCategory = (typeof auditCategories)[number];
 export type AuditCursor = { occurred_at: string; id: string } | null;
@@ -9,14 +10,23 @@ const text = (value: unknown, max: number): value is string =>
 const timestamp = (value: unknown): value is string =>
   text(value, 80) && Number.isFinite(Date.parse(value));
 const bad = () => Error('Audit page could not be verified.');
-export function auditPath(category: AuditCategory, search: string, cursor: AuditCursor) {
+export function auditPath(
+  category: AuditCategory,
+  search: string,
+  cursor: AuditCursor,
+  pageSize = 25,
+) {
   if (
     !auditCategories.includes(category) ||
     !text(search, 160) ||
     (cursor && (!timestamp(cursor.occurred_at) || !uuid(cursor.id)))
   )
     throw bad();
-  const params = new URLSearchParams({ limit: '25', category, search: search.trim() });
+  const params = new URLSearchParams({
+    limit: String(checkedPageSize(pageSize)),
+    category,
+    search: search.trim(),
+  });
   if (cursor) {
     params.set('beforeOccurredAt', cursor.occurred_at);
     params.set('beforeId', cursor.id);
@@ -37,6 +47,7 @@ export function validAuditPath(path: string) {
         url.searchParams.get('category') as AuditCategory,
         url.searchParams.get('search') ?? '',
         at && id ? { occurred_at: at, id } : null,
+        Number(url.searchParams.get('limit')),
       )
     );
   } catch {
@@ -48,13 +59,15 @@ export function auditPage(
   category: AuditCategory,
   search: string,
   cursor: AuditCursor,
+  pageSize = 25,
 ) {
+  checkedPageSize(pageSize);
   if (
     !record(value) ||
     value.filter !== category ||
     value.search !== (search.trim().toLowerCase() || null) ||
     !Array.isArray(value.items) ||
-    value.items.length > 25
+    value.items.length > pageSize
   )
     throw bad();
   const items = value.items.map(auditEntry);
@@ -86,7 +99,7 @@ export function auditPage(
     const tail = items.at(-1),
       nextValue = value.next_cursor;
     if (
-      items.length !== 25 ||
+      items.length !== pageSize ||
       !tail ||
       !record(nextValue) ||
       nextValue.id !== tail.id ||
@@ -103,12 +116,13 @@ export function readEmployeeAudit(
   search: string,
   cursor: AuditCursor,
   signal: AbortSignal,
+  pageSize = 25,
 ) {
   return controller.read(
     'operations_read',
-    auditPath(category, search, cursor),
+    auditPath(category, search, cursor, pageSize),
     undefined,
-    (value) => auditPage(value, category, search, cursor),
+    (value) => auditPage(value, category, search, cursor, pageSize),
     signal,
   );
 }

@@ -80,6 +80,8 @@ async function prepare(page: Page, label = 'Complete request') {
   await page.getByRole('textbox', { name: 'Protected evidence reference' }).fill('support-ref-001');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // Measure the settled MUI surface, not a partially transparent entry frame.
+  await expect(page.locator('.MuiDialog-container')).toHaveCSS('opacity', '1');
 }
 test('start review claims with no outcome fields and release uses the actual ownership revision', async ({
   page,

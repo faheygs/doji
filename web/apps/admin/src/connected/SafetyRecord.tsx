@@ -11,6 +11,7 @@ import { SafetyOutcome } from './SafetyOutcome';
 import { useSafetyCommand } from './useSafetyCommand';
 import { useSafetyReport } from './useSafetyReport';
 import { SafetyTarget } from './SafetyTarget';
+import { personalReturn } from './personal-return';
 
 export function SafetyRecord({
   controller,
@@ -56,7 +57,8 @@ export function SafetyRecord({
         to={
           area === 'overview'
             ? '/'
-            : '/' + area + (area !== 'my-work' && params.get('closed') === '1' ? '?closed=1' : '')
+            : (personalReturn(params, area) ??
+              '/' + area + (params.get('closed') === '1' ? '?closed=1' : ''))
         }
       >
         {area === 'overview' ? 'Back to overview' : 'Back to queue'}
@@ -93,10 +95,6 @@ export function SafetyRecord({
         />
       ) : (
         <>
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            Submitted information is an allegation, not a finding. Do not download or forward
-            suspected illegal imagery.
-          </Alert>
           <RecordLayout
             summary={
               <RecordSection title="Case details">

@@ -1,5 +1,6 @@
 import { workPage, type WorkPage } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeOperator, EmployeeSessionController } from './employee-session';
+import { checkedPageSize } from './page-size';
 
 export const queueDefinitions = {
   'my-work': { label: 'My work', capability: null, queue: null, kind: 'all' },
@@ -73,6 +74,7 @@ export function readEmployeeQueue(
   cursor: QueueCursor,
   signal: AbortSignal,
   closed = false,
+  pageSize = 25,
 ) {
   const actor = controller.getSnapshot().operator;
   if (!actor || !canReadQueue(actor, area))
@@ -83,7 +85,7 @@ export function readEmployeeQueue(
   const body = {
     p_kind: kind,
     p_filter: area === 'my-work' ? 'mine' : 'all',
-    p_limit: 25,
+    p_limit: checkedPageSize(pageSize),
     p_after_at: cursor?.at ?? null,
     p_after_key: cursor?.key ?? null,
     ...(queue ? { p_queue: queue, p_closed: closed } : { p_state: 'all' }),
@@ -94,6 +96,7 @@ export function readEmployeeQueue(
     body,
     (value) => {
       const result = workPage(value, queue ? { queue, closed } : undefined);
+      if (result.items.length > pageSize) throw Error('Queue page exceeds the requested limit.');
       if (area === 'my-work' && result.items.some((row) => row.assigned_to !== actor.user_id))
         throw Error('Personal queue response could not be verified.');
       if (kind !== 'all' && result.items.some((row) => row.kind !== kind))

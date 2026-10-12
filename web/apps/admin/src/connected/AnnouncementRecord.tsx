@@ -1,10 +1,15 @@
 import { useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Chip, Typography } from '@mui/material';
 import { PageHeader, RecordSection, TableFrame } from '@doji/ui';
 import { portalKey } from '@doji/portal-data';
-import { announcementLabels, readAnnouncement } from '@doji/portal-data/announcements';
+import {
+  announcementLabels,
+  announcementFilters,
+  lifecycleFilters,
+  readAnnouncement,
+} from '@doji/portal-data/announcements';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
 import { RecordLayout } from '../RecordLayout';
 import { AnnouncementActions } from './AnnouncementActions';
@@ -16,6 +21,10 @@ export function AnnouncementRecord({
   id: string;
 }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const [params] = useSearchParams();
+  const filter = (controller.historyReadsEnabled ? lifecycleFilters : announcementFilters).find(
+    (value) => value === params.get('filter'),
+  );
   const allowed = !!state.session && state.operator?.capabilities.operations_read === true;
   const query = useQuery({
     queryKey: state.session ? portalKey(state.session, 'announcements', { id }) : ['denied'],
@@ -27,7 +36,7 @@ export function AnnouncementRecord({
   const item = query.isError ? undefined : query.data;
   return (
     <>
-      <Button component={Link} to="/announcements">
+      <Button component={Link} to={'/announcements' + (filter ? '?filter=' + filter : '')}>
         Back to announcements
       </Button>
       {!item ? (
@@ -47,7 +56,9 @@ export function AnnouncementRecord({
             summary={
               <RecordSection title="Display settings">
                 <Typography>Starts: {new Date(item.starts).toLocaleString()}</Typography>
-                <Typography>Ends: {new Date(item.ends).toLocaleString()}</Typography>
+                <Typography>
+                  Ends: {item.ends ? new Date(item.ends).toLocaleString() : 'No end date'}
+                </Typography>
                 <Typography>
                   Up to {item.impressions} displays per eligible account, at least {item.spacing}{' '}
                   hours apart.

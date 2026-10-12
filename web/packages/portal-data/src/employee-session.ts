@@ -191,6 +191,7 @@ export function createEmployeeSession(config: Config, options: Options = {}) {
   }
   return Object.freeze({
     announcementWritesEnabled: config.announcementComposeEnabled === true,
+    historyReadsEnabled: config.historyReadsEnabled === true,
     getAnnouncementFlow() {
       if (config.announcementComposeEnabled !== true || state.phase !== 'ready' || !state.session)
         throw Error('Announcement composition is unavailable.');

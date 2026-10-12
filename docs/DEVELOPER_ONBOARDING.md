@@ -2,7 +2,7 @@
 
 Start here when joining Doji. This handbook explains the code, service access,
 safe local development and first-change workflow. Audited against the local
-repository and existing release evidence on **October 5, 2026**; this is not a new
+repository and existing release evidence on **October 12, 2026**; this is not a new
 live audit of every vendor account. Recheck dated state before production work.
 
 ## Reading order
@@ -24,8 +24,8 @@ the filename nor an old checklist establishes deployment status. Use the
 
 ## First hour
 
-- Ask Gavin Fahey for repository access and use reviewed `main`. PR #3 merged the
-  TypeScript conversion and regression suite at `60df53a` on October 5. Do not
+- Ask Gavin Fahey for repository access and use reviewed `main`. PR #7 merged
+  business onboarding/email source at `96a612b` on October 12. Do not
   copy the owner's retained working files or assume a source merge deploys them.
 - Run `npm run check:hygiene`. Fresh clones must not contain Supabase CLI link
   caches, local environment values or generated test/deployment evidence.
@@ -34,6 +34,10 @@ the filename nor an old checklist establishes deployment status. Use the
   `npm ci`, `npm ci --prefix infra/portal-identity-candidate` and
   `npm ci --prefix infra/doji-orchestrator`; strict tooling and browser builds
   use those packages' locked dependencies. Do not upgrade packages during onboarding.
+  Web work additionally needs `npm ci --prefix web`; its independent lockfile
+  deliberately uses a different React/toolchain version from mobile.
+- Read the nearest scoped AGENTS guide. New portal UI lives in `web/apps`, not
+  the retained `website` controllers. Public Next uses static export, not a server.
 - Run a relevant offline test and a loopback-only prototype from the local guide.
 - Use Node 24. Run `npm run test:coverage` for all 17 budgets (install Playwright
   Chromium first, or set `DOJI_TEST_BROWSER_CHANNEL=chrome` for installed Chrome).
@@ -116,7 +120,7 @@ environment template and passed the existing admin client, 32 health-model and
 15 queue-health checks. Re-run `node scripts/check-onboarding-docs.mts` as the
 handbook changes. This was not a clean-clone/full-stack or live vendor audit.
 
-The new guides and existing local changes still require review and an intentional
-handoff commit/push before a new developer can obtain them from the remote. No
-production deployment, member account change or provider configuration change was
-part of this documentation pass.
+Run the checker after each handoff update; it now includes the agent guides.
+Use the exact PR/head CI for newer source, not the historical counts above.
+No production deployment, member account change or provider configuration change
+is implied by documentation or a source merge.

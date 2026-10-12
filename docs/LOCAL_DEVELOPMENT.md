@@ -11,8 +11,8 @@ not provision a complete staging environment or authorize production access.
   run the separate strict compiler checks as well. This does not change the
   store-build runtime configuration or qualify historical scripts on every Node version.
 - npm and the committed lockfiles. Root `.npmrc` does not enable legacy peer deps.
-- Chrome for local portal Playwright runs; the test configuration uses Chrome
-  outside CI. Playwright browser installation is a separate prerequisite in CI.
+- Chrome for retained `website/` Playwright runs outside CI. The React `web/`
+  suite uses installed Playwright Chromium locally and in CI.
 - Android Studio/JDK/emulator for a local Android native build; macOS/Xcode for a
   local iOS native build. Windows cannot run `expo run:ios`.
 - A container runtime and the approved database fixture only for database tests;
@@ -34,7 +34,28 @@ npm run test:admin-health
 deployment. Do not replace it with an upgrade or blanket `npm audit fix`.
 For mobile unit tests and static checks, see [Testing and releases](TESTING_AND_RELEASES.md).
 
-## Fastest safe portal preview: offline prototype
+## Current React previews
+
+Install the root packages above, then `npm ci --prefix web`. From the repository
+root run each desired preview in its own terminal:
+
+```sh
+npm run dev:admin --prefix web
+npm run dev:business --prefix web
+npm run dev:site --prefix web
+```
+
+The apps bind loopback at ports 4310/4311/4312. Defaults are disconnected preview
+configuration, not permission to connect a production employee/business session.
+The public Next app exports static files; there is no Next API/auth server.
+Its retained safety compiler needs the locked `infra/doji-orchestrator`
+dependencies even for a web-only build; that install does not run a Worker.
+`npm run check --prefix web` validates types, lint, units, builds and artifacts.
+`npm run test:browser --prefix web` needs installed Playwright Chromium and those
+ports free. Package-only acceptance configs need their exact prepared artifacts.
+Read [web agent guide](../web/AGENTS.md) and [site guide](../web/apps/site/AGENTS.md).
+
+## Retained offline portal prototype / compatibility tests
 
 The source `website/portal-config.mts` is a prototype with empty backend settings.
 The loopback preview server compiles registered TypeScript browser sources at
@@ -77,6 +98,12 @@ replace those values with production settings to test the form. No synthetic
 public case, email or moderation action is part of visual QA.
 
 ## Admin and business build artifacts
+
+The following are retained controller/compatibility packagers, NOT the current
+React development entry. Current UI builds produce `web/apps/{admin,business}/dist`
+and `web/apps/site/out`; the release assembly preserves verified proxy/config,
+headers and safety/legal assets. Generic Vite/Next output alone is not a qualified
+deployment package. See [frontend migration release](REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
 
 | Builder | Output/default | Important difference from production |
 | --- | --- | --- |

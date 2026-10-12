@@ -16,6 +16,7 @@ import {
 import { PageHeader, QueuePagination, TableFrame } from '@doji/ui';
 import { portalKey } from '@doji/portal-data';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
+import { useBatchPagination } from './useBatchPagination';
 import {
   canReadPrivacy,
   privacyKinds,
@@ -51,8 +52,22 @@ export function PrivacyQueue({ controller }: { controller: EmployeeSessionContro
     refetchOnMount: 'always',
     queryFn: ({ signal }) => readPrivacyPage(controller, filter, cursor, signal),
   });
-  if (!allowed) return <Alert severity="error">Privacy review access is unavailable.</Alert>;
   const rows = query.isError ? [] : (query.data?.items ?? []);
+  const paged = useBatchPagination({
+    rows,
+    batchSize: 25,
+    batchPage: cursors.length,
+    scope: filter,
+    loading: query.isFetching,
+    failed: query.isError,
+    hasNext: !!query.data?.next,
+    reset: () => setPaging({ filter, cursors: [null] }),
+    previous: () => setPaging({ filter, cursors: cursors.slice(0, -1) }),
+    next: () => {
+      if (query.data?.next) setPaging({ filter, cursors: [...cursors, query.data.next] });
+    },
+  });
+  if (!allowed) return <Alert severity="error">Privacy review access is unavailable.</Alert>;
   const status = query.isPending
     ? 'loading'
     : query.isError
@@ -93,20 +108,7 @@ export function PrivacyQueue({ controller }: { controller: EmployeeSessionContro
             ))}
           </TextField>
         }
-        footer={
-          <QueuePagination
-            page={cursors.length}
-            count={rows.length}
-            rowsPerPage={25}
-            state={status}
-            hasPrevious={cursors.length > 1 && !query.isFetching}
-            hasNext={!!query.data?.next && !query.isFetching && !query.isError}
-            previous={() => setPaging({ filter, cursors: cursors.slice(0, -1) })}
-            next={() => {
-              if (query.data?.next) setPaging({ filter, cursors: [...cursors, query.data.next] });
-            }}
-          />
-        }
+        footer={<QueuePagination {...paged.pagination} />}
       >
         <Table stickyHeader aria-label="Business privacy requests" sx={{ minWidth: 700 }}>
           <TableHead>
@@ -117,7 +119,7 @@ export function PrivacyQueue({ controller }: { controller: EmployeeSessionContro
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => {
+            {paged.rows.map((row) => {
               const path = '/business-privacy/' + row.id + '?state=' + filter;
               return (
                 <TableRow

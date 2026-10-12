@@ -10,8 +10,10 @@ export async function installBusinessFixture(
   mode = 'success',
   manager = false,
   announcementCompose = false,
+  historyReads = false,
+  realtime: (page: Page) => Promise<void> = installOfflineRealtime,
 ) {
-  await installOfflineRealtime(page);
+  await realtime(page);
   let signedIn = true,
     assigned = false,
     denied = false;
@@ -183,6 +185,8 @@ export async function installBusinessFixture(
           '<head>',
           '<head><script>window.DOJI_REACT_ADMIN_CONFIG={independentEmployeeIdentity:true,staffWorkflowEnabled:true,businessApplicationsEnabled:true,announcementComposeEnabled:' +
             JSON.stringify(announcementCompose) +
+            ',historyReadsEnabled:' +
+            JSON.stringify(historyReads) +
             '};</script>',
         ),
       });

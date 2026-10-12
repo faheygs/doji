@@ -38,11 +38,12 @@ export function ModerationHistory({ item }: { item: ModerationRecord }) {
 }
 function HistoryContents({ item }: { item: ModerationRecord }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { workflow, access } = item.report.history;
   const rows = [...(workflow ?? [])].sort(
     (a, b) => (Date.parse(b.at ?? '') || 0) - (Date.parse(a.at ?? '') || 0),
   );
-  const visible = rows.slice((page - 1) * 10, page * 10);
+  const visible = rows.slice((page - 1) * pageSize, page * pageSize);
   const appeal = item.appeal;
   return (
     <Stack sx={{ gap: 3 }}>
@@ -100,9 +101,13 @@ function HistoryContents({ item }: { item: ModerationRecord }) {
                 page={page}
                 count={visible.length}
                 totalCount={rows.length}
-                rowsPerPage={10}
+                rowsPerPage={pageSize}
+                onRowsPerPageChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
                 hasPrevious={page > 1}
-                hasNext={page * 10 < rows.length}
+                hasNext={page * pageSize < rows.length}
                 previous={() => setPage(page - 1)}
                 next={() => setPage(page + 1)}
               />

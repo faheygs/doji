@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -22,26 +22,42 @@ import {
   readAnnouncements,
   type AnnouncementFilter,
   type AnnouncementCursor,
+  lifecycleFilters,
+  readAnnouncementLifecycle,
+  type LifecycleFilter,
 } from '@doji/portal-data/announcements';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
 export function AnnouncementsQueue({ controller }: { controller: EmployeeSessionController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<AnnouncementFilter>('all');
-  const [cursors, setCursors] = useState<AnnouncementCursor[]>([null]);
+  const [pageSize, setPageSize] = useState(25);
+  const [params, setParams] = useSearchParams();
+  const lifecycle = controller.historyReadsEnabled;
+  const filters = lifecycle ? lifecycleFilters : announcementFilters;
+  const raw = params.get('filter');
+  const filter = filters.find((value) => value === raw) ?? (lifecycle ? 'active' : 'all');
+  const [paging, setPaging] = useState({ filter, cursors: [null] as AnnouncementCursor[] });
+  if (paging.filter !== filter) setPaging({ filter, cursors: [null] });
+  const cursors = paging.filter === filter ? paging.cursors : [null];
+  const setCursors = (values: AnnouncementCursor[]) => setPaging({ filter, cursors: values });
   const cursor = cursors.at(-1) ?? null;
   const allowed = !!state.session && state.operator?.capabilities.operations_read === true;
   const query = useQuery({
     queryKey: state.session
       ? portalKey(state.session, 'announcements', {
           filter,
+          contract: lifecycle ? 'lifecycle' : 'legacy',
+          pageSize: String(pageSize),
           at: cursor?.at ?? '',
           id: cursor?.id ?? '',
         })
       : ['denied'],
     enabled: allowed,
     refetchOnMount: 'always',
-    queryFn: ({ signal }) => readAnnouncements(controller, filter, cursor, signal),
+    queryFn: ({ signal }) =>
+      lifecycle
+        ? readAnnouncementLifecycle(controller, filter as LifecycleFilter, cursor, signal, pageSize)
+        : readAnnouncements(controller, filter as AnnouncementFilter, cursor, signal, pageSize),
   });
   if (!allowed) return <Alert severity="error">Announcement access is unavailable.</Alert>;
   const items = query.isError ? [] : (query.data?.items ?? []);
@@ -84,11 +100,10 @@ export function AnnouncementsQueue({ controller }: { controller: EmployeeSession
             label="Announcement status"
             value={filter}
             onChange={(event) => {
-              setFilter(event.target.value as AnnouncementFilter);
-              setCursors([null]);
+              setParams({ filter: event.target.value });
             }}
           >
-            {announcementFilters.map((value) => (
+            {filters.map((value) => (
               <MenuItem key={value} value={value}>
                 {
                   {
@@ -96,6 +111,11 @@ export function AnnouncementsQueue({ controller }: { controller: EmployeeSession
                     draft: 'Drafts',
                     published: 'Published',
                     cancelled: 'Cancelled',
+                    active: 'Active announcements',
+                    live: 'Live',
+                    scheduled: 'Scheduled',
+                    expired: 'Expired',
+                    disabled: 'Disabled',
                   }[value]
                 }
               </MenuItem>
@@ -106,7 +126,11 @@ export function AnnouncementsQueue({ controller }: { controller: EmployeeSession
           <QueuePagination
             page={cursors.length}
             count={items.length}
-            rowsPerPage={25}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(size) => {
+              setPageSize(size);
+              setCursors([null]);
+            }}
             state={status}
             hasPrevious={cursors.length > 1 && !query.isFetching}
             hasNext={!!query.data?.next && !query.isFetching && !query.isError}
@@ -132,7 +156,7 @@ export function AnnouncementsQueue({ controller }: { controller: EmployeeSession
           </TableHead>
           <TableBody>
             {items.map((item) => {
-              const path = '/announcements/' + item.id;
+              const path = '/announcements/' + item.id + '?filter=' + filter;
               return (
                 <TableRow
                   key={item.id}
@@ -154,7 +178,7 @@ export function AnnouncementsQueue({ controller }: { controller: EmployeeSession
                   </TableCell>
                   <TableCell>
                     {new Date(item.starts).toLocaleString()} –{' '}
-                    {new Date(item.ends).toLocaleString()}
+                    {item.ends ? new Date(item.ends).toLocaleString() : 'No end date'}
                   </TableCell>
                   <TableCell>
                     <Chip size="small" variant="outlined" label={announcementLabels[item.status]} />

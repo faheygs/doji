@@ -4,7 +4,13 @@ This guide lets a developer run Doji's automated regression suite from a fresh
 checkout and understand what a passing result establishes. Tests do not authorize
 deployments, live account actions, notification sends or spending.
 
-The latest merged qualification is PR #3, merge commit `60df53a` on `main`.
+The latest recorded baseline is PR #7, merge commit `96a612b` on October 12.
+Its exact head `6875bbf` passed application, coverage, database and web-migration
+in [run 38256389247](https://github.com/faheygs/doji/actions/runs/38256389247),
+including 4,667 Jest tests and all 17 area budgets. New source needs its own
+exact-head checks; see [handoff audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md).
+
+The following PR #3 qualification is historical (`60df53a` on `main`).
 Its exact PR head `ce86ebd` passed the
 [application, coverage and database checks](https://github.com/faheygs/doji/actions/runs/37311724708)
 on October 5, 2026, before merge:
@@ -40,6 +46,7 @@ Run these commands from the repository root, checking each command's exit status
 npm ci
 npm ci --prefix infra/portal-identity-candidate
 npm ci --prefix infra/doji-orchestrator
+npm ci --prefix web
 npx playwright install chromium
 npm run typecheck
 npm run lint -- --quiet
@@ -93,13 +100,29 @@ candidate and its rollback does not deploy it or authorize applying it live.
 ## Required checks before merging
 
 [Quality gates](../.github/workflows/quality.yml) runs on pull requests, pushes to
-`main` and explicit manual dispatch. All three jobs are required on `main`:
+`main` and explicit manual dispatch. All four jobs must pass for this handoff;
+verify branch protection/check contexts before merge rather than bypassing them:
 
 | Job | Checks |
 | --- | --- |
 | `application` | Expo Doctor, strict app/fixture types, lint, source-size caps, Jest, fanout model, critical-level dependency audit, orchestrator types and the two configured Deno entry points |
 | `coverage` | Full source-inclusive Jest, allowlisted offline provider/session tests, instrumented browser scenarios, merged results and the independent 17-area coverage gate |
 | `database` | Pinned-image preparation, guarded isolated database tests and source-only reproducibility |
+| `web-migration` | Separate locked web install, strict types/lint/Vitest, Vite/Next and connected artifact builds, Playwright and high-level dependency audit |
+
+Run the web gate locally after installing its locked dependencies and Chromium:
+
+```sh
+npm run check --prefix web
+npm run build:connected --prefix web --workspace @doji/admin
+npm run test:connected-artifacts --prefix web
+npm run test:browser --prefix web
+```
+
+Root coverage browser tests accept `DOJI_TEST_BROWSER_CHANNEL=chrome`; the web
+suite uses its own Playwright configuration/browser installation. Default web
+tests intentionally omit dedicated exact-package suites; those require an explicit
+artifact and config. Do not report an omitted suite as passed.
 
 Branch protection requires a pull request and an up-to-date branch, binds the
 checks to GitHub Actions, and applies to administrators. Force pushes and deletion
@@ -164,11 +187,11 @@ tests, new builds, provider charges or load generation.
 | Gate | Required evidence before claiming completion |
 | --- | --- |
 | Employee identity | Real invitation, authenticator enrollment/MFA, sign-in, password reset, logout and session expiry on controlled identities; no member-session effects |
-| Business account | Real signup, email, onboarding, staff review and correction journey; verify the actual released identity provider rather than assuming the planned WorkOS business cutover is complete |
+| Business account | Independent WorkOS business signup/recovery, approval, branding/setup/MFA, workspace and corrections; current owner acceptance is dated evidence, not qualification of a changed candidate |
 | Account separation | Same-email member/employee/business password, session, authorization and deletion independence where supported by the deployed contracts; member authentication remains Supabase Auth |
 | Mobile devices | Exact Android/iOS build, device and OS; push acceptance versus delivery/display, permissions, camera/upload, keyboard, background/foreground and interrupted-network recovery |
 | Schema parity | Reconcile deployed draft SQL with the migration ledger under separate shared-system approval; harness success alone is not live-schema parity |
-| Dependency security | Review the last audit's seven high and three moderate findings for reachability and compatible fixes; the critical-only gate is not a clean security audit and forced breaking downgrades are not an approved repair |
+| Dependency security | Run fresh scoped advisory checks and review reachability/compatible fixes; critical-only root and high-level web gates are not a security certification; forced breaking downgrades are not approved |
 | Capacity | Approved production-like workload and provider/database headroom measurements; local fanout models and 90% coverage do not prove 100,000-user readiness |
 
 The admin browser project includes retained legacy employee UI/rollback contracts.

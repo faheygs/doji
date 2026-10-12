@@ -1,4 +1,5 @@
 import {
+  Button,
   Chip,
   Link,
   Table,
@@ -8,7 +9,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { TableFrame } from '@doji/ui';
+import { QueuePagination, TableFrame } from '@doji/ui';
+import { useState } from 'react';
 import type { EmployeeHealth, EmployeeHealthHistory } from '@doji/portal-data/employee-health';
 import {
   eventState,
@@ -32,18 +34,48 @@ export function OperationsIssues({
   loading,
   failed,
   available,
-}: LoadState & { data: EmployeeHealth['sentry']['issues']; available: boolean }) {
+  problem,
+  retry,
+}: LoadState & {
+  data: EmployeeHealth['sentry']['issues'];
+  available: boolean;
+  problem: string | null;
+  retry(): void;
+}) {
+  const [size, setSize] = useState(10),
+    [page, setPage] = useState(1);
+  const current = Math.min(page, Math.max(1, Math.ceil(data.length / size)));
+  const rows = data.slice((current - 1) * size, current * size);
+  const status = loading
+    ? 'loading'
+    : failed || !available || problem
+      ? 'error'
+      : data.length
+        ? 'ready'
+        : 'empty';
   return (
     <TableFrame
       label="App issue groups"
-      state={loading ? 'loading' : failed || !available ? 'error' : data.length ? 'ready' : 'empty'}
+      state={status}
       emptyMessage="No unresolved issues returned by this query."
-      errorMessage="App-error monitoring is unavailable or outdated."
+      errorMessage={problem ?? 'App-error monitoring is unavailable.'}
+      errorAction={<Button onClick={retry}>Retry monitoring read</Button>}
       footer={
-        <Typography variant="caption" sx={{ p: 2 }}>
-          Up to 25 unresolved groups · production query over 24 hours · occurrence and user counts
-          may span an issue's lifetime
-        </Typography>
+        <QueuePagination
+          page={current}
+          count={rows.length}
+          totalCount={data.length}
+          rowsPerPage={size}
+          state={status}
+          onRowsPerPageChange={(value) => {
+            setSize(value);
+            setPage(1);
+          }}
+          hasPrevious={current > 1}
+          hasNext={current * size < data.length}
+          previous={() => setPage(current - 1)}
+          next={() => setPage(current + 1)}
+        />
       }
     >
       <Table stickyHeader aria-label="App issue groups" sx={{ minWidth: 720 }}>
@@ -57,7 +89,7 @@ export function OperationsIssues({
           </TableRow>
         </TableHead>
         <TableBody>
-          {data.map((row, index) => (
+          {rows.map((row, index) => (
             <TableRow key={row.id ?? String(index)} hover>
               <TableCell component="th" scope="row">
                 {row.permalink ? (
@@ -88,18 +120,37 @@ export function OperationsHistory({
   data,
   loading,
   failed,
-}: LoadState & { data: EmployeeHealthHistory }) {
+  retry,
+}: LoadState & { data: EmployeeHealthHistory; retry(): void }) {
+  const [size, setSize] = useState(10),
+    [page, setPage] = useState(1);
+  const current = Math.min(page, Math.max(1, Math.ceil(data.length / size)));
+  const rows = data.slice((current - 1) * size, current * size);
+  const status = loading ? 'loading' : failed ? 'error' : data.length ? 'ready' : 'empty';
   return (
     <TableFrame
       label="Doji delivery history"
-      state={loading ? 'loading' : failed ? 'error' : data.length ? 'ready' : 'empty'}
+      state={status}
       emptyMessage="No archived Doji summaries returned."
       errorMessage="Doji history could not be loaded."
+      errorAction={<Button onClick={retry}>Retry Doji history</Button>}
+      toolbar={<Typography variant="subtitle2">Latest 12 Doji summaries</Typography>}
       footer={
-        <Typography variant="caption" sx={{ p: 2 }}>
-          Latest {data.length} of at most 12 summaries · server publication, not phone receipt ·
-          missing values are not zero
-        </Typography>
+        <QueuePagination
+          page={current}
+          count={rows.length}
+          totalCount={data.length}
+          rowsPerPage={size}
+          state={status}
+          onRowsPerPageChange={(value) => {
+            setSize(value);
+            setPage(1);
+          }}
+          hasPrevious={current > 1}
+          hasNext={current * size < data.length}
+          previous={() => setPage(current - 1)}
+          next={() => setPage(current + 1)}
+        />
       }
     >
       <Table stickyHeader aria-label="Doji delivery history" sx={{ minWidth: 850 }}>
@@ -118,7 +169,7 @@ export function OperationsHistory({
           </TableRow>
         </TableHead>
         <TableBody>
-          {data.map((row) => (
+          {rows.map((row) => (
             <TableRow key={row.daily_event_id} hover>
               <TableCell component="th" scope="row">
                 {row.title}

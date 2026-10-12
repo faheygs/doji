@@ -5,6 +5,14 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const handbook = [
+  'AGENTS.md',
+  'CLAUDE.md',
+  'web/AGENTS.md',
+  'web/apps/site/AGENTS.md',
+  'website/AGENTS.md',
+  'infra/AGENTS.md',
+  'supabase/AGENTS.md',
+  'scripts/AGENTS.md',
   'README.md',
   'docs/README.md',
   'docs/DEVELOPER_ONBOARDING.md',
@@ -14,6 +22,7 @@ const handbook = [
   'docs/TESTING_AND_RELEASES.md',
   'docs/SECURITY_AND_ACCESS.md',
   'docs/CURRENT_STATE_AND_GAPS.md',
+  'docs/TEST_SUITE_HANDOFF.md',
 ];
 const errors: string[] = [];
 let links = 0;

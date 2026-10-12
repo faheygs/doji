@@ -57,7 +57,8 @@ test('idea archive filters and pages on the server, opens current detail and pre
   expect(reads.at(-1)?.p_before_id).toBe(ideaArchiveFixture().next_cursor?.id);
   await page.getByRole('link', { name: 'Synthetic idea 26' }).click();
   await expect(page.getByRole('heading', { name: 'Community idea', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'Back to idea history' }).click();
+  await page.getByRole('link', { name: 'Back to Community Ideas' }).click();
+  await expect(page).toHaveURL(/#\/community-ideas\?filter=approved$/);
   await expect(page.getByRole('combobox', { name: 'Idea status' })).toHaveText('Accepted');
   await page.getByRole('combobox', { name: 'Idea status' }).click();
   await page.getByRole('option', { name: 'Declined' }).click();

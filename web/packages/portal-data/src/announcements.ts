@@ -1,5 +1,6 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeSessionController } from './employee-session';
+import { checkedPageSize } from './page-size';
 import {
   announcementFilters,
   announcementPath,
@@ -7,6 +8,17 @@ import {
   type AnnouncementCursor,
 } from './announcement-path';
 export * from './announcement-path';
+export const lifecycleFilters = [
+  'active',
+  'all',
+  'draft',
+  'live',
+  'scheduled',
+  'expired',
+  'cancelled',
+  'disabled',
+] as const;
+export type LifecycleFilter = (typeof lifecycleFilters)[number];
 const bad = () => Error('Announcement data could not be verified.');
 const time = (v: unknown): v is string =>
   typeof v === 'string' && v.length <= 80 && Number.isFinite(Date.parse(v));
@@ -26,8 +38,8 @@ function summary(value: unknown) {
     value.title.length > 100 ||
     !time(value.created_at) ||
     !time(value.starts_at) ||
-    !time(value.ends_at) ||
-    Date.parse(value.ends_at) <= Date.parse(value.starts_at) ||
+    (value.ends_at !== null &&
+      (!time(value.ends_at) || Date.parse(value.ends_at) <= Date.parse(value.starts_at))) ||
     typeof value.state !== 'string' ||
     !['draft', 'published', 'cancelled', 'legacy'].includes(value.state) ||
     typeof value.managed !== 'boolean' ||
@@ -46,7 +58,7 @@ function summary(value: unknown) {
     title: value.title,
     at: value.created_at,
     starts: value.starts_at,
-    ends: value.ends_at,
+    ends: value.ends_at as string | null,
     state: value.state,
     managed: value.managed,
     status: value.display_state as keyof typeof announcementLabels,
@@ -56,11 +68,13 @@ export function announcementPage(
   value: unknown,
   filter: AnnouncementFilter,
   cursor: AnnouncementCursor,
+  pageSize = 25,
 ) {
+  checkedPageSize(pageSize);
   if (
     !record(value) ||
     !Array.isArray(value.items) ||
-    value.items.length > 25 ||
+    value.items.length > pageSize ||
     typeof value.can_write !== 'boolean' ||
     !announcementFilters.includes(filter)
   )
@@ -84,7 +98,13 @@ export function announcementPage(
   if (value.next_cursor !== null) {
     const tail = items.at(-1),
       raw = value.next_cursor;
-    if (items.length !== 25 || !tail || !record(raw) || raw.at !== tail.at || raw.id !== tail.id)
+    if (
+      items.length !== pageSize ||
+      !tail ||
+      !record(raw) ||
+      raw.at !== tail.at ||
+      raw.id !== tail.id
+    )
       throw bad();
     next = { at: tail.at, id: tail.id };
   }
@@ -167,12 +187,63 @@ export function readAnnouncements(
   filter: AnnouncementFilter,
   cursor: AnnouncementCursor,
   signal: AbortSignal,
+  pageSize = 25,
 ) {
   return controller.read(
     'operations_read',
-    announcementPath(filter, cursor),
+    announcementPath(filter, cursor, pageSize),
     undefined,
-    (value) => announcementPage(value, filter, cursor),
+    (value) => announcementPage(value, filter, cursor, pageSize),
+    signal,
+  );
+}
+export function lifecyclePage(
+  value: unknown,
+  filter: LifecycleFilter,
+  cursor: AnnouncementCursor,
+  size = 25,
+) {
+  if (
+    !lifecycleFilters.includes(filter) ||
+    !record(value) ||
+    value.scope !== 'announcement_lifecycle_v1' ||
+    value.filter !== filter
+  )
+    throw bad();
+  const result = announcementPage(value, 'all', cursor, size);
+  if (
+    result.items.some(
+      (item) =>
+        filter !== 'all' &&
+        (filter === 'active'
+          ? !['draft', 'live', 'scheduled'].includes(item.status)
+          : item.status !== filter),
+    )
+  )
+    throw bad();
+  return result;
+}
+export function readAnnouncementLifecycle(
+  controller: EmployeeSessionController,
+  filter: LifecycleFilter,
+  cursor: AnnouncementCursor,
+  signal: AbortSignal,
+  size = 25,
+) {
+  if (!controller.historyReadsEnabled || !lifecycleFilters.includes(filter))
+    throw Error('Announcement history is unavailable.');
+  // Reuse the canonical cursor/size checks, but this read uses the separate gated RPC.
+  announcementPath('all', cursor, size);
+  return controller.read(
+    'operations_read',
+    '/announcements/lifecycle',
+    {
+      p_filter: filter,
+      p_limit: checkedPageSize(size),
+      p_before_at: cursor?.at ?? null,
+      p_before_id: cursor?.id ?? null,
+    },
+    (value) => lifecyclePage(value, filter, cursor, size),
     signal,
   );
 }

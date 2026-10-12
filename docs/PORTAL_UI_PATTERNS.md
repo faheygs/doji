@@ -1,5 +1,19 @@
 # Portal copy and contextual help
 
+## Current React portal direction (October 12, 2026)
+
+Use `web/packages/ui` and the [web agent requirements](../web/AGENTS.md).
+Standard MUI controls/menus/dialogs/TablePagination retain their accessible
+behavior; the shared Doji theme supplies brand color/typography. Desktop workspaces
+use available width. Home is a greeting, next Doji, attention cards and quick access;
+Team uses a directory and role editor. Records open as full pages, not drawers.
+History is a status filter on the relevant queue. Keep meaningful identity/avatar
+columns, explicit assignee, one primary action, contextual alternatives and clear
+loading/empty/error states. Verification codes use a standard MUI TextField.
+The sections below are historical retained-controller contracts, NOT instructions
+to rebuild custom selects or restore drawers in the React apps. Their authorization,
+draft preservation and uncertainty rules still apply.
+
 ## Shared dropdown ownership (September 28, local candidate)
 
 `website/portal-select.js` owns the existing `portalSelect` implementation for both

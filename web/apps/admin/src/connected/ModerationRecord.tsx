@@ -14,6 +14,7 @@ const ModerationActions = lazy(() =>
   import('./ModerationActions').then((module) => ({ default: module.ModerationActions })),
 );
 import { useModerationCommand } from './useModerationCommand';
+import { personalReturn } from './personal-return';
 
 export function ModerationRecord({
   controller,
@@ -57,6 +58,7 @@ export function ModerationRecord({
         component={Link}
         to={
           safetyReturn ??
+          personalReturn(params, area) ??
           (area === 'overview'
             ? '/'
             : params.get('from') === 'audit'
