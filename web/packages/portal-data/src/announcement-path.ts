@@ -1,8 +1,13 @@
 import { uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
+import { checkedPageSize } from './page-size';
 export const announcementFilters = ['all', 'draft', 'published', 'cancelled'] as const;
 export type AnnouncementFilter = (typeof announcementFilters)[number];
 export type AnnouncementCursor = { at: string; id: string } | null;
-export function announcementPath(filter: AnnouncementFilter, cursor: AnnouncementCursor) {
+export function announcementPath(
+  filter: AnnouncementFilter,
+  cursor: AnnouncementCursor,
+  pageSize = 25,
+) {
   if (
     !announcementFilters.includes(filter) ||
     (cursor &&
@@ -12,7 +17,11 @@ export function announcementPath(filter: AnnouncementFilter, cursor: Announcemen
         !Number.isFinite(Date.parse(cursor.at))))
   )
     throw Error('Invalid announcement filters.');
-  const params = new URLSearchParams({ kind: 'announcements', limit: '25', filter });
+  const params = new URLSearchParams({
+    kind: 'announcements',
+    limit: String(checkedPageSize(pageSize)),
+    filter,
+  });
   if (cursor) {
     params.set('beforeAt', cursor.at);
     params.set('beforeId', cursor.id);
@@ -30,6 +39,7 @@ export function validAnnouncementPath(path: string) {
       announcementPath(
         url.searchParams.get('filter') as AnnouncementFilter,
         at && id ? { at, id } : null,
+        Number(url.searchParams.get('limit')),
       )
     );
   } catch {

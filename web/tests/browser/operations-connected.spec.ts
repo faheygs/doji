@@ -95,7 +95,7 @@ test('read failure clears prior issues and permission loss removes the protected
   await expect(page.getByText('Synthetic foreground timeout')).toBeVisible();
   f.fail();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByText('App-error monitoring is unavailable or outdated.')).toBeVisible();
+  await expect(page.getByText('The platform-health read failed. Retry to reconnect.')).toBeVisible();
   await expect(page.getByText('Synthetic foreground timeout')).toHaveCount(0);
   f.revoke();
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));

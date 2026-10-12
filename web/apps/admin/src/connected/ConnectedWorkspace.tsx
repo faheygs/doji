@@ -60,6 +60,9 @@ const OperationsRecord = lazy(() =>
 const BusinessRecord = lazy(() =>
   import('./BusinessRecord').then((module) => ({ default: module.BusinessRecord })),
 );
+const BusinessQueue = lazy(() =>
+  import('./BusinessQueue').then((module) => ({ default: module.BusinessQueue })),
+);
 
 export function ConnectedWorkspace({
   controller,
@@ -69,7 +72,7 @@ export function ConnectedWorkspace({
   realtimeEnabled?: boolean;
 }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const overview = pathname === '/';
   const announcementEditId =
@@ -104,7 +107,13 @@ export function ConnectedWorkspace({
     /^\/(trust-safety|restricted-safety|my-work|overview)\/(report|appeal)\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})$/i.exec(
       pathname,
     );
-  const ideaArchive = pathname === '/community-ideas/archive';
+  const ideaFilter = new URLSearchParams(search).get('filter');
+  const businessFiltered =
+    pathname === '/businesses' &&
+    ['pending', 'changes_requested', 'approved', 'declined'].includes(ideaFilter ?? '');
+  const ideaArchive =
+    pathname === '/community-ideas/archive' ||
+    (pathname === '/community-ideas' && ['all', 'approved', 'rejected'].includes(ideaFilter ?? ''));
   const privacyNew = pathname === '/business-privacy/new';
   const area =
     privacyId || privacyNew
@@ -236,6 +245,12 @@ export function ConnectedWorkspace({
             ) : (
               <PrivacyQueue key={state.session?.epoch} controller={controller} />
             )}
+          </Suspense>
+        ) : businessFiltered ? (
+          <Suspense
+            fallback={<TableFrame label="Business applications" state="loading" footer={null} />}
+          >
+            <BusinessQueue key={state.session?.epoch} controller={controller} />
           </Suspense>
         ) : ideaArchive ? (
           <Suspense fallback={<TableFrame label="idea history" state="loading" footer={null} />}>

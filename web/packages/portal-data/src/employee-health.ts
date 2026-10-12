@@ -142,3 +142,26 @@ export const readEmployeeHealthHistory = (
   );
 export type EmployeeHealth = ReturnType<typeof healthSnapshot>;
 export type EmployeeHealthHistory = ReturnType<typeof healthHistory>;
+
+/** Explain the observation, not an inferred app outage or a healthy zero. */
+export function sentryReadProblem(
+  source: EmployeeHealth['sentry'] | undefined,
+  failed: boolean,
+  current: boolean,
+) {
+  if (failed) return 'The platform-health read failed. Retry to reconnect.';
+  if (!source) return 'No Sentry observation has been received.';
+  if (source.configured === false) return 'Sentry monitoring is not configured for this portal.';
+  if (source.upstream_status === 401 || source.upstream_status === 403)
+    return 'Sentry rejected the monitoring connection. Check its service credentials and project access.';
+  if (source.upstream_status === 429)
+    return 'Sentry temporarily rate-limited the monitoring connection.';
+  if (source.upstream_status && source.upstream_status >= 400)
+    return `Sentry returned HTTP ${source.upstream_status}. The monitoring read is unavailable.`;
+  if (!source.observed_at)
+    return 'The monitoring service has not supplied a verified Sentry observation time.';
+  if (!source.available)
+    return 'The Sentry monitoring response is unavailable or could not be verified.';
+  if (!current) return 'The last Sentry observation is outdated. Retry to check current issues.';
+  return null;
+}

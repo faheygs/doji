@@ -117,7 +117,11 @@ assert.ok(
   // Standard Drawer, AppBar, account Menu, icons and identity-aware tables plus intake:
   // measured 280.2 KiB core; add 24 KiB explicitly, with sign-in still capped at 180.
   // Portal home cards and the searchable access manager add 8.3 KiB to core.
-  bytes - chartBytes - privacyBytes - formBytes - announcementBytes <= 290 * 1024,
+  // Unified business history, bounded page-size controls and health-source diagnostics
+  // use 293.9 KiB of core. Allocate 4 KiB of the existing total allowance here;
+  // total stays 507 KiB and sign-in stays 180 KiB.
+  // Personal/lifecycle history adds 1.8 KiB: explicit 2 KiB deferred allocation.
+  bytes - chartBytes - privacyBytes - formBytes - announcementBytes <= 296 * 1024,
   'Core workspace exceeds its explicit review/ideas/audit/exact-content feature budget',
 );
 // Add 5 KiB for bounded idea history, closed-safety navigation and audit handoff.
@@ -156,12 +160,17 @@ for (const [prefix, limit] of [
 // The design-system revision measures 445.7 KiB total; allocate 20 KiB over 430.
 // Home and people management measure 452.4 KiB total; sign-in remains capped at 180.
 // Measured 501.3 KiB with full composition: explicit 50 KiB feature allocation.
-assert.ok(bytes <= 507 * 1024, 'Workspace plus deferred MUI libraries exceeds its total budget');
+// History integration measures 507.8 KiB; allocate 2 KiB, leaving sign-in unchanged.
+assert.ok(bytes <= 509 * 1024, 'Workspace plus deferred MUI libraries exceeds its total budget');
 for (const path of initialPaths) {
   const initial = readFileSync(localAsset(path), 'utf8');
   assert.ok(
     !initial.includes('Idea history could not be verified.'),
     'History parser must not preload at sign-in',
+  );
+  assert.ok(
+    !initial.includes('Personal history could not be verified.'),
+    'Personal history parser must not preload at sign-in',
   );
   assert.ok(
     !initial.includes('Privacy record could not be verified.'),

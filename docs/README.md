@@ -3,7 +3,7 @@
 Start with [Developer onboarding](DEVELOPER_ONBOARDING.md). The handbook is the
 entry point; dated records below retain implementation details, approval boundaries,
 release evidence and rollback. This index covers every Markdown document under
-`docs`, including the October 2–4 release and investigation records added below.
+`docs`. Start with current-state guidance; dated records retain their original scope.
 
 Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 [Product/system context](../DOJI_CONTEXT.md) and [Orchestration/secrets guide](../supabase/CRON_AND_SECRETS.md).
@@ -50,6 +50,10 @@ Also read the repository [README](../README.md), [AGENTS](../AGENTS.md),
 
 ## Architecture, product and standards
 
+- [Repository reconciliation, cleanup and developer handoff — October 12](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md)
+- [Admin queue consistency](ADMIN_QUEUE_CONSISTENCY_2026-10-09.md)
+- [Employee history/health preparation and release](EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md)
+- [React business and Next public frontend release](REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md)
 - [Repository cleanup audit and retained candidates — October 5](REPOSITORY_CLEANUP_AUDIT_2026-10-05.md)
 - [Portal copy and contextual help](PORTAL_UI_PATTERNS.md)
 - [Doji product backlog](PRODUCT_BACKLOG.md)

@@ -5,13 +5,17 @@ import type { EmployeeSessionController } from '@doji/portal-data/employee';
 import { useEmployeeHealth } from './useEmployeeHealth';
 import { OperationsHistory, OperationsIssues, healthColor, observation } from './OperationsTables';
 import { TrendChart } from '../operations/TrendChart';
+import { sentryReadProblem } from '@doji/portal-data/employee-health';
+import { OperationsSources } from './OperationsSources';
 
 const sections = ['Overview', 'Services & coverage', 'App issues', 'Doji history'];
 export function OperationsRecord({ controller }: { controller: EmployeeSessionController }) {
   const [tab, setTab] = useState(0);
   const { snapshot, history, data, rows, assessment } = useEmployeeHealth(controller);
-  const issuesCurrent =
-    assessment.signals.find((x) => x.name.startsWith('App errors'))?.state !== 'unknown';
+  const issuesCurrent = assessment.signals.some(
+    (x) => x.name.startsWith('App errors') && x.state !== 'unknown',
+  );
+  const sentryProblem = sentryReadProblem(data?.sentry, snapshot.isError, issuesCurrent);
   const chronological = [...rows].sort(
     (a, b) => Date.parse(a.fires_at ?? '') - Date.parse(b.fires_at ?? ''),
   );
@@ -29,10 +33,6 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
           <Chip label={assessment.label} color={healthColor(assessment.state)} variant="outlined" />
         }
       />
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Health push updates are not enabled. Readings reconcile when you return or reconnect; the
-        queue connection is not a live health feed.
-      </Alert>
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
         <Typography component="h2" variant="h3">
           {assessment.title}
@@ -138,49 +138,31 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 )}
               </Stack>
             ) : index === 1 ? (
-              <Stack sx={{ gap: 2 }}>
-                <Alert severity="warning">
-                  These readings do not establish whole-platform uptime or crash-free sessions.
-                </Alert>
-                {[
-                  [
-                    'Delivery and push',
-                    'Existing server snapshots cover publication latency, outbox backlog, push fanout and APNs credential failures. They do not prove notification display on a device.',
-                  ],
-                  [
-                    'App errors',
-                    'The authorized Sentry read returns at most 25 unresolved production issue groups over 24 hours. Resolved and unreported failures, recovery and feature success rates are not measured here.',
-                  ],
-                  [
-                    'Doji history',
-                    'The latest 12 archived summaries retain missed delivery targets after recovery. Unfinalized summaries are still settling; absence is not an all-clear.',
-                  ],
-                  [
-                    'Coverage gaps',
-                    'API success rates, authentication continuity, hosting, storage and email delivery have no qualified aggregate signal in this screen.',
-                  ],
-                  [
-                    'Freshness',
-                    'Delivery and app-error observations expire after three minutes. Expiry changes the labels locally without polling; foreground and reconnect use existing authorized reads.',
-                  ],
-                ].map(([title, description]) => (
-                  <Paper key={title} variant="outlined" sx={{ p: 3 }}>
-                    <Typography component="h2" variant="h3">
-                      {title}
-                    </Typography>
-                    <Typography sx={{ mt: 1 }}>{description}</Typography>
-                  </Paper>
-                ))}
-              </Stack>
+              <OperationsSources
+                data={data}
+                sentryProblem={sentryProblem}
+                failed={snapshot.isError}
+                loading={snapshot.isPending}
+                historyFailed={history.isError}
+                historyLoading={history.isPending}
+                historyCount={rows.length}
+              />
             ) : index === 2 ? (
               <OperationsIssues
                 data={data?.sentry.issues ?? []}
                 loading={snapshot.isPending}
                 failed={snapshot.isError}
                 available={issuesCurrent}
+                problem={sentryProblem}
+                retry={() => void snapshot.refetch()}
               />
             ) : (
-              <OperationsHistory data={rows} loading={history.isPending} failed={history.isError} />
+              <OperationsHistory
+                data={rows}
+                loading={history.isPending}
+                failed={history.isError}
+                retry={() => void history.refetch()}
+              />
             ))}
         </Box>
       ))}

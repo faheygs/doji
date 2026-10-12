@@ -1,0 +1,35 @@
+-- Display-state filtering happens before the limit; never filter a loaded page.
+-- Same precedence as admin_editorial_item_v1, including unmanaged legacy rows.
+create function public.get_admin_announcement_lifecycle_page_v1(
+ p_filter text default 'active',p_limit integer default 25,
+ p_before_at timestamptz default null,p_before_id uuid default null)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare ids uuid[]; v_id uuid; item jsonb; items jsonb:='[]'; cursor jsonb:=null; n integer:=0;
+begin
+ perform public.admin_editorial_authorize_v1(false);
+ perform staff_workflow_private.history_reads_actor();
+ if p_filter is null or p_filter not in ('active','all','draft','live','scheduled','expired','cancelled','disabled')
+  or p_limit is null or p_limit not between 1 and 25
+  or (p_before_at is null)<>(p_before_id is null)
+  or (p_before_at is not null and not isfinite(p_before_at)) then
+  raise exception using errcode='22023',message='Invalid announcement lifecycle page';end if;
+ select array_agg(x.id order by x.created_at desc,x.id desc) into ids from (
+  select a.id,a.created_at from public.app_announcements a
+  left join public.admin_announcement_state s on s.announcement_id=a.id
+  cross join lateral (select case when s.state in ('draft','cancelled') then s.state
+   when not a.enabled then 'disabled' when a.ends_at<=now() then 'expired'
+   when a.starts_at>now() then 'scheduled' else 'live' end display_state) d
+  where (p_filter='all' or d.display_state=p_filter
+   or (p_filter='active' and d.display_state in ('draft','live','scheduled')))
+   and (p_before_at is null or (a.created_at,a.id)<(p_before_at,p_before_id))
+  order by a.created_at desc,a.id desc limit p_limit+1
+ ) x;
+ foreach v_id in array coalesce(ids,'{}'::uuid[]) loop
+  n:=n+1;
+  if n>p_limit then cursor:=jsonb_build_object('at',item->>'created_at','id',item->>'id');exit;end if;
+  item:=public.admin_editorial_item_v1('announcements',v_id);
+  items:=items||jsonb_build_array(item-'body'-'options'-'admin_note');
+ end loop;
+ return jsonb_build_object('scope','announcement_lifecycle_v1','filter',p_filter,
+  'items',items,'next_cursor',cursor,'can_write',public.admin_user_has_permission('admin.manage'));
+end$$;

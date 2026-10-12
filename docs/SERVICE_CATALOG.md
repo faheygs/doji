@@ -16,7 +16,7 @@ Existing plans are not permission to incur new costs.
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | [Dashboard](https://ably.com/dashboard); owner identifies the production app before granting access | `lib/realtimeClient.ts`, `realtime-token`, relay and employee resource signer |
-| WorkOS AuthKit | Independent employee login/password/MFA; business replacement under preparation | [Dashboard](https://dashboard.workos.com/); separate employee/business staging and production environments | `infra/portal-identity-candidate/`, account separation record |
+| WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); separate employee/business staging and production environments | `infra/portal-identity-candidate/`, owned-auth/onboarding records |
 | Expo and EAS | Native development builds, cloud build/signing, store submission and legacy push fallback transport | [Project](https://expo.dev/accounts/faheybaby/projects/doit-challenge-app); project `064b68b6-f138-4962-8aeb-f00970ba39c8` | `app.json`, `eas.json`, `.easignore`, `scripts/verify-build-env.mjs` |
 | Apple Developer and App Store Connect | Bundle/signing, APNs credentials, TestFlight, review and iOS distribution | [Developer](https://developer.apple.com/account/), [App Store Connect](https://appstoreconnect.apple.com/); app `6768727326` | `docs/APP_STORE_RELEASE.md`, mobile release records |
 | Google Play Console | Android signing/distribution, closed testing and production-access review | [App console](https://play.google.com/console/u/0/developers/6661342012009308283/app/4972908027141050312); Alpha track `4699325792611215201` | `docs/GOOGLE_PLAY_RELEASE.md`, Android 23 record |
@@ -32,7 +32,7 @@ current consoles before deciding availability, review state or enforcement.
 
 | Path | Current responsibility | Do not confuse it with |
 | --- | --- | --- |
-| Resend | Existing service/operational mail and released Supabase-based business verification/recovery | Employee inbox hosting or proof of delivery from an API success |
+| Resend | Service/operational mail, owned business recovery and separately gated business application mail | Employee inbox hosting or proof of delivery from an API success |
 | Cloudflare safety sender | Dedicated minimal urgent-intake alerts to an approved verified destination | A general bulk-mail or employee mailbox service |
 | Cloudflare Email Routing | Existing support routing; selected approach for new `name@dojipro.com` employee forwarding | A mailbox that stores mail or automatically sends replies as that address |
 | WorkOS hosted email | Separate employee invitation/recovery flow in AuthKit | Supabase member password reset or a company mailbox |
@@ -63,8 +63,8 @@ reviewed routes to `employee-portal-v2` with a server-only proxy key. It does no
 expose WorkOS tokens or database credentials. `/identity/setup-complete` strips
 provider codes and never treats a redirect as authority to grant access.
 
-Business WorkOS source and separate directories exist but are not the live
-business portal login. Do not switch a client ID, reuse an employee directory, or
+Business now uses its own live WorkOS realm through Doji-owned forms and the
+business-only session boundary. Do not switch a client ID, reuse an employee directory, or
 infer a production mapping from an email match. Detailed sequence and rollback:
 [Account separation record](ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md).
 
@@ -89,11 +89,13 @@ owns authorization; it does **not** mean the endpoint is unrestricted.
 | `safety-removal` | Public intake/status with feature/origin/Turnstile and narrow private RPC checks |
 | `safety-removal-alerts` | Dedicated leased urgent-case email delivery through Cloudflare |
 | `moderation-media` | Exact-object evidence/removal/revocation/restoration worker; not a general storage API |
-| `business-auth` | Released dedicated Supabase-based business signup/verification/recovery boundary |
+| `business-auth` | Retained earlier Supabase business boundary; not current WorkOS login; do not reactivate as a shortcut |
 | `business-realtime-token` | Prepared exact-business capability issuer; business realtime launch remains gated |
 | `employee-register` | Earlier Supabase employee enrollment path retained in source; not current root onboarding |
 | `employee-signin` | Earlier Supabase employee sign-in path retained in source; do not re-enable as a shortcut |
 | `employee-portal-v2` | Live independent WorkOS employee gateway, durable sessions and restricted application adapter |
+| `business-portal-v2` | Independent WorkOS business gateway, owned auth/recovery, application/setup/MFA and restricted sessions |
+| `business-application-mail` | Private business sender; capture/sending/wakeup disabled in last acceptance record |
 
 `employee-portal-v2` has a special release assembly that copies reviewed runtime
 modules inside the function artifact. Use its release record; do not assume a raw

@@ -1,8 +1,9 @@
 import { uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
+import { checkedPageSize } from './page-size';
 export const ideaFilters = ['all', 'pending', 'approved', 'rejected'] as const;
 export type IdeaFilter = (typeof ideaFilters)[number];
 export type IdeaCursor = { at: string; id: string } | null;
-export function ideaArchivePath(filter: IdeaFilter, cursor: IdeaCursor) {
+export function ideaArchivePath(filter: IdeaFilter, cursor: IdeaCursor, pageSize = 25) {
   if (
     !ideaFilters.includes(filter) ||
     (cursor &&
@@ -12,7 +13,11 @@ export function ideaArchivePath(filter: IdeaFilter, cursor: IdeaCursor) {
         !Number.isFinite(Date.parse(cursor.at))))
   )
     throw Error('Invalid idea history filters.');
-  const params = new URLSearchParams({ kind: 'suggestions', limit: '25', filter });
+  const params = new URLSearchParams({
+    kind: 'suggestions',
+    limit: String(checkedPageSize(pageSize)),
+    filter,
+  });
   if (cursor) {
     params.set('beforeAt', cursor.at);
     params.set('beforeId', cursor.id);
@@ -27,7 +32,11 @@ export function validIdeaArchivePath(path: string) {
     if (!!at !== !!id) return false;
     return (
       path ===
-      ideaArchivePath(url.searchParams.get('filter') as IdeaFilter, at && id ? { at, id } : null)
+      ideaArchivePath(
+        url.searchParams.get('filter') as IdeaFilter,
+        at && id ? { at, id } : null,
+        Number(url.searchParams.get('limit')),
+      )
     );
   } catch {
     return false;

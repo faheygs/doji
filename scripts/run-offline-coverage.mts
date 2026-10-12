@@ -14,6 +14,7 @@ const files = [
   'test-employee-admission.mts',
   'test-employee-timing.mts',
   'test-employee-application-adapter.mts',
+  'test-employee-history-adapter.mts',
   'test-employee-resources.mts',
   'test-employee-proxy.mts',
   'test-employee-health.mts',

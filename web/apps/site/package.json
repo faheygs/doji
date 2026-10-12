@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node prepare-assets.mts",
     "dev": "next dev --hostname 127.0.0.1 --port 4312",
     "typecheck": "next typegen && tsc --noEmit",
+    "prebuild": "node prepare-assets.mts",
     "build": "next build"
   },
   "dependencies": {

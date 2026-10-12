@@ -30,6 +30,7 @@ export interface EmployeeRuntimeConfig extends Omit<
   staffWorkflowEnabled?: boolean;
   healthEventsEnabled?: boolean;
   announcementComposeEnabled?: boolean;
+  historyReadsEnabled?: boolean;
 }
 interface RuntimeDependencies {
   createClient: CreatePortalSqlClient;
@@ -76,6 +77,7 @@ export function createEmployeeRuntime(
   const store = createEmployeeSessionStore({ ...policy, enabled: true }, execute, now);
   const adapter = createEmployeeApplicationAdapter(execute, {
     announcementComposeEnabled: policy.announcementComposeEnabled === true,
+    historyReadsEnabled: policy.historyReadsEnabled === true,
   });
   const application = createEmployeeResources(adapter, {
     staffWorkflowEnabled: policy.staffWorkflowEnabled === true,

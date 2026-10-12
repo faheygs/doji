@@ -13,6 +13,8 @@ export function QueuePagination({
   hasNext,
   previous,
   next,
+  onRowsPerPageChange,
+  rowsPerPageOptions = [5, 10, 25],
 }: {
   page: number;
   count: number;
@@ -23,6 +25,8 @@ export function QueuePagination({
   hasNext: boolean;
   previous: () => void;
   next: () => void;
+  onRowsPerPageChange?: (size: number) => void;
+  rowsPerPageOptions?: number[];
 }) {
   return (
     <TablePagination
@@ -30,7 +34,11 @@ export function QueuePagination({
       count={totalCount ?? -1}
       page={page - 1}
       rowsPerPage={rowsPerPage}
-      rowsPerPageOptions={[]}
+      rowsPerPageOptions={onRowsPerPageChange ? rowsPerPageOptions : []}
+      onRowsPerPageChange={(event) => {
+        const size = Number(event.target.value);
+        if (state !== 'loading' && rowsPerPageOptions.includes(size)) onRowsPerPageChange?.(size);
+      }}
       onPageChange={(_, target) => {
         if (state === 'loading') return;
         if (target < page - 1 && hasPrevious) previous();
@@ -44,6 +52,7 @@ export function QueuePagination({
         return `${from}–${from + count - 1}${totalCount === undefined ? '' : ` of ${totalCount}`}`;
       }}
       slotProps={{
+        select: { disabled: state === 'loading' },
         displayedRows: { role: 'status', 'aria-live': 'polite' },
         actions: {
           previousButton: { disabled: state === 'loading' || !hasPrevious },

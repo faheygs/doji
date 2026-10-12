@@ -1,5 +1,59 @@
 # Doji agent instructions
 
+## Start here and source ownership
+
+Use reviewed `main` and inspect `git status` before editing. Do not copy an older
+owner checkout over newer source. Read `docs/CURRENT_STATE_AND_GAPS.md` for
+recorded release status, `docs/SYSTEM_MAP.md` for the repository map, and the
+nearest scoped `AGENTS.md`. Historical release notes are evidence, not commands
+to rerun. Source merged does not mean deployed.
+
+| Boundary | Maintained source / stack |
+| --- | --- |
+| Member mobile | `app/`, `components/`, `hooks/`, `lib/`, `contexts/`, `stores/`, `contracts/`; Expo 57, React Native 0.86, React 19.2, Expo Router, TanStack Query, Zustand |
+| Web workspace | `web/`; separate npm lock/workspaces, React 19.3, MUI 9, TanStack Query 5; Vite 8 admin/business, Next.js 16 static public site |
+| Shared web UI/data | `web/packages/ui`, `web/packages/portal-data`; Doji theme, standard MUI controls, session-scoped authorized reads |
+| Retained browser adapters | `website/`; typed auth/application/safety controllers, legal content and release packagers still imported by React; not disposable legacy code |
+| Portal server | `infra/portal-identity-candidate/`; live employee AND business WorkOS/session runtimes despite the historical directory name |
+| Shared server | `supabase/` Postgres/RLS/RPC and Deno Edge; `infra/doji-orchestrator/` Cloudflare Worker/Durable Objects |
+| Tools and verification | `scripts/`, `__tests__/`, `__mocks__/`, `supabase/tests/`, web/website browser suites; synthetic fixtures are required regression inputs |
+
+Node 24 and committed lockfiles are required. Root and `web/` have separate React
+versions/toolchains; never flatten their dependencies. Maintain TypeScript
+(`.ts/.tsx/.mts/.cts`), not new hand-written JavaScript. Native Node type stripping
+does not replace strict typechecking. Only the two verified bootstrap/compatibility
+JS artifacts are versioned exceptions. Exact versions come from package/lockfiles.
+
+## Development, design and completion requirements
+
+- Install root, `infra/portal-identity-candidate`, `infra/doji-orchestrator` and,
+  for web work, `web` with their own `npm ci`. Use `docs/LOCAL_DEVELOPMENT.md`.
+- Mobile uses shared theme, avatar/frame, keyboard-safe and accessible UI.
+  Portals use standard MUI behavior with the centralized Doji orange/violet
+  theme: desktop-first workspaces, full-page records, contextual menus,
+  labelled empty/error/loading states and bounded TablePagination. Do not restore
+  cramped record drawers, six custom MFA boxes, screen-local control replacements
+  or duplicate active/history queues. Keep filters/ownership semantics explicit.
+- Preserve immutable uncertain command payload/key for explicit identical retry;
+  never automatically retry a consequential write or label failed reads empty.
+- Test with synthetic fixtures and deny unmocked external requests. Do not use
+  real members, send emails, or open paid resources to make tests pass. Read scripts
+  first: `test`, `prepare` and `candidate` names do not prove safety.
+- Before merge run relevant tests plus root typecheck/lint/size/hygiene gates and
+  separate web checks for web changes. CI jobs are `application`, `coverage`,
+  `database`, `web-migration`; preserve all 17 independent 90% coverage budgets.
+  See `docs/TEST_SUITE_HANDOFF.md` for commands and limitations.
+- Main uses pull requests and passing exact-head checks. No force push, bypass,
+  unaudited bulk staging, blanket `npm audit fix`, remote SQL, cloud build or
+  deployment is implied by a source cleanup/merge request.
+- Keep credentials, provider responses, native builds, caches and private evidence
+  untracked. Remove tests/mocks only with proven retirement of their contract.
+  Preserve migrations, rollback records and evidence holds. Document removals,
+  recovery and validation; never recursively delete owner worktrees.
+- Update current-state/system-map/scoped instructions when ownership, stack,
+  entry points or requirements change. Keep rollout history distinct from current
+  guidance; verify live flags before any independently authorized release.
+
 Read `DOJI_CONTEXT.md` and `docs/REALTIME_ARCHITECTURE.md` completely before making
 cross-screen, backend, realtime, notification, economy, profile, or challenge-flow
 changes. They define how the product and system connect.

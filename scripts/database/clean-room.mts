@@ -110,9 +110,9 @@ export function createCleanRoom() {
   };
 }
 
-export async function replay(room: TestRoom) {
+export async function replay(room: TestRoom, excludeMigrations: readonly string[] = []) {
   const files = readdirSync(resolve(root, 'supabase/migrations'))
-    .filter((f) => f.endsWith('.sql'))
+    .filter((f) => f.endsWith('.sql') && !excludeMigrations.includes(f))
     .sort();
   const applied = [];
   const statements = [];

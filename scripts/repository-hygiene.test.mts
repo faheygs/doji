@@ -23,6 +23,15 @@ test('rejects committed local cache, dependency and generated artifact paths', (
     'website/.business-admin-qa-20261005/index.html',
     'infra/example/.wrangler/state.json',
     'modules/example/android/.gradle/state.bin',
+    'web/apps/admin/dist/index.html',
+    'web/apps/business/dist/assets/index.js',
+    'web/apps/site/.next/build-manifest.json',
+    'web/apps/site/out/index.html',
+    'web/apps/site/generated/privacy.html',
+    'web/apps/site/public/legacy-safety/form.js',
+    'web/apps/site/public/safety-removal/config.js',
+    'web/apps/site/next-env.d.ts',
+    'web/playwright-report/index.html',
   ];
   assert.equal(hygieneIssues(files).length, files.length);
 });
@@ -70,4 +79,19 @@ test('reports deterministic deduplicated paths', () => {
     '.env: only the reviewed root .env.example may be committed',
     '.env.local: only the reviewed root .env.example may be committed',
   ]);
+});
+
+test('rejects scratch output without rejecting maintained mock and fixture contracts', () => {
+  for (const file of ['build.log', 'draft.tmp', 'old.bak', 'cache.temp', 'runner/.last-run.json'])
+    assert.equal(hygieneIssues([file]).length, 1);
+  assert.deepEqual(
+    hygieneIssues([
+      '__mocks__/expo-image.tsx',
+      'scripts/fixtures/synthetic.json',
+      'web/tests/browser/business-fixture.ts',
+      'web/apps/site/prepare-assets.mts',
+      'web/apps/site/app/sitemap.ts',
+    ]),
+    [],
+  );
 });

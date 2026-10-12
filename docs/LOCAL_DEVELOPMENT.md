@@ -34,7 +34,26 @@ npm run test:admin-health
 deployment. Do not replace it with an upgrade or blanket `npm audit fix`.
 For mobile unit tests and static checks, see [Testing and releases](TESTING_AND_RELEASES.md).
 
-## Fastest safe portal preview: offline prototype
+## Current React previews
+
+Install the root packages above, then `npm ci --prefix web`. From the repository
+root run each desired preview in its own terminal:
+
+```sh
+npm run dev:admin --prefix web
+npm run dev:business --prefix web
+npm run dev:site --prefix web
+```
+
+The apps bind loopback at ports 4310/4311/4312. Defaults are disconnected preview
+configuration, not permission to connect a production employee/business session.
+The public Next app exports static files; there is no Next API/auth server.
+`npm run check --prefix web` validates types, lint, units, builds and artifacts.
+`npm run test:browser --prefix web` needs installed Playwright Chromium and those
+ports free. Package-only acceptance configs need their exact prepared artifacts.
+Read [web agent guide](../web/AGENTS.md) and [site guide](../web/apps/site/AGENTS.md).
+
+## Retained offline portal prototype / compatibility tests
 
 The source `website/portal-config.mts` is a prototype with empty backend settings.
 The loopback preview server compiles registered TypeScript browser sources at
@@ -77,6 +96,12 @@ replace those values with production settings to test the form. No synthetic
 public case, email or moderation action is part of visual QA.
 
 ## Admin and business build artifacts
+
+The following are retained controller/compatibility packagers, NOT the current
+React development entry. Current UI builds produce `web/apps/{admin,business}/dist`
+and `web/apps/site/out`; the release assembly preserves verified proxy/config,
+headers and safety/legal assets. Generic Vite/Next output alone is not a qualified
+deployment package. See [frontend migration release](REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
 
 | Builder | Output/default | Important difference from production |
 | --- | --- | --- |

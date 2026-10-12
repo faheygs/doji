@@ -1,5 +1,11 @@
 # Doji authoritative realtime architecture
 
+Current navigation: [system map](SYSTEM_MAP.md), [recorded state](CURRENT_STATE_AND_GAPS.md)
+and scoped AGENTS guides identify the React portals, retained browser adapters and
+independent WorkOS runtimes. The dated entries below preserve earlier deployment
+states; later explicit release evidence supersedes earlier candidate descriptions.
+The October 12 repository handoff changes no realtime/production contract.
+
 October 12: business setup/workspace acceptance passed after owner completion.
 Branded application/recovery HTML is deployed to the existing two business-only
 runtimes. The email change adds no events, queries, polling, triggers, token or
@@ -7,6 +13,140 @@ recipient changes. Capture/sending/wakeup remain off with receipts/budgets retai
 No shared relay, provider setting, member service or realtime gate was deployed.
 The common renderer is also prepared for code-owned shared messages, not deployed
 to those services. See `docs/EMAIL_BRANDING_2026-10-11.md` for remaining boundaries.
+
+October 11 business email branding is local presentation-only preparation. It adds
+HTML to existing application and owned-recovery payloads; no event, trigger, wakeup,
+recipient, token, budget or idempotency change. Existing one-shot mail dispatch and
+no-automatic-retry behavior remain. No shared relay or provider setting is deployed.
+Coverage and separately gated shared/member work: `docs/EMAIL_BRANDING_2026-10-11.md`.
+
+October 11 business onboarding is in an owner-approved GATED ROLLOUT. The private setup
+candidate emits the existing `business.application.updated` identifier hint on
+committed branding/completion revisions only when the existing business realtime
+gate is enabled. It contains application/applicant identifiers, no logo, branding,
+MFA material or member push. Authorized setup/workspace reads remain authoritative.
+The React candidate invalidates session-scoped TanStack setup/workspace reads on
+application reconciliation (including unchanged application revision), foreground
+and online. No polling or new socket is enabled. Production business realtime is
+still separately gated; reconnect/event delivery requires acceptance before enable.
+Logout clears caches and fences late work. Uncertain commands retain one explicit
+idempotency key, with no automatic write retry. See
+`docs/BUSINESS_ONBOARDING_PREPARATION_2026-10-11.md` for uncompleted release gates.
+Business-email dispatch rechecks the current decision/capacity after the
+exact WorkOS recipient read, and persists one-use dispatch authorization before
+provider I/O. Timeout/receipt loss never authorizes automatic resend. This is not
+a recurring scheduler or new member-relay hook. The new isolated sender is woken
+once by a private email-outbox insert using pg_net after commit, with a signed exact
+job ID/nonce and 120-second expiry. Only the dedicated bounded mail SQL role can claim
+that job; duplicate wakeups cannot claim again. No reusable provider/DB key is put
+in pg_net headers/body. Wake failure is recorded; operator reconciliation is required
+instead of automatic resend. The one acceptance email was provider-confirmed Delivered;
+capture/sending/wakeup are disabled again with its consumed budget retained. Setup is
+enabled on the deployed business UI/runtime; signed-in acceptance passed October 12.
+See `docs/BUSINESS_ONBOARDING_ROLLOUT_2026-10-11.md` for deployment and repair evidence.
+A decision can still change
+after dispatch authorization; emailed navigation grants no access and the setup
+destination rechecks approval. No network-spanning database transaction is held.
+
+October 11 persistent existing-test-account access is deployed as a narrow
+business-only admission policy and sign-in presentation change. It adds no event,
+socket, polling or member dependency. Exact-identity authorization, session expiry,
+reset fences and existing foreground/online application reconciliation remain.
+The account, application and history are retained; public signup and independent
+email gates remain closed. See `docs/BUSINESS_EXISTING_TEST_ACCESS_2026-10-11.md`.
+Hosted source/config matching and member-contract/role/RLS fingerprints passed;
+no Edge runtime, secret or unrelated Pages deployment changed.
+
+October 11 password feedback is now deployed in the business runtime and business
+Pages only. The owner-approved one-attempt exact-alias re-arm expires at
+19:00:23.878 UTC, with public signup still closed. It changes only existing bounded
+acceptance/enrollment/mail expiry state and business runtime capacity expiry, not
+DB functions, RLS, member/employee auth, outbox, push, alarms or socket contracts.
+No new events or polling. Hosted HTTP 422 field validation is confirmed before
+provider calls. Real signup/verification remains user-completed acceptance.
+See `docs/BUSINESS_PASSWORD_RELEASE_2026-10-11.md` for verified boundaries/rollback.
+
+October 11 password-feedback preparation (local only): business registration can
+return an allowlisted password-field code over the existing same-origin HTTP route.
+No socket event, new polling, DB/RPC change, gate refund, provider retry or member/
+employee auth change. Public guidance is shared by UI and server; WorkOS retains
+authoritative strength validation. Reset-link single-use and pending fences are
+unchanged. These changes are not in the last deployed Buffer-fix package.
+The new-password checklist estimates strength locally through a lazy-loaded
+zxcvbn-ts module. Its 200 ms debounce is local computation, not polling; typing
+does not publish events or dispatch passwords to any service. Provider validation
+remains authoritative at submission. Sign-in does not load the estimator.
+
+October 11 signup compatibility repair changes only explicit `node:buffer` imports
+and fixed-category failure diagnostics in the independent business runtime. No new
+read, write contract, event, socket, polling, member/employee function or provider
+policy is introduced. Existing atomic admission/session/reset commands remain
+authoritative. The deployed package and unchanged boundaries are recorded in
+`test-results/business-buffer-fix-20261011/`. The test cutoff remains 18:04:26.959 UTC;
+real user registration/recovery acceptance is still pending.
+
+October 11 controlled acceptance: business-owned authentication is enabled only for
+the approved test alias until **2026-10-11 18:04:26.959 UTC**, public signup closed.
+Old business session installers are revoked; the dedicated signed
+`password_reset.succeeded` receiver is enabled and rejects unsigned calls (401).
+This provider webhook is not a client realtime channel. No token, password or mail
+body enters sockets. No application polling, new queue or shared worker was added.
+Member/employee DB fingerprints, other Edge code/settings and their Pages releases
+remain unchanged; shared project-secret updates advanced Edge generation counters
+only. Bounded deployment-propagation checks are release tooling, not portal polling.
+User-completed registration/reset and actual signed success/session-fence acceptance
+are pending; no real mail was sent by the release. Keep reconciliation and keys
+available if stopping. See `docs/BUSINESS_RECOVERY_EMAIL_2026-10-10.md`.
+Earlier local-only status below is historical.
+
+October 10 recovery-email follow-up (local only): the business-owned candidate now
+requires a durable one-use mail reservation, validated account/token-hash storage,
+then gated Resend delivery with a fragment-only link. No raw token, email body or
+mail metadata is published to sockets, caches or diagnostics. No polling or queue
+worker was added. Existing business reset fencing and signed WorkOS success-event
+reconciliation are unchanged. Mail-only rollback keeps those mappings/fences and
+reconciliation alive. The new SQL draft is not deployed; prior groundwork remains
+deployed with owned authentication OFF. Member/employee contracts are unchanged.
+Current limits, evidence and live gates: `docs/BUSINESS_RECOVERY_EMAIL_2026-10-10.md`.
+
+October 10 owned-auth guard preparation (LOCAL ONLY): owner-approved additive
+business session admission tickets and reset fences are tested and composed locally
+behind default-off runtime/proxy flags, not deployed.
+The local owned-auth flow now carries the original ticket/identity HMAC through
+email/TOTP continuations and uses guarded session installation exclusively.
+The separate gated reset coordinator retains uncertain fences and never
+retries provider mutation. Durable encrypted reset-link mapping and signature-checked
+`password_reset.succeeded` reconciliation are now prepared locally. This is a
+provider webhook, not a client realtime payload; no tokens/metadata enter sockets.
+No polling was added. The default-off browser flow now captures and scrubs reset
+links before React and submits through the gated HTTP candidate only once.
+Confirmed completion requires fresh sign-in; uncertain results show support guidance.
+Production runtime/proxy reset mounting remains disabled. No raw tokens enter events, browser
+storage or query caches; ingress URL-log redaction remains a release gate. See
+docs/BUSINESS_RESET_RECOVERY_2026-10-10.md for recovery and release gates.
+Reset operations remove only the mapped business principal's sessions; existing
+authorized reads/401 cleanup and foreground/reconnect reconciliation remain the
+client boundary. No new events, polling or member/employee contracts. Provider
+outcome reconciliation and deployment/drain of the locally tested legacy-installer
+grant revocation remain release gates. The eight-query owned allowlist is business-only;
+member and employee reads/events are unchanged. Signed reset evidence remains routed
+when sending is disabled so uncertain outcomes can reconcile without new provider
+writes. See docs/BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md for ordered cutover/rollback.
+An explicit, default-off business maintenance flag pauses browser reads/forms and
+both server boundaries while preserving the signed recovery route. It adds no
+polling, automatic refresh, member/employee flag or realtime event.
+
+October 10 business-owned auth preparation (LOCAL ONLY): centered MUI account
+layouts and disconnected form previews add no event, channel, polling or member
+contract changes. The default-off owned-auth browser integration restores the
+existing business client session before loading the application controller and its
+session-scoped queries. The unmounted verified installer uses the existing bound
+session format; runtime admission, reset invalidation and provider acceptance are
+not yet qualified. Local email/TOTP continuations rotate one-use handles on explicit
+negative code responses, with fixed deadlines/attempt caps and no automatic writes,
+polling or new events. Existing
+live business runtime and member Supabase Auth remain unchanged. See
+docs/BUSINESS_OWNED_AUTH_PREPARATION_2026-10-10.md.
 
 October 9 20:20 UTC announcement acceptance update: owner-approved additive SQL and
 employee runtime v17 are deployed with composition enabled for /connected. No change
@@ -2492,3 +2632,100 @@ only arranges already-authorized content and ownership metadata. It does not fet
 evidence, dispatch commands, install events, add polling or alter member behavior.
 Record command forms remain under their existing permission/revision/idempotency
 guards; loading and failed reads still withhold previous private record content.
+
+October 9 local queue-consistency follow-up keeps history/status/page-size variants
+under the existing session-scoped work, safety, announcements and audit query-key
+prefixes. Existing identifier-only employee invalidations and foreground/reconnect
+reconciliation cover the variants; no socket, polling, aggregate query or server
+event is added. Business historical statuses use the already deployed employee-only
+get_admin_business_applications_page_v1 read, with business_read reauthorization.
+Page limits stay <=25, except existing fixed 30-entry record-history reads, which
+are paged locally. Changing a server-page size resets its cursor before reading.
+The production employee health response captured in the announcement release lacks
+Sentry observed_at; React correctly withholds freshness without it. Source cards
+expose this mismatch. Fixing the service cache timestamp and enabling the independent
+health-event feed are separate gates, neither part of the local UI patch.
+
+October 9 approved preparation now includes the narrow deployed-runtime Sentry
+timestamp backport and additive default-off history read contracts. Neither is
+deployed. The Sentry stamp belongs to successful provider-load completion and stays
+fixed through cache reuse; existing authorization, TTLs and request bounds remain.
+History reads derive personal ownership from the verified employee, filter before
+keyset limits, and do not write source rows, outbox entries or member data. Their
+future portal integration must remain under existing session-scoped work/announcement
+invalidation prefixes and foreground/reconnect reconciliation, with state/size/cursor
+in query keys. No new socket, domain event, health-feed enabling or recurring polling
+is included. Detailed contracts, 46 offline functional checks, local volume evidence,
+remaining integration work and rollback are recorded in
+docs/EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md.
+
+The subsequent local history integration now implements those query-key boundaries:
+personal state/size/cursor under work, lifecycle state/size/cursor under announcements.
+Existing identifier hints, foreground/online and socket reconnection invalidate the
+authorized variants; they do not install status, ownership or content. Personal
+history retains the current verified assignee and rechecks source permissions after
+completion. Completed rows have no active SLA deadline. Announcement expiry is read
+from server display state on reconciliation, with no added recurring poll. Access
+loss clears protected data; failures do not keep showing a prior successful page.
+Three independent default-off gates permit separately controlled acceptance and
+rollback. Exact local browser tests cover hint deduplication and permission revocation;
+no new event, collector, relay, health subscription or production setting is enabled.
+
+October 9, 18:16 MDT release supersedes the local-only status above: owner-approved
+history reads/bridge and gates are live in employee runtime v19 and admin Pages
+09a9d34e-d99c-4373-a511-2ec92ea10487. Existing work/announcement invalidations and
+foreground/reconnect reconciliation are unchanged. Hosted authorized reads, record
+returns and keyset paging passed; no live domain mutation was induced to test events.
+The Sentry successful-load observed_at backport is live without new TTLs or polling.
+Health-event feed enabling remains excluded. Existing member/shared contract
+fingerprints, unrelated deployments and secret digests were verified unchanged.
+Evidence and rollback: docs/EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md and
+test-results/employee-history-release-20261009/.
+
+## October 9 production React business and Next public frontends
+
+Business Pages `36a323ad-2955-4c12-a7d3-d17694cf37ba` retains the existing
+business-only API proxy, authorization and atomic/idempotent controller commands.
+Protected React reads use memory-only TanStack Query keys scoped to the controller
+instance and business session epoch. Mutations cancel/remove prior reads before
+dispatch, so an older in-flight result cannot replace the command result. Existing
+controller version and session fences reject stale work; access loss, disposal and
+pagehide clear protected state. Foreground/online perform bounded authorized
+reconciliation, not polling. Dirty and pending navigation is guarded. There is no
+new business socket, outbox topic, relay subscription or shared service deployment.
+
+Public Pages `303689ff-9117-4403-88e3-db80805ef3b5` is Next static export: no
+Next server, recurring reads or realtime connection. The existing safety intake
+controller remains an isolated DOM island with its deployed configuration, taxonomy,
+idempotency and private receipt/status behavior. Public navigation uses document
+loads so private form state is not retained in a client-side navigation cache.
+The existing WorkOS hosted handoff remains; member Supabase authentication, challenge
+alarms, eligibility, push and member event contracts are unchanged. Qualification and
+rollback: docs/REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md.
+
+October 9, 23:06 MDT owner-approved acceptance window changes only the existing
+business registration/enrollment dates and limits: one additional signup/account,
+server expiry October 10 07:03:14.688 UTC. Counters are retained. Business Pages
+`4aa1a67a-afa9-49d9-ad1d-8a2c5014c7f5` changes only the public registration expiry
+hint; the prior React bundle/proxy are byte-identical. No new polling, events,
+runtime/schema/provider deployment, member auth or email policy was introduced.
+Expiry is enforced by existing SQL checks; no scheduled job is needed to close it.
+The guarded freeze restores the prior expired policy without revoking sessions,
+removing accounts or resetting counters. Evidence: `test-results/react-business-migration-6PLoSb/`.
+
+## October 10 owned business-auth preparation and disabled SQL installation
+
+The new business-only private SQL is installed with guard and acceptance gates off;
+the new business runtime code is deployed with owned mode off and the existing
+provider handoff preserved. No member/employee command,
+alarm, push, outbox topic, socket, subscription or recurring polling was added.
+Admission/session/reset commands use short committed transactions; provider HTTP
+never runs while holding a database connection. Test acceptance uses an exact
+identity HMAC, one creation slot and a maximum two-hour server cutoff, with the
+public signup policy left closed. Reset/session fences survive ambiguous responses.
+The prepared signed WorkOS success endpoint reconciles only exact existing reset
+records and remains available when new sending/admission is stopped. It is not a
+member domain event and must not be disabled while a reset outcome is unresolved.
+Provider wiring and public cutover are still gated. See
+`docs/BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md` and the disabled-install evidence
+in `test-results/business-owned-release-2995nX/`.

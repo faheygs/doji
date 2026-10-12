@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Stack, Typography } from '@mui/material';
 import { PageHeader, RecordSection, TableFrame } from '@doji/ui';
 import { portalKey } from '@doji/portal-data';
@@ -10,6 +10,7 @@ import { RecordLayout, RecordFields } from '../RecordLayout';
 import { useBusinessClaim } from './useBusinessClaim';
 import { BusinessReview } from './BusinessReview';
 import { BusinessOwnershipActions } from './BusinessOwnershipActions';
+import { personalReturn } from './personal-return';
 
 export function BusinessRecord({
   controller,
@@ -19,6 +20,8 @@ export function BusinessRecord({
   id: string;
 }) {
   const session = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const [params] = useSearchParams();
+  const returnFilter = params.get('filter');
   const allowed = session.operator?.capabilities.business_read === true && !!session.session;
   const query = useQuery({
     queryKey: session.session
@@ -36,8 +39,17 @@ export function BusinessRecord({
     return result.isError ? undefined : result.data;
   };
   const back = (
-    <Button component={Link} to="/businesses">
-      ← Business applications
+    <Button
+      component={Link}
+      to={
+        personalReturn(params) ??
+        (returnFilter &&
+        ['pending', 'changes_requested', 'approved', 'declined'].includes(returnFilter)
+          ? '/businesses?filter=' + returnFilter
+          : '/businesses')
+      }
+    >
+      {personalReturn(params) ? 'Back to my work' : '← Business applications'}
     </Button>
   );
   if (!allowed) return <Alert severity="error">Business access is unavailable.</Alert>;

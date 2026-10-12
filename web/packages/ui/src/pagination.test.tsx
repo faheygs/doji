@@ -13,6 +13,13 @@ const base = {
 };
 
 describe('Material table pagination', () => {
+  it('provides the standard bounded page-size selector when controlled', () => {
+    const change = vi.fn();
+    render(<QueuePagination {...base} onRowsPerPageChange={change} />);
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Rows per page:' }));
+    fireEvent.click(screen.getByRole('option', { name: /^5$/ }));
+    expect(change).toHaveBeenCalledWith(5);
+  });
   it('uses known totals and cursor-aware page controls', () => {
     const next = vi.fn();
     render(<QueuePagination {...base} totalCount={14} next={next} />);

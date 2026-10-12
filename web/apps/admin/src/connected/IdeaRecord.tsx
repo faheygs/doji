@@ -10,6 +10,7 @@ import { RecordLayout } from '../RecordLayout';
 import { IdeaActions } from './IdeaActions';
 import { useIdeaCommand } from './useIdeaCommand';
 import { ideaFilters, type IdeaFilter } from '@doji/portal-data/idea-archive-path';
+import { personalReturn } from './personal-return';
 
 export function IdeaRecord({
   controller,
@@ -20,7 +21,7 @@ export function IdeaRecord({
 }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const [params] = useSearchParams();
-  const archive = params.get('archive');
+  const archive = params.get('filter') ?? params.get('archive');
   const history = ideaFilters.includes(archive as IdeaFilter);
   const command = useIdeaCommand(controller);
   const allowed = !!state.session && state.operator?.capabilities.operations_read === true;
@@ -38,9 +39,12 @@ export function IdeaRecord({
     <>
       <Button
         component={Link}
-        to={history ? '/community-ideas/archive?filter=' + archive : '/community-ideas'}
+        to={
+          personalReturn(params) ??
+          (history ? '/community-ideas?filter=' + archive : '/community-ideas')
+        }
       >
-        {history ? 'Back to idea history' : 'Back to Community Ideas'}
+        {personalReturn(params) ? 'Back to my work' : 'Back to Community Ideas'}
       </Button>
       <PageHeader
         title="Community idea"

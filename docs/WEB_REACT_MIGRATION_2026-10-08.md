@@ -1476,6 +1476,20 @@ route completion, independent hosted acceptance and the admin's remaining write-
 parity still gate replacing the respective production entry points. The prepared atomic
 announcement command and email MFA alternative remain undeployed.
 
+## October 9 remaining production entry points migrated
+
+This status supersedes the earlier business/public preview-only entries. Business
+React/Vite and public Next static exports are deployed at their production domains.
+Admin remains on its separately released React entry. The new business screens reuse
+the existing browser client/controller and MFA proof contract; the public safety
+route retains its existing controller as a DOM island rather than changing intake.
+249 unit tests, 15 exact-package browser checks and 21 hosted checks passed.
+Live authenticated business acceptance remains a separate owner sign-in check; no
+application, safety request or email was sent to prove deployment. Registration's
+already-expired pilot was not reopened. Email MFA and other held shared changes
+remain gated. Exact release IDs, tests, isolation and rollback are recorded in
+REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md.
+
 ## Framework references
 
 ### October 9 approved design update
