@@ -8,8 +8,9 @@ not provision a complete staging environment or authorize production access.
 
 - Git and Node.js **24**, matching the current CI major. The owner workspace is
   verified on **24.18.0**. Converted `.mts` tooling uses native type stripping;
-  run the separate strict compiler checks as well. This does not change the
-  store-build runtime configuration or qualify historical scripts on every Node version.
+  run the separate strict compiler checks as well. All EAS build profiles pin
+  **24.18.0** in `eas.json` for future Android/iOS builds; this does not change
+  already-built binaries or qualify historical scripts on every Node version.
 - npm and the committed lockfiles. Root `.npmrc` does not enable legacy peer deps.
 - Chrome for retained `website/` Playwright runs outside CI. The React `web/`
   suite uses installed Playwright Chromium locally and in CI.
