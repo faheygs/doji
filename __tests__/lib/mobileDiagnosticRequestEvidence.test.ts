@@ -81,12 +81,12 @@ test('finished request snapshots cannot be rewritten by later screen/network cha
   expect(AppState).toBeDefined();
 });
 
-test('non-API JS errors receive explicitly processing-time diagnostics without replacing their exception', () => {
+test('non-API JS errors receive explicitly processing-time diagnostics without replacing their exception', async () => {
   const exception = { values: [{ type: 'TypeError', value: 'synthetic failure' }] };
-  const result: any = sanitizeApiFailureEvent({ exception, tags: { area: 'startup' }, contexts: { os: { name: 'iOS' } } }, {});
-  expect(result.exception).toBe(exception);
-  expect(result.contexts.diagnostic).toMatchObject({ context_origin: 'event_processing_unattributed', platform: 'ios' });
-  expect(result.contexts.os.name).toBe('iOS');
+  const result = await sanitizeApiFailureEvent({ type: undefined, exception, tags: { area: 'startup' }, contexts: { os: { name: 'iOS' } } }, {});
+  expect(result?.exception).toBe(exception);
+  expect(result?.contexts?.diagnostic).toMatchObject({ context_origin: 'event_processing_unattributed', platform: 'ios' });
+  expect(result?.contexts?.os?.name).toBe('iOS');
 });
 
 test('successful query retry records a local recovery, not a new Sentry event', async () => {

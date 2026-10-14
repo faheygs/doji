@@ -10,6 +10,14 @@ export function hygieneIssues(files: readonly string[]): string[] {
   for (const file of [...new Set(files)].sort()) {
     const path = file.replaceAll('\\', '/');
     if (
+      /^docs\/drafts\//.test(path) ||
+      /^docs\/.*\.(sql|sql\.fragment)$/.test(path) ||
+      /^docs\/[^/]*20\d\d-\d\d-\d\d\.md$/.test(path) ||
+      /^infra\/(portal-identity-candidate|business-email-candidate)\//.test(path)
+    ) {
+      issues.push(`${path}: use the current code, SQL or release-record directory`);
+    }
+    if (
       /(^|\/)(node_modules|\.expo|\.gradle|\.wrangler|coverage|test-results|browser-test-output)\//.test(
         path,
       ) ||

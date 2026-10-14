@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeApplicationAdapter } from '../infra/portal-identity-candidate/employee-application-adapter.mts';
-import { employeeDirectRoute } from '../infra/portal-identity-candidate/employee-direct-routes.mts';
-import { employeeHistorySql } from '../infra/portal-identity-candidate/employee-history-contracts.mts';
+import { createEmployeeApplicationAdapter } from '../infra/portal-identity/employee-application-adapter.mts';
+import { employeeDirectRoute } from '../infra/portal-identity/employee-direct-routes.mts';
+import { employeeHistorySql } from '../infra/portal-identity/employee-history-contracts.mts';
 import { testEmployee } from './employee-test-fixtures.mts';
 const personal = {
   name: 'get_admin_personal_work_page_v1',

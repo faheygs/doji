@@ -44,7 +44,7 @@ try {
   sql('postgres', `create database ${db} template postgres;`);
   created = true;
   for (const file of ['external_takedown_intake_v1.sql', 'external_takedown_alerts_v1.sql'])
-    sql(db, readFileSync(`docs/drafts/${file}`, 'utf8'));
+    sql(db, readFileSync(`supabase/overlays/${file}`, 'utf8'));
   const id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
     hash = 'a'.repeat(64),
     request = JSON.stringify({

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';
 import type { Profile } from '../../types/database';

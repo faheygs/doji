@@ -114,12 +114,12 @@ await mkdir(`${folder}/sql`);
 const draftHashes: Record<string, string> = {};
 let body = '';
 for (const file of drafts) {
-  const source = (await readFile(`docs/drafts/${file}`, 'utf8')).replaceAll('\r\n', '\n');
+  const source = (await readFile(`supabase/overlays/${file}`, 'utf8')).replaceAll('\r\n', '\n');
   assert.equal((source.match(/^begin;$/gm) || []).length, 1);
   assert.equal((source.match(/^commit;$/gm) || []).length, 1);
   body += source.replace(/^begin;$|^commit;$/gm, '') + '\n';
   draftHashes[file] = hash(source);
-  await copyFile(`docs/drafts/${file}`, `${folder}/sql/${file}`);
+  await copyFile(`supabase/overlays/${file}`, `${folder}/sql/${file}`);
 }
 const guard = `do $$begin
  if not pg_try_advisory_xact_lock(hashtextextended('doji-business-owned-auth-v1',0)) then raise exception 'Concurrent business release';end if;

@@ -6,9 +6,9 @@ import { cli, cf, hash, ref } from './prepare-safety-launch.mts';
 import {evidenceRecord,evidenceAt,evidenceRows,evidenceAssets} from './release-evidence.mts';
 const root = 'test-results/employee-application-release-20261001';
 const sources = [
-  'docs/drafts/portal_identity_employee_rpc_v1.sql',
-  'docs/drafts/portal_employee_directory_v1.sql',
-  'docs/drafts/employee_login_admission_v1.sql',
+  'supabase/overlays/portal_identity_employee_rpc_v1.sql',
+  'supabase/overlays/portal_employee_directory_v1.sql',
+  'supabase/overlays/employee_login_admission_v1.sql',
 ];
 const mode = process.argv[2];
 assert.ok(mode&&['prepare', 'rehearse', 'apply', 'verify'].includes(mode));

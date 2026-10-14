@@ -70,7 +70,7 @@ if (mode === 'prepare') {
   const assets = await inventory(`${root}/edge-before`);
   const sqlPath = assets.filter(a => a.path.endsWith('/restricted-sql.mts'));
   assert.equal(sqlPath.length, 1);assert.ok(sqlPath[0]);
-  await cp('infra/portal-identity-candidate/restricted-sql.mts', `${root}/edge-after/${sqlPath[0].path}`);
+  await cp('infra/portal-identity/restricted-sql.mts', `${root}/edge-after/${sqlPath[0].path}`);
   for (const dir of ['edge-before', 'edge-after']) await writeFile(`${root}/${dir}/supabase/config.toml`, `project_id = "employee-performance-repair"\n[functions.${slug}]\nverify_jwt = false\n`);
   await cp('test-results/employee-root-20261001/site', `${root}/site`, { recursive: true });
   const bundlePath = 'admin-portal/admin-app-20260925ap.js';

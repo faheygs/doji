@@ -22,9 +22,9 @@ let created=false;
 try {
  assert.equal(sync("select count(*) from auth.users where email is null or email not like '%@test.invalid'; select count(*) from vault.secrets;",'postgres').trim(),'0\n0');
  sync(`create database ${db} template postgres;`,'postgres');created=true;
- sync(read('docs/drafts/employee_editorial_v1.sql'));
+ sync(read('supabase/overlays/employee_editorial_v1.sql'));
  sync(`begin;${read('scripts/test-editorial-local.sql')}reset role;commit;`);
- sync(read('docs/drafts/announcement_campaigns_v1.sql'));
+ sync(read('supabase/overlays/announcement_campaigns_v1.sql'));
  // Exact retained approval receipt versus text-only historical coincidence.
  sync(`insert into public.command_receipts(user_id,idempotency_key,result)
  select (select id from public.profiles where username='editorial_test'),'legacy-approval-receipt',
@@ -37,7 +37,7 @@ try {
  const claims=JSON.stringify({sub:employee,role:'doji_employee',aal:'aal2'});
  const snapshot=sync("select jsonb_object_agg(p.oid::regprocedure::text,jsonb_build_array(pg_get_functiondef(p.oid),p.proacl)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f';").trim();
  const policies=sync('select jsonb_agg(p order by schemaname,tablename,policyname) from pg_policies p;').trim();
- sync(read('docs/drafts/community_idea_retriage_v1.sql'));
+ sync(read('supabase/overlays/community_idea_retriage_v1.sql'));
  assert.equal(sync("select count(*) from public.admin_suggestion_reviews where suggestion_id='61111111-2222-4333-8444-555555555555' and challenge_id is not null;").trim(),'1');
  const after=evidenceRecord(JSON.parse(sync("select jsonb_object_agg(p.oid::regprocedure::text,jsonb_build_array(pg_get_functiondef(p.oid),p.proacl)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f';").trim()));
  const before=evidenceRecord(JSON.parse(snapshot));
@@ -73,7 +73,7 @@ try {
  assert.ok(busy.stderr.includes('scheduling is in progress'),busy.stderr);
  assert.equal((await hold).error,null);
  console.log('PASS: scheduler is protected from competing editorial work');
- sync(read('docs/drafts/community_idea_retriage_v1.rollback.sql'));
+ sync(read('supabase/overlays/community_idea_retriage_v1.rollback.sql'));
  const paused=await asyncQuery(prefix+cmd('approved','retriage-rollback-test')+'commit;');
  assert.ok(paused.stderr.includes('temporarily paused'));
  assert.ok(Number(sync('select count(*) from public.admin_suggestion_reviews;').trim())>0);

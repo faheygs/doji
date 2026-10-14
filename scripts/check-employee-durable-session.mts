@@ -4,14 +4,14 @@ import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { createEmployeeSessionStore } from '../infra/portal-identity-candidate/employee-session-store.mts';
+import { createEmployeeSessionStore } from '../infra/portal-identity/employee-session-store.mts';
 import { engine as podman, container } from './database/owned-target.mts';
 import { offlineContainer } from './database/contracts.mts';
 import { present } from './employee-test-fixtures.mts';
 import type {
   StoreExecute,
   EmployeeStoreConfig,
-} from '../infra/portal-identity-candidate/employee-session-store.mts';
+} from '../infra/portal-identity/employee-session-store.mts';
 const inspected = offlineContainer(
   JSON.parse(execFileSync(podman, ['inspect', container], { encoding: 'utf8' })),
 );
@@ -116,7 +116,7 @@ try {
   const fingerprintSql =
     "select md5(string_agg(p.oid::text||pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),'' order by p.oid)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','auth','business_private') and p.prokind='f';";
   const before = sync(fingerprintSql, 'postgres');
-  sync(readFileSync('docs/drafts/employee_session_store_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/employee_session_store_v1.sql', 'utf8'));
   roleCreated = true;
   sync('grant doji_employee_session to postgres;'); // Local harness only; removed with this run's role.
   const store = createEmployeeSessionStore(cfg, execute);
@@ -219,7 +219,7 @@ try {
   pass('no member API, table access or authenticator membership');
 
   await store.putSession(hash('freeze'), envelope, Date.now() + 60000);
-  sync(readFileSync('docs/drafts/employee_session_store_v1.rollback.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/employee_session_store_v1.rollback.sql', 'utf8'));
   await assert.rejects(store.withSession(hash('freeze'), () => assert.fail('frozen')));
   sync(
     'update employee_session_private.settings set enabled=true;grant execute on function employee_session_private.execute_store(text,text,text,text,text,integer,text,text) to doji_employee_session;',

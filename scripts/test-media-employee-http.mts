@@ -22,7 +22,7 @@ if(run(destination,"select to_regclass('public.profiles') is null;")==='t'){
  const policySql=policies.filter(p=>p.policyname!=='employee_avatar_evidence_read').map(p=>`create policy ${quote(evidenceText(p.policyname))} on storage.objects as ${evidenceText(p.permissive)} for ${evidenceText(p.cmd)} to ${evidenceStrings(p.roles).map(quote).join(',')}${p.qual?` using (${evidenceText(p.qual)})`:''}${p.with_check?` with check (${evidenceText(p.with_check)})`:''};`).join('\n');
  // Snapshot predates the released avatar-evidence migration; apply it below.
  const boundary=policySql.replace(" OR ((bucket_id = 'avatars'::text) AND employee_can_read_avatar_evidence_v1(name))",'');
- const drafts=['moderation_media_ledger_v1.sql','moderation_media_restoration_v1.sql','moderation_media_cleanup_v1.sql','moderation_media_evidence_v1.sql'].map(n=>readFileSync(`docs/drafts/${n}`,'utf8').replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'')).join('\n');
+ const drafts=['moderation_media_ledger_v1.sql','moderation_media_restoration_v1.sql','moderation_media_cleanup_v1.sql','moderation_media_evidence_v1.sql'].map(n=>readFileSync(`supabase/overlays/${n}`,'utf8').replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'')).join('\n');
  const evidence=readFileSync('supabase/migrations/20260927020000_employee_case_evidence.sql','utf8');
  run(destination,`begin;create extension if not exists pg_trgm with schema extensions;create extension if not exists pg_net with schema extensions;create extension if not exists pg_cron;
  do $$begin if not exists(select 1 from pg_roles where rolname='doji_employee') then create role doji_employee nologin;end if;end$$;

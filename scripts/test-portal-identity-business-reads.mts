@@ -18,15 +18,15 @@ do $$begin
  if exists(select 1 from vault.secrets) or exists(select 1 from auth.users where email is null or email not like '%@test.invalid')
  then raise exception 'Synthetic offline database required';end if;
 end$$;
-${body('docs/drafts/business_applications_v1.sql')}
+${body('supabase/overlays/business_applications_v1.sql')}
 create temp table before_rpc as select p.oid,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p
  join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','business_private') and p.prokind='f';
 create temp table before_auth as select id,md5(row_to_json(u)::text) fingerprint from auth.users u;
-${body('docs/drafts/portal_identity_registry_v1.sql')}
-${body('docs/drafts/portal_identity_business_reads_v1.sql')}
+${body('supabase/overlays/portal_identity_registry_v1.sql')}
+${body('supabase/overlays/portal_identity_business_reads_v1.sql')}
 grant doji_identity_resolver to postgres;
 ${readFileSync('scripts/test-portal-identity-business-reads.sql', 'utf8')}
-${body('docs/drafts/portal_identity_business_reads_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_business_reads_v1.rollback.sql')}
 select pg_temp.ok(not (select enabled from portal_identity_private.business_read_settings),'rollback freezes bridge');
 select pg_temp.ok(not has_function_privilege('doji_identity_resolver','portal_identity_private.read_business_application(text,text,text,text,boolean)','execute'),'rollback removes application grant');
 select pg_temp.ok(not has_function_privilege('doji_identity_resolver','portal_identity_private.read_business_workspace(text,text,text,text,boolean)','execute'),'rollback removes workspace grant');

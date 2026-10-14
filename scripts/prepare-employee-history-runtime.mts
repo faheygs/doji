@@ -83,7 +83,7 @@ const changed = new Map([
   [
     'employee-history-contracts.mjs',
     compile(
-      await read('infra/portal-identity-candidate/employee-history-contracts.mts'),
+      await read('infra/portal-identity/employee-history-contracts.mts'),
       'employee-history-contracts.mts',
     ),
   ],
@@ -138,13 +138,13 @@ for (const name of tests) {
   let source = compile(await read('scripts/' + name + '.mts'), name + '.mts');
   source = source
     .replace(
-      /(['"])\.\.\/infra\/portal-identity-candidate\/([^'"]+)\1/g,
+      /(['"])\.\.\/infra\/portal-identity\/([^'"]+)\1/g,
       (_, quote: string, file: string) => {
         const suffix = file.replace(/\.mts$/, '.mjs');
         return baseline.some((a) => a.path === runtime + suffix) || changed.has(suffix)
           ? quote + '../employee-off/' + runtime + suffix + quote
           : quote +
-              '../../../infra/portal-identity-candidate/' +
+              '../../../infra/portal-identity/' +
               file.replace(/\.mjs$/, '.mts') +
               quote;
       },

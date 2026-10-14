@@ -20,9 +20,9 @@ describe('queryInvalidationBatcher', () => {
     expect(invalidate).toHaveBeenCalledTimes(1);
     const [filters, options] = invalidate.mock.calls[0];
     expect(options).toEqual({ cancelRefetch: false });
-    expect(filters.refetchType).toBe('active');
-    expect(filters.predicate?.({ queryKey: ['feed'] } as never)).toBe(true);
-    expect(filters.predicate?.({ queryKey: ['leaderboard'] } as never)).toBe(false);
+    expect(filters?.refetchType).toBe('active');
+    expect(filters?.predicate?.({ queryKey: ['feed'] } as never)).toBe(true);
+    expect(filters?.predicate?.({ queryKey: ['leaderboard'] } as never)).toBe(false);
   });
 
   it('can be cancelled during teardown', () => {

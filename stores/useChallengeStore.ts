@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { UserEvent, Challenge, Post } from '../types/database';
+import type { UserEvent, Challenge } from '../types/database';
 import type { PreparedPostImage } from '../utils/upload';
 
 type ChallengeStatus = 'idle' | 'pending' | 'active' | 'completed' | 'missed';

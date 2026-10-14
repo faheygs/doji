@@ -26,9 +26,9 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | [Dashboard](https://ably.com/dashboard); owner identifies the production app before granting access | `lib/realtimeClient.ts`, `realtime-token`, relay and employee resource signer |
-| WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); separate employee/business staging and production environments | `infra/portal-identity-candidate/`, owned-auth/onboarding records |
-| Resend | Transactional email: member moderation notices, admin operational alerts, owned business password recovery and separately gated application notices | [Dashboard](https://resend.com/); business sending domain `mail.dojipro.com`; business sending key separate from shared email key | [Relay sender](../supabase/functions/relay-domain-events/index.ts), [admin sender](../supabase/functions/send-admin-email/index.ts), [business recovery](../infra/portal-identity-candidate/business-owned-recovery-email.mts), [application sender](../infra/business-email-candidate/dispatch.mts) |
-| Cloudflare Email Routing / dedicated safety email API | Inbound support forwarding and selected employee-address forwarding; a separate narrow sender delivers urgent safety-intake alerts | Cloudflare account email configuration; owner approves exact destinations | [Safety transport](../supabase/functions/_shared/safety-removal-cloudflare.ts), [email release record](CLOUDFLARE_SAFETY_EMAIL_2026-09-28.md); not general mailbox hosting |
+| WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); separate employee/business staging and production environments | `infra/portal-identity/`, owned-auth/onboarding records |
+| Resend | Transactional email: member moderation notices, admin operational alerts, owned business password recovery and separately gated application notices | [Dashboard](https://resend.com/); business sending domain `mail.dojipro.com`; business sending key separate from shared email key | [Relay sender](../supabase/functions/relay-domain-events/index.ts), [admin sender](../supabase/functions/send-admin-email/index.ts), [business recovery](../infra/portal-identity/business-owned-recovery-email.mts), [application sender](../infra/business-email/dispatch.mts) |
+| Cloudflare Email Routing / dedicated safety email API | Inbound support forwarding and selected employee-address forwarding; a separate narrow sender delivers urgent safety-intake alerts | Cloudflare account email configuration; owner approves exact destinations | [Safety transport](../supabase/functions/_shared/safety-removal-cloudflare.ts), [email release record](releases/CLOUDFLARE_SAFETY_EMAIL_2026-09-28.md); not general mailbox hosting |
 | Expo and EAS | Native development builds, cloud build/signing, store submission and legacy push fallback transport | [Project](https://expo.dev/accounts/faheybaby/projects/doit-challenge-app); project `064b68b6-f138-4962-8aeb-f00970ba39c8` | `app.json`, `eas.json`, `.easignore`, `scripts/verify-build-env.mjs` |
 | Apple Developer and App Store Connect | Bundle/signing, APNs credentials, TestFlight, review and iOS distribution | [Developer](https://developer.apple.com/account/), [App Store Connect](https://appstoreconnect.apple.com/); app `6768727326` | `docs/APP_STORE_RELEASE.md`, mobile release records |
 | Google Play Console | Android signing/distribution, closed testing and production-access review | [App console](https://play.google.com/console/u/0/developers/6661342012009308283/app/4972908027141050312); Alpha track `4699325792611215201` | `docs/GOOGLE_PLAY_RELEASE.md`, Android 23 record |
@@ -58,10 +58,10 @@ current consoles before deciding availability, review state or enforcement.
 
 | Service or tool | Purpose and status | Evidence / boundary |
 | --- | --- | --- |
-| GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
+| GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
 | npm registry | Downloads locked JavaScript/TypeScript dependencies for local and CI builds; dependency audit metadata | Root and `web/` package/lockfiles. Not app hosting; preserve the separate lockfiles and do not upgrade automatically. |
 | ngrok via `@expo/ngrok` | Installed optional development-tunnel integration for Expo | [Root manifest](../package.json); not a production API/socket service or evidence that a tunnel is currently running. Opening a tunnel is not part of offline tests. |
-| Gitleaks | Locally executed secret scanner used in the handoff audit | [Audit evidence](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); a tool, not an additional hosted application backend. |
+| Gitleaks | Locally executed secret scanner used in the handoff audit | [Audit evidence](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); a tool, not an additional hosted application backend. |
 
 Jest, Playwright, Vitest, axe, TypeScript, ESLint, Docker/Podman, Android tooling,
 MUI and TanStack Query are test/development tools or libraries, not extra hosted
@@ -89,7 +89,7 @@ The exact message routes are:
   Resend. The business policy requires WorkOS default reset mail to be suppressed;
   do not enable a second sender or substitute the employee/member reset flow.
 - Business application/approval/setup notices: `business-application-mail` uses
-  the private dispatcher in `infra/business-email-candidate/` and Resend. The
+  the private dispatcher in `infra/business-email/` and Resend. The
   sender is deployed, but automatic capture/sending/wakeup remain gated. A verified
   one-off test email is not permission to enable continuous sending.
 - External safety intake alerts: `safety-removal-alerts` uses the dedicated
@@ -104,7 +104,7 @@ The exact message routes are:
 Doji-owned email must use the logo, name, brand colors and button actions, with an
 accessible plain-text alternative. Current business branding is deployed; shared
 renderer changes and provider-managed templates have separate release status.
-See [Email branding](EMAIL_BRANDING_2026-10-11.md) rather than assuming all provider
+See [Email branding](releases/EMAIL_BRANDING_2026-10-11.md) rather than assuming all provider
 emails are controlled by our renderer.
 
 Dashboards: [Resend](https://resend.com/), [Cloudflare](https://dash.cloudflare.com/),
@@ -135,7 +135,7 @@ provider codes and never treats a redirect as authority to grant access.
 Business now uses its own live WorkOS realm through Doji-owned forms and the
 business-only session boundary. Do not switch a client ID, reuse an employee directory, or
 infer a production mapping from an email match. Detailed sequence and rollback:
-[Account separation record](ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md).
+[Account separation record](releases/ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md).
 
 ## Edge function inventory
 
@@ -184,7 +184,7 @@ The checked-in Worker has **five** Durable Object bindings:
 
 The one-minute Cloudflare cron invokes health monitoring, not a recurring challenge
 dispatcher. Supabase's separately approved safety-email/media jobs check due work
-every five minutes. See [Safety launch](SAFETY_LAUNCH_2026-09-29.md).
+every five minutes. See [Safety launch](releases/SAFETY_LAUNCH_2026-09-29.md).
 
 ## Configuration placement
 

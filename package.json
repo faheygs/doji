@@ -9,11 +9,12 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint --flag unstable_native_nodejs_ts_config . --ext .ts,.tsx,.mts,.cts",
-    "typecheck": "tsc --noEmit && npm run typecheck:mocks && npm run typecheck:fixtures && npm run typecheck:portals && npm run typecheck:tooling && npm run typecheck:website && npm run check:typescript-migration",
+    "typecheck": "tsc --noEmit && npm run typecheck:tests && npm run typecheck:mocks && npm run typecheck:fixtures && npm run typecheck:portals && npm run typecheck:tooling && npm run typecheck:website && npm run check:typescript-migration",
+    "typecheck:tests": "tsc --project __tests__/tsconfig.json --noEmit",
     "typecheck:mocks": "tsc --project __mocks__/tsconfig.json --noEmit",
     "typecheck:website": "tsc --project website/tsconfig.json --noEmit",
-    "typecheck:portals": "tsc --project infra/portal-identity-candidate/tsconfig.json --noEmit",
-    "typecheck:tooling": "tsc --project scripts/tsconfig.tooling.json --noEmit",
+    "typecheck:portals": "tsc --project infra/portal-identity/tsconfig.json --noEmit",
+    "typecheck:tooling": "tsc --project scripts/tsconfig.json --noEmit",
     "check:typescript-migration": "node scripts/typescript-migration.mts && node scripts/typescript-migration.test.mts && node scripts/admin-bundle-path.test.mts && node scripts/build-bootstrap.test.mts && node scripts/build-compat.test.mts && node scripts/release-evidence.test.mts && node scripts/eas-read-client.test.mts",
     "typecheck:fixtures": "tsc --project scripts/fixtures/tsconfig.json --noEmit && node scripts/test-fixture-typecheck.mts",
     "check:size": "node scripts/check-source-size.mts",
@@ -124,6 +125,7 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "testMatch": ["**/?(*.)+(spec|test).[tj]s?(x)"],
     "transform": {
       "\\.[jt]sx?$": "<rootDir>/jest.transform.cts",
       "\\.cts$": "<rootDir>/jest.tooling-transform.cts"

@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { OwnedBusinessAccess, type AccessTransport } from './OwnedBusinessAccess';
-import { BusinessPasswordRejected } from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+import { BusinessPasswordRejected } from '../../../../infra/portal-identity/business-password-policy.mts';
 
 function submit() {
   fireEvent.change(screen.getByLabelText(/Work email/), {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -140,7 +140,8 @@ export default function EditProfileScreen() {
             label="Username"
             value={username}
             onChangeText={(value) => {
-              setUsername(normalizeUsernameInput(value));
+              // Preserve native composing text; normalize for checks/submission only.
+              setUsername(value);
               setSaveError('');
             }}
             autoCapitalize="none"

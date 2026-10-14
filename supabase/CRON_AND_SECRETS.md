@@ -6,7 +6,7 @@ for challenge preparation, dispatch or expiration. Migration
 and expiration jobs.
 
 Separately approved safety-alert and moderation-media recovery jobs do exist; the
-[September 29 safety release](../docs/SAFETY_LAUNCH_2026-09-29.md) documents their
+[September 29 safety release](../docs/releases/SAFETY_LAUNCH_2026-09-29.md) documents their
 five-minute due-work checks. Do not remove those jobs based on the old blanket
 "no recurring jobs" wording. The Cloudflare health monitor also has its own
 one-minute trigger, distinct from challenge dispatch.

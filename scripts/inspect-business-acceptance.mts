@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import type * as Pg from 'pg';
-import { createRestrictedSql } from '../infra/portal-identity-candidate/restricted-sql.mts';
-import { createBusinessOwnedGuard } from '../infra/portal-identity-candidate/business-owned-guard.mts';
-import { createBusinessRuntime } from '../infra/portal-identity-candidate/business-runtime.mts';
+import { createRestrictedSql } from '../infra/portal-identity/restricted-sql.mts';
+import { createBusinessOwnedGuard } from '../infra/portal-identity/business-owned-guard.mts';
+import { createBusinessRuntime } from '../infra/portal-identity/business-runtime.mts';
 const sql = `begin read only;set local statement_timeout='3s';
 select jsonb_build_object(
  'acceptance',(select jsonb_build_object('enabled',enabled,'started',started_at,'expires',expires_at,'reserved',reserved_at) from business_session_private.owned_auth_acceptance where singleton),
@@ -43,7 +43,7 @@ if (process.argv[2] === 'rehearse-admission') {
     .update(`${scope}|identity|${email}`)
     .digest('hex');
   const pg: typeof Pg = createRequire(import.meta.url)(
-    '../infra/portal-identity-candidate/node_modules/pg/lib/index.js',
+    '../infra/portal-identity/node_modules/pg/lib/index.js',
   );
   const db = config.database;
   const client = new pg.Client({
@@ -147,7 +147,7 @@ if (process.argv[2] === 'actual-adapter') {
     await readFile('.artifacts/business-recovery-acceptance-20261011/acceptance-email.txt', 'utf8')
   ).trim();
   const pg: typeof Pg = createRequire(import.meta.url)(
-    '../infra/portal-identity-candidate/node_modules/pg/lib/index.js',
+    '../infra/portal-identity/node_modules/pg/lib/index.js',
   );
   const execute = createRestrictedSql(
     { ...config.database, realm: 'business', ownedBusinessAuth: true },
@@ -173,7 +173,7 @@ if (process.argv[2] === 'actual-runtime') {
     await readFile('.artifacts/business-recovery-acceptance-20261011/acceptance-email.txt', 'utf8')
   ).trim();
   const pg: typeof Pg = createRequire(import.meta.url)(
-    '../infra/portal-identity-candidate/node_modules/pg/lib/index.js',
+    '../infra/portal-identity/node_modules/pg/lib/index.js',
   );
   const runtime = createBusinessRuntime(
     {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeStorageSigner } from '../infra/portal-identity-candidate/employee-storage-signer.mts';
-import type { PortalFetch } from '../infra/portal-identity-candidate/portal-contracts.mts';
+import { createEmployeeStorageSigner } from '../infra/portal-identity/employee-storage-signer.mts';
+import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
 import { present } from './employee-test-fixtures.mts';
 const origin = 'https://abcdefghijklmnopqrst.supabase.co';
 const config = { origin, serviceKey: 'synthetic-not-a-service-key-'.repeat(3) };

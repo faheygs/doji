@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeHealth } from '../infra/portal-identity-candidate/employee-health.mts';
+import { createEmployeeHealth } from '../infra/portal-identity/employee-health.mts';
 import { testEmployee, testRecord, testList, present } from './employee-test-fixtures.mts';
 interface Patch {
   dbFails?: boolean;

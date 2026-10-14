@@ -6,21 +6,21 @@ import {
   businessStates,
   isBusinessApplication,
   errorStatus,
-} from '../infra/portal-identity-candidate/business-contracts.mts';
+} from '../infra/portal-identity/business-contracts.mts';
 import type {
   BusinessState,
   BusinessCommand,
-} from '../infra/portal-identity-candidate/business-contracts.mts';
-import { createBusinessBrowserClient } from '../infra/portal-identity-candidate/business-browser-client.mts';
-import { createBusinessApplicationAdapter } from '../infra/portal-identity-candidate/business-application-adapter.mts';
-import { createWorkosBusinessProvider } from '../infra/portal-identity-candidate/workos-business-provider.mts';
+} from '../infra/portal-identity/business-contracts.mts';
+import { createBusinessBrowserClient } from '../infra/portal-identity/business-browser-client.mts';
+import { createBusinessApplicationAdapter } from '../infra/portal-identity/business-application-adapter.mts';
+import { createWorkosBusinessProvider } from '../infra/portal-identity/workos-business-provider.mts';
 import {
   createBusinessCipher,
   equal,
   isVerifiedBusinessActor,
   loginFlow,
   savedSession,
-} from '../infra/portal-identity-candidate/business-http-state.mts';
+} from '../infra/portal-identity/business-http-state.mts';
 
 const config = {
   enabled: true,
@@ -176,7 +176,7 @@ const command: BusinessCommand = {
 
 test('the typed states match the database constraint exactly', () => {
   const sql = readFileSync(
-    new URL('../docs/drafts/business_applications_v1.sql', import.meta.url),
+    new URL('../supabase/overlays/business_applications_v1.sql', import.meta.url),
     'utf8',
   );
   const states = /state text not null default 'draft' check\(state in \(([^)]+)\)\)/.exec(sql)?.[1];

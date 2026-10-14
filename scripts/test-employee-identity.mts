@@ -59,13 +59,13 @@ insert into admin_audit_log(actor_id) values('${member}');`);
 for (const file of ['20260926010000_employee_identity_foundation.sql','20260926011000_employee_portal_authorization.sql']) {
   if (process.argv.includes('--public-grant-probe') && file.includes('authorization')) {
     await db.exec('create function public.accidental_member_access() returns boolean language sql as $$ select true $$; grant execute on function public.accidental_member_access() to public;');
-    await assert.rejects(db.exec(await readFile(new URL(`../docs/drafts/${file}`, import.meta.url), 'utf8')), /unexpected RPC access.*accidental_member_access/);
+    await assert.rejects(db.exec(await readFile(new URL(`../supabase/overlays/${file}`, import.meta.url), 'utf8')), /unexpected RPC access.*accidental_member_access/);
     await db.exec('rollback');
     await db.close();
     console.log('Employee migration correctly refuses inherited PUBLIC access and rolls back.');
     process.exit(0);
   }
-  await db.exec(await readFile(new URL(`../docs/drafts/${file}`, import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL(`../supabase/overlays/${file}`, import.meta.url), 'utf8'));
 }
 async function call(sql:string, params:unknown[]=[]):Promise<unknown> { return (await db.query(sql,params)).rows[0]?.value; }
 async function as(role:string,id:string,aal='aal2') { await db.exec(`reset role; set test.uid='${id}'; set test.role='${role}'; set test.aal='${aal}'; set role ${role};`); }

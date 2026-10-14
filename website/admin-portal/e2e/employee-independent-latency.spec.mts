@@ -40,7 +40,7 @@ async function installEmployeeJourney(
     stdin: {
       contents:
         "export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';",
-      resolveDir: resolve('infra/portal-identity-candidate'),
+      resolveDir: resolve('infra/portal-identity'),
     },
     bundle: true,
     write: false,

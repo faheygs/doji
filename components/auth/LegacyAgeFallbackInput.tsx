@@ -1,4 +1,3 @@
-import React from 'react';
 import { Input } from '@/components/ui/Input';
 import { formatBirthDateInput } from '@/lib/ageAssurance';
 

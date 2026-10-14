@@ -8,7 +8,7 @@ import { cli } from './prepare-safety-launch.mts';
 import { linkedWorkspace } from './business-disabled-release-reads.mts';
 import { evidenceRecord, evidenceRows } from './release-evidence.mts';
 import { contractHash, windowGuard } from './staff-workflow-release-guards.mts';
-import { boundedBody } from '../infra/portal-identity-candidate/bounded-body.mts';
+import { boundedBody } from '../infra/portal-identity/bounded-body.mts';
 const root = 'test-results/staff-workflow-release',
   origin = 'https://admin.dojipro.com';
 function totp(secret: string, now = Date.now()) {

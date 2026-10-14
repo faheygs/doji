@@ -8,15 +8,15 @@ const changed=git('diff','--name-only').split('\n');
 const untracked=git('ls-files','--others','--exclude-standard').split('\n');
 const all=new Set([...changed,...untracked]);
 const selected=new Set([...all].filter(p=>
- /^infra\/business-email-candidate\//.test(p)||
- /^infra\/portal-identity-candidate\/business-/.test(p)||
+ /^infra\/business-email\//.test(p)||
+ /^infra\/portal-identity\/business-/.test(p)||
  /^supabase\/functions\/business-(portal-v2|application-mail)\//.test(p)||
  /^web\/apps\/business\//.test(p)||
  /^docs\/BUSINESS_/.test(p)||/^docs\/drafts\/business_/.test(p)||
  /^scripts\/(?:.*-)?business[-_]/.test(p)||
  /^scripts\/fixtures\/business/.test(p)||/^scripts\/database\/business-/.test(p)
 ));
-for(const p of ['infra/portal-identity-candidate/restricted-sql.mts','supabase/functions/_shared/email-theme.ts','supabase/functions/_shared/doji-email.ts','supabase/functions/_shared/employee-email.ts','supabase/functions/_shared/business-auth.ts','scripts/test-email-theme-shared.mts','docs/EMAIL_BRANDING_2026-10-11.md','web/package-lock.json','web/packages/ui/src/index.ts','web/packages/ui/src/AccountCard.tsx','web/packages/ui/src/theme.tsx','web/packages/ui/src/theme.test.tsx','web/playwright.business.config.ts','web/playwright.access.config.ts','web/playwright.config.ts','web/tests/browser/business-portal-migration.spec.ts','web/tests/browser/business-access-design.spec.ts','web/tests/artifacts.ts'])selected.add(p);
+for(const p of ['infra/portal-identity/restricted-sql.mts','supabase/functions/_shared/email-theme.ts','supabase/functions/_shared/doji-email.ts','supabase/functions/_shared/employee-email.ts','supabase/functions/_shared/business-auth.ts','scripts/test-email-theme-shared.mts','docs/releases/EMAIL_BRANDING_2026-10-11.md','web/package-lock.json','web/packages/ui/src/index.ts','web/packages/ui/src/AccountCard.tsx','web/packages/ui/src/theme.tsx','web/packages/ui/src/theme.test.tsx','web/playwright.business.config.ts','web/playwright.access.config.ts','web/playwright.config.ts','web/tests/browser/business-portal-migration.spec.ts','web/tests/browser/business-access-design.spec.ts','web/tests/artifacts.ts'])selected.add(p);
 // Local imports can require previously untracked shared contracts. Do not include
 // unrelated modified shared implementations merely because they are imported.
 const pending=[...selected],seen=new Set<string>();

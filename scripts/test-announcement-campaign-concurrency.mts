@@ -24,9 +24,9 @@ let created=false;
 try {
  assert.equal(sync("select count(*) from auth.users where email is null or email not like '%@test.invalid';select count(*) from vault.secrets;",'postgres'),'0\n0');
  sync(`create database ${db} template postgres;`,'postgres'); created=true;
- sync(readFileSync('docs/drafts/employee_editorial_v1.sql','utf8'));
+ sync(readFileSync('supabase/overlays/employee_editorial_v1.sql','utf8'));
  sync(`begin;${readFileSync('scripts/test-editorial-local.sql','utf8')}reset role;commit;`);
- sync(readFileSync('docs/drafts/announcement_campaigns_v1.sql','utf8'));
+ sync(readFileSync('supabase/overlays/announcement_campaigns_v1.sql','utf8'));
  sync('update public.app_announcements set enabled=false;');
  const member=sync("select id from public.profiles where username='editorial_test';");
  const employee=sync("select id from public.admin_employees where 'super_admin'=any(roles) limit 1;");
@@ -111,7 +111,7 @@ try {
  console.log('PASS expired campaign cannot be published');
 
  const baselineLedger=sync("select count(*)||':'||sum(delta) from public.spark_ledger where reason='announcement_completion';");
- sync(readFileSync('docs/drafts/announcement_campaigns_v1.rollback.sql','utf8'));
+ sync(readFileSync('supabase/overlays/announcement_campaigns_v1.rollback.sql','utf8'));
  assert.equal(sync("select count(*)||':'||sum(delta) from public.spark_ledger where reason='announcement_completion';"),baselineLedger);
  sync(`${prefix(second)}${submit('Submission after rollback still works normally','campaign-rollback-safe')}commit;`);
  assert.equal(sync("select count(*)||':'||sum(delta) from public.spark_ledger where reason='announcement_completion';"),baselineLedger);

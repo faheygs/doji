@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -195,7 +195,8 @@ export default function UsernameScreen() {
               placeholder="e.g. john_doe"
               value={username}
               onChangeText={(v) => {
-                setUsername(normalizeUsernameInput(v));
+                // Preserve native composing text; normalize for checks/submission only.
+                setUsername(v);
                 setUsernameSubmitError('');
                 setSubmitError('');
               }}

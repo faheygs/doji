@@ -12,7 +12,7 @@ jest.mock('../../lib/releaseIdentity', () => ({ mobileReleaseIdentity: () => ({ 
 const originalFetch = global.fetch;
 const originalAbortController = global.AbortController;
 const originalUrl = process.env.EXPO_PUBLIC_COMMAND_GATEWAY_URL;
-const args = { p_installation_id: 'local-install', p_token: 'local-token', p_platform: 'ios', p_environment: 'sandbox', p_expo_token: null };
+const args = { p_installation_id: 'local-install', p_token: 'local-token', p_platform: 'ios', p_environment: 'sandbox', p_expo_token: null } as const;
 const session = { data: { session: { access_token: 'local-test-token', user: { id: 'member' } } }, error: null };
 const ok = { ok: true, status: 200, text: async () => 'true' };
 let controller: AbortController;

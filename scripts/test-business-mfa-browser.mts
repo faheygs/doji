@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBusinessBrowserClient } from '../infra/portal-identity-candidate/business-browser-client.mts';
+import { createBusinessBrowserClient } from '../infra/portal-identity/business-browser-client.mts';
 function fixture() {
   let response: unknown = {},
     status = 200,

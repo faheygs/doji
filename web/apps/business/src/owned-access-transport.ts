@@ -2,7 +2,7 @@ import type { AccessAction, AccessStep, AccessTransport } from './owned-access-c
 import {
   BusinessPasswordRejected,
   isBusinessPasswordIssue,
-} from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+} from '../../../../infra/portal-identity/business-password-policy.mts';
 
 export interface OwnedAccessTransportConfig {
   enabled: boolean;

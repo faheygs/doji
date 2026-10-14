@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir,cp,access} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {cf,hash,inventory,account} from './prepare-safety-launch.mts';
-import {employeeSetupReturn} from '../infra/portal-identity-candidate/employee-setup-return.mts';
+import {employeeSetupReturn} from '../infra/portal-identity/employee-setup-return.mts';
 import { readBrowserSource } from '../website/browser-source.mts';
 import {evidenceRecord,evidenceAssets,type PagesReleaseProject} from './release-evidence.mts';
 const root='test-results/employee-setup-page-20261001',site=root+'/site',base='test-results/business-release-20260930/admin-site';

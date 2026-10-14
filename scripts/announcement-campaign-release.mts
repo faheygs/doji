@@ -77,7 +77,7 @@ if(mode==='capture-db'){
  or (b->>'active_events')::int<>0 or (b->>'overdue_outbox')::int<>0 or (b->>'lock_waits')::int<>0
  or (b->>'next_event') is null or (b->>'next_event')::timestamptz<clock_timestamp()+interval '25 minutes'
  then raise exception 'Unsafe release window or size/state gate';end if;end $gate$;\n`;
- const migration=body(await read('docs/drafts/announcement_campaigns_v1.sql'));
+ const migration=body(await read('supabase/overlays/announcement_campaigns_v1.sql'));
  const verify=`do $verify$ declare b jsonb;a jsonb;k text;n text;r text;begin
  select baseline into b from campaign_before;select baseline into a from campaign_after;
  if (a->'functions')-${array([...changed,helper])} is distinct from (b->'functions')-${array(changed)} then raise exception 'Unplanned function change';end if;
@@ -94,7 +94,7 @@ if(mode==='capture-db'){
  const member=(await read('scripts/portal-triage-member-canary.sql')).replace('begin read only;','').replace(/rollback;\s*$/,'');
  const reads=await read('scripts/portal-editorial-read-canary.sql');
  const common="begin;set local statement_timeout='8s';set local lock_timeout='2s';\n"+capture('campaign_before')+guard+migration+'\n'+capture('campaign_after')+verify+member+'\n'+reads;
- const undo=body(await read('docs/drafts/announcement_campaigns_v1.rollback.sql'));
+ const undo=body(await read('supabase/overlays/announcement_campaigns_v1.rollback.sql'));
  const undoCheck=`do $$declare n text;b jsonb;begin select baseline into b from campaign_before;foreach n in array ${array(changed)} loop if md5(pg_get_functiondef(('public.'||n)::regprocedure)) is distinct from b#>>array['functions',n,'hash'] then raise exception 'Rollback definition mismatch: %',n;end if;end loop;end$$;\n`;
  await save('common.sql',common);
  await save('rehearsal.sql',common+undo+'\n'+undoCheck+'rollback;\n');

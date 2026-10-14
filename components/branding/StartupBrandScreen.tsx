@@ -1,4 +1,3 @@
-import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { webRootViewStyle } from '../../constants/theme';

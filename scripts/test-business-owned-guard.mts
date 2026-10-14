@@ -146,7 +146,7 @@ try {
     'employee_session_store_v1',
     'portal_identity_business_privacy_v1',
   ])
-    sql(read(`docs/drafts/${name}.sql`));
+    sql(read(`supabase/overlays/${name}.sql`));
   sql(`insert into portal_identity_private.realms values('business',true,'https://business.test','client_business'),('employee',true,'https://employee.test','client_employee');
     insert into portal_identity_private.principals(id,realm,state) values
     ('98110000-0000-4000-8000-000000000001','business','active'),('98110000-0000-4000-8000-000000000002','business','active'),('98110000-0000-4000-8000-000000000003','employee','active');
@@ -179,13 +179,13 @@ try {
   assert.equal(memberRead(), '1');
   assert.equal(employeeRead(), '98110000-0000-4000-8000-000000000003');
   const before = fingerprint();
-  sql(read('docs/drafts/business_owned_auth_guard_v1.sql'));
-  sql(read('docs/drafts/business_owned_reset_links_v1.sql'));
-  sql(read('docs/drafts/business_owned_store_v1.sql'));
-  sql(read('docs/drafts/business_owned_acceptance_v1.sql'));
-  sql(read('docs/drafts/business_owned_recovery_email_v1.sql'));
+  sql(read('supabase/overlays/business_owned_auth_guard_v1.sql'));
+  sql(read('supabase/overlays/business_owned_reset_links_v1.sql'));
+  sql(read('supabase/overlays/business_owned_store_v1.sql'));
+  sql(read('supabase/overlays/business_owned_acceptance_v1.sql'));
+  sql(read('supabase/overlays/business_owned_recovery_email_v1.sql'));
   const mailOutput = sql(`begin;${read('scripts/test-business-owned-recovery-email.sql')}
-    ${read('docs/drafts/business_owned_recovery_email_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
+    ${read('supabase/overlays/business_owned_recovery_email_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
     select pg_temp.ok((select enabled_until is null from business_session_private.owned_auth_mail_settings),'mail rollback closes gate');
     select pg_temp.ok((select count(*)=69 from business_session_private.owned_auth_mail_reservations),'mail rollback retains spent reservations');
     rollback;`);
@@ -194,7 +194,7 @@ try {
     console.log(line);
   }
   const acceptanceOutput = sql(`begin;${read('scripts/test-business-owned-acceptance.sql')}
-    ${read('docs/drafts/business_owned_acceptance_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
+    ${read('supabase/overlays/business_owned_acceptance_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
     select pg_temp.ok(not (select enabled from business_session_private.owned_auth_acceptance),'acceptance rollback closes test gate');
     select pg_temp.ok((select reserved_at is not null from business_session_private.owned_auth_acceptance),'acceptance rollback retains spent slot');
     rollback;`);
@@ -204,7 +204,7 @@ try {
   }
   {
       const output = sql(`begin;
-        ${read('docs/drafts/business_owned_existing_test_access_v1.sql').replace(/^begin;|^commit;/gm, '')}
+        ${read('supabase/overlays/business_owned_existing_test_access_v1.sql').replace(/^begin;|^commit;/gm, '')}
         ${read('scripts/test-business-owned-acceptance.sql')}
         ${read('scripts/test-business-existing-test-access.sql')}
         rollback;`);
@@ -213,9 +213,9 @@ try {
       }
   }
   const cutover =
-    sql(`begin;${read('docs/drafts/business_owned_cutover_v1.sql').replace(/^begin;|^commit;/gm, '')}
+    sql(`begin;${read('supabase/overlays/business_owned_cutover_v1.sql').replace(/^begin;|^commit;/gm, '')}
     ${read('scripts/test-business-owned-cutover.sql')}
-    ${read('docs/drafts/business_owned_cutover_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
+    ${read('supabase/overlays/business_owned_cutover_v1.rollback.sql').replace(/^begin;|^commit;/gm, '')}
     select pg_temp.ok(not (select enabled from business_session_private.owned_auth_settings),'cutover rollback freezes owned installers');
     select pg_temp.ok(not has_function_privilege('doji_business_session','business_session_private.put_bound_session(text,text,text,integer,text,text,text,text)','execute'),'cutover rollback does not silently re-enable legacy bypass');
     rollback;`);
@@ -259,7 +259,7 @@ try {
   );
   assert.match(await overlap(mailReserve(3), mailReserve(3)), /spent/);
   pass('concurrent duplicate mail ticket permits only one send');
-  sql(read('docs/drafts/business_owned_recovery_email_v1.rollback.sql'));
+  sql(read('supabase/overlays/business_owned_recovery_email_v1.rollback.sql'));
   assert.equal(
     sql('select count(*) from business_session_private.owned_auth_mail_reservations;'),
     '11',
@@ -338,14 +338,14 @@ try {
   const retainedLinks = sql(
     'select count(*) from business_session_private.owned_auth_reset_links;',
   );
-  sql(read('docs/drafts/business_owned_reset_links_v1.rollback.sql'));
+  sql(read('supabase/overlays/business_owned_reset_links_v1.rollback.sql'));
   assert.equal(
     sql(
       "select has_function_privilege('doji_business_session','business_session_private.get_owned_reset_link_v1(text,text)','execute');",
     ),
     'f',
   );
-  sql(read('docs/drafts/business_owned_auth_guard_v1.rollback.sql'));
+  sql(read('supabase/overlays/business_owned_auth_guard_v1.rollback.sql'));
   assert.equal(sql('select enabled from business_session_private.owned_auth_settings;'), 'f');
   assert.equal(sql('select count(*) from business_session_private.owned_auth_fences;'), retained);
   assert.equal(

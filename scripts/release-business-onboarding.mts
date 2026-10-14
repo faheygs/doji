@@ -63,7 +63,7 @@ if(mode==='prepare') {
  await save('rollback-manifest',{pages:await inventory(`${root}/pages-before`),edge:await inventory(`${root}/edge-before`)});
  let body='';const sourceHashes:Record<string,string>={};
  for(const name of drafts) {
-  const sql=(await readFile(`docs/drafts/${name}`,'utf8')).replaceAll('\r\n','\n');
+  const sql=(await readFile(`supabase/overlays/${name}`,'utf8')).replaceAll('\r\n','\n');
   sourceHashes[name]=hash(sql);body+=sql.replace(/^begin;|^commit;/gm,'')+'\n';
  }
  const expected=JSON.stringify(state).replaceAll("'","''");
@@ -85,7 +85,7 @@ if(mode==='prepare') {
  console.log('Rollback packages/config preserved; private onboarding installation prepared with all new gates disabled.');
 } else {
  const prepared=await read(`${root}/prepared.json`);
- for(const [file,expected] of Object.entries(record(prepared.sourceHashes))) assert.equal(hash((await readFile(`docs/drafts/${file}`,'utf8')).replaceAll('\r\n','\n')),expected,file);
+ for(const [file,expected] of Object.entries(record(prepared.sourceHashes))) assert.equal(hash((await readFile(`supabase/overlays/${file}`,'utf8')).replaceAll('\r\n','\n')),expected,file);
  await unchanged();
  if(mode==='rehearse'||mode==='database') {
   if(mode==='database') await read(`${root}/rehearsed.json`);

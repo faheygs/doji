@@ -5,10 +5,10 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { randomBytes, createHmac } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createLocalJWKSet, jwtVerify } from 'jose';
-import { createBusinessMfa } from '../infra/portal-identity-candidate/business-mfa.mts';
-import { isRecord } from '../infra/portal-identity-candidate/business-contracts.mts';
-import { isVerifiedBusinessActor } from '../infra/portal-identity-candidate/business-http-state.mts';
-import type { PortalFetch } from '../infra/portal-identity-candidate/portal-contracts.mts';
+import { createBusinessMfa } from '../infra/portal-identity/business-mfa.mts';
+import { isRecord } from '../infra/portal-identity/business-contracts.mts';
+import { isVerifiedBusinessActor } from '../infra/portal-identity/business-http-state.mts';
+import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
 import type { JSONWebKeySet } from 'jose';
 
 function totp(secret: string) {

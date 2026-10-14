@@ -22,7 +22,7 @@ try {
     'business_session_store_v1',
     'portal_identity_business_privacy_v1',
   ])
-    room.sql('set role postgres;\n' + source('docs/drafts/' + name + '.sql'));
+    room.sql('set role postgres;\n' + source('supabase/overlays/' + name + '.sql'));
   const contracts = () =>
     room.sql(`select jsonb_agg(jsonb_build_array(oid,pg_get_functiondef(oid),proacl) order by oid)
     from pg_proc where pronamespace in ('public'::regnamespace,'auth'::regnamespace) and prokind='f';
@@ -30,8 +30,8 @@ try {
     select jsonb_agg(to_jsonb(u) order by id) from auth.users u;
     select jsonb_agg(to_jsonb(p) order by id) from public.profiles p;`);
   const before = contracts();
-  room.sql('set role postgres;\n' + source('docs/drafts/business_setup_v1.sql'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_setup_privacy_v1.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_setup_v1.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_setup_privacy_v1.sql'));
   const output = room.sql(
     'set role postgres;\n' +
       source('scripts/test-business-setup.sql') +
@@ -42,7 +42,7 @@ try {
   assert.ok(checks.length >= 20);
   console.log(checks.join('\n'));
   await setupConcurrency(room);
-  room.sql('set role postgres;\n' + source('docs/drafts/business_setup_v1.rollback.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_setup_v1.rollback.sql'));
   assert.equal(room.sql('select enabled from business_private.setup_settings'), 'f');
   assert.equal(room.sql('select count(*) from business_private.brand_profiles'), '1');
   assert.equal(contracts(), before);

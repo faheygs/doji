@@ -1,11 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
-import { createBusinessBrowserClient } from '../../../../infra/portal-identity-candidate/business-browser-client.mts';
+import { createBusinessBrowserClient } from '../../../../infra/portal-identity/business-browser-client.mts';
 import type {
   BusinessSetupCommand,
   BusinessSetupProfile,
-} from '../../../../infra/portal-identity-candidate/business-setup-contract.mts';
+} from '../../../../infra/portal-identity/business-setup-contract.mts';
 import { BusinessOnboarding } from './BusinessOnboarding';
 const qr = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
 afterEach(() => vi.unstubAllGlobals());

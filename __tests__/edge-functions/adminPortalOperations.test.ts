@@ -10,13 +10,13 @@ describe('admin portal operations and presentation contracts', () => {
     expect(route?.rpc).toBe('get_admin_audit_page_v2');
     expect(route?.method).toBe('GET');
     const invalid = portalRouteFor(new URL('https://admin.test/portal/admin/audit?limit=500'));
-    expect(() => invalid?.args?.(new URL('https://admin.test/portal/admin/audit?limit=500'))).toThrow();
+    expect(() => invalid?.args?.(new URL('https://admin.test/portal/admin/audit?limit=500'), {})).toThrow();
   });
 
   it('supports server-filtered audit export and super-admin operator controls', () => {
     const audit = portalRouteFor(new URL('https://admin.test/portal/admin/audit?limit=50&category=decision&search=remove'));
     expect(audit?.rpc).toBe('get_admin_audit_page_v2');
-    expect(audit?.args?.(new URL('https://admin.test/portal/admin/audit?limit=50&category=decision&search=remove'))).toMatchObject({
+    expect(audit?.args?.(new URL('https://admin.test/portal/admin/audit?limit=50&category=decision&search=remove'), {})).toMatchObject({
       p_category: 'decision',
       p_search: 'remove',
     });

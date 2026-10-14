@@ -62,15 +62,15 @@ for (const [file, area] of [
   ['website/identity/setup-return.mts', 'employee-setup'],
   ['website/safety-removal/form.js', 'safety-intake'],
   ['website/safety-removal/form.mts', 'safety-intake'],
-  ['infra/portal-identity-candidate/employee-http.mts', 'portal-identity'],
-  ['infra/portal-identity-candidate/business-browser-client.mts', 'portal-identity'],
+  ['infra/portal-identity/employee-http.mts', 'portal-identity'],
+  ['infra/portal-identity/business-browser-client.mts', 'portal-identity'],
   ['infra/doji-orchestrator/src/index.ts', 'orchestrator'],
   ['supabase/functions/fanout-doji-push/index.ts', 'edge-functions'],
 ] as const)
   test(`inventories ${file} in exactly one area`, () => assert.deepEqual(areaFor(file), [area]));
 for (const file of [
   'app/types.d.ts',
-  'infra/portal-identity-candidate/contracts.d.mts',
+  'infra/portal-identity/contracts.d.mts',
   'website/admin-portal/live-client.test.mts',
   'website/.admin-dist/portal.js',
   'website/admin-portal/e2e/test.spec.mjs',

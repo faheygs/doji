@@ -1,11 +1,11 @@
 // Called ONLY by the no-network clean-room PostgreSQL runner. No provider fetch.
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
-import { createBusinessOwnedGuard } from '../infra/portal-identity-candidate/business-owned-guard.mts';
-import { createBusinessOwnedResetStore } from '../infra/portal-identity-candidate/business-owned-reset-store.mts';
-import { createBusinessOwnedReset } from '../infra/portal-identity-candidate/business-owned-reset.mts';
-import { createBusinessOwnedResetEvents } from '../infra/portal-identity-candidate/business-owned-reset-events.mts';
-import type { StoreExecute } from '../infra/portal-identity-candidate/business-session-store.mts';
+import { createBusinessOwnedGuard } from '../infra/portal-identity/business-owned-guard.mts';
+import { createBusinessOwnedResetStore } from '../infra/portal-identity/business-owned-reset-store.mts';
+import { createBusinessOwnedReset } from '../infra/portal-identity/business-owned-reset.mts';
+import { createBusinessOwnedResetEvents } from '../infra/portal-identity/business-owned-reset-events.mts';
+import type { StoreExecute } from '../infra/portal-identity/business-session-store.mts';
 export async function resetRoundTrip(sql: (source: string) => string) {
   const policy = {
     enabled: true,

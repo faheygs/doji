@@ -14,7 +14,7 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlined';
 import RadioButtonUnchecked from '@mui/icons-material/RadioButtonUnchecked';
 import HelpOutline from '@mui/icons-material/HelpOutlined';
 import type { PasswordFeedback } from './usePasswordFeedback';
-import { businessPasswordMinimum } from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+import { businessPasswordMinimum } from '../../../../infra/portal-identity/business-password-policy.mts';
 
 export function PasswordChecklist({
   feedback,

@@ -1,4 +1,4 @@
-import type { createBusinessBrowserClient } from '../../../../infra/portal-identity-candidate/business-browser-client.mts';
+import type { createBusinessBrowserClient } from '../../../../infra/portal-identity/business-browser-client.mts';
 import type { identityConfig } from '../../../../website/business-portal/identity/config.mts';
 import type { createApplicationController } from '../../../../website/business-portal/application-client.mts';
 export type Client = ReturnType<typeof createBusinessBrowserClient>;

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import pages from '../infra/portal-identity-candidate/business-pages-worker.mts';
+import pages from '../infra/portal-identity/business-pages-worker.mts';
 import {
   createBusinessProxy,
   createBusinessEdgeIngress,
-} from '../infra/portal-identity-candidate/business-proxy.mts';
+} from '../infra/portal-identity/business-proxy.mts';
 const config = {
   enabled: true,
   origin: 'https://business.dojipro.com',

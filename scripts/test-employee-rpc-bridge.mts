@@ -41,7 +41,7 @@ const prepare = [
   'employee_session_store_v1',
   'portal_employee_actors_v1',
 ]
-  .map((n) => body(`docs/drafts/${n}.sql`))
+  .map((n) => body(`supabase/overlays/${n}.sql`))
   .join('\n');
 const setup = employeeEvidenceSetup.replace(
   'begin;',
@@ -52,11 +52,11 @@ const setup = employeeEvidenceSetup.replace(
 const sql = `${setup}
 update public.reports set reported_user_id=current_setting('test.member_id')::uuid;
 -- Employee avatar/case evidence is already present in the replayed migrations.
-${['moderation_media_ledger_v1', 'moderation_media_restoration_v1', 'moderation_media_cleanup_v1', 'moderation_media_evidence_v1'].map((n) => body(`docs/drafts/${n}.sql`)).join('\n')}
+${['moderation_media_ledger_v1', 'moderation_media_restoration_v1', 'moderation_media_cleanup_v1', 'moderation_media_evidence_v1'].map((n) => body(`supabase/overlays/${n}.sql`)).join('\n')}
 create temp table before_functions as select oid,pg_get_functiondef(oid) definition,proacl from pg_proc where prokind='f' and pronamespace in('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace);
-${body('docs/drafts/portal_identity_employee_rpc_v1.sql')}
-${body('docs/drafts/portal_employee_directory_v1.sql')}
-${body('docs/drafts/employee_login_admission_v1.sql')}
+${body('supabase/overlays/portal_identity_employee_rpc_v1.sql')}
+${body('supabase/overlays/portal_employee_directory_v1.sql')}
+${body('supabase/overlays/employee_login_admission_v1.sql')}
 -- Local harness may impersonate the new NOLOGIN transport role; rolled back.
 grant doji_employee_application to postgres;
 create function pg_temp.ok(v boolean,label text) returns text language plpgsql as $$begin if v is distinct from true then raise exception 'FAIL: %',label;end if;return 'PASS: '||label;end$$;
@@ -170,7 +170,7 @@ select pg_temp.denied($q$select * from public.profiles limit 1$q$,'42501','trans
 select pg_temp.denied($q$select public.get_admin_portal_session_v3()$q$,'42501','transport role cannot bypass identity bridge');
 reset role;
 select pg_temp.ok(not exists(select 1 from before_functions b join pg_proc p on p.oid=b.oid where b.definition<>pg_get_functiondef(p.oid) or b.proacl is distinct from p.proacl),'existing RPCs and grants unchanged');
-${body('docs/drafts/portal_identity_employee_rpc_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_employee_rpc_v1.rollback.sql')}
 select pg_temp.ok(not (select enabled from portal_identity_private.employee_rpc_settings),'rollback disables only employee bridge');
 rollback;`;
 try {

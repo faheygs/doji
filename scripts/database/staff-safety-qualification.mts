@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import type { TestRoom } from './contracts.mts';
 export function qualifySafetyQueue(room: TestRoom) {
   room.inspect();
-  const candidate = readFileSync('docs/drafts/staff_safety_queue_v1.sql', 'utf8');
+  const candidate = readFileSync('supabase/overlays/staff_safety_queue_v1.sql', 'utf8');
   const fixture = readFileSync('scripts/database/staff-workflow-volume.sql', 'utf8');
   const output = room.sql(`begin;set local role postgres;set local search_path=public,extensions;
     set local statement_timeout='90s';${fixture}

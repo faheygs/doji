@@ -283,6 +283,22 @@ it('holds profile setup until username and session are valid', async () => {
   await submit(ui);
   expect(mockCommand).not.toHaveBeenCalled();
 });
+it('echoes username edits unchanged without rewriting Android composing text', async () => {
+  const ui = render(shell(<Username />));
+  const field = () => ui.getByLabelText('Username');
+  // Full native values, not key deltas: typing, case, deletion, replacement,
+  // a legitimate repeated letter, and pasted handles with normalization syntax.
+  for (const value of ['j', 'ja', 'jan', 'Ja', 'Jan', 'Ja', 'jja', '', ' @Ja_Ne ']) {
+    fireEvent.changeText(field(), value);
+    expect(field().props.value).toBe(value);
+  }
+  expect(field().props.autoCapitalize).toBe('none');
+  expect(field().props.autoCorrect).toBe(false);
+  expect(mockCommand).not.toHaveBeenCalled();
+  await submit(ui);
+  expect(mockCommand).toHaveBeenCalledWith('create_own_profile',
+    expect.objectContaining({ p_username: 'ja_ne' }));
+});
 it('supports legacy age verification and surfaces invalid age', async () => {
   mockSession!.user.user_metadata = {};
   const ui = render(shell(<Username />));

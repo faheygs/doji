@@ -1,4 +1,4 @@
-import { createEmployeeBrowserTransport } from '../../../../infra/portal-identity-candidate/employee-browser-transport.mts';
+import { createEmployeeBrowserTransport } from '../../../../infra/portal-identity/employee-browser-transport.mts';
 import { createPortalQueryClient, type PortalSession } from './index';
 import type { QueryClient } from '@tanstack/react-query';
 import { assertEmployeeRead } from './employee-read-policy';

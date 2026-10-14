@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeHealth } from '../infra/portal-identity-candidate/employee-health.mts';
-import { createEmployeeResources } from '../infra/portal-identity-candidate/employee-resources.mts';
-import { healthVersions } from '../infra/portal-identity-candidate/employee-health-contracts.mts';
+import { createEmployeeHealth } from '../infra/portal-identity/employee-health.mts';
+import { createEmployeeResources } from '../infra/portal-identity/employee-resources.mts';
+import { healthVersions } from '../infra/portal-identity/employee-health-contracts.mts';
 import { createHealthHintFilter } from '../website/admin-portal/health-model.mts';
 import { recordEmployeeHealthObservation } from '../supabase/functions/operational-health/employee-health-observation.ts';
 import { testEmployee } from './employee-test-fixtures.mts';
-import { createEmployeeApplicationAdapter } from '../infra/portal-identity-candidate/employee-application-adapter.mts';
-import { employeeHealthSql } from '../infra/portal-identity-candidate/employee-health-contracts.mts';
+import { createEmployeeApplicationAdapter } from '../infra/portal-identity/employee-application-adapter.mts';
+import { employeeHealthSql } from '../infra/portal-identity/employee-health-contracts.mts';
 const at = '2026-10-06T12:00:00Z';
 const feed = (revision = '1') => ({
   enabled: true,

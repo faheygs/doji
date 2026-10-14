@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
 import { validatePasswordField, validatePasswordMatch } from '../../lib/formValidation';

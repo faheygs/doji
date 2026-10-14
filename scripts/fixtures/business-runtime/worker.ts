@@ -1,5 +1,5 @@
 // Complete business composition in a network-disabled real Edge runtime.
-import pg from '../../../infra/portal-identity-candidate/node_modules/pg/lib/index.js';
+import pg from '../../../infra/portal-identity/node_modules/pg/lib/index.js';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { businessFixture, businessConfig } from '../../business-runtime-fixture.mts';

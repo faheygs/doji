@@ -1,4 +1,3 @@
-import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { useVideoPlayer, VideoView, type VideoContentFit } from 'expo-video';
 

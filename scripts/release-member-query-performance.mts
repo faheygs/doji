@@ -15,8 +15,8 @@ const sqlFile=(file:string)=>{const out=execFileSync(process.execPath,['node_mod
 const snapshot=()=>evidenceRecord(sqlFile('scripts/member-query-release-preflight.sql')[0]?.baseline);
 const baseline=json(`${root}/database-refreshed.json`);
 const summary=json('test-results/local-query-repair-20260928/summary.json');
-const functions=read('docs/drafts/member_query_performance_v1.sql');
-const indexSource=read('docs/drafts/member_query_performance_indexes_v1.sql');
+const functions=read('supabase/overlays/member_query_performance_v1.sql');
+const indexSource=read('supabase/overlays/member_query_performance_indexes_v1.sql');
 assert.equal(hash(functions),evidenceAt(summary,'sourceHashes').functions);
 assert.equal(hash(indexSource),evidenceAt(summary,'sourceHashes').indexes);
 assert.ok(evidenceArray(summary.gates).every(x=>x.passed));

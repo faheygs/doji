@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text } from 'react-native';
 import { IconCamera, IconCheck } from '../icons/Icons';
 import { IcnBarChart } from '../icons/BadgeIcons';

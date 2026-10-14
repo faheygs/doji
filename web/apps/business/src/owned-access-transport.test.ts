@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { createOwnedAccessTransport } from './owned-access-transport';
-import { BusinessPasswordRejected } from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+import { BusinessPasswordRejected } from '../../../../infra/portal-identity/business-password-policy.mts';
 const config = {
   enabled: true,
   origin: 'https://business.dojipro.com',

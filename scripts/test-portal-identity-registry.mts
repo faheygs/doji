@@ -19,18 +19,18 @@ do $$begin
  if exists(select 1 from vault.secrets) or exists(select 1 from auth.users where email is null or email not like '%@test.invalid')
  then raise exception 'Synthetic offline database required'; end if;
 end$$;
-${body('docs/drafts/business_applications_v1.sql')}
+${body('supabase/overlays/business_applications_v1.sql')}
 create temp table prior_functions as select p.oid,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p
  join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','business_private') and p.prokind='f';
 create temp table prior_policies as select * from pg_policies;
 create temp table prior_relations as select oid,relacl,relrowsecurity from pg_class;
 create temp table prior_auth as select id,md5(row_to_json(u)::text) fingerprint from auth.users u;
 create temp table prior_profiles as select id,md5(row_to_json(p)::text) fingerprint from public.profiles p;
-${body('docs/drafts/portal_identity_registry_v1.sql')}
+${body('supabase/overlays/portal_identity_registry_v1.sql')}
 -- Synthetic test-driver membership only, rolled back with this transaction.
 grant doji_identity_resolver to postgres;
 ${readFileSync('scripts/test-portal-identity-registry.sql', 'utf8')}
-${body('docs/drafts/portal_identity_registry_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_registry_v1.rollback.sql')}
 select pg_temp.ok(not exists(select 1 from portal_identity_private.realms where enabled),'rollback disables only candidate realms');
 select pg_temp.ok(not has_function_privilege('doji_identity_resolver','portal_identity_private.resolve_identity(text,text,text,text,text,boolean)','execute'),'rollback removes resolver grant');
 select pg_temp.ok((select count(*)=2 from portal_identity_private.principals),'rollback preserves principals');
@@ -99,8 +99,8 @@ try {
         ],
         {
           input: sql.replace(
-            body('docs/drafts/portal_identity_registry_v1.sql'),
-            () => injection + '\n' + body('docs/drafts/portal_identity_registry_v1.sql'),
+            body('supabase/overlays/portal_identity_registry_v1.sql'),
+            () => injection + '\n' + body('supabase/overlays/portal_identity_registry_v1.sql'),
           ),
           encoding: 'utf8',
           maxBuffer: 4e6,

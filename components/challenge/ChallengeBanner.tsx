@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +18,6 @@ import {
 } from '../../lib/participationGate';
 import { useSparksBalance } from '../../hooks/useSparks';
 import { useBuyInToday } from '../../hooks/useBuyIn';
-import { SPARKS_BUY_IN_COST } from '../../constants/sparks';
 import { BuyInSheet } from '../economy/BuyInSheet';
 import { useServerCountdown } from '../../hooks/useServerCountdown';
 import { MissedChallengeBanner } from './MissedChallengeBanner';

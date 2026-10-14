@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareBusinessMail } from '../infra/business-email-candidate/message.mts';
+import { prepareBusinessMail } from '../infra/business-email/message.mts';
 const job = {
   id: '12345678-1234-4234-8234-123456789012',
   application_id: '12345678-1234-4234-8234-123456789013',

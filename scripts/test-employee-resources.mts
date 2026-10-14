@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeResources } from '../infra/portal-identity-candidate/employee-resources.mts';
+import { createEmployeeResources } from '../infra/portal-identity/employee-resources.mts';
 import type {
   EmployeeApplication,
   EmployeeActor,
-} from '../infra/portal-identity-candidate/employee-contracts.mts';
+} from '../infra/portal-identity/employee-contracts.mts';
 import { testEmployee, testRecord, present } from './employee-test-fixtures.mts';
 const origin = 'https://abcdefghijklmnopqrst.supabase.co',
   id = '11111111-1111-4111-8111-111111111111';

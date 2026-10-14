@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Stack } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthGate } from '../../hooks/useAuthGate';

@@ -306,7 +306,7 @@ async function receiverBoundary() {
 }
 
 async function restrictedGrantCheck() {
-  const pg: typeof Pg = createRequire(import.meta.url)('../infra/portal-identity-candidate/node_modules/pg/lib/index.js');
+  const pg: typeof Pg = createRequire(import.meta.url)('../infra/portal-identity/node_modules/pg/lib/index.js');
   const db=evidenceRecord(config.database);
   assert.ok(typeof db.host==='string' && /^[a-z0-9.-]+\.pooler\.supabase\.com$/.test(db.host));
   assert.equal(db.username,`doji_business_portal_login.${ref}`);

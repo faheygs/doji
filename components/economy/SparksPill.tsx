@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, type ViewStyle, type StyleProp } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Radius } from '@/constants/theme';

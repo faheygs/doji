@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createWorkosSessionReader } from '../infra/portal-identity-candidate/workos-session.mts';
+import { createWorkosSessionReader } from '../infra/portal-identity/workos-session.mts';
 import type {
   PortalIdentity,
   PortalFetch,
-} from '../infra/portal-identity-candidate/portal-contracts.mts';
+} from '../infra/portal-identity/portal-contracts.mts';
 type Config = Parameters<typeof createWorkosSessionReader>[0];
 interface Overrides {
   config?: Partial<Config>;

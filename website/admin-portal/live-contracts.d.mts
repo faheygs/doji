@@ -1,4 +1,4 @@
-import type { createEmployeeBrowserTransport } from '../../infra/portal-identity-candidate/employee-browser-transport.mts';
+import type { createEmployeeBrowserTransport } from '../../infra/portal-identity/employee-browser-transport.mts';
 import type {} from '../ably-browser.d.mts';
 export interface PortalConfig {
   mode?: string;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile, access } from 'node:fs/promises';
-import { createBusinessRecoveryEmail } from '../infra/portal-identity-candidate/business-owned-recovery-email.mts';
+import { createBusinessRecoveryEmail } from '../infra/portal-identity/business-owned-recovery-email.mts';
 import { evidenceArray, evidenceRecord } from './release-evidence.mts';
 import { hash } from './prepare-safety-launch.mts';
 

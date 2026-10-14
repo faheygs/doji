@@ -23,8 +23,8 @@ try {
  sql('postgres',`do $$begin if exists(select 1 from vault.secrets) or exists(select 1 from auth.users where email is null or email not like '%@test.invalid') then raise exception 'Synthetic database required'; end if; end$$;`);
  sql('postgres',`create database ${db} template postgres;`);created=true;
  sql(db,readFileSync('supabase/migrations/20260927020000_employee_case_evidence.sql','utf8'));
- sql(db,readFileSync('docs/drafts/external_takedown_intake_v1.sql','utf8'));
- for(const name of ['ledger','restoration','cleanup','evidence','closure'])sql(db,readFileSync(`docs/drafts/moderation_media_${name}_v1.sql`,'utf8'));
+ sql(db,readFileSync('supabase/overlays/external_takedown_intake_v1.sql','utf8'));
+ for(const name of ['ledger','restoration','cleanup','evidence','closure'])sql(db,readFileSync(`supabase/overlays/moderation_media_${name}_v1.sql`,'utf8'));
  sql(db,`begin;${fixture}\n${setup}\ncommit;`);
  const employee=sql(db,"select id from public.admin_employees where 'super_admin'=any(roles) limit 1;").trim();
  const appeal=sql(db,'select id from public.moderation_appeals order by submitted_at desc limit 1;').trim();

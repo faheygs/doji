@@ -1,6 +1,7 @@
 import { readThroughScaleGateway } from '../../lib/scaleReadGateway';
 import { supabase } from '../../lib/supabase';
 import { isTransientApiError, shouldRetryQuery } from '../../lib/apiRetry';
+import { memberSession } from '../fixtures/memberSession';
 
 describe('scale-read client', () => {
   const originalFetch = global.fetch;
@@ -11,11 +12,11 @@ describe('scale-read client', () => {
     process.env.EXPO_PUBLIC_SCALE_READ_URL = 'https://scale.test';
     jest.clearAllMocks();
     mockGetSession.mockResolvedValue({
-      data: { session: { access_token: 'old-token' } },
+      data: { session: memberSession('old-token') },
       error: null,
     });
     mockRefreshSession.mockResolvedValue({
-      data: { session: { access_token: 'new-token' } },
+      data: { session: memberSession('new-token'), user: memberSession('new-token').user },
       error: null,
     });
   });
@@ -77,7 +78,7 @@ describe('scale-read client', () => {
     global.fetch = jest.fn().mockResolvedValue(new Response('{}', { status }));
     const directRead = jest.fn();
     const error = await readThroughScaleGateway('/v1/feed', directRead).catch(error => error);
-    expect(error.status).toBe(status);
+    expect(error).toMatchObject({ status });
     expect(isTransientApiError(error)).toBe(status === 429 || status === 503);
     expect(shouldRetryQuery(1, error)).toBe(false);
     expect(directRead).not.toHaveBeenCalled();
@@ -107,7 +108,7 @@ describe('scale-read client', () => {
     }));
     const result = readThroughScaleGateway('/v1/feed', jest.fn()).catch(error => error);
     await jest.advanceTimersByTimeAsync(8_000);
-    expect((await result).message).toBe('Request timed out after 8000ms');
+    expect(await result).toMatchObject({ message: 'Request timed out after 8000ms' });
     expect(jest.getTimerCount()).toBe(0);
   });
 });

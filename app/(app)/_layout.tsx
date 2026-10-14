@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useAuthStore } from '../../stores/useAuthStore';

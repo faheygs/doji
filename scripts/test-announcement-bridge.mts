@@ -18,7 +18,7 @@ try {
     'portal_employee_actors_v1',
     'portal_identity_employee_rpc_v1',
   ])
-    sql(source('docs/drafts/' + name + '.sql'));
+    sql(source('supabase/overlays/' + name + '.sql'));
   const fingerprint = () =>
     sql(`select md5(string_agg(x,'|' order by x)) from (
     select pg_get_functiondef(oid)||coalesce(proacl::text,'') x from pg_proc
@@ -28,8 +28,8 @@ try {
     union all select to_jsonb(u)::text from auth.users u
     union all select to_jsonb(p)::text from public.profiles p) preserved;`);
   const before = fingerprint();
-  sql(source('docs/drafts/employee_announcement_compose_v1.sql'));
-  sql(source('docs/drafts/employee_announcement_bridge_v1.sql'));
+  sql(source('supabase/overlays/employee_announcement_compose_v1.sql'));
+  sql(source('supabase/overlays/employee_announcement_bridge_v1.sql'));
   sql(source('scripts/test-announcement-compose.sql'));
   console.log('PASS: atomic lifecycle, replay, rollback and member eligibility regressions');
   const result = sql(source('scripts/test-announcement-bridge.sql'));
@@ -40,8 +40,8 @@ try {
       .join('\n'),
   );
   assert.equal(fingerprint(), before, 'Existing function/grant/policy/member contracts unchanged');
-  sql(source('docs/drafts/employee_announcement_bridge_v1.rollback.sql'));
-  sql(source('docs/drafts/employee_announcement_compose_v1.rollback.sql'));
+  sql(source('supabase/overlays/employee_announcement_bridge_v1.rollback.sql'));
+  sql(source('supabase/overlays/employee_announcement_compose_v1.rollback.sql'));
   assert.equal(fingerprint(), before);
   console.log('PASS: inverse rollback and unchanged existing/member contracts');
 } catch (error) {

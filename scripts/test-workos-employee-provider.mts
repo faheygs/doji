@@ -2,9 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
-import { createWorkosEmployeeProvider } from '../infra/portal-identity-candidate/workos-employee-provider.mts';
-import type { EmployeeProviderConfig } from '../infra/portal-identity-candidate/workos-employee-provider.mts';
-import type { PortalFetch } from '../infra/portal-identity-candidate/portal-contracts.mts';
+import { createWorkosEmployeeProvider } from '../infra/portal-identity/workos-employee-provider.mts';
+import type { EmployeeProviderConfig } from '../infra/portal-identity/workos-employee-provider.mts';
+import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
 import type { JWTPayload } from 'jose';
 import { present, testRecord } from './employee-test-fixtures.mts';
 const keys = await generateKeyPair('ES256');

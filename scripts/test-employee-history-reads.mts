@@ -40,7 +40,7 @@ try {
     'staff_workflow_events_v1',
     'staff_workflow_queue_indexes_v1',
   ]) {
-    sql(read('docs/drafts/' + name + '.sql'));
+    sql(read('supabase/overlays/' + name + '.sql'));
   }
   sql(`insert into portal_identity_private.realms(realm,issuer,audience) values('employee','https://employee.test','employee');
     insert into auth.users(id,aud,role,email,email_confirmed_at,raw_user_meta_data) values
@@ -63,8 +63,8 @@ try {
     update staff_workflow_private.settings set enabled=true,extended_enabled=true;
     update business_private.privacy_settings set enabled=true;`);
   const before = definitionSnapshot();
-  sql(read('docs/drafts/employee_history_reads_v1.sql'));
-  sql(read('docs/drafts/employee_history_bridge_v1.sql'));
+  sql(read('supabase/overlays/employee_history_reads_v1.sql'));
+  sql(read('supabase/overlays/employee_history_bridge_v1.sql'));
   assert.equal(definitionSnapshot(), before, 'Existing functions, grants, owners, RLS unchanged');
   // Reuse six-source fixtures; tie every timestamp to exercise cross-kind cursor order.
   const fixture = read('scripts/database/staff-workflow-volume.sql');
@@ -95,8 +95,8 @@ try {
   );
   console.log(performance);
   assert.equal(definitionSnapshot(), before);
-  sql(read('docs/drafts/employee_history_bridge_v1.rollback.sql'));
-  sql(read('docs/drafts/employee_history_reads_v1.rollback.sql'));
+  sql(read('supabase/overlays/employee_history_bridge_v1.rollback.sql'));
+  sql(read('supabase/overlays/employee_history_reads_v1.rollback.sql'));
   assert.equal(definitionSnapshot(), before, 'Rollback preserves all prior contracts');
   assert.equal(
     sql(`select to_regprocedure('public.get_admin_personal_work_page_v1(text,text,integer,timestamptz,text)') is null;
@@ -114,7 +114,7 @@ try {
         deployedByThisRun: false,
         migrations,
         candidateSha256: createHash('sha256')
-          .update(read('docs/drafts/employee_history_reads_v1.sql'))
+          .update(read('supabase/overlays/employee_history_reads_v1.sql'))
           .digest('hex'),
         checks: checks.split('\n').filter((line) => line.startsWith('PASS:')),
         performance,

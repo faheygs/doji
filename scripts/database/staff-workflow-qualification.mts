@@ -10,7 +10,7 @@ export function qualifyStaffWorkflow(room: TestRoom, phase: 'baseline' | 'indexe
   const read = (path: string) => readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
   const fixture = read('scripts/database/staff-workflow-volume.sql');
   const checks = read('scripts/database/staff-workflow-volume-checks.sql');
-  const candidate = read('docs/drafts/staff_workflow_extended_v1.sql');
+  const candidate = read('supabase/overlays/staff_workflow_extended_v1.sql');
   // Explain the exact inbox SELECT, not a hand-written approximation. Caller
   // checks authorization separately; these plans run as the function owner.
   const select = candidate.match(/ with sources as \([\s\S]*? into result;/)?.[0];
@@ -104,7 +104,7 @@ export function qualifyStaffWorkflow(room: TestRoom, phase: 'baseline' | 'indexe
     indexCandidateSha256:
       phase === 'indexed'
         ? createHash('sha256')
-            .update(read('docs/drafts/staff_workflow_queue_indexes_v1.sql'))
+            .update(read('supabase/overlays/staff_workflow_queue_indexes_v1.sql'))
             .digest('hex')
         : null,
     fixtureSha256: createHash('sha256').update(fixture).digest('hex'),

@@ -88,7 +88,7 @@ fixture intentionally models prerequisites; it is not a full Supabase installati
 ### Approved shared-system scope
 
 The earlier review block was resolved by explicit owner approval. SQL drafts remain
-outside automatic migration discovery in `docs/drafts/`; do not deploy them until the
+outside automatic migration discovery in `supabase/overlays/`; do not deploy them until the
 full-schema, hosted Auth and session checks pass. In particular, the new employee role's
 effective grants must be audited: NOINHERIT does not remove PUBLIC access. The draft
 rolls back if unexpected application RPC/table privileges are found, rather than

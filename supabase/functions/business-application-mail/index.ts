@@ -1,7 +1,7 @@
 // Dedicated business sender. No member or employee runtime dependency.
 import pg from 'pg';
-import { createBusinessMailHandler } from '../../../infra/business-email-candidate/hosted.mts';
-import { createBusinessMailSql } from '../../../infra/business-email-candidate/restricted-sql.mts';
+import { createBusinessMailHandler } from '../../../infra/business-email/hosted.mts';
+import { createBusinessMailSql } from '../../../infra/business-email/restricted-sql.mts';
 let handler:((request:Request)=>Promise<Response>)|undefined;
 Deno.serve(async(request:Request)=>{
  try {

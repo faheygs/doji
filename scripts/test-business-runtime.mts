@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { businessFixture, businessConfig } from './business-runtime-fixture.mts';
-import { createBusinessRuntime } from '../infra/portal-identity-candidate/business-runtime.mts';
+import { createBusinessRuntime } from '../infra/portal-identity/business-runtime.mts';
 test('runtime refuses cross-realm configuration', async () => {
   await assert.rejects(businessFixture({ origin: 'https://admin.dojipro.com' }));
   assert.throws(() =>

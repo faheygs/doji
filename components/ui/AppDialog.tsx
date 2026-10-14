@@ -1,4 +1,3 @@
-import React from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Radius, Spacing } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useServerCountdown } from '../../hooks/useServerCountdown';

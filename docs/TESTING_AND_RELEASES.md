@@ -9,7 +9,7 @@ Recorded merged baseline: [PR #7](https://github.com/faheygs/doji/pull/7),
 `96a612b`, October 12, 2026. Exact head `6875bbf` passed application, database,
 coverage and web-migration in [run 38256389247](https://github.com/faheygs/doji/actions/runs/38256389247):
 4,667 Jest tests, all 17 independent 90% area gates and the separate React web
-checks. See [current cleanup audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md) and
+checks. See [current cleanup audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md) and
 the new PR's exact-head checks for subsequent changes. This is source qualification,
 not a production deployment or replacement for device/provider acceptance.
 
@@ -194,7 +194,7 @@ monitoring remains paused at the owner's request.
 ## Local announcement permission candidate
 
 The owner approved local preparation and testing on October 2, not production
-deployment. `docs/drafts/announcement_member_execute_v1.sql` removes only the
+deployment. `supabase/overlays/announcement_member_execute_v1.sql` removes only the
 explicit anonymous EXECUTE grants on the two member announcement RPCs. Their
 internal authentication checks already deny anonymous actions. The existing
 security-definer allowlist test requires this narrower database boundary; its
@@ -794,7 +794,7 @@ The October 2 repair assigns `scripts/fixtures` to its own strict, no-emit
 [project](../scripts/fixtures/tsconfig.json) and excludes that directory from
 Expo's project. No fixture is left unchecked.
 
-Run `npm ci` and `npm ci --prefix infra/portal-identity-candidate`, then
+Run `npm ci` and `npm ci --prefix infra/portal-identity`, then
 `npm run typecheck`. This runs the app check, the fixture check and compiler
 regressions. `npm run typecheck:fixtures` runs only the latter two. The application
 CI job now uses this combined command; hosted CI has not been verified here.
@@ -928,7 +928,7 @@ acceptance gates, not failures repaired by source-size exceptions.
 | --- | --- | --- |
 | Public site | Cloudflare Pages `doji-site`, Next static export plus verified safety/legal assets/headers | Public/legal/safety configuration is not employee/business config; no Next server |
 | Employee admin | Admin Pages artifact plus same-origin employee proxy | Root WorkOS mode/feature flags must be preserved; no member session revocation |
-| Employee server | `supabase/functions/employee-portal-v2` plus packaged identity runtime | Source imports the `infra/portal-identity-candidate` runtime; use the reviewed packaging process, not an unverified raw folder deploy |
+| Employee server | `supabase/functions/employee-portal-v2` plus packaged identity runtime | Source imports the `infra/portal-identity` runtime; use the reviewed packaging process, not an unverified raw folder deploy |
 | Business | Vite/React Pages plus independent WorkOS business Edge/SQL | Owned UI does not replace server approval/setup/MFA; public admission and automatic sends remain gated |
 | Shared database | Exact approved atomic SQL scope | Installed drafts and migration ledger must be reconciled; no broad `db push` |
 | Orchestrator | `infra/doji-orchestrator`, five Durable Object bindings | Shared alarms, member commands, reads and push; portal UI deploy does not include it |
@@ -972,7 +972,7 @@ authorized operation, not an automatic side effect of upload.
 
 The Android 23 release record notes a foreground-refresh limitation in the current
 update-policy query. Do not promise instantaneous enforcement on foreground;
-confirm behavior on the exact binary. See [Android 23 record](ANDROID_RECOVERY_BUILD_23_2026-09-28.md).
+confirm behavior on the exact binary. See [Android 23 record](releases/ANDROID_RECOVERY_BUILD_23_2026-09-28.md).
 
 ## Rollback and incident handoff
 

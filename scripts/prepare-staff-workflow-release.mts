@@ -81,7 +81,7 @@ const names = [
 const files = [];
 const pieces = [];
 for (const name of names) {
-  const path = `docs/drafts/${name}.sql`,
+  const path = `supabase/overlays/${name}.sql`,
     source = await readFile(path, 'utf8');
   files.push({ path, sha256: hash(source) });
   pieces.push(
@@ -101,7 +101,7 @@ const rollback =
   (
     await Promise.all(
       rollbacks.map(async (name) =>
-        body(await readFile(`docs/drafts/${name}.rollback.sql`, 'utf8')),
+        body(await readFile(`supabase/overlays/${name}.rollback.sql`, 'utf8')),
       ),
     )
   ).join('\n') +

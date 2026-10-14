@@ -30,13 +30,13 @@ async function copy(from: string, to: string) {
   await put(to, await readFile(resolve(root, from)));
 }
 const closure = await runtimeSourceClosure(
-  resolve(root, 'infra/portal-identity-candidate'),
+  resolve(root, 'infra/portal-identity'),
   'business-runtime.mts',
 );
 const edge = 'edge/supabase/functions/business-portal-v2';
 for (const file of [...closure].sort()) {
   assert.match(file, /^[a-z0-9-]+\.mts$/);
-  await copy(`infra/portal-identity-candidate/${file}`, `${edge}/runtime/${file}`);
+  await copy(`infra/portal-identity/${file}`, `${edge}/runtime/${file}`);
 }
 assert.ok(
   closure.has('business-owned-runtime.mts') && closure.has('business-owned-reset-events.mts'),
@@ -45,11 +45,11 @@ const entry = await readFile(
   resolve(root, 'supabase/functions/business-portal-v2/index.ts'),
   'utf8',
 );
-assert.equal(entry.split('../../../infra/portal-identity-candidate/').length, 2);
+assert.equal(entry.split('../../../infra/portal-identity/').length, 2);
 assert.ok(entry.includes("Deno.env.get('BUSINESS_OWNED_AUTH_ENABLED')"));
 await put(
   `${edge}/index.ts`,
-  entry.replace('../../../infra/portal-identity-candidate/', './runtime/'),
+  entry.replace('../../../infra/portal-identity/', './runtime/'),
 );
 await copy('supabase/functions/business-portal-v2/deno.json', `${edge}/deno.json`);
 
@@ -65,7 +65,7 @@ await build({
   logLevel: 'silent',
 });
 const worker = await build({
-  entryPoints: [resolve(root, 'infra/portal-identity-candidate/business-pages-worker.mts')],
+  entryPoints: [resolve(root, 'infra/portal-identity/business-pages-worker.mts')],
   bundle: true,
   write: false,
   format: 'esm',
@@ -117,8 +117,8 @@ for (const file of [
   'business_owned_cutover_v1.sql',
   'business_owned_cutover_v1.rollback.sql',
 ])
-  await copy(`docs/drafts/${file}`, `sql/${file}`);
-await copy('docs/BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md', 'RUNBOOK.md');
+  await copy(`supabase/overlays/${file}`, `sql/${file}`);
+await copy('docs/releases/BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md', 'RUNBOOK.md');
 await put(
   'GATES.json',
   JSON.stringify(

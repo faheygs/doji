@@ -1,0 +1,10 @@
+{
+  "name": "doji-portal-identity",
+  "private": true,
+  "type": "module",
+  "description": "Independent employee and business identity/session runtimes",
+  "dependencies": {
+    "jose": "6.2.8",
+    "pg": "8.16.3"
+  }
+}

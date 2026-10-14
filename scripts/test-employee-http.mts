@@ -1,14 +1,14 @@
 // Offline controller tests. No production accounts, email, or provider requests.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeHttp } from '../infra/portal-identity-candidate/employee-http.mts';
-import { createEmployeeSessionStore } from '../infra/portal-identity-candidate/employee-session-store.mts';
+import { createEmployeeHttp } from '../infra/portal-identity/employee-http.mts';
+import { createEmployeeSessionStore } from '../infra/portal-identity/employee-session-store.mts';
 import type {
   EmployeeHttpConfig,
   EmployeeHttpDependencies,
-} from '../infra/portal-identity-candidate/employee-http.mts';
-import type { StoreExecute } from '../infra/portal-identity-candidate/employee-session-store.mts';
-import type { EmployeeActor } from '../infra/portal-identity-candidate/employee-contracts.mts';
+} from '../infra/portal-identity/employee-http.mts';
+import type { StoreExecute } from '../infra/portal-identity/employee-session-store.mts';
+import type { EmployeeActor } from '../infra/portal-identity/employee-contracts.mts';
 import { evidenceRecord, evidenceText } from './release-evidence.mts';
 const origin = 'https://admin.test';
 const config: EmployeeHttpConfig = {
@@ -45,6 +45,8 @@ function fixture(overrides: Record<string, unknown> = {}) {
     admission: true,
     authorize: true,
     failStore: false,
+    failAcquire: false,
+    failRemove: false,
     remoteFails: false,
     wrongOtp: false,
     enroll: false,
@@ -109,6 +111,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
       sessions.set(key, value);
     },
     async withSession(key, fn) {
+      if (state.failAcquire) throw Error('Synthetic store unavailable');
       const value = sessions.get(key);
       return fn(
         value === undefined
@@ -116,6 +119,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
           : {
               value,
               remove: async () => {
+                if (state.failRemove) throw Error('Synthetic delete failed');
                 sessions.delete(key);
               },
               replace: async (next) => {
@@ -428,6 +432,66 @@ test('logout deletes local session even when provider unavailable', async () => 
   assert.equal((await r.json()).remoteConfirmed, false);
   assert.equal(f.sessions.size, 0);
   assert.equal((await f.request('/api/session', undefined, s.cookie)).status, 401);
+});
+test('logout after idle expiry confirms deletion and retry stays idempotent', async () => {
+  const f = fixture(), s = await f.login();
+  f.advance(1800001);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await f.request('/auth/logout', {}, s.cookie, s.data.csrf);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { signedIn: false });
+    assert.match(response.headers.getSetCookie()[0] || '', /__Host-doji_employee=;.*Max-Age=0/);
+  }
+  assert.equal(f.sessions.size, 0);
+  assert.equal(f.calls.revoke, 1);
+  assert.equal((await f.request('/api/session', undefined, s.cookie)).status, 401);
+});
+test('logout confirms an absent cookie or already-removed session without provider calls', async () => {
+  const f = fixture(), s = await f.login();
+  f.sessions.clear();
+  for (const cookie of [undefined, s.cookie]) {
+    const response = await f.request('/auth/logout', {}, cookie, s.data.csrf);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { signedIn: false });
+  }
+  assert.equal(f.calls.revoke, 0);
+  assert.equal(f.calls.command, 0);
+});
+test('active-session logout still requires matching CSRF and exact origin', async () => {
+  const f = fixture(), s = await f.login();
+  for (const csrf of [undefined, 'wrong']) {
+    assert.equal((await f.request('/auth/logout', {}, s.cookie, csrf)).status, 403);
+    assert.equal(f.sessions.size, 1);
+  }
+  assert.equal((await f.request('/auth/logout', {}, s.cookie, s.data.csrf, { origin: 'https://other.test' })).status, 403);
+  assert.equal(f.sessions.size, 1);
+  assert.equal(f.calls.revoke, 0);
+  for (const cookie of ['__Host-doji_employee=invalid', s.cookie + '; ' + s.cookie]) {
+    assert.equal((await f.request('/auth/logout', {}, cookie, s.data.csrf)).status, 401);
+    assert.equal(f.sessions.size, 1);
+  }
+});
+test('absent-session logout still rejects cross-origin, invalid methods and malformed bodies', async () => {
+  const f = fixture();
+  assert.equal((await f.request('/auth/logout', {}, undefined, undefined, { origin: 'https://other.test' })).status, 403);
+  assert.equal((await f.request('/auth/logout')).status, 404);
+  assert.equal((await f.request('/auth/logout', { unexpected: true })).status, 400);
+});
+test('logout removes unusable session state but cannot confirm a failed removal', async () => {
+  const f = fixture(), s = await f.login();
+  for (const key of f.sessions.keys()) f.sessions.set(key, 'corrupt');
+  f.state.failAcquire = true;
+  assert.equal((await f.request('/auth/logout', {}, s.cookie, s.data.csrf)).status, 503);
+  assert.equal(f.sessions.size, 1);
+  f.state.failAcquire = false;
+  f.state.failRemove = true;
+  assert.equal((await f.request('/auth/logout', {}, s.cookie, s.data.csrf)).status, 503);
+  assert.equal(f.sessions.size, 1);
+  f.state.failRemove = false;
+  const response = await f.request('/auth/logout', {}, s.cookie, s.data.csrf);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { signedIn: false });
+  assert.equal(f.sessions.size, 0);
 });
 test('employee durable store cannot select business role/schema', async () => {
   const calls: Parameters<StoreExecute>[] = [];

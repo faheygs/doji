@@ -91,11 +91,11 @@ try {
   );
   sync(`create database ${db} template postgres;`, 'postgres');
   created = true;
-  sync(readFileSync('docs/drafts/business_applications_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_applications_v1.sql', 'utf8'));
   roleCreated = true;
-  sync(readFileSync('docs/drafts/business_auth_v1.sql', 'utf8'));
-  sync(readFileSync('docs/drafts/business_public_admission_v1.sql', 'utf8'));
-  sync(readFileSync('docs/drafts/business_realtime_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_auth_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_public_admission_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_realtime_v1.sql', 'utf8'));
   sync(
     "grant doji_business to postgres;update business_private.settings set enabled=true,application_terms_version='qa-terms',privacy_version='qa-privacy';",
   );
@@ -270,8 +270,8 @@ try {
     '2|2|2',
   );
   passed('concurrent public signup cannot overspend last daily email reservation');
-  sync(readFileSync('docs/drafts/business_signup_legal_v1.sql', 'utf8'));
-  sync(readFileSync('docs/drafts/business_privacy_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_signup_legal_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_privacy_v1.sql', 'utf8'));
   sync(
     `update business_private.privacy_settings set enabled=true; update business_private.accounts set disabled=false where id=${quote(owner)};`,
   );

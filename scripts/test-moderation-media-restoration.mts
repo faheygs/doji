@@ -19,7 +19,7 @@ const drafts = [
   'moderation_media_wakeup_v1.sql',
 ]
   .map((n) =>
-    readFileSync(`docs/drafts/${n}`, 'utf8')
+    readFileSync(`supabase/overlays/${n}`, 'utf8')
       .replace(/^begin;\s*$/m, '')
       .replace(/^commit;\s*$/m, ''),
   )

@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { IconCheck } from '@/components/icons/Icons';
 import { Text } from '@/components/ui/Text';

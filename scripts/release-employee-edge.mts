@@ -50,9 +50,9 @@ if(mode==='prepare') {
  await writeFile(`${secure}/edge.env`,`EMPLOYEE_V2_ENABLED=false\nEMPLOYEE_V2_CONFIG='${JSON.stringify(config)}'\n`,{flag:'wx'});
  await mkdir(`${root}/edge/supabase/functions/${slug}`,{recursive:true});
  for(const file of ['index.ts','deno.json'])await cp(`supabase/functions/${slug}/${file}`,`${root}/edge/supabase/functions/${slug}/${file}`);
- await mkdir(`${root}/edge/infra/portal-identity-candidate`,{recursive:true});
- for(const file of await readdir('infra/portal-identity-candidate')) if(file.endsWith('.mts'))
-  await cp(`infra/portal-identity-candidate/${file}`,`${root}/edge/infra/portal-identity-candidate/${file}`);
+ await mkdir(`${root}/edge/infra/portal-identity`,{recursive:true});
+ for(const file of await readdir('infra/portal-identity')) if(file.endsWith('.mts'))
+  await cp(`infra/portal-identity/${file}`,`${root}/edge/infra/portal-identity/${file}`);
  await writeFile(`${root}/edge/supabase/config.toml`,`project_id = "employee-independent-release"\n[functions.${slug}]\nverify_jwt = false\nimport_map = "./functions/${slug}/deno.json"\n`);
  await save('baseline',baseline);
  await save('candidate',{at:new Date().toISOString(),assets:await manifest(),configHash:hash(JSON.stringify(config)),enabled:false});
@@ -75,11 +75,11 @@ if(mode==='prepare') {
    // Keep all imported files inside the function extraction boundary. This
    // changes import locations only, never bypasses the CLI's safe-path guard.
    await save('candidate-before-package',candidate);
-   await cp(`${root}/edge/infra/portal-identity-candidate`,`${root}/edge/supabase/functions/${slug}/runtime`,{recursive:true});
+   await cp(`${root}/edge/infra/portal-identity`,`${root}/edge/supabase/functions/${slug}/runtime`,{recursive:true});
    const entry=`${root}/edge/supabase/functions/${slug}/index.ts`;
    const old=await readFile(entry,'utf8');
-   assert.equal(old.split('../../../infra/portal-identity-candidate/').length-1,2);
-   await writeFile(entry,old.replaceAll('../../../infra/portal-identity-candidate/','./runtime/'));
+   assert.equal(old.split('../../../infra/portal-identity/').length-1,2);
+   await writeFile(entry,old.replaceAll('../../../infra/portal-identity/','./runtime/'));
    candidate={...candidate,assets:await manifest(),packagedAt:new Date().toISOString()};
    await writeFile(`${root}/candidate.json`,JSON.stringify(candidate,null,2));
    await save('package-deploy-started',{at:new Date().toISOString(),scope:slug});

@@ -150,7 +150,7 @@ where s.status='approved' and s.reviewed_by is not null and s.reviewed_at is not
   and not exists(select 1 from public.admin_suggestion_reviews a where a.suggestion_id=s.id);
 `;
 writeFileSync(
-  'docs/drafts/community_idea_retriage_v1.sql',
+  'supabase/overlays/community_idea_retriage_v1.sql',
   header + helper + item + command + '\ncommit;\n',
 );
 // Do not restore first-review-only writes after a reversal: a pending row may
@@ -162,7 +162,7 @@ const rollback = replace(
   if p_kind='suggestions' then raise exception 'Community idea decisions are temporarily paused. No action was taken.'; end if;`,
 );
 writeFileSync(
-  'docs/drafts/community_idea_retriage_v1.rollback.sql',
+  'supabase/overlays/community_idea_retriage_v1.rollback.sql',
   `begin;\nset local lock_timeout='2s';\nset local statement_timeout='8s';\n${rollback}\ncommit;\n`,
 );
 console.log('Prepared retriage SQL and fail-closed rollback; nothing deployed.');

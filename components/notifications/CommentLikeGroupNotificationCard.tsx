@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '../ui/Card';
 import { AvatarStack } from '../ui/AvatarStack';
 import { NotificationActorRow } from './NotificationActorRow';

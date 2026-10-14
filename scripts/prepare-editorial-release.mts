@@ -97,7 +97,7 @@ if(mode==='worker') {
  for t in select value from jsonb_each(b->'editorial_tables') loop
  if (t->>'rows')::int>=1000 or (t->>'bytes')::bigint>=1048576 then raise exception 'Index size gate'; end if; end loop;
 end $gate$;\n`;
- const migration=(await read('docs/drafts/employee_editorial_v1.sql')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'');
+ const migration=(await read('supabase/overlays/employee_editorial_v1.sql')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'');
  const after=`create temporary table editorial_after on commit drop as ${snapshot};
 do $verify$ declare b jsonb; a jsonb; n text; k text; r text; begin
  select baseline into b from editorial_before; select baseline into a from editorial_after;
@@ -120,7 +120,7 @@ end $verify$;\n`;
  const editorial=await read('scripts/portal-editorial-read-canary.sql');
  const ledger=`insert into supabase_migrations.schema_migrations(version,name,statements) values('20260927030000','employee_editorial_workflows',array[$migration$${migration}$migration$]);\n`;
  const common=start+capture+beforeGate+migration+'\n'+after+member+'\n'+editorial;
- const undo=(await read('docs/drafts/employee_editorial_v1.rollback.sql')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'');
+ const undo=(await read('supabase/overlays/employee_editorial_v1.rollback.sql')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'');
  await save('deploy.sql',common+ledger+"notify pgrst,'reload schema';\ncommit;\n");
  await save('rehearsal.sql',common+undo+`\ndo $$begin if exists(select 1 from pg_proc where oid=to_regprocedure('public.admin_editorial_command_v1(text,text,uuid,text,jsonb,text,text)')) then raise exception 'Rollback failed';end if;end$$;\nrollback;\n`);
  await save('rollback-body.sql',undo);await save('migration.sql',migration);

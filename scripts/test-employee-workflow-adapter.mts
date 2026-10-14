@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeApplicationAdapter } from '../infra/portal-identity-candidate/employee-application-adapter.mts';
+import { createEmployeeApplicationAdapter } from '../infra/portal-identity/employee-application-adapter.mts';
 import {
   employeeWorkflowContracts,
   employeeWorkflowSql,
-} from '../infra/portal-identity-candidate/employee-workflow-contracts.mts';
+} from '../infra/portal-identity/employee-workflow-contracts.mts';
 import {
   createRestrictedSql,
   type RestrictedSqlConfig,
-} from '../infra/portal-identity-candidate/restricted-sql.mts';
+} from '../infra/portal-identity/restricted-sql.mts';
 import { testEmployee as actor } from './employee-test-fixtures.mts';
-import type { PortalExecute } from '../infra/portal-identity-candidate/employee-contracts.mts';
+import type { PortalExecute } from '../infra/portal-identity/employee-contracts.mts';
 
 const id = '99000000-0000-4000-8000-000000000001';
 const examples: Record<string, Record<string, unknown>> = {

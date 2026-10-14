@@ -2,6 +2,7 @@ import { fetchFeedPostsPage } from '../../lib/feedQueries';
 import { readThroughScaleGateway } from '../../lib/scaleReadGateway';
 import { supabase } from '../../lib/supabase';
 import { shouldRetryQuery } from '../../lib/apiRetry';
+import { memberSession } from '../fixtures/memberSession';
 
 // The same polyfill installed by React Native's setUpXHR (no signal.reason).
 const NativeAbortController = require('abort-controller').AbortController;
@@ -19,7 +20,7 @@ describe('member request lifetime on the installed native abort runtime', () => 
     jest.clearAllMocks();
     global.AbortController = NativeAbortController;
     process.env.EXPO_PUBLIC_SCALE_READ_URL = 'https://scale.test';
-    session.mockResolvedValue({ data: { session: { access_token: 'test-token' } }, error: null });
+    session.mockResolvedValue({ data: { session: memberSession('test-token') }, error: null });
     global.fetch = jest.fn().mockImplementation((_url, options) => {
       transportSignal = options.signal;
       return new Promise((_resolve, reject) => {

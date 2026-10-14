@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { REACTION_CONTROLS } from '../icons/Icons';
 import { reactionEmojiIconColors } from '../../lib/reactionColors';

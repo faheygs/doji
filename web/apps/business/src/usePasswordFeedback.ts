@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   businessPasswordMinimum,
   businessPasswordMaximum,
-} from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+} from '../../../../infra/portal-identity/business-password-policy.mts';
 
 export interface PasswordFeedback {
   length: boolean;

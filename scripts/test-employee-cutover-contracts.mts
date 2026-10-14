@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { container } from './employee-test-runtime.mts';
 import { readFileSync } from 'node:fs';
 import { errorOutput } from './database/contracts.mts';
-const draft = readFileSync('docs/drafts/20260926011000_employee_portal_authorization.sql', 'utf8');
+const draft = readFileSync('supabase/overlays/20260926011000_employee_portal_authorization.sql', 'utf8');
 const installed =
   execFileSync(
     'C:/Program Files/RedHat/Podman/podman.exe',

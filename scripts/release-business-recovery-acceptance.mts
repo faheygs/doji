@@ -35,7 +35,7 @@ for (const [path, expected] of Object.entries(evidenceRecord(manifest.files))) {
   assert.equal(hash(await readFile(`${candidate}/${path}`)), expected, path);
 }
 const draft = (
-  await readFile('docs/drafts/business_owned_recovery_email_v1.sql', 'utf8')
+  await readFile('supabase/overlays/business_owned_recovery_email_v1.sql', 'utf8')
 ).replaceAll('\r\n', '\n');
 assert.equal(
   hash(draft),
@@ -130,7 +130,7 @@ if (mode === 'capture') {
     flag: 'wx',
   });
   await copyFile(
-    'docs/drafts/business_owned_recovery_email_v1.rollback.sql',
+    'supabase/overlays/business_owned_recovery_email_v1.rollback.sql',
     `${root}/mail-stop.sql`,
   );
   await save('prepared', {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Radius, Spacing } from '../../constants/theme';
 import { SPARKS_BUY_IN_COST } from '../../constants/sparks';

@@ -1,5 +1,5 @@
 jest.mock('pg', () => ({ __esModule: true, default: { Client: mockPgClient } }), { virtual: true });
-jest.mock('../../infra/portal-identity-candidate/business-runtime.mts', () => ({
+jest.mock('../../infra/portal-identity/business-runtime.mts', () => ({
   createBusinessRuntime: (...args: unknown[]) => mockRuntime(...args),
 }));
 const mockRuntime = jest.fn();

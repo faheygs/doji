@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHmac } from 'node:crypto';
-import { createBusinessMailHandler } from '../infra/business-email-candidate/hosted.mts';
-import { createBusinessMailSql } from '../infra/business-email-candidate/restricted-sql.mts';
+import { createBusinessMailHandler } from '../infra/business-email/hosted.mts';
+import { createBusinessMailSql } from '../infra/business-email/restricted-sql.mts';
 const config={enabled:true,setupEnabled:true,clientId:'client_business',workosKey:'sk_'+'w'.repeat(24),resendKey:'re_'+'r'.repeat(24),from:'business@mail.dojipro.com',signingKey:'a'.repeat(64),allowedRecipient:'owner@test.invalid'};
 const id='11000000-0000-4000-8000-000000000001',nonce='11000000-0000-4000-8000-000000000002';
 const now=1791760000000,expires=Math.floor(now/1000)+120;

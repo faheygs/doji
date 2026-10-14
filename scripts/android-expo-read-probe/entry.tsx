@@ -1,6 +1,6 @@
 import { registerRootComponent, requireOptionalNativeModule } from 'expo';
 import { fetch as expoFetch } from 'expo/fetch';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { beginReadDiagnostics, finishReadDiagnostics, observedMemberFetch, readFailureDiagnostics } from '../../lib/memberReadDiagnostics';

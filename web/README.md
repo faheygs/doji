@@ -1,25 +1,21 @@
 # Doji web workspace
 
-Status: **admin qualified for owner-approved root promotion; business/site previews**.
+This independently locked workspace contains the production React frontends:
+Vite admin and business portals, and the statically exported Next.js public site.
+Local development defaults to synthetic previews; connected builds have separate
+configuration and acceptance checks. Never deploy a preview as a connected app.
 
-This independently locked workspace contains the new React web applications. Normal
-development previews use synthetic data. A separate connected admin build is hosted
-at https://admin.dojipro.com/connected with existing employee authentication, bounded
-authorized reads and tested administrative commands, including atomic announcements.
-The same connected package is approved for the default admin entry; use
-`scripts/promote-react-admin-root.mts` with its exact-package and rollback guards.
-Owner declined synthetic live announcement writes; they are not recorded as passed.
-Business React and
-the public Next.js app remain local previews; their production entry points are unchanged.
-Do not deploy a development preview as a connected production application.
+See [current state](../docs/CURRENT_STATE_AND_GAPS.md) for recorded releases,
+disabled features and pending acceptance. Source presence is not proof that a
+feature is enabled. Historical release scripts are not general deployment commands.
 
 ## Applications
 
 | Application    | Stack                          | Local command          | Port | Current slice                                |
 | -------------- | ------------------------------ | ---------------------- | ---- | -------------------------------------------- |
-| Admin          | React, Vite, React Router, MUI | `npm run dev:admin`    | 4310 | Home, team, queues, records and Operations previews |
-| Business       | React, Vite, React Router, MUI | `npm run dev:business` | 4311 | Public front door; disconnected access route |
-| Public website | Next.js App Router, React, MUI | `npm run dev:site`     | 4312 | Statically rendered homepage with metadata   |
+| Admin          | React, Vite, React Router, MUI | `npm run dev:admin`    | 4310 | Employee home, team, queues, records and Operations |
+| Business       | React, Vite, React Router, MUI | `npm run dev:business` | 4311 | Owned login, application, approval/setup/MFA and workspace |
+| Public website | Next.js App Router, React, MUI | `npm run dev:site`     | 4312 | Static public, legal and safety routes with SEO metadata |
 
 Use Node 24. From this directory:
 
@@ -58,5 +54,5 @@ Do not import the member app, root mobile packages or business identities into t
 app. Do not install web dependencies in the mobile root. Do not introduce Socket.IO:
 the connected admin uses existing authorized Ably subscriptions through tested adapters.
 
-See [the migration specification](../docs/WEB_REACT_MIGRATION_2026-10-08.md) for remaining
-routes, contract mappings, verification and deployment gates.
+See [workspace instructions](AGENTS.md) for ownership and UI/data requirements,
+and [testing and releases](../docs/TESTING_AND_RELEASES.md) for verification gates.

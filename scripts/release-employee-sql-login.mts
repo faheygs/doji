@@ -7,11 +7,11 @@ import { randomBytes, pbkdf2Sync, createHash, createHmac } from 'node:crypto';
 import { cli, ref, hash } from './prepare-safety-launch.mts';
 import { createRequire } from 'node:module';
 // Use the portal runtime's declared/pinned driver, not an undeclared root dependency.
-const pg = createRequire(new URL('../infra/portal-identity-candidate/package.json', import.meta.url))('pg') as typeof import('pg');
+const pg = createRequire(new URL('../infra/portal-identity/package.json', import.meta.url))('pg') as typeof import('pg');
 import {evidenceRecord,evidenceAt,evidenceRows} from './release-evidence.mts';
-import type {RestrictedSqlConfig} from '../infra/portal-identity-candidate/restricted-sql.mts';
-import type {SqlParameter} from '../infra/portal-identity-candidate/employee-contracts.mts';
-import { createRestrictedSql } from '../infra/portal-identity-candidate/restricted-sql.mts';
+import type {RestrictedSqlConfig} from '../infra/portal-identity/restricted-sql.mts';
+import type {SqlParameter} from '../infra/portal-identity/employee-contracts.mts';
+import { createRestrictedSql } from '../infra/portal-identity/restricted-sql.mts';
 
 const mode = process.argv[2];
 assert.ok(mode&&['prepare', 'rehearse', 'apply', 'verify'].includes(mode));

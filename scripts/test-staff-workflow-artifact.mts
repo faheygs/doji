@@ -37,7 +37,7 @@ for (const name of names) {
       () => false,
     );
     const target =
-      exists && spec.startsWith('../infra/portal-identity-candidate/') ? deployed : fallback;
+      exists && spec.startsWith('../infra/portal-identity/') ? deployed : fallback;
     source = source.replaceAll(spec, pathToFileURL(target).href);
   }
   const path = `${output}/${name}.mjs`;

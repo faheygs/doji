@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -28,7 +28,6 @@ import {
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
-import { supabase } from '@/lib/supabase';
 import {
   requestPushPermissionAndRegisterToken,
   unregisterCurrentPushInstallation,

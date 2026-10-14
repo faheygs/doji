@@ -26,9 +26,6 @@ Google Play/Firebase FCM (distribution/push), Sentry (diagnostics), and
 GitHub/Actions/GitGuardian (source, CI and secret checks). The catalog separates
 active integrations from gated features, retired systems and development tools.
 
-The source baseline includes the TypeScript migration, React web workspace and
-business onboarding/email work ([PR #7](https://github.com/faheygs/doji/pull/7),
-October 12, 2026, `96a612b`).
 Use a clean checkout of reviewed `main`; do not copy the owner's retained working
 files or CLI caches. A source commit is not a production deployment. Member login stays
 on Supabase Auth. Employee and business identities are independent WorkOS realms,
@@ -44,7 +41,7 @@ remain closed/gated in the last release record. See the dated current-state guid
 | Public site | `web/apps/site`: Next.js 16 static export for Cloudflare Pages |
 | Shared web | `web/packages/ui` (Doji theme/components), `portal-data` (authorized TanStack Query adapters) |
 | Retained web contracts | `website/`: auth/application/safety controllers, legal sources and packaging; still used by React |
-| Portal server | `infra/portal-identity-candidate`: live independent WorkOS runtimes and restricted SQL |
+| Portal server | `infra/portal-identity`: live independent WorkOS runtimes and restricted SQL |
 | Shared backend | `supabase/`: Postgres/RLS/RPC + Deno; `infra/doji-orchestrator`: Cloudflare alarms/relay/gateways |
 
 Root [agent requirements](AGENTS.md) and scoped guides in `web`, `website`,
@@ -79,7 +76,7 @@ Server-role, Ably API, relay, and orchestration secrets are server-only.
 git status --short
 node --version
 npm ci
-npm ci --prefix infra/portal-identity-candidate
+npm ci --prefix infra/portal-identity
 npm ci --prefix infra/doji-orchestrator
 npm ci --prefix web
 npm test -- --runInBand
@@ -94,7 +91,7 @@ For web, run `npm run check --prefix web` and `npm run test:browser --prefix web
 4310, 4311 and 4312. These are not automatically connected to production login.
 
 Do **not** link or push a database as onboarding. This checkout may already be
-linked to production. Some separately deployed SQL remains under `docs/drafts`;
+linked to production. Some separately deployed SQL remains under `supabase/overlays`;
 bulk migration replay is not a safe way to synchronize it. The setup guide explains
 local previews, development clients and database limitations.
 
@@ -150,6 +147,6 @@ Media uses server-reserved private Supabase Storage paths and resumable TUS uplo
 Visible authorized content resolves short-lived signed URLs; persisted query data
 must not retain signed bearer URLs. Image variants and capacity controls require
 their own qualification. See [System and code map](docs/SYSTEM_MAP.md),
-[Local heavy-load evidence](docs/LOCAL_HEAVY_LOAD_2026-09-28.md) and
+[Local heavy-load evidence](docs/releases/LOCAL_HEAVY_LOAD_2026-09-28.md) and
 [Current state and gaps](docs/CURRENT_STATE_AND_GAPS.md). Local simulations do not
 prove 100,000 concurrent users or phone notification delivery.

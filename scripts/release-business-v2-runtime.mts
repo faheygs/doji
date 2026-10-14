@@ -13,9 +13,9 @@ import {
 } from './business-disabled-release-reads.mts';
 import { evidenceRecord, evidenceArray, evidenceRows } from './release-evidence.mts';
 import { runtimeSourceClosure } from './business-runtime-source-closure.mts';
-import { createBusinessRuntime } from '../infra/portal-identity-candidate/business-runtime.mts';
+import { createBusinessRuntime } from '../infra/portal-identity/business-runtime.mts';
 import { buildBusinessIdentity } from '../website/build-business-identity.mts';
-import type { BusinessRuntimeConfig } from '../infra/portal-identity-candidate/business-runtime.mts';
+import type { BusinessRuntimeConfig } from '../infra/portal-identity/business-runtime.mts';
 const root = 'test-results/business-v2-runtime-20261005',
   slug = 'business-portal-v2';
 const secretRoot = '.artifacts/business-runtime',
@@ -153,20 +153,20 @@ if (mode === 'prepare') {
   });
   const base = `${root}/edge/supabase/functions/${slug}`;
   await mkdir(`${base}/runtime`, { recursive: true });
-  const all = await runtimeSourceClosure('infra/portal-identity-candidate', 'business-runtime.mts');
+  const all = await runtimeSourceClosure('infra/portal-identity', 'business-runtime.mts');
   for (const file of all) {
     assert.ok(/^[a-z0-9-]+\.mts$/.test(file));
     await writeFile(
       `${base}/runtime/${file}`,
-      await readFile(`infra/portal-identity-candidate/${file}`),
+      await readFile(`infra/portal-identity/${file}`),
       { flag: 'wx' },
     );
   }
   const entry = await readFile(`supabase/functions/${slug}/index.ts`, 'utf8');
-  assert.equal(entry.split('../../../infra/portal-identity-candidate/').length, 2);
+  assert.equal(entry.split('../../../infra/portal-identity/').length, 2);
   await writeFile(
     `${base}/index.ts`,
-    entry.replace('../../../infra/portal-identity-candidate/', './runtime/'),
+    entry.replace('../../../infra/portal-identity/', './runtime/'),
     { flag: 'wx' },
   );
   await writeFile(`${base}/deno.json`, await readFile(`supabase/functions/${slug}/deno.json`), {

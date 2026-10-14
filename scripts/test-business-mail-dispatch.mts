@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   dispatchBusinessMail,
   type MailConfig,
-} from '../infra/business-email-candidate/dispatch.mts';
+} from '../infra/business-email/dispatch.mts';
 const config: MailConfig = {
   enabled: true,
   setupEnabled: true,

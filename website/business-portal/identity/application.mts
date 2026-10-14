@@ -1,4 +1,4 @@
-import { createBusinessBrowserClient } from '../../../infra/portal-identity-candidate/business-browser-client.mts';
+import { createBusinessBrowserClient } from '../../../infra/portal-identity/business-browser-client.mts';
 import { createApplicationController, type ApplicationSnapshot } from '../application-client.mts';
 import {
   applicationForm,

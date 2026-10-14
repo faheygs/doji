@@ -2,7 +2,7 @@
 // browser storage, member session, or privileged command is contacted.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeBrowserTransport } from '../infra/portal-identity-candidate/employee-browser-transport.mts';
+import { createEmployeeBrowserTransport } from '../infra/portal-identity/employee-browser-transport.mts';
 import { present } from './employee-test-fixtures.mts';
 type Config = Parameters<typeof createEmployeeBrowserTransport>[0];
 type Call = RequestInit & { url: string };

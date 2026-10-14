@@ -93,7 +93,7 @@ const migration = readFileSync(
   resolve(
     process.env.DOJI_TEST_GUARDED_MIGRATION === 'true'
       ? 'test-results/employee-access-release/proposed-authorization.sql'
-      : 'docs/drafts/20260926011000_employee_portal_authorization.sql',
+      : 'supabase/overlays/20260926011000_employee_portal_authorization.sql',
   ),
   'utf8',
 );

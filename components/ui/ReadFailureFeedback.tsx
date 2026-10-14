@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Spacing } from '../../constants/theme';
 import { InlineFeedback } from './InlineFeedback';

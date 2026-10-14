@@ -3,11 +3,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
-import { createBusinessOwnedProvider } from '../infra/portal-identity-candidate/business-owned-provider.mts';
-import { createBusinessOwnedResetStore } from '../infra/portal-identity-candidate/business-owned-reset-store.mts';
-import { createBusinessOwnedReset } from '../infra/portal-identity-candidate/business-owned-reset.mts';
-import { createBusinessOwnedResetEvents } from '../infra/portal-identity-candidate/business-owned-reset-events.mts';
-import type { StoreExecute } from '../infra/portal-identity-candidate/business-session-store.mts';
+import { createBusinessOwnedProvider } from '../infra/portal-identity/business-owned-provider.mts';
+import { createBusinessOwnedResetStore } from '../infra/portal-identity/business-owned-reset-store.mts';
+import { createBusinessOwnedReset } from '../infra/portal-identity/business-owned-reset.mts';
+import { createBusinessOwnedResetEvents } from '../infra/portal-identity/business-owned-reset-events.mts';
+import type { StoreExecute } from '../infra/portal-identity/business-session-store.mts';
 const token = 'synthetic-reset-token-not-a-real-secret';
 const tokenHash = createHash('sha256').update(token).digest('hex');
 const now = Date.now(),

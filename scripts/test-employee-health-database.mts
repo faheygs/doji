@@ -19,7 +19,7 @@ try {
     'portal_employee_actors_v1',
     'portal_identity_employee_rpc_v1',
   ])
-    sql(read(`docs/drafts/${name}.sql`));
+    sql(read(`supabase/overlays/${name}.sql`));
   sql(`insert into portal_identity_private.realms(realm,issuer,audience,enabled) values('employee','https://employee.test','employee',true);
  update public.admin_employee_cutover set employee_only=true;
  update portal_identity_private.employee_rpc_settings set enabled=true;
@@ -41,14 +41,14 @@ try {
  union all select to_jsonb(u)::text from auth.users u
  union all select to_jsonb(p)::text from public.profiles p) preserved;`);
   const before = fingerprint();
-  sql(read('docs/drafts/employee_health_feed_v1.sql'));
+  sql(read('supabase/overlays/employee_health_feed_v1.sql'));
   const output = sql(`begin;${read('scripts/test-employee-health-database.sql')}rollback;`);
   const checks = output.split('\n').filter((line) => line.startsWith('PASS:'));
   assert.ok(checks.length >= 20, 'Expected complete health database assertions');
   console.log(checks.join('\n'));
   assert.equal(fingerprint(), before);
   console.log('PASS: existing functions, grants, policies and member rows unchanged');
-  sql(read('docs/drafts/employee_health_feed_v1.rollback.sql'));
+  sql(read('supabase/overlays/employee_health_feed_v1.rollback.sql'));
   assert.equal(fingerprint(), before);
   assert.equal(sql("select to_regnamespace('employee_health_private') is null;"), 't');
   console.log('PASS: exact inverse restores previous contracts and removes only candidate objects');

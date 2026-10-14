@@ -98,6 +98,16 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success' },
 }));
 const shell = (node: React.ReactNode) => <KeyboardToolbarProvider>{node}</KeyboardToolbarProvider>;
+it('preserves native username edits and normalizes only the saved handle', async () => {
+  const ui = render(shell(<EditProfile />));
+  for (const value of ['j', 'ja', 'Ja', 'Jan', 'jja', '', ' @Ja_Ne ']) {
+    fireEvent.changeText(ui.getByLabelText('Username'), value);
+    expect(ui.getByLabelText('Username').props.value).toBe(value);
+  }
+  expect(mockUpdate).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(ui.getByText('Save changes')));
+  expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ username: 'ja_ne' }));
+});
 const item = (key: string, kind: ShopItem['kind']): ShopItem => ({
   key,
   kind,

@@ -1,5 +1,5 @@
 // Synthetic proxy runtime fixture. The injected upstream never leaves workerd.
-import { createEmployeeProxy } from '../../infra/portal-identity-candidate/employee-proxy.mts';
+import { createEmployeeProxy } from '../../infra/portal-identity/employee-proxy.mts';
 
 export default {
   async fetch(req: Request) {
