@@ -50,11 +50,18 @@ JS artifacts are versioned exceptions. Exact versions come from package/lockfile
   untracked. Remove tests/mocks only with proven retirement of their contract.
   Preserve migrations, rollback records and evidence holds. Document removals,
   recovery and validation; never recursively delete owner worktrees.
+- No task-generated clutter, including in ignored folders. Use an OS temporary
+  directory outside the repository for disposable PR bodies, scratch notes and
+  one-off helpers; remove them when finished. Clean disposable test output after
+  validation. Retain only files with a current product, tooling, regression or
+  explicit evidence/rollback purpose. Ignoring a file is not cleanup.
 - Keep current guidance concise. Dated release/rollback evidence belongs in
   `docs/releases`, reviewed executable SQL in `supabase/overlays`, and published
   business legal inputs in `docs/legal`. Do not recreate `docs/drafts` or append
   task diaries to the product/realtime contracts. Link retained records through
   directory indexes and verify `npm run check:hygiene`.
+  Comments must explain current, non-obvious constraints; do not leave task
+  diaries, stale instructions, commented-out code or commentary that repeats code.
 - Update current-state/system-map/scoped instructions when ownership, stack,
   entry points or requirements change. Keep rollout history distinct from current
   guidance; verify live flags before any independently authorized release.

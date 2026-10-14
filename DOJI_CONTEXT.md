@@ -59,6 +59,9 @@ required; photo, display name and bio are optional.
 The root layout owns session restoration and initial profile authorization.
 An unfinished profile read is not a new account. Bounded transient recovery may
 retain already-authorized UI; ban/onboarding authority still fails closed.
+After the server confirms a missing profile, same-account background refreshes
+keep signup mounted so camera/gallery returns cannot discard its draft. Initial
+reads and authorization failures still gate access; this grants no member-app access.
 Banned accounts retain their session but see only the ban/support/sign-out flow.
 Account deletion preserves opaque moderation attribution and held evidence.
 
@@ -111,6 +114,8 @@ the future poll. Community idea acceptance does not schedule a Doji.
   card-local skeleton until native display. Never re-encode a cached image into itself.
 - Camera/library proof is normalized once before approval; upload the approved
   bytes. Preserve the configured original/derivative contract and authorization.
+- A confirmed profile save owns its avatar; follow-up refresh failures must not
+  delete that committed object as an orphan.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

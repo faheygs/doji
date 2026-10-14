@@ -39,7 +39,11 @@ October 13 next-build input repair: signup/profile-edit username fields no longe
 rewrite native composing text on each edit. Availability checks and submitted
 handles retain existing normalization/validation. Not built or deployed; the
 reported Android keyboard duplication still needs physical-device acceptance.
-See [username input repair](releases/ANDROID_USERNAME_INPUT_2026-10-13.md).
+Not included in 1.0.10; the exact duplication trigger remains unconfirmed.
+Additional unbuilt signup repairs preserve the mounted draft during same-account
+profile refreshes after camera/gallery use, surface picker failures, and prevent
+post-commit refresh failures from deleting saved avatars. Automated regression
+coverage does not replace Android device acceptance; no backend change is included.
 
 ## Recorded evidence
 

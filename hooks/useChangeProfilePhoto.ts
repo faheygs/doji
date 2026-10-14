@@ -10,7 +10,8 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { invalidateQueryRoots } from '../lib/queryInvalidationBatcher';
 import { useAppDialog } from '../contexts/DialogContext';
 import { showProfilePhotoDialog } from '../lib/profilePhotoDialog';
-import { selectedImageUri } from '../lib/imagePickerRecovery';
+import { PHOTO_SELECTION_ERROR, selectedImageUri } from '../lib/imagePickerRecovery';
+import { reportOperationalFailure } from '../lib/telemetry';
 
 const PICKER_QUALITY = 0.85 as const;
 
@@ -34,6 +35,7 @@ export function useChangeProfilePhoto() {
         const url = await uploadAvatar(uid, uri);
         uploadedUrl = url;
         await updateProfile({ avatar_url: url });
+        uploadedUrl = null; // Never remove committed media after a refresh failure.
         if (currentAvatarUrl && currentAvatarUrl !== url) {
           void removePublicStorageObject('avatars', currentAvatarUrl);
         }
@@ -104,14 +106,18 @@ export function useChangeProfilePhoto() {
   const openChangePhotoDialog = useCallback(() => {
     Haptics.selectionAsync();
     setError('');
+    const failed = (source: 'camera' | 'library') => () => {
+      reportOperationalFailure('profile-photo', 'select', new Error(PHOTO_SELECTION_ERROR), { source });
+      setError(PHOTO_SELECTION_ERROR);
+    };
     if (Platform.OS === 'web') {
-      void pickFromLibrary();
+      void pickFromLibrary().catch(failed('library'));
       return;
     }
     showProfilePhotoDialog(
       showDialog,
-      () => void pickFromCamera(),
-      () => void pickFromLibrary(),
+      () => void pickFromCamera().catch(failed('camera')),
+      () => void pickFromLibrary().catch(failed('library')),
     );
   }, [pickFromCamera, pickFromLibrary, showDialog]);
 

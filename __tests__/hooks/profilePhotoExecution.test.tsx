@@ -7,12 +7,14 @@ import { Image } from 'expo-image';
 import Toast from 'react-native-toast-message';
 import { useProfilePhotoPicker } from '../../hooks/useProfilePhotoPicker';
 import { useChangeProfilePhoto } from '../../hooks/useChangeProfilePhoto';
+import { reportOperationalFailure } from '../../lib/telemetry';
 import type { AppDialogOptions } from '../../components/ui/AppDialog';
 
 const mockShowDialog = jest.fn();
 const mockUpload = jest.fn();
 const mockRemove = jest.fn();
 const mockUpdate = jest.fn();
+jest.mock('../../lib/telemetry', () => ({ reportOperationalFailure: jest.fn() }));
 let mockUser: string | undefined;
 let mockAvatar: string | null;
 jest.mock('../../contexts/DialogContext', () => ({
@@ -167,6 +169,46 @@ test('camera picker passes the cropped square to its caller', async () => {
   });
   expect(onSelected).toHaveBeenCalledWith('file:///selected.jpg');
 });
+test.each(['Take a picture', 'Select a photo'])(
+  'Android signup displays %s crop/export failures and permits another attempt',
+  async (action) => {
+    Platform.OS = 'android';
+    const launch = action === 'Take a picture' ? Picker.launchCameraAsync : Picker.launchImageLibraryAsync;
+    jest.mocked(launch).mockRejectedValueOnce(new Error('native crop/export failed'));
+    const onSelected = jest.fn();
+    const onError = jest.fn();
+    const { result } = renderHook(() => useProfilePhotoPicker(onSelected, onError));
+    await act(async () => { result.current(); choose(action); });
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('This photo could not be opened'));
+    expect(onSelected).not.toHaveBeenCalled();
+    expect(reportOperationalFailure).toHaveBeenCalledWith(
+      'profile-photo', 'select', new Error('This photo could not be opened. Please try again or choose another photo.'),
+      { source: action === 'Take a picture' ? 'camera' : 'library' },
+    );
+    await act(async () => { result.current(); choose(action); });
+    expect(onError).toHaveBeenLastCalledWith('');
+    expect(onSelected).toHaveBeenCalledTimes(1);
+    expect(onSelected).toHaveBeenCalledWith('file:///selected.jpg');
+  },
+);
+test.each(['Take a picture', 'Select a photo'])(
+  'Android profile displays %s crop/export failures without uploading or deleting avatars',
+  async (action) => {
+    Platform.OS = 'android';
+    const launch = action === 'Take a picture' ? Picker.launchCameraAsync : Picker.launchImageLibraryAsync;
+    jest.mocked(launch).mockRejectedValueOnce(new Error('native crop/export failed'));
+    const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+    await act(async () => { result.current.openChangePhotoDialog(); choose(action); });
+    expect(result.current.error).toContain('This photo could not be opened');
+    expect(result.current.uploading).toBe(false);
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRemove).not.toHaveBeenCalled();
+    await act(async () => { result.current.openChangePhotoDialog(); choose(action); });
+    expect(result.current.error).toBe('');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  },
+);
 test.each([picked, cancelled, null])(
   'Android picker recovers only an actual pending photo (%j)',
   async (pending) => {
@@ -273,6 +315,18 @@ test('failed profile commit removes only the newly uploaded orphan', async () =>
   expect(mockRemove).toHaveBeenCalledWith('avatars', 'https://assets.test/new.jpg');
   expect(result.current.error).toBe('profile write failed');
   expect(Image.prefetch).not.toHaveBeenCalled();
+});
+
+test('a refresh failure after profile commit never deletes the committed avatar', async () => {
+  jest.spyOn(client, 'invalidateQueries').mockRejectedValueOnce(new Error('Refresh unavailable'));
+  const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+  await act(async () => {
+    result.current.openChangePhotoDialog();
+    choose('Select a photo');
+  });
+  expect(mockUpdate).toHaveBeenCalledWith({ avatar_url: 'https://assets.test/new.jpg' });
+  expect(mockRemove).toHaveBeenCalledTimes(1);
+  expect(mockRemove).toHaveBeenCalledWith('avatars', 'https://assets.test/old.jpg');
 });
 test.each(['Take a picture', 'Select a photo'])(
   'update handles %s permission denial and cancel',

@@ -18,8 +18,11 @@ coverage budgets, delete failing cases or expand legacy size caps to pass checks
 Database tests use only owned local disposable containers, pinned images and
 synthetic records. Verify ownership before removing containers/directories.
 
-Generated output belongs under ignored test-results/ or reviewed build directories;
-no credentials, provider payloads, release binaries or private evidence in Git.
+Required generated output belongs under ignored test-results/ or reviewed build
+directories; remove disposable output when validation finishes. PR bodies, scratch
+notes and one-off helpers belong in an OS temporary directory outside the repo
+and must be removed afterward. Ignored folders are not permanent task storage.
+No credentials, provider payloads, release binaries or private evidence in Git.
 Retain unique rollback copies and acceptance evidence; old age alone does not make
 them disposable. Before removing source, prove non-use across imports, framework
 entry points, package scripts, fixture registries, CI and release packagers.
