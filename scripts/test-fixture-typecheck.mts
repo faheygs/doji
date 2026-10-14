@@ -36,7 +36,7 @@ assert.ok(config.options.paths?.[`npm:@noble/hashes@${noble.version}/sha256`]);
 // by the real Deno, worker, pg and hash contracts; no ts-ignore/any escape hatch.
 const virtualPath = path.join(fixtureRoot, 'employee-runtime/__typecheck_contract__.ts');
 const source = [
-  "import pg from '../../../infra/portal-identity-candidate/node_modules/pg/lib/index.js';",
+  "import pg from '../../../infra/portal-identity/node_modules/pg/lib/index.js';",
   "import { sha256 } from 'npm:@noble/hashes@1.8.0/sha256';",
   'Deno.serve((request: string) => new Response(request));',
   "EdgeRuntime.userWorkers.create({ memoryLimitMb: 'large' });",

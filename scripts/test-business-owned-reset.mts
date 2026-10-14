@@ -7,7 +7,7 @@ import {
   createBusinessOwnedReset,
   type OwnedResetDependencies,
   type OwnedResetMapping,
-} from '../infra/portal-identity-candidate/business-owned-reset.mts';
+} from '../infra/portal-identity/business-owned-reset.mts';
 const token = 'synthetic-private-reset-token';
 const policy = {
   enabled: true,

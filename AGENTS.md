@@ -14,7 +14,7 @@ to rerun. Source merged does not mean deployed.
 | Web workspace | `web/`; separate npm lock/workspaces, React 19.3, MUI 9, TanStack Query 5; Vite 8 admin/business, Next.js 16 static public site |
 | Shared web UI/data | `web/packages/ui`, `web/packages/portal-data`; Doji theme, standard MUI controls, session-scoped authorized reads |
 | Retained browser adapters | `website/`; typed auth/application/safety controllers, legal content and release packagers still imported by React; not disposable legacy code |
-| Portal server | `infra/portal-identity-candidate/`; live employee AND business WorkOS/session runtimes despite the historical directory name |
+| Portal server | `infra/portal-identity/`; independent employee and business WorkOS/session runtimes |
 | Shared server | `supabase/` Postgres/RLS/RPC and Deno Edge; `infra/doji-orchestrator/` Cloudflare Worker/Durable Objects |
 | Tools and verification | `scripts/`, `__tests__/`, `__mocks__/`, `supabase/tests/`, web/website browser suites; synthetic fixtures are required regression inputs |
 
@@ -26,7 +26,7 @@ JS artifacts are versioned exceptions. Exact versions come from package/lockfile
 
 ## Development, design and completion requirements
 
-- Install root, `infra/portal-identity-candidate`, `infra/doji-orchestrator` and,
+- Install root, `infra/portal-identity`, `infra/doji-orchestrator` and,
   for web work, `web` with their own `npm ci`. Use `docs/LOCAL_DEVELOPMENT.md`.
 - Mobile uses shared theme, avatar/frame, keyboard-safe and accessible UI.
   Portals use standard MUI behavior with the centralized Doji orange/violet
@@ -50,6 +50,11 @@ JS artifacts are versioned exceptions. Exact versions come from package/lockfile
   untracked. Remove tests/mocks only with proven retirement of their contract.
   Preserve migrations, rollback records and evidence holds. Document removals,
   recovery and validation; never recursively delete owner worktrees.
+- Keep current guidance concise. Dated release/rollback evidence belongs in
+  `docs/releases`, reviewed executable SQL in `supabase/overlays`, and published
+  business legal inputs in `docs/legal`. Do not recreate `docs/drafts` or append
+  task diaries to the product/realtime contracts. Link retained records through
+  directory indexes and verify `npm run check:hygiene`.
 - Update current-state/system-map/scoped instructions when ownership, stack,
   entry points or requirements change. Keep rollout history distinct from current
   guidance; verify live flags before any independently authorized release.

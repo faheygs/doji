@@ -96,7 +96,7 @@ if (mode === 'prepare') {
     if (required.has(file)) continue;
     assert.ok(/^[a-z0-9-]+\.mts$/.test(file), 'Unexpected runtime dependency path');
     required.add(file);
-    const source = await readFile(`infra/portal-identity-candidate/${file}`, 'utf8');
+    const source = await readFile(`infra/portal-identity/${file}`, 'utf8');
     for (const match of source.matchAll(/(?:from\s+|import\s*)['"](\.[^'"]+)['"]/g)) {
       assert.ok(match[1]);
       pending.push(posix.normalize(posix.join(posix.dirname(file), match[1])));
@@ -104,10 +104,10 @@ if (mode === 'prepare') {
     await writeFile(`${base}/runtime/${file}`, source, { flag: 'wx' });
   }
   const entry = await readFile(`supabase/functions/${slug}/index.ts`, 'utf8');
-  assert.equal(entry.split('../../../infra/portal-identity-candidate/').length, 2);
+  assert.equal(entry.split('../../../infra/portal-identity/').length, 2);
   await writeFile(
     `${base}/index.ts`,
-    entry.replace('../../../infra/portal-identity-candidate/', './runtime/'),
+    entry.replace('../../../infra/portal-identity/', './runtime/'),
     { flag: 'wx' },
   );
   await writeFile(`${base}/deno.json`, await readFile(`supabase/functions/${slug}/deno.json`), {

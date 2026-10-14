@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo, useState } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import {
   type TextInput,
   type TextInputProps,

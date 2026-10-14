@@ -1,7 +1,7 @@
 // Synthetic HTTP only. Does not contact a portal, identity provider or database.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeBrowserTransport } from '../infra/portal-identity-candidate/employee-browser-transport.mts';
+import { createEmployeeBrowserTransport } from '../infra/portal-identity/employee-browser-transport.mts';
 const paths = {
   '/staff-workflow/safety': 'get_admin_safety_work_page_v1',
   '/staff-workflow/page': 'get_admin_owned_work_page_v1',

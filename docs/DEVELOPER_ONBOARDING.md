@@ -16,16 +16,14 @@ live audit of every vendor account. Recheck dated state before production work.
 5. Before connected product/backend work, read all of [AGENTS.md](../AGENTS.md),
    [DOJI_CONTEXT.md](../DOJI_CONTEXT.md) and [REALTIME_ARCHITECTURE.md](REALTIME_ARCHITECTURE.md).
 
-Long context documents retain chronological notes. Later explicit release records
-supersede earlier local-only statements. A directory called `candidate` can contain
-live code; a file under `docs/drafts` can contain already-installed SQL. Neither
-the filename nor an old checklist establishes deployment status. Use the
-[documentation index](README.md) to find exact release evidence.
+Context documents describe current contracts. Chronological evidence lives under
+`docs/releases`; later explicit releases supersede earlier preparation notes.
+Files under `supabase/overlays` may already be installed. Neither a filename nor
+an old checklist establishes deployment status. Use the [documentation index](README.md).
 
 ## First hour
 
-- Ask Gavin Fahey for repository access and use reviewed `main`. PR #7 merged
-  business onboarding/email source at `96a612b` on October 12. Do not
+- Ask Gavin Fahey for repository access and use reviewed `main`. Do not
   copy the owner's retained working files or assume a source merge deploys them.
 - Run `npm run check:hygiene`. Fresh clones must not contain Supabase CLI link
   caches, local environment values or generated test/deployment evidence.
@@ -35,7 +33,7 @@ the filename nor an old checklist establishes deployment status. Use the
   Cloudflare forwarding/provider auth mail, and EAS versus app-store distribution.
   A library or prepared integration is not proof a hosted service is enabled.
 - Inspect `git status --short`, `package.json` and the lockfile. Install with
-  `npm ci`, `npm ci --prefix infra/portal-identity-candidate` and
+  `npm ci`, `npm ci --prefix infra/portal-identity` and
   `npm ci --prefix infra/doji-orchestrator`; strict tooling and browser builds
   use those packages' locked dependencies. Do not upgrade packages during onboarding.
   Web work additionally needs `npm ci --prefix web`; its independent lockfile

@@ -15,6 +15,7 @@ const handbook = [
   'scripts/AGENTS.md',
   'README.md',
   'docs/README.md',
+  'docs/releases/README.md',
   'docs/DEVELOPER_ONBOARDING.md',
   'docs/SYSTEM_MAP.md',
   'docs/SERVICE_CATALOG.md',
@@ -96,11 +97,27 @@ async function markdownFiles(directory: string): Promise<string[]> {
   return result;
 }
 const docsRoot = resolve(root, 'docs');
-const index = await read(resolve(docsRoot, 'README.md'));
 const documents = await markdownFiles(docsRoot);
+const indexes = documents.filter((path) => path.endsWith(`${sep}README.md`));
+const indexed = new Set([resolve(docsRoot, 'README.md')]);
+// Sub-indexes must themselves be reachable from the handbook, not orphan lists.
+for (let changed = true; changed;) {
+  changed = false;
+  for (const index of indexes) {
+    if (!indexed.has(index)) continue;
+    for (const match of (await read(index)).matchAll(/\[[^\]\n]*\]\(([^)\s]+)\)/g)) {
+      const href = match[1];
+      if (!href || /^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
+      const target = resolve(dirname(index), decodeURIComponent(href.split('#')[0] || ''));
+      if (!documents.includes(target) || indexed.has(target)) continue;
+      indexed.add(target);
+      changed = true;
+    }
+  }
+}
 for (const path of documents) {
   const local = relative(docsRoot, path).split(sep).join('/');
-  if (local !== 'README.md' && !index.includes(`](${local})`))
+  if (!indexed.has(path))
     errors.push(`docs/README.md: unindexed ${local}`);
 }
 

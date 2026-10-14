@@ -1,7 +1,7 @@
 // Business-only entrypoint. Remains disabled until explicit release qualification.
 // No member Auth, service-role client, employee runtime or realtime dependency.
 import pg from 'pg';
-import { createBusinessRuntime } from '../../../infra/portal-identity-candidate/business-runtime.mts';
+import { createBusinessRuntime } from '../../../infra/portal-identity/business-runtime.mts';
 
 let handler: ((request: Request) => Promise<Response>) | undefined;
 Deno.serve(async (request: Request) => {

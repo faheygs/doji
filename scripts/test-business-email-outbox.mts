@@ -10,7 +10,7 @@ try {
   await replay(room);
   const overlays = ['business_applications_v1', 'portal_identity_registry_v1'];
   for (const name of overlays)
-    room.sql('set role postgres;\n' + source('docs/drafts/' + name + '.sql'));
+    room.sql('set role postgres;\n' + source('supabase/overlays/' + name + '.sql'));
   const contracts = () =>
     room.sql(`select jsonb_agg(jsonb_build_object('oid',p.oid,'definition',pg_get_functiondef(p.oid),'acl',p.proacl) order by p.oid)
     from pg_proc p where p.pronamespace in ('public'::regnamespace,'auth'::regnamespace) and p.prokind='f';
@@ -18,9 +18,9 @@ try {
     select jsonb_agg(jsonb_build_object('id',oid,'acl',relacl,'rls',relrowsecurity) order by oid) from pg_class
     where relnamespace in ('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace);`);
   const before = contracts();
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_outbox_v1.sql'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_dispatch_v1.sql'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_hosted_v1.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_outbox_v1.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_dispatch_v1.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_hosted_v1.sql'));
   const output = room.sql(
     'set role postgres;\n' +
       source('scripts/test-business-email-outbox.sql') +
@@ -30,9 +30,9 @@ try {
   const checks = output.split('\n').filter((line) => line.startsWith('PASS:'));
   assert.ok(checks.length >= 20);
   console.log(checks.join('\n'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_hosted_v1.rollback.sql'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_dispatch_v1.rollback.sql'));
-  room.sql('set role postgres;\n' + source('docs/drafts/business_email_outbox_v1.rollback.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_hosted_v1.rollback.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_dispatch_v1.rollback.sql'));
+  room.sql('set role postgres;\n' + source('supabase/overlays/business_email_outbox_v1.rollback.sql'));
   assert.equal(
     room.sql('select capture_enabled or sending_enabled from business_private.email_settings'),
     'f',

@@ -20,7 +20,7 @@ import type {
   BrandDetails,
   BusinessSetupCommand,
   BusinessSetupProfile,
-} from '../../../../infra/portal-identity-candidate/business-setup-contract.mts';
+} from '../../../../infra/portal-identity/business-setup-contract.mts';
 import { failureText, type Client } from './business-runtime';
 import { Workspace } from './BusinessWorkspace';
 import { Loading } from './BusinessLoading';

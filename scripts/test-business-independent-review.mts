@@ -32,19 +32,19 @@ create temp table before_profiles as select id,to_jsonb(p) data from public.prof
 create temp table before_policies as select * from pg_policies;
 create temp table before_functions as select oid,pg_get_functiondef(oid) definition,proacl from pg_proc
  where pronamespace='public'::regnamespace and prokind='f';
-${drafts.map((name) => body('docs/drafts/' + name + '.sql')).join('\n')}
-${body('docs/drafts/portal_identity_business_review_v1.sql')}
-${privacy ? body('docs/drafts/business_session_store_v1.sql') + body('docs/drafts/portal_identity_business_privacy_v1.sql') : ''}
+${drafts.map((name) => body('supabase/overlays/' + name + '.sql')).join('\n')}
+${body('supabase/overlays/portal_identity_business_review_v1.sql')}
+${privacy ? body('supabase/overlays/business_session_store_v1.sql') + body('supabase/overlays/portal_identity_business_privacy_v1.sql') : ''}
 ${readFileSync('scripts/test-business-independent-review.sql', 'utf8')}
 ${privacy ? readFileSync('scripts/test-business-independent-privacy.sql', 'utf8') : ''}
 reset role;
 select pg_temp.denied($drift$
  create or replace function business_private.privacy_target(p_id uuid,p_absent_ok boolean default false)
  returns void language plpgsql security definer set search_path='' as $changed$begin null;end$changed$;
- ${body('docs/drafts/portal_identity_business_review_v1.rollback.sql')}
+ ${body('supabase/overlays/portal_identity_business_review_v1.rollback.sql')}
  $drift$,'rollback rejects intervening source changes','P0001');
 select pg_temp.ok((select enabled from portal_identity_private.realms where realm='business'),'failed rollback does not silently change flags');
-${body('docs/drafts/portal_identity_business_review_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_business_review_v1.rollback.sql')}
 select pg_temp.ok(not exists(select 1 from portal_identity_private.business_review_restore r
  where pg_get_functiondef(r.signature::regprocedure) is distinct from r.prior_definition),'rollback restores exact review/privacy functions');
 select pg_temp.ok(not (select enabled from portal_identity_private.realms where realm='business'),'rollback freezes only business realm');

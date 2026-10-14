@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {
   businessAuthenticatorName,
   createBusinessMfa,
-} from '../infra/portal-identity-candidate/business-mfa.mts';
-import { businessMfaCommand } from '../infra/portal-identity-candidate/business-mfa-session.mts';
+} from '../infra/portal-identity/business-mfa.mts';
+import { businessMfaCommand } from '../infra/portal-identity/business-mfa-session.mts';
 import type {
   SavedSession,
   VerifiedBusinessActor,
-} from '../infra/portal-identity-candidate/business-http-state.mts';
+} from '../infra/portal-identity/business-http-state.mts';
 const at = Date.now(),
   config = { clientId: 'client_business', apiKey: 'sk_' + 'a'.repeat(32) };
 const actor: VerifiedBusinessActor = {

@@ -29,8 +29,8 @@ const groups: [string, RegExp][] = [
   ['scripts/database', /\.(mjs|mts|json)$/],
   ['supabase/migrations', /\.sql$/],
   ['supabase/tests', /\.sql$/],
-  ['docs/drafts', /\.sql$/],
-  ['infra/portal-identity-candidate', /\.(mjs|mts)$/],
+  ['supabase/overlays', /\.sql$/],
+  ['infra/portal-identity', /\.(mjs|mts)$/],
 ];
 const report: {
   startedAt: string;

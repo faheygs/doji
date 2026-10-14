@@ -1,5 +1,4 @@
-import React from 'react';
-import Svg, { Circle, Path, Line, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 export {
   REACTION_CONTROLS,
   ReactionIcon,

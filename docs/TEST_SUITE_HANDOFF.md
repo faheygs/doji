@@ -4,31 +4,18 @@ This guide lets a developer run Doji's automated regression suite from a fresh
 checkout and understand what a passing result establishes. Tests do not authorize
 deployments, live account actions, notification sends or spending.
 
-The latest recorded baseline is PR #7, merge commit `96a612b` on October 12.
-Its exact head `6875bbf` passed application, coverage, database and web-migration
-in [run 38256389247](https://github.com/faheygs/doji/actions/runs/38256389247),
-including 4,667 Jest tests and all 17 area budgets. New source needs its own
-exact-head checks; see [handoff audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md).
-
-The following PR #3 qualification is historical (`60df53a` on `main`).
-Its exact PR head `ce86ebd` passed the
-[application, coverage and database checks](https://github.com/faheygs/doji/actions/runs/37311724708)
-on October 5, 2026, before merge:
-
-- 240 Jest suites and 4,622 unit/component tests passed.
-- 697 browser scenarios and 27 offline suites passed.
-- All 17 areas met 90% statements, branches, functions and lines independently,
-  covering 446 source files with no missing files. The lowest hosted metric was
-  90.52%. This is an area-level policy, not a per-file guarantee.
-- The database harness replayed 288 migrations and passed its explicit integration,
-  permission, concurrency and rollback checks. Its second source-only run passed.
-
-The previous October 2 qualification (`3160372`, 4,514 tests / 652 browser cases)
-remains historical evidence in [Testing and releases](TESTING_AND_RELEASES.md).
-PR qualification is not a claim about a new main-push run or any production
-deployment. Check the exact commit and status of later changes.
+Every source change needs passing checks on its own exact commit. Historical
+results in the [handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md)
+and [release records](releases/README.md) do not qualify a newer checkout or a
+production deployment. All 17 coverage areas independently require 90%
+statements, branches, functions and lines; this is not a per-file guarantee.
 
 ## Prerequisites
+
+`npm run typecheck` also compiles the Jest sources through `__tests__/tsconfig.json`,
+using the checked-in Worker/Deno declarations and local SDK mappings. Passing Jest
+alone is not a typecheck. `scripts/tsconfig.json` supplies the tooling project to
+both the compiler and editors; fixtures retain their own stricter runtime contracts.
 
 Use Node 24, npm, Git, and a local Chromium installation managed by Playwright.
 Database tests additionally require a running local Docker or Podman engine and
@@ -44,7 +31,7 @@ Run these commands from the repository root, checking each command's exit status
 
 ```sh
 npm ci
-npm ci --prefix infra/portal-identity-candidate
+npm ci --prefix infra/portal-identity
 npm ci --prefix infra/doji-orchestrator
 npm ci --prefix web
 npx playwright install chromium
@@ -94,7 +81,7 @@ preconditions and applies explicit later-schema test overlays. Inspect
 [concurrency](../scripts/database/concurrency.mts) for their exact scope.
 
 The anonymous announcement EXECUTE revokes remain a separately gated local
-candidate in [draft SQL](drafts/announcement_member_execute_v1.sql). Testing that
+candidate in [SQL overlays](../supabase/overlays/announcement_member_execute_v1.sql). Testing that
 candidate and its rollback does not deploy it or authorize applying it live.
 
 ## Required checks before merging

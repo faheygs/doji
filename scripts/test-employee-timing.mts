@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeTiming } from '../infra/portal-identity-candidate/employee-timing.mts';
+import { createEmployeeTiming } from '../infra/portal-identity/employee-timing.mts';
 test('timing is request-local across overlapping requests and contains only fixed labels', async () => {
   const timing = createEmployeeTiming();
   let release: () => void = () => assert.fail('Promise resolver not initialized');

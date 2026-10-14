@@ -12,7 +12,7 @@ const assets=evidenceAssets(candidate.assets);
 const p=await cf<PagesReleaseProject>('/pages/projects/doji-admin');assert.ok(p.canonical_deployment);assert.equal(p.canonical_deployment.id,expected);
 assert.deepEqual(await inventory(site),candidate.assets);
 const at=Date.now();await writeFile(`${root}/proxy-repair-before-${at}.json`,JSON.stringify({deployment:expected,candidate}),{flag:'wx'});
-await build({entryPoints:['infra/portal-identity-candidate/employee-pages-worker.mts'],bundle:true,outfile:site+'/_worker.js',format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
+await build({entryPoints:['infra/portal-identity/employee-pages-worker.mts'],bundle:true,outfile:site+'/_worker.js',format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
 const next=await inventory(site);for(const f of assets)if(f.path!=='_worker.js')assert.equal(next.find(n=>n.path===f.path)?.sha256,f.sha256);
 await writeFile(`${root}/candidate.json`,JSON.stringify({...candidate,assets:next},null,2));
 execFileSync(process.execPath,['infra/doji-orchestrator/node_modules/wrangler/bin/wrangler.js','pages','deploy',site,'--project-name','doji-admin','--branch','main','--commit-dirty=true','--commit-message','Employee proxy hosted compatibility verification'],{stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:180000,env:{...process.env,CLOUDFLARE_ACCOUNT_ID:account}});

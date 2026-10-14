@@ -31,7 +31,7 @@ if (externalStaff) {
       'employee_session_store_v1',
       'portal_employee_actors_v1',
     ]
-      .map((name) => body(`docs/drafts/${name}.sql`))
+      .map((name) => body(`supabase/overlays/${name}.sql`))
       .join('\n');
   externalClaims = `
  insert into portal_identity_private.realms(realm,issuer,audience) values('employee','https://employee.test/','employee');
@@ -42,7 +42,7 @@ if (externalStaff) {
  do $$begin if exists(select 1 from auth.users where id=auth.uid()) or exists(select 1 from public.profiles where id=auth.uid()) then raise exception 'Independent employee must have no Auth or member account';end if;end$$;`;
 }
 const migration = readFileSync(
-  'docs/drafts/20260926011000_employee_portal_authorization.sql',
+  'supabase/overlays/20260926011000_employee_portal_authorization.sql',
   'utf8',
 );
 const receipts = migration.slice(

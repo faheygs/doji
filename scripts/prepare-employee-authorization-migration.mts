@@ -58,7 +58,7 @@ do $$begin
 end$$;
 notify pgrst, 'reload schema';
 `;
-let source=readFileSync('docs/drafts/20260926011000_employee_portal_authorization.sql','utf8');
+let source=readFileSync('supabase/overlays/20260926011000_employee_portal_authorization.sql','utf8');
 source=source.replace(/^-- DRAFT[^\r\n]*/, '-- Reviewed employee authorization and approved rate-limit dispatch. Promote only after release gates pass.');
 source=source.replace("set local lock_timeout = '3s';",()=>`set local lock_timeout = '3s';\n${guard}`);
 source=source.replace(/commit;\s*$/,()=>`${after}\ncommit;\n`);

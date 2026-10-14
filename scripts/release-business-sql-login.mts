@@ -10,11 +10,11 @@ import { evidenceRecord, evidenceRows } from './release-evidence.mts';
 import { linkedWorkspace } from './business-disabled-release-reads.mts';
 import { fingerprint, windowGuard } from './business-bridge-release-guards.mts';
 import { login, roles, guards } from './business-sql-login-guards.mts';
-import { createRestrictedSql } from '../infra/portal-identity-candidate/restricted-sql.mts';
-import type { RestrictedSqlConfig } from '../infra/portal-identity-candidate/restricted-sql.mts';
-import type { SqlParameter } from '../infra/portal-identity-candidate/employee-contracts.mts';
+import { createRestrictedSql } from '../infra/portal-identity/restricted-sql.mts';
+import type { RestrictedSqlConfig } from '../infra/portal-identity/restricted-sql.mts';
+import type { SqlParameter } from '../infra/portal-identity/employee-contracts.mts';
 const pg = createRequire(
-  new URL('../infra/portal-identity-candidate/package.json', import.meta.url),
+  new URL('../infra/portal-identity/package.json', import.meta.url),
 )('pg') as typeof import('pg');
 const root = 'test-results/business-sql-login-20261005',
   secure = '.artifacts/business-runtime';

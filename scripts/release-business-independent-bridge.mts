@@ -65,13 +65,13 @@ if (mode === 'prepare') {
   assert.equal(before.event_window, false);
   const files = await Promise.all(
     [
-      ...names.map((n) => `docs/drafts/${n}.sql`),
-      ...rollbackNames.map((n) => `docs/drafts/${n}.rollback.sql`),
+      ...names.map((n) => `supabase/overlays/${n}.sql`),
+      ...rollbackNames.map((n) => `supabase/overlays/${n}.rollback.sql`),
     ].map(async (path) => ({ path, sha256: hash(await readFile(path)) })),
   );
-  const install = (await Promise.all(names.map((n) => body(`docs/drafts/${n}.sql`)))).join('\n');
+  const install = (await Promise.all(names.map((n) => body(`supabase/overlays/${n}.sql`)))).join('\n');
   const rollback = (
-    await Promise.all(rollbackNames.map((n) => body(`docs/drafts/${n}.rollback.sql`)))
+    await Promise.all(rollbackNames.map((n) => body(`supabase/overlays/${n}.rollback.sql`)))
   ).join('\n');
   const start = `begin;set local lock_timeout='2s';set local statement_timeout='8s';
     do $$begin

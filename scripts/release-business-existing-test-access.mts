@@ -70,17 +70,17 @@ if(mode==='prepare') {
  config.acceptanceExistingAccount=true;
  await writeFile(`${root}/site/${ns}/release-config.js`,`window.DOJI_REACT_BUSINESS_CONFIG = Object.freeze(${JSON.stringify(config)});\n`);
  for(const path of ['_worker.js','_headers','_routes.json','_redirects','business-portal/config.js','business-terms/index.html','business-privacy/index.html']) assert.equal(hash(await readFile(`${root}/site/${path}`)),hash(await readFile(`${prior}/${path}`)),path);
- await save('prepared',{site:await inventory(`${root}/site`),sql:hash(await readFile('docs/drafts/business_owned_existing_test_access_v1.sql'))});
+ await save('prepared',{site:await inventory(`${root}/site`),sql:hash(await readFile('supabase/overlays/business_owned_existing_test_access_v1.sql'))});
  console.log('Prepared exact test-account-only release; provider identity verified; no live mutations.');
 } else {
  const b=await read(`${root}/baseline.json`),prepared=await read(`${root}/prepared.json`);
  assert.deepEqual(await inventory(`${root}/site`),prepared.site);
- assert.equal(hash(await readFile('docs/drafts/business_owned_existing_test_access_v1.sql')),prepared.sql);
+ assert.equal(hash(await readFile('supabase/overlays/business_owned_existing_test_access_v1.sql')),prepared.sql);
  if(mode==='database' || mode==='database-verify') {
   if(mode==='database') {
   await boundaries(false,false);
   await save('database-started',{at:new Date().toISOString()});
-  const migration=(await readFile('docs/drafts/business_owned_existing_test_access_v1.sql','utf8')).replace(/^begin;|^commit;/gm,'');
+  const migration=(await readFile('supabase/overlays/business_owned_existing_test_access_v1.sql','utf8')).replace(/^begin;|^commit;/gm,'');
   query(`begin;set local lock_timeout='2s';set local statement_timeout='8s';
    do $$begin
     if not pg_try_advisory_xact_lock(hashtextextended('doji-business-owned-auth-v1',0)) then raise exception 'Concurrent business release';end if;
@@ -97,7 +97,7 @@ if(mode==='prepare') {
   const raw=(await readFile('.artifacts/business-recovery-acceptance-20261011/password-release-runtime.env','utf8')).trim().slice('BUSINESS_V2_CONFIG='.length);
   assert.equal(hash(raw),secrets().find(v=>v.name==='BUSINESS_V2_CONFIG')?.value);
   const db=record(record(JSON.parse(raw)).database);
-  const pg:typeof Pg=createRequire(import.meta.url)('../infra/portal-identity-candidate/node_modules/pg/lib/index.js');
+  const pg:typeof Pg=createRequire(import.meta.url)('../infra/portal-identity/node_modules/pg/lib/index.js');
   const client=new pg.Client({host:String(db.host),port:Number(db.port),user:String(db.username),password:String(db.password),database:String(db.database),ssl:{rejectUnauthorized:true,ca:String(db.ca)},connectionTimeoutMillis:5000,statement_timeout:4000});
   let check:unknown;
   try {

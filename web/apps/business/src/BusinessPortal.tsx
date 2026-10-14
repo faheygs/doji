@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Link, Stack } from '@mui/material';
 import { AccountCard } from '@doji/ui';
-import { createBusinessBrowserClient } from '../../../../infra/portal-identity-candidate/business-browser-client.mts';
+import { createBusinessBrowserClient } from '../../../../infra/portal-identity/business-browser-client.mts';
 import {
   createApplicationController,
   type ApplicationSnapshot,

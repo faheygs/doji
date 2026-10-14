@@ -35,7 +35,7 @@ const profile = (extra: Partial<Profile> = {}) =>
     onboarding_completed_at: '2026-01-01',
     ...extra,
   }) as Profile;
-const read = jest.mocked(runMemberRead);
+const read = jest.mocked(runMemberRead<{ data: Profile | null; error: unknown; status?: number }>);
 const command = jest.mocked(executeCommand);
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -229,7 +229,7 @@ test.each(['patched', 'error', 'empty'] as const)(
     });
     command.mockResolvedValue({
       data: result === 'patched' ? profile({ onboarding_completed_at: '2025-01-01' }) : null,
-      error: result === 'error' ? Error('offline') : null,
+      error: result === 'error' ? { message: 'offline', code: '503', details: '', hint: '' } : null,
     });
     await useAuthStore.getState().fetchProfile('member-a');
     expect(command).toHaveBeenCalledTimes(1);

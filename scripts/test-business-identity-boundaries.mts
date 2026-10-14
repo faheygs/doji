@@ -1,10 +1,10 @@
 // Actual candidate business browser/provider code; no real provider or database.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBusinessBrowserClient } from '../infra/portal-identity-candidate/business-browser-client.mts';
-import { createWorkosBusinessProvider } from '../infra/portal-identity-candidate/workos-business-provider.mts';
-import type {BusinessBrowserConfig,BrowserRequest} from '../infra/portal-identity-candidate/business-browser-client.mts';
-import type {BusinessProviderConfig} from '../infra/portal-identity-candidate/workos-business-provider.mts';
+import { createBusinessBrowserClient } from '../infra/portal-identity/business-browser-client.mts';
+import { createWorkosBusinessProvider } from '../infra/portal-identity/workos-business-provider.mts';
+import type {BusinessBrowserConfig,BrowserRequest} from '../infra/portal-identity/business-browser-client.mts';
+import type {BusinessProviderConfig} from '../infra/portal-identity/workos-business-provider.mts';
 import {evidenceRecord,evidenceText} from './release-evidence.mts';
 const config:BusinessBrowserConfig = { enabled: true, realm: 'business', origin: 'https://business.example.test' };
 const validSession = { signedIn: true, csrf: 'a'.repeat(43), assurance: 'aal1' };

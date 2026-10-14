@@ -90,12 +90,12 @@ const status: LocalStatus = {
 };
 assert.equal(status.API_URL, 'http://127.0.0.1:54431');
 if (sql("select to_regclass('business_private.settings') is null;") === 't') {
-  sql(readFileSync('docs/drafts/business_applications_v1.sql', 'utf8'));
-  sql(readFileSync('docs/drafts/business_auth_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/business_applications_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/business_auth_v1.sql', 'utf8'));
 } else {
   // Bring only this guarded, synthetic local candidate up to the checked-in draft.
   // Do not replace shared member functions or discard previous test evidence.
-  const applicationSource = readFileSync('docs/drafts/business_applications_v1.sql', 'utf8');
+  const applicationSource = readFileSync('supabase/overlays/business_applications_v1.sql', 'utf8');
   const definitions = [...applicationSource.matchAll(/create function [\s\S]*?\$\$;/g)];
   assert.equal(definitions.length, 11);
   sql(`begin;
@@ -104,7 +104,7 @@ if (sql("select to_regclass('business_private.settings') is null;") === 't') {
     ${applicationSource.slice(applicationSource.indexOf('-- Explicit grants'), applicationSource.lastIndexOf('commit;'))}
     commit;`);
   // Update only the local draft admission function on repeat test runs.
-  const source = readFileSync('docs/drafts/business_auth_v1.sql', 'utf8');
+  const source = readFileSync('supabase/overlays/business_auth_v1.sql', 'utf8');
   sql(
     source
       .slice(
@@ -114,7 +114,7 @@ if (sql("select to_regclass('business_private.settings') is null;") === 't') {
       .replace('create function', 'create or replace function'),
   );
 }
-const publicSource = readFileSync('docs/drafts/business_public_admission_v1.sql', 'utf8');
+const publicSource = readFileSync('supabase/overlays/business_public_admission_v1.sql', 'utf8');
 if (sql("select to_regclass('business_private.public_auth_settings') is null;") === 't')
   sql(publicSource);
 else
@@ -130,16 +130,16 @@ sql(
   "grant doji_business to authenticator; notify pgrst,'reload schema'; grant usage on schema public to supabase_auth_admin; grant execute on function public.hook_enforce_minimum_signup_age(jsonb) to supabase_auth_admin;",
 );
 if (sql("select to_regclass('business_private.signup_agreements') is null;") === 't')
-  sql(readFileSync('docs/drafts/business_signup_legal_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/business_signup_legal_v1.sql', 'utf8'));
 else {
-  const legalSource = readFileSync('docs/drafts/business_signup_legal_v1.sql', 'utf8');
+  const legalSource = readFileSync('supabase/overlays/business_signup_legal_v1.sql', 'utf8');
   sql(`begin;
     ${[...legalSource.matchAll(/create function [\s\S]*?\$\$;/g)].map(([d]) => d.replace('create function', 'create or replace function')).join('\n')}
     drop trigger business_signup_agreement on auth.users;
     ${legalSource.slice(legalSource.indexOf('create constraint trigger'), legalSource.lastIndexOf('commit;'))}
     commit;`);
 }
-const privacySource = readFileSync('docs/drafts/business_privacy_v1.sql', 'utf8');
+const privacySource = readFileSync('supabase/overlays/business_privacy_v1.sql', 'utf8');
 if (sql("select to_regclass('business_private.privacy_settings') is null;") === 't')
   sql(privacySource);
 else
@@ -450,11 +450,11 @@ try {
         turnstileValidation: 'intercepted locally; real provider/hostname not qualified',
         sourceSha256: Object.fromEntries(
           [
-            'docs/drafts/business_applications_v1.sql',
-            'docs/drafts/business_auth_v1.sql',
-            'docs/drafts/business_public_admission_v1.sql',
-            'docs/drafts/business_signup_legal_v1.sql',
-            'docs/drafts/business_privacy_v1.sql',
+            'supabase/overlays/business_applications_v1.sql',
+            'supabase/overlays/business_auth_v1.sql',
+            'supabase/overlays/business_public_admission_v1.sql',
+            'supabase/overlays/business_signup_legal_v1.sql',
+            'supabase/overlays/business_privacy_v1.sql',
             'supabase/functions/_shared/business-erasure.ts',
             'supabase/functions/_shared/business-auth.ts',
             'website/business-portal/application-client.mts',

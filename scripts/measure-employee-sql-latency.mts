@@ -3,12 +3,12 @@ import { readFile } from 'node:fs/promises';
 import type * as Pg from 'pg';
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { createRestrictedSql } from '../infra/portal-identity-candidate/restricted-sql.mts';
-import type { RestrictedSqlConfig } from '../infra/portal-identity-candidate/restricted-sql.mts';
+import { createRestrictedSql } from '../infra/portal-identity/restricted-sql.mts';
+import type { RestrictedSqlConfig } from '../infra/portal-identity/restricted-sql.mts';
 import { evidenceRecord } from './release-evidence.mts';
 const require = createRequire(import.meta.url);
 // Keep the original runtime package boundary; the root has types, not pg itself.
-const pg: typeof Pg = require('../infra/portal-identity-candidate/node_modules/pg/lib/index.js');
+const pg: typeof Pg = require('../infra/portal-identity/node_modules/pg/lib/index.js');
 const value = evidenceRecord(
   JSON.parse(await readFile('.artifacts/employee-runtime/database.json', 'utf8')),
 );

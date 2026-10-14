@@ -52,7 +52,7 @@ try {
   assert.equal(guard, '0\n0');
   sync(`create database ${db} template postgres;`, 'postgres');
   created = true;
-  sync(readFileSync('docs/drafts/employee_editorial_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/employee_editorial_v1.sql', 'utf8'));
   // The same qualified fixtures/tests leave a known reviewed record; only in this disposable clone.
   sync(`begin;${readFileSync('scripts/test-editorial-local.sql', 'utf8')}reset role;commit;`);
   const employee = sync('select id from public.admin_employees limit 1;').trim();

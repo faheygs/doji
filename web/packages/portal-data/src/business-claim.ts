@@ -1,5 +1,5 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
-import type { createEmployeeBrowserTransport } from '../../../../infra/portal-identity-candidate/employee-browser-transport.mts';
+import type { createEmployeeBrowserTransport } from '../../../../infra/portal-identity/employee-browser-transport.mts';
 import type { EmployeeSessionState } from './employee-session';
 
 export type BusinessOwnership = Readonly<{

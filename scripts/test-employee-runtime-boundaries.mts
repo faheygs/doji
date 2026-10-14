@@ -3,11 +3,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createEmployeeRuntime } from '../infra/portal-identity-candidate/employee-runtime.mts';
-import pages from '../infra/portal-identity-candidate/employee-pages-worker.mts';
-import type { EmployeeRuntimeConfig } from '../infra/portal-identity-candidate/employee-runtime.mts';
-import type { PortalFetch } from '../infra/portal-identity-candidate/portal-contracts.mts';
-import type { PortalSqlClient } from '../infra/portal-identity-candidate/restricted-sql.mts';
+import { createEmployeeRuntime } from '../infra/portal-identity/employee-runtime.mts';
+import pages from '../infra/portal-identity/employee-pages-worker.mts';
+import type { EmployeeRuntimeConfig } from '../infra/portal-identity/employee-runtime.mts';
+import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
+import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
 import { present } from './employee-test-fixtures.mts';
 // Deliberately incomplete environment bindings exercise runtime fail-closed paths.
 async function pagesRequest(request: Request, env: unknown): Promise<Response> {

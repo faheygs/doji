@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeApplicationAdapter } from '../infra/portal-identity-candidate/employee-application-adapter.mts';
-import { employeeDirectRoute } from '../infra/portal-identity-candidate/employee-direct-routes.mts';
-import { employeeAnnouncementSql } from '../infra/portal-identity-candidate/employee-announcement-contracts.mts';
+import { createEmployeeApplicationAdapter } from '../infra/portal-identity/employee-application-adapter.mts';
+import { employeeDirectRoute } from '../infra/portal-identity/employee-direct-routes.mts';
+import { employeeAnnouncementSql } from '../infra/portal-identity/employee-announcement-contracts.mts';
 import { testEmployee as actor } from './employee-test-fixtures.mts';
 for (const [code, status] of [
   ['40001', 409],

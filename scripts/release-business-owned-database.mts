@@ -29,7 +29,7 @@ assert.equal(
 );
 for (const [file, expected] of Object.entries(evidenceRecord(prepared.draftHashes)))
   assert.equal(
-    hash((await readFile(`docs/drafts/${file}`, 'utf8')).replaceAll('\r\n', '\n')),
+    hash((await readFile(`supabase/overlays/${file}`, 'utf8')).replaceAll('\r\n', '\n')),
     expected,
   );
 const save = (name: string, data: unknown) =>

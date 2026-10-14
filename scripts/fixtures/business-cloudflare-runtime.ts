@@ -1,5 +1,5 @@
 // Synthetic local workerd probe: no provider, database or hosted endpoint traffic.
-import { createBusinessProxy } from '../../infra/portal-identity-candidate/business-proxy.mts';
+import { createBusinessProxy } from '../../infra/portal-identity/business-proxy.mts';
 export default {
   async fetch(request: Request) {
     let calls = 0;

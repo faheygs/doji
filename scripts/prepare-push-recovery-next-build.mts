@@ -29,7 +29,7 @@ const checks = [
   '__tests__/lib/pushRegistrationBoundaries.test.ts', '__tests__/lib/retryPushRegistration.test.ts',
   '__tests__/lib/apiFailureTelemetry.test.ts', '__tests__/hooks/nativeNotificationsExecution.test.tsx',
   '__tests__/screens/accountControlsExecution.test.tsx', '__tests__/screens/onboardingPresentationExecution.test.tsx',
-  'scripts/verify-push-recovery-bundle.mts', 'scripts/tsconfig.tooling.json',
+  'scripts/verify-push-recovery-bundle.mts', 'scripts/tsconfig.json',
   '__tests__/lib/supportDiagnostics.test.ts', '__tests__/screens/reportProblemExecution.test.tsx',
   '__tests__/screens/suggestionFormExecution.test.tsx', '__tests__/components/postCardExecution.test.tsx',
 ];

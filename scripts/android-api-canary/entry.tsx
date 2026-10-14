@@ -2,7 +2,7 @@ import { registerRootComponent } from 'expo';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as FileSystem from 'expo-file-system/legacy';
 import { createClient } from '@supabase/supabase-js';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { boundedSupabaseFetch } from '../../lib/supabaseFetch';
 import { runMemberRead } from '../../lib/runMemberRead';

@@ -36,7 +36,7 @@ export async function integration(room: TestRoom) {
     }
   };
   const install = (name: string) => {
-    if (!test(`Install ${name} locally`, source(`docs/drafts/${name}.sql`)))
+    if (!test(`Install ${name} locally`, source(`supabase/overlays/${name}.sql`)))
       throw Error(`Required schema overlay failed: ${name}`);
   };
   const batch = (name: string, files: string[]) =>

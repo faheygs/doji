@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createBusinessPrivacyOperator } from '../infra/portal-identity-candidate/business-privacy-operator.mts';
-import type { BusinessPrivacySql } from '../infra/portal-identity-candidate/business-privacy-operator.mts';
+import { createBusinessPrivacyOperator } from '../infra/portal-identity/business-privacy-operator.mts';
+import type { BusinessPrivacySql } from '../infra/portal-identity/business-privacy-operator.mts';
 const id = '88000000-0000-4000-8000-000000000001',
   execution = '88000000-0000-4000-8000-000000000002';
 const config = {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeAdmission } from '../infra/portal-identity-candidate/employee-admission.mts';
+import { createEmployeeAdmission } from '../infra/portal-identity/employee-admission.mts';
 const config = {
   realm: 'employee' as const,
   origin: 'https://admin.dojipro.com',

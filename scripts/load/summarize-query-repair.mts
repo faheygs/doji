@@ -71,8 +71,8 @@ const summary = {
   replay,
   rollback,
   sourceHashes: {
-    functions: hash('docs/drafts/member_query_performance_v1.sql'),
-    indexes: hash('docs/drafts/member_query_performance_indexes_v1.sql'),
+    functions: hash('supabase/overlays/member_query_performance_v1.sql'),
+    indexes: hash('supabase/overlays/member_query_performance_indexes_v1.sql'),
   },
 };
 writeFileSync(`${root}/summary.json`, JSON.stringify(summary, null, 2));

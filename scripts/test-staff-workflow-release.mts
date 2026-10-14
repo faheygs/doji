@@ -11,7 +11,7 @@ import {
 } from './staff-workflow-release-guards.mts';
 assert.equal(process.argv.length, 2);
 const room = createCleanRoom();
-const read = (name: string) => readFileSync(`docs/drafts/${name}.sql`, 'utf8');
+const read = (name: string) => readFileSync(`supabase/overlays/${name}.sql`, 'utf8');
 try {
   await room.start();
   installManagedSchemas(room);

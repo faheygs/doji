@@ -4,9 +4,9 @@ import {
   createRestrictedSql,
   type RestrictedSqlConfig,
   type PortalSqlClient,
-} from '../infra/portal-identity-candidate/restricted-sql.mts';
+} from '../infra/portal-identity/restricted-sql.mts';
 import type { ClientConfig } from 'pg';
-import type { SqlParameter } from '../infra/portal-identity-candidate/employee-contracts.mts';
+import type { SqlParameter } from '../infra/portal-identity/employee-contracts.mts';
 import { present, testRecord } from './employee-test-fixtures.mts';
 type QueryInput = Parameters<PortalSqlClient['query']>[0];
 const config: RestrictedSqlConfig = {

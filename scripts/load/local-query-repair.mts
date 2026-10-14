@@ -71,8 +71,8 @@ if (mode === 'apply') {
   }
   writeFileSync(`${root}/rollback-functions.sql`, 'begin;\n' + originals + 'commit;\n');
   sql(clones); // local_load exists only in the offline fixture, never production.
-  sql(readFileSync('docs/drafts/member_query_performance_indexes_v1.sql', 'utf8'));
-  sql(readFileSync('docs/drafts/member_query_performance_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/member_query_performance_indexes_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/member_query_performance_v1.sql', 'utf8'));
   sql('analyze public.comments;analyze public.reactions;');
   const after = hashes();
   const changed = Object.entries(before)
@@ -121,7 +121,7 @@ if (mode === 'apply') {
   writeFileSync(`${root}/rollback-two-functions.sql`, rollback);
   sql(rollback);
   assert.deepEqual(hashes(), baseline, 'Rollback must restore every captured definition/ACL');
-  sql(readFileSync('docs/drafts/member_query_performance_v1.sql', 'utf8'));
+  sql(readFileSync('supabase/overlays/member_query_performance_v1.sql', 'utf8'));
   assert.deepEqual(hashes(), candidate, 'Reapply must restore exact tested candidate');
   writeFileSync(
     `${root}/rollback-verification.json`,

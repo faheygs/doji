@@ -35,13 +35,13 @@ const sql = `begin;
 do $$begin if exists(select 1 from vault.secrets) or exists(select 1 from auth.users where email is null or email not like '%@test.invalid') then raise exception 'Synthetic database required';end if;end$$;
 create temp table before_auth as select id,md5(row_to_json(u)::text) fingerprint from auth.users u;
 create temp table before_profile as select id,md5(row_to_json(p)::text) fingerprint from public.profiles p;
-${body('docs/drafts/business_applications_v1.sql')}
-${body('docs/drafts/business_signup_legal_v1.sql')}
+${body('supabase/overlays/business_applications_v1.sql')}
+${body('supabase/overlays/business_signup_legal_v1.sql')}
 create temp table before_rpc as select p.oid,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','business_private') and p.prokind='f';
-${body('docs/drafts/portal_identity_registry_v1.sql')}
-${body('docs/drafts/portal_identity_business_enrollment_v1.sql')}
-${body('docs/drafts/portal_identity_business_reads_v1.sql')}
-${body('docs/drafts/portal_identity_business_commands_v1.sql')}
+${body('supabase/overlays/portal_identity_registry_v1.sql')}
+${body('supabase/overlays/portal_identity_business_enrollment_v1.sql')}
+${body('supabase/overlays/portal_identity_business_reads_v1.sql')}
+${body('supabase/overlays/portal_identity_business_commands_v1.sql')}
 create function pg_temp.ok(p boolean,label text) returns text language plpgsql as $$begin if p is distinct from true then raise exception 'FAIL: %',label;end if;return 'PASS: '||label;end$$;
 create function pg_temp.denies(q text,label text) returns text language plpgsql as $$begin
  begin execute q; exception when insufficient_privilege or invalid_parameter_value or sqlstate 'PT409' then return 'PASS: '||label; end;
@@ -99,11 +99,11 @@ ${denied('third identity exceeds capacity', call('user_third'))}
 select pg_temp.ok((select count(*)=2 from portal_identity_private.principals),'failed capacity check creates no partial principal');
 update portal_identity_private.business_enrollment_settings set account_limit=3,admission_until=clock_timestamp()-interval '1 second';
 ${denied('expired admission rejects new account', call('user_third'))}
-${body('docs/drafts/portal_identity_business_enrollment_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_business_enrollment_v1.rollback.sql')}
 select pg_temp.ok(not (select enabled from portal_identity_private.business_enrollment_settings),'rollback freezes admission');
 select pg_temp.ok((select count(*)=2 from business_private.signup_agreements),'rollback retains agreements');
 select pg_temp.ok(not has_function_privilege('doji_business_enrollment','portal_identity_private.complete_business_enrollment(text,text,text,text,boolean,boolean,text,text,text)','execute'),'rollback revokes registrar entry point');
-${body('docs/drafts/portal_identity_business_commands_v1.rollback.sql')}
+${body('supabase/overlays/portal_identity_business_commands_v1.rollback.sql')}
 select pg_temp.ok(not exists(select * from before_auth except select id,md5(row_to_json(u)::text) from auth.users u) and not exists(select id,md5(row_to_json(u)::text) from auth.users u except select * from before_auth),'Auth identities unchanged');
 select pg_temp.ok(not exists(select * from before_profile except select id,md5(row_to_json(p)::text) from public.profiles p) and not exists(select id,md5(row_to_json(p)::text) from public.profiles p except select * from before_profile),'member profiles unchanged');
 select pg_temp.ok(not exists(select 1 from before_rpc f join pg_proc p on p.oid=f.oid where f.definition is distinct from pg_get_functiondef(p.oid) or f.proacl is distinct from p.proacl),'existing business and member RPC definitions and grants unchanged');

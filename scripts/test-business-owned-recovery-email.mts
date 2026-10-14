@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createBusinessRecoveryEmail } from '../infra/portal-identity-candidate/business-owned-recovery-email.mts';
-import { createBusinessOwnedProvider } from '../infra/portal-identity-candidate/business-owned-provider.mts';
+import { createBusinessRecoveryEmail } from '../infra/portal-identity/business-owned-recovery-email.mts';
+import { createBusinessOwnedProvider } from '../infra/portal-identity/business-owned-provider.mts';
 const now = Date.now();
 const token = 'synthetic-token-with-+&=%?#-characters';
 const metadata = {

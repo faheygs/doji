@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Avatar } from './Avatar';
 import { resolveAvatarBorderColor, resolveAvatarBorderWidth } from '../../lib/cosmetics';

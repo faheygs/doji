@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { cli, hash } from './prepare-safety-launch.mts';
 import { evidenceRecord as record, evidenceRows as rows } from './release-evidence.mts';
-import { prepareBusinessMail } from '../infra/business-email-candidate/message.mts';
+import { prepareBusinessMail } from '../infra/business-email/message.mts';
 const root = 'test-results/business-branded-resend-20261012';
 const recipient = 'faheygs+doji-business-test@gmail.com';
 const app = '9af16915-3c97-484e-ab93-69f58a464608';

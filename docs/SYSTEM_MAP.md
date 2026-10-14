@@ -47,7 +47,7 @@ terms/privacy are built separately with versioned URLs by
 
 Sources: [root package](../package.json), [lockfile](../package-lock.json),
 [Worker package](../infra/doji-orchestrator/package.json),
-[identity package](../infra/portal-identity-candidate/package.json).
+[identity package](../infra/portal-identity/package.json).
 Web versions are separately locked in [web workspace](../web/package.json) and
 its app/package manifests. Do not collapse web React 19.3 into mobile React 19.2.
 Do not upgrade packages merely to match a tutorial.
@@ -139,14 +139,15 @@ gateway must not silently stampede the database via a direct fallback.
 | `supabase/migrations/`, `supabase/tests/` | SQL history and DB contract tests |
 | `supabase/functions/` | Integration entrypoints and shared server helpers |
 | `infra/doji-orchestrator/` | Shared production Worker and its package/lockfile |
-| `infra/portal-identity-candidate/` | Live independent employee AND business identity/session runtimes; name is historical |
+| `infra/portal-identity/` | Independent employee and business identity/session runtimes |
 | `web/apps/{admin,business,site}/` | Primary React UI: Vite admin/business, Next static public site |
 | `web/packages/{ui,portal-data}/` | Shared MUI branding/components and authorized session-scoped data adapters |
 | `web/tests/` | Vitest/Playwright fixtures, connected and exact-package artifact regressions |
 | `website/` | Retained browser controllers, legal/safety sources and release packagers; active dependencies |
 | `__tests__/`, `lib/__tests__/`, `website/*/e2e/` | App/contract/browser regressions |
 | `scripts/` | Mixed local tools and historical production operations; inspect before executing |
-| `docs/`, `docs/drafts/` | Handbook, designs, release evidence and SQL; not all drafts are unapplied |
+| `docs/`, `docs/releases/` | Current handbook and separately indexed release/rollback evidence |
+| `supabase/overlays/` | Individually reviewed SQL changes and inverses, not ordered migrations |
 | `.github/workflows/quality.yml` | Quality workflow, not automatic deployment |
 | `test-results/`, generated website output | Local artifacts/evidence; not automatically available or safe to share |
 | `.artifacts/`, `credentials/`, `.env.local` | Sensitive/local material, not a developer handoff bundle |

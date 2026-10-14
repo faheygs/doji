@@ -112,3 +112,15 @@ test('a rejected invalidation does not poison later recovery', async () => {
   await reconcile(client);
   expect(invalidate).toHaveBeenCalledTimes(2);
 });
+test('coalescing never leaks across clients, accounts or role changes', async () => {
+  const other = new QueryClient();
+  const first = jest.spyOn(client, 'invalidateQueries');
+  const second = jest.spyOn(other, 'invalidateQueries');
+  await reconcile(client, { userId: 'first' });
+  await reconcile(other, { userId: 'first' });
+  await reconcile(client, { userId: 'second' });
+  await reconcile(client, { userId: 'second', isAdmin: true });
+  expect(first).toHaveBeenCalledTimes(3);
+  expect(second).toHaveBeenCalledTimes(1);
+  other.clear();
+});

@@ -1,18 +1,18 @@
 # Infrastructure boundaries
 
 Read root AGENTS and both context documents completely. These folders include
-LIVE services even when named `candidate`. A source commit is not deployment.
+LIVE services. A source commit is not deployment.
 
 - `doji-orchestrator/`: separate npm package/lock, Cloudflare Worker and five
   Durable Objects. Owns member gateways, one-shot event alarms, outbox relay,
   push fanout, maintenance and health. Install here with npm ci; run
   `npm run typecheck`. Shared changes need explicit member-impact approval,
   exact bindings/namespace preservation, regression tests and retaining rollback.
-- `portal-identity-candidate/`: separate package/lock (`jose`, `pg`), strict
+- `portal-identity/`: separate package/lock (`jose`, `pg`), strict
   TypeScript. Live independent employee AND business WorkOS runtimes, browser
   adapters, same-origin proxies and restricted SQL. Root `npm run typecheck:portals`
   validates it. Member identity remains Supabase Auth; same email is not identity.
-- `business-email-candidate/` if present: business-only sender preparation/runtime
+- `business-email/`: business-only sender preparation/runtime
   support, checked by root tooling project. Gate state comes from release records,
   not the folder name. Never enable automatic capture/sending/wakeup during cleanup.
 

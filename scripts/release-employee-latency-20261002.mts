@@ -35,9 +35,9 @@ if (mode === 'prepare') {
   // The released runtime is otherwise the exact inspected local source.
   for (const name of ['employee-runtime.mts', 'employee-proxy.mts']) {
     assert.equal(await read(`${root}/edge-before/${runtime}/${name}`), await read(`${old}/edge-verified/${runtime}/${name}`));
-    await cp(`infra/portal-identity-candidate/${name}`, `${root}/edge-after/${runtime}/${name}`);
+    await cp(`infra/portal-identity/${name}`, `${root}/edge-after/${runtime}/${name}`);
   }
-  await cp('infra/portal-identity-candidate/employee-timing.mts', `${root}/edge-after/${runtime}/employee-timing.mts`);
+  await cp('infra/portal-identity/employee-timing.mts', `${root}/edge-after/${runtime}/employee-timing.mts`);
   for (const dir of ['edge-before','edge-after']) await writeFile(`${root}/${dir}/supabase/config.toml`, `project_id = "employee-latency"\n[functions.${slug}]\nverify_jwt = false\n`);
   await cp(`${old}/site`, `${root}/site`, { recursive: true });
   const oldAsset = 'admin-portal/admin-app-20261002b.js';
@@ -46,7 +46,7 @@ if (mode === 'prepare') {
   // Replace only transport bundle and portal source, retaining all other live assets/configuration.
   const start = baseline.indexOf('var DojiEmployeeTransport ='), end = baseline.indexOf('\n/* Portal presentation only:', start);
   assert.ok(start >= 0 && end > start);
-  const bundle = await build({ stdin: { contents: "export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';", resolveDir: resolve('infra/portal-identity-candidate') }, bundle:true,write:false,format:'iife',globalName:'DojiEmployeeTransport',platform:'browser',target:'es2022' });
+  const bundle = await build({ stdin: { contents: "export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';", resolveDir: resolve('infra/portal-identity') }, bundle:true,write:false,format:'iife',globalName:'DojiEmployeeTransport',platform:'browser',target:'es2022' });
   let next = baseline.slice(0,start) + evidenceText(bundle.outputFiles[0]?.text).trimEnd() + '\n' + baseline.slice(end);
   const before = (await read(`${old}/site/portal.js`)).trimEnd();
   assert.equal(next.split(before).length, 2);
@@ -58,7 +58,7 @@ if (mode === 'prepare') {
     assert.ok(html.includes(evidenceText(oldAsset.split('/').at(-1))));
     await writeFile(`${root}/site/${path}`, html.replaceAll(evidenceText(oldAsset.split('/').at(-1)), evidenceText(asset.split('/').at(-1))));
   }
-  await build({entryPoints:['infra/portal-identity-candidate/employee-pages-worker.mts'],bundle:true,outfile:`${root}/site/_worker.js`,format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
+  await build({entryPoints:['infra/portal-identity/employee-pages-worker.mts'],bundle:true,outfile:`${root}/site/_worker.js`,format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
   await save('candidate.json', { at:new Date().toISOString(), functions:fs, secrets:secrets(), pages:p, edge:await inventory(`${root}/edge-after`), site:await inventory(`${root}/site`) });
   console.log('Exact employee-only release prepared; production unchanged.');
 } else {
@@ -93,11 +93,11 @@ if (mode === 'prepare') {
     const baseline = await read(`${root}/site/${asset}`);
     const start = baseline.indexOf('var DojiEmployeeTransport ='), end = baseline.indexOf('\n/* Portal presentation only:',start);
     assert.ok(start >= 0 && end > start);
-    const transport = await build({stdin:{contents:"export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';",resolveDir:resolve('infra/portal-identity-candidate')},bundle:true,write:false,format:'iife',globalName:'DojiEmployeeTransport',platform:'browser',target:'es2022'});
+    const transport = await build({stdin:{contents:"export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';",resolveDir:resolve('infra/portal-identity')},bundle:true,write:false,format:'iife',globalName:'DojiEmployeeTransport',platform:'browser',target:'es2022'});
     const newAsset = 'admin-portal/admin-app-20261002d.js';
     await writeFile(`${root}/site/${newAsset}`,baseline.slice(0,start)+evidenceText(transport.outputFiles[0]?.text).trimEnd()+'\n'+baseline.slice(end));
     for(const path of ['index.html','admin-portal/index.html']) await writeFile(`${root}/site/${path}`,(await read(`${root}/site/${path}`)).replaceAll(evidenceText(asset.split('/').at(-1)),evidenceText(newAsset.split('/').at(-1))));
-    await build({entryPoints:['infra/portal-identity-candidate/employee-pages-worker.mts'],bundle:true,outfile:`${root}/site/_worker.js`,format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
+    await build({entryPoints:['infra/portal-identity/employee-pages-worker.mts'],bundle:true,outfile:`${root}/site/_worker.js`,format:'esm',platform:'neutral',target:'es2022',external:['node:*']});
     await save('region-candidate.json',{at:new Date().toISOString(),pages:p,site:await inventory(`${root}/site`),asset:newAsset});
   } else if (mode === 'region' || mode === 'verify-region') {
     const r = await json(`${root}/region-candidate.json`);

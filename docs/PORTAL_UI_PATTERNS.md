@@ -1,139 +1,111 @@
-# Portal copy and contextual help
-
-## Current React portal direction (October 12, 2026)
+# Portal UI patterns
 
 Use `web/packages/ui` and the [web agent requirements](../web/AGENTS.md).
-Standard MUI controls/menus/dialogs/TablePagination retain their accessible
-behavior; the shared Doji theme supplies brand color/typography. Desktop workspaces
-use available width. Home is a greeting, next Doji, attention cards and quick access;
-Team uses a directory and role editor. Records open as full pages, not drawers.
-History is a status filter on the relevant queue. Keep meaningful identity/avatar
-columns, explicit assignee, one primary action, contextual alternatives and clear
-loading/empty/error states. Verification codes use a standard MUI TextField.
-The sections below are historical retained-controller contracts, NOT instructions
-to rebuild custom selects or restore drawers in the React apps. Their authorization,
-draft preservation and uncertainty rules still apply.
+MUI provides interaction and accessibility behavior; the shared Doji theme provides
+color, typography and spacing. Do not import a second dashboard framework or copy
+commercial template assets.
 
-## Shared dropdown ownership (September 28, local candidate)
+## Page responsibilities
 
-`website/portal-select.js` owns the existing `portalSelect` implementation for both
-portals and the public safety form. The admin bundle includes it; standalone pages
-load it before their runtime. Do not introduce native-looking or copied dropdown
-implementations. Existing shared `portal.css` owns all dropdown styling.
+| Page | Purpose and layout |
+| --- | --- |
+| Home | Greeting, current/upcoming Doji, bounded attention summaries and quick access; not another queue |
+| My work | Current employee's assignments with relevant status and priority filters |
+| Domain queue | One permission-scoped table with active/history status filters |
+| Team & access | Searchable identity cards and a focused full-page access editor |
+| Record | Identity, status, assignee, evidence and history; contextual actions below content |
+| Operations | Health and freshness, affected services, supported charts and evidence drill-down |
 
-Use `DojiPortalSelect.enhance(select, true)` for accessible controls. Native select
-values remain the FormData contract. After replacing dependent options or changing
-disabled fieldsets, call `refresh(select)` so the visible value/options stay aligned.
-Required-field errors focus the visible combobox, not the hidden native select.
-Light-mode selected text uses the existing #b33a20 accent for readable contrast.
-Regression must exercise the actual open menu, keyboard selection/Escape, dependent
-values, mobile bounds and disabled states—not just programmatic native select values.
+Use a stable desktop navigation rail, compact top bar and available workspace width.
+Account forms are centered and readable; they do not set the width of work tables.
+Do not keep an unused editor beside the Team directory or enlarge every heading
+to fill a large screen. Tabs switch views, filters narrow data, menus hold secondary
+actions. Do not add search, badges or controls that lack a working contract.
 
-## Record opening pattern (September 27)
+## Tables, identity and states
 
-Existing community ideas and announcements open in a right-side drawer using
-`portalDrawer`, `adminDrawer`, `drawerHeader` and `drawerCloseButton`, with the
-case drawer's 680px maximum width and full-width phone layout. Editing an existing
-announcement stays in that drawer. Creation and consequential confirmations use
-the centered modal pattern; Back returns to the prior form and preserves rationale.
-The record's original submitted fields remain readonly.
+- Use standard MUI Table/TableContainer and TablePagination for current bounded
+  workflow reads. DataGrid needs an actual grid requirement, not a cosmetic preference.
+- Columns answer the queue's job: personal work omits redundant assignee; safety
+  includes source and review target; business and idea queues omit irrelevant fields.
+- Show authorized names with Avatar/initials. Never invent photos or add member
+  image queries just to decorate employee rows.
+- Keep headers, loading/empty/error body and pagination aligned in a stable work area.
+  Avoid blank spacer rows and oversized panels beneath the table.
+- Page-size changes preserve real server limits and cursor correctness. Unknown
+  totals stay unknown; partial pages are not global metrics.
+- Keep record links keyboard-accessible. Row activation must not hijack text
+  selection, nested links, menus or modifier-clicks.
+- Distinguish no records, no filter matches, completed work, loading, unavailable
+  data and permission denial. Missing monitoring is not healthy or zero.
 
-The editorial host remains a native `<dialog>` opened with `showModal()` for inert
-background and native focus behavior. Escape, Close and drawer-backdrop click close
-inspection and restore the originating record control, including after Refresh.
-Pending writes cannot be dismissed. Native focus may visit browser chrome but must
-not reach background page controls. No custom focus trap or hidden background reads.
-This is an admin-only presentation change, not a new command or member contract.
+## Records and actions
 
-## Original submission presentation (September 27)
+Use full-page records and MUI Dialog for consequential confirmation, not drawers.
+Show original submitted values with labels; never replace them with raw JSON or
+infer type from prompt wording. Missing or unsupported required data blocks decisions.
 
-Community ideas use one read-only form renderer in both detail and confirmation.
-Reuse `.formGrid` and `.field` with labelled native readonly controls for Type,
-Question (Photo prompt for photo ideas), and each numbered Choice. Format questions
-have separate Answer format and Word count or Starting letter fields, never a JSON
-blob or a prose-only summary. Long prompt/choice fields wrap and grow where supported
-and remain scrollable/resizable otherwise. Preserve original values and choice order.
-Do not infer a different type from the prompt's words. Review rationale is separately
-editable; the original-submission region has no submit handler or editing command.
-The same-title record case is resolved by submission ID, never by displayed title.
-Missing or unsupported details are explicit and prevent acceptance in the portal.
-See `IDEA_SUBMISSION_PRESENTATION_2026-09-27.md` for the production-data diagnosis.
+Use one clear primary next step and contextual secondary actions. Start review may
+assign the acting employee only through the existing atomic command, without
+requiring outcome fields. Closure still needs its required evidence and response.
+Required markers, validation, access restrictions and member-impacting consequences
+remain visible. Supplemental help must not hide required warnings or errors.
 
-## Editorial consistency (September 27, local only)
+Preserve assignee, filters, page position, dirty drafts and focus when navigating.
+A busy or uncertain command retains its exact identity, payload and idempotency key.
+A successful command followed by failed refresh must not be submitted as a new write.
+Do not discard a pending confirmation or uncertain result merely to close a view.
 
-Announcement and community-idea dialogs now reuse `portalModal`, `modalHeader`,
-`modalBody`, `drawerCloseButton`, `formGrid`, `.field` and the existing portal
-select enhancer instead of editorial-specific input/select/modal styling.
-Dynamic rendering receives that enhancer from the portal runtime. Its opt-in
-accessible mode names the select-only combobox, supports arrows/Home/End/type
-selection and Enter/Space, and lets Escape close the options before the dialog.
-Native form values remain authoritative for FormData. Filters are disabled while
-their page is loading; pointer focus changes cannot remove an option before click.
-The business portal's legacy enhancement mode is unchanged. No backend/member
-deployment is included. See `ANNOUNCEMENT_CAMPAIGN_DESIGN_2026-09-27.md` for the
-separate requested destinations, single-campaign and dynamic reward scope.
+## Forms and copy
 
-Routine changes here ship only through the admin static site. Do not change member
-code, shared services, authorization, commands, or monitoring to adjust presentation.
+Use standard MUI inputs, selects, date/time pickers and labelled verification
+TextField. No custom six-box MFA control. Align related fields and use normally
+sized actions; sticky footers must not cover fields or errors.
 
-## What stays visible
+Use concise task language. Remove routine policy lectures, repeated summaries and
+implementation jargon such as AAL2 or atomic RPC from ordinary interface copy.
+Supplemental help belongs beside its label with accessible keyboard/focus behavior.
+Errors and required consequences remain inline and visible.
 
-- Case facts, reporter context, evidence, decisions, owner, priority and deadlines.
-- Required markers, validation errors, missing/stale data and access restrictions.
-- Privacy warnings, member-impacting consequences and confirmation summaries.
-- Monitoring coverage gaps: healthy delivery is not proof that every app feature works.
+## Health and data boundaries
 
-Remove duplicate summaries and internal implementation assurances such as atomic RPCs,
-AAL2, production boundaries and server-owned state. Describe unavailable features in
-plain language without implying that they work.
+Home counts describe its bounded authorized snapshot, not organization-wide totals.
+Daily Doji timing is not a live-health measurement. Charts need a question, units,
+time range and actual data source; unavailable samples must not become zero.
 
-## Shared help component
+Reuse session-scoped TanStack Query reads, authorized identifier events and
+foreground/reconnect reconciliation. No polling, new permission, aggregate query,
+invitation email or member behavior is implied by presentation work.
 
-`website/admin-portal/contextual-help.js` is bundled only into the admin application.
-Mark supplemental field copy with `data-context-help` inside a `.field` with a label.
-For a heading, wrap it and the help in `data-help-container`, and mark the heading with
-`data-help-label`. Call `DojiContextualHelp.enhance(root)` after dynamic rendering.
-Keep existing content IDs for dynamic hint updates. Enhancement is idempotent.
+## Acceptance
 
-Help appears as a named question-mark button beside the label and a native top-layer
-popover. It never occupies an input's grid row. Labels share a minimum height so paired
-controls align. Enter/Space opens it; Escape dismisses it before the underlying case;
-outside click, navigation, scrolling and closing/locking the case also dismiss it.
-Help performs no network reads or commands. Browsers without popover support retain
-inline guidance. Do not put mandatory warnings or errors inside optional help.
+Check real desktop widths (1366, 1920 and 2560), narrow windows, 200% zoom, keyboard
+navigation, focus restoration and light/dark contrast. Exercise empty, long-name,
+multi-page, loading, denied, unavailable and uncertain-command cases. Geometry and
+passing unit tests do not replace visual/task review. Use intercepted fixtures;
+hosted writes need independent authorization.
 
-Regression suite: `npm run test:admin-portal`. The contextual-help browser cases cover
-desktop/mobile alignment, light/dark contrast, viewport bounds, keyboard dismissal,
-visible privacy/coverage warnings and absence of write requests.
+## Design references and historical evidence
 
-September 25 UI release: `admin-app-20260925ao.js`. The global technical strip and its
-28px layout offset are removed; the sticky header now meets the viewport edge.
+The accepted direction combined Tabler's compact desktop layout with product
+patterns from Shopify Home, Linear My Issues/Triage, and Stripe's resource/detail
+navigation. These are references, not dependencies:
 
-Released to the existing `doji-admin` Pages project as `bea0fd0e`.
-The public custom-domain index, bundle SHA-256 and CSS were checked against the
-tested output. Validation passed: 29 browser tests, 28 health-model tests, the
-authentication client suite, 9 portal isolation/operations tests and website link
-validation. No shared Worker, database, mobile or release-policy deployment occurred.
-Rollback: restore the prior Pages deployment `5842ffb9` (bundle `20260925an`).
+- [Tabler](https://tabler.io/admin-template)
+- [Shopify Home](https://help.shopify.com/en/manual/shopify-admin/shopify-home)
+- [Linear triage](https://linear.app/docs/triage)
+- [Stripe dashboard](https://docs.stripe.com/dashboard/basics)
+- [Carbon tables](https://www.carbondesignsystem.com/building-blocks/core/components/data-table/guidelines)
+- [Grafana dashboards](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/)
 
-## Triage workspace refinement — 20260925ap
+Rejected and superseded research diaries have been retired; Git preserves them.
+The [accepted implementation/release record](releases/ADMIN_REFERENCE_IMPLEMENTATION_2026-10-09.md)
+retains its exact artifact, acceptance and rollback evidence.
+Retained `website/` controllers are compatibility dependencies, not instructions
+to restore their old dropdowns, drawers or generic portal layouts.
 
-- Readable subject and concern lead each case; a short reference remains secondary.
-  Case details can copy the full identifier without fetching member data.
-- Compact, fixed-height Close controls; 24px between case facts and the next divider.
-- Existing server deadlines drive overdue duration and red missed-target warnings.
-  High/critical priority or serious/emergency severity gets stronger urgent treatment.
-  This does not change SLA policy, server deadlines, notifications or escalation commands.
-- Tables and audit lists use a viewport-bounded scrolling area and persistent
-  Previous/Next controls. Authorized pages are reused when going backward; filters reset
-  position. No total count is invented from partially loaded data. No new polling or API.
-- Health signals explain why they cannot be verified rather than displaying an
-  undifferentiated Unknown. Quiet windows show no measured latency, not a misleading 0ms.
-
-Employee identity and missing monitoring integrations remain separate scopes; see
-`WORKFORCE_IDENTITY_PLAN.md`. No authentication/backend migration is part of this UI release.
-
-Static release: Pages deployment `7a33db07`, bundle `20260925ap`. Checks passed:
-33 browser cases, 32 health-model tests, authentication-client checks, 9 portal
-isolation/operations tests, syntax and link validation. Desktop and phone screenshots
-were inspected. Rollback is the prior static deployment `bea0fd0e` (`20260925ao`).
+Earlier static UI receipts: September 25 Pages `bea0fd0e`, bundle
+`20260925ao`, rollback `5842ffb9` / `20260925an` (29 browser, 28 health,
+auth and 9 boundary checks); subsequent `7a33db07` / `20260925ap`, rollback
+`bea0fd0e` (33 browser, 32 health, auth and 9 boundary checks).
+These historical identities are not current rollback instructions.

@@ -203,7 +203,7 @@ if (independentEmployeeIdentity) {
     stdin: {
       contents:
         "export { createEmployeeBrowserTransport as create } from './employee-browser-transport.mts';",
-      resolveDir: join(repositoryRoot, 'infra/portal-identity-candidate'),
+      resolveDir: join(repositoryRoot, 'infra/portal-identity'),
     },
     bundle: true,
     write: false,
@@ -217,7 +217,7 @@ if (independentEmployeeIdentity) {
   independentSource = output.text;
   await build({
     entryPoints: [
-      join(repositoryRoot, 'infra/portal-identity-candidate/employee-pages-worker.mts'),
+      join(repositoryRoot, 'infra/portal-identity/employee-pages-worker.mts'),
     ],
     bundle: true,
     outfile: join(outputRoot, '_worker.js'),

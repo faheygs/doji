@@ -16,13 +16,13 @@ const draft = [
   'external_takedown_staff_bridge_v1.sql',
 ]
   .map((name) =>
-    readFileSync(`docs/drafts/${name}`, 'utf8')
+    readFileSync(`supabase/overlays/${name}`, 'utf8')
       .replace(/^begin;\s*$/m, '')
       .replace(/^commit;\s*$/m, ''),
   )
   .join('\n');
 const bridgeChecks = readFileSync('scripts/test-safety-removal-bridge.sql', 'utf8');
-const rollback = readFileSync('docs/drafts/external_takedown_staff_bridge_rollback.sql', 'utf8')
+const rollback = readFileSync('supabase/overlays/external_takedown_staff_bridge_rollback.sql', 'utf8')
   .replace(/^begin;\s*$/m, '')
   .replace(/^commit;\s*$/m, '');
 const checks = readFileSync('scripts/test-safety-removal-local.sql', 'utf8');

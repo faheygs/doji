@@ -72,7 +72,7 @@ if (mode === 'prepare') {
   });
   const changed = `supabase/functions/${slug}/runtime/employee-resources.mjs`;
   const compiled = ts.transpileModule(
-    await readFile('infra/portal-identity-candidate/employee-resources.mts', 'utf8'),
+    await readFile('infra/portal-identity/employee-resources.mts', 'utf8'),
     {
       fileName: 'employee-resources.mts',
       reportDiagnostics: true,

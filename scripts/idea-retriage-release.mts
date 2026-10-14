@@ -78,7 +78,7 @@ if(mode==='capture') {
  if (b->>'review_migration_exists')::boolean or (b->>'event_bytes')::bigint>=8388608
  or (b->>'active_events')::int<>0 or (b->>'overdue_outbox')::int<>0 or (b->>'lock_waits')::int<>0
  or b->>'next_event' is null or (b->>'next_event')::timestamptz<clock_timestamp()+interval '25 minutes' then raise exception 'Unsafe release window';end if;end $g$;\n`;
- const migration=body(await read('docs/drafts/community_idea_retriage_v1.sql'));
+ const migration=body(await read('supabase/overlays/community_idea_retriage_v1.sql'));
  const verification=`do $v$ declare b jsonb;a jsonb;k text;n text;r text;begin
  select baseline into b from review_before;select baseline into a from review_after;
  if (a->'functions')-${arr([...changed,helper])} is distinct from (b->'functions')-${arr(changed)} then raise exception 'Unrelated function drift';end if;
@@ -90,7 +90,7 @@ if(mode==='capture') {
  end $v$;\n`;
  const common='begin;set local lock_timeout=\'2s\';set local statement_timeout=\'8s\';\n'+capture('review_before')+guard+migration+'\n'+capture('review_after')+verification;
  await save('common.sql',common);await save('migration.sql',migration);
- const rollback=body(await read('docs/drafts/community_idea_retriage_v1.rollback.sql'));await save('rollback-body.sql',rollback);
+ const rollback=body(await read('supabase/overlays/community_idea_retriage_v1.rollback.sql'));await save('rollback-body.sql',rollback);
  await save('rehearsal.sql',common+rollback+"\ndo $$begin if position('temporarily paused' in pg_get_functiondef('public.admin_editorial_command_v1(text,text,uuid,text,jsonb,text,text)'::regprocedure))=0 then raise exception 'Rollback gate missing';end if;end$$;select true as rehearsal_passed;rollback;\n");
  await save('deploy.sql',common+`insert into supabase_migrations.schema_migrations(version,name,statements) values('${version}','community_idea_retriage',array[$migration$${migration}$migration$]);notify pgrst,'reload schema';select clock_timestamp() as deployed_at;commit;\n`);
  console.log('Prepared guarded migration, rollback and rehearsal. No deployment.');

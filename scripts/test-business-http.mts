@@ -3,18 +3,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createBusinessHttp } from '../infra/portal-identity-candidate/business-http.mts';
-import { createWorkosBusinessProvider } from '../infra/portal-identity-candidate/workos-business-provider.mts';
-import { createBusinessBrowserClient } from '../infra/portal-identity-candidate/business-browser-client.mts';
-import { createBusinessApplicationAdapter } from '../infra/portal-identity-candidate/business-application-adapter.mts';
+import { createBusinessHttp } from '../infra/portal-identity/business-http.mts';
+import { createWorkosBusinessProvider } from '../infra/portal-identity/workos-business-provider.mts';
+import { createBusinessBrowserClient } from '../infra/portal-identity/business-browser-client.mts';
+import { createBusinessApplicationAdapter } from '../infra/portal-identity/business-application-adapter.mts';
 import { createApplicationController } from '../website/business-portal/application-client.mts';
-import { boundedBody } from '../infra/portal-identity-candidate/bounded-body.mts';
+import { boundedBody } from '../infra/portal-identity/bounded-body.mts';
 import type {
   BusinessHttpConfig,
   BusinessHttpDependencies,
-} from '../infra/portal-identity-candidate/business-http-contracts.mts';
-import type { BusinessExecute } from '../infra/portal-identity-candidate/business-application-adapter.mts';
-import type { BusinessApplication } from '../infra/portal-identity-candidate/business-contracts.mts';
+} from '../infra/portal-identity/business-http-contracts.mts';
+import type { BusinessExecute } from '../infra/portal-identity/business-application-adapter.mts';
+import type { BusinessApplication } from '../infra/portal-identity/business-contracts.mts';
 import { evidenceRecord, evidenceText } from './release-evidence.mts';
 type ReqOptions = {
   method?: string;

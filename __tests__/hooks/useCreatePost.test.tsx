@@ -118,7 +118,7 @@ test('uploads all supplied media under the same idempotency key before completin
       videoUri: 'local:video',
     });
   });
-  expect(uploadPostMedia.mock.calls).toEqual([
+  expect(jest.mocked(uploadPostMedia).mock.calls).toEqual([
     ['event', 'attempt', 'local:photo', 'photo'],
     ['event', 'attempt', 'local:front', 'front'],
   ]);

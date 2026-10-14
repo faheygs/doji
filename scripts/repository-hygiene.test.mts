@@ -59,8 +59,8 @@ test('retains source, migrations, fixtures, public config, history and required 
       'google-services.json',
       'supabase/config.toml',
       'supabase/migrations/001_initial_schema.sql',
-      'docs/drafts/rollback.sql',
-      'docs/ANDROID_DIAGNOSTIC_BUILD_28_2026-10-04.md',
+      'supabase/overlays/rollback.sql',
+      'docs/releases/ANDROID_DIAGNOSTICS.md',
       'scripts/fixtures/result.json',
       'scripts/database/clean-room.mts',
       'scripts/verify-build-env.mjs',
@@ -79,6 +79,23 @@ test('reports deterministic deduplicated paths', () => {
     '.env: only the reviewed root .env.example may be committed',
     '.env.local: only the reviewed root .env.example may be committed',
   ]);
+});
+
+test('keeps implementation drafts and dated diaries out of the current handbook', () => {
+  for (const file of [
+    'docs/drafts/feature.sql',
+    'docs/change.sql',
+    'docs/NOTE_2026-10-13.md',
+    'infra/portal-identity-candidate/runtime.mts',
+    'infra/business-email-candidate/sender.mts',
+  ]) assert.equal(hygieneIssues([file]).length, 1);
+  assert.deepEqual(hygieneIssues([
+    'supabase/overlays/feature.sql',
+    'docs/releases/NOTE_2026-10-13.md',
+    'docs/legal/BUSINESS_TERMS_REVIEW.md',
+    'infra/portal-identity/runtime.mts',
+    'infra/business-email/sender.mts',
+  ]), []);
 });
 
 test('rejects scratch output without rejecting maintained mock and fixture contracts', () => {

@@ -19,7 +19,7 @@ import {
   restoredGuards,
 } from './business-bridge-release-guards.mts';
 const root = 'test-results/business-independent-privacy-20261005';
-const source = 'docs/drafts/portal_identity_business_privacy_v1.sql';
+const source = 'supabase/overlays/portal_identity_business_privacy_v1.sql';
 const mode = process.argv[2];
 assert.ok(mode && ['prepare', 'rehearse', 'apply', 'verify'].includes(mode));
 const query = (sql: string) =>
@@ -76,7 +76,7 @@ if (mode === 'prepare') {
  where n.nspname='portal_identity_private' and p.proname in('business_privacy_target','export_business_identity_target','claim_business_identity_erasure','finish_business_identity_erasure') and has_function_privilege(r,p.oid,'execute')) then raise exception 'Privacy operator unexpectedly exposed';end if;
  end$$;`;
   const rollback = await readFile(
-    'docs/drafts/portal_identity_business_privacy_v1.rollback.sql',
+    'supabase/overlays/portal_identity_business_privacy_v1.rollback.sql',
     'utf8',
   );
   await immutableFile(`${root}/install.sql`, `${start}\n${sql}\n${end}\ncommit;`);

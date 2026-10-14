@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   useWindowDimensions,

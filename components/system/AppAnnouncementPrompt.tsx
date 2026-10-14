@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { AppDialog } from '../ui/AppDialog';

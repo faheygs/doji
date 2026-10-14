@@ -4,15 +4,15 @@ import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { createBusinessSessionStore } from '../infra/portal-identity-candidate/business-session-store.mts';
-import { createBusinessHttp } from '../infra/portal-identity-candidate/business-http.mts';
-import { createBusinessRegistrationAction } from '../infra/portal-identity-candidate/business-registration-action.mts';
+import { createBusinessSessionStore } from '../infra/portal-identity/business-session-store.mts';
+import { createBusinessHttp } from '../infra/portal-identity/business-http.mts';
+import { createBusinessRegistrationAction } from '../infra/portal-identity/business-registration-action.mts';
 import { createHmac } from 'node:crypto';
 import { engine as podman, container } from './database/owned-target.mts';
 import { offlineContainer } from './database/contracts.mts';
 import { present, testRecord } from './employee-test-fixtures.mts';
-import type { BusinessStoreConfig } from '../infra/portal-identity-candidate/business-session-store.mts';
-import type { BusinessHttpDependencies } from '../infra/portal-identity-candidate/business-http-contracts.mts';
+import type { BusinessStoreConfig } from '../infra/portal-identity/business-session-store.mts';
+import type { BusinessHttpDependencies } from '../infra/portal-identity/business-http-contracts.mts';
 const inspected = offlineContainer(
   JSON.parse(execFileSync(podman, ['inspect', container], { encoding: 'utf8' })),
 );
@@ -123,7 +123,7 @@ try {
   const fingerprintSql =
     "select md5(string_agg(p.oid::text||pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),'' order by p.oid)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','auth','business_private') and p.prokind='f';";
   const before = sync(fingerprintSql, 'postgres');
-  sync(readFileSync('docs/drafts/business_session_store_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_session_store_v1.sql', 'utf8'));
   roleCreated = true;
   sync('grant doji_business_session to postgres;'); // Local harness only; removed with this run's role.
   const store = createBusinessSessionStore(cfg, execute);
@@ -332,7 +332,7 @@ try {
   assert.equal((await request(handler(), '/api/session', { cookie })).status, 401);
   pass('HTTP login callback, restore and logout work across fresh handlers with durable state');
 
-  sync(readFileSync('docs/drafts/business_registration_gate_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_registration_gate_v1.sql', 'utf8'));
   registrationRoleCreated = true;
   sync('grant doji_business_registration to postgres;');
   const actionSecret = 'synthetic-secret-never-used-with-provider';
@@ -401,12 +401,12 @@ try {
     ),
     'f\nf\nf',
   );
-  sync(readFileSync('docs/drafts/business_registration_gate_v1.rollback.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_registration_gate_v1.rollback.sql', 'utf8'));
   assert.equal((await payload(await sendAction('action_once'))).verdict, 'Deny');
   assert.equal(sync('select registrations_used from business_session_private.settings;'), '1');
   pass('registration privilege boundary and rollback retain spent capacity');
   await store.putSession(hash('freeze'), envelope, Date.now() + 60000);
-  sync(readFileSync('docs/drafts/business_session_store_v1.rollback.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_session_store_v1.rollback.sql', 'utf8'));
   await assert.rejects(store.withSession(hash('freeze'), () => assert.fail('frozen')));
   sync(
     'update business_session_private.settings set enabled=true;grant execute on function business_session_private.execute_store(text,text,text,text,text,integer,text,text) to doji_business_session;',

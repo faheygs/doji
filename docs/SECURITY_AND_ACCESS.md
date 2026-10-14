@@ -83,7 +83,7 @@ fences. A removed origin object is not proof every cached copy has disappeared.
 
 Business privacy requests require verified representative authority and restricted
 staff roles. Closure, primary erasure and provider/backup cleanup are distinct.
-Use [Business privacy operations](BUSINESS_PRIVACY_OPERATIONS_2026-09-30.md), not
+Use [Business privacy operations](releases/BUSINESS_PRIVACY_OPERATIONS_2026-09-30.md), not
 ad hoc account deletion or an invented fixed retention deadline.
 
 ## Scope and release approval

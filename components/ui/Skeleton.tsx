@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, type DimensionValue, StyleSheet, type ViewStyle } from 'react-native';
 import { Radius } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';

@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { captureWorkerException } from './sentry';
 import { handleCommandGateway } from './command-gateway';
-import { sendOperationalAlert, type EventAlarmRepair } from './operational-health';
+import { sendOperationalAlert } from './operational-health';
 import { HealthMonitor } from './health-monitor';
 import { expirePushFanout } from './push-fanout-lifecycle';
 import { OutboxRelayAlarm } from './outbox-relay';
@@ -68,27 +68,6 @@ async function enqueueDojiPushFanout(env: Env, dailyEventId: string): Promise<vo
     body: JSON.stringify({ dailyEventId }),
   });
   if (!response.ok) throw new Error(`Scheduling Doji push fanout failed: ${response.status}`);
-}
-
-async function repairEventAlarms(env: Env, repairs: EventAlarmRepair[]): Promise<void> {
-  const outcomes = await Promise.allSettled(repairs.map(async (repair) => {
-    const id = env.DOJI_EVENT_ALARM.idFromName(repair.dailyEventId);
-    const response = await env.DOJI_EVENT_ALARM.get(id).fetch(
-      `https://alarm.internal/events/${repair.dailyEventId}/repair`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(repair),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Repairing event alarm failed: ${response.status}`);
-    }
-  }));
-  const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
-  if (rejected.length > 0) {
-    throw new Error(`${rejected.length} event alarm repair(s) failed`);
-  }
 }
 
 async function listDojiPushFanoutShards(env: Env, dailyEventId: string): Promise<number[]> {

@@ -4,14 +4,14 @@ import {
   employeeActor,
   employeeFlow,
   employeeSession,
-} from '../infra/portal-identity-candidate/employee-http-state.mts';
-import { createEmployeeResources } from '../infra/portal-identity-candidate/employee-resources.mts';
-import { createEmployeeApplicationAdapter } from '../infra/portal-identity-candidate/employee-application-adapter.mts';
+} from '../infra/portal-identity/employee-http-state.mts';
+import { createEmployeeResources } from '../infra/portal-identity/employee-resources.mts';
+import { createEmployeeApplicationAdapter } from '../infra/portal-identity/employee-application-adapter.mts';
 import type {
   EmployeeActor,
   EmployeeApplication,
   PortalExecute,
-} from '../infra/portal-identity-candidate/employee-contracts.mts';
+} from '../infra/portal-identity/employee-contracts.mts';
 
 const actor: EmployeeActor = {
   realm: 'employee',

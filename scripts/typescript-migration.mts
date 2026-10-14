@@ -18,8 +18,8 @@ export function uncheckedModules(files: readonly string[], checked: readonly str
 }
 function checkedModules(root: string) {
   const projects = [
-    'infra/portal-identity-candidate/tsconfig.json',
-    'scripts/tsconfig.tooling.json',
+    'infra/portal-identity/tsconfig.json',
+    'scripts/tsconfig.json',
     'website/tsconfig.json',
   ];
   return projects.flatMap((project) => {

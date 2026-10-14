@@ -20,23 +20,44 @@ member actions, email sending or provider configuration changes.
 | Shared email branding | Common renderer and code-owned shared/employee messages prepared | Not deployed to shared/member services; provider-owned WorkOS/Supabase templates are separate work |
 | Next mobile changes | 1.0.10 iOS 105 / Android 30 finished October 12; iOS available to existing TestFlight group and Waiting for Review; Android closed Alpha Changes in review | See dated build record; physical-device acceptance outstanding, iOS manual release preserved, no mandatory-update change; not in installed 1.0.9 |
 
+Next-build source after 1.0.10: [native read lifecycle recovery](releases/MOBILE_READ_LIFECYCLE_PREPARATION_2026-10-12.md)
+pauses offline/background reads and restarts active reads on available foreground
+return. Not built, deployed or verified on physical devices yet; does not replace
+the existing 1.0.10 artifacts or establish production resolution.
+
+October 13 admin repair: employee logout now confirms already-expired/removed
+sessions without trapping the browser in retry-sign-out. The approved one-module
+backport is LIVE as employee runtime v24. Exact-package authentication/boundary
+tests passed (72); prior React session/reconciliation tests passed (13). Hosted
+absent/removed-session retry and negative access checks passed; downloaded source
+matches the tested package. v23 rollback retained. No database, member-app,
+business, Pages or MFA change is included. A fresh user-authenticated login/logout
+cycle was not performed in this release. See
+[sign-out recovery evidence](releases/EMPLOYEE_LOGOUT_RECOVERY_2026-10-13.md).
+
+October 13 next-build input repair: signup/profile-edit username fields no longer
+rewrite native composing text on each edit. Availability checks and submitted
+handles retain existing normalization/validation. Not built or deployed; the
+reported Android keyboard duplication still needs physical-device acceptance.
+See [username input repair](releases/ANDROID_USERNAME_INPUT_2026-10-13.md).
+
 ## Recorded evidence
 
-- [Mobile 1.0.9 release and enforcement](MOBILE_LOGGING_RELEASE_2026-10-07.md),
-  [next-build preparation and device gates](NEXT_MOBILE_BUILD_2026-10-08.md),
-  [1.0.10 build execution](MOBILE_RECOVERY_BUILDS_2026-10-12.md).
-- [React migration](WEB_REACT_MIGRATION_2026-10-08.md),
-  [admin history/health release](EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md),
-  [queue consistency](ADMIN_QUEUE_CONSISTENCY_2026-10-09.md),
-  [public/business frontend release](REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
-- [Owned auth cutover](BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md),
-  [recovery email](BUSINESS_RECOVERY_EMAIL_2026-10-10.md),
-  [persistent test access](BUSINESS_EXISTING_TEST_ACCESS_2026-10-11.md),
-  [onboarding rollout/acceptance](BUSINESS_ONBOARDING_ROLLOUT_2026-10-11.md),
-  [email branding](EMAIL_BRANDING_2026-10-11.md).
-- [Employee realm separation](ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md),
-  [business privacy](BUSINESS_PRIVACY_OPERATIONS_2026-09-30.md),
-  [safety launch](SAFETY_LAUNCH_2026-09-29.md).
+- [Mobile 1.0.9 release and enforcement](releases/MOBILE_LOGGING_RELEASE_2026-10-07.md),
+  [next-build preparation and device gates](releases/NEXT_MOBILE_BUILD_2026-10-08.md),
+  [1.0.10 build execution](releases/MOBILE_RECOVERY_BUILDS_2026-10-12.md).
+- [React migration](releases/WEB_REACT_MIGRATION_2026-10-08.md),
+  [admin history/health release](releases/EMPLOYEE_HISTORY_HEALTH_PREPARATION_2026-10-09.md),
+  [queue consistency](releases/ADMIN_QUEUE_CONSISTENCY_2026-10-09.md),
+  [public/business frontend release](releases/REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
+- [Owned auth cutover](releases/BUSINESS_OWNED_AUTH_CUTOVER_2026-10-10.md),
+  [recovery email](releases/BUSINESS_RECOVERY_EMAIL_2026-10-10.md),
+  [persistent test access](releases/BUSINESS_EXISTING_TEST_ACCESS_2026-10-11.md),
+  [onboarding rollout/acceptance](releases/BUSINESS_ONBOARDING_ROLLOUT_2026-10-11.md),
+  [email branding](releases/EMAIL_BRANDING_2026-10-11.md).
+- [Employee realm separation](releases/ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md),
+  [business privacy](releases/BUSINESS_PRIVACY_OPERATIONS_2026-09-30.md),
+  [safety launch](releases/SAFETY_LAUNCH_2026-09-29.md).
 
 Later explicit releases supersede earlier preparation notes within dated records.
 `candidate`/`drafts` directory names do not establish deployment state.
@@ -52,7 +73,7 @@ application, database, web-migration and coverage, including 4,667 Jest tests an
 all 17 independent 90% coverage areas. This baseline does not qualify a newer dirty
 tree. Follow the current PR's exact-head checks.
 
-The [repository handoff audit](REPOSITORY_HANDOFF_AUDIT_2026-10-12.md) records
+The [repository handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md) records
 source reconciliation, cleanup and current validation. Retained owner checkouts
 and private rollback artifacts are not a developer copy bundle. Use
 [test suite handoff](TEST_SUITE_HANDOFF.md), [system map](SYSTEM_MAP.md) and

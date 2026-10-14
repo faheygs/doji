@@ -38,7 +38,7 @@ end$$;
 create temporary table safety_release_functions on commit drop as select p.oid,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p where p.pronamespace='public'::regnamespace and p.prokind='f';
 create temporary table safety_release_relations on commit drop as select c.oid,c.relacl,c.relrowsecurity,c.relforcerowsecurity from pg_class c where c.relnamespace in('public'::regnamespace,'storage'::regnamespace) and c.relkind in('r','p','v','m');
 create temporary table safety_release_policies on commit drop as select * from pg_policies where schemaname in('public','storage');
-${(await Promise.all(drafts.map(async n=>(await readFile(`docs/drafts/${n}`,'utf8')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'')))).join('\n')}
+${(await Promise.all(drafts.map(async n=>(await readFile(`supabase/overlays/${n}`,'utf8')).replace(/^begin;\s*$/m,'').replace(/^commit;\s*$/m,'')))).join('\n')}
 -- Cleanup guards must be deployed/enabled and older Edge invocations drained
 -- before any new media holds are captured. Public intake remains disabled.
 alter table public.moderation_decisions disable trigger capture_decision_media;
@@ -51,7 +51,7 @@ do $$begin
 end$$;
 notify pgrst,'reload schema';
 commit;\n`;
-const databaseArtifact={sha256:hash(sql),drafts:await Promise.all(drafts.map(async path=>({path,sha256:hash(await readFile(`docs/drafts/${path}`))}))),changed,publicEnabled:false,captureEnabled:false};
+const databaseArtifact={sha256:hash(sql),drafts:await Promise.all(drafts.map(async path=>({path,sha256:hash(await readFile(`supabase/overlays/${path}`))}))),changed,publicEnabled:false,captureEnabled:false};
 if(process.argv.includes('--refresh-sql')){
  assert.equal(await readFile(`${root}/database-deploy-started.json`).then(()=>true,()=>false),false,'Cannot rewrite a release already attempted');
  await writeFile(`${root}/database.sql`,sql);await writeFile(`${root}/database-artifact.json`,JSON.stringify(databaseArtifact,null,2));

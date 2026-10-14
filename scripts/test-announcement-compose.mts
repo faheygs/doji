@@ -19,7 +19,7 @@ try {
   const migrations = await replay(room);
   console.log(`PASS: ${migrations.length} migrations replayed in an offline disposable database`);
   const before = snapshot();
-  room.sql(source('docs/drafts/employee_announcement_compose_v1.sql'));
+  room.sql(source('supabase/overlays/employee_announcement_compose_v1.sql'));
   assert.equal(
     snapshot(),
     before,
@@ -41,7 +41,7 @@ try {
     'audit',(select jsonb_agg(to_jsonb(a) order by id) from public.admin_audit_log a),
     'receipts',(select jsonb_agg(to_jsonb(a) order by user_id,idempotency_key) from public.admin_employee_command_receipts a));`);
   const dataBeforeRollback = savedData();
-  room.sql(source('docs/drafts/employee_announcement_compose_v1.rollback.sql'));
+  room.sql(source('supabase/overlays/employee_announcement_compose_v1.rollback.sql'));
   assert.equal(snapshot(), before, 'Rollback preserves every existing function and grant');
   assert.equal(
     room.sql(

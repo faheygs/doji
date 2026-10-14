@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { TextInput, type TextInputProps } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 

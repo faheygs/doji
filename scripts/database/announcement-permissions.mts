@@ -3,8 +3,8 @@ import { claims, member, other, source } from './integration.mts';
 import { record } from './contracts.mts';
 import type { TestRoom } from './contracts.mts';
 
-const candidate = 'docs/drafts/announcement_member_execute_v1.sql';
-const rollback = 'docs/drafts/announcement_member_execute_v1.rollback.sql';
+const candidate = 'supabase/overlays/announcement_member_execute_v1.sql';
+const rollback = 'supabase/overlays/announcement_member_execute_v1.rollback.sql';
 const targets = [
   'public.claim_active_app_announcement()',
   'public.record_app_announcement_action(uuid,text)',

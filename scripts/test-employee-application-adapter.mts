@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { employeeRouteContracts } from '../infra/portal-identity-candidate/employee-route-contracts.mts';
+import { employeeRouteContracts } from '../infra/portal-identity/employee-route-contracts.mts';
 import {
   createEmployeeApplicationAdapter,
   employeeOperations,
-} from '../infra/portal-identity-candidate/employee-application-adapter.mts';
-import type { PortalExecute } from '../infra/portal-identity-candidate/employee-contracts.mts';
+} from '../infra/portal-identity/employee-application-adapter.mts';
+import type { PortalExecute } from '../infra/portal-identity/employee-contracts.mts';
 import { testEmployee as actor, present, testRecord } from './employee-test-fixtures.mts';
 const parse = (value: unknown): unknown => {
   assert.equal(typeof value, 'string');

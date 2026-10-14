@@ -15,7 +15,7 @@ import {
   businessPasswordMaximum,
   businessPasswordMessages,
   BusinessPasswordRejected,
-} from '../../../../infra/portal-identity-candidate/business-password-policy.mts';
+} from '../../../../infra/portal-identity/business-password-policy.mts';
 import { PasswordChecklist } from './PasswordChecklist';
 import { usePasswordFeedback } from './usePasswordFeedback';
 

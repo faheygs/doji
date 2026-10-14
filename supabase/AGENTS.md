@@ -5,7 +5,7 @@ Postgres owns state, authorization, atomic commands, receipts and the outbox.
 
 - `migrations/` is immutable ordered history, not a description of current runtime
   objects. New fixes are additive; never edit an applied migration as cleanup.
-  Some individually deployed overlays are under docs/drafts: never bulk apply them
+  Some individually deployed overlays are under supabase/overlays: never bulk apply them
   or assume `supabase db push` safely reconstructs current production.
 - `functions/` uses Deno TypeScript; `_shared` is server-only helper source. Named
   handlers need explicit auth/origin/gate checks even with verify_jwt=false.

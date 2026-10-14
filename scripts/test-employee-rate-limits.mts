@@ -23,7 +23,7 @@ function sql(source: string) {
     { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
   ).trim();
 }
-const draft = readFileSync('docs/drafts/20260926011000_employee_portal_authorization.sql', 'utf8');
+const draft = readFileSync('supabase/overlays/20260926011000_employee_portal_authorization.sql', 'utf8');
 const limits =
   sql("select to_regclass('public.admin_employee_rate_limits') is not null;") === 't'
     ? ''

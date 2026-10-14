@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBusinessAdmission } from '../infra/portal-identity-candidate/business-admission.mts';
+import { createBusinessAdmission } from '../infra/portal-identity/business-admission.mts';
 const config = {
   origin: 'https://business.dojipro.com',
   turnstileSecret: 'synthetic-secret-'.repeat(3),

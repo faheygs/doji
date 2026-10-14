@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { engine, container } from './database/owned-target.mts';
 import { errorOutput } from './database/contracts.mts';
-const draft = readFileSync('docs/drafts/20260926011000_employee_portal_authorization.sql', 'utf8');
+const draft = readFileSync('supabase/overlays/20260926011000_employee_portal_authorization.sql', 'utf8');
 const start = draft.indexOf('create function public.employee_can_read_report_evidence_v1(');
 const end = draft.indexOf('-- No client can turn off', start);
 assert.ok(start > 0 && end > start);

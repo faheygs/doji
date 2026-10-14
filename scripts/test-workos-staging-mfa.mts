@@ -3,11 +3,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes, createHmac } from 'node:crypto';
 import { createLocalJWKSet, jwtVerify } from 'jose';
 import { resolve } from 'node:path';
-import { createPortalIdentityVerifier } from '../infra/portal-identity-candidate/verify.mts';
-import { createWorkosSessionReader } from '../infra/portal-identity-candidate/workos-session.mts';
-import { createWorkosBusinessProvider } from '../infra/portal-identity-candidate/workos-business-provider.mts';
-import { createWorkosEmployeeProvider } from '../infra/portal-identity-candidate/workos-employee-provider.mts';
-import { boundedBody } from '../infra/portal-identity-candidate/bounded-body.mts';
+import { createPortalIdentityVerifier } from '../infra/portal-identity/verify.mts';
+import { createWorkosSessionReader } from '../infra/portal-identity/workos-session.mts';
+import { createWorkosBusinessProvider } from '../infra/portal-identity/workos-business-provider.mts';
+import { createWorkosEmployeeProvider } from '../infra/portal-identity/workos-employee-provider.mts';
+import { boundedBody } from '../infra/portal-identity/bounded-body.mts';
 import {
   evidenceRecord,
   evidenceAt,
@@ -19,7 +19,7 @@ import type { JSONWebKeySet } from 'jose';
 import type {
   PortalRealm,
   PortalFetch,
-} from '../infra/portal-identity-candidate/portal-contracts.mts';
+} from '../infra/portal-identity/portal-contracts.mts';
 
 function check(ok: unknown, label: string): asserts ok {
   if (!ok) throw Error(label);

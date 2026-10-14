@@ -2,18 +2,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { BusinessPasswordRejected } from '../infra/portal-identity-candidate/business-password-policy.mts';
-import { createBusinessOwnedReset } from '../infra/portal-identity-candidate/business-owned-reset.mts';
-import { createBusinessOwnedHttp } from '../infra/portal-identity-candidate/business-owned-http.mts';
-import { createBusinessOwnedSessionInstaller } from '../infra/portal-identity-candidate/business-owned-session.mts';
-import { createBusinessOwnedGuard } from '../infra/portal-identity-candidate/business-owned-guard.mts';
-import { createBusinessHttp } from '../infra/portal-identity-candidate/business-http.mts';
+import { BusinessPasswordRejected } from '../infra/portal-identity/business-password-policy.mts';
+import { createBusinessOwnedReset } from '../infra/portal-identity/business-owned-reset.mts';
+import { createBusinessOwnedHttp } from '../infra/portal-identity/business-owned-http.mts';
+import { createBusinessOwnedSessionInstaller } from '../infra/portal-identity/business-owned-session.mts';
+import { createBusinessOwnedGuard } from '../infra/portal-identity/business-owned-guard.mts';
+import { createBusinessHttp } from '../infra/portal-identity/business-http.mts';
 import { createOwnedAccessTransport } from '../web/apps/business/src/owned-access-transport.ts';
-import type { BusinessHttpDependencies } from '../infra/portal-identity-candidate/business-http-contracts.mts';
+import type { BusinessHttpDependencies } from '../infra/portal-identity/business-http-contracts.mts';
 import {
   OwnedCodeRejected,
   type OwnedGrant,
-} from '../infra/portal-identity-candidate/business-owned-provider.mts';
+} from '../infra/portal-identity/business-owned-provider.mts';
 const policy = {
   enabled: true,
   sendingEnabled: true,

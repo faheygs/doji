@@ -1,6 +1,6 @@
 import { createBusinessMfa } from '../business-mfa.mts';
 import { control } from './config.mts';
-import type { createBusinessBrowserClient } from '../../../infra/portal-identity-candidate/business-browser-client.mts';
+import type { createBusinessBrowserClient } from '../../../infra/portal-identity/business-browser-client.mts';
 export function independentWorkspace(
   client: ReturnType<typeof createBusinessBrowserClient>,
   message: (text: string) => void,

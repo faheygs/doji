@@ -1,7 +1,7 @@
 // Local synthetic previews only. No config, credentials, provider calls or sends.
 import { createServer } from 'node:http';
-import { prepareBusinessMail } from '../infra/business-email-candidate/message.mts';
-import { renderBusinessEmailHtml } from '../infra/business-email-candidate/theme.mts';
+import { prepareBusinessMail } from '../infra/business-email/message.mts';
+import { renderBusinessEmailHtml } from '../infra/business-email/theme.mts';
 const job = {
   id: '11000000-0000-4000-8000-000000000001',
   application_id: '11000000-0000-4000-8000-000000000002',

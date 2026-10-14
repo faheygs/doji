@@ -21,13 +21,13 @@ do $$begin
 end$$;
 alter default privileges for role postgres in schema public grant execute on functions to anon,authenticated,service_role;
 alter default privileges for role postgres in schema public grant all on tables to anon,authenticated,service_role;
-${body('docs/drafts/employee_editorial_v1.sql')}
+${body('supabase/overlays/employee_editorial_v1.sql')}
 ${readFileSync('scripts/test-editorial-local.sql', 'utf8')}
 reset role;
 create temp table prior_campaign_functions as select p.oid,p.proname,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f';
 create temp table prior_campaign_policies as select * from pg_policies;
 create temp table prior_campaign_relations as select oid,relacl,relrowsecurity from pg_class;
-${body('docs/drafts/announcement_campaigns_v1.sql')}
+${body('supabase/overlays/announcement_campaigns_v1.sql')}
 ${readFileSync('scripts/test-announcement-campaigns.sql', 'utf8')}
 reset role;
 select pg_temp.check_true(not exists(select 1 from prior_campaign_functions f join pg_proc p on p.oid=f.oid where f.proacl is distinct from p.proacl),'existing function grants unchanged');

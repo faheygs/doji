@@ -32,7 +32,7 @@ assert.equal(sql('select count(*) from vault.secrets;'),'0','No production outbo
 // The foundation was installed before the resend recovery was added. Apply
 // only that additive definition locally; never substitute this for migration.
 if(sql("select to_regprocedure('public.claim_employee_verification_v1(text)') is null;")==='t') {
-  const foundation=readFileSync('docs/drafts/20260926010000_employee_identity_foundation.sql','utf8');
+  const foundation=readFileSync('supabase/overlays/20260926010000_employee_identity_foundation.sql','utf8');
   const start=foundation.indexOf('create function public.claim_employee_verification_v1(');
   const end=foundation.indexOf('-- Bootstrap',start);
   assert.ok(start>0 && end>start);

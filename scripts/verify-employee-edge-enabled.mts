@@ -28,7 +28,7 @@ if (process.argv[2] === 'routing-fix') {
     { flag: 'wx' },
   );
   await cp(
-    'infra/portal-identity-candidate/employee-proxy.mts',
+    'infra/portal-identity/employee-proxy.mts',
     `${root}/edge/supabase/functions/${slug}/runtime/employee-proxy.mts`,
   );
   cli(
@@ -38,7 +38,7 @@ if (process.argv[2] === 'routing-fix') {
 }
 if (process.argv[2] === 'routing-observe' || process.argv[2] === 'gateway-fix') {
   await cp(
-    'infra/portal-identity-candidate/employee-proxy.mts',
+    'infra/portal-identity/employee-proxy.mts',
     `${root}/edge/supabase/functions/${slug}/runtime/employee-proxy.mts`,
   );
   cli(

@@ -18,7 +18,7 @@ export async function buildBusinessLegal(output: string) {
     const slug = `business-${kind.toLowerCase()}`,
       version = `${slug}-20260930-v1`;
     let source = await readFile(
-      resolve(import.meta.dirname, `../docs/drafts/BUSINESS_${kind}_REVIEW.md`),
+      resolve(import.meta.dirname, `../docs/legal/BUSINESS_${kind}_REVIEW.md`),
       'utf8',
     );
     source = source.slice(source.indexOf('\n## ')).trim();

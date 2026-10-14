@@ -291,7 +291,6 @@ function PollResultCardImpl({
   );
   /** Fixed sheet height — same size every time, content scrolls inside. */
   const voterSheetMaxHeight = winH * 0.5;
-  const voterListMaxHeight = Math.max(180, voterSheetMaxHeight - 120 - insets.bottom);
 
   /** Slide distance matches sheet height so dragging clears the panel entirely. */
   const sheetSlideRange = voterSheetMaxHeight + insets.bottom + 40;

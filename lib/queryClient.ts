@@ -1,4 +1,5 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 import { reportApiFailure } from './apiFailureTelemetry';
 import { createApiQueryCache } from './apiQueryCache';
 import { retryDelayWithJitter, shouldRetryQuery } from './apiRetry';
@@ -24,6 +25,9 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: false,
     },
     mutations: {
+      // Native read availability must not queue commands for automatic replay.
+      // Keep their existing immediate execution/error handling, even offline.
+      networkMode: Platform.OS === 'web' ? 'online' : 'always',
       // Commands opt into retries only when they are atomic and carry a stable
       // idempotency key. Blindly replaying arbitrary mutations is unsafe.
       retry: false,

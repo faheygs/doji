@@ -59,7 +59,6 @@ import { AppProviders } from '../components/AppProviders';
 import { AppThemeHost } from '../components/system/AppThemeHost';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useNativeNotifications } from '../hooks/useNativeNotifications';
-import { Text } from '../components/ui/Text';
 import { initialSessionBootstrap, observeSessionBootstrap } from '../lib/initialSessionBootstrap';
 import { StartupBrandScreen } from '../components/branding/StartupBrandScreen';
 import { AppUpdatePrompt } from '../components/system/AppUpdatePrompt';

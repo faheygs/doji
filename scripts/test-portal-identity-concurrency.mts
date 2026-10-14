@@ -112,13 +112,13 @@ try {
   );
   sync(`create database ${db} template postgres;`, 'postgres');
   created = true;
-  sync(readFileSync('docs/drafts/business_applications_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_applications_v1.sql', 'utf8'));
   businessRole = true;
-  sync(readFileSync('docs/drafts/portal_identity_registry_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/portal_identity_registry_v1.sql', 'utf8'));
   resolverRole = true;
-  sync(readFileSync('docs/drafts/portal_identity_business_reads_v1.sql', 'utf8'));
-  sync(readFileSync('docs/drafts/business_signup_legal_v1.sql', 'utf8'));
-  sync(readFileSync('docs/drafts/portal_identity_business_commands_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/portal_identity_business_reads_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/business_signup_legal_v1.sql', 'utf8'));
+  sync(readFileSync('supabase/overlays/portal_identity_business_commands_v1.sql', 'utf8'));
   sync(`insert into portal_identity_private.realms(realm,enabled,issuer,audience) values('business',true,'https://issuer.example.test/','business');
  update business_private.settings set enabled=true,application_terms_version='test',privacy_version='test';
  update portal_identity_private.business_read_settings set enabled=true;`);

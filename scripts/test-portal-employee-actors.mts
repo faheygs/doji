@@ -15,9 +15,9 @@ const body = (path: string) =>
     .replace(/^commit;\s*$/m, '');
 const sql = `begin;
 do $$begin if exists(select 1 from vault.secrets) or exists(select 1 from auth.users where email is null or email not like '%@test.invalid') then raise exception 'Synthetic offline database required';end if;end$$;
-${body('docs/drafts/business_applications_v1.sql')}
-${body('docs/drafts/portal_identity_registry_v1.sql')}
-${body('docs/drafts/employee_session_store_v1.sql')}
+${body('supabase/overlays/business_applications_v1.sql')}
+${body('supabase/overlays/portal_identity_registry_v1.sql')}
+${body('supabase/overlays/employee_session_store_v1.sql')}
 create function pg_temp.ok(v boolean,label text) returns text language plpgsql as $$begin if v is distinct from true then raise exception 'FAIL: %',label;end if;return 'PASS: '||label;end$$;
 create function pg_temp.denied(s text,expected text,label text) returns text language plpgsql as $$begin begin execute s;exception when others then if sqlstate=expected then return 'PASS: '||label;end if;raise;end;raise exception 'FAIL: allowed %',label;end$$;
 create temp table before_functions as select p.oid,pg_get_functiondef(p.oid) definition,p.proacl from pg_proc p where p.prokind='f' and p.pronamespace in('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace);
@@ -25,7 +25,7 @@ create temp table before_auth as select id,md5(to_jsonb(u)::text) fingerprint fr
 create temp table before_policies as select * from pg_policies;
 create temp table before_fks as select oid,conrelid,conname,pg_get_constraintdef(oid) definition from pg_constraint where contype='f';
 create temp table before_history as select 'admin_audit_log'::text relation,to_jsonb(a) item from public.admin_audit_log a union all select 'admin_employees',to_jsonb(a) from public.admin_employees a union all select 'moderation_decisions',to_jsonb(a) from public.moderation_decisions a;
-${body('docs/drafts/portal_employee_actors_v1.sql')}
+${body('supabase/overlays/portal_employee_actors_v1.sql')}
 select pg_temp.ok((select count(*)=9 from portal_identity_private.staff_reference_migration),'exactly nine reviewed references recorded');
 select pg_temp.ok((select count(*)=9 from pg_constraint where contype='f' and confrelid='portal_identity_private.staff_actors'::regclass),'all nine references point to attribution registry');
 select pg_temp.ok(not exists(select * from before_history except (select 'admin_audit_log',to_jsonb(a) from public.admin_audit_log a union all select 'admin_employees',to_jsonb(a) from public.admin_employees a union all select 'moderation_decisions',to_jsonb(a) from public.moderation_decisions a)),'historical rows and UUIDs unchanged');
@@ -58,7 +58,7 @@ delete from auth.users where id=current_setting('test.member')::uuid;
 select pg_temp.ok(not exists(select 1 from auth.users where id=current_setting('test.member')::uuid) and not exists(select 1 from portal_identity_private.staff_actors where id=current_setting('test.member')::uuid),'member deletion cascades only legacy attribution linkage');
 select pg_temp.ok(exists(select 1 from public.admin_audit_log where request_id='legacy-staff-attribution' and actor_id is null and deleted_member_refs->>'actor_id'=current_setting('test.member')),'member deletion retains audit and deleted actor UUID');
 select pg_temp.ok(exists(select 1 from public.admin_audit_log where request_id='independent-staff-test' and actor_id='98000000-0000-4000-8000-000000000001'),'member deletion leaves independent staff attribution intact');
-${body('docs/drafts/portal_employee_actors_v1.rollback.sql')}
+${body('supabase/overlays/portal_employee_actors_v1.rollback.sql')}
 select pg_temp.ok(not exists(select 1 from portal_identity_private.realms where realm='employee' and enabled) and not (select enabled from employee_session_private.settings),'fallback freezes external employee access');
 select pg_temp.ok(exists(select 1 from public.admin_audit_log where request_id='independent-staff-test'),'fallback retains external audit history');
 rollback;`;

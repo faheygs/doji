@@ -1,16 +1,16 @@
 // Offline only: fake provider/store. No keys, DB, emails or production traffic.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BusinessPasswordRejected } from '../infra/portal-identity-candidate/business-password-policy.mts';
+import { BusinessPasswordRejected } from '../infra/portal-identity/business-password-policy.mts';
 import {
   createBusinessOwnedProvider,
   OwnedCodeRejected,
   type OwnedGrant,
-} from '../infra/portal-identity-candidate/business-owned-provider.mts';
+} from '../infra/portal-identity/business-owned-provider.mts';
 import {
   createBusinessOwnedFlow,
   type OwnedFlowDependencies,
-} from '../infra/portal-identity-candidate/business-owned-flow.mts';
+} from '../infra/portal-identity/business-owned-flow.mts';
 const policy = {
   enabled: true,
   sendingEnabled: true,

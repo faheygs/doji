@@ -28,7 +28,7 @@ if(mode==='prepare'){
   DOJI_BUSINESS_TERMS_VERSION:'business-terms-20260930-v1',DOJI_BUSINESS_PRIVACY_VERSION:'business-privacy-20260930-v1'}});
  await cp(`${root}/edge`,edge,{recursive:true,errorOnExist:true,force:false});
  await cp('supabase/functions/_shared/business-auth.ts',`${edge}/supabase/functions/_shared/business-auth.ts`);
- const foundation=await readFile('docs/drafts/business_applications_v1.sql','utf8');
+ const foundation=await readFile('supabase/overlays/business_applications_v1.sql','utf8');
  const guard=foundation.slice(foundation.indexOf('do $$declare exposed text; begin'),foundation.lastIndexOf('commit;'));
  const activation=await readFile('scripts/business-enable-public-launch.sql','utf8');
  const sql=activation.replace('grant doji_business to authenticator;',()=>`${guard}\ngrant doji_business to authenticator;`);

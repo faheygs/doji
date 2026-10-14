@@ -142,7 +142,7 @@ export async function buildBusinessIdentity(
         : [],
     });
   await build({
-    entryPoints: [resolve(root, 'infra/portal-identity-candidate/business-pages-worker.mts')],
+    entryPoints: [resolve(root, 'infra/portal-identity/business-pages-worker.mts')],
     outfile: resolve(output, '_worker.js'),
     bundle: true,
     format: 'esm',

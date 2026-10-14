@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderBusinessEmailHtml } from '../infra/business-email-candidate/theme.mts';
+import { renderBusinessEmailHtml } from '../infra/business-email/theme.mts';
 const input = {
   title: 'Your business is approved',
   preheader: 'Finish setup',

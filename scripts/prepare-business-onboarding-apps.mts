@@ -27,7 +27,7 @@ const salt=randomBytes(16),salted=pbkdf2Sync(db.password,salt,4096,32,'sha256');
 const stored=createHash('sha256').update(createHmac('sha256',salted).update('Client Key').digest()).digest('base64');
 const server=createHmac('sha256',salted).update('Server Key').digest('base64');
 const verifier=`SCRAM-SHA-256$4096:${salt.toString('base64')}$${stored}:${server}`;
-const addon=(await readFile('docs/drafts/business_email_hosted_v1.sql','utf8')).replace(/^begin;|^commit;/gm,'');
+const addon=(await readFile('supabase/overlays/business_email_hosted_v1.sql','utf8')).replace(/^begin;|^commit;/gm,'');
 const ddl=`begin;set local lock_timeout='2s';set local statement_timeout='8s';
 do $$begin
  if exists(select 1 from public.daily_events where fires_at<=clock_timestamp()+interval '25 minutes' and fires_at+interval '15 minutes'>clock_timestamp() limit 1) or exists(select 1 from public.domain_event_outbox where published_at is null and available_at<clock_timestamp()-interval '60 seconds' limit 1) then raise exception 'Protected member window';end if;
@@ -49,7 +49,7 @@ do $$begin
 end$$;commit;`;
 await writeFile(`${secure}/mail-install.sql`,ddl,{flag:'wx'});
 await writeFile(`${secure}/mail-rehearse.sql`,ddl.replace(/commit;$/,'rollback;'),{flag:'wx'});
-await writeFile(`${root}/mail-stop.sql`,await readFile('docs/drafts/business_email_hosted_v1.rollback.sql'),{flag:'wx'});
+await writeFile(`${root}/mail-stop.sql`,await readFile('supabase/overlays/business_email_hosted_v1.rollback.sql'),{flag:'wx'});
 await writeFile(`${root}/mail-login-stop.sql`,"begin;alter role doji_business_mail_login nologin;revoke doji_business_mail from doji_business_mail_login;commit;",{flag:'wx'});
 await cp(`${root}/pages-before`,`${root}/site`,{recursive:true,errorOnExist:true});
 await cp('web/apps/business/dist/assets',`${root}/site${namespace}assets`,{recursive:true});
@@ -62,7 +62,7 @@ assert.ok(html.includes(namespace+'assets/'));
 for(const path of ['index.html','business-portal/access/index.html','business-portal/application/index.html','business-portal/setup/index.html']) {
  await mkdir(dirname(`${root}/site/${path}`),{recursive:true});await writeFile(`${root}/site/${path}`,html);
 }
-const worker=await build({entryPoints:['infra/portal-identity-candidate/business-pages-worker.mts'],bundle:true,write:false,format:'esm',platform:'neutral',target:'es2022',external:['node:*'],logLevel:'silent'});
+const worker=await build({entryPoints:['infra/portal-identity/business-pages-worker.mts'],bundle:true,write:false,format:'esm',platform:'neutral',target:'es2022',external:['node:*'],logLevel:'silent'});
 await writeFile(`${root}/site/_worker.js`,worker.outputFiles[0]!.contents);
 for(const path of ['_headers','_routes.json','_redirects','business-portal/config.js','business-terms/index.html','business-privacy/index.html']) assert.equal(hash(await readFile(`${root}/site/${path}`)),hash(await readFile(`${root}/pages-before/${path}`)),path);
 for(const slug of ['business-portal-v2','business-application-mail']) {
@@ -75,5 +75,5 @@ await writeFile(`${root}/edge/supabase/config.toml`,['project_id="business-onboa
 const files=await inventory(`${root}/site${namespace}assets`);let coreGzip=0;
 for(const f of files.filter(f=>f.path.endsWith('.js')&&!f.path.startsWith('password-strength-'))) coreGzip+=gzipSync(await readFile(`${root}/site${namespace}assets/${f.path}`)).length;
 assert.ok(coreGzip<256*1024,'Onboarding frontend package exceeds 256 KiB compressed');
-await writeFile(`${root}/apps.json`,JSON.stringify({at:new Date().toISOString(),site:await inventory(`${root}/site`),edge:await inventory(`${root}/edge`),runtimeHash:hash(JSON.stringify(runtime)),mailHash:hash(JSON.stringify(mail)),mailInstallHash:hash(ddl),mailSourceHash:hash(await readFile('docs/drafts/business_email_hosted_v1.sql')),coreGzip,releaseConfig},null,2),{flag:'wx'});
+await writeFile(`${root}/apps.json`,JSON.stringify({at:new Date().toISOString(),site:await inventory(`${root}/site`),edge:await inventory(`${root}/edge`),runtimeHash:hash(JSON.stringify(runtime)),mailHash:hash(JSON.stringify(mail)),mailInstallHash:hash(ddl),mailSourceHash:hash(await readFile('supabase/overlays/business_email_hosted_v1.sql')),coreGzip,releaseConfig},null,2),{flag:'wx'});
 console.log(JSON.stringify({prepared:true,coreGzip,publicSignup:false,mailCapture:false,mailAcceptanceLimit:1,automaticPolling:false}));

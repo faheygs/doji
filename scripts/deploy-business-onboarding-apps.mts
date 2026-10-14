@@ -7,7 +7,7 @@ import {createRequire} from 'node:module';
 import {cli,cf,ref,account,hash,inventory} from './prepare-safety-launch.mts';
 import {database,functions,secrets,pages,health} from './business-disabled-release-reads.mts';
 import {evidenceRecord as record,evidenceRows as rows,evidenceArray as array} from './release-evidence.mts';
-import {createBusinessMailSql,type MailDatabase} from '../infra/business-email-candidate/restricted-sql.mts';
+import {createBusinessMailSql,type MailDatabase} from '../infra/business-email/restricted-sql.mts';
 const root='test-results/business-onboarding-release-20261011',secure='.artifacts/business-onboarding-release-20261011';
 const mode=process.argv[2];
 assert.ok(['mail-rehearse','mail-database','mail-connection','configure','edge','pages','enable','verify'].includes(mode||''));
@@ -20,7 +20,7 @@ assert.deepEqual((await inventory(`${root}/edge`)).filter(f=>!f.path.includes('/
 assert.equal(hash(await readFile(`${secure}/runtime-after.json`)),a.runtimeHash);
 assert.equal(hash(await readFile(`${secure}/mail.json`)),a.mailHash);
 assert.equal(hash(await readFile(`${secure}/mail-install.sql`)),a.mailInstallHash);
-assert.equal(hash(await readFile('docs/drafts/business_email_hosted_v1.sql')),a.mailSourceHash);
+assert.equal(hash(await readFile('supabase/overlays/business_email_hosted_v1.sql')),a.mailSourceHash);
 async function boundaries() {
  const d=database();assert.equal(d.event_window,false);assert.equal(d.overdue_sample,0);
  for(const key of ['contracts','policies']) assert.equal(d[key],record(b.database)[key],key);
@@ -49,7 +49,7 @@ if(mode==='mail-rehearse'||mode==='mail-database') {
  console.log(mode==='mail-rehearse'?'Sender SQL and restricted login rehearsal rolled back.':'Hosted sender contracts/login installed; wakeup, capture and sending remain disabled.');
 } else if(mode==='mail-connection') {
  await access(`${root}/mail-installed.json`);
- const pg=createRequire(new URL('../infra/portal-identity-candidate/package.json',import.meta.url))('pg') as typeof import('pg');
+ const pg=createRequire(new URL('../infra/portal-identity/package.json',import.meta.url))('pg') as typeof import('pg');
  const mail=await read(`${secure}/mail.json`);
  const sql=createBusinessMailSql(mail.database as MailDatabase,o=>new pg.Client(o));
  assert.equal(await sql('select business_private.claim_application_email($1::uuid,$2::uuid) as result',['11000000-0000-4000-8000-000000000001','11000000-0000-4000-8000-000000000002']),null);

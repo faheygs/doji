@@ -75,8 +75,8 @@ fails on missing completion or any FAIL output, not merely adb's exit status.
 
 Separate from this loopback harness, the owner authorized one synthetic member
 for the real build-25 app. See
-`docs/ANDROID_DIAGNOSTIC_BUILD_25_2026-10-02.md` for signed-in Shop, offline
-cold-start and reconnect results. `member-account.cjs` must not be rerun to create
+`docs/releases/ANDROID_DIAGNOSTICS.md` for the retained build identities and findings.
+`member-account.mts` must not be rerun to create
 duplicates; its ignored credential record is restricted to the workstation owner
 and SYSTEM. Never print or commit that file. Its `type` mode targets only the
 dedicated emulator after a field has been visually/structurally verified.
@@ -143,10 +143,10 @@ JavaScript with a simulated JSI boundary. These layers are not a complete
 Expo/JSI end-to-end test and do not reproduce the real production 504.
 
 Incident evidence and remaining release gates:
-`docs/ANDROID_26_FEED_504_INVESTIGATION_2026-10-03.md`.
+`docs/releases/ANDROID_26_FEED_504_INVESTIGATION_2026-10-03.md`.
 
 October 4 local POST extension: **96 assertions passed in three runs**. Ten added
 checks compare POST RPCs with and without the passive observer, retaining exact
 HTTP status/body, credentials and request body without extra requests. This is
 synthetic loopback evidence, not reproduction of the production 504. The runner
-now requires 96 assertions. See `docs/ANDROID_27_POST_504_INVESTIGATION_2026-10-04.md`.
+now requires 96 assertions. See `docs/releases/ANDROID_27_POST_504_INVESTIGATION_2026-10-04.md`.

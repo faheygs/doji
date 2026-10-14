@@ -8,7 +8,7 @@ const info = offlineContainer(
 );
 assert.equal(info.HostConfig.NetworkMode, 'none');
 assert.equal(Object.keys(info.HostConfig.PortBindings || {}).length, 0);
-const draft = readFileSync('docs/drafts/moderation_media_ledger_v1.sql', 'utf8')
+const draft = readFileSync('supabase/overlays/moderation_media_ledger_v1.sql', 'utf8')
   .replace(/^begin;$/m, '')
   .replace(/^commit;$/m, '');
 // Real Storage policies now come from migration replay, not a retained snapshot.

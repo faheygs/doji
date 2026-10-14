@@ -1,8 +1,8 @@
 // Actual store adapter, synthetic execute boundary. No SQL is sent anywhere.
 import nodeTest from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmployeeSessionStore } from '../infra/portal-identity-candidate/employee-session-store.mts';
-import { createBusinessSessionStore } from '../infra/portal-identity-candidate/business-session-store.mts';
+import { createEmployeeSessionStore } from '../infra/portal-identity/employee-session-store.mts';
+import { createBusinessSessionStore } from '../infra/portal-identity/business-session-store.mts';
 import { present } from './employee-test-fixtures.mts';
 type Config = Omit<Parameters<typeof createEmployeeSessionStore>[0], 'realm'>;
 type Execute = (

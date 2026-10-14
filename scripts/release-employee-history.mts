@@ -60,10 +60,10 @@ const snapshot = () =>
  ) state;rollback;`)[0]?.state,
   );
 const sourcePaths = [
-  'docs/drafts/employee_history_reads_v1.sql',
-  'docs/drafts/employee_history_bridge_v1.sql',
-  'docs/drafts/employee_history_reads_v1.rollback.sql',
-  'docs/drafts/employee_history_bridge_v1.rollback.sql',
+  'supabase/overlays/employee_history_reads_v1.sql',
+  'supabase/overlays/employee_history_bridge_v1.sql',
+  'supabase/overlays/employee_history_reads_v1.rollback.sql',
+  'supabase/overlays/employee_history_bridge_v1.rollback.sql',
 ];
 const sources = () =>
   Promise.all(sourcePaths.map(async (path) => ({ path, sha256: hash(await readFile(path)) })));
@@ -145,7 +145,7 @@ if (mode === 'preflight') {
   assert.equal(db.installed, 0);
   assert.equal(db.history_enabled, false);
   assert.equal(db.lock_waits, 0);
-  const baselineSource = (await readFile('docs/drafts/staff_workflow_extended_v1.sql', 'utf8'))
+  const baselineSource = (await readFile('supabase/overlays/staff_workflow_extended_v1.sql', 'utf8'))
     .replaceAll('\r\n', '\n')
     .match(
       /create function public\.get_admin_staff_work_page_v1\([\s\S]*?as \$\$([\s\S]*?)end\$\$;/,

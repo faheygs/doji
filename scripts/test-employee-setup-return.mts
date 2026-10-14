@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { employeeSetupReturn } from '../infra/portal-identity-candidate/employee-setup-return.mts';
+import { employeeSetupReturn } from '../infra/portal-identity/employee-setup-return.mts';
 const url = 'https://admin.dojipro.com/identity/setup-complete';
 test('provider code is stripped, never echoed or used as employee authority', async () => {
   const r = employeeSetupReturn(new Request(url + '?code=synthetic&state=synthetic'));

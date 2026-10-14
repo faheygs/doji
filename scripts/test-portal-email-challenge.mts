@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { test } from 'node:test';
-import { createPortalEmailChallengeDraft } from '../docs/drafts/portal-email-challenge.mts';
+import { createPortalEmailChallengeDraft } from '../infra/portal-identity/proposals/email-code/portal-email-challenge.mts';
 import type {
   EmailAttempt,
   EmailChallengeStore,
   EmailState,
-} from '../docs/drafts/portal-email-challenge-contracts.mts';
+} from '../infra/portal-identity/proposals/email-code/portal-email-challenge-contracts.mts';
 
 // Serialized in-memory test adapter, not evidence of a qualified distributed DB store.
 function fixture() {

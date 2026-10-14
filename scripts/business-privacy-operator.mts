@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { cli, ref } from './prepare-safety-launch.mts';
 import { evidenceRecord, evidenceRows } from './release-evidence.mts';
 import { linkedWorkspace } from './business-disabled-release-reads.mts';
-import { createBusinessPrivacyOperator } from '../infra/portal-identity-candidate/business-privacy-operator.mts';
+import { createBusinessPrivacyOperator } from '../infra/portal-identity/business-privacy-operator.mts';
 const [mode, caseId, argument] = process.argv.slice(2);
 assert.ok(
   mode === 'export' || mode === 'erase',

@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
-import { createPortalIdentityVerifier } from '../infra/portal-identity-candidate/verify.mts';
+import { createPortalIdentityVerifier } from '../infra/portal-identity/verify.mts';
 import type { JWTPayload, JWSHeaderParameters } from 'jose';
-import type { PortalIdentity } from '../infra/portal-identity-candidate/portal-contracts.mts';
+import type { PortalIdentity } from '../infra/portal-identity/portal-contracts.mts';
 import { present } from './employee-test-fixtures.mts';
 type Policy = Parameters<typeof createPortalIdentityVerifier>[0];
 type Keys = Awaited<ReturnType<typeof generateKeyPair>>;

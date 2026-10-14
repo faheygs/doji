@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBusinessOwnedGuard } from '../infra/portal-identity-candidate/business-owned-guard.mts';
+import { createBusinessOwnedGuard } from '../infra/portal-identity/business-owned-guard.mts';
 test('business identity admission does not depend on a Node-only Buffer global', () => {
   const guard = createBusinessOwnedGuard(
     {

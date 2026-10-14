@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import type { EmployeeActor } from '../infra/portal-identity-candidate/employee-contracts.mts';
-import { record } from '../infra/portal-identity-candidate/portal-contracts.mts';
+import type { EmployeeActor } from '../infra/portal-identity/employee-contracts.mts';
+import { record } from '../infra/portal-identity/portal-contracts.mts';
 
 export const testEmployee: EmployeeActor = Object.freeze({
   realm: 'employee',

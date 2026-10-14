@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { createBusinessRuntime } from '../infra/portal-identity-candidate/business-runtime.mts';
-import type { BusinessRuntimeConfig } from '../infra/portal-identity-candidate/business-runtime.mts';
-import type { PortalSqlClient } from '../infra/portal-identity-candidate/restricted-sql.mts';
+import { createBusinessRuntime } from '../infra/portal-identity/business-runtime.mts';
+import type { BusinessRuntimeConfig } from '../infra/portal-identity/business-runtime.mts';
+import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
 export const businessConfig: BusinessRuntimeConfig = {
   enabled: true,
   signupEnabled: true,

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac, createHash } from 'node:crypto';
-import { createBusinessRegistrationAction } from '../infra/portal-identity-candidate/business-registration-action.mts';
+import { createBusinessRegistrationAction } from '../infra/portal-identity/business-registration-action.mts';
 import { present, testRecord } from './employee-test-fixtures.mts';
 type Config = Parameters<typeof createBusinessRegistrationAction>[0];
 type Execute = Parameters<typeof createBusinessRegistrationAction>[1];

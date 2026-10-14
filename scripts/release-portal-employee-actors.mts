@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { cli, cf, hash, ref } from './prepare-safety-launch.mts';
 import {evidenceRecord,evidenceAt,evidenceArray,evidenceRows,evidenceText} from './release-evidence.mts';
 const root = 'test-results/portal-employee-actors-20261001';
-const source = 'docs/drafts/portal_employee_actors_v1.sql';
+const source = 'supabase/overlays/portal_employee_actors_v1.sql';
 const mode = process.argv[2];
 assert.ok(mode&&['prepare', 'rehearse', 'apply', 'verify'].includes(mode));
 assert.equal((await readFile('supabase/.temp/project-ref', 'utf8')).trim(), ref);

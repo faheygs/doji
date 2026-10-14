@@ -24,7 +24,7 @@ export const areas: CoveragePolicy = Object.freeze({
     'website/portal-config.mts',
     'website/theme-init.mts',
   ],
-  'portal-identity': ['infra/portal-identity-candidate/*.{mjs,mts}'],
+  'portal-identity': ['infra/portal-identity/*.{mjs,mts}'],
   orchestrator: ['infra/doji-orchestrator/src/**/*.ts'],
   'edge-functions': ['supabase/functions/**/*.ts'],
 });

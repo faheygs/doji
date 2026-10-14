@@ -1,4 +1,4 @@
-import { createBusinessBrowserClient } from '../../../infra/portal-identity-candidate/business-browser-client.mts';
+import { createBusinessBrowserClient } from '../../../infra/portal-identity/business-browser-client.mts';
 import { createBusinessVerification } from '../business-verification.mts';
 import { identityConfig, control } from './config.mts';
 import { openBusinessApplication } from './application.mts';

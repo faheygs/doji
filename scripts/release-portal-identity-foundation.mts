@@ -7,9 +7,9 @@ import {evidenceRecord,evidenceAt,evidenceRows,evidenceAssets} from './release-e
 import type {PagesReleaseProject} from './release-evidence.mts';
 const root = 'test-results/portal-identity-foundation-20261001';
 const sources = [
-  'docs/drafts/portal_identity_registry_v1.sql',
-  'docs/drafts/business_session_store_v1.sql',
-  'docs/drafts/employee_session_store_v1.sql',
+  'supabase/overlays/portal_identity_registry_v1.sql',
+  'supabase/overlays/business_session_store_v1.sql',
+  'supabase/overlays/employee_session_store_v1.sql',
 ];
 const mode = process.argv[2];
 assert.ok(mode&&['prepare', 'rehearse', 'apply', 'verify'].includes(mode));

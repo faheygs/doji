@@ -3,7 +3,6 @@ import type { CommentWithMeta } from '../../hooks/useComments';
 
 function makeComment(overrides: Partial<CommentWithMeta> & { id: string }): CommentWithMeta {
   return {
-    id: overrides.id,
     post_id: 'post-1',
     user_id: 'user-1',
     body: 'test comment',

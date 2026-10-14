@@ -10,7 +10,7 @@ The only compatibility adaptations are the CommonJS function export and the
 The decoding algorithm is entirely upstream; no custom recursive decoder or
 postinstall source rewriting is used.
 
-Maintain `index.cts`, checked by `scripts/tsconfig.tooling.json`. The existing
+Maintain `index.cts`, checked by `scripts/tsconfig.json`. The existing
 CommonJS package entry `index.cjs` is generated for query-string/Metro; do not edit
 it directly. Regenerate with `node scripts/build-compat.mts --write`. The root
 migration gate compares its bytes with compiler output, and parser/router tests

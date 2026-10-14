@@ -91,7 +91,7 @@ if(mode==='worker') {
  or (b->>'decision_rows')::int>=1000 or (b->>'decision_bytes')::bigint>=1048576
  then raise exception 'Unsafe deployment window or index sizing'; end if;
 end $gate$;\n`;
- const migration=(await read('docs/drafts/20260927011000_employee_avatar_evidence.sql'))+'\n'+(await read('docs/drafts/20260927010000_portal_case_evidence_and_appeals.sql'));
+ const migration=(await read('supabase/overlays/20260927011000_employee_avatar_evidence.sql'))+'\n'+(await read('supabase/overlays/20260927010000_portal_case_evidence_and_appeals.sql'));
  const after=`create temporary table triage_after on commit drop as ${snapshot};
 do $verify$ declare b jsonb; a jsonb; n text; k text; begin
  select baseline into b from triage_before; select baseline into a from triage_after;
@@ -113,7 +113,7 @@ end $verify$;\n`;
  const ledger=`insert into supabase_migrations.schema_migrations(version,name,statements) values('20260927020000','employee_case_evidence',array[$migration$${migration}$migration$]);\n`;
  const canary=(await read('scripts/portal-triage-case-canary.sql'))+'\n'+(await read('scripts/portal-triage-member-canary.sql')).replace('begin read only;','').replace(/rollback;\s*$/,'');
  await writeFile(`${root}/deploy.sql`,start+capture+beforeGate+migration+'\n'+after+canary+ledger+"notify pgrst,'reload schema';\ncommit;\n");
- const undo=(await read('docs/drafts/20260927010000_portal_case_evidence_and_appeals.rollback.sql'))+'\n'+(await read('docs/drafts/20260927011000_employee_avatar_evidence.rollback.sql'));
+ const undo=(await read('supabase/overlays/20260927010000_portal_case_evidence_and_appeals.rollback.sql'))+'\n'+(await read('supabase/overlays/20260927011000_employee_avatar_evidence.rollback.sql'));
  const exactRestored=`create temporary table triage_restored on commit drop as ${snapshot};
 do $$declare b jsonb;a jsonb;k text;begin select baseline into b from triage_before;select baseline into a from triage_restored;
 foreach k in array array['functions','policies','relations','triggers','role_settings','indexes','avatar_bucket_public'] loop

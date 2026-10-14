@@ -1,6 +1,6 @@
 // Read-only bounded preflight. Never emits users, credentials or provider bodies.
 import { readFileSync } from 'node:fs';
-import { boundedBody } from '../infra/portal-identity-candidate/bounded-body.mts';
+import { boundedBody } from '../infra/portal-identity/bounded-body.mts';
 import { evidenceRecord } from './release-evidence.mts';
 if (!process.argv.includes('--read-production')) {
   console.log('No network requests. Pass --read-production for four bounded directory/key checks.');

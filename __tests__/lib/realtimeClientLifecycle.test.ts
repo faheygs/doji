@@ -62,7 +62,7 @@ jest.mock('../../lib/supabase', () => ({
       getSession: (...args: unknown[]) => mockGetSession(...args),
       refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
     },
-    functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
+    functions: { invoke: (...args: Parameters<typeof mockInvoke>) => mockInvoke(...args) },
   },
 }));
 jest.mock('../../lib/telemetry', () => ({

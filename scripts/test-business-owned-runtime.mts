@@ -4,12 +4,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { businessFixture, businessConfig } from './business-runtime-fixture.mts';
-import { createBusinessProxy } from '../infra/portal-identity-candidate/business-proxy.mts';
+import { createBusinessProxy } from '../infra/portal-identity/business-proxy.mts';
 import { createOwnedAccessTransport } from '../web/apps/business/src/owned-access-transport.ts';
-import { createRestrictedSql } from '../infra/portal-identity-candidate/restricted-sql.mts';
-import { businessOwnedSql } from '../infra/portal-identity-candidate/business-owned-sql.mts';
-import { createBusinessSessionStore } from '../infra/portal-identity-candidate/business-session-store.mts';
-import { ownedDiagnostic } from '../infra/portal-identity-candidate/business-owned-diagnostics.mts';
+import { createRestrictedSql } from '../infra/portal-identity/restricted-sql.mts';
+import { businessOwnedSql } from '../infra/portal-identity/business-owned-sql.mts';
+import { createBusinessSessionStore } from '../infra/portal-identity/business-session-store.mts';
+import { ownedDiagnostic } from '../infra/portal-identity/business-owned-diagnostics.mts';
 const ownedAuth = {
   enabled: true,
   sendingEnabled: true,

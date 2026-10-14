@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
-const candidate = read('docs/drafts/member_query_performance_v1.sql');
+const candidate = read('supabase/overlays/member_query_performance_v1.sql');
 const baseline = read('supabase/migrations/20260909223000_friendship_time_scoped_activity.sql');
 const normalize = (sql: string) => sql.replace(/\s+/g, ' ').trim();
 

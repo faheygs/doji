@@ -135,7 +135,7 @@ test.each([
       { predicate: expect.any(Function), refetchType: 'active' },
       { cancelRefetch: false },
     );
-    expect(refreshActivePostEngagement.mock.calls).toEqual(refresh ? [[client, 'target']] : []);
+    expect(jest.mocked(refreshActivePostEngagement).mock.calls).toEqual(refresh ? [[client, 'target']] : []);
     expect(invalidateRoots).toHaveBeenCalledWith('notificationCenter');
   },
 );
@@ -173,8 +173,9 @@ test.each([
 test.each([true, false])(
   'failed engagement refresh is contained (development=%s)',
   async (development) => {
-    const original = global.__DEV__;
-    global.__DEV__ = development;
+    const runtime = global as typeof global & { __DEV__: boolean };
+    const original = runtime.__DEV__;
+    runtime.__DEV__ = development;
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       jest.mocked(refreshActivePostEngagement).mockRejectedValue(new Error('offline'));
@@ -184,7 +185,7 @@ test.each([true, false])(
       expect(warn).toHaveBeenCalledTimes(development ? 1 : 0);
     } finally {
       warn.mockRestore();
-      global.__DEV__ = original;
+      runtime.__DEV__ = original;
     }
   },
 );

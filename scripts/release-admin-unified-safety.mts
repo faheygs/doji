@@ -94,7 +94,7 @@ if (mode === 'prepare') {
   assert.deepEqual(await inventory(`${root}/edge-before`), await inventory(oldEdge));
   if (!await access(`${root}/edge-after`).then(() => true, () => false))
     await cp(oldEdge, `${root}/edge-after`, { recursive: true, force: false, errorOnExist: true });
-  await writeFile(`${root}/edge-after/${runtime}`, compile(await readFile('infra/portal-identity-candidate/employee-workflow-contracts.mts', 'utf8'), 'employee-workflow-contracts.mts'));
+  await writeFile(`${root}/edge-after/${runtime}`, compile(await readFile('infra/portal-identity/employee-workflow-contracts.mts', 'utf8'), 'employee-workflow-contracts.mts'));
   const edge = await inventory(`${root}/edge-after`), oldInventory = await inventory(oldEdge);
   assert.deepEqual(edge.map(f => f.path), oldInventory.map(f => f.path));
   assert.deepEqual(edge.filter(f => oldInventory.find(o => o.path === f.path)?.sha256 !== f.sha256).map(f => f.path), [runtime]);
@@ -132,8 +132,8 @@ if (mode === 'prepare') {
   assert.deepEqual([...changed].sort(), [...paths].sort());
   assert.deepEqual(assets.map(a => a.path), oldAssets.map(a => a.path));
   await save('prepared', { at: new Date().toISOString(), pages: currentPages, functions: fs, secrets: secrets(),
-    configHashes: await configHashes(), database: db, assets, changed, edge, rollback: { site: baseline, edge: `${root}/edge-before`, sql: 'docs/drafts/staff_safety_queue_v1.rollback.sql' },
-    sqlHash: hash(await readFile('docs/drafts/staff_safety_queue_v1.sql')) });
+    configHashes: await configHashes(), database: db, assets, changed, edge, rollback: { site: baseline, edge: `${root}/edge-before`, sql: 'supabase/overlays/staff_safety_queue_v1.rollback.sql' },
+    sqlHash: hash(await readFile('supabase/overlays/staff_safety_queue_v1.sql')) });
   console.log(JSON.stringify({ changed, runtimeChanged: runtime, productionUnchanged: true }));
 } else if (mode === 'test') {
   const p = await read(`${root}/prepared.json`);
@@ -147,7 +147,7 @@ if (mode === 'prepare') {
       const spec = m[1]; assert.ok(spec);
       const deployed = resolve(`${root}/edge-after/supabase/functions/${slug}/runtime/${basename(spec).replace(/\.mts$/, '.mjs')}`);
       const exists = await access(deployed).then(() => true, () => false);
-      source = source.replaceAll(spec, pathToFileURL(exists && spec.startsWith('../infra/portal-identity-candidate/') ? deployed : resolve('scripts', spec)).href);
+      source = source.replaceAll(spec, pathToFileURL(exists && spec.startsWith('../infra/portal-identity/') ? deployed : resolve('scripts', spec)).href);
     }
     const path = `${out}/${name}.mjs`; await writeFile(path, source); files.push(path);
   }
@@ -163,7 +163,7 @@ if (mode === 'prepare') {
 } else if (mode === 'database') {
   const p = await guard(14), db = evidenceRecord(p.database), expected = String(db.hash);
   await read(`${root}/runtime-tested.json`);
-  const source = await readFile('docs/drafts/staff_safety_queue_v1.sql', 'utf8');
+  const source = await readFile('supabase/overlays/staff_safety_queue_v1.sql', 'utf8');
   assert.equal(hash(source), p.sqlHash);
   assert.match(expected, /^[a-f0-9]{32}$/);
   const original = String(db.bridge).replaceAll("'", "''");

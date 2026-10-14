@@ -1,8 +1,7 @@
-import React from 'react';
 import { View, Text, StyleSheet, Platform, type TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Typography, Spacing, Radius, xpToNextLevel } from '../../constants/theme';
+import { Typography, Radius, xpToNextLevel } from '../../constants/theme';
 
 type Props = {
   xp: number;

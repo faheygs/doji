@@ -30,7 +30,7 @@ try {
     'portal_identity_employee_rpc_v1',
   ]) {
     try {
-      sql(read(`docs/drafts/${name}.sql`));
+      sql(read(`supabase/overlays/${name}.sql`));
     } catch (error) {
       console.error(
         sql(
@@ -72,8 +72,8 @@ try {
     union all select to_jsonb(s)::text from public.challenge_suggestions s
     union all select to_jsonb(a)::text from business_private.applications a) existing;`);
   const before = fingerprint();
-  sql(read('docs/drafts/staff_case_ownership_v1.sql'));
-  sql(read('docs/drafts/staff_workflow_employee_bridge_v1.sql'));
+  sql(read('supabase/overlays/staff_case_ownership_v1.sql'));
+  sql(read('supabase/overlays/staff_workflow_employee_bridge_v1.sql'));
   const bridgeOutput = sql(`begin;${read('scripts/test-staff-workflow-bridge.sql')}rollback;`);
   const bridgeChecks = bridgeOutput.split('\n').filter((line) => line.startsWith('PASS:'));
   assert.ok(bridgeChecks.length >= 20, 'Expected independent employee workflow checks');
@@ -162,18 +162,18 @@ try {
   console.log(`LOCAL PERFORMANCE (not production latency): ${JSON.stringify(performance)}`);
   assert.equal(fingerprint(), before, 'Performance fixtures must roll back');
   for (const name of ['business_privacy_v1', 'external_takedown_intake_v1']) {
-    sql(read(`docs/drafts/${name}.sql`));
+    sql(read(`supabase/overlays/${name}.sql`));
   }
   const beforeExpanded = fingerprint();
   for (const name of ['staff_workflow_extended_v1', 'staff_workflow_events_v1']) {
-    sql(read(`docs/drafts/${name}.sql`));
+    sql(read(`supabase/overlays/${name}.sql`));
   }
-  const retainingRollback = read('docs/drafts/staff_workflow_extended_v1.rollback.sql')
+  const retainingRollback = read('supabase/overlays/staff_workflow_extended_v1.rollback.sql')
     .replace(/^begin;\s*$/m, '')
     .replace(/^commit;\s*$/m, '');
   const bridgeFingerprint = () => sql("select md5(pg_get_functiondef(oid)||coalesce(proacl::text,'')) from pg_proc where oid='portal_identity_private.employee_workflow_rpc_v1(text,text,text,text,boolean,text,jsonb)'::regprocedure;");
   const bridgeBeforeSafety = bridgeFingerprint();
-  sql(read('docs/drafts/staff_safety_queue_v1.sql'));
+  sql(read('supabase/overlays/staff_safety_queue_v1.sql'));
   const safetyChecks = sql(`begin;${read('scripts/test-staff-safety-queue.sql')}rollback;`)
     .split('\n').filter(line => line.startsWith('PASS:'));
   assert.ok(safetyChecks.length >= 24, 'Expected full unified safety queue checks');
@@ -182,7 +182,7 @@ try {
   await staffWorkflowMemberOverlap(room, engine, true);
   const { qualifySafetyQueue } = await import('./database/staff-safety-qualification.mts');
   qualifySafetyQueue(room);
-  sql(read('docs/drafts/staff_safety_queue_v1.rollback.sql'));
+  sql(read('supabase/overlays/staff_safety_queue_v1.rollback.sql'));
   assert.equal(bridgeFingerprint(), bridgeBeforeSafety, 'Safety rollback restores the exact prior employee dispatcher and grants');
   assert.equal(fingerprint(), beforeExpanded, 'Safety read rollback preserves existing member and domain contracts');
   console.log('PASS: unified safety read rollback restores existing contracts');
@@ -219,7 +219,7 @@ try {
     `EXPANDED LOCAL PERFORMANCE (two populated bulk sources, not production): ${JSON.stringify(expandedSamples)}`,
   );
   qualifyStaffWorkflow(room, 'baseline');
-  sql(read('docs/drafts/staff_workflow_queue_indexes_v1.sql'));
+  sql(read('supabase/overlays/staff_workflow_queue_indexes_v1.sql'));
   qualifyStaffWorkflow(room, 'indexed');
   await staffWorkflowMemberOverlap(room, engine);
   assert.equal(
@@ -227,7 +227,7 @@ try {
     beforeExpanded,
     'Six-source qualification must roll back all fixtures',
   );
-  sql(read('docs/drafts/staff_workflow_extended_v1.rollback.sql'));
+  sql(read('supabase/overlays/staff_workflow_extended_v1.rollback.sql'));
   assert.equal(
     sql(
       "select extended_enabled or events_enabled from staff_workflow_private.settings;select count(*) from pg_trigger where tgname like 'staff_workflow_%';",
@@ -240,7 +240,7 @@ try {
     beforeExpanded,
     'Expanded performance and rollback preserve existing contracts',
   );
-  sql(read('docs/drafts/staff_workflow_employee_bridge_v1.rollback.sql'));
+  sql(read('supabase/overlays/staff_workflow_employee_bridge_v1.rollback.sql'));
   assert.equal(
     sql(
       "select has_function_privilege('doji_employee_application','portal_identity_private.employee_workflow_rpc_v1(text,text,text,text,boolean,text,jsonb)','execute');select has_function_privilege('doji_employee_application','portal_identity_private.employee_rpc_v1(text,text,text,text,boolean,text,jsonb)','execute');",
@@ -250,7 +250,7 @@ try {
   console.log(
     'PASS: workflow bridge rollback revokes only the new dispatcher, keeping employee access intact',
   );
-  sql(read('docs/drafts/staff_case_ownership_v1.rollback.sql'));
+  sql(read('supabase/overlays/staff_case_ownership_v1.rollback.sql'));
   assert.equal(
     sql(
       "select enabled from staff_workflow_private.settings;select count(*) from staff_workflow_private.history;select has_function_privilege('doji_employee','public.get_admin_case_ownership_v1(text,uuid)','execute');",

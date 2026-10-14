@@ -51,8 +51,8 @@ const snapshot = () =>
   'bridge',to_regprocedure('${bridge}') is not null) state;rollback;`)[0]?.state,
   );
 const sourcePaths = [
-  'docs/drafts/employee_announcement_compose_v1.sql',
-  'docs/drafts/employee_announcement_bridge_v1.sql',
+  'supabase/overlays/employee_announcement_compose_v1.sql',
+  'supabase/overlays/employee_announcement_bridge_v1.sql',
 ];
 async function sources() {
   return Promise.all(

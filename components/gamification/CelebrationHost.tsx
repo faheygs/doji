@@ -1,4 +1,3 @@
-import React from 'react';
 import { BadgeUnlockModal } from './BadgeUnlockModal';
 import { useCelebrationStore } from '../../stores/useCelebrationStore';
 

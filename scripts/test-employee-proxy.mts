@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createEmployeeProxy,
   createEmployeeEdgeIngress,
-} from '../infra/portal-identity-candidate/employee-proxy.mts';
+} from '../infra/portal-identity/employee-proxy.mts';
 import { present } from './employee-test-fixtures.mts';
 const config = {
   enabled: true,

@@ -29,7 +29,7 @@ const changed = [
 ];
 for (const name of changed) {
   const result = ts.transpileModule(
-    await readFile(`infra/portal-identity-candidate/${name}.mts`, 'utf8'),
+    await readFile(`infra/portal-identity/${name}.mts`, 'utf8'),
     {
       fileName: name + '.mts',
       reportDiagnostics: true,
@@ -137,8 +137,8 @@ await writeFile(
       runtimeGate: false,
       sourceHashes: await Promise.all(
         changed.map(async (name) => ({
-          path: `infra/portal-identity-candidate/${name}.mts`,
-          sha256: hash(await readFile(`infra/portal-identity-candidate/${name}.mts`)),
+          path: `infra/portal-identity/${name}.mts`,
+          sha256: hash(await readFile(`infra/portal-identity/${name}.mts`)),
         })),
       ),
     },

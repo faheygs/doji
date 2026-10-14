@@ -14,8 +14,8 @@ const transactionBody = (path: string) =>
   readFileSync(path, 'utf8')
     .replace(/^begin;\s*$/m, '')
     .replace(/^commit;\s*$/m, '');
-const draft = transactionBody('docs/drafts/employee_editorial_v1.sql');
-const rollback = transactionBody('docs/drafts/employee_editorial_v1.rollback.sql');
+const draft = transactionBody('supabase/overlays/employee_editorial_v1.sql');
+const rollback = transactionBody('supabase/overlays/employee_editorial_v1.rollback.sql');
 const checks = readFileSync('scripts/test-editorial-local.sql', 'utf8');
 const sql = `begin;
 do $$begin

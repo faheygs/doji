@@ -14,16 +14,16 @@ const inspect = offlineContainer(
 assert.equal(inspect.HostConfig.NetworkMode, 'none', 'Database must be offline');
 assert.equal(Object.keys(inspect.HostConfig.PortBindings || {}).length, 0, 'No published ports');
 const draft = readFileSync(
-  'docs/drafts/20260927010000_portal_case_evidence_and_appeals.sql',
+  'supabase/overlays/20260927010000_portal_case_evidence_and_appeals.sql',
   'utf8',
 );
 const undo = readFileSync(
-  'docs/drafts/20260927010000_portal_case_evidence_and_appeals.rollback.sql',
+  'supabase/overlays/20260927010000_portal_case_evidence_and_appeals.rollback.sql',
   'utf8',
 );
-const avatars = readFileSync('docs/drafts/20260927011000_employee_avatar_evidence.sql', 'utf8');
+const avatars = readFileSync('supabase/overlays/20260927011000_employee_avatar_evidence.sql', 'utf8');
 const undoAvatars = readFileSync(
-  'docs/drafts/20260927011000_employee_avatar_evidence.rollback.sql',
+  'supabase/overlays/20260927011000_employee_avatar_evidence.rollback.sql',
   'utf8',
 );
 const avatarChecks = readFileSync('scripts/test-portal-avatar-evidence-local.sql', 'utf8');

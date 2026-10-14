@@ -7,7 +7,7 @@ const once = (source: string, before: string, after: string) => {
   assert.equal(source.split(before).length, 2, 'Unexpected baseline: ' + before);
   return source.replace(before, after);
 };
-let personal = read('docs/drafts/staff_workflow_extended_v1.sql').match(
+let personal = read('supabase/overlays/staff_workflow_extended_v1.sql').match(
   /create function public\.get_admin_staff_work_page_v1\([\s\S]*?end\$\$;/,
 )?.[0];
 assert.ok(personal);
@@ -139,7 +139,7 @@ language plpgsql security definer set search_path='' as $$begin
   raise exception using errcode='55000',message='Employee history reads disabled';end if;
 end$$;
 `;
-const announcement = read('docs/drafts/employee_announcement_lifecycle_read_v1.sql.fragment');
+const announcement = read('supabase/overlays/employee_announcement_lifecycle_read_v1.sql.fragment');
 const acl = `
 revoke all on function staff_workflow_private.history_reads_actor(),
  public.get_admin_personal_work_page_v1(text,text,integer,timestamptz,text),
@@ -150,7 +150,7 @@ grant execute on function public.get_admin_personal_work_page_v1(text,text,integ
 commit;
 `;
 const output = header + personal + '\n' + announcement + acl;
-const path = 'docs/drafts/employee_history_reads_v1.sql';
+const path = 'supabase/overlays/employee_history_reads_v1.sql';
 if (process.argv[2] === '--check') assert.equal(read(path), output, 'Regenerate history read SQL');
 else {
   assert.equal(process.argv.length, 2);

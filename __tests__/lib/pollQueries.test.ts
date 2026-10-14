@@ -3,12 +3,12 @@ import { fetchPollSummary, fetchPollVotersPage } from '../../lib/pollQueries';
 import { shouldRetryQuery } from '../../lib/apiRetry';
 
 const mockRead = jest.fn();
-const mockRpc = jest.fn(() => ({ abortSignal: mockRead }));
-jest.mock('../../lib/supabase', () => ({ supabase: { rpc: (...args: unknown[]) => mockRpc(...args) } }));
-const cases = [
+const mockRpc = jest.fn((_name: string, _args: unknown) => ({ abortSignal: mockRead }));
+jest.mock('../../lib/supabase', () => ({ supabase: { rpc: (...args: Parameters<typeof mockRpc>) => mockRpc(...args) } }));
+const cases: [string, (signal: AbortSignal) => Promise<unknown>][] = [
   ['summary', (signal: AbortSignal) => fetchPollSummary('event', 'friends', signal)],
   ['voters', (signal: AbortSignal) => fetchPollVotersPage('event', 'option', 'friends', null, signal)],
-] as const;
+];
 let client: QueryClient;
 beforeEach(() => {
   jest.clearAllMocks();

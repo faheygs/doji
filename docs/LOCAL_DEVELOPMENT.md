@@ -24,7 +24,7 @@ From the repository root:
 git status --short
 node --version
 npm ci
-npm ci --prefix infra/portal-identity-candidate
+npm ci --prefix infra/portal-identity
 npm ci --prefix infra/doji-orchestrator
 npm run test:admin-auth
 npm run test:admin-health
@@ -103,7 +103,7 @@ The following are retained controller/compatibility packagers, NOT the current
 React development entry. Current UI builds produce `web/apps/{admin,business}/dist`
 and `web/apps/site/out`; the release assembly preserves verified proxy/config,
 headers and safety/legal assets. Generic Vite/Next output alone is not a qualified
-deployment package. See [frontend migration release](REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
+deployment package. See [frontend migration release](releases/REACT_PUBLIC_BUSINESS_MIGRATION_2026-10-09.md).
 
 | Builder | Output/default | Important difference from production |
 | --- | --- | --- |
@@ -158,7 +158,7 @@ Cloud builds also require separate approval and allowance checks.
 ## Database and identity tests
 
 The repository is not yet a one-command reproducible full-app staging stack.
-Some individually released SQL is still under `docs/drafts`, while migration
+Some individually released SQL is still under `supabase/overlays`, while migration
 history and retained local fixtures need reconciliation. `supabase/config.toml`
 alone does not reproduce the deployed database, vendor secrets or WorkOS setup.
 
