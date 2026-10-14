@@ -4,6 +4,18 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { assertBootstrapCurrent, compileBootstrap, verifyBootstrap } from './build-bootstrap.mts';
 
+test('every EAS profile pins Node 24 for both native platforms', () => {
+  const config = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8')) as {
+    build: Record<string, { node?: string; android?: { node?: string }; ios?: { node?: string } }>;
+  };
+  for (const [name, profile] of Object.entries(config.build)) {
+    assert.equal(profile.node, '24.18.0', name);
+    for (const platform of ['android', 'ios'] as const) {
+      assert.equal(profile[platform]?.node ?? profile.node, '24.18.0', `${name}/${platform}`);
+    }
+  }
+});
+
 test('mobile source archive retains the typed Babel config and diagnostic plugins', () => {
   const ignore = readFileSync(new URL('../.easignore', import.meta.url), 'utf8');
   for (const file of [
