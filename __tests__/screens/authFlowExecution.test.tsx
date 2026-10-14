@@ -283,7 +283,34 @@ it('holds profile setup until username and session are valid', async () => {
   await submit(ui);
   expect(mockCommand).not.toHaveBeenCalled();
 });
-it('echoes username edits unchanged without rewriting Android composing text', async () => {
+it.each(['hello', 'Hello', 'HELLO', 'jja'])(
+  'replaces signup username values while typing %s and saves the normalized handle',
+  async (word) => {
+    const ui = render(shell(<Username />));
+    const field = () => ui.getByLabelText('Username');
+    const originalField = field();
+    for (let length = 1; length <= word.length; length += 1) {
+      const value = word.slice(0, length);
+      fireEvent.changeText(field(), value);
+      fireEvent.changeText(field(), value);
+      expect(field().props.value).toBe(value);
+      expect(field()).toBe(originalField);
+    }
+    mockAvailability = { status: 'checking', isOkForSubmit: false, errorMessage: '' };
+    ui.rerender(shell(<Username />));
+    expect(field().props.value).toBe(word);
+    expect(field()).toBe(originalField);
+    await submit(ui);
+    expect(mockCommand).not.toHaveBeenCalled();
+    mockAvailability = { status: 'available', isOkForSubmit: true, errorMessage: '' };
+    ui.rerender(shell(<Username />));
+    await submit(ui);
+    expect(mockCommand).toHaveBeenCalledTimes(1);
+    expect(mockCommand).toHaveBeenCalledWith('create_own_profile',
+      expect.objectContaining({ p_username: word.toLowerCase() }));
+  },
+);
+it('echoes complete username values unchanged through editing and paste', async () => {
   const ui = render(shell(<Username />));
   const field = () => ui.getByLabelText('Username');
   // Full native values, not key deltas: typing, case, deletion, replacement,
@@ -362,4 +389,15 @@ it('keeps photo-picker errors visible and limits bio length', () => {
   input(ui, 'Bio', 'a'.repeat(200));
   expect(ui.getByDisplayValue('a'.repeat(150))).toBeTruthy();
   expect(ui.queryByText('Photo denied')).toBeNull();
+});
+
+it('does not delete a committed signup avatar when the follow-up session refresh fails', async () => {
+  const ui = render(shell(<Username />));
+  input(ui, 'Username', 'synthetic');
+  fireEvent.press(ui.getByLabelText('Add profile photo'));
+  mockAuth.refreshSession.mockRejectedValueOnce(new Error('Session refresh unavailable'));
+  await submit(ui);
+  expect(mockCommand).toHaveBeenCalledTimes(1);
+  expect(mockRemove).not.toHaveBeenCalled();
+  expect(ui.getByText('Session refresh unavailable')).toBeTruthy();
 });

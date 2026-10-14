@@ -98,6 +98,33 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success' },
 }));
 const shell = (node: React.ReactNode) => <KeyboardToolbarProvider>{node}</KeyboardToolbarProvider>;
+it.each(['hello', 'Hello', 'HELLO', 'jja'])(
+  'replaces profile username values while typing %s and saves the normalized handle',
+  async (word) => {
+    const ui = render(shell(<EditProfile />));
+    const field = () => ui.getByLabelText('Username');
+    const originalField = field();
+    fireEvent.changeText(field(), '');
+    for (let length = 1; length <= word.length; length += 1) {
+      const value = word.slice(0, length);
+      fireEvent.changeText(field(), value);
+      fireEvent.changeText(field(), value);
+      expect(field().props.value).toBe(value);
+      expect(field()).toBe(originalField);
+    }
+    mockAvailability = { status: 'taken', isOkForSubmit: false, errorMessage: 'Taken' };
+    ui.rerender(shell(<EditProfile />));
+    expect(field().props.value).toBe(word);
+    expect(field()).toBe(originalField);
+    expect(ui.getByText('Taken')).toBeTruthy();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    mockAvailability = { status: 'available', isOkForSubmit: true, errorMessage: '' };
+    ui.rerender(shell(<EditProfile />));
+    await act(async () => fireEvent.press(ui.getByText('Save changes')));
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ username: word.toLowerCase() }));
+  },
+);
 it('preserves native username edits and normalizes only the saved handle', async () => {
   const ui = render(shell(<EditProfile />));
   for (const value of ['j', 'ja', 'Ja', 'Jan', 'jja', '', ' @Ja_Ne ']) {

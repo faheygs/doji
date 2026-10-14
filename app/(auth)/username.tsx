@@ -121,8 +121,9 @@ export default function UsernameScreen() {
       // returns that authoritative row. Do not leave a newly uploaded orphan.
       if (uploadedAvatarUrl && createdProfile?.avatar_url !== uploadedAvatarUrl) {
         void removePublicStorageObject('avatars', uploadedAvatarUrl);
-        uploadedAvatarUrl = null;
       }
+      // A confirmed profile owns its avatar even if subsequent refreshes fail.
+      uploadedAvatarUrl = null;
 
       await supabase.auth.refreshSession();
       await fetchProfile(userId);

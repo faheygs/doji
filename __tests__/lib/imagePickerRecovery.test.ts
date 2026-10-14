@@ -13,4 +13,13 @@ describe('selectedImageUri', () => {
       'Picker failed',
     );
   });
+
+  it.each([[], [{ uri: '' }], [{ uri: ' ' }], null])(
+    'rejects a successful result without a usable photo (%j)',
+    (assets) => {
+      expect(() => selectedImageUri({ canceled: false, assets } as never)).toThrow(
+        'This photo could not be opened',
+      );
+    },
+  );
 });

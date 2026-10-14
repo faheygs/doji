@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppDialog } from '../contexts/DialogContext';
 import { showProfilePhotoDialog } from '../lib/profilePhotoDialog';
-import { selectedImageUri } from '../lib/imagePickerRecovery';
+import { PHOTO_SELECTION_ERROR, selectedImageUri } from '../lib/imagePickerRecovery';
+import { reportOperationalFailure } from '../lib/telemetry';
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   allowsEditing: true,
@@ -59,11 +60,16 @@ export function useProfilePhotoPicker(
   }, [onError, onSelected]);
 
   return useCallback(() => {
-    if (Platform.OS === 'web') return void fromLibrary();
+    onError?.('');
+    const failed = (source: 'camera' | 'library') => () => {
+      reportOperationalFailure('profile-photo', 'select', new Error(PHOTO_SELECTION_ERROR), { source });
+      onError?.(PHOTO_SELECTION_ERROR);
+    };
+    if (Platform.OS === 'web') return void fromLibrary().catch(failed('library'));
     showProfilePhotoDialog(
       showDialog,
-      () => void fromCamera(),
-      () => void fromLibrary(),
+      () => void fromCamera().catch(failed('camera')),
+      () => void fromLibrary().catch(failed('library')),
     );
-  }, [fromCamera, fromLibrary, showDialog]);
+  }, [fromCamera, fromLibrary, onError, showDialog]);
 }

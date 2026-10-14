@@ -125,21 +125,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const requestId = Symbol(userId);
     const promise = Promise.resolve().then(async () => {
-      // A profile that reached `ready` was already checked against the server
-      // during this session. Transient foreground/realtime refresh failures
-      // must not eject that person from the mounted app.
+      // Keep verified screens mounted on refresh, including signup when Android
+      // returns from a picker. Replacing signup here discards its native result.
       const hadVerifiedProfile =
         get().profile?.id === userId && get().profileLoadState === 'ready';
-      if (get().profile?.id !== userId) {
+      const hadVerifiedMissing = get().session?.user?.id === userId &&
+        get().profile === null && get().profileLoadState === 'missing';
+      if (!hadVerifiedMissing && get().profile?.id !== userId) {
         try {
           const raw = await AsyncStorage.getItem(profileCacheKey(userId));
           const cached = raw ? JSON.parse(raw) as Profile : null;
           if (cached?.id === userId && get().session?.user?.id === userId) {
             set({
               profile: normalizeProfile(cached),
-              // Cached presentation makes the eventual screen warm, but it is
-              // never authorization truth. Keep the auth gate closed until the
-              // server confirms ban/onboarding state for this session.
+              // Persisted presentation never authorizes a new session.
               isProfileLoading: true,
               profileLoadState: 'loading',
             });
@@ -152,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
         return;
       }
-      if (get().profile?.id !== userId) {
+      if (!hadVerifiedMissing && get().profile?.id !== userId) {
         set({ isProfileLoading: true, profileLoadState: 'loading' });
       }
       try {
@@ -186,7 +185,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 // Diagnostics must never replace the original recoverable auth state.
               }
             }
-            set({ profileLoadState: hadVerifiedProfile ? 'ready' : 'error' });
+            set({ profileLoadState: hadVerifiedProfile ? 'ready'
+              : hadVerifiedMissing && !isNonRetryableProfileError(error) ? 'missing' : 'error' });
           }
           return;
         }
