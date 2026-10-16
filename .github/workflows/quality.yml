@@ -61,6 +61,8 @@ jobs:
       # The strict tooling/browser compiler uses this package's locked esbuild
       # and local Worker harness types. Install before root typechecking/tests.
       - run: npm ci --prefix infra/doji-orchestrator
+      # Admin packaging is strictly typechecked against the separate web toolchain.
+      - run: npm ci --ignore-scripts --prefix web
       - run: npm run typecheck
       - run: npm run lint -- --quiet
       - run: npm run check:size
