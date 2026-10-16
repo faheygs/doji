@@ -134,10 +134,18 @@ apps. Kedd's credential/vault handoff and all messages remain held.
 
 ## Retained recovery
 
+The October 16 development-route correction added six existing staff-workflow
+contracts to the staging registry (38 to 44 routes). Live local home, assigned-work
+and ownership reads passed. All prior rows, identity/settings and the function/grant
+fingerprint `41e99fcfd16c61e6cd034ce6da67153d` remained unchanged; active cron stayed
+zero. Offline tests cover authorization, bounded reads, replay, audit and retaining
+rollback. No production service, function, grant or flag changed.
+
 | Scope | Owner-restricted recovery location / inverse |
 | --- | --- |
 | Initial hosted connection | `%LOCALAPPDATA%/Doji/staging-admin`: original employee runtime, configuration and setup/retaining SQL |
 | Development adapter | `%LOCALAPPDATA%/Doji/staging-admin-development/2026-10-15`: definitions, package, receipts and exact retaining rollback |
+| Development workflow routes | `%LOCALAPPDATA%/Doji/staging-admin-development/workflow-routes-20261016`: before-state, applied SQL, verification and definition/row-pinned six-row rollback |
 | Shared identity / v8 | `%LOCALAPPDATA%/Doji/staging-admin/shared-employee-20261016`: prior packages, SQL and fingerprints; `authorization-correction` is v8, `correction` its v7 inverse |
 | Workflow flags / manual Pages | `%LOCALAPPDATA%/Doji/staging-admin/workflows-20261016`: previous flags and exact packages; initial Pages ID `b2225370-b47b-45b2-8f53-a4d39ab5c493` |
 | CI Pages | Protected workflow artifact/receipt records exact source and previous deployment; retain before 14-day expiry |

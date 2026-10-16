@@ -67,12 +67,11 @@ push or portal source was deployed with this patch. Source is not yet merged.
   directory access. Its initial expiry is January 13, 2027; non-expiring revocable
   credentials are supported/tested, but no live expiry was changed. Hosted MFA
   remains mandatory. `dev:admin` is a separate offline sample-data preview.
-- Local workflow gap: the live developer gateway's route registry omits the staff
-  workflow contracts, so the home attention list returns 403 while hosted staging
-  succeeds. The existing SQL builder now prepares the missing routes with
-  definition-pinned upgrade/rollback and offline database/browser regression tests;
-  the staging correction is not deployed. Hold production promotion until live
-  local and hosted acceptance pass.
+- Local workflow routes: the staging-only registry correction is deployed (44
+  routes). Live home, assigned-work and ownership reads pass; existing routes,
+  function/grant fingerprints, identity and workflow flags are unchanged. The
+  existing builder includes definition-pinned upgrade/rollback and database/browser
+  regression tests. Production promotion still requires hosted acceptance.
 - Verification: local selection/switching, reload, writes/replay/audit and revocation
   passed against disposable PostgreSQL; live staging selection and hosted
   idea review/history/audit, report/business assignment and session restoration passed.
