@@ -19,6 +19,29 @@ async function api<T>(path: string): Promise<T> {
   assert.ok(response.ok, 'GitHub release metadata unavailable.');
   return (await response.json()) as T;
 }
+async function deployed(run: Run) {
+  const { jobs } = await api<{ jobs: { name: string; conclusion: string }[] }>(
+    `actions/runs/${run.id}/jobs`,
+  );
+  return jobs.some((job) => job.name === 'deploy' && job.conclusion === 'success');
+}
+async function previousDeployment(): Promise<Run | undefined> {
+  for (let page = 1; page <= 10; page++) {
+    const { workflow_runs: history } = await api<{ workflow_runs: Run[] }>(
+      `actions/workflows/admin-staging.yml/runs?branch=main&status=success&per_page=100&page=${page}`,
+    );
+    for (const run of history) {
+      if (!/^Stage admin [a-f0-9]{40}$/.test(run.display_title)) continue;
+      trustedRun(run, '.github/workflows/admin-staging.yml', ['workflow_run']);
+      // Skipped runs cannot replace the last actual deployment as the diff baseline.
+      if (await deployed(run)) return run;
+    }
+    if (history.length < 100) return undefined;
+  }
+  throw Error(
+    'Deployment history exceeds the lookup bound; inspect the baseline before releasing.',
+  );
+}
 export async function planAdminRelease(
   mode: string,
   git: (args: string[]) => string = (args) => execFileSync('git', args, { encoding: 'utf8' }),
@@ -33,6 +56,7 @@ export async function planAdminRelease(
     assert.match(id, /^[1-9]\d{0,19}$/);
     const run = await api<Run>(`actions/runs/${id}`);
     trustedRun(run, '.github/workflows/admin-staging.yml', ['workflow_run']);
+    assert.ok(await deployed(run), 'Selected staging run did not deploy.');
     const sha = /^Stage admin ([a-f0-9]{40})$/.exec(run.display_title)?.[1];
     assert.ok(sha, 'Missing exact staged commit.');
     git(['merge-base', '--is-ancestor', sha, 'origin/main']);
@@ -53,22 +77,7 @@ export async function planAdminRelease(
     await output('changed', 'false');
     return;
   }
-  const history = await api<{ workflow_runs: Run[] }>(
-    'actions/workflows/admin-staging.yml/runs?branch=main&status=success&per_page=30',
-  );
-  let prior: Run | undefined;
-  for (const item of history.workflow_runs) {
-    if (!/^Stage admin [a-f0-9]{40}$/.test(item.display_title)) continue;
-    trustedRun(item, '.github/workflows/admin-staging.yml', ['workflow_run']);
-    const { jobs } = await api<{ jobs: { name: string; conclusion: string }[] }>(
-      `actions/runs/${item.id}/jobs`,
-    );
-    // A disabled or path-skipped workflow is successful, but has deployed nothing.
-    if (jobs.some((job) => job.name === 'deploy' && job.conclusion === 'success')) {
-      prior = item;
-      break;
-    }
-  }
+  const prior = await previousDeployment();
   const previousSha = prior?.display_title.slice('Stage admin '.length);
   let changed = true;
   if (previousSha) {

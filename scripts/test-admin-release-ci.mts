@@ -35,6 +35,7 @@ test('CI selects only admin changes since a real deployment, and refuses stale o
     display_title: `Stage admin ${priorSha}`,
   };
   let history = [{ ...previous, id: 6, display_title: `Stage admin ${sha}` }, previous];
+  let olderHistory: typeof history | undefined;
   let paths = 'web/apps/admin/src/App.tsx\0';
   let diffBase = '';
   const git = (args: string[]) => {
@@ -65,9 +66,10 @@ test('CI selects only admin changes since a real deployment, and refuses stale o
       let body: unknown;
       if (url.endsWith('/actions/runs/7')) body = quality;
       else if (url.endsWith('/actions/runs/5')) body = previous;
+      else if (url.endsWith('/actions/runs/6')) body = { ...previous, id: 6 };
       else if (url.endsWith('/git/ref/heads/main')) body = { object: { sha: main } };
       else if (url.includes('/actions/workflows/admin-staging.yml/runs?'))
-        body = { workflow_runs: history };
+        body = { workflow_runs: url.endsWith('page=1') ? history : (olderHistory ?? history) };
       else if (url.endsWith('/actions/runs/6/jobs'))
         body = { jobs: [{ name: 'deploy', conclusion: 'skipped' }] };
       else if (url.endsWith('/actions/runs/5/jobs'))
@@ -90,6 +92,17 @@ test('CI selects only admin changes since a real deployment, and refuses stale o
       assert.match(await plan(), /changed=false/);
     paths = 'web/packages/ui/src/theme.ts\0';
     assert.match(await plan(), /changed=true/);
+    history = Array.from({ length: 100 }, () => ({ ...previous, id: 6 }));
+    olderHistory = [previous];
+    paths = 'web/apps/business/src/App.tsx\0';
+    assert.match(
+      await plan(),
+      /changed=false/,
+      'Many skipped runs must not trigger an admin deployment',
+    );
+    assert.equal(diffBase, priorSha);
+    olderHistory = undefined;
+    await assert.rejects(plan(), /history exceeds the lookup bound/);
     history = [];
     assert.match(
       await plan(),
@@ -104,6 +117,8 @@ test('CI selects only admin changes since a real deployment, and refuses stale o
     quality = { ...quality, conclusion: 'success', event: 'pull_request' };
     await assert.rejects(plan());
     assert.equal(await plan('promote'), `sha=${priorSha}\nrun=5\n`);
+    process.env.STAGING_RUN_ID = '6';
+    await assert.rejects(plan('promote'), /did not deploy/);
     process.env.STAGING_RUN_ID = '5; echo unsafe';
     await assert.rejects(plan('promote'));
     process.env.GITHUB_REF = 'refs/heads/feature';
