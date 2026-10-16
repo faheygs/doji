@@ -307,8 +307,8 @@ Each GitHub environment has `CLOUDFLARE_API_TOKEN` as a secret and
 Cloudflare account-owned tokens `doji-admin-staging-github` and
 `doji-admin-production-github` expire January 14, 2027. Rotate each into its own
 environment before expiry; verify the replacement before revoking the old token.
-Verify current capacity, project bindings, hosted acceptance and rollback first,
-then explicitly enable repository variable `ADMIN_DEPLOYMENTS_ENABLED=true`.
+The activation variable `ADMIN_DEPLOYMENTS_ENABLED` is already true. Verify current
+capacity, project bindings, hosted acceptance and rollback before each release.
 Pages Write is account-scoped, not project-isolated. The workflows' fixed targets
 do not restrict what a stolen token could access. No DNS, email, SQL or shared
 Worker permissions were added. The staging token passed its first CI release;
@@ -391,7 +391,7 @@ The database foundation is `supabase/overlays/admin_development_v1.sql`, assembl
 by `scripts/build-admin-development-sql.mts` from reviewed function definitions.
 The assembler pins each changed definition and preserves all permission/command
 logic. The raw template refuses installation without its manifest. The private
-gateway uses distinct development assurance, explicit persona grants, expiring
+gateway uses distinct development assurance, explicit employee grants, revocable
 hashed credentials and a transaction-scoped authorization context; it records
 developer/persona attribution without storing credentials or request bodies.
 
@@ -451,7 +451,7 @@ activate an actual daily event to make a test pass.
 | Symptom | Check first |
 | --- | --- |
 | Dependency/engine mismatch | Node version, root lockfile and `.npmrc`; do not change peer-resolution policy blindly |
-| Admin build fails before rendering | Required `.env.local`, public key/URL format, output-path guard and intended feature flags |
+| Admin release build fails | Locked root/web/Worker dependencies, Node 24, clean exact-SHA checkout and new external output directory; release builds do not load `.env` files |
 | Local portal has no real accounts | Prototype mode is deliberate; employee auth needs its own proxy/runtime, not a member JWT |
 | Business root/identity route is missing locally | Static test server does not implement Pages redirects or the auth proxy; open the explicit static page for UI QA |
 | Mobile backend unreachable | Loopback/device networking and whether the isolated backend actually exists |
