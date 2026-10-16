@@ -1,4 +1,4 @@
-// Independent business composition. Not deployed; never imports employee/member runtime.
+// Independent business composition; never imports employee/member runtime.
 import { createRestrictedSql } from './restricted-sql.mts';
 import { createBusinessSessionStore } from './business-session-store.mts';
 import { createBusinessApplicationAdapter } from './business-application-adapter.mts';

@@ -1,5 +1,4 @@
-// LOCAL CANDIDATE ONLY. Not imported by a Worker, Edge function or browser.
-// No password handling, provider provisioning, JWT minting or member token exchange.
+// Server-only portal verification; no JWT minting or member token exchange.
 import { createLocalJWKSet, jwtVerify } from 'jose';
 import type { JSONWebKeySet } from 'jose';
 import { record, integer } from './portal-contracts.mts';
@@ -20,8 +19,8 @@ const https = (v: string) => {
 /** Trusted SERVER configuration and pinned provider keys only, never request data.
  * checkSession must independently verify the exact session's current status,
  * confirmed email and MFA with this environment's provider credentials. It must
- * honor AbortSignal. workos-session.mts supplies a bounded candidate reader;
- * durable server-owned MFA receipts and production billing remain release gates.
+ * honor AbortSignal. workos-session.mts supplies the bounded session reader;
+ * employee MFA proof and business workspace authorization remain separate checks.
  */
 interface VerifierConfig {
   enabled: boolean;
