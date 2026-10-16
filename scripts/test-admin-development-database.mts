@@ -7,6 +7,7 @@ import {
   developmentDefinitions,
   developmentRealmSql,
   provisionDevelopmentFixture,
+  verifyDevelopmentWorkflowUpgrade,
 } from './database/admin-development-fixture.mts';
 import { source } from './database/integration.mts';
 import { buildAdminDevelopmentSql } from './build-admin-development-sql.mts';
@@ -283,6 +284,7 @@ try {
   console.log(
     'PASS: non-expiring developer credential supports directory/session access and immediate revocation',
   );
+  verifyDevelopmentWorkflowUpgrade(sql, call, id(5));
   assert.equal(
     sql(
       `select principal_id from portal_identity_private.resolve_identity('employee','${sharedIssuer}','${sharedAudience}','user_shared_fixture','synthetic-session',true)`,

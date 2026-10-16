@@ -44,6 +44,9 @@ test.beforeAll(async () => {
       "update admin_development_private.credentials set employee_directory_access=true, expires_at='infinity'",
     );
     sql('update admin_development_private.settings set enabled=true');
+    sql(
+      'update staff_workflow_private.settings set enabled=true,extended_enabled=true,safety_queue_enabled=true',
+    );
   }
   const gateway = createDevelopmentGateway(async (credential, call) => {
     expect(credential).toBe(token);
@@ -120,6 +123,8 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Welcome back, Test persona 1.' })).toBeVisible();
   if (database) {
+    await expect(page.getByText('No overdue or unassigned items in this snapshot.')).toBeVisible();
+    await expect(page.getByText('Attention items could not be loaded.')).toHaveCount(0);
     const write = await page.evaluate(async () => {
       const { csrf } = await (await fetch('/api/dev/personas')).json();
       const args = {
