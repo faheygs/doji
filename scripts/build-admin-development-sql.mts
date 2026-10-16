@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { employeeRouteContracts } from '../infra/portal-identity/employee-route-contracts.mts';
 import { employeeHistoryContracts } from '../infra/portal-identity/employee-history-contracts.mts';
 import { employeeAnnouncementContract } from '../infra/portal-identity/employee-announcement-contracts.mts';
+import { employeeWorkflowContracts } from '../infra/portal-identity/employee-workflow-contracts.mts';
 
 export interface DevelopmentDefinition {
   schema: string;
@@ -21,6 +22,63 @@ const schemas = [
   'moderation_private',
   'staff_workflow_private',
 ];
+const workflowEntries = Object.entries(employeeWorkflowContracts).filter(
+  ([name]) => name !== 'get_admin_staff_event_channels_v1',
+);
+const routeTarget = (name: string) =>
+  name === 'get_admin_employee_directory_v1'
+    ? 'portal_identity_private.employee_directory_v1'
+    : name === 'admin_set_employee_role_v1'
+      ? 'portal_identity_private.employee_role_command_v1'
+      : name === 'get_admin_case_assignees_v1'
+        ? 'staff_workflow_private.assignees'
+        : `public.${name}`;
+
+// Add only missing local workflow routes; never replay the installed adapter.
+export function buildAdminDevelopmentWorkflowSql(definitions: readonly DevelopmentDefinition[]) {
+  const rows = workflowEntries.map(([name, contract]) => {
+    const signature = `${routeTarget(name)}(${contract.types.join(',')})`;
+    const matches = definitions.filter(
+      (d) => d.signature.replaceAll(' ', '') === signature.replaceAll(' ', ''),
+    );
+    if (matches.length !== 1) throw Error(`One reviewed workflow definition required: ${name}`);
+    return {
+      name,
+      signature,
+      hash: md5(matches[0]!.definition),
+      values: `${quote(name)},${quote(signature)}::regprocedure,${textArray(contract.fields)},${textArray(contract.types)},${quote(JSON.stringify(contract.defaults))}::jsonb`,
+    };
+  });
+  const guard = `begin;set local lock_timeout='2s';set local statement_timeout='15s';
+do $guard$begin
+ if not exists(select 1 from portal_identity_private.realms where realm='employee'
+ and issuer='https://api.workos.com/user_management/client_01M3VE4WTBYS2XN6NZPH9EDMQD'
+ and audience='client_01M51GRQJVKXFZ98RG21MK7J64') then
+ raise exception 'Shared staging employee realm required';end if;
+end$guard$;
+lock table admin_development_private.routes in exclusive mode;`;
+  const checks = rows
+    .map(
+      (r) => `do $check$begin
+ if md5(pg_get_functiondef(${quote(r.signature)}::regprocedure))<>${quote(r.hash)} then
+ raise exception 'Reviewed workflow definition changed';end if;
+end$check$;`,
+    )
+    .join('\n');
+  return {
+    apply: `${guard}\n${checks}\ninsert into admin_development_private.routes values\n${rows.map((r) => `(${r.values})`).join(',\n')};\ncommit;`,
+    rollback: `${guard}\n${checks}\n${rows
+      .map(
+        (r) => `do $undo$begin
+ if not exists(select 1 from admin_development_private.routes where
+ (name,target,fields,types,defaults)=row(${r.values})) then
+ raise exception 'Development workflow route drifted';end if;
+ delete from admin_development_private.routes where name=${quote(r.name)};
+end$undo$;`,
+      )
+      .join('\n')}\ncommit;`,
+  };
+}
 const claim = String.raw`auth\.jwt\(\)\s*->>\s*'aal'`;
 const expression = String.raw`(?:coalesce\(\s*(?:\(\s*select\s+${claim}\s*\)|${claim})\s*,\s*''\s*\)|${claim})`;
 const condition = new RegExp(String.raw`${expression}\s*(is distinct from|<>|=)\s*'aal2'`, 'gi');
@@ -72,19 +130,19 @@ end$patch$;`);
   const contracts = {
     ...employeeRouteContracts,
     ...employeeHistoryContracts,
+    ...employeeWorkflowContracts,
     admin_announcement_compose_v1: employeeAnnouncementContract,
   };
-  const excluded = ['get_admin_realtime_token_capabilities', 'portal_evidence_authorization_v1'];
+  const excluded = [
+    'get_admin_realtime_token_capabilities',
+    'get_admin_staff_event_channels_v1',
+    'portal_evidence_authorization_v1',
+  ];
   const preflights: string[] = [];
   const routes = Object.entries(contracts)
     .filter(([name]) => !excluded.includes(name))
     .map(([name, c]) => {
-      const target =
-        name === 'get_admin_employee_directory_v1'
-          ? 'portal_identity_private.employee_directory_v1'
-          : name === 'admin_set_employee_role_v1'
-            ? 'portal_identity_private.employee_role_command_v1'
-            : `public.${name}`;
+      const target = routeTarget(name);
       const signature = `${target}(${c.types.join(',')})`;
       const reviewed = definitions.find(
         (d) => d.signature.replaceAll(' ', '') === signature.replaceAll(' ', ''),
