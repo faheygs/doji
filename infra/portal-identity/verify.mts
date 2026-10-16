@@ -28,6 +28,7 @@ interface VerifierConfig {
   realm: PortalRealm;
   issuer: string;
   audience: string;
+  clientId?: string;
   origin: string;
   maxTokenAgeSeconds: number;
   jwks: JSONWebKeySet;
@@ -41,6 +42,8 @@ export function createPortalIdentityVerifier(
     !['employee', 'business'].includes(config.realm) ||
     !https(config.issuer) ||
     !bounded(config.audience, 256) ||
+    (config.clientId !== undefined &&
+      (config.realm !== 'employee' || config.clientId !== config.audience)) ||
     !https(config.origin) ||
     new URL(config.origin).origin !== config.origin ||
     !Number.isInteger(config.maxTokenAgeSeconds) ||
@@ -100,6 +103,7 @@ export function createPortalIdentityVerifier(
         !bounded(payload.sub, 256) ||
         !bounded(payload.sid, 256) ||
         payload.aud !== policy.audience ||
+        (policy.clientId !== undefined && payload.client_id !== policy.clientId) ||
         !integer(payload.iat) ||
         !integer(payload.exp) ||
         payload.iat > now ||

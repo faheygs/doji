@@ -3,12 +3,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { createEmployeeRuntime } from '../infra/portal-identity/employee-runtime.mts';
 import pages from '../infra/portal-identity/employee-pages-worker.mts';
 import type { EmployeeRuntimeConfig } from '../infra/portal-identity/employee-runtime.mts';
 import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
 import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
 import { present } from './employee-test-fixtures.mts';
+import { testRecord } from './employee-test-fixtures.mts';
 // Deliberately incomplete environment bindings exercise runtime fail-closed paths.
 async function pagesRequest(request: Request, env: unknown): Promise<Response> {
   const response: unknown = await Reflect.apply(pages.fetch, pages, [request, env]);
@@ -45,6 +47,265 @@ const jwks = {
     },
   ],
 };
+
+for (const shared of [false, true])
+  test(`complete composed password/MFA/session/logout flow: ${shared ? 'shared staging' : 'default issuer'}`, async () => {
+    const policy: EmployeeRuntimeConfig = shared
+      ? {
+          ...config,
+          origin: 'https://admin-staging.dojipro.com',
+          clientId: 'client_01M51GRQJVKXFZ98RG21MK7J64',
+          issuerClientId: 'client_01M3VE4WTBYS2XN6NZPH9EDMQD',
+          endpoint: 'https://ohrcupagdoilkwhecict.supabase.co/functions/v1/employee-portal-v2',
+          storageOrigin: 'https://ohrcupagdoilkwhecict.supabase.co',
+          database: {
+            ...config.database,
+            projectRef: 'ohrcupagdoilkwhecict',
+            username: 'doji_employee_portal_login.ohrcupagdoilkwhecict',
+          },
+        }
+      : config;
+    const keys = await generateKeyPair('ES256');
+    const issuer = `https://api.workos.com/user_management/${policy.issuerClientId ?? policy.clientId}`;
+    const signed = await new SignJWT({
+      iss: issuer,
+      aud: policy.clientId,
+      client_id: policy.clientId,
+      sub: 'user_employee',
+      sid: 'session_employee',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 300,
+    })
+      .setProtectedHeader({ alg: 'ES256', kid: 'composed' })
+      .sign(keys.privateKey);
+    const records = new Map<string, string>();
+    let authorized = 0,
+      revoked = false;
+    const runtime = createEmployeeRuntime(policy, {
+      createClient: () => ({
+        connect: async () => {},
+        end: async () => {},
+        query: async (query) => {
+          if (typeof query === 'string') {
+            if (query.startsWith('begin isolation'))
+              return [
+                {},
+                {},
+                {},
+                {},
+                {
+                  rows: [
+                    {
+                      login: 'doji_employee_portal_login',
+                      current_role: 'doji_employee_portal_login',
+                      privileged: false,
+                      inherits: false,
+                      permitted: true,
+                    },
+                  ],
+                },
+              ];
+            assert.match(query, /^(set local role doji_employee_(session|application)|commit)$/);
+            return { rows: [] };
+          }
+          const p = query.values;
+          let result: unknown;
+          if (query.text.includes('admit_login')) result = true;
+          else if (query.text.includes('execute_store')) {
+            const key = String(p[2]) + ':' + String(p[3]);
+            const value = records.get(key);
+            switch (p[1]) {
+              case 'put':
+              case 'replace':
+                records.set(key, String(p[4]));
+                result = { state: 'ok' };
+                break;
+              case 'peek':
+              case 'acquire':
+                result = value ? { state: 'ok', value } : { state: 'missing' };
+                break;
+              case 'take':
+                assert.equal(p[7], value);
+                records.delete(key);
+                result = value ? { state: 'ok', value } : { state: 'missing' };
+                break;
+              case 'remove':
+                records.delete(key);
+                result = { state: 'ok' };
+                break;
+              case 'release':
+                result = { state: 'ok' };
+                break;
+              default:
+                assert.fail('Unexpected store operation');
+            }
+          } else {
+            assert.match(query.text, /employee_rpc_v1/);
+            assert.deepEqual(p, [
+              issuer,
+              policy.clientId,
+              'user_employee',
+              'session_employee',
+              true,
+              'get_admin_portal_session_v3',
+              '{}',
+            ]);
+            authorized++;
+            result = { user_id: 'synthetic-principal', roles: ['super_admin'] };
+          }
+          return { rows: [{ result }] };
+        },
+      }),
+      signStorage: () => assert.fail('No storage signing'),
+      signRealtime: () => assert.fail('No realtime signing'),
+      upstream: async (url, init) => {
+        const user = { id: 'user_employee', email_verified: true };
+        if (url === `https://api.workos.com/sso/jwks/${policy.issuerClientId ?? policy.clientId}`)
+          return Response.json({
+            keys: [
+              { ...(await exportJWK(keys.publicKey)), kid: 'composed', alg: 'ES256', use: 'sig' },
+            ],
+          });
+        const body = init?.body ? testRecord(JSON.parse(String(init.body))) : {};
+        if (url === 'https://api.workos.com/user_management/authenticate') {
+          assert.equal(body.client_id, policy.clientId);
+          if (body.grant_type === 'password')
+            return Response.json(
+              {
+                code: 'mfa_challenge',
+                user,
+                pending_authentication_token: 'synthetic-pending',
+                authentication_factors: [{ type: 'totp', id: 'auth_factor_employee' }],
+              },
+              { status: 400 },
+            );
+          assert.equal(body.grant_type, 'urn:workos:oauth:grant-type:mfa-totp');
+          assert.equal(body.code, '123456');
+          return Response.json({ user, access_token: signed, refresh_token: 'synthetic-refresh' });
+        }
+        if (url === 'https://api.workos.com/auth/factors/auth_factor_employee/challenge')
+          return Response.json({
+            id: 'auth_challenge_employee',
+            authentication_factor_id: 'auth_factor_employee',
+            expires_at: new Date(Date.now() + 240000).toISOString(),
+          });
+        if (url === 'https://api.workos.com/user_management/users/user_employee')
+          return Response.json(user);
+        if (url === 'https://api.workos.com/user_management/users/user_employee/sessions?limit=10')
+          return Response.json({
+            data: [
+              {
+                id: 'session_employee',
+                user_id: user.id,
+                status: 'active',
+                expires_at: new Date(Date.now() + 3600000).toISOString(),
+              },
+            ],
+          });
+        assert.equal(url, 'https://api.workos.com/user_management/sessions/revoke');
+        assert.equal(body.session_id, 'session_employee');
+        revoked = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    const call = (path: string, body?: unknown, cookie = '', csrf = '') =>
+      runtime(
+        new Request(policy.endpoint + path, {
+          method: body === undefined ? 'GET' : 'POST',
+          headers: {
+            origin: policy.origin,
+            'sec-fetch-site': 'same-origin',
+            'x-doji-portal-proxy-key': policy.proxyKey,
+            'x-doji-client-ip': '192.0.2.3',
+            'content-type': 'application/json',
+            cookie,
+            'x-doji-csrf': csrf,
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        }),
+      );
+    const cookieOf = (r: Response, name: string) =>
+      present(
+        r.headers
+          .getSetCookie()
+          .find((c) => c.startsWith(name + '='))
+          ?.split(';')[0],
+      );
+    const started = await call('/auth/start', {
+      email: 'synthetic@example.test',
+      password: 'synthetic-password',
+    });
+    assert.equal(started.status, 200);
+    const start = testRecord(await started.json());
+    const completed = await call(
+      '/auth/complete',
+      { code: '123456' },
+      cookieOf(started, '__Host-doji_employee_login'),
+      String(start.csrf),
+    );
+    assert.equal(completed.status, 200);
+    assert.equal(revoked, false);
+    const grant = testRecord(await completed.json());
+    assert.equal(grant.signedIn, true);
+    const cookie = cookieOf(completed, '__Host-doji_employee');
+    assert.equal((await call('/api/session', undefined, cookie)).status, 200);
+    assert.equal(authorized, 2);
+    assert.equal((await call('/auth/logout', {}, cookie, String(grant.csrf))).status, 200);
+    assert.equal(revoked, true);
+    assert.equal(records.size, 0);
+  });
+test('staging binds the WorkOS realm, SQL project and storage without production monitoring', async () => {
+  const staging: EmployeeRuntimeConfig = {
+    ...config,
+    origin: 'https://admin-staging.dojipro.com',
+    clientId: 'client_01M3T5GJM7JZVQQ7CGHNJD0QMZ',
+    endpoint: 'https://ohrcupagdoilkwhecict.supabase.co/functions/v1/employee-portal-v2',
+    storageOrigin: 'https://ohrcupagdoilkwhecict.supabase.co',
+    database: {
+      ...config.database,
+      projectRef: 'ohrcupagdoilkwhecict',
+      username: 'doji_employee_portal_login.ohrcupagdoilkwhecict',
+    },
+  };
+  const f = fixture({ patch: staging });
+  const response = await f.runtime(
+    new Request(staging.endpoint + '/api/session', {
+      headers: {
+        origin: staging.origin,
+        'sec-fetch-site': 'same-origin',
+        'x-doji-portal-proxy-key': staging.proxyKey,
+        'x-doji-client-ip': '192.0.2.3',
+      },
+    }),
+  );
+  assert.equal(response.status, 401);
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.database.length, 0);
+  for (const patch of [
+    { database: config.database },
+    { storageOrigin: config.storageOrigin },
+    { clientId: config.clientId },
+    { endpoint: config.endpoint },
+    { origin: config.origin },
+    { monitoring: {} },
+  ])
+    assert.throws(() => Reflect.apply(fixture, undefined, [{ patch: { ...staging, ...patch } }]));
+  const shared = {
+    ...staging,
+    clientId: 'client_01M51GRQJVKXFZ98RG21MK7J64',
+    issuerClientId: 'client_01M3VE4WTBYS2XN6NZPH9EDMQD',
+  };
+  assert.doesNotThrow(() => fixture({ patch: shared }));
+  for (const patch of [
+    { issuerClientId: undefined },
+    { issuerClientId: shared.clientId },
+    { clientId: staging.clientId },
+    { clientId: shared.issuerClientId },
+    { origin: config.origin },
+    { database: config.database },
+  ])
+    assert.throws(() => fixture({ patch: { ...shared, ...patch } }));
+});
 const request = (path = '/auth/start', headers = {}) =>
   new Request(config.endpoint + path, {
     method: path === '/api/session' ? 'GET' : 'POST',

@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { employeeSetupReturn } from '../infra/portal-identity/employee-setup-return.mts';
 const url = 'https://admin.dojipro.com/identity/setup-complete';
+test('staging setup strips codes and returns only to staging', () => {
+  const staging = url.replace('admin.', 'admin-staging.');
+  const response = employeeSetupReturn(new Request(staging + '?code=synthetic'));
+  assert.equal(response?.status, 303);
+  assert.equal(response?.headers.get('location'), staging);
+});
 test('provider code is stripped, never echoed or used as employee authority', async () => {
   const r = employeeSetupReturn(new Request(url + '?code=synthetic&state=synthetic'));
   assert.ok(r);

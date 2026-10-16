@@ -16,6 +16,7 @@ interface SessionReaderConfig {
   enabled: boolean;
   realm: PortalRealm;
   clientId: string;
+  issuerClientId?: string;
   apiKey: string;
 }
 export function createWorkosSessionReader(
@@ -26,12 +27,14 @@ export function createWorkosSessionReader(
   if (
     !['business', 'employee'].includes(config?.realm) ||
     !id(config.clientId, 'client') ||
+    (config.issuerClientId !== undefined &&
+      (config.realm !== 'employee' || !id(config.issuerClientId, 'client'))) ||
     !/^sk_[A-Za-z0-9_-]{20,}$/.test(config.apiKey || '') ||
     typeof readMfaReceipt !== 'function'
   )
     throw denied();
   const policy = Object.freeze({ ...config });
-  const issuer = `https://api.workos.com/user_management/${policy.clientId}`;
+  const issuer = `https://api.workos.com/user_management/${policy.issuerClientId ?? policy.clientId}`;
   async function read(path: string, signal: AbortSignal): Promise<unknown> {
     const response = await fetcher('https://api.workos.com' + path, {
       method: 'GET',

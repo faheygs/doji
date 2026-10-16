@@ -6,6 +6,11 @@ import { Buffer } from 'node:buffer';
 import { boundedBody } from './bounded-body.mts';
 import { errorStatus } from './business-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
+import {
+  isEmployeeOrigin,
+  employeeStagingOrigin,
+  employeeStagingProject,
+} from './employee-contracts.mts';
 export interface EmployeeProxyConfig {
   enabled: boolean;
   origin: string;
@@ -27,8 +32,12 @@ const reply = (status: number) =>
   });
 function configValid(c: EmployeeProxyConfig) {
   return (
-    c.origin === 'https://admin.dojipro.com' &&
+    isEmployeeOrigin(c.origin) &&
     /^https:\/\/[a-z]{20}\.supabase\.co\/functions\/v1\/employee-portal-v2$/.test(c.endpoint) &&
+    (c.origin === employeeStagingOrigin
+      ? c.endpoint ===
+        `https://${employeeStagingProject}.supabase.co/functions/v1/employee-portal-v2`
+      : !c.endpoint.startsWith(`https://${employeeStagingProject}.`)) &&
     /^[a-f0-9]{64}$/.test(c.proxyKey || '')
   );
 }
@@ -64,10 +73,11 @@ export function createEmployeeProxy(config: EmployeeProxyConfig, upstream: Porta
       const headers = copyHeaders(request);
       headers.set('x-doji-portal-proxy-key', policy.proxyKey);
       headers.set('x-doji-client-ip', request.headers.get('cf-connecting-ip') || '');
-      // Owner-approved employee-only locality; the database is in Oregon.
-      // Never accept a browser region override or replay an uncertain write.
-      // Pinning disables automatic region rerouting; remove this pin to roll back.
-      headers.set('x-region', 'us-west-2');
+      // Region follows the configured environment, never a browser header.
+      headers.set(
+        'x-region',
+        policy.origin === employeeStagingOrigin ? 'ca-central-1' : 'us-west-2',
+      );
       stage = 'upstream';
       const response = await upstream(policy.endpoint + url.pathname, {
         method: request.method,

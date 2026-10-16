@@ -71,12 +71,6 @@ export function reportRecord(value: unknown, id: string) {
   const assigned = value.triage_state.assigned_to ?? value.assigned_to ?? null;
   if (assigned !== null && !uuid(assigned)) throw invalidCase();
   const currentDecision = value.current_decision == null ? null : decision(value.current_decision);
-  const preserved = value.preserved_media_manifest;
-  if (
-    preserved != null &&
-    (!record(preserved) || !currentDecision || preserved.decision_id !== currentDecision.id)
-  )
-    throw invalidCase();
   const evidence = fields(value.evidence, [
     'kind',
     'text',
@@ -114,7 +108,7 @@ export function reportRecord(value: unknown, id: string) {
     contentExists: value.evidence.exists,
     manifest: media.map(({ slot, kind, availability }) => ({ slot, kind, availability })),
     media,
-    preserved: currentDecision ? preservedReferences(preserved, currentDecision.id) : [],
+    preserved: preservedReferences(value.preserved_media_manifest, currentDecision?.id ?? null),
     hasProfilePhoto: value.evidence.has_profile_photo === true,
     currentDecision,
     history: reportHistory(value),

@@ -13,6 +13,45 @@ const parse = (value: unknown): unknown => {
   return JSON.parse(value);
 };
 const signal = () => AbortSignal.timeout(2000);
+
+test('shared directory accepts only the configured issuer and application audience', async () => {
+  const identity = { clientId: 'client_stage', issuerClientId: 'client_directory' };
+  const shared = {
+    ...actor,
+    audience: identity.clientId,
+    issuer: `https://api.workos.com/user_management/${identity.issuerClientId}`,
+  };
+  let calls = 0;
+  const adapter = createEmployeeApplicationAdapter(
+    async (_role, _sql, params) => {
+      calls++;
+      assert.deepEqual(params.slice(0, 2), [shared.issuer, shared.audience]);
+      return { user_id: 'staging-only' };
+    },
+    { identity },
+  );
+  identity.clientId = 'client_mutated';
+  assert.deepEqual(await adapter.authorize(shared, signal()), { user_id: 'staging-only' });
+  for (const patch of [
+    { audience: 'client_directory' },
+    { audience: 'client_mutated' },
+    { issuer: 'https://api.workos.com/user_management/client_stage' },
+    { mfaVerified: false },
+  ])
+    await assert.rejects(
+      Reflect.apply(adapter.authorize, adapter, [{ ...shared, ...patch }, signal()]),
+      { status: 403 },
+    );
+  assert.equal(calls, 1);
+  await assert.rejects(
+    createEmployeeApplicationAdapter(async () => true).authorize(shared, signal()),
+    { status: 403 },
+  );
+  for (const invalid of [{ clientId: '' }, { clientId: 'client_stage', issuerClientId: 'invalid' }])
+    assert.throws(() => createEmployeeApplicationAdapter(async () => true, { identity: invalid }), {
+      status: 503,
+    });
+});
 test('session uses fixed role, SQL and verified subject, not browser ID', async () => {
   const calls: Parameters<PortalExecute>[] = [];
   const a = createEmployeeApplicationAdapter(async (...args) => {

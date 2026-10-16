@@ -234,6 +234,8 @@ test('private keys, duplicate kids, unsupported realm and insecure issuer reject
   for (const patch of [
     { realm: 'member' },
     { issuer: 'http://issuer.example.test/' },
+    { clientId: base.audience },
+    { realm: 'employee', clientId: 'different-client' },
     { jwks: { keys: [{ ...base.jwks.keys[0], d: 'secret' }] } },
     { jwks: { keys: [base.jwks.keys[0], base.jwks.keys[0]] } },
   ])

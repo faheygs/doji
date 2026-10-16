@@ -8,12 +8,14 @@ import { Buffer } from 'node:buffer';
 import { createPortalIdentityVerifier } from './verify.mts';
 import { createWorkosSessionReader } from './workos-session.mts';
 import { record, integer } from './portal-contracts.mts';
+import { employeeStagingClient, employeeStagingOrigin } from './employee-contracts.mts';
 import type { PortalIdentity, PortalFetch, CheckPortalSession } from './portal-contracts.mts';
 import type { JSONWebKeySet } from 'jose';
 export interface EmployeeProviderConfig {
   enabled: boolean;
   realm: 'employee';
   clientId: string;
+  issuerClientId?: string;
   apiKey: string;
   encryptionKey: string;
   origin: string;
@@ -51,6 +53,7 @@ export function createWorkosEmployeeProvider(
   if (
     policy.realm !== 'employee' ||
     !id(policy.clientId, 'client') ||
+    (policy.issuerClientId !== undefined && !id(policy.issuerClientId, 'client')) ||
     !/^sk_[A-Za-z0-9_-]{20,}$/.test(policy.apiKey || '') ||
     !/^[a-f0-9]{64}$/.test(policy.encryptionKey || '') ||
     !Number.isSafeInteger(policy.maxMfaAgeSeconds) ||
@@ -58,8 +61,14 @@ export function createWorkosEmployeeProvider(
     policy.maxMfaAgeSeconds > 28800
   )
     throw denied();
-  const issuer = `https://api.workos.com/user_management/${policy.clientId}`;
-  const verifierConfig = { ...policy, issuer, audience: policy.clientId };
+  const issuer = `https://api.workos.com/user_management/${policy.issuerClientId ?? policy.clientId}`;
+  const verifierConfig = {
+    ...policy,
+    issuer,
+    audience: policy.clientId,
+    // Shared-directory tokens must identify this application, not only its issuer.
+    clientId: policy.issuerClientId === undefined ? undefined : policy.clientId,
+  };
   // Validate origin/key/token policy at construction, not after issuing a grant.
   createPortalIdentityVerifier(verifierConfig, async () => null);
   const key = Buffer.from(policy.encryptionKey, 'hex');
@@ -277,7 +286,10 @@ export function createWorkosEmployeeProvider(
             `/user_management/users/${p.subject}/auth_factors`,
             {
               type: 'totp',
-              totp_issuer: 'Doji Employees',
+              totp_issuer:
+                policy.origin === employeeStagingOrigin && policy.clientId === employeeStagingClient
+                  ? 'Doji Staging'
+                  : 'Doji Employees',
               totp_user: p.subject,
             },
             deadline,

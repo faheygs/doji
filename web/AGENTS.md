@@ -42,8 +42,31 @@ Do not pull root React 19.2 into web or install paid MUI packages without approv
 Default preview config is not a production-auth connection. For verification run
 `npm run check`, `npm run build:connected --workspace @doji/admin`,
 `npm run test:connected-artifacts`, `npm run test:browser`.
+Root `npm run dev:admin` also starts the existing 4310 preview directly with
+synthetic data and no login/MFA. Keep this shortcut disconnected; do not turn it
+into a shared staging authentication bypass.
 Install Playwright Chromium first. Package-only browser suites use dedicated
 configs and exact prepared artifacts; do not claim them passed from default tests.
 Build outputs under `dist`, `.next`, `out`, generated safety/legal assets and test
 reports are ignored. Deployments must preserve the reviewed proxy/config/headers
 and remain independent for admin, business and public sites.
+
+Root `npm run build:admin-staging -- <new absolute output directory>` prepares
+only the admin staging Pages artifact, with no env files or cloud writes. It runs
+the existing connected bundle budgets. The separate staging-only proxy rejects
+production bindings. Root `npm run dev:admin:staging-login` separately serves connected
+React at `http://127.0.0.1:4313`, through the development-only fixed-staging relay.
+No env/API keys are needed; it still requires a named staging login and MFA.
+Keep `dev/` out of hosted bundles, preserve loopback/origin/cookie isolation, and
+run `npm run test:admin-staging:browser` from web with synthetic upstreams.
+Default Vite remains offline. Business/site/mobile staging are deferred.
+
+`dev:admin:staging` uses the separate local persona entry at the same port instead.
+Its issued developer token stays in Node, loaded from a private external env file
+or shell/vault injection. The gateway/SQL are enabled only in staging; see current-state
+guidance for access restrictions. The yellow `DOJI STAGE` strip identifies local
+and hosted staging. The avatar-menu impersonation dialog must stay out of hosted
+bundles; production never shows the strip.
+Never import `dev/development-*` into hosted entries, broaden loopback/CORS checks,
+fake MFA or bypass real persona permissions. Switching must discard session data;
+test reload, late requests, revocation, and connected artifact exclusion.

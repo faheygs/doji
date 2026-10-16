@@ -45,7 +45,7 @@ export function evidenceReferences(value: unknown): EvidenceReference[] {
     };
   });
 }
-export function preservedReferences(value: unknown, decisionId: string) {
+export function preservedReferences(value: unknown, decisionId: string | null) {
   if (value == null) return [];
   if (
     !record(value) ||
@@ -55,6 +55,8 @@ export function preservedReferences(value: unknown, decisionId: string) {
   )
     throw Error('Invalid preserved evidence.');
   const refs = evidenceReferences(value.items);
+  // Pending reports have no decision and the server returns an empty archive.
+  if (decisionId === null && refs.length) throw Error('Unbound preserved evidence.');
   if (refs.some((ref) => ref.bucket && ref.bucket !== 'moderation-evidence'))
     throw Error('Invalid preserved bucket.');
   return refs;

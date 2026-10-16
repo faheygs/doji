@@ -7,6 +7,10 @@ import type { EmployeeProviderConfig } from '../infra/portal-identity/workos-emp
 import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts';
 import type { JWTPayload } from 'jose';
 import { present, testRecord } from './employee-test-fixtures.mts';
+import {
+  employeeStagingClient,
+  employeeStagingOrigin,
+} from '../infra/portal-identity/employee-contracts.mts';
 const keys = await generateKeyPair('ES256');
 const config: EmployeeProviderConfig = {
   enabled: true,
@@ -22,7 +26,6 @@ const config: EmployeeProviderConfig = {
   },
 };
 const signal = () => new AbortController().signal;
-const issuer = 'https://api.workos.com/user_management/client_employee';
 interface FixtureOptions {
   claims?: JWTPayload;
   refreshClaims?: JWTPayload;
@@ -35,14 +38,15 @@ interface FixtureOptions {
   listedSid?: string;
   inactive?: boolean;
 }
-async function fixture(options: FixtureOptions = {}) {
+async function fixture(options: FixtureOptions = {}, policy: EmployeeProviderConfig = config) {
   const calls: { url: string; body: Record<string, unknown> | undefined }[] = [];
   let consumed = false,
     revoked = false,
     refreshes = 0;
   const claims = () => ({
-    iss: issuer,
-    aud: config.clientId,
+    iss: `https://api.workos.com/user_management/${policy.issuerClientId ?? policy.clientId}`,
+    aud: policy.clientId,
+    ...(policy.issuerClientId ? { client_id: policy.clientId } : {}),
     sub: 'user_employee',
     sid: 'session_employee',
     iat: Math.floor(Date.now() / 1000),
@@ -79,8 +83,8 @@ async function fixture(options: FixtureOptions = {}) {
       new Response(JSON.stringify(data), { status });
     if (url.endsWith('/authenticate')) {
       assert.ok(body);
-      assert.equal(body.client_id, config.clientId);
-      assert.equal(body.client_secret, config.apiKey);
+      assert.equal(body.client_id, policy.clientId);
+      assert.equal(body.client_secret, policy.apiKey);
       if (body.grant_type === 'password') {
         if (options.passwordSuccess) return response(await grant());
         return response(
@@ -131,7 +135,7 @@ async function fixture(options: FixtureOptions = {}) {
     if (url.endsWith('/user_employee')) return response(user);
     assert.fail('Unexpected provider URL');
   };
-  const provider = createWorkosEmployeeProvider(config, fetcher);
+  const provider = createWorkosEmployeeProvider(policy, fetcher);
   async function prepared() {
     const started = await provider.begin('owner@example.test', 'test-password', signal());
     return provider.prepare(started.pending, signal());
@@ -163,6 +167,61 @@ test('TOTP completion creates sealed proof for verified exact employee session',
     true,
   );
 });
+
+test('shared directory preserves application-bound MFA proof through verify and refresh', async () => {
+  const policy = { ...config, clientId: 'client_stage', issuerClientId: 'client_employee' };
+  const f = await fixture({}, policy);
+  const pending = await f.prepared();
+  const grant = await f.provider.complete(pending.pending, '123456', signal());
+  assert.equal(grant.identity.issuer, 'https://api.workos.com/user_management/client_employee');
+  assert.equal(grant.identity.audience, 'client_stage');
+  assert.equal(
+    (await f.provider.verify(grant.accessToken, grant.mfaReceipt, grant.subject, signal()))
+      .mfaVerified,
+    true,
+  );
+  const refreshed = await f.provider.refresh(
+    { ...grant, sessionId: grant.identity.sessionId },
+    signal(),
+  );
+  assert.equal(refreshed.mfaReceipt, grant.mfaReceipt);
+  const other = await fixture({}, { ...policy, clientId: 'client_other' });
+  await assert.rejects(
+    other.provider.verify(grant.accessToken, grant.mfaReceipt, grant.subject, signal()),
+  );
+});
+
+for (const claims of [
+  { client_id: undefined },
+  { client_id: 'client_employee' },
+  { aud: 'client_employee' },
+  { aud: ['client_stage', 'client_employee'] },
+  { iss: 'https://api.workos.com/user_management/client_stage' },
+])
+  test(`shared directory denies mismatched application claims ${JSON.stringify(claims)}`, async () => {
+    const f = await fixture(
+      { claims },
+      { ...config, clientId: 'client_stage', issuerClientId: 'client_employee' },
+    );
+    const pending = await f.prepared();
+    await assert.rejects(f.provider.complete(pending.pending, '123456', signal()));
+    assert.equal(
+      f.calls.some((call) => call.url.includes('/sessions?')),
+      false,
+    );
+  });
+
+test('shared-directory refresh cannot change application context', async () => {
+  const f = await fixture(
+    { refreshClaims: { client_id: 'client_employee' } },
+    { ...config, clientId: 'client_stage', issuerClientId: 'client_employee' },
+  );
+  const pending = await f.prepared();
+  const grant = await f.provider.complete(pending.pending, '123456', signal());
+  await assert.rejects(
+    f.provider.refresh({ ...grant, sessionId: grant.identity.sessionId }, signal()),
+  );
+});
 test('enrollment produces a setup secret but not an authenticated session', async () => {
   const f = await fixture({ enroll: true });
   const p = await f.prepared();
@@ -171,8 +230,24 @@ test('enrollment produces a setup secret but not an authenticated session', asyn
   assert.equal('accessToken' in p, false);
   const request = f.calls.find((c) => c.url.endsWith('/auth_factors'));
   assert.equal(present(present(request).body).type, 'totp');
+  assert.equal(present(present(request).body).totp_issuer, 'Doji Employees');
   assert.equal('totp_secret' in present(present(request).body), false);
 });
+for (const [origin, clientId, label] of [
+  [employeeStagingOrigin, employeeStagingClient, 'Doji Staging'],
+  [employeeStagingOrigin, config.clientId, 'Doji Employees'],
+  [config.origin, employeeStagingClient, 'Doji Employees'],
+  ['https://admin.dojipro.com', config.clientId, 'Doji Employees'],
+] as const)
+  test(`MFA label for ${origin} / ${clientId}`, async () => {
+    const f = await fixture({ enroll: true }, { ...config, origin, clientId });
+    const p = await f.prepared();
+    const request = f.calls.find((c) => c.url.endsWith('/auth_factors'));
+    assert.equal(present(present(request).body).totp_issuer, label);
+    assert.equal(present(present(request).body).totp_user, 'user_employee');
+    const result = await f.provider.complete(p.pending, '123456', signal());
+    assert.equal(result.identity.mfaVerified, true);
+  });
 for (const [name, options] of [
   ['password-only success', { passwordSuccess: true }],
   ['unverified email', { user: { email_verified: false } }],

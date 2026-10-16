@@ -215,6 +215,44 @@ function fixture(overrides: Record<string, unknown> = {}) {
     restart: (changes = {}) => (handle = createEmployeeHttp({ ...config, ...changes }, deps)),
   };
 }
+test('shared employee issuer survives MFA completion, session checks, refresh and logout', async () => {
+  const f = fixture({ issuerClientId: 'client_shared' });
+  f.identity.issuer = 'https://api.workos.com/user_management/client_shared';
+  const signedIn = await f.login();
+  assert.equal(signedIn.response.status, 200);
+  assert.equal(signedIn.data.assurance, 'aal2');
+  assert.equal((await f.request('/api/session', undefined, signedIn.cookie)).status, 200);
+  assert.equal(f.calls.verify, 1);
+  f.advance(880000);
+  assert.equal((await f.request('/api/session', undefined, signedIn.cookie)).status, 200);
+  assert.equal(f.calls.refresh, 1);
+  assert.equal(
+    (await f.request('/auth/logout', {}, signedIn.cookie, signedIn.data.csrf)).status,
+    200,
+  );
+  assert.equal(f.sessions.size, 0);
+});
+
+test('shared issuer does not relax audience, issuer or MFA checks', async () => {
+  for (const patch of [
+    { issuer: 'https://api.workos.com/user_management/client_employee' },
+    { issuer: 'https://api.workos.com/user_management/client_other' },
+    { audience: 'client_shared' },
+    { mfaVerified: false },
+  ]) {
+    const f = fixture({ issuerClientId: 'client_shared' });
+    Object.assign(
+      f.identity,
+      { issuer: 'https://api.workos.com/user_management/client_shared' },
+      patch,
+    );
+    assert.equal((await f.login()).response.status, 401);
+    assert.equal(f.calls.authorize, 0);
+    assert.equal(f.sessions.size, 0);
+  }
+  assert.throws(() => fixture({ issuerClientId: 'https://untrusted.test' }));
+});
+
 test('password/TOTP installs only opaque host cookie; secrets encrypted at rest', async () => {
   const f = fixture(),
     s = await f.login();
@@ -309,7 +347,9 @@ test('invalid OTP cannot be replayed', async () => {
   f.state.wrongOtp = true;
   const r = await f.request('/auth/complete', { code: '123456' }, s.cookie, s.data.csrf);
   assert.equal(r.status, 503);
-  assert.doesNotMatch(await r.text(), /PRIVATE/);
+  const failure = await r.text();
+  assert.doesNotMatch(failure, /PRIVATE/);
+  assert.equal(evidenceRecord(JSON.parse(failure)).stage, 'provider');
   assert.equal(
     (await f.request('/auth/complete', { code: '123456' }, s.cookie, s.data.csrf)).status,
     401,
@@ -351,14 +391,18 @@ for (const change of [
 test('unmapped/disabled employee grant is revoked before session exists', async () => {
   const f = fixture();
   f.state.authorize = false;
-  assert.equal((await f.login()).response.status, 503);
+  const result = await f.login();
+  assert.equal(result.response.status, 503);
+  assert.equal(result.data.stage, 'authorization');
   assert.equal(f.sessions.size, 0);
   assert.equal(f.calls.revoke, 1);
 });
 test('failed durable install revokes grant', async () => {
   const f = fixture();
   f.state.failStore = true;
-  assert.equal((await f.login()).response.status, 503);
+  const result = await f.login();
+  assert.equal(result.response.status, 503);
+  assert.equal(result.data.stage, 'session');
   assert.equal(f.calls.revoke, 1);
 });
 test('sessions survive controller recreation but not key/origin changes', async () => {
@@ -434,7 +478,8 @@ test('logout deletes local session even when provider unavailable', async () => 
   assert.equal((await f.request('/api/session', undefined, s.cookie)).status, 401);
 });
 test('logout after idle expiry confirms deletion and retry stays idempotent', async () => {
-  const f = fixture(), s = await f.login();
+  const f = fixture(),
+    s = await f.login();
   f.advance(1800001);
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await f.request('/auth/logout', {}, s.cookie, s.data.csrf);
@@ -447,7 +492,8 @@ test('logout after idle expiry confirms deletion and retry stays idempotent', as
   assert.equal((await f.request('/api/session', undefined, s.cookie)).status, 401);
 });
 test('logout confirms an absent cookie or already-removed session without provider calls', async () => {
-  const f = fixture(), s = await f.login();
+  const f = fixture(),
+    s = await f.login();
   f.sessions.clear();
   for (const cookie of [undefined, s.cookie]) {
     const response = await f.request('/auth/logout', {}, cookie, s.data.csrf);
@@ -458,12 +504,17 @@ test('logout confirms an absent cookie or already-removed session without provid
   assert.equal(f.calls.command, 0);
 });
 test('active-session logout still requires matching CSRF and exact origin', async () => {
-  const f = fixture(), s = await f.login();
+  const f = fixture(),
+    s = await f.login();
   for (const csrf of [undefined, 'wrong']) {
     assert.equal((await f.request('/auth/logout', {}, s.cookie, csrf)).status, 403);
     assert.equal(f.sessions.size, 1);
   }
-  assert.equal((await f.request('/auth/logout', {}, s.cookie, s.data.csrf, { origin: 'https://other.test' })).status, 403);
+  assert.equal(
+    (await f.request('/auth/logout', {}, s.cookie, s.data.csrf, { origin: 'https://other.test' }))
+      .status,
+    403,
+  );
   assert.equal(f.sessions.size, 1);
   assert.equal(f.calls.revoke, 0);
   for (const cookie of ['__Host-doji_employee=invalid', s.cookie + '; ' + s.cookie]) {
@@ -473,12 +524,17 @@ test('active-session logout still requires matching CSRF and exact origin', asyn
 });
 test('absent-session logout still rejects cross-origin, invalid methods and malformed bodies', async () => {
   const f = fixture();
-  assert.equal((await f.request('/auth/logout', {}, undefined, undefined, { origin: 'https://other.test' })).status, 403);
+  assert.equal(
+    (await f.request('/auth/logout', {}, undefined, undefined, { origin: 'https://other.test' }))
+      .status,
+    403,
+  );
   assert.equal((await f.request('/auth/logout')).status, 404);
   assert.equal((await f.request('/auth/logout', { unexpected: true })).status, 400);
 });
 test('logout removes unusable session state but cannot confirm a failed removal', async () => {
-  const f = fixture(), s = await f.login();
+  const f = fixture(),
+    s = await f.login();
   for (const key of f.sessions.keys()) f.sessions.set(key, 'corrupt');
   f.state.failAcquire = true;
   assert.equal((await f.request('/auth/logout', {}, s.cookie, s.data.csrf)).status, 503);

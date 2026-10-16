@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:staging": "vite --config vite.development.config.ts --mode staging-local",
+    "dev:staging-login": "vite --config vite.staging.config.ts --mode staging-local",
     "dev": "vite --host 127.0.0.1 --port 4310 --strictPort",
     "build": "vite build",
     "build:connected": "vite build --mode connected",

@@ -42,6 +42,29 @@ async function setup(
   return { client, calls };
 }
 describe('moderation record boundaries', () => {
+  it('accepts the empty server archive for an undecided report, never unbound media', () => {
+    const archived = {
+      source: 'preserved_decision_media',
+      decision_id: null,
+      historical_snapshot: true,
+      items: [],
+    };
+    const pending = {
+      ...reportFixture(),
+      current_decision: null,
+      preserved_media_manifest: archived,
+    };
+    expect(reportRecord(pending, reportId).preserved).toEqual([]);
+    for (const invalid of [
+      { ...archived, decision_id: decisionId },
+      { ...archived, source: 'unknown' },
+      { ...archived, historical_snapshot: false },
+      { ...archived, items: [{ slot: 'photo', kind: 'image', availability: 'missing' }] },
+    ])
+      expect(() =>
+        reportRecord({ ...pending, preserved_media_manifest: invalid }, reportId),
+      ).toThrow();
+  });
   it('projects only bounded display data and never admits media URLs or secret fields', () => {
     const f = reportFixture();
     f.media_manifest.items = [

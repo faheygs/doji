@@ -188,6 +188,16 @@ logout and access loss clear protected caches, drafts and session-owned sockets.
 An already-absent employee session can confirm sign-out; storage/revocation failures
 must not be mislabeled as successful cleanup.
 
+Local admin development has a distinct staging-only credential/persona path,
+not an MFA bypass for hosted sessions. Active staging employee records retain real
+database permissions, developer/persona audit attribution and revocation checks.
+Switching clears session-owned data and fences old requests. Explicit developer
+directory grants permit acting as those employees only inside staging; no WorkOS
+session, production identity proof or member token is minted. Hosted staging and
+production share employee credentials/MFA but require separate application audiences,
+database access grants and sessions. Hosted access retains MFA.
+See current state for whether this separately gated development gateway is enabled.
+
 Business has owned Doji account forms backed by an independent WorkOS realm.
 Submission precedes staff approval; approved owners finish brand setup and
 authenticator enrollment before workspace access. QR/manual fallback is ephemeral;

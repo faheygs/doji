@@ -3,6 +3,8 @@ export default defineConfig({
   testDir: './tests/browser',
   // These suites use isolated production-origin fixtures and their own package configs.
   testIgnore: [
+    'admin-staging.spec.ts',
+    'admin-development.spec.ts',
     'business-portal-migration.spec.ts',
     'public-migration.spec.ts',
     'business-access-design.spec.ts',

@@ -2,6 +2,7 @@
 // are persisted in browser storage. Existing portal components remain the UI.
 import { portalRouteFor } from '../doji-orchestrator/src/portal-read.ts';
 import { record } from './portal-contracts.mts';
+import { isEmployeeOrigin } from './employee-contracts.mts';
 import { errorStatus } from './business-contracts.mts';
 import { employeeDirectRoute, type EmployeeFeatureGates } from './employee-direct-routes.mts';
 import type { PortalFetch } from './portal-contracts.mts';
@@ -20,7 +21,7 @@ export function createEmployeeBrowserTransport(
     now = Date.now,
   }: { upstream?: PortalFetch; origin?: string; now?: () => number } = {},
 ) {
-  if (origin !== 'https://admin.dojipro.com' || config.independentEmployeeIdentity !== true)
+  if (!isEmployeeOrigin(origin) || config.independentEmployeeIdentity !== true)
     throw fail('Employee transport is not configured.', 503);
   let csrf: string | null = null,
     cleanupCsrf: string | null = null,
@@ -229,7 +230,9 @@ export function createEmployeeBrowserTransport(
         // Already locked locally. Cleanup failure is not a second invalidation:
         // that callback clears the UI and requests logout again, creating a loop.
         if (epoch === cleanupEpoch)
-          config.onSessionCleanupFailed?.('Workspace locked; server sign-out could not be confirmed.');
+          config.onSessionCleanupFailed?.(
+            'Workspace locked; server sign-out could not be confirmed.',
+          );
       });
     },
     async request(

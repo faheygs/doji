@@ -1,9 +1,9 @@
 // Hosted invitation completion is NOT portal authentication. Never exchange an
 // unbound authorization code, grant a role, or infer identity from query data.
+import { isEmployeeOrigin } from './employee-contracts.mts';
 export function employeeSetupReturn(request: Request): Response | null {
   const url = new URL(request.url);
-  if (url.origin !== 'https://admin.dojipro.com' || url.pathname !== '/identity/setup-complete')
-    return null;
+  if (!isEmployeeOrigin(url.origin) || url.pathname !== '/identity/setup-complete') return null;
   const headers = new Headers({
     'cache-control': 'no-store',
     'referrer-policy': 'no-referrer',

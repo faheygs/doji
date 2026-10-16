@@ -41,13 +41,20 @@ Install the root packages above, then `npm ci --prefix web`. From the repository
 root run each desired preview in its own terminal:
 
 ```sh
-npm run dev:admin --prefix web
+npm run dev:admin
 npm run dev:business --prefix web
 npm run dev:site --prefix web
 ```
 
 The apps bind loopback at ports 4310/4311/4312. Defaults are disconnected preview
 configuration, not permission to connect a production employee/business session.
+For everyday admin UI work, `npm run dev:admin` opens the existing sample-data
+workspace at `http://127.0.0.1:4310`: no account creation, password, MFA or env file.
+The home page uses the synthetic Alex Morgan employee; preview actions do not
+persist to the shared staging database. This is a UI preview, not backend acceptance.
+Use `npm run dev:admin:staging` for connected development after receiving a
+staging developer credential. The separate `dev:admin:staging-login` command and
+hosted staging site retain real employee login and MFA.
 The public Next app exports static files; there is no Next API/auth server.
 Its retained safety compiler needs the locked `infra/doji-orchestrator`
 dependencies even for a web-only build; that install does not run a Worker.
@@ -156,11 +163,256 @@ production profiles currently include the production orchestrator gateway URL.
 Do not run an EAS development/preview build assuming it uses a staging backend.
 Cloud builds also require separate approval and allowance checks.
 
+## Hosted staging database
+
+The database foundation is installed in project **`ohrcupagdoilkwhecict`**,
+Free organization **doji-staging**, API
+`https://ohrcupagdoilkwhecict.supabase.co`. Production remains
+`tvixsmqxotuvyjqzmjla`; never substitute it for a missing development connection.
+
+- The baseline includes current deployed portal overlays, explicit privileges,
+  RLS, three empty buckets, code-owned badge/shop data and two synthetic demo
+  members plus two inactive challenges. Demo profiles intentionally do not appear
+  through public profile reads. These fixture Auth rows have no login password.
+- The 290 migration ledger entries describe a reconciled schema baseline, not a
+  raw execution of all historical SQL against the hosted project. Do not reset it,
+  replay old migrations or bulk-apply overlays. New changes need a reviewed diff
+  against the actual staging schema and their own forward migration.
+- Member signup and email provider remain disabled. The staging employee runtime
+  and separate local-development gateway use their own restricted SQL logins;
+  employee realm/session settings are enabled;
+  other runtime roles remain NOLOGIN. No production credentials, cron jobs, media
+  or member identities were copied. Approved employee subjects are mapped separately
+  to staging permissions. Realtime and outbound integrations remain disabled.
+- Obtain named access to this **separate staging organization**. Production-org
+  membership does not establish staging membership. Do not share the owner's
+  credentials or put privileged keys into Vite/Expo public configuration.
+- The same admin source is packaged for `admin-staging.dojipro.com` in separate
+  Pages project `doji-admin-staging`; HTTPS and anonymous boundaries are verified.
+  The WorkOS callback is configured; password sign-in and required MFA are verified.
+  It uses the existing employee identity/password/MFA through a separate WorkOS
+  application. Use the existing employee authenticator entry, not a factor from
+  the retired independent staging directory. Gavin and Kedd have staging access;
+  other employees require explicit staging grants. No second signup is needed.
+  Invitations remain held until separately requested.
+  Default local Vite remains an offline preview. The separate admin staging command
+  below supplies a bounded loopback relay; hosted origin checks are unchanged.
+  Business/mobile connections are separate.
+
+### Admin-only staging scope
+
+The current setup scope is the admin portal and its employee backend. Business,
+public-site and mobile staging are deferred, not prerequisites for admin readiness.
+Do not enable shared scheduling, push or member signup to test an admin page.
+Keep invitations held until the environment is configured and the owner requests them.
+
+For connected **admin frontend** development, after the locked installs above:
+
+```powershell
+npm run dev:admin:staging-login
+```
+
+Open `http://127.0.0.1:4313` and use your existing employee login/MFA after receiving
+staging access. No `.env` file, Bitwarden token, WorkOS API key or database password
+is needed for this frontend workflow. The Vite mode does not load env files.
+The existing `dev:admin` command remains offline at port 4310.
+
+This runs local React source against the **shared staging backend**, not an
+isolated per-developer database. Intentional writes affect shared synthetic data.
+Only five employee auth/session/RPC routes relay to the fixed HTTPS staging host;
+the local server checks loopback address, Host, Origin and Fetch Metadata before
+translating the request. It never forwards arbitrary targets or browser-supplied
+provider credentials. MFA, CSRF, permissions and atomic commands remain upstream.
+Hosted production/staging origin allowlists are not expanded to localhost.
+
+Hosted cookies stay in bounded, expiring, per-browser memory jars. The local
+HTTP-only, SameSite=Strict cookie contains a different random identifier. Loopback
+HTTP is for a trusted developer machine only: never expose this server through a
+tunnel, LAN binding or shared/untrusted host. A local process can inspect its own
+memory/traffic. Sign out before stopping; restart discards jars but does not revoke
+unexpired remote sessions. Unexpected/uncertain writes are not retried automatically.
+Realtime and monitoring stay unavailable; no polling is added.
+
+`npm run test:admin-staging:browser --prefix web` verifies the actual browser and
+relay using synthetic upstream responses only. It requires installed Playwright
+Chromium and free port 4313. This is not hosted WorkOS/SQL acceptance; owner
+password/MFA and representative hosted workflows were separately verified October 16.
+
+Build the admin staging site from source, without the owner's old release folders
+or `.env.local`, after installing the locked root, web and Worker dependencies:
+
+```powershell
+$stagePackage = Join-Path $env:TEMP ('doji-admin-' + [guid]::NewGuid())
+npm run test:admin-staging
+npm run build:admin-staging -- $stagePackage
+```
+
+The new output directory must be outside the repository with an existing parent.
+The build refuses to overwrite it, runs the connected bundle gates, then produces
+`site/` and a public-only SHA-256 `manifest.json`. Temporary compiler output is
+removed automatically. Retain a deployed package for rollback; remove disposable
+packages after testing. The build does not deploy, read secrets or send mail.
+
+The staging-only Pages entry rejects any other host, origin or Supabase endpoint.
+Only the `doji-admin-staging` project with the recorded staging bindings can serve
+it; keep its proxy secret in Cloudflare, not the build or browser. Its primary
+deployment is staging even though Pages calls that slot "production". Alternate
+Pages preview hosts are not authorized login environments. Do not deploy this
+package to `doji-admin` or change the existing production package command.
+
+Remaining admin readiness work: reproducible employee-backend packaging/config
+checks; staging deploy/rollback access and scoped backend secret handoff; and hosted
+broader end-to-end permission/provider acceptance. Login, idea review/history/audit,
+report assignment and business assignment are verified. Realtime/health integrations stay
+explicitly unavailable until independently configured for staging. A package build
+does not establish these checks, and staff onboarding is not their substitute.
+
+The exact baseline, verification, known test differences and recovery artifact are
+recorded in [staging acceptance](releases/STAGING_DATABASE_BASELINE_2026-10-14.md).
+The repo still does not provide a one-command fresh hosted/full-stack restore.
+
+### Admin deployment workflow
+
+Prepared source: `.github/workflows/admin-staging.yml` and `admin-production.yml`.
+GitHub environments exist and permit only the `main` branch; production requires
+`faheygs` approval with admin bypass disabled. The owner can approve their own
+manual dispatch. Separate account-owned Pages Write tokens and the account ID are
+configured in both environments. Merge, CI deployment/promotion acceptance and
+activation remain pending; this is not yet a live pipeline.
+
+Once activated:
+
+1. Develop locally, open a PR and merge only after exact-head quality checks pass.
+2. Successful **Quality gates** on main triggers **Admin staging**. Only admin or
+   shared admin dependency changes since the last successful deployment package
+   a release. Business-only/mobile-only/SQL changes skip it. Repository quality
+   checks still cover the monorepo; they are not deployments of the other apps.
+3. Test `https://admin-staging.dojipro.com`. Record its successful **Admin staging**
+   run ID, not the Quality run ID. Hosted staging retains login/MFA.
+4. In GitHub Actions, choose **Admin production → Run workflow → main** and enter
+   that staging run ID. Review the source SHA and approve the production environment.
+   The saved production package uses the same compiled frontend as staging; no rebuild.
+
+Only the admin Pages frontend and its same-origin employee proxy are released.
+No database, Edge runtime, shared Worker, business/site or mobile deployment runs.
+Backend contract changes need their own approved rollout before dependent UI.
+`build-admin-release.mts` requires a clean exact-SHA checkout, ignores env files,
+and emits public manifests and two target-pinned packages outside the repository.
+The local development gateway and impersonation UI are excluded from hosted assets.
+
+Each GitHub environment has `CLOUDFLARE_API_TOKEN` as a secret and
+`CLOUDFLARE_ACCOUNT_ID` as a variable; runtime keys stay in Cloudflare/Supabase.
+Cloudflare account-owned tokens `doji-admin-staging-github` and
+`doji-admin-production-github` expire January 14, 2027. Rotate each into its own
+environment before expiry; verify the replacement before revoking the old token.
+Verify current capacity, project bindings, hosted acceptance and rollback first,
+then explicitly enable repository variable `ADMIN_DEPLOYMENTS_ENABLED=true`.
+Pages Write is account-scoped, not project-isolated. The workflows' fixed targets
+do not restrict what a stolen token could access. No DNS, email, SQL or shared
+Worker permissions were added. Tokens have not yet been exercised by a CI release.
+
+Artifacts/receipts expire after 14 days. An expired or unsuccessful staging run
+cannot be promoted; stage a new reviewed release. Each receipt records the prior
+Cloudflare deployment ID. On an inconclusive release, inspect the receipt and
+Cloudflare before retrying; rollback uses the recorded deployment in the same Pages
+project under explicit approval, not a rebuild or database rollback. Runtime flags
+and bindings are checked for drift and never updated by these workflows.
+
+Offline workflow checks:
+`node --test scripts/test-admin-release.mts scripts/test-admin-release-ci.mts`.
+
+### Local developer impersonation
+
+The source now connects local React to the shared staging database using a
+per-developer credential and active staging employees, without MFA
+prompts. Hosted staging still uses WorkOS login/MFA. The staging gateway is enabled
+and the owner's credential is installed privately on this machine. Other developers
+need their own approved credential; no credential is bundled in the repo.
+
+Deployed in staging: `admin_development_employees_v2.sql` makes active staging
+employee records (name, verified contact, roles and mapped identity) drive the
+selector. An explicitly granted `employee_directory_access` on a developer
+credential permits choosing those employees; existing credentials default to
+false and retain only their old grants. No extra persona record is needed for a
+new employee. Every command rechecks access, identity revocation and employee
+status. The picker refreshes on opening, supports up to 100 employees and fails
+explicitly rather than silently hiding overflow. Its internal `personas` wire
+name remains for compatibility; it is not another identity source.
+
+Only the owner's token currently has directory-wide access. No token is granted
+broader access merely by installing the overlay. The separately deployed
+`employee_shared_staging_v1.sql` pins the shared employee issuer and staging
+application audience. Existing verified WorkOS subjects map to separate staging
+employees; this is not an automatic production-role sync or email-based identity
+match. Do not replay the applied overlays. Retaining rollback order is shared
+identity cutover, directory v2, then development v1; access stays disabled until
+reviewed re-enablement. All retain employee/audit records.
+
+After your credential is issued:
+
+1. Complete the locked installs above. Obtain your **own**
+   `DOJI_ADMIN_DEVELOPMENT_TOKEN` through the approved restricted vault; do not
+   use another developer's token or a database/WorkOS/service-role key.
+2. Have the vault inject that variable into your shell, or save a private file
+   containing only `DOJI_ADMIN_DEVELOPMENT_TOKEN=<your issued value>` at
+   `%LOCALAPPDATA%\Doji\admin-development.env` on Windows, or
+   `~/.config/doji/admin-development.env` on macOS/Linux. Limit file access to
+   your OS account. A different **absolute path outside the repo** can be set in
+   `DOJI_ADMIN_DEVELOPMENT_ENV_FILE`. Never use `VITE_*` or commit this file.
+3. Run `npm run dev:admin:staging`, open `http://127.0.0.1:4313`, select a user in
+   the dialog and click **Impersonate User**. The yellow **DOJI STAGE** strip identifies
+   this environment. No password or MFA prompt is involved in this local path.
+4. Use the avatar menu's **Impersonate user** action to switch. Cancel leaves the
+   current workspace unchanged; confirmation discards private caches/drafts,
+   fences pending requests and reloads the portal home page. Commands are never automatically retried. Reload
+   restores the currently selected local session. Stopping Vite discards local
+   sessions; revoking/expiring the developer credential denies subsequent reads/writes.
+
+The token stays in the local Node server. Only the fixed staging development Edge
+endpoint receives it over HTTPS; SQL receives its digest, not the bearer value.
+The browser gets an opaque HTTP-only local cookie and persona-scoped CSRF value.
+Do not expose Vite through a tunnel, LAN binding or shared machine. Localhost is
+not a security boundary against other processes running as your OS user.
+No new provider, dependency or subscription is introduced. Writes affect shared
+synthetic staging data. Media signing, realtime, monitoring and outbound delivery
+remain unavailable; this is not an offline demo or a full production-service clone.
+
+The database foundation is `supabase/overlays/admin_development_v1.sql`, assembled
+by `scripts/build-admin-development-sql.mts` from reviewed function definitions.
+The assembler pins each changed definition and preserves all permission/command
+logic. The raw template refuses installation without its manifest. The private
+gateway uses distinct development assurance, explicit persona grants, expiring
+hashed credentials and a transaction-scoped authorization context; it records
+developer/persona attribution without storing credentials or request bodies.
+
+Run `npm run test:admin-development` and
+`npm run test:admin-development:database` (the latter needs the existing local
+container engine/images; it creates and removes a network-disabled test database).
+`npm run test:admin-staging:browser --prefix web` covers both local modes with
+synthetic gateways. For the persona flow through actual disposable PostgreSQL,
+set `DOJI_ADMIN_DATABASE_E2E=1` and run that browser command with
+`-- admin-development.spec.ts`; unset it afterward. The test container has no
+network or host mounts and is removed afterward. No test provisions hosted users,
+sends mail or reads secrets. The SQL template is disabled by default and does not
+provision credentials/personas/login itself. The separately approved hosted release
+now provides **Gavin Fahey** and **Kedd** with approved staging Super Admin roles;
+the previous synthetic employee identities are inactive, retained for audit.
+Intentional writes affect shared staging data. The owner's initial credential expires January 13, 2027 and can
+be revoked earlier. Bitwarden distribution and additional developer tokens are
+not yet provisioned. See the [staging release record](releases/STAGING_DATABASE_BASELINE_2026-10-14.md).
+The restricted gateway must use its own NOINHERIT SQL login with connection limit
+2, verified TLS, no role/DB creation or RLS bypass, and only membership in
+`doji_staging_development`. Verify parameter/error logging does not retain private
+payloads; no application logging of headers, credentials or raw driver errors.
+Never distribute its database login to developers. The retaining
+rollback disables access before restoring definitions and refuses newer drift.
+
 ## Database and identity tests
 
 The repository is not yet a one-command reproducible full-app staging stack.
-Some individually released SQL is still under `supabase/overlays`, while migration
-history and retained local fixtures need reconciliation. `supabase/config.toml`
+Some individually released SQL is still under `supabase/overlays`. The hosted
+staging baseline reconciles that deployed schema, but does not convert those
+overlays into an ordered fresh-clone migration stream. `supabase/config.toml`
 alone does not reproduce the deployed database, vendor secrets or WorkOS setup.
 
 - Do not run `supabase link`, `db push`, remote SQL or all draft files as onboarding.
@@ -176,8 +428,9 @@ alone does not reproduce the deployed database, vendor secrets or WorkOS setup.
 - Read each test harness before running it. A filename containing `test` does not
   establish offline safety. Some use HTTP, provider APIs, Docker/Podman or installed
   SQL and can create synthetic accounts or email reservations.
-- WorkOS staging provides isolated **identity** testing, not a hosted application,
-  database, storage or notification staging environment.
+- A WorkOS test environment alone is not an application/database staging stack.
+  Admin staging now shares employee identity through a separate application and
+  uses its own Supabase database; business/mobile integrations remain separate work.
 
 Request a sanitized, versioned fixture and an explicit network allowlist before
 testing full integration. Never clone member data into local development or

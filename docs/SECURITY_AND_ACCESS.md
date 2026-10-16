@@ -10,7 +10,7 @@ certification. [AGENTS.md](../AGENTS.md) remains the standing owner policy.
 | Realm | Current identity | Password and session boundary |
 | --- | --- | --- |
 | Member app | Supabase Auth | Remains Supabase; portal work must not migrate/reset/revoke member credentials or sessions |
-| Employee admin | Separate WorkOS employee production directory | Required authenticator MFA; exact verified subject maps to independent employee identity; opaque host cookie |
+| Employee admin | Employee WorkOS directory shared by separate production/staging applications | Existing password/MFA; explicit per-environment employee grants, audience and opaque host session; independent of member/business identities |
 | Business | Independent WorkOS business realm behind Doji-owned MUI forms and opaque business session | Separate from employee/member credentials; approval, branding setup and authenticator MFA gate workspace access; public signup remains closed |
 
 The target is that the same email can have independent member, employee and business
@@ -23,6 +23,23 @@ Employee sessions validate realm/issuer/audience, provider subject, MFA and inte
 permissions. The session/application SQL login has restricted SET roles, NOINHERIT
 and no general table/service authority. Browser cookies are not Supabase member JWTs.
 The Pages proxy cannot run arbitrary SQL or choose new resource capabilities.
+
+The enabled admin development gateway is a separate
+staging-only authentication mechanism, not a WorkOS session or MFA proof. Each
+revocable developer token selects only explicitly authorized staging employees.
+SQL checks actual employee roles and records the developer and selected employee
+for each operation. No browser/local developer receives the gateway's database
+login. Hosted staging and production retain their MFA requirements. See
+[implementation status](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
+
+Deployed directory upgrade: explicit developer directory access permits impersonating
+active, independently mapped staging employees; it does not grant production access.
+Disabled employees, revoked identities and expired/revoked developer tokens are
+rejected on subsequent requests. Names/emails are display data only. Hosted staging
+uses the shared employee issuer with its own strictly pinned client/audience and
+separate sessions/permissions. Sharing a password/MFA identity does not grant
+production database access or synchronize production roles. Do not copy production
+runtime credentials into staging or relax issuer/client verification.
 
 ## Employee onboarding and offboarding
 
@@ -66,6 +83,45 @@ must revoke only the employee session, not mobile sessions or business accounts.
 Production orchestration credentials are registered in multiple stores. Rotation
 requires the dedicated reviewed procedure and verification of every wake path;
 secret rotation is a mutation, not a read-only diagnostic command.
+
+### Shared development vault
+
+Admin deployment uses separate GitHub environments `admin-staging` and
+`admin-production`, both main-only. Production requires owner approval and disallows
+admin bypass; owner self-approval is allowed. Separate Pages Write tokens are stored
+as environment secrets; activation and live CI credential use remain pending.
+These Cloudflare account-owned tokens expire January 14, 2027 and are account-wide
+for Pages, not project-isolated. Use them only through reviewed release jobs; never
+place runtime SQL, WorkOS or proxy keys in these environments. The workflows accept only successful same-repository main
+runs and verify package hashes plus the staging receipt before production release.
+Builds run without deployment credentials. See the
+[release procedure](LOCAL_DEVELOPMENT.md#admin-deployment-workflow).
+
+Use Bitwarden Secrets Manager organization `Doji`, project `admin-staging`, for
+approved admin staging configuration. The owner confirms creation and completion
+of authenticator MFA/recovery setup; this is owner-reported, not an independent
+login test. The vault is not yet a populated or tested developer handoff. Keep
+invitations held until separately requested.
+
+- Import only reviewed staging values needed by the supported development path;
+  do not copy the owner's entire runtime bundle or production `.env` files.
+- The admin staging frontend build needs no secrets. WorkOS/SQL/session keys and
+  the Pages proxy key are server-only; `VITE_*` is not a secure secret store.
+- `dev:admin:staging-login` needs no shared secrets: use the fixed loopback relay
+  and a named staging employee login. The separate no-MFA persona workflow uses
+  a revocable per-developer token, not a hosted runtime key; its server-only local
+  loading is documented in the local guide. Backend-development and release
+  access need their own reviewed configuration and access scope.
+- Production runtime/deployment credentials stay in their existing protected
+  stores. Vault setup does not authorize a production import or CI integration.
+- Use named, project-scoped access. Never share the owner's master password,
+  MFA seed, recovery code or personal vendor tokens. Keep recovery outside the
+  vault as well; local exports remain sensitive even when Git-ignored.
+- Before enabling a CLI or deployment integration, verify exact project access,
+  failure behavior and revocation. Preserve existing runtime stores for rollback;
+  do not rotate or remove working credentials merely to populate the vault.
+- Offboarding must revoke vault/machine access and review rotation of retrieved
+  credentials; removing membership cannot recall previously downloaded values.
 
 ## Authorization and data protection
 

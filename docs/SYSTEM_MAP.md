@@ -12,6 +12,7 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 | Public website | `https://dojipro.com/` | `web/apps/site` Next static export; legal sources retained in `website`; `doji-site` Pages | Public information |
 | Safety and Removal Center | `https://dojipro.com/safety-removal/` | `website/safety-removal/`, dedicated Edge handlers | No account/attachments; Turnstile and private status code |
 | Employee admin | `https://admin.dojipro.com/` | `web/apps/admin`, retained browser adapters and exact proxy packaging; `doji-admin` Pages | Independent WorkOS + MFA, opaque cookie and Postgres staff permissions |
+| Employee staging | `https://admin-staging.dojipro.com/` | Same admin source; separate `doji-admin-staging` Pages and staging Edge | Shared employee WorkOS identity, separate application/access grants, SQL login and session keys; synthetic member data only |
 | Business application portal | `https://business.dojipro.com/` | `web/apps/business`, retained application controller, owned auth/setup; `doji-business` Pages | Independent WorkOS business realm, approval/setup/MFA workspace gate |
 | Business marketing | Public `/business/` source | `website/business/index.html` | Marketing source does not prove campaign capability |
 | Business workspace prototype | Local `/business-portal/` | `website/business-portal/index.html`, prototype branch in `portal.mts` | Sample/browser-local state, not production billing or campaign backend |
@@ -53,6 +54,38 @@ its app/package manifests. Do not collapse web React 19.3 into mobile React 19.2
 Do not upgrade packages merely to match a tutorial.
 
 ## How requests connect
+
+Development has a separate Supabase database, `ohrcupagdoilkwhecict`, in the Free
+`doji-staging` organization. It contains the qualified schema and synthetic data,
+not production member identities, credentials or media. Approved employee subjects
+are explicitly mapped to separate staging roles. The staging employee runtime and
+Pages package are deployed separately; owner password/MFA login is verified.
+Business/mobile, shared Worker and realtime connections remain disconnected.
+See [staging connection requirements](LOCAL_DEVELOPMENT.md#hosted-staging-database).
+The current scope is admin only; business/site/mobile staging are deferred.
+`scripts/build-admin-staging.mts` builds the admin Pages artifact from source with
+`employee-staging-pages-worker.mts` as its fixed-environment proxy entry. It does
+not deploy. `web/apps/admin/vite.staging.config.ts` and `dev/` supply the separate
+loopback-only connected frontend command; only fixed employee routes reach the
+staging Pages host. Hosted cookies stay in per-browser server memory; no developer
+WorkOS/SQL/API keys are needed. Local and hosted staging share the yellow
+`StagingEnvironment` strip; hosted staging never includes developer impersonation.
+Internal workflow reads are enabled independently of realtime, which stays off.
+
+The separate staging-only development-auth path lives in
+`supabase/overlays/admin_development_v1.sql` with its retaining rollback;
+`scripts/build-admin-development-sql.mts` pins reviewed existing assurance gates
+and the command manifest. Deployed `admin_development_employees_v2.sql` provides an
+employee-directory selector with separate developer grants. The paired
+`employee_shared_staging_v1.sql` pins the shared issuer/staging audience; each has
+a retaining inverse. `infra/portal-identity/admin-development.mts` and
+`supabase/functions/admin-development` implement its restricted server gateway.
+`vite.development.config.ts` and `web/apps/admin/dev/development-*` own the local
+credential loader, relay, transport and persona selector. The gateway/SQL are
+enabled only in staging, with Gavin/Kedd employee mappings and a private owner credential.
+The local mode is verified against disposable PostgreSQL and the live staging
+HTTP/SQL path. It does not alter the normal employee WorkOS
+bridge or mint member/Auth tokens; neither development entry enters hosted bundles.
 
 ```text
 Member UI -> hook -> member JWT command gateway -> atomic Postgres RPC
@@ -149,6 +182,8 @@ gateway must not silently stampede the database via a direct fallback.
 | `docs/`, `docs/releases/` | Current handbook and separately indexed release/rollback evidence |
 | `supabase/overlays/` | Individually reviewed SQL changes and inverses, not ordered migrations |
 | `.github/workflows/quality.yml` | Quality workflow, not automatic deployment |
+| `.github/workflows/admin-staging.yml`, `admin-production.yml` | Prepared admin-only Pages staging/release pipeline; GitHub environments/credentials configured, activation and live CI verification pending |
+| `scripts/{admin-release-*,build-admin-release,deploy-admin-release}.mts` | Admin dependency selection, immutable packages, target/receipt verification; no shared backend deployment |
 | `test-results/`, generated website output | Local artifacts/evidence; not automatically available or safe to share |
 | `.artifacts/`, `credentials/`, `.env.local` | Sensitive/local material, not a developer handoff bundle |
 | `android/`, `ios/`, `.expo/`, `node_modules/` | Generated/dependency state, not source authority |

@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
+import { resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const directory = new URL('../apps/admin/dist/connected/', import.meta.url);
+const directory = process.argv[2]
+  ? pathToFileURL(resolve(process.argv[2]) + sep)
+  : new URL('../apps/admin/dist/connected/', import.meta.url);
 const html = readFileSync(new URL('connected.html', directory), 'utf8');
 const localAsset = (path: string) =>
   new URL(path.replace(/^\/react-admin\/[\w-]+\//, ''), directory);
@@ -24,6 +28,9 @@ assert.doesNotMatch(
   /synthetic-password|Initial synthetic report|Example: app issues need review/,
 );
 assert.doesNotMatch(source, /supabase\.co\/auth\/v1|sb_secret_|service_role_key/);
+assert.doesNotMatch(source, /127\.0\.0\.1:4313|doji_admin_staging_dev_4313|Local development → Staging/);
+assert.doesNotMatch(source, /staging_development|DOJI_ADMIN_DEVELOPMENT_TOKEN|doji_admin_development_4313|\/api\/dev\/|Develop with staging/);
+assert.doesNotMatch(source, /Impersonate user|Impersonate User/);
 const bytes = scripts.reduce(
   (sum, file) => sum + gzipSync(readFileSync(new URL(file, assets))).length,
   0,

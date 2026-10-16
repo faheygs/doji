@@ -18,6 +18,7 @@
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "test": "vitest run",
     "test:browser": "playwright test",
+    "test:admin-staging:browser": "playwright test --config playwright.staging.config.ts",
     "build": "npm run build --workspaces --if-present",
     "test:artifacts": "node tests/artifacts.ts",
     "test:connected-artifacts": "node tests/connected-artifacts.ts",
