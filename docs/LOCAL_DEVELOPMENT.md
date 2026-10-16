@@ -349,6 +349,13 @@ match. Do not replay the applied overlays. Retaining rollback order is shared
 identity cutover, directory v2, then development v1; access stays disabled until
 reviewed re-enablement. All retain employee/audit records.
 
+Developer credentials may be non-expiring (`expires_at = 'infinity'` in the private
+staging credential registry). They remain individually revocable: disabling the
+credential denies subsequent directory, session and command requests. Do not use
+a distant invented expiration date or change hosted session/MFA lifetimes. Only an
+explicitly approved handoff may provision a credential; Kedd's handoff is held
+until the complete workflow is accepted.
+
 After your credential is issued:
 
 1. Complete the locked installs above. Obtain your **own**

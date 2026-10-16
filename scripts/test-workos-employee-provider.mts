@@ -483,3 +483,45 @@ test('oversized and non-JSON upstream errors are sanitized', async () => {
     });
   }
 });
+
+test('invalid codes, refresh identity and revoke IDs are rejected before provider writes', async () => {
+  const f = await fixture(),
+    p = await f.prepared();
+  const before = f.calls.length;
+  for (const code of ['', '12345', '1234567', 'abcdef'])
+    await assert.rejects(f.provider.complete(p.pending, code, signal()));
+  await assert.rejects(f.provider.prepare('invalid-sealed-value', signal()));
+  await assert.rejects(
+    f.provider.refresh(
+      {
+        subject: 'wrong',
+        sessionId: 'wrong',
+        accessToken: 'synthetic',
+        refreshToken: 'synthetic',
+        mfaReceipt: 'synthetic',
+      },
+      signal(),
+    ),
+  );
+  await assert.rejects(f.provider.revoke('wrong', signal()));
+  assert.equal(f.calls.length, before);
+});
+
+test('non-object or absent provider bodies fail closed; unsuccessful revoke stays unconfirmed', async () => {
+  for (const response of [
+    new Response(null, { status: 200 }),
+    Response.json(null),
+    Response.json([]),
+  ]) {
+    const provider = createWorkosEmployeeProvider(config, async () => response);
+    await assert.rejects(provider.begin('owner@example.test', 'synthetic', signal()), {
+      message: 'Employee authentication could not be verified',
+    });
+  }
+  const provider = createWorkosEmployeeProvider(config, async () =>
+    Response.json({}, { status: 503 }),
+  );
+  await assert.rejects(provider.revoke('session_employee', signal()), {
+    message: 'Employee authentication could not be verified',
+  });
+});

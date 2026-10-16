@@ -205,10 +205,22 @@ test('connected candidate preserves employee MFA, authorized queues and logout',
 
 test('connected candidate refuses local-origin production access', async ({ page }) => {
   const apiCalls: string[] = [];
+  await page.addInitScript(() => {
+    Object.assign(window, { DOJI_REACT_ADMIN_CONFIG: { independentEmployeeIdentity: true } });
+  });
+  await page.route('**/*', (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin === 'http://127.0.0.1:4310' && !/^\/(api|auth)\//.test(url.pathname))
+      return route.continue();
+    return route.abort();
+  });
   page.on('request', (request) => {
     if (/\/(api|auth)\//.test(request.url())) apiCalls.push(request.url());
   });
   await page.goto('http://127.0.0.1:4310/connected.html');
-  await expect(page.getByText(/Connected admin is not configured for this origin/)).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText(
+    'Admin is not configured for this environment. No session or API request was made.',
+  );
+  await expect(page.getByRole('textbox', { name: 'Work email' })).toHaveCount(0);
   expect(apiCalls).toEqual([]);
 });

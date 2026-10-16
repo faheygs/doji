@@ -40,7 +40,9 @@ test.beforeAll(async () => {
     sql(candidate);
     provisionDevelopmentFixture(sql);
     sql(source('supabase/overlays/admin_development_employees_v2.sql'));
-    sql('update admin_development_private.credentials set employee_directory_access=true');
+    sql(
+      "update admin_development_private.credentials set employee_directory_access=true, expires_at='infinity'",
+    );
     sql('update admin_development_private.settings set enabled=true');
   }
   const gateway = createDevelopmentGateway(async (credential, call) => {

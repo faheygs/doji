@@ -264,6 +264,25 @@ try {
   );
   assert.equal(call(id(5), 'get_admin_portal_session_v3').result.user_id, id(5));
   assert.equal(call(id(1), 'get_admin_portal_session_v3').code, '42501');
+  sql(
+    `update admin_development_private.credentials set expires_at='infinity' where id='${id(10)}'`,
+  );
+  assert.equal(
+    sql(
+      `select expires_at > timestamptz '9999-12-31' from admin_development_private.credentials where id='${id(10)}'`,
+    ),
+    't',
+  );
+  assert.equal(call(null, 'personas').personas[0].id, id(5));
+  assert.equal(call(id(5), 'get_admin_portal_session_v3').result.user_id, id(5));
+  sql(`update admin_development_private.credentials set enabled=false where id='${id(10)}'`);
+  assert.throws(() => call(null, 'personas'));
+  assert.throws(() => call(id(5), 'get_admin_portal_session_v3'));
+  sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}'`);
+  assert.equal(call(id(5), 'get_admin_portal_session_v3').result.user_id, id(5));
+  console.log(
+    'PASS: non-expiring developer credential supports directory/session access and immediate revocation',
+  );
   assert.equal(
     sql(
       `select principal_id from portal_identity_private.resolve_identity('employee','${sharedIssuer}','${sharedAudience}','user_shared_fixture','synthetic-session',true)`,

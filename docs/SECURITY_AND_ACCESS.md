@@ -99,10 +99,11 @@ Builds run without deployment credentials. See the
 [release procedure](LOCAL_DEVELOPMENT.md#admin-deployment-workflow).
 
 Use Bitwarden Secrets Manager organization `Doji`, project `admin-staging`, for
-approved admin staging configuration. The owner confirms creation and completion
-of authenticator MFA/recovery setup; this is owner-reported, not an independent
-login test. The vault is not yet a populated or tested developer handoff. Keep
-invitations held until separately requested.
+approved admin staging configuration. The signed-in organization confirms the
+owner's two-step login, free plan and one available member seat. The project is
+empty and owner-only; no invitation was sent. Keep all Kedd invitations, credentials
+and access grants held until end-to-end acceptance and explicit handoff approval.
+The vault is not yet a populated or tested developer handoff.
 
 - Import only reviewed staging values needed by the supported development path;
   do not copy the owner's entire runtime bundle or production `.env` files.
@@ -110,7 +111,7 @@ invitations held until separately requested.
   the Pages proxy key are server-only; `VITE_*` is not a secure secret store.
 - `dev:admin:staging-login` needs no shared secrets: use the fixed loopback relay
   and a named staging employee login. The separate no-MFA persona workflow uses
-  a revocable per-developer token, not a hosted runtime key; its server-only local
+  an individually revocable, optionally non-expiring per-developer token, not a hosted runtime key; its server-only local
   loading is documented in the local guide. Backend-development and release
   access need their own reviewed configuration and access scope.
 - Production runtime/deployment credentials stay in their existing protected

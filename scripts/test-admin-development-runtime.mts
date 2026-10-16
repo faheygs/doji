@@ -51,7 +51,11 @@ test('development ingress denies browser/prod/malformed requests before SQL', as
   assert.equal(ok.headers.get('access-control-allow-origin'), null);
   assert.deepEqual(await ok.json(), { user_id: persona });
   assert.equal(calls, 1);
-  assert.equal((await handler(request(call, {}, 'http://ohrcupagdoilkwhecict.supabase.co/admin-development'))).status, 200);
+  assert.equal(
+    (await handler(request(call, {}, 'http://ohrcupagdoilkwhecict.supabase.co/admin-development')))
+      .status,
+    200,
+  );
 });
 test('gateway maps denials, hides raw errors and bounds concurrent SQL', async () => {
   for (const [code, status] of [
@@ -144,4 +148,112 @@ test('incorrect SQL identity never invokes a command; aborted calls never connec
   assert.equal(ended, 1);
   await assert.rejects(execute(token, call, AbortSignal.abort()));
   assert.equal(connected, 1);
+});
+
+test('malformed ingress and SQL results fail closed without leaking data', async () => {
+  let calls = 0;
+  const handler = createDevelopmentGateway(async () => {
+    calls++;
+    return { ok: true, result: {} };
+  });
+  const missingToken = request();
+  missingToken.headers.delete('authorization');
+  for (const invalid of [
+    missingToken,
+    request(call, { 'content-type': 'text/plain' }),
+    request({ ...call, args: { oversized: 'x'.repeat(17000) } }),
+    new Request(developmentEndpoint, { method: 'GET' }),
+    new Request(developmentEndpoint, {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+      body: '{',
+    }),
+  ]) {
+    const response = await handler(invalid);
+    assert.ok(response.status >= 400);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  assert.equal(calls, 0);
+  for (const result of [null, [], { ok: false }, { ok: false, code: 123 }])
+    assert.equal((await createDevelopmentGateway(async () => result)(request())).status, 503);
+  const directory = {
+    developer: 'synthetic-developer',
+    personas: [{ id: persona, label: 'Employee' }],
+  };
+  const response = await createDevelopmentGateway(async () => directory)(
+    request({ ...call, name: 'personas', persona: null }),
+  );
+  assert.deepEqual(await response.json(), directory);
+});
+
+test('SQL configuration and input validation precede connections', async () => {
+  for (const change of [
+    { port: 5432 },
+    { database: 'other' },
+    { host: 'attacker.invalid' },
+    { username: 'postgres' },
+    { password: 'short' },
+    { ca: 'invalid' },
+  ])
+    assert.throws(() => createDevelopmentSql({ ...config, ...change }, () => assert.fail()));
+  const execute = createDevelopmentSql(config, () => assert.fail('Must not construct SQL client'));
+  await assert.rejects(execute('bad', call, new AbortController().signal), { status: 400 });
+  await assert.rejects(
+    execute(token, { ...call, args: { value: 'x'.repeat(16001) } }, new AbortController().signal),
+    { status: 400 },
+  );
+});
+
+test('SQL rejects malformed identity/results and maps revocation without retry or commit', async () => {
+  const identity = {
+    rows: [
+      {
+        login: 'doji_staging_development_login',
+        current_role: 'doji_staging_development_login',
+        privileged: false,
+        permitted: true,
+      },
+    ],
+  };
+  for (const scenario of ['identity', 'null', 'rows', 'count', 'row', 'revoked', 'close-fails']) {
+    let ended = 0;
+    const queries: string[] = [];
+    const execute = createDevelopmentSql(
+      { ...config, ca: '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----' },
+      (options) => {
+        assert.deepEqual(options.ssl, {
+          rejectUnauthorized: true,
+          ca: '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----',
+        });
+        return {
+          connect: async () => {},
+          end: async () => {
+            ended++;
+            if (scenario === 'close-fails') throw Error('synthetic close');
+          },
+          query: async (input) => {
+            queries.push(typeof input === 'string' ? input : input.text);
+            if (typeof input === 'string' && input.startsWith('select session_user'))
+              return scenario === 'identity' ? {} : identity;
+            if (typeof input === 'string') return {};
+            if (scenario === 'revoked')
+              throw Object.assign(Error('private SQL'), { code: '42501' });
+            return scenario === 'null'
+              ? null
+              : scenario === 'rows'
+                ? {}
+                : scenario === 'count'
+                  ? { rows: [] }
+                  : { rows: [null] };
+          },
+        };
+      },
+    );
+    await assert.rejects(execute(token, call, new AbortController().signal), {
+      status: scenario === 'revoked' ? 401 : 503,
+    });
+    assert.equal(ended, 1);
+    assert.ok(!queries.includes('commit'));
+    assert.ok(queries.filter((query) => query === developmentSql).length <= 1);
+  }
 });

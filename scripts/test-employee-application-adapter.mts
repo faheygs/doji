@@ -181,3 +181,73 @@ test('contracts and nested defaults cannot be changed by a consumer', () => {
     ]);
   }, TypeError);
 });
+
+test('incomplete employee proof and missing transport fail before SQL', async () => {
+  assert.throws(() => Reflect.apply(createEmployeeApplicationAdapter, undefined, [null]), {
+    status: 503,
+  });
+  const adapter = createEmployeeApplicationAdapter(() => assert.fail('No SQL'));
+  for (const key of ['subject', 'sessionId', 'audience'])
+    await assert.rejects(
+      Reflect.apply(adapter.authorize, adapter, [{ ...actor, [key]: undefined }, signal()]),
+      { status: 403 },
+    );
+  await assert.rejects(Reflect.apply(adapter.command, adapter, [actor, null, signal()]), {
+    status: 403,
+  });
+});
+
+test('compose validates structured input and sanitizes definite rejection versus uncertainty', async () => {
+  const command = {
+    name: 'admin_announcement_compose_v1',
+    args: {
+      p_action: 'save_draft',
+      p_id: null,
+      p_version: null,
+      p_request_id: null,
+      p_input: { title: 'Synthetic draft' },
+    },
+  };
+  const calls: Parameters<PortalExecute>[] = [];
+  const adapter = createEmployeeApplicationAdapter(
+    async (...args) => {
+      calls.push(args);
+      return true;
+    },
+    { announcementComposeEnabled: true },
+  );
+  assert.equal(await adapter.command(actor, command, signal()), true);
+  assert.match(present(calls[0])[1], /employee_announcement_rpc_v1/);
+  await assert.rejects(
+    adapter.command(
+      actor,
+      { ...command, args: { ...command.args, p_input: 'not an object' } },
+      signal(),
+    ),
+    { status: 400 },
+  );
+  assert.equal(calls.length, 1);
+  for (const [error, status] of [
+    [{ code: 'P0001' }, 400],
+    [{ code: '40001' }, 409],
+    ['private error', 503],
+  ] as const) {
+    const failing = createEmployeeApplicationAdapter(
+      async () => {
+        throw error;
+      },
+      { announcementComposeEnabled: true },
+    );
+    await assert.rejects(failing.command(actor, command, signal()), {
+      status,
+      message: 'Employee operation unavailable',
+    });
+  }
+  const adapterWithoutSignal = createEmployeeApplicationAdapter(() => assert.fail('No SQL'), {
+    announcementComposeEnabled: true,
+  });
+  await assert.rejects(
+    Reflect.apply(adapterWithoutSignal.command, adapterWithoutSignal, [actor, command, undefined]),
+    { status: 503 },
+  );
+});

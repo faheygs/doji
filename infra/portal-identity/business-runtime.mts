@@ -91,7 +91,8 @@ export function createBusinessRuntime(
         if (!keySet(jwks)) throw Error('Business signing keys unavailable');
         const next = createPortalIdentityVerifier(
           {
-            ...policy,
+            realm: policy.realm,
+            origin: policy.origin,
             enabled: true,
             jwks,
             issuer: `https://api.workos.com/user_management/${policy.clientId}`,
