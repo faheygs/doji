@@ -15,14 +15,17 @@ Deno.serve(async (request: Request) => {
       const config = JSON.parse(Deno.env.get('EMPLOYEE_V2_CONFIG') || 'null');
       const origin = Deno.env.get('SUPABASE_URL') || '';
       const ablyKey = Deno.env.get('ABLY_API_KEY');
-      if (!config || !ablyKey) throw Error('Not configured');
-      const ably = new Rest({ key: ablyKey, httpRequestTimeout: 5000, httpMaxRetryCount: 0 });
+      if (!config || (!ablyKey && (config.staffWorkflowEnabled || config.healthEventsEnabled)))
+        throw Error('Not configured');
+      const ably = ablyKey
+        ? new Rest({ key: ablyKey, httpRequestTimeout: 5000, httpMaxRetryCount: 0 })
+        : undefined;
       handler = createEmployeeRuntime(
         {
           ...config,
           enabled: true,
           realm: 'employee',
-          origin: 'https://admin.dojipro.com',
+          origin: config.origin,
           storageOrigin: origin,
           endpoint: origin + '/functions/v1/employee-portal-v2',
         },
@@ -33,6 +36,7 @@ Deno.serve(async (request: Request) => {
             serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
           }),
           signRealtime: async (params: object, signal: AbortSignal) => {
+            if (!ably) throw Error('Realtime is not configured');
             signal.throwIfAborted();
             const result = await ably.auth.createTokenRequest(params);
             signal.throwIfAborted();

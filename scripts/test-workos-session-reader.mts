@@ -127,6 +127,11 @@ test('business application session does not inherit employee MFA', async () => {
   const r = await fn({ ...identity, realm: 'business' }, signal());
   assert.equal(r.mfaVerified, false);
 });
+
+test('shared issuer override is employee-only and requires a valid client identifier', () => {
+  assert.throws(() => reader({ config: { realm: 'business', issuerClientId: 'client_shared' } }));
+  assert.throws(() => reader({ config: { issuerClientId: 'https://other.test' } }));
+});
 test('source config mutation cannot enable a disabled reader', async () => {
   const c = { ...config, enabled: false };
   const fn = createWorkosSessionReader(c, async () => null);

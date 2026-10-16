@@ -11,6 +11,49 @@ const config = {
   endpoint: 'https://abcdefghijklmnopqrst.supabase.co/functions/v1/employee-portal-v2',
   proxyKey: 'ab'.repeat(32),
 };
+test('staging uses its exact database and rejects cross-environment routing', async () => {
+  const staging = {
+    ...config,
+    origin: 'https://admin-staging.dojipro.com',
+    endpoint: 'https://ohrcupagdoilkwhecict.supabase.co/functions/v1/employee-portal-v2',
+  };
+  for (const invalid of [
+    { ...staging, endpoint: config.endpoint },
+    { ...staging, origin: config.origin },
+    { ...staging, origin: 'https://admin-staging.dojipro.com.attacker.test' },
+  ]) {
+    assert.throws(() => createEmployeeProxy(invalid));
+    assert.throws(() => createEmployeeEdgeIngress(invalid, async () => assert.fail()));
+  }
+  let calls = 0;
+  const proxy = createEmployeeProxy(staging, async (url, options) => {
+    calls++;
+    assert.equal(url, staging.endpoint + '/api/session');
+    assert.equal(new Headers(options.headers).get('x-region'), 'ca-central-1');
+    return new Response(null, { status: 401 });
+  });
+  assert.equal(
+    (
+      await proxy(
+        new Request(staging.origin + '/api/session', {
+          headers: { 'sec-fetch-site': 'same-origin' },
+        }),
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await proxy(
+        new Request(config.origin + '/api/session', {
+          headers: { 'sec-fetch-site': 'same-origin' },
+        }),
+      )
+    ).status,
+    404,
+  );
+  assert.equal(calls, 1);
+});
 const request = (path = '/auth/start', patch: RequestInit = {}) =>
   new Request(config.origin + path, {
     method: 'POST',

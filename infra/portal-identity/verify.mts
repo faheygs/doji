@@ -1,5 +1,4 @@
-// LOCAL CANDIDATE ONLY. Not imported by a Worker, Edge function or browser.
-// No password handling, provider provisioning, JWT minting or member token exchange.
+// Server-only portal verification; no JWT minting or member token exchange.
 import { createLocalJWKSet, jwtVerify } from 'jose';
 import type { JSONWebKeySet } from 'jose';
 import { record, integer } from './portal-contracts.mts';
@@ -20,14 +19,15 @@ const https = (v: string) => {
 /** Trusted SERVER configuration and pinned provider keys only, never request data.
  * checkSession must independently verify the exact session's current status,
  * confirmed email and MFA with this environment's provider credentials. It must
- * honor AbortSignal. workos-session.mts supplies a bounded candidate reader;
- * durable server-owned MFA receipts and production billing remain release gates.
+ * honor AbortSignal. workos-session.mts supplies the bounded session reader;
+ * employee MFA proof and business workspace authorization remain separate checks.
  */
 interface VerifierConfig {
   enabled: boolean;
   realm: PortalRealm;
   issuer: string;
   audience: string;
+  clientId?: string;
   origin: string;
   maxTokenAgeSeconds: number;
   jwks: JSONWebKeySet;
@@ -41,6 +41,8 @@ export function createPortalIdentityVerifier(
     !['employee', 'business'].includes(config.realm) ||
     !https(config.issuer) ||
     !bounded(config.audience, 256) ||
+    (config.clientId !== undefined &&
+      (config.realm !== 'employee' || config.clientId !== config.audience)) ||
     !https(config.origin) ||
     new URL(config.origin).origin !== config.origin ||
     !Number.isInteger(config.maxTokenAgeSeconds) ||
@@ -100,6 +102,7 @@ export function createPortalIdentityVerifier(
         !bounded(payload.sub, 256) ||
         !bounded(payload.sid, 256) ||
         payload.aud !== policy.audience ||
+        (policy.clientId !== undefined && payload.client_id !== policy.clientId) ||
         !integer(payload.iat) ||
         !integer(payload.exp) ||
         payload.iat > now ||

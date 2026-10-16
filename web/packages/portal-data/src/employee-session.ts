@@ -48,7 +48,11 @@ const message = (e: unknown) =>
   e instanceof Error ? e.message : 'Employee access could not be completed.';
 
 /** Reuses the deployed employee-only cookie/CSRF transport. No member Auth SDK or persistence. */
-export function createEmployeeSession(config: Config, options: Options = {}) {
+export function createEmployeeSession(
+  config: Config,
+  options: Options = {},
+  transportFactory: typeof createEmployeeBrowserTransport = createEmployeeBrowserTransport,
+) {
   let generation = 0;
   let createdAt: number | undefined;
   let expiry: ReturnType<typeof setTimeout> | undefined;
@@ -80,7 +84,7 @@ export function createEmployeeSession(config: Config, options: Options = {}) {
     cache?.clear();
     publish({ phase, busy: false, message: text, operator: null, session: null, cache: null });
   }
-  const transport = createEmployeeBrowserTransport(
+  const transport = transportFactory(
     {
       ...config,
       onAccessInvalidated: (text) => clear('signed-out', text),

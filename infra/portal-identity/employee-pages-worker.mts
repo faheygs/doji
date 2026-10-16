@@ -1,6 +1,7 @@
 import { createEmployeeProxy } from './employee-proxy.mts';
 import { employeeSetupReturn } from './employee-setup-return.mts';
 interface EmployeePagesEnv {
+  EMPLOYEE_V2_ORIGIN?: string;
   EMPLOYEE_V2_ENABLED: string;
   EMPLOYEE_V2_ENDPOINT: string;
   EMPLOYEE_V2_PROXY_KEY: string;
@@ -15,7 +16,7 @@ export default {
       try {
         return await createEmployeeProxy({
           enabled: env.EMPLOYEE_V2_ENABLED === 'true',
-          origin: 'https://admin.dojipro.com',
+          origin: env.EMPLOYEE_V2_ORIGIN ?? 'https://admin.dojipro.com',
           endpoint: env.EMPLOYEE_V2_ENDPOINT,
           proxyKey: env.EMPLOYEE_V2_PROXY_KEY,
         })(request);

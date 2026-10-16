@@ -1,4 +1,4 @@
-// Independent business composition. Not deployed; never imports employee/member runtime.
+// Independent business composition; never imports employee/member runtime.
 import { createRestrictedSql } from './restricted-sql.mts';
 import { createBusinessSessionStore } from './business-session-store.mts';
 import { createBusinessApplicationAdapter } from './business-application-adapter.mts';
@@ -91,7 +91,8 @@ export function createBusinessRuntime(
         if (!keySet(jwks)) throw Error('Business signing keys unavailable');
         const next = createPortalIdentityVerifier(
           {
-            ...policy,
+            realm: policy.realm,
+            origin: policy.origin,
             enabled: true,
             jwks,
             issuer: `https://api.workos.com/user_management/${policy.clientId}`,

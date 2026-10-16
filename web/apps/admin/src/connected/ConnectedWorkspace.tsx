@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps,
+} from 'react';
 import { Alert, Chip, Stack } from '@mui/material';
 import { HashRouter, useLocation, useNavigate } from 'react-router-dom';
 import { AccountMenu, Identity, PageHeader, TableFrame, WorkspaceShell } from '@doji/ui';
@@ -63,14 +70,17 @@ const BusinessRecord = lazy(() =>
 const BusinessQueue = lazy(() =>
   import('./BusinessQueue').then((module) => ({ default: module.BusinessQueue })),
 );
+type WorkspaceProps = {
+  controller: EmployeeSessionController;
+  realtimeEnabled?: boolean;
+  accountAction?: ComponentProps<typeof AccountMenu>['action'];
+};
 
 export function ConnectedWorkspace({
   controller,
   realtimeEnabled = false,
-}: {
-  controller: EmployeeSessionController;
-  realtimeEnabled?: boolean;
-}) {
+  accountAction,
+}: WorkspaceProps) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
@@ -182,6 +192,7 @@ export function ConnectedWorkspace({
           <AccountMenu
             name={state.operator.display_name}
             signOut={() => void controller.signOut()}
+            action={accountAction}
           />
         </Stack>
       }
@@ -305,16 +316,10 @@ export function ConnectedWorkspace({
   );
 }
 
-export function EmployeeWorkspace({
-  controller,
-  realtimeEnabled,
-}: {
-  controller: EmployeeSessionController;
-  realtimeEnabled: boolean;
-}) {
+export function EmployeeWorkspace(props: WorkspaceProps) {
   return (
     <HashRouter>
-      <ConnectedWorkspace controller={controller} realtimeEnabled={realtimeEnabled} />
+      <ConnectedWorkspace {...props} />
     </HashRouter>
   );
 }

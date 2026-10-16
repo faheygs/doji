@@ -1,5 +1,14 @@
 import type { PortalIdentity } from './portal-contracts.mts';
 
+export const employeeStagingOrigin = 'https://admin-staging.dojipro.com';
+export const employeeStagingProject = 'ohrcupagdoilkwhecict';
+export const employeeStagingClient = 'client_01M3T5GJM7JZVQQ7CGHNJD0QMZ';
+export const employeeSharedStagingClient = 'client_01M51GRQJVKXFZ98RG21MK7J64';
+export const employeeSharedIssuerClient = 'client_01M3VE4WTBYS2XN6NZPH9EDMQD';
+export function isEmployeeOrigin(origin: string): boolean {
+  return origin === 'https://admin.dojipro.com' || origin === employeeStagingOrigin;
+}
+
 export interface EmployeeActor extends PortalIdentity {
   realm: 'employee';
   mfaVerified: true;

@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "dev:admin": "npm run dev:admin --prefix web",
+    "dev:admin:staging": "npm run dev:staging --prefix web/apps/admin",
+    "dev:admin:staging-login": "npm run dev:staging-login --prefix web/apps/admin",
+    "build:admin-staging": "node scripts/build-admin-staging.mts",
+    "test:admin-staging": "node --test scripts/test-admin-staging-build.mts",
+    "test:admin-development": "node --test scripts/test-admin-development-sql.mts scripts/test-admin-development-runtime.mts",
+    "test:admin-development:database": "node scripts/test-admin-development-database.mts",
     "eas-build-pre-install": "node scripts/verify-build-env.mjs",
     "start": "expo start",
     "android": "expo run:android",

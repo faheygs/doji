@@ -45,6 +45,31 @@ profile refreshes after camera/gallery use, surface picker failures, and prevent
 post-commit refresh failures from deleting saved avatars. Automated regression
 coverage does not replace Android device acceptance; no backend change is included.
 
+Gateway read recovery (live October 15, 8:46 PM MDT): request-owned origin reads replace
+cross-request pending promises; public-key caching stores completed data only.
+A six-second gateway budget bounds authentication, cache and origin/body waits
+before existing clients' eight-second deadline. Failures identify their phase
+without logging credentials or payloads. Simultaneous identical cache misses now
+issue independent authorized RPCs; the existing member budget and short response
+cache remain. Live version `94343e0b-1447-495b-98c8-1db492864abe` serves 100%;
+rollback version `bb415821-fbe9-4d74-8716-7b36ef24a7fa` and its source are retained.
+The owner approved the separate production deployment. The narrow package
+preserves all baseline code outside the read/authentication blocks. Local workerd
+acceptance passed for stalled public-key/header/body recovery, cache isolation and
+40 simultaneous synthetic reads; 60 targeted Jest suites / 1,607 tests passed.
+Existing client retries and explicit retry recover within the same QueryClient.
+Downloaded production source matches the tested package; settings, secret binding
+names, five Durable Object namespaces and schedules are unchanged. The bounded
+release-window read found no active event, overdue outbox work or lock waits.
+Existing Workers Paid capacity was checked; no plan/resource upgrade was made.
+Hosted absent/invalid-token reads return 401/no-store. A real signed-in device
+feed-load/post-submission acceptance check remains outstanding; local synthetic
+burst checks are not a production load qualification. Private release/configuration
+receipts and rollback are in `test-results/gateway-read-recovery-20261015/`.
+This addresses demonstrated recovery gaps, not proof of the initial cause of the
+October 15 canceled requests. No mobile binary, database, write, challenge-timing,
+push or portal source was deployed with this patch. Source is not yet merged.
+
 ## Recorded evidence
 
 - [Mobile 1.0.9 release and enforcement](releases/MOBILE_LOGGING_RELEASE_2026-10-07.md),
@@ -84,6 +109,98 @@ and private rollback artifacts are not a developer copy bundle. Use
 root/scoped AGENTS requirements.
 
 ## Remaining gates
+
+The isolated **staging database** was provisioned and verified October 14, 2026:
+`ohrcupagdoilkwhecict`, Free organization `doji-staging`, Canada Central. Its
+147 application tables, 487 functions, RLS/grants and empty storage buckets are
+installed, with synthetic fixtures only. The staging employee runtime and separate
+`doji-admin-staging` Pages package are deployed; `admin-staging.dojipro.com` loads
+over HTTPS with its Staging marker. The WorkOS callback is configured with password
+sign-in and required MFA. Gavin and Kedd have approved staging access through their
+existing employee WorkOS identities; Gavin confirmed hosted password/MFA login on October 16.
+Sessions use a separate application audience, session keys and restricted SQL login.
+Member signup/email, outbound integrations,
+realtime, scheduling and update enforcement remain off. No production schema or
+customer data was changed. This is not yet a full staging portal/mobile stack. See the
+[baseline and acceptance record](releases/STAGING_DATABASE_BASELINE_2026-10-14.md)
+and [developer connection requirements](LOCAL_DEVELOPMENT.md#hosted-staging-database).
+
+The owner narrowed the current environment work to **admin only**. Business,
+public-site and mobile staging are deferred. Staff invitations remain held until
+environment preparation is finished. Root `npm run dev:admin` starts the existing
+offline sample workspace without login/MFA; it does not access shared staging data.
+`npm run build:admin-staging` now builds the
+admin site from source without private baseline packages or env files and includes
+a staging-only proxy guard; hosted staging uses this package with a yellow `DOJI STAGE` strip.
+`npm run dev:admin:staging-login` runs the connected React frontend through a
+loopback-only, fixed-staging relay, without developer API/database keys. Synthetic
+browser acceptance covers MFA, reload, separate browser sessions, logout and
+host/origin denial. Hosted owner login and representative workflows passed;
+reproducible backend packaging and deployment/secret handoff remain open. See the
+local guide and staging release record; staff invitations remain held.
+
+The owner reports creating the Free Bitwarden `Doji` organization and empty
+`admin-staging` project, with authenticator MFA/recovery setup completed. Project
+access and scoped secret import remain unverified; no developer invitation or
+CLI/CI integration is established.
+See [shared vault requirements](SECURITY_AND_ACCESS.md#shared-development-vault).
+
+Staging-only developer impersonation has an enabled private database gateway
+and exact-definition-pinned assurance adapter. It uses distinct development proof,
+active staging employees and dual-identity auditing, not fabricated MFA.
+The local selector, restricted Edge gateway and server-only credential loader are
+implemented. `npm run dev:admin:staging` selects approved personas without MFA;
+it requires an issued developer credential and the separately activated staging
+gateway. Browser → relay → gateway → disposable PostgreSQL acceptance passed,
+including actual writes/replay, switching, reload and revocation. The adapter and
+gateway were deployed to staging on October 15, with synthetic Super Admin and
+Moderator personas and one revocable owner credential, private to the owner's OS
+account and expiring January 13, 2027. Live HTTP acceptance covers local relay →
+hosted gateway → staging SQL, role denials, an unpublished draft, identical replay,
+dual attribution and revocation. Exact-schema offline rollback passed for all 40
+patched gates; existing function grants are unchanged. Owner Chrome now verifies
+the local yellow stage strip, avatar-menu impersonation dialog and workspace reload.
+Staging internal workflow gates and labelled synthetic records are enabled;
+workflow reads are independent of the disabled realtime connection. This does
+not qualify external integrations. On October 16, the employee-directory
+adapter and exact shared-employee realm cutover were deployed to staging. Gavin
+and Kedd have separately mapped staging Super Admin roles; old synthetic employees
+are inactive with identity/audit history retained. Only the owner's developer token
+has directory-wide impersonation access. Live local selection/switching passed for
+both employees; old persona access, anonymous hosted access and cross-origin access
+are denied. Isolated browser/database tests cover writes/replay/revocation; the
+cutover and retaining rollback passed offline and a staging rollback-only rehearsal.
+
+Hosted staging now uses `Doji Admin Staging` in the shared employee directory,
+with a dedicated runtime key in staging Edge secrets. The shared JWT template
+derives audience from the application; verification pins the staging client and
+shared issuer. Hosted acceptance exposed issuer checks in both the controller
+and application adapter. Staging Edge v8 corrects both; 189 targeted tests passed
+against the downloaded runtime, including composed password/MFA/session/logout
+with real adapters and synthetic provider/SQL I/O. The prior package reproduces
+the adapter's 403; the separately reported 503 is not yet conclusively traced.
+Completion failures now include a fixed, content-free `stage` category.
+The owner confirmed fresh employee password/MFA login succeeds; no invitations
+were sent and production deployment/configuration fingerprints are unchanged.
+The separate application does not automatically grant all production staff access.
+Hosted MFA and the offline preview are unchanged; see
+[development impersonation](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
+Additional developer credentials/vault delivery are still unprovisioned.
+
+Admin-only deployment workflows are in PR #15; exact-head CI and merge are required.
+GitHub `admin-staging` and `admin-production` environments were verified on
+October 15: main-branch-only, with owner production approval and admin bypass off.
+Separate Pages Write account tokens are saved only in the corresponding GitHub
+environment secrets, with the public account ID variable. They expire January 14,
+2027; no runtime credentials were copied. The activation variable is enabled;
+CI token use and hosted release acceptance remain unverified until the first
+successful main Quality run and admin staging deployment after merge.
+The workflows build only admin, after repository Quality gates, then separately
+promote a verified staging artifact to production without rebuilding. They deploy
+no SQL, Edge runtime, shared Worker or other application. Hosted employee login,
+idea review/history/audit, and report/business assignment passed manually;
+CI deployment/promotion acceptance remains outstanding.
+See [admin deployment workflow](LOCAL_DEVELOPMENT.md#admin-deployment-workflow).
 
 | Before doing this | Required evidence/approval |
 | --- | --- |

@@ -12,6 +12,31 @@ function body(call: Call): unknown {
   return JSON.parse(call.body);
 }
 const origin = 'https://admin.dojipro.com';
+test('staging browser session reads stay on the staging origin', async () => {
+  const staging = 'https://admin-staging.dojipro.com';
+  let calls = 0;
+  const client = createEmployeeBrowserTransport(
+    { independentEmployeeIdentity: true },
+    {
+      origin: staging,
+      upstream: async (url) => {
+        calls++;
+        assert.equal(url, staging + '/api/session');
+        return Response.json({ signedIn: false }, { status: 401 });
+      },
+    },
+  );
+  await assert.rejects(client.session());
+  assert.equal(calls, 1);
+  assert.throws(() =>
+    createEmployeeBrowserTransport(
+      { independentEmployeeIdentity: true },
+      {
+        origin: staging + '.attacker.test',
+      },
+    ),
+  );
+});
 const csrf = 'c'.repeat(43);
 const operator = { user_id: 'synthetic-employee' };
 const authenticated = { signedIn: true, assurance: 'aal2', csrf, operator };
@@ -348,7 +373,7 @@ test('clearSession reports cleanup failure without preserving local workspace ac
   assert.equal(f.client.hasSession(), false);
   assert.match(await cleanupFailed.promise, /server sign-out could not be confirmed/);
   assert.equal(f.invalidated.length, 0, 'cleanup must not recursively invalidate the session');
-  assert.equal(f.calls.filter(call => call.url.endsWith('/auth/logout')).length, 1);
+  assert.equal(f.calls.filter((call) => call.url.endsWith('/auth/logout')).length, 1);
 });
 test('evidence calls require both identifiers and return only the signed URL result', async () => {
   const f = fixture();

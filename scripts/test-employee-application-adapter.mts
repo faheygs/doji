@@ -13,6 +13,45 @@ const parse = (value: unknown): unknown => {
   return JSON.parse(value);
 };
 const signal = () => AbortSignal.timeout(2000);
+
+test('shared directory accepts only the configured issuer and application audience', async () => {
+  const identity = { clientId: 'client_stage', issuerClientId: 'client_directory' };
+  const shared = {
+    ...actor,
+    audience: identity.clientId,
+    issuer: `https://api.workos.com/user_management/${identity.issuerClientId}`,
+  };
+  let calls = 0;
+  const adapter = createEmployeeApplicationAdapter(
+    async (_role, _sql, params) => {
+      calls++;
+      assert.deepEqual(params.slice(0, 2), [shared.issuer, shared.audience]);
+      return { user_id: 'staging-only' };
+    },
+    { identity },
+  );
+  identity.clientId = 'client_mutated';
+  assert.deepEqual(await adapter.authorize(shared, signal()), { user_id: 'staging-only' });
+  for (const patch of [
+    { audience: 'client_directory' },
+    { audience: 'client_mutated' },
+    { issuer: 'https://api.workos.com/user_management/client_stage' },
+    { mfaVerified: false },
+  ])
+    await assert.rejects(
+      Reflect.apply(adapter.authorize, adapter, [{ ...shared, ...patch }, signal()]),
+      { status: 403 },
+    );
+  assert.equal(calls, 1);
+  await assert.rejects(
+    createEmployeeApplicationAdapter(async () => true).authorize(shared, signal()),
+    { status: 403 },
+  );
+  for (const invalid of [{ clientId: '' }, { clientId: 'client_stage', issuerClientId: 'invalid' }])
+    assert.throws(() => createEmployeeApplicationAdapter(async () => true, { identity: invalid }), {
+      status: 503,
+    });
+});
 test('session uses fixed role, SQL and verified subject, not browser ID', async () => {
   const calls: Parameters<PortalExecute>[] = [];
   const a = createEmployeeApplicationAdapter(async (...args) => {
@@ -141,4 +180,74 @@ test('contracts and nested defaults cannot be changed by a consumer', () => {
       'sub',
     ]);
   }, TypeError);
+});
+
+test('incomplete employee proof and missing transport fail before SQL', async () => {
+  assert.throws(() => Reflect.apply(createEmployeeApplicationAdapter, undefined, [null]), {
+    status: 503,
+  });
+  const adapter = createEmployeeApplicationAdapter(() => assert.fail('No SQL'));
+  for (const key of ['subject', 'sessionId', 'audience'])
+    await assert.rejects(
+      Reflect.apply(adapter.authorize, adapter, [{ ...actor, [key]: undefined }, signal()]),
+      { status: 403 },
+    );
+  await assert.rejects(Reflect.apply(adapter.command, adapter, [actor, null, signal()]), {
+    status: 403,
+  });
+});
+
+test('compose validates structured input and sanitizes definite rejection versus uncertainty', async () => {
+  const command = {
+    name: 'admin_announcement_compose_v1',
+    args: {
+      p_action: 'save_draft',
+      p_id: null,
+      p_version: null,
+      p_request_id: null,
+      p_input: { title: 'Synthetic draft' },
+    },
+  };
+  const calls: Parameters<PortalExecute>[] = [];
+  const adapter = createEmployeeApplicationAdapter(
+    async (...args) => {
+      calls.push(args);
+      return true;
+    },
+    { announcementComposeEnabled: true },
+  );
+  assert.equal(await adapter.command(actor, command, signal()), true);
+  assert.match(present(calls[0])[1], /employee_announcement_rpc_v1/);
+  await assert.rejects(
+    adapter.command(
+      actor,
+      { ...command, args: { ...command.args, p_input: 'not an object' } },
+      signal(),
+    ),
+    { status: 400 },
+  );
+  assert.equal(calls.length, 1);
+  for (const [error, status] of [
+    [{ code: 'P0001' }, 400],
+    [{ code: '40001' }, 409],
+    ['private error', 503],
+  ] as const) {
+    const failing = createEmployeeApplicationAdapter(
+      async () => {
+        throw error;
+      },
+      { announcementComposeEnabled: true },
+    );
+    await assert.rejects(failing.command(actor, command, signal()), {
+      status,
+      message: 'Employee operation unavailable',
+    });
+  }
+  const adapterWithoutSignal = createEmployeeApplicationAdapter(() => assert.fail('No SQL'), {
+    announcementComposeEnabled: true,
+  });
+  await assert.rejects(
+    Reflect.apply(adapterWithoutSignal.command, adapterWithoutSignal, [actor, command, undefined]),
+    { status: 503 },
+  );
 });

@@ -4,7 +4,15 @@ import { useState } from 'react';
 import { Avatar, IconButton, ListItemIcon, Menu, MenuItem, Tooltip } from '@mui/material';
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined';
 import { initials } from './Identity';
-export function AccountMenu({ name, signOut }: { name: string; signOut: () => void }) {
+export function AccountMenu({
+  name,
+  signOut,
+  action,
+}: {
+  name: string;
+  signOut: () => void;
+  action?: { label: string; onClick: () => void } | undefined;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
@@ -29,6 +37,16 @@ export function AccountMenu({ name, signOut }: { name: string; signOut: () => vo
         open={!!anchor}
         onClose={() => setAnchor(null)}
       >
+        {action && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              action.onClick();
+            }}
+          >
+            {action.label}
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             setAnchor(null);

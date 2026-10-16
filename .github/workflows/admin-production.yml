@@ -1,0 +1,80 @@
+name: Admin production
+run-name: Promote admin staging run ${{ inputs.staging_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      staging_run_id:
+        description: Successful Admin staging run ID you have tested (not the Quality run ID)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: admin-production
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main' && vars.ADMIN_DEPLOYMENTS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      run: ${{ steps.plan.outputs.run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - id: plan
+        run: node scripts/admin-release-ci.mts promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_RUN_ID: ${{ inputs.staging_run_id }}
+  deploy:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: admin-production
+      url: https://admin.dojipro.com
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - run: npm ci --prefix infra/doji-orchestrator
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: admin-release
+          path: ${{ runner.temp }}/admin-release
+          run-id: ${{ needs.plan.outputs.run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: admin-staging-receipt
+          path: ${{ runner.temp }}/admin-release/staging
+          run-id: ${{ needs.plan.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Verify the exact staged release before accessing deploy credentials
+        run: node scripts/deploy-admin-release.mts "$RUNNER_TEMP/admin-release" verify-staged "$SOURCE_SHA"
+        env:
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+      - name: Promote the prepared admin production package (no rebuild)
+        run: node scripts/deploy-admin-release.mts "$RUNNER_TEMP/admin-release/production" production "$SOURCE_SHA"
+        env:
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: admin-production-receipt
+          path: ${{ runner.temp }}/admin-release/production/deployment.json
+          if-no-files-found: ignore
+          retention-days: 14

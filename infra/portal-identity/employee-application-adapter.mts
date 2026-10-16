@@ -21,9 +21,21 @@ export const employeeOperations = Object.freeze(
 const fail = (status: number) => Object.assign(Error('Employee operation unavailable'), { status });
 export function createEmployeeApplicationAdapter(
   execute: PortalExecute,
-  options: { announcementComposeEnabled?: boolean; historyReadsEnabled?: boolean } = {},
+  options: {
+    announcementComposeEnabled?: boolean;
+    historyReadsEnabled?: boolean;
+    identity?: { clientId: string; issuerClientId?: string };
+  } = {},
 ) {
   if (typeof execute !== 'function') throw fail(503);
+  const identity = options.identity ? { ...options.identity } : undefined;
+  if (
+    identity &&
+    (!/^client_[A-Za-z0-9]{1,80}$/.test(identity.clientId) ||
+      (identity.issuerClientId !== undefined &&
+        !/^client_[A-Za-z0-9]{1,80}$/.test(identity.issuerClientId)))
+  )
+    throw fail(503);
   const announcementComposeEnabled = options.announcementComposeEnabled === true;
   const historyReadsEnabled = options.historyReadsEnabled === true;
   async function command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
@@ -33,7 +45,11 @@ export function createEmployeeApplicationAdapter(
       !/^user_[A-Za-z0-9]{1,80}$/.test(actor.subject || '') ||
       !/^session_[A-Za-z0-9]{1,80}$/.test(actor.sessionId || '') ||
       !/^client_[A-Za-z0-9]{1,80}$/.test(actor.audience || '') ||
-      actor.issuer !== `https://api.workos.com/user_management/${actor.audience}`
+      (identity !== undefined && actor.audience !== identity.clientId) ||
+      actor.issuer !==
+        `https://api.workos.com/user_management/${
+          identity?.issuerClientId ?? identity?.clientId ?? actor.audience
+        }`
     )
       throw fail(403);
     const compose = input?.name === 'admin_announcement_compose_v1';

@@ -5,6 +5,8 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+- [Staging database baseline and recovery](STAGING_DATABASE_BASELINE_2026-10-14.md)
+
 - [ACCOUNT DELETION REPAIR 2026-09-26](ACCOUNT_DELETION_REPAIR_2026-09-26.md)
 - [ACCOUNT REALM SEPARATION PREPARATION 2026-09-30](ACCOUNT_REALM_SEPARATION_PREPARATION_2026-09-30.md)
 - [ADMIN ANNOUNCEMENT CONNECTED 2026-10-09](ADMIN_ANNOUNCEMENT_CONNECTED_2026-10-09.md)

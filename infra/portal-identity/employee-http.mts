@@ -21,6 +21,7 @@ export interface EmployeeHttpConfig {
   realm: 'employee';
   origin: string;
   clientId: string;
+  issuerClientId?: string;
   encryptionKey: string;
 }
 export interface EmployeeHttpDependencies {
@@ -81,6 +82,7 @@ export function createEmployeeHttp(
     new URL(policy.origin).origin !== policy.origin ||
     !policy.origin.startsWith('https://') ||
     !/^client_[A-Za-z0-9]+$/.test(policy.clientId || '') ||
+    (policy.issuerClientId !== undefined && !/^client_[A-Za-z0-9]+$/.test(policy.issuerClientId)) ||
     !/^[a-f0-9]{64}$/.test(policy.encryptionKey || '') ||
     !store ||
     !provider ||
@@ -118,7 +120,8 @@ export function createEmployeeHttp(
     if (
       identity?.realm !== 'employee' ||
       identity.audience !== policy.clientId ||
-      identity.issuer !== `https://api.workos.com/user_management/${policy.clientId}` ||
+      identity.issuer !==
+        `https://api.workos.com/user_management/${policy.issuerClientId ?? policy.clientId}` ||
       !/^user_[A-Za-z0-9]+$/.test(identity.subject || '') ||
       !/^session_[A-Za-z0-9]+$/.test(identity.sessionId || '') ||
       identity.mfaVerified !== true ||
@@ -152,6 +155,8 @@ export function createEmployeeHttp(
     });
     const url = new URL(request.url),
       path = url.pathname;
+    // Fixed categories only; never expose provider errors, codes, actors or tokens.
+    let completionStage: 'flow' | 'provider' | 'identity' | 'authorization' | 'session' | undefined;
     try {
       if (policy.enabled !== true) throw fail(503);
       request.signal.throwIfAborted();
@@ -213,6 +218,7 @@ export function createEmployeeHttp(
         const binding = cookie(request, flowCookie),
           csrf = request.headers.get('x-doji-csrf');
         if (!binding || !opaque(csrf)) throw fail(403);
+        completionStage = 'flow';
         const envelope = await store.consumeFlow(
           hash(binding),
           (value) => {
@@ -224,20 +230,24 @@ export function createEmployeeHttp(
         if (!envelope) throw fail();
         // One durable winner may exchange this challenge. A failed OTP requires
         // a new password login; no uncertain grant or challenge is replayed.
+        completionStage = 'provider';
         const grant = await provider.complete(
           employeeFlow(open(envelope, 'flow')).pending,
           input.code,
           request.signal,
         );
+        completionStage = 'identity';
         const identity = actor(grant.identity);
         let installed = false;
         try {
           if (grant.subject !== identity.subject) throw fail();
+          completionStage = 'authorization';
           const operator = await application.authorize(identity, request.signal);
           request.signal.throwIfAborted();
           const handle = random(),
             csrf = random(),
             created = now();
+          completionStage = 'session';
           await store.putSession(
             hash(handle),
             seal({ grant, actor: identity, csrf, created, touched: created }, 'session'),
@@ -262,8 +272,9 @@ export function createEmployeeHttp(
         throw fail(404);
       const handle = cookie(request, sessionCookie);
       if (!handle) {
-        const supplied = (request.headers.get('cookie') || '').split(';')
-          .some(value => value.trim().startsWith(sessionCookie + '='));
+        const supplied = (request.headers.get('cookie') || '')
+          .split(';')
+          .some((value) => value.trim().startsWith(sessionCookie + '='));
         if (path === '/auth/logout' && !supplied) {
           await body(request, []);
           return alreadySignedOut();
@@ -362,7 +373,10 @@ export function createEmployeeHttp(
     } catch (error) {
       const status = errorStatus(error) ?? 503;
       return json(
-        { message: 'Employee access could not be completed. Please retry or sign in again.' },
+        {
+          message: 'Employee access could not be completed. Please retry or sign in again.',
+          ...(completionStage ? { stage: completionStage } : {}),
+        },
         [400, 401, 403, 404, 409, 413, 429, 503].includes(status) ? status : 503,
       );
     }

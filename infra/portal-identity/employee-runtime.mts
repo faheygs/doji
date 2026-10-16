@@ -14,6 +14,14 @@ import type { RestrictedSqlConfig, CreatePortalSqlClient } from './restricted-sq
 import type { EmployeeProviderConfig } from './workos-employee-provider.mts';
 import type { EmployeeMonitoringConfig } from './employee-health.mts';
 import type { SignStorage, SignRealtime } from './employee-contracts.mts';
+import {
+  isEmployeeOrigin,
+  employeeStagingOrigin,
+  employeeStagingProject,
+  employeeStagingClient,
+  employeeSharedStagingClient,
+  employeeSharedIssuerClient,
+} from './employee-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import { record } from './portal-contracts.mts';
 import type { JSONWebKeySet } from 'jose';
@@ -61,7 +69,20 @@ export function createEmployeeRuntime(
   const policy = structuredClone(config);
   if (
     policy.realm !== 'employee' ||
-    policy.origin !== 'https://admin.dojipro.com' ||
+    !isEmployeeOrigin(policy.origin) ||
+    (policy.origin === employeeStagingOrigin
+      ? policy.database.projectRef !== employeeStagingProject ||
+        policy.storageOrigin !== `https://${employeeStagingProject}.supabase.co` ||
+        !(
+          (policy.clientId === employeeStagingClient && policy.issuerClientId === undefined) ||
+          (policy.clientId === employeeSharedStagingClient &&
+            policy.issuerClientId === employeeSharedIssuerClient)
+        ) ||
+        !!policy.monitoring
+      : policy.database.projectRef === employeeStagingProject ||
+        policy.clientId === employeeStagingClient ||
+        policy.clientId === employeeSharedStagingClient ||
+        policy.issuerClientId !== undefined) ||
     !/^client_[A-Za-z0-9]+$/.test(policy.clientId || '')
   )
     throw Error('Employee runtime configuration unavailable');
@@ -76,6 +97,7 @@ export function createEmployeeRuntime(
   });
   const store = createEmployeeSessionStore({ ...policy, enabled: true }, execute, now);
   const adapter = createEmployeeApplicationAdapter(execute, {
+    identity: { clientId: policy.clientId, issuerClientId: policy.issuerClientId },
     announcementComposeEnabled: policy.announcementComposeEnabled === true,
     historyReadsEnabled: policy.historyReadsEnabled === true,
   });
@@ -100,10 +122,13 @@ export function createEmployeeRuntime(
     if (!pending)
       pending = (async () => {
         const signal = AbortSignal.timeout(5000);
-        const r = await upstream(`https://api.workos.com/sso/jwks/${policy.clientId}`, {
-          redirect: 'error',
-          signal,
-        });
+        const r = await upstream(
+          `https://api.workos.com/sso/jwks/${policy.issuerClientId ?? policy.clientId}`,
+          {
+            redirect: 'error',
+            signal,
+          },
+        );
         if (!r.ok) throw Error('Employee signing keys unavailable');
         const jwks: unknown = JSON.parse(
           new TextDecoder().decode(await boundedBody(r.body, signal, 32768)),
