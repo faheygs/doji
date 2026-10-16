@@ -5,8 +5,8 @@ const { createHash }:typeof import('node:crypto') = require('node:crypto');
 // Expo has no per-fetch client customization API in this pinned SDK. Keep this
 // patch Android-only and fail closed on SDK changes; do not replace the global
 // OkHttp factory (that would also alter Fresco/WebSocket client defaults).
-// 57.0.28 reviewed: ExpoFetchModule.kt is byte-identical after LF normalization.
-const VERSION = '57.0.28';
+// 57.0.30 reviewed: ExpoFetchModule.kt retains the pinned normalized source hash.
+const VERSION = '57.0.30';
 const SOURCE_HASH = '3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea';
 
 function instrumentExpoClient(source:string, version:string, host:string, gatewayHost:string):string {

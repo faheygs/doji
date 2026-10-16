@@ -17,7 +17,7 @@ test('patches only the pinned Expo Android fetch builder and is idempotent', () 
 });
 
 test('fails closed on SDK upgrades, unknown edits and duplicate observers', () => {
-  for (const unreviewed of ['57.0.27', '57.0.29', '58.0.0'])
+  for (const unreviewed of ['57.0.28', '57.0.29', '57.0.31', '58.0.0'])
     expect(() => instrumentExpoClient(source, unreviewed, host, gateway)).toThrow('compatibility');
   expect(() => instrumentExpoClient(source + '\n// unrelated modification', version, host, gateway)).toThrow('source changed');
   const result = instrumentExpoClient(source, version, host, gateway);

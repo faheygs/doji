@@ -26,9 +26,9 @@ terms/privacy are built separately with versioned URLs by
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.28 | Native toolchain and modules |
+| Expo | 57.0.30 | Native toolchain and modules |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.26 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.28 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |
