@@ -20,7 +20,7 @@ is granted per service and environment, never inherited from an admin-portal rol
 
 | Service | What Doji uses it for | Dashboard and identifiers | Source or evidence |
 | --- | --- | --- | --- |
-| GitHub and GitHub Actions | Monorepo source, PRs, protected main, quality CI; admin-only Pages release workflows in PR #15 | `faheygs/doji`; main-only `admin-staging`/`admin-production` environments, owner production approval | [.github/workflows/quality.yml](../.github/workflows/quality.yml), [release setup](LOCAL_DEVELOPMENT.md#admin-deployment-workflow); deploy credentials and activation configured, first CI deployment pending |
+| GitHub and GitHub Actions | Monorepo source, PRs, protected main, quality CI; admin-only Pages release workflows | `faheygs/doji`; main-only `admin-staging`/`admin-production` environments, owner production approval | [.github/workflows/quality.yml](../.github/workflows/quality.yml), [release setup](LOCAL_DEVELOPMENT.md#admin-deployment-workflow); automatic staging release verified October 16, production promotion unexecuted |
 | Supabase | Postgres, member Auth, Storage, Edge Functions, Vault and protected database APIs | [Project dashboard](https://supabase.com/dashboard/project/tvixsmqxotuvyjqzmjla); project `tvixsmqxotuvyjqzmjla` | `supabase/`, `lib/supabase.ts`, `types/database.ts` |
 | Supabase staging | Isolated development database and empty Storage buckets; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
@@ -57,14 +57,15 @@ current consoles before deciding availability, review state or enforcement.
 
 ## Development, testing and repository services
 
-The prepared admin release workflow reuses GitHub Actions and existing Cloudflare
+The admin release workflow reuses GitHub Actions and existing Cloudflare
 Pages `doji-admin-staging`/`doji-admin`, not a new hosting service. Environment-scoped
 deployment tokens belong in GitHub Actions secrets; runtime WorkOS/SQL/proxy keys
 stay in their hosted stores. Separate Cloudflare account-owned Pages Write tokens
 `doji-admin-staging-github`/`doji-admin-production-github` were created with owner
 approval and saved only in their respective environment secrets on October 15.
 They expire January 14, 2027 and grant account-wide Pages access, not provider-enforced
-project isolation; CI use is not yet verified. Review Actions artifact/runner and Cloudflare capacity before
+project isolation; staging CI use is verified, production token use remains untested.
+Review Actions artifact/runner and Cloudflare capacity before
 activation; prepared code is not a cost guarantee. Releases preserve the previous
 Pages deployment ID for approved rollback and stop on binding/flag drift or
 inconclusive verification. They do not deploy shared/member services.

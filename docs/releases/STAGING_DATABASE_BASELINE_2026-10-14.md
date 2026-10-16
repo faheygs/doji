@@ -279,7 +279,7 @@ Browser workflow reads no longer implicitly enable realtime. The yellow centered
 `DOJI STAGE` strip is shared by local and hosted staging; production has no strip
 and hosted builds still exclude developer impersonation.
 
-The current manual staging Pages deployment is `b7183a4a` (October 16, approximately
+The manual staging Pages deployment was `b7183a4a` (October 16, approximately
 15:29 UTC), built from the dirty working tree, not a merged/CI-qualified head.
 Pre-change deployment `b2225370-b47b-45b2-8f53-a4d39ab5c493`, intermediate packages,
 accepted package/manifest and retaining flag rollback are protected outside Git at
@@ -315,3 +315,31 @@ not qualified by these checks. No announcement was published. The port-4313
 isolated browser suite was not rerun while the owner's development server was in
 use; hosted checks above used the real staging session. Rollback restores flags
 and the prior Pages artifact without deleting test records or audit history.
+
+## Automated admin release acceptance — October 16
+
+PR #16 separately merged the approved compatible Expo patches; no mobile build or
+deployment ran. PR #15 merged admin source as
+`e347f4f84d328a73f90e3295e27abb683378837f` after all four exact-head checks passed.
+Its first database job timed out pulling the pinned test image before tests started;
+the isolated retry passed. All 17 coverage areas passed, including 845 browser tests.
+The approved port-4313 browser/database suite also passed with synthetic data and
+non-expiring/revoked developer credentials; the owner's local server was restarted.
+
+[Main Quality run 38946388075](https://github.com/faheygs/doji/actions/runs/38946388075)
+passed and automatically triggered
+[Admin staging run 38947921226](https://github.com/faheygs/doji/actions/runs/38947921226).
+At 18:32 UTC it deployed Pages `2d75152f-260f-409e-8f1b-1e010a865b7d`, preserving
+bindings and recording rollback `b7183a4a-ae70-4f2e-b723-e0155b798d41`.
+The live release SHA/configuration, security headers, anonymous 401 and cross-origin
+403/no-store checks passed. Owner Chrome restored its employee session after reload;
+the yellow stage banner, overview and synthetic audit history loaded successfully.
+
+The downloaded `admin-release` and `admin-staging-receipt` passed exact manifests,
+receipt hashes, trusted-run/main ancestry and matching hashes for all 63 frontend
+assets. Production remains main-only, owner-approved and bypass-disabled; no
+production workflow was dispatched. Its public flags stayed unchanged. Artifacts
+expire after 14 days; restage before promotion if expired. No SQL, Edge, shared
+Worker, mobile, business/site, email or access-grant deployment occurred. Kedd's
+handoff remains held, and no live developer-token expiry was changed. This qualifies
+the admin frontend release path, not the still-disabled external integrations.

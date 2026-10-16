@@ -187,19 +187,25 @@ Hosted MFA and the offline preview are unchanged; see
 [development impersonation](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
 Additional developer credentials/vault delivery are still unprovisioned.
 
-Admin-only deployment workflows are in PR #15; exact-head CI and merge are required.
+Admin-only deployment workflows merged in PR #15 as `e347f4f` on October 16.
 GitHub `admin-staging` and `admin-production` environments were verified on
 October 15: main-branch-only, with owner production approval and admin bypass off.
 Separate Pages Write account tokens are saved only in the corresponding GitHub
 environment secrets, with the public account ID variable. They expire January 14,
-2027; no runtime credentials were copied. The activation variable is enabled;
-CI token use and hosted release acceptance remain unverified until the first
-successful main Quality run and admin staging deployment after merge.
+2027; no runtime credentials were copied. The activation variable is enabled.
+Main Quality run `38946388075` passed all four gates; automatic Admin staging run
+`38947921226` deployed and verified Pages `2d75152f-260f-409e-8f1b-1e010a865b7d`.
+The live release identifies the exact merged SHA. Hosted session restoration,
+the yellow stage banner and synthetic audit history passed after deployment.
 The workflows build only admin, after repository Quality gates, then separately
 promote a verified staging artifact to production without rebuilding. They deploy
 no SQL, Edge runtime, shared Worker or other application. Hosted employee login,
 idea review/history/audit, and report/business assignment passed manually;
-CI deployment/promotion acceptance remains outstanding.
+The downloaded release passed promotion provenance, manifest/receipt and matching
+frontend checks. Production still requires owner approval and has not been deployed
+through this workflow; its deploy token has not yet been exercised. Kedd's credential
+provisioning, vault delivery and messages remain on hold. Non-expiring, revocable
+developer access passed offline tests; no live credential expiry was changed.
 See [admin deployment workflow](LOCAL_DEVELOPMENT.md#admin-deployment-workflow).
 
 | Before doing this | Required evidence/approval |
