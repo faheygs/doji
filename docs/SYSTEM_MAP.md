@@ -182,7 +182,7 @@ gateway must not silently stampede the database via a direct fallback.
 | `docs/`, `docs/releases/` | Current handbook and separately indexed release/rollback evidence |
 | `supabase/overlays/` | Individually reviewed SQL changes and inverses, not ordered migrations |
 | `.github/workflows/quality.yml` | Quality workflow, not automatic deployment |
-| `.github/workflows/admin-staging.yml`, `admin-production.yml` | Prepared admin-only Pages staging/release pipeline; GitHub environments/credentials configured, activation and live CI verification pending |
+| `.github/workflows/admin-staging.yml`, `admin-production.yml` | Admin-only Pages staging/release pipeline; GitHub environments/credentials and activation configured, merge and live CI verification pending |
 | `scripts/{admin-release-*,build-admin-release,deploy-admin-release}.mts` | Admin dependency selection, immutable packages, target/receipt verification; no shared backend deployment |
 | `test-results/`, generated website output | Local artifacts/evidence; not automatically available or safe to share |
 | `.artifacts/`, `credentials/`, `.env.local` | Sensitive/local material, not a developer handoff bundle |

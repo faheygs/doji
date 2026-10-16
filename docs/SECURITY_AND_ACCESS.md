@@ -89,7 +89,8 @@ secret rotation is a mutation, not a read-only diagnostic command.
 Admin deployment uses separate GitHub environments `admin-staging` and
 `admin-production`, both main-only. Production requires owner approval and disallows
 admin bypass; owner self-approval is allowed. Separate Pages Write tokens are stored
-as environment secrets; activation and live CI credential use remain pending.
+as environment secrets. The activation variable is enabled; merging the reviewed
+workflow and passing main Quality precede live CI credential use.
 These Cloudflare account-owned tokens expire January 14, 2027 and are account-wide
 for Pages, not project-isolated. Use them only through reviewed release jobs; never
 place runtime SQL, WorkOS or proxy keys in these environments. The workflows accept only successful same-repository main

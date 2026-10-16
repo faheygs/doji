@@ -187,13 +187,14 @@ Hosted MFA and the offline preview are unchanged; see
 [development impersonation](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
 Additional developer credentials/vault delivery are still unprovisioned.
 
-Admin-only deployment workflows are prepared locally, not merged or activated.
+Admin-only deployment workflows are in PR #15; exact-head CI and merge are required.
 GitHub `admin-staging` and `admin-production` environments were verified on
 October 15: main-branch-only, with owner production approval and admin bypass off.
 Separate Pages Write account tokens are saved only in the corresponding GitHub
 environment secrets, with the public account ID variable. They expire January 14,
-2027; no runtime credentials were copied. CI token use and hosted release acceptance
-remain unverified, and the activation variable is not configured.
+2027; no runtime credentials were copied. The activation variable is enabled;
+CI token use and hosted release acceptance remain unverified until the first
+successful main Quality run and admin staging deployment after merge.
 The workflows build only admin, after repository Quality gates, then separately
 promote a verified staging artifact to production without rebuilding. They deploy
 no SQL, Edge runtime, shared Worker or other application. Hosted employee login,

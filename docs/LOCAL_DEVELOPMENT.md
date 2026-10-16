@@ -277,10 +277,11 @@ Prepared source: `.github/workflows/admin-staging.yml` and `admin-production.yml
 GitHub environments exist and permit only the `main` branch; production requires
 `faheygs` approval with admin bypass disabled. The owner can approve their own
 manual dispatch. Separate account-owned Pages Write tokens and the account ID are
-configured in both environments. Merge, CI deployment/promotion acceptance and
-activation remain pending; this is not yet a live pipeline.
+configured in both environments. The activation variable is enabled; PR #15 must
+merge and pass main Quality before the first automatic staging deployment.
+CI deployment/promotion acceptance remains pending.
 
-Once activated:
+Release flow:
 
 1. Develop locally, open a PR and merge only after exact-head quality checks pass.
 2. Successful **Quality gates** on main triggers **Admin staging**. Only admin or
