@@ -273,13 +273,14 @@ The repo still does not provide a one-command fresh hosted/full-stack restore.
 
 ### Admin deployment workflow
 
-Prepared source: `.github/workflows/admin-staging.yml` and `admin-production.yml`.
+Release source: `.github/workflows/admin-staging.yml` and `admin-production.yml`.
 GitHub environments exist and permit only the `main` branch; production requires
 `faheygs` approval with admin bypass disabled. The owner can approve their own
 manual dispatch. Separate account-owned Pages Write tokens and the account ID are
-configured in both environments. The activation variable is enabled; PR #15 must
-merge and pass main Quality before the first automatic staging deployment.
-CI deployment/promotion acceptance remains pending.
+configured in both environments. PR #15 is merged and activation is enabled.
+The first automatic staging release passed on October 16 (run `38947921226`,
+source `e347f4f`). Hosted session restoration and the downloaded promotion package
+were verified. Production deployment remains unexecuted and approval-gated.
 
 Release flow:
 
@@ -310,7 +311,8 @@ Verify current capacity, project bindings, hosted acceptance and rollback first,
 then explicitly enable repository variable `ADMIN_DEPLOYMENTS_ENABLED=true`.
 Pages Write is account-scoped, not project-isolated. The workflows' fixed targets
 do not restrict what a stolen token could access. No DNS, email, SQL or shared
-Worker permissions were added. Tokens have not yet been exercised by a CI release.
+Worker permissions were added. The staging token passed its first CI release;
+the production token has not yet been exercised.
 
 Artifacts/receipts expire after 14 days. An expired or unsuccessful staging run
 cannot be promoted; stage a new reviewed release. Each receipt records the prior
