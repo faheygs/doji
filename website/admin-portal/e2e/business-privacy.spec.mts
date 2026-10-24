@@ -576,6 +576,8 @@ test('history uses bounded advancing cursor and rejects changes while paging', a
   const history = Array.from({ length: 30 }, (_, i) => ({ ...entry, revision: i + 1 }));
   await setup(page, { item: { revision: 31, history, history_has_more: true } });
   await open(page);
+  // Do not let the next-page mock intercept the still-pending initial read.
+  await expect(page.locator('#privacyHistory')).toContainText('Revision 30');
   let body;
   await page.route('**/rpc/get_admin_business_privacy_case_v1', async (route) => {
     body = route.request().postDataJSON();
@@ -603,6 +605,7 @@ test('correction completion becomes available after reviewing a later history pa
     item: { kind: 'correction', revision: 31, history, history_has_more: true },
   });
   await open(page);
+  await expect(page.locator('#privacyHistory')).toContainText('Revision 30');
   await expect(page.locator('#privacyAction option[value="complete"]')).toHaveCount(0);
   await page.route('**/rpc/get_admin_business_privacy_case_v1', (route) =>
     route.fulfill({
