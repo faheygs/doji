@@ -1,4 +1,7 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
+import { en } from 'zod/locales';
+
+z.config(en());
 
 // Prepared for the gated atomic compose contract; never dispatches a request.
 export const announcementDestinations = {
@@ -7,18 +10,32 @@ export const announcementDestinations = {
   '/(app)/suggest-challenge': 'Suggest a Doji',
 } as const;
 export const announcementSchema = z.object({
-  title: z.string().trim().min(1, 'Enter a title.').max(100, 'Use 100 characters or fewer.'),
-  message: z.string().trim().min(1, 'Enter a message.').max(600, 'Use 600 characters or fewer.'),
+  title: z
+    .string()
+    .check(
+      z.trim(),
+      z.minLength(1, 'Enter a title.'),
+      z.maxLength(100, 'Use 100 characters or fewer.'),
+    ),
+  message: z
+    .string()
+    .check(
+      z.trim(),
+      z.minLength(1, 'Enter a message.'),
+      z.maxLength(600, 'Use 600 characters or fewer.'),
+    ),
   timing: z.enum(['now', 'scheduled']),
-  start: z.number().finite().nullable(),
-  end: z.number().finite().nullable(),
-  ctaLabel: z.string().trim().max(40, 'Use 40 characters or fewer for the button.'),
+  start: z.nullable(z.number()),
+  end: z.nullable(z.number()),
+  ctaLabel: z
+    .string()
+    .check(z.trim(), z.maxLength(40, 'Use 40 characters or fewer for the button.')),
   ctaUrl: z.enum(['', '/(app)/profile/shop', '/(app)/suggest-challenge']),
   priority: z.union([z.literal(0), z.literal(10), z.literal(20)]),
-  impressions: z.number().int().min(1).max(10),
-  spacing: z.number().int().min(1).max(720),
+  impressions: z.int().check(z.minimum(1), z.maximum(10)),
+  spacing: z.int().check(z.minimum(1), z.maximum(720)),
   reward: z.enum(['none', 'submit_idea']),
-  sparks: z.number().int().min(0).max(10000),
+  sparks: z.int().check(z.minimum(0), z.maximum(10000)),
 });
 export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export type ComposeAction = 'save_draft' | 'publish' | 'schedule';
