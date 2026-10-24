@@ -9,7 +9,7 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 | Surface | Recorded state | Boundary |
 | --- | --- | --- |
 | Member app | Owner reports iOS 1.0.10 and Android 1.0.11 (31) in use; Android signup retry succeeded | Older 1.0.9 / pending-1.0.10 records are historical, not current store status |
-| Mobile source | Expo 57.0.30 compatible patches merged in PR #16; no new mobile build started for admin staging | Verify the exact platform artifact manifest before claiming a source fix is installed |
+| Mobile source | Expo 57.0.31 compatibility patches prepared; no new mobile build started for admin staging | Verify the exact platform artifact manifest before claiming a source fix is installed |
 | Update policy | Owner requested Android 1.0.11 / iOS 1.0.10 minimums | Live policy and store availability were not rechecked in this admin release; do not replay October 7 enforcement |
 | Admin production | React/Vite/MUI, employee WorkOS + MFA; sign-out recovery recorded as runtime v24 | Member Supabase Auth and mobile sessions are separate |
 | Admin staging | Same frontend; shared employee identity, separate WorkOS application, database, sessions and grants | Hosted login/MFA and representative workflows verified; local impersonation is not shipped to hosted sites |
