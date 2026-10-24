@@ -27,9 +27,9 @@ terms/privacy are built separately with versioned URLs by
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.30 | Native toolchain and modules |
+| Expo | 57.0.31 | Native toolchain and modules |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.28 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.29 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |
@@ -41,7 +41,7 @@ terms/privacy are built separately with versioned URLs by
 | Database | Supabase Postgres, RLS/RPCs, Vault, `pg_net` | State, authorization, receipts and outbox |
 | Edge | Supabase Deno TypeScript functions | Privileged integrations with handler-owned authorization |
 | Orchestrator | Cloudflare Worker and Durable Objects | Alarms, relay, fanout, maintenance, health and member gateways |
-| React web | React 19.3.0, MUI 9.4.0, Vite 8.3.4, Next 16.4.0, TanStack Query 5.104.1 | Vite admin/business SPAs, Next static public site, shared MUI/Emotion theme |
+| React web | React 19.3.0, MUI 9.4.0, Vite 8.3.4, Next 16.4.3, TanStack Query 5.104.1 | Vite admin/business SPAs, Next static public site, shared MUI/Emotion theme |
 | Retained browser contracts | HTML/CSS/TypeScript, esbuild registry | Auth/application/safety adapters, legal content and exact proxy/artifact packaging still used by React |
 | Independent identity runtime | `jose` 6.2.8, `pg` 8.16.3, WorkOS APIs | Verified external identities and restricted durable sessions |
 | Quality | Jest, React Native Testing Library, Playwright/axe, ESLint, Prettier, Supabase tests | Unit, contract, accessibility, browser and database checks |
