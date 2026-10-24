@@ -1,11 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLocalEngineEndpoint, verifyOwnedContainer } from './config.mts';
+import { image, authImage, storageImage, isLocalEngineEndpoint, verifyOwnedContainer } from './config.mts';
 import { verifyTap } from './tap.mts';
 import { readFileSync } from 'node:fs';
 import { suites } from './extended.mts';
 import { offlineContainer, firstRecord, errorOutput } from './contracts.mts';
 import {pullWithRateLimitRetry} from './image-pull-retry.mts';
+
+test('test images retain the verified manifests when the download registry changes', () => {
+  assert.deepEqual([image, authImage, storageImage], [
+    'docker.io/supabase/postgres:17.6.1.159@sha256:86a2e078779e5bdccda1f6f6c5063aa9779a322d1fface5fb408d051909b230f',
+    'docker.io/supabase/gotrue:v2.197.0@sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b',
+    'docker.io/supabase/storage-api:v1.69.11@sha256:97ed68d33417d253a45fe0a70f84324d92250a3e239bf18aa6cf87269dbf6727',
+  ]);
+});
 
 test('explicit image preparation retries only bounded registry rate limits',async()=>{
  const delays:number[]=[];let calls=0;

@@ -1,11 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { emptyAnnouncement, prepareAnnouncement, validateAnnouncement } from './announcement';
+import {
+  announcementSchema,
+  emptyAnnouncement,
+  prepareAnnouncement,
+  validateAnnouncement,
+} from './announcement';
 
 const now = Date.parse('2026-11-01T06:00:00Z');
 const key = '10000000-0000-4000-8000-000000000001';
 const target = { id: '20000000-0000-4000-8000-000000000002', version: 'a'.repeat(32) };
 const input = { ...emptyAnnouncement, title: ' Hello ', message: ' Welcome ', end: now + 7200000 };
 describe('prepared atomic announcement contract', () => {
+  it('keeps priority limited to the three numeric choices without coercion', () => {
+    for (const priority of [0, 10, 20]) {
+      expect(announcementSchema.parse({ ...input, priority }).priority).toBe(priority);
+    }
+    for (const priority of [
+      1,
+      -1,
+      11,
+      21,
+      NaN,
+      Infinity,
+      '0',
+      '10',
+      null,
+      undefined,
+      true,
+      {},
+      [],
+    ]) {
+      const result = announcementSchema.safeParse({ ...input, priority });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues).toMatchObject([
+          { path: ['priority'], message: 'Invalid input' },
+        ]);
+      }
+    }
+  });
   it('uses one complete immutable payload and lets the server choose Publish now time', () => {
     const intent = prepareAnnouncement(input, 'publish', now, null, key);
     expect(intent).toEqual({
