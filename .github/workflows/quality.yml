@@ -98,7 +98,10 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix infra/portal-identity
       - run: npm ci --prefix infra/doji-orchestrator
+      # Coverage exercises real admin packages with the separate web toolchain.
+      - run: npm ci --ignore-scripts --prefix web
       - run: npx playwright install --with-deps chromium
+      - run: node web/node_modules/@playwright/test/cli.js install --with-deps chromium
       # Fails until every named area reaches 90% statements/branches/functions/lines.
       # Local fixture artifacts only; no production credentials or deployment.
       - run: npm run test:coverage
