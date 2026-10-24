@@ -28,8 +28,14 @@ assert.doesNotMatch(
   /synthetic-password|Initial synthetic report|Example: app issues need review/,
 );
 assert.doesNotMatch(source, /supabase\.co\/auth\/v1|sb_secret_|service_role_key/);
-assert.doesNotMatch(source, /127\.0\.0\.1:4313|doji_admin_staging_dev_4313|Local development → Staging/);
-assert.doesNotMatch(source, /staging_development|DOJI_ADMIN_DEVELOPMENT_TOKEN|doji_admin_development_4313|\/api\/dev\/|Develop with staging/);
+assert.doesNotMatch(
+  source,
+  /127\.0\.0\.1:4313|doji_admin_staging_dev_4313|Local development → Staging/,
+);
+assert.doesNotMatch(
+  source,
+  /staging_development|DOJI_ADMIN_DEVELOPMENT_TOKEN|doji_admin_development_4313|\/api\/dev\/|Develop with staging/,
+);
 assert.doesNotMatch(source, /Impersonate user|Impersonate User/);
 const bytes = scripts.reduce(
   (sum, file) => sum + gzipSync(readFileSync(new URL(file, assets))).length,
@@ -129,7 +135,7 @@ assert.ok(
   // total stays 507 KiB and sign-in stays 180 KiB.
   // Personal/lifecycle history adds 1.8 KiB: explicit 2 KiB deferred allocation.
   bytes - chartBytes - privacyBytes - formBytes - announcementBytes <= 296 * 1024,
-  'Core workspace exceeds its explicit review/ideas/audit/exact-content feature budget',
+  `Core workspace uses ${bytes - chartBytes - privacyBytes - formBytes - announcementBytes} bytes gzip; budget is ${296 * 1024}`,
 );
 // Add 5 KiB for bounded idea history, closed-safety navigation and audit handoff.
 // Keep sign-in capped at 180 KiB; the history UI and parser must remain deferred.

@@ -1,5 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -15,6 +16,8 @@ after(() => {
 });
 import {
   assembleStagingSite,
+  buildAdminStaging,
+  inventory,
   reserveOutput,
   stagingFlags,
   stagingHeaders,
@@ -23,6 +26,47 @@ import {
 
 const html =
   '<html><head><title>Candidate</title><script src="/react-admin/staging/assets/app.js"></script></head></html>';
+test('real release builds meet budgets and keep asset bytes independent of commit IDs', async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'doji-staging-bundles-'));
+  const shas = [
+    '297151c040390e7e2d966575ddaa0553ea47f48d',
+    'e347f4f84d328a73f90e3295e27abb683378837f',
+  ];
+  try {
+    const assets = [];
+    for (const sha of shas) {
+      const output = join(temporary, sha);
+      await buildAdminStaging(output, sha);
+      const page = await readFile(join(output, 'site/index.html'), 'utf8');
+      assert.ok(page.includes(`/react-admin/${sha}/assets/`));
+      assets.push(await inventory(join(output, 'site/react-admin', sha, 'assets')));
+    }
+    assert.deepEqual(assets[0], assets[1]);
+    execFileSync(
+      process.execPath,
+      [
+        'web/node_modules/@playwright/test/cli.js',
+        'test',
+        '--config=web/playwright.design.config.ts',
+        'root-release.spec.ts',
+        '--workers=1',
+        '--output=' + join(temporary, 'browser'),
+      ],
+      {
+        cwd: resolve(import.meta.dirname, '..'),
+        stdio: 'inherit',
+        timeout: 120000,
+        env: {
+          ...process.env,
+          DOJI_REACT_RELEASE_DIR: join(temporary, shas[0]!, 'site'),
+          DOJI_REACT_ROOT_RELEASE: '1',
+        },
+      },
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
 test('staging package rejects production bindings and alternate hosts before any upstream access', async () => {
   let reads = 0;
   const origin = 'https://admin-staging.dojipro.com';
