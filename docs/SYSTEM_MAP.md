@@ -41,7 +41,7 @@ terms/privacy are built separately with versioned URLs by
 | Database | Supabase Postgres, RLS/RPCs, Vault, `pg_net` | State, authorization, receipts and outbox |
 | Edge | Supabase Deno TypeScript functions | Privileged integrations with handler-owned authorization |
 | Orchestrator | Cloudflare Worker and Durable Objects | Alarms, relay, fanout, maintenance, health and member gateways |
-| React web | React 19.3.0, MUI 9.4.0, Vite 8.3.4, Next 16.4.0, TanStack Query 5.104.1 | Vite admin/business SPAs, Next static public site, shared MUI/Emotion theme |
+| React web | React 19.3.0, MUI 9.4.0, Vite 8.3.4, Next 16.4.3, TanStack Query 5.104.1 | Vite admin/business SPAs, Next static public site, shared MUI/Emotion theme |
 | Retained browser contracts | HTML/CSS/TypeScript, esbuild registry | Auth/application/safety adapters, legal content and exact proxy/artifact packaging still used by React |
 | Independent identity runtime | `jose` 6.2.8, `pg` 8.16.3, WorkOS APIs | Verified external identities and restricted durable sessions |
 | Quality | Jest, React Native Testing Library, Playwright/axe, ESLint, Prettier, Supabase tests | Unit, contract, accessibility, browser and database checks |
