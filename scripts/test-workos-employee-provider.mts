@@ -322,7 +322,9 @@ test('pending records reject tampering, wrong phase, environment and purpose', a
     start = await f.provider.begin('owner@example.test', 'secret', signal());
   const count = f.calls.length;
   await assert.rejects(f.provider.complete(start.pending, '123456', signal()));
-  await assert.rejects(f.provider.prepare('a' + start.pending.slice(1), signal()));
+  const tampered = (start.pending[0] === 'a' ? 'b' : 'a') + start.pending.slice(1);
+  assert.notDeepEqual(Buffer.from(tampered, 'base64url'), Buffer.from(start.pending, 'base64url'));
+  await assert.rejects(f.provider.prepare(tampered, signal()));
   const other = createWorkosEmployeeProvider({ ...config, clientId: 'client_other' }, f.fetcher);
   await assert.rejects(other.prepare(start.pending, signal()));
   assert.equal(f.calls.length, count);
