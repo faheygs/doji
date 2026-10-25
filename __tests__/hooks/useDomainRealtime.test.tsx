@@ -1,8 +1,9 @@
 import React from 'react';
+import { AppState } from 'react-native';
 import { act, cleanup, renderHook } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDomainRealtime } from '../../hooks/useDomainRealtime';
-import { closeRealtimeConnection, onRealtimeConnectionChange } from '../../lib/realtimeClient';
+import { closeRealtimeConnection, onRealtimeConnectionChange, resumeRealtimeConnection } from '../../lib/realtimeClient';
 import { startResilientRealtimeSubscription } from '../../lib/resilientRealtimeSubscription';
 import { reconcileAppQueries } from '../../lib/reconcileQueries';
 import { handleDomainRealtimeEvent } from '../../lib/domainRealtimeHandler';
@@ -16,6 +17,7 @@ jest.mock('../../stores/useAuthStore', () => ({
 jest.mock('../../lib/realtimeClient', () => ({
   closeRealtimeConnection: jest.fn(),
   onRealtimeConnectionChange: jest.fn(),
+  resumeRealtimeConnection: jest.fn(),
 }));
 jest.mock('../../lib/resilientRealtimeSubscription', () => ({
   startResilientRealtimeSubscription: jest.fn(),
@@ -60,6 +62,22 @@ afterEach(() => {
   cleanup();
   client.clear();
   jest.useRealTimers();
+  jest.restoreAllMocks();
+});
+
+test('only returning from background renews transport; cleanup removes lifecycle ownership', () => {
+  const remove = jest.fn();
+  const listen = jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove });
+  const view = setup();
+  const change = listen.mock.calls[0][1];
+  act(() => { change('inactive'); change('active'); });
+  expect(resumeRealtimeConnection).not.toHaveBeenCalled();
+  act(() => { change('background'); change('inactive'); change('active'); change('active'); });
+  expect(resumeRealtimeConnection).toHaveBeenCalledTimes(1);
+  view.unmount();
+  expect(remove).toHaveBeenCalledTimes(1);
+  act(() => { change('background'); change('active'); });
+  expect(resumeRealtimeConnection).toHaveBeenCalledTimes(1);
 });
 
 test.each([true, false])('subscribes only to allowed channels (admin=%s)', (admin) => {

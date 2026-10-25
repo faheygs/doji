@@ -10,6 +10,8 @@ let grantedPostChannels = new Set<string>();
 let lastRequestedChannels = new Set<string>();
 let authorizationFailureCount = 0;
 let authorizationRetryAt = 0;
+let lifecycle = new AbortController();
+const superseded = () => new Error('Realtime authorization was superseded');
 
 export class RealtimeAccessUnavailableError extends Error {
   readonly code = 'REALTIME_ACCESS_UNAVAILABLE';
@@ -28,23 +30,28 @@ export function invalidatePostCapability(channelName: string): void {
   grantedPostChannels.delete(channelName);
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`Realtime authentication timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    );
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, controller: AbortController,
+  lifetime: AbortSignal): Promise<T> {
+  // React Native's AbortController does not implement AbortSignal.reason.
+  let cancellationError = superseded();
+  const cancel = () => controller.abort();
+  const timer = setTimeout(() => {
+    cancellationError = new Error(`Realtime authentication timed out after ${timeoutMs}ms`);
+    controller.abort();
+  }, timeoutMs);
+  let abort!: () => void;
+  const canceled = new Promise<never>((_, reject) => {
+    abort = () => reject(cancellationError);
+    controller.signal.addEventListener('abort', abort, { once: true });
+    lifetime.addEventListener('abort', cancel, { once: true });
+    if (lifetime.aborted) cancel();
   });
+  try { return await Promise.race([promise, canceled]); }
+  finally {
+    clearTimeout(timer);
+    lifetime.removeEventListener('abort', cancel);
+    controller.signal.removeEventListener('abort', abort);
+  }
 }
 
 function responseStatus(error: unknown): number | null {
@@ -59,8 +66,12 @@ function responseStatus(error: unknown): number | null {
   return null;
 }
 
-async function invokeRealtimeToken(postIds: string[]) {
+async function invokeRealtimeToken(postIds: string[], signal: AbortSignal, isCurrent: () => boolean) {
+  const check = () => {
+    if (signal.aborted || !isCurrent()) throw superseded();
+  };
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  check();
   let token = sessionData.session?.access_token;
   if (sessionError || !token) throw sessionError ?? new Error('Authentication required');
 
@@ -70,14 +81,18 @@ async function invokeRealtimeToken(postIds: string[]) {
       // Supplying the access token explicitly avoids relying on a Functions
       // client snapshot while Auth is rotating a session in the background.
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal,
     });
 
   let result = await invoke(token);
+  check();
   if (responseStatus(result.error) !== 401) return result;
 
   // A rejected freshly-rotated JWT is safe to retry once after Auth refresh.
   // The token endpoint is read-only and does not create application state.
   const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+  check();
+  if (refreshed.session?.user?.id !== sessionData.session?.user?.id) throw superseded();
   token = refreshed.session?.access_token;
   if (refreshError || !token) return result;
   result = await invoke(token);
@@ -105,22 +120,23 @@ export function requestRealtimeToken(
   isCurrentClient: () => boolean,
   callback: (error: string | null, token: TokenRequest | null) => void,
 ): void {
+  const lifetime = lifecycle.signal;
+  const isCurrent = () => !lifetime.aborted && isCurrentClient();
   const run = async () => {
     const requestedSnapshot = new Set(requestedChannels);
     try {
+      if (!isCurrent()) throw superseded();
+      const controller = new AbortController();
       const postIds = [...requestedSnapshot].map((name) => name.slice('post:'.length));
       const { data, error } = await withTimeout(
-        invokeRealtimeToken(postIds),
-        AUTH_REQUEST_TIMEOUT_MS,
+        invokeRealtimeToken(postIds, controller.signal, isCurrent),
+        AUTH_REQUEST_TIMEOUT_MS, controller, lifetime,
       );
-      if (error || !data) {
-        recordRealtimeFailure('token_request', error ?? new Error('Empty token response'));
-      }
-      if (!error && data && isCurrentClient()) {
-        lastRequestedChannels = requestedSnapshot;
-        grantedPostChannels = grantedChannels(data);
-      }
-      callback(error?.message ?? null, data ?? null);
+      if (!isCurrent()) throw superseded();
+      if (error || !data) throw error ?? new Error('Empty token response');
+      lastRequestedChannels = requestedSnapshot;
+      grantedPostChannels = grantedChannels(data);
+      callback(null, data);
     } catch (error) {
       recordRealtimeFailure('token_request', error);
       callback(error instanceof Error ? error.message : 'Realtime authentication failed', null);
@@ -134,7 +150,12 @@ export async function ensurePostCapability(
   channelName: string,
   isCurrentClient: () => boolean,
 ): Promise<void> {
+  const lifetime = lifecycle.signal;
+  const check = () => {
+    if (lifetime.aborted || !isCurrentClient()) throw superseded();
+  };
   while (!grantedPostChannels.has(channelName)) {
+    check();
     let task = authorizationTask;
     if (!task || task.realtime !== realtime) {
       let promise: Promise<void>;
@@ -151,12 +172,17 @@ export async function ensurePostCapability(
             });
           }
         })
-        .then(() => realtime.auth.authorize())
         .then(() => {
+          check();
+          return withTimeout(realtime.auth.authorize(), 35_000, new AbortController(), lifetime);
+        })
+        .then(() => {
+          check();
           authorizationFailureCount = 0;
           authorizationRetryAt = 0;
         })
         .catch((error) => {
+          check();
           authorizationFailureCount += 1;
           authorizationRetryAt = Date.now() + Math.min(
             5_000,
@@ -171,7 +197,7 @@ export async function ensurePostCapability(
       authorizationTask = task;
     }
     await task.promise;
-    if (!isCurrentClient()) throw new Error('Realtime connection changed');
+    check();
     if (!grantedPostChannels.has(channelName) && lastRequestedChannels.has(channelName)) {
       // Feed visibility can change between the authoritative read and channel
       // authorization (block, moderation, event rollover). This is an expected
@@ -182,10 +208,22 @@ export async function ensurePostCapability(
 }
 
 export function resetRealtimeAuthorization(): void {
+  lifecycle.abort();
+  lifecycle = new AbortController();
   grantedPostChannels = new Set();
   lastRequestedChannels = new Set();
   authorizationTask = null;
   tokenRequestTail = Promise.resolve();
   authorizationFailureCount = 0;
   authorizationRetryAt = 0;
+}
+
+export function resumeRealtimeAuthorization(realtime: Realtime, isCurrent: () => boolean): void {
+  if (realtime.connection.state === 'connected') return;
+  // Public authorize() supersedes suspended SDK token work without destroying
+  // channel listeners, and reconnects disconnected/failed clients.
+  resetRealtimeAuthorization();
+  void realtime.auth.authorize().catch((error) => {
+    if (isCurrent()) recordRealtimeFailure('foreground_authorization', error);
+  });
 }

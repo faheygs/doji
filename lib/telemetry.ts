@@ -66,7 +66,7 @@ export function reportRealtimeFailure(
   recordRealtimeFailure(operation, error, context);
 
   if (__DEV__) return;
-  if (isRealtimeTransportUnavailable(error)) return;
+  if (isRealtimeTransportUnavailable(error) && operation !== 'connection_recovery_exhausted') return;
   const reportKey = `${operation}:${String(details.errorCode ?? details.statusCode ?? '')}`;
   const now = Date.now();
   if (now - (lastReportAt.get(reportKey) ?? 0) < REPORT_WINDOW_MS) return;

@@ -4,6 +4,7 @@ import {
   ensurePostCapability,
   requestRealtimeToken,
   resetRealtimeAuthorization,
+  resumeRealtimeAuthorization,
   isRealtimeAccessUnavailable,
   invalidatePostCapability,
 } from './realtimeAuthorization';
@@ -31,9 +32,7 @@ const requestedPostChannels = new Set<string>();
 const SUBSCRIBE_ATTEMPTS = 4;
 
 function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
 }
 
 function retainPostChannel(channelName: string): void {
@@ -53,20 +52,18 @@ function releasePostChannel(channelName: string): void {
 
 function getClient(): Realtime {
   if (client) return client;
-  let createdClient: Realtime | null = null;
   const realtime = new Realtime({
     autoConnect: false,
     echoMessages: false,
     realtimeRequestTimeout: 20_000,
     authCallback: (_params, callback) => {
-      const expected = createdClient ?? realtime;
-      requestRealtimeToken(expected, requestedPostChannels, () => client === expected, callback);
+      requestRealtimeToken(realtime, requestedPostChannels, () => client === realtime, callback);
     },
   });
-  createdClient = realtime;
-  clientGeneration += 1;
   client = realtime;
+  clientGeneration += 1;
   client.connection.on((change) => {
+    if (client !== realtime) return;
     if (change.current === 'connected') {
       consecutiveConnectionFailures = 0;
       if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
@@ -75,7 +72,7 @@ function getClient(): Realtime {
     }
     if (change.current !== 'failed' && change.current !== 'suspended') return;
     recordRealtimeFailure('connection_state', change.reason, { state: change.current });
-    if (change.current !== 'failed' || client !== realtime) return;
+    if (change.current !== 'failed') return;
 
     consecutiveConnectionFailures += 1;
     if (consecutiveConnectionFailures >= 3) {
@@ -96,7 +93,6 @@ function getClient(): Realtime {
       delay + Math.floor(Math.random() * 750),
     );
   });
-  // Connect immediately; token capability work is already batched.
   realtime.connect();
   return client;
 }
@@ -124,11 +120,9 @@ export async function subscribeToRealtimeChannel(
   const pendingRelease = releaseTimers.get(channelName);
   if (pendingRelease) clearTimeout(pendingRelease);
   releaseTimers.delete(channelName);
-  const getChannel = () =>
-    realtime.channels.get(
-      channelName,
-      options?.rewind ? { params: { rewind: options.rewind } } : undefined,
-    );
+  const getChannel = () => realtime.channels.get(
+    channelName, options?.rewind ? { params: { rewind: options.rewind } } : undefined,
+  );
   let channel = getChannel();
   const listener = (message: Message) => onEvent(eventFromMessage(message));
   let lastError: unknown;
@@ -221,6 +215,13 @@ export function onRealtimeConnectionChange(
   const realtime = getClient();
   realtime.connection.on(listener);
   return () => realtime.connection.off(listener);
+}
+
+export function resumeRealtimeConnection(): void {
+  const realtime = client;
+  if (failedReconnectTimer) clearTimeout(failedReconnectTimer);
+  failedReconnectTimer = null;
+  if (realtime) resumeRealtimeAuthorization(realtime, () => client === realtime);
 }
 
 export function closeRealtimeConnection(): void {

@@ -61,6 +61,9 @@ export function isRealtimeTransportUnavailable(error: unknown): boolean {
     'fetch request has been cancelled',
     'request was aborted',
     'no more fallback hosts to try',
+    'timeout for trying fallback hosts retries',
+    'realtime authentication timed out',
+    'realtime authorization was superseded',
   ];
 
   return nestedRealtimeErrors(error).some((current) => {

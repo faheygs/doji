@@ -184,6 +184,58 @@ test('health retry can recover without reporting a stale first failure', async (
   await jest.advanceTimersByTimeAsync(750);
   expect(await pending).toEqual({ healthy: true });
 });
+
+test.each(['headers', 'body'] as const)('health %s stalls cannot hold the monitor indefinitely', async (phase) => {
+  jest.useFakeTimers();
+  transport.mockImplementation(() => phase === 'headers' ? new Promise(() => {}) : Promise.resolve({
+    ok: true, status: 200, headers: new Headers({ 'sb-request-id': 'synthetic-request' }),
+    text: () => new Promise(() => {}),
+  }));
+  const result = fetchOperationalHealth(env).catch((error) => error);
+  await jest.advanceTimersByTimeAsync(40_750);
+  expect(operationalHealthFailureDetails(await result)).toMatchObject({
+    failure_kind: 'timeout', failure_phase: phase, attempts: 2, attempt_elapsed_ms: 20_000,
+    upstream_status: phase === 'body' ? 200 : null,
+    upstream_request_id: phase === 'body' ? 'synthetic-request' : null,
+  });
+  expect(transport).toHaveBeenCalledTimes(2);
+  expect(transport.mock.calls.every(([, init]) => init.signal.aborted)).toBe(true);
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('a response-body network failure is not reported as invalid JSON', async () => {
+  jest.useFakeTimers();
+  transport.mockResolvedValue({ ok: true, status: 200, headers: new Headers(),
+    text: async () => { throw new Error('private provider detail'); } });
+  const result = fetchOperationalHealth(env).catch((error) => error);
+  await jest.advanceTimersByTimeAsync(750);
+  const error = await result;
+  expect(operationalHealthFailureDetails(error)).toMatchObject({
+    failure_kind: 'network', failure_phase: 'body', upstream_status: 200,
+  });
+  expect(error.message).not.toContain('private provider detail');
+});
+
+test.each(['null', '[]', 'true', '12'])('health rejects non-object JSON %s', async (body) => {
+  jest.useFakeTimers();
+  transport.mockImplementation(async () => new Response(body));
+  const result = fetchOperationalHealth(env).catch((error) => error);
+  await jest.advanceTimersByTimeAsync(750);
+  expect(operationalHealthFailureDetails(await result)).toMatchObject({
+    failure_kind: 'invalid-response', failure_phase: 'parse', upstream_status: 200,
+  });
+});
+
+test('alarm repair failure is not misattributed to the Supabase network', async () => {
+  transport.mockResolvedValue(Response.json({ alarm_repairs: [{}] }));
+  const result = await checkOperationalHealth(env, jest.fn(), async () => {
+    throw new Error('private repair detail');
+  }).catch((error) => error);
+  expect(operationalHealthFailureDetails(result)).toMatchObject({
+    provider: 'cloudflare', failure_kind: 'repair', failure_phase: 'repair', attempts: 0,
+  });
+  expect(transport).toHaveBeenCalledTimes(1);
+});
 test.each([null, undefined, 12, { name: 'Other' }, { message: 5 }])(
   'unknown health failure is classified as network without exposing input (%j)',
   (value) => {

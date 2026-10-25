@@ -104,6 +104,15 @@ Expected transport interruptions use bounded jittered recovery, not alert storms
 Cold sockets connect immediately; recovered connections coalesce catch-up for
 100–500 ms, not an artificial cold-start delay.
 
+On native background-to-active return, a disconnected client explicitly renews
+authorization through the SDK, superseding suspended token work without replacing
+channel listeners. Healthy connections are retained. Authorization resets fence
+queued/late results and abort token-endpoint reads; token reads have a 15-second
+deadline and post-capability authorization a 35-second bound including the provider
+exchange/connection update. Neither a nested transport timeout nor its 401 wrapper
+alone establishes invalid member credentials. Persistent connection failure remains
+reportable; reconnect and foreground reads still reconcile from Postgres.
+
 `domainRealtimeHandler`, `queryInvalidationBatcher`, `reconcileQueries` and
 `QueryLifecycle` own targeted invalidation and catch-up. Hints batch for 80 ms;
 reads are single-flight with bounded trailing reconciliation and
@@ -208,6 +217,11 @@ sending/capture/wakeup gates are independent. Never automatically resend an
 uncertain email or restore an unfenced legacy login during rollback.
 
 ## Monitoring and validation
+
+Operational-health reads have one 20-second deadline per attempt covering headers
+and body, with one retry. Diagnostics distinguish headers/body/parse failures and
+Durable Object alarm-repair failures; they retain only status, elapsed time and a
+validated provider request ID, never response bodies or credentials.
 
 Monitoring and portal display are different contracts. Missing/stale/failed reads
 are unavailable, not healthy or zero. No traffic is not measured zero latency.
