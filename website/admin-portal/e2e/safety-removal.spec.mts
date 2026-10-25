@@ -192,9 +192,15 @@ test('assignment stays disabled while pending and ignores a second click',async(
 test('stale unassigned case cannot be claimed',async({page})=>{
  let revision=1;
  const commands=await setup(page,{getCase:()=>({assigned_to:null,revision})});
- await page.getByRole('button',{name:'AAAAAAAA',exact:true}).click();revision=2;
+ await page.getByRole('button',{name:'AAAAAAAA',exact:true}).click();
+ const dialog=page.locator('dialog[open]');
+ const claim=dialog.getByRole('button',{name:'Assign to me',exact:true});
+ await expect(dialog.getByLabel('Assignee',{exact:true})).toHaveValue('Unassigned');
+ await expect(claim).toBeEnabled();
+ revision=2;
  await reconcile(page);
- await expect(page.locator('dialog[open]').getByRole('button',{name:'Assign to me',exact:true})).toBeDisabled();
+ await expect(dialog.locator('[data-freshness]')).toContainText('This case has changed');
+ await expect(claim).toBeDisabled();
  expect(commands).toHaveLength(0);
 });
 
