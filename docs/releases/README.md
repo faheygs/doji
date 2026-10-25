@@ -5,6 +5,102 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## October 25 poll activation incident
+
+Event `4ff51c34-b62c-4dd0-af70-acf799537d2c` activated without its system poll
+post, so `submit_poll_vote` rolled back with `Community poll post not found`.
+The scheduling INSERT trigger creates that card, but an intervening activation's
+retention trigger deletes it. The activation RPC did not recreate it. Synthetic
+schedule/intervening-activation/vote tests reproduced this defect before the fix.
+
+Owner-approved repair inserted only the missing system card; five real votes and
+completions were verified before the original deadline. No member vote was invented.
+The permanent fix ensures the card after retention inside `activate_daily_event`.
+It deployed at 17:13:43 UTC; original definition MD5
+`d53835a47acdea37c588c58f05fa7ad9`, deployed
+`bdbd6a8c37fb7874a682abb2fe799b88`. All grants stayed unchanged. 147 isolated
+database assertions passed, including single-credit retry and exact rollback.
+Source is `supabase/migrations/20261025172000_create_poll_post_at_activation.sql`;
+this targeted emergency application is not evidence of a merged PR or ledger replay.
+
+Separately approved recovery reopened the same event from 17:17:31.98228 to
+17:27:31.98228 UTC (11:27:31 AM Mountain close). Seven missed participants returned
+to pending; all five completed records retained their exact hash. No recorded
+streak loss needed correction and no Sparks, votes or rewards were added. The
+existing close alarm was rearmed with `chainNext=false` (next day's chain was already
+prepared); request 167984 returned HTTP 200. Reopening invalidation was published,
+and a unique delayed closing invalidation avoids the original close's dedupe key.
+No additional push was sent. Synthetic tests covered recovery, retained completion
+credit, single-credit retry, streak restoration, no push and refusal to reopen twice.
+
+Private before/after definitions, fingerprint-guarded function rollback, one-row
+repair SQL and synthetic acceptance receipts are retained at
+`C:/Users/gfahe/AppData/Local/Temp/doji-event-correction-20261024/`, using the
+`poll-activation-*-20261025` and `recovery-window-*-20261025` names. Retain successful
+votes and rewards during rollback; never restore whole participant/profile rows
+over subsequent submissions. No mobile rebuild or Worker rollback was required.
+
+## October 25 alert recovery
+
+Monitoring-only Worker version `5d44589a-b0c0-4734-bfaf-08afccada948` serves 100%.
+Downloaded live source matches SHA-256
+`2d494eeb736706504982b5f9b5e83ae02c6f50e763e8760a39ca0c816e9068ff`;
+all settings, secret binding names and five Durable Object namespaces match the
+baseline. Absent/invalid-token reads remain 401/no-store. Rollback is
+`94343e0b-1447-495b-98c8-1db492864abe`, preserving the October 15 gateway fix.
+No database, push, challenge timing or portal runtime changes accompanied it.
+
+Frozen mobile source is reviewed main `c4e7c7b`, with only version overrides to
+1.0.12 / Android 32 / iOS 106. Android job
+`43ecd109-97f6-405e-ba44-c260b01dad78` and iOS job
+`f4a73c48-ae3f-4645-8e5d-09fb3a3717fb` completed without rebuilds. Both have Sentry
+source-map upload evidence; iOS also has native-symbol upload evidence. iOS
+submission `345676e4-3006-4433-b857-a46cd51666e2` finished, and build 106 is available
+to the existing six internal Doji Testers with acceptance instructions saved.
+Android 32 was submitted as existing closed Alpha release 22 at 100% of that track;
+Google shows “Changes in review” with quick checks still running. Audience and
+supported devices are unchanged; native debug symbols are attached. The sole
+release-validation warning is missing R8/ProGuard mapping, not a blocking error.
+Public Android production and iOS App Store review were not submitted.
+Expo reports $3 used from $45 included credit,
+not an additional charge. Native device acceptance remains outstanding.
+
+All four quality gates passed in run `40206501007`; PR #24 fixes only two
+nondeterministic tests and merged as `1886ab0`. Its staging-only portal redeployment
+was separately approved. Postmerge quality run `40208344042` passed all four gates;
+staging run `40209294264` deployed `1886ab0` as
+`a078ab9d-5016-4a98-83aa-0c620bb3f1bf`, with a verified configuration/package receipt.
+Hosted session restoration, assigned-work listing and synthetic report detail reads
+passed after deployment; no record writes were performed. Production admin was not
+promoted. Private immutable source, hashes, verification receipts
+and Worker rollback are retained outside Git in
+`C:/Users/gfahe/AppData/Local/Temp/doji-health-release-d840f240f23643b6aefb7dccc7ff871b/`.
+
+## October 24 Doji correction
+
+Owner-approved replacement `dbfd5040-6b43-465d-9f23-a50e677b561f` (“Best way to wind
+down?”) activated at 22:11:17 UTC with exactly 600 seconds of normal participation.
+Free late access ends at `2026-10-25T06:00:00Z`; existing clients display it as
+“BUY-IN OPEN,” but no Sparks are deducted. The occurrence-specific overrides cover
+current-state reads, both buy-in overloads, poll/post completion cutoff, close and
+push claim wording. All other occurrence paths, function owners and grants were
+preserved. Sixteen isolated PostgreSQL checks passed, including guarded rollback.
+
+The erroneous challenge `8877fcf0-8aa7-4dbc-886f-a9d9940cc8ca` is inactive. Its nine
+completed participation records remain. Normal activation clears the old feed posts.
+Tomorrow's event `4ff51c34-b62c-4dd0-af70-acf799537d2c` is unchanged; the replacement
+alarm has `chainNext=false`. Apology fanout completed: 25 provider-accepted device
+deliveries for 20 recipients, not proof of handset display.
+
+Private tested SQL, original/patched definitions, launch receipt and fingerprint-
+guarded rollback are retained outside Git at
+`C:/Users/gfahe/AppData/Local/Temp/doji-event-correction-20261024/`.
+Do not restore functions before the promised cutoff or relaunch the fixed event ID.
+After expiry, separately review restoring the original bodies; retain participation
+and receipts, and never re-enable the erroneous challenge as part of rollback.
+
+## Retained records
+
 - [Staging database baseline and recovery](STAGING_DATABASE_BASELINE_2026-10-14.md)
 
 - [ACCOUNT DELETION REPAIR 2026-09-26](ACCOUNT_DELETION_REPAIR_2026-09-26.md)
