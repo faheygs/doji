@@ -57,6 +57,9 @@ a confirmed command. Query cancellation is not server rollback.
 Pre-live occurs twenty minutes before activation and advances active-feed identity
 without revealing the challenge or deleting old participation/content. Activation
 stamps authoritative deadlines; occurrences materialize lazily per member.
+Poll activation ensures its unique system-owned feed card after retention and
+before the activation outbox event, in the same transaction. Scheduling-time cards
+are not durable across intervening activations; voting must never depend on them.
 Re-registering an event re-arms its alarm even if phase state already exists.
 
 Activation does not scan all accounts. Push planning uses only occupied recipient
@@ -69,8 +72,12 @@ sum those shards; friend reads traverse only the capped accepted-friend graph.
 Interactive social writes enqueue bounded fanout work, never synchronously expand
 every recipient or call push providers.
 
-Scale-read gateways verify the member JWT, preserve RLS authorization, use bounded
-account-scoped caches and coalesce in-flight reads. Configured scale mode fails
+Scale-read gateways verify the member JWT and preserve RLS authorization. Source
+uses account-scoped response caches, request-owned upstream I/O and a six-second
+whole-read budget, including authentication, cache and response-body waits. JWKS
+caching retains only completed public-key data for five minutes, not pending I/O.
+Phase-specific failures omit tokens, bodies and member identifiers. See current
+state for the deployed version and rollback. Configured scale mode fails
 closed rather than stampeding Postgres via a silent fallback.
 Load models are throughput budgets, not proof of provider capacity or 100k readiness.
 

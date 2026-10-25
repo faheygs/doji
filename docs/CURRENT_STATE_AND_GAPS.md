@@ -1,15 +1,36 @@
 # Current state and handoff gaps
 
-Reviewed October 16, 2026. This separates source, recorded deployments and owner
+Updated October 25, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-October 24 alert-recovery source is prepared, not deployed: native disconnected
-foreground authorization renewal/cancellation fencing and phase-specific, bounded
-operational-health reads. Mobile device acceptance requires a new artifact; the
-monitor requires a separate shared-Worker release with baseline/rollback checks.
+October 25 poll incident: the missing community card was repaired; real submissions
+resumed. The approved activation-function fix is live and passed 147 isolated
+database assertions, including reproduction, voting, retry credit and permissions.
+The separately approved recovery window ran through 17:27:31 UTC (11:27:31 AM Mountain);
+seven missed participants reopened, five completed votes preserved, no extra push.
+Source migration `20261025172000_create_poll_post_at_activation.sql` records the fix;
+its production application was targeted, not a bulk migration push or ledger replay.
+See [incident and rollback evidence](releases/README.md#october-25-poll-activation-incident).
+
+The October 24 replacement Doji's one-occurrence participation exception expired
+October 25 at 06:00 UTC (midnight Mountain Time). Seven deployed function bodies
+retain occurrence-specific overrides; restoration needs a separate reviewed release.
+See the [correction and rollback record](releases/README.md#october-24-doji-correction).
+
+October 25: phase-specific, bounded operational-health reads are live in Worker
+`5d44589a-b0c0-4734-bfaf-08afccada948`; the gateway fix, settings and five Durable
+Objects are preserved. Rollback is `94343e0b-1447-495b-98c8-1db492864abe`.
+Mobile 1.0.12 contains native disconnected foreground authorization renewal/cancellation
+fencing. Both builds completed with Sentry source-map upload evidence; iOS 106 is
+available to the six existing TestFlight testers. Android 32 was submitted for
+existing closed Alpha review; Google shows “Changes in review” with quick checks
+still running, not yet approved or available to testers.
+Neither is device-accepted. Admin staging deployed reviewed main
+`1886ab0` after all four quality gates passed; production admin was not promoted.
+See the [release receipt](releases/README.md#october-25-alert-recovery).
 Sentry `REACT-NATIVE-2M` showed an iOS 1.0.10 background/resume provider timeout
 while submission/feed reads succeeded; it does not establish the older Android
 504 root cause. Supabase staging was `ACTIVE_HEALTHY` when rechecked October 24.
@@ -17,7 +38,7 @@ while submission/feed reads succeeded; it does not establish the older Android
 | Surface | Recorded state | Boundary |
 | --- | --- | --- |
 | Member app | Owner reports iOS 1.0.10 and Android 1.0.11 (31) in use; Android signup retry succeeded | Older 1.0.9 / pending-1.0.10 records are historical, not current store status |
-| Mobile source | Expo 57.0.31 compatibility patches prepared; no new mobile build started for admin staging | Verify the exact platform artifact manifest before claiming a source fix is installed |
+| Mobile source | Expo 57.0.31 and alert-recovery source merged; 1.0.12 Android 32 / iOS 106 built October 25 | Tester/store availability and device acceptance are separate |
 | Update policy | Owner requested Android 1.0.11 / iOS 1.0.10 minimums | Live policy and store availability were not rechecked in this admin release; do not replay October 7 enforcement |
 | Admin production | React/Vite/MUI, employee WorkOS + MFA; sign-out recovery recorded as runtime v24 | Member Supabase Auth and mobile sessions are separate |
 | Admin staging | Same frontend; shared employee identity, separate WorkOS application, database, sessions and grants | Hosted login/MFA and representative workflows verified; local impersonation is not shipped to hosted sites |
@@ -42,7 +63,7 @@ A six-second gateway budget bounds authentication, cache and origin/body waits
 before existing clients' eight-second deadline. Failures identify their phase
 without logging credentials or payloads. Simultaneous identical cache misses now
 issue independent authorized RPCs; the existing member budget and short response
-cache remain. Live version `94343e0b-1447-495b-98c8-1db492864abe` serves 100%;
+cache remain. That release used version `94343e0b-1447-495b-98c8-1db492864abe`;
 rollback version `bb415821-fbe9-4d74-8716-7b36ef24a7fa` and its source are retained.
 The owner approved the separate production deployment. The narrow package
 preserves all baseline code outside the read/authentication blocks. Local workerd
@@ -59,7 +80,8 @@ burst checks are not a production load qualification. Private release/configurat
 receipts and rollback are in `test-results/gateway-read-recovery-20261015/`.
 This addresses demonstrated recovery gaps, not proof of the initial cause of the
 October 15 canceled requests. No mobile binary, database, write, challenge-timing,
-push or portal source was deployed with this patch. Source is not yet merged.
+push or portal source was deployed with this patch. The repository includes its
+read-recovery implementation and synthetic regressions.
 
 ## Admin development and release status
 

@@ -1,6 +1,6 @@
 begin;
 
-select plan(133);
+select plan(147);
 
 select has_table('public', 'domain_event_outbox', 'transactional outbox exists');
 select has_column(
@@ -605,6 +605,67 @@ select is(
   0::bigint,
   'redundant social indexes do not add duplicate write cost'
 );
+
+-- An intervening activation can retire a poll card that was created at scheduling.
+insert into auth.users(id,aud,role,email,email_confirmed_at,raw_user_meta_data)
+values ('96000000-0000-4000-8000-000000000001','authenticated','authenticated',
+  'poll-activation@test.invalid',now(),jsonb_build_object(
+    'terms_version','2026-08-20','privacy_version','2026-08-20',
+    'terms_accepted_at',now(),'privacy_accepted_at',now()));
+insert into public.profiles(id,username,display_name)
+values ('96000000-0000-4000-8000-000000000001','poll_activation','Synthetic poll voter')
+on conflict (id) do nothing;
+update public.profiles set created_at=now()-interval '5 days'
+where id='96000000-0000-4000-8000-000000000001';
+insert into public.challenges(id,title,description,category,difficulty,type,poll_kind,
+  requires_photo,requires_text,is_active,xp_reward)
+values
+('96000000-0000-4000-8000-000000000002','Synthetic poll','Regression only','mental',1,'poll','wyr',false,false,true,50),
+('96000000-0000-4000-8000-000000000003','Synthetic photo','Regression only','mental',1,'photo',null,true,false,true,50);
+insert into public.poll_options(id,challenge_id,text,position,is_other)
+values ('96000000-0000-4000-8000-000000000004','96000000-0000-4000-8000-000000000002','Option',0,false);
+insert into public.daily_events(id,challenge_id,fires_at,window_minutes)
+values
+('96000000-0000-4000-8000-000000000005','96000000-0000-4000-8000-000000000003',now(),10),
+('96000000-0000-4000-8000-000000000006','96000000-0000-4000-8000-000000000002',now()+interval '1 day',10);
+select is((select count(*) from public.posts where daily_event_id='96000000-0000-4000-8000-000000000006'),1::bigint,
+  'scheduled poll starts with one community card');
+do $$begin perform public.activate_daily_event('96000000-0000-4000-8000-000000000005'); end$$;
+select is((select count(*) from public.posts where daily_event_id='96000000-0000-4000-8000-000000000006'),0::bigint,
+  'regression fixture reproduces intervening activation removing future poll card');
+select is((select count(*) from public.posts where daily_event_id='96000000-0000-4000-8000-000000000005' and is_community_poll),0::bigint,
+  'non-poll activation does not create a poll card');
+do $$begin perform public.activate_daily_event('96000000-0000-4000-8000-000000000006'); end$$;
+select is((select count(*) from public.posts where daily_event_id='96000000-0000-4000-8000-000000000006' and is_community_poll and user_id is null),1::bigint,
+  'poll activation restores exactly one system card after retention');
+select is((select extract(epoch from closes_at-activated_at)::integer from public.daily_events where id='96000000-0000-4000-8000-000000000006'),600,
+  'poll repair preserves ten-minute window');
+create temporary table poll_activation_before as select activated_at,closes_at from public.daily_events where id='96000000-0000-4000-8000-000000000006';
+select is(public.activate_daily_event('96000000-0000-4000-8000-000000000006')->>'already_active','true',
+  'duplicate activation remains idempotent');
+select ok((select e.activated_at=b.activated_at and e.closes_at=b.closes_at from public.daily_events e cross join poll_activation_before b where e.id='96000000-0000-4000-8000-000000000006'),
+  'duplicate activation cannot reset the timer');
+select is((select count(*) from public.posts where daily_event_id='96000000-0000-4000-8000-000000000006' and is_community_poll),1::bigint,
+  'duplicate activation keeps one poll card');
+insert into public.user_events(id,user_id,daily_event_id,status,expires_at)
+select '96000000-0000-4000-8000-000000000007','96000000-0000-4000-8000-000000000001',id,'pending',closes_at
+from public.daily_events where id='96000000-0000-4000-8000-000000000006';
+set local request.jwt.claims='{"sub":"96000000-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select lives_ok($$select public.submit_poll_vote('96000000-0000-4000-8000-000000000007','96000000-0000-4000-8000-000000000004',null,'poll-activation-regression-0001')$$,
+  'authenticated vote succeeds after the scheduling-retention-activation sequence');
+select lives_ok($$select public.submit_poll_vote('96000000-0000-4000-8000-000000000007','96000000-0000-4000-8000-000000000004',null,'poll-activation-regression-0001')$$,
+  'identical vote retry succeeds');
+reset role;
+select is((select count(*) from public.poll_votes where user_event_id='96000000-0000-4000-8000-000000000007'),1::bigint,
+  'identical retry does not duplicate votes');
+select is((select status::text from public.user_events where id='96000000-0000-4000-8000-000000000007'),'completed',
+  'repaired poll commits participant completion');
+select is((select total_completions::integer from public.profiles where id='96000000-0000-4000-8000-000000000001'),1,
+  'identical vote retry awards completion credit only once');
+select ok(not has_function_privilege('authenticated','public.activate_daily_event(uuid)','execute')
+  and not has_function_privilege('anon','public.activate_daily_event(uuid)','execute'),
+  'activation remains restricted to the server');
 
 select * from finish();
 rollback;

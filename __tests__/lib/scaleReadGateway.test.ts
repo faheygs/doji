@@ -2,6 +2,7 @@ import { readThroughScaleGateway } from '../../lib/scaleReadGateway';
 import { supabase } from '../../lib/supabase';
 import { isTransientApiError, shouldRetryQuery } from '../../lib/apiRetry';
 import { memberSession } from '../fixtures/memberSession';
+import { QueryClient } from '@tanstack/react-query';
 
 describe('scale-read client', () => {
   const originalFetch = global.fetch;
@@ -57,6 +58,33 @@ describe('scale-read client', () => {
       id: 'direct',
     });
     expect(mockGetSession).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])('recovers after %i gateway deadline responses in the same query client', async failures => {
+    const client = new QueryClient({ defaultOptions: { queries: {
+      retry: shouldRetryQuery, retryDelay: 0, gcTime: Infinity,
+    } } });
+    const direct = jest.fn();
+    const transport = jest.fn();
+    for (let index = 0; index < failures; index++) {
+      transport.mockResolvedValueOnce(Response.json({ error: 'Scale read unavailable' }, { status: 503 }));
+    }
+    transport.mockImplementation(async () => Response.json([{ id: 'confirmed-post' }]));
+    global.fetch = transport;
+    const options = { queryKey: ['feed', 'event', 'friends', 'member', 'full'],
+      queryFn: ({ signal }: { signal: AbortSignal }) => readThroughScaleGateway('/v1/feed', direct, signal) };
+    try {
+      if (failures === 2) {
+        await expect(client.fetchQuery(options)).rejects.toMatchObject({ status: 503 });
+        expect(client.getQueryState(options.queryKey)?.fetchStatus).toBe('idle');
+      }
+      // Existing bounded retry, or explicit Retry after exhaustion, uses the same session/cache.
+      await expect(client.fetchQuery(options)).resolves.toEqual([{ id: 'confirmed-post' }]);
+      expect(transport).toHaveBeenCalledTimes(failures + 1);
+      expect(client.getQueryState(options.queryKey)).toMatchObject({ status: 'success', fetchStatus: 'idle' });
+      expect(mockRefreshSession).not.toHaveBeenCalled();
+      expect(direct).not.toHaveBeenCalled();
+    } finally { client.clear(); }
   });
 
   it('bounds auth waiting without sending a late request or signing the member out', async () => {

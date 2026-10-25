@@ -1,3 +1,5 @@
+import { readDeadline } from './read-deadline.ts';
+
 export type ScaleReadAuthEnv = {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
@@ -17,7 +19,7 @@ type JwtPayload = {
 type Jwks = { keys?: Array<JsonWebKey & { kid?: string }> };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-let jwksPromise: Promise<Jwks> | null = null;
+let jwksCache: { url: string; data: Jwks; expiresAt: number } | null = null;
 
 export function normalizedSupabaseUrl(env: ScaleReadAuthEnv): string {
   return env.SUPABASE_URL.replace(/\/$/, '');
@@ -42,20 +44,20 @@ function decodeBytes(value: string): ArrayBuffer {
 }
 
 async function readJwks(env: ScaleReadAuthEnv, refresh = false): Promise<Jwks> {
-  if (!jwksPromise || refresh) {
-    jwksPromise = fetch(`${normalizedSupabaseUrl(env)}/auth/v1/.well-known/jwks.json`, {
-      headers: { apikey: env.SUPABASE_ANON_KEY },
-      signal: AbortSignal.timeout(5_000),
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(`JWKS unavailable (${response.status})`);
-      return response.json() as Promise<Jwks>;
-    });
-  }
+  const url = `${normalizedSupabaseUrl(env)}/auth/v1/.well-known/jwks.json`;
+  if (!refresh && jwksCache?.url === url && jwksCache.expiresAt > Date.now()) return jwksCache.data;
+  const budget = readDeadline(5_000);
   try {
-    return await jwksPromise;
-  } catch (error) {
-    jwksPromise = null;
-    throw error;
+    const response = await budget.wait(fetch(url, {
+      headers: { apikey: env.SUPABASE_ANON_KEY }, signal: budget.signal,
+    }));
+    if (!response.ok) throw new Error(`JWKS unavailable (${response.status})`);
+    const data = await budget.wait(response.json()) as Jwks;
+    // Only completed data crosses Worker request contexts, never pending I/O.
+    jwksCache = { url, data, expiresAt: Date.now() + 300_000 };
+    return data;
+  } finally {
+    budget.cleanup();
   }
 }
 

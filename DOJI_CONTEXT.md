@@ -27,6 +27,8 @@ product UI. See [system map](docs/SYSTEM_MAP.md) for entry points and
 ## Non-negotiable boundaries
 
 - Postgres owns state, authorization, receipts, rewards and the transactional outbox.
+- Poll activation atomically ensures its unique community card after feed retention;
+  a card created when scheduling is not sufficient for later vote submission.
 - Writes use existing atomic, idempotent RPCs. Never replace a command with several
   client writes. An uncertain response is not proof of failure or permission to
   issue a new command key.
@@ -105,6 +107,8 @@ the future poll. Community idea acceptance does not schedule a Doji.
   Poll/WYR has one shared post, global totals and friend-scoped social alerts.
 - Bounded snapshots/keyset reads supply feed, comments, reactions, voters,
   friends, leaderboard, notifications and shop. Partial pages are not totals.
+  Gateway recovery source keeps pending I/O request-owned and bounds the whole
+  read, not only database fetch. See current state for deployment and rollback.
 - Optimistic actor feedback rolls back only its own cache version and account.
   Committed reads reconcile in the background without covering usable content.
 - When scrolled, new head posts wait behind New posts; unauthorized rows disappear
