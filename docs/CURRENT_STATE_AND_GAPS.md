@@ -6,6 +6,14 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+October 24 alert-recovery source is prepared, not deployed: native disconnected
+foreground authorization renewal/cancellation fencing and phase-specific, bounded
+operational-health reads. Mobile device acceptance requires a new artifact; the
+monitor requires a separate shared-Worker release with baseline/rollback checks.
+Sentry `REACT-NATIVE-2M` showed an iOS 1.0.10 background/resume provider timeout
+while submission/feed reads succeeded; it does not establish the older Android
+504 root cause. Supabase staging was `ACTIVE_HEALTHY` when rechecked October 24.
+
 | Surface | Recorded state | Boundary |
 | --- | --- | --- |
 | Member app | Owner reports iOS 1.0.10 and Android 1.0.11 (31) in use; Android signup retry succeeded | Older 1.0.9 / pending-1.0.10 records are historical, not current store status |
@@ -82,10 +90,13 @@ push or portal source was deployed with this patch. Source is not yet merged.
   quality jobs passed. Run `38947921226` automatically deployed Pages
   `2d75152f-260f-409e-8f1b-1e010a865b7d`. Docs-only main run `38953049163`
   correctly skipped packaging/deployment.
-- Production promotion: downloaded package/receipt/provenance checks passed.
-  The production action has not yet run. It requires owner approval and promotes
-  the staged frontend without rebuilding; it changes no SQL, Edge runtime,
-  shared Worker, mobile, business or public-site deployment.
+- Production promotion: owner-approved run `40134309699` succeeded October 24,
+  promoting staging run `40117275364` at `1a9ef6b9ca36735e5986c7ad4890b27b3f8804d7`.
+  Main quality run `40115658338` passed all four jobs on attempt 2; the first
+  attempt's moderation-history browser flake remains unexplained (20 focused
+  repetitions passed unchanged). Pages deployment `2a305892-e114-4844-8320-0f1e7aa650ea`
+  retains rollback `09a9d34e-d99c-4373-a511-2ec92ea10487`. No SQL, Edge runtime,
+  shared Worker, mobile, business or public-site deployment was included.
 - Handoff: Kedd's developer credential, vault delivery and messages are held.
   Owner reports Bitwarden organization/MFA setup; scoped project access/import
   remain unverified. Do not send invitations or share the owner's credential.

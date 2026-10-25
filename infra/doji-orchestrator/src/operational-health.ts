@@ -1,7 +1,5 @@
-type OperationalEnv = {
-  SUPABASE_URL: string;
-  OUTBOX_RELAY_SECRET: string;
-};
+import { fetchOperationalHealth, OperationalHealthCheckError, type OperationalEnv } from './operational-health-read';
+export { fetchOperationalHealth, operationalHealthFailureDetails } from './operational-health-read';
 
 export type OperationalHealth = {
   healthy?: boolean;
@@ -24,60 +22,6 @@ export type EventAlarmRepair = {
 };
 
 const ALERT_TIMEOUT_MS = 12_000;
-const HEALTH_TIMEOUT_MS = 20_000;
-const HEALTH_ATTEMPTS = 2;
-const HEALTH_RETRY_DELAY_MS = 750;
-
-type HealthFailureKind = 'http' | 'invalid-response' | 'network' | 'timeout';
-
-class OperationalHealthCheckError extends Error {
-  constructor(
-    message: string,
-    readonly failureKind: HealthFailureKind,
-    readonly attempts: number,
-    readonly status: number | null = null,
-  ) {
-    super(message);
-    this.name = 'OperationalHealthCheckError';
-  }
-}
-
-function timeoutFailure(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const value = error as { message?: unknown; name?: unknown };
-  return value.name === 'AbortError' || value.name === 'TimeoutError' ||
-    (typeof value.message === 'string' && /aborted.*timeout|timed out/i.test(value.message));
-}
-
-function normalizeHealthFailure(error: unknown, attempt: number): OperationalHealthCheckError {
-  if (error instanceof OperationalHealthCheckError) return error;
-  if (timeoutFailure(error)) {
-    return new OperationalHealthCheckError(
-      'Supabase operational-health request timed out',
-      'timeout',
-      attempt,
-    );
-  }
-  return new OperationalHealthCheckError(
-    'Supabase operational-health request failed before a response',
-    'network',
-    attempt,
-  );
-}
-
-export function operationalHealthFailureDetails(error: unknown): Record<string, unknown> {
-  const failure = error instanceof OperationalHealthCheckError
-    ? error
-    : normalizeHealthFailure(error, HEALTH_ATTEMPTS);
-  return {
-    provider: 'supabase',
-    provider_surface: 'edge-functions',
-    failure_kind: failure.failureKind,
-    attempts: failure.attempts,
-    upstream_status: failure.status,
-    durable_event_state: 'unverified-health-read',
-  };
-}
 
 async function operationalFetch(
   input: RequestInfo | URL,
@@ -90,49 +34,6 @@ async function operationalFetch(
   });
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-export async function fetchOperationalHealth(env: OperationalEnv): Promise<Record<string, unknown>> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await operationalFetch(
-        `${env.SUPABASE_URL}/functions/v1/operational-health`,
-        {
-          method: 'POST',
-          headers: { 'x-outbox-secret': env.OUTBOX_RELAY_SECRET },
-        },
-        HEALTH_TIMEOUT_MS,
-      );
-      if (!response.ok) {
-        throw new OperationalHealthCheckError(
-          `Supabase operational-health endpoint returned ${response.status}`,
-          'http',
-          attempt,
-          response.status,
-        );
-      }
-      try {
-        return JSON.parse(await response.text()) as Record<string, unknown>;
-      } catch {
-        throw new OperationalHealthCheckError(
-          'Supabase operational-health endpoint returned invalid JSON',
-          'invalid-response',
-          attempt,
-          response.status,
-        );
-      }
-    } catch (error) {
-      lastError = normalizeHealthFailure(error, attempt);
-      if (attempt < HEALTH_ATTEMPTS) await wait(HEALTH_RETRY_DELAY_MS);
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
-}
 
 export async function sendOperationalAlert(
   env: OperationalEnv,
@@ -166,7 +67,8 @@ export async function checkOperationalHealth(
   // alarms and outbox correctness never depend on this diagnostic request.
   const health = await fetchOperationalHealth(env) as OperationalHealth;
   if (Array.isArray(health.alarm_repairs) && health.alarm_repairs.length > 0) {
-    await repairEventAlarms(health.alarm_repairs);
+    try { await repairEventAlarms(health.alarm_repairs); }
+    catch { throw new OperationalHealthCheckError('repair', 0, 'repair'); }
   }
   // Durable outbox rows survive an immediate worker failure. A health-driven
   // wake recovers overdue work when the worker becomes available again.

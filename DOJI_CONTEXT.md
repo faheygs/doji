@@ -154,6 +154,11 @@ cancelled; cached data remains. Available foreground return reconciles once.
 Mutations retain immediate execution, not offline queueing. Announcement claims
 and notification bootstrap remain outside read cancellation.
 
+Native background return renews disconnected realtime authorization without
+discarding subscriptions. Token reads and capability waits are bounded and late
+authorization work is fenced across resets/accounts; no member writes are retried
+by this recovery. These changes require a new mobile artifact, not a portal deploy.
+
 Report a problem currently opens a user-controlled share/email draft containing
 allowlisted diagnostic references. It is not a durable support-ticket system.
 The future tracked-report requirement belongs in the product backlog.

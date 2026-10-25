@@ -170,6 +170,13 @@ Free organization **doji-staging**, API
 `https://ohrcupagdoilkwhecict.supabase.co`. Production remains
 `tvixsmqxotuvyjqzmjla`; never substitute it for a missing development connection.
 
+Free staging can pause after low database activity. A pause warning is not an
+outage: check the project's dashboard/status first. If paused, restore that same
+project in Supabase and verify staging sign-in/reads before development; never
+redirect staging to production or recreate its baseline. Use genuine development
+activity, not a keepalive cron. Guaranteed always-on capacity requires a separately
+approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guides/platform/free-project-pausing).
+
 - The baseline includes current deployed portal overlays, explicit privileges,
   RLS, three empty buckets, code-owned badge/shop data and two synthetic demo
   members plus two inactive challenges. Demo profiles intentionally do not appear

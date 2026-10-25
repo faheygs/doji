@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   closeRealtimeConnection,
   onRealtimeConnectionChange,
+  resumeRealtimeConnection,
   type DojiRealtimeEvent,
 } from '../lib/realtimeClient';
 import { RealtimeEventDeduper } from '../lib/realtimeDeduper';
@@ -79,8 +81,18 @@ export function useDomainRealtime(userId: string | undefined) {
       }
     });
 
+    let backgrounded = AppState.currentState === 'background';
+    const appStateListener = Platform.OS === 'web' ? undefined : AppState.addEventListener('change', (state) => {
+      if (state === 'background') backgrounded = true;
+      if (state === 'active' && backgrounded && !disposed) {
+        backgrounded = false;
+        resumeRealtimeConnection();
+      }
+    });
+
     return () => {
       disposed = true;
+      appStateListener?.remove();
       if (reconcileTimer) clearTimeout(reconcileTimer);
       removeConnectionListener();
       unsubscribers.forEach((unsubscribe) => unsubscribe());

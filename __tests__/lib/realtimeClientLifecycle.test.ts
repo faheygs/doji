@@ -148,6 +148,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
       body: { postIds: [postId] },
       headers: { Authorization: 'Bearer test-token' },
+      signal: expect.any(AbortSignal),
     });
     remove();
   });
@@ -165,6 +166,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockInvoke).toHaveBeenCalledWith('realtime-token', {
       body: { postIds: [firstId, secondId] },
       headers: { Authorization: 'Bearer test-token' },
+      signal: expect.any(AbortSignal),
     });
     removeFirst();
     removeSecond();
@@ -197,6 +199,7 @@ describe('realtime channel lifecycle', () => {
     expect(mockInvoke).toHaveBeenLastCalledWith('realtime-token', {
       body: { postIds: [firstId, secondId] },
       headers: { Authorization: 'Bearer test-token' },
+      signal: expect.any(AbortSignal),
     });
     removeFirst();
     removeSecond();

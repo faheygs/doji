@@ -1,6 +1,7 @@
 import {
   closeRealtimeConnection,
   onRealtimeConnectionChange,
+  resumeRealtimeConnection,
   subscribeToRealtimeChannel,
 } from '../../lib/realtimeClient';
 import { recordRealtimeFailure, reportRealtimeFailure } from '../../lib/telemetry';
@@ -9,6 +10,7 @@ import {
   invalidatePostCapability,
   requestRealtimeToken,
   resetRealtimeAuthorization,
+  resumeRealtimeAuthorization,
 } from '../../lib/realtimeAuthorization';
 import { RealtimeLifecycleSupersededError } from '../../lib/realtimeChannelErrors';
 
@@ -23,7 +25,8 @@ const mockChannel = {
 };
 const mockInstances: {
   channels: { get: jest.Mock; release: jest.Mock };
-  connection: { on: jest.Mock; off: jest.Mock };
+  connection: { on: jest.Mock; off: jest.Mock; state: string };
+  auth: { authorize: jest.Mock };
   connect: jest.Mock;
   close: jest.Mock;
   options: { authCallback: (params: unknown, callback: unknown) => void };
@@ -32,7 +35,8 @@ jest.mock('ably', () => ({
   Realtime: jest.fn().mockImplementation((options) => {
     const instance = {
       channels: { get: jest.fn(() => mockChannel), release: jest.fn() },
-      connection: { on: jest.fn(), off: jest.fn() },
+      connection: { on: jest.fn(), off: jest.fn(), state: 'disconnected' },
+      auth: { authorize: jest.fn().mockResolvedValue(undefined) },
       connect: jest.fn(),
       close: jest.fn(),
       options,
@@ -44,6 +48,7 @@ jest.mock('ably', () => ({
 // Authorization has its own real-provider-boundary tests. Here isolate the
 // client's connection/subscription lifecycle, not the code under test itself.
 jest.mock('../../lib/realtimeAuthorization', () => ({
+  resumeRealtimeAuthorization: jest.fn(),
   ensurePostCapability: jest.fn(),
   requestRealtimeToken: jest.fn(),
   resetRealtimeAuthorization: jest.fn(),
@@ -85,6 +90,25 @@ test('connection listener ownership is removed without closing the shared client
   off();
   expect(current().connection.off).toHaveBeenCalledWith(handler);
   expect(current().close).not.toHaveBeenCalled();
+});
+
+test('foreground supersedes stalled authorization without losing subscriptions or listeners', async () => {
+  resumeRealtimeConnection();
+  expect(mockInstances).toHaveLength(0);
+  const remove = await subscribeToRealtimeChannel('doji:global', jest.fn());
+  onRealtimeConnectionChange(jest.fn());
+  const instance = current();
+  resumeRealtimeConnection();
+  expect(resumeRealtimeAuthorization).toHaveBeenCalledWith(instance, expect.any(Function));
+  expect(instance.close).not.toHaveBeenCalled();
+  expect(instance.channels.release).not.toHaveBeenCalled();
+  expect(mockChannel.unsubscribe).not.toHaveBeenCalled();
+  const isCurrent = jest.mocked(resumeRealtimeAuthorization).mock.calls[0][1];
+  expect(isCurrent()).toBe(true);
+  remove();
+  expect(mockChannel.unsubscribe).toHaveBeenCalledTimes(1);
+  closeRealtimeConnection();
+  expect(isCurrent()).toBe(false);
 });
 test('suspension is diagnostic; only failed state schedules bounded exponential recovery', async () => {
   onRealtimeConnectionChange(jest.fn());

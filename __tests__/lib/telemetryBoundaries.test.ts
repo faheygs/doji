@@ -127,3 +127,12 @@ test('recognized radio loss stays diagnostic; unexpected failure still reports',
   reportOperationalFailure('startup', name, Error('invalid response contract'));
   expect(Sentry.captureException).toHaveBeenCalledTimes(2);
 });
+
+test('exhausted connection recovery remains reportable even when caused by transport timeout', () => {
+  const error = new Error('Timeout for trying fallback hosts retries');
+  reportRealtimeFailure('channel_subscribe_exhausted', error);
+  expect(Sentry.captureException).not.toHaveBeenCalled();
+  reportRealtimeFailure('connection_recovery_exhausted', error, { attempt: 3 });
+  reportRealtimeFailure('connection_recovery_exhausted', error, { attempt: 4 });
+  expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+});

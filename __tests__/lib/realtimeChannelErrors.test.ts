@@ -12,6 +12,8 @@ describe('realtime channel error classification', () => {
     'Connection closed',
     'Channel operation failed: Connection disconnected',
     'Channel attach timed out',
+    'Realtime authentication timed out after 15000ms',
+    'Realtime authorization was superseded',
   ])('treats recoverable mobile transport loss as non-incident telemetry: %s', (message) => {
     expect(isRealtimeTransportUnavailable(new Error(message))).toBe(true);
   });
@@ -49,6 +51,15 @@ describe('realtime channel error classification', () => {
     };
     expect(isRealtimeTransportUnavailable(denied)).toBe(false);
     expect(isRealtimeCapabilityDenied(denied)).toBe(true);
+    expect(isRealtimeTransportUnavailable({ code: 80019, statusCode: 401,
+      message: 'Client configured authentication provider request failed' })).toBe(false);
+  });
+
+  it('classifies the nested fallback deadline, not its misleading auth wrapper', () => {
+    expect(isRealtimeTransportUnavailable({ code: 80019, statusCode: 401,
+      message: 'Client configured authentication provider request failed',
+      cause: { cause: new Error('Timeout for trying fallback hosts retries. Total elapsed time exceeded the 15000ms limit') },
+    })).toBe(true);
   });
 
   it('does not suppress unexpected provider failures', () => {
