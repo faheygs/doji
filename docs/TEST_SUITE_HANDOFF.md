@@ -129,6 +129,13 @@ For a quick unit/component run, use `npm test -- --runInBand`. It does not repla
 the coverage/browser or database jobs. For a single regression, pass its test
 path to Jest, then run the relevant complete gate before merging.
 
+`node scripts/test-scale-read-runtime.mts` runs the shared read gateway in local
+workerd with synthetic JWTs and intercepted upstreams. It checks authentication,
+member/audience cache isolation, stalled key/header/body recovery and concurrent
+reads. An optional first argument selects an exact packaged Worker file instead
+of current source. It requires loopback networking but never contacts providers;
+its synthetic burst is not a production database-capacity test.
+
 The application job also runs these separate checks:
 
 ```sh

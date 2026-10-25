@@ -59,6 +59,7 @@ beforeEach(() => {
   global.fetch = transport;
 });
 afterEach(() => {
+  jest.useRealTimers();
   global.fetch = originalFetch;
 });
 afterAll(() => {
@@ -199,4 +200,34 @@ test('failed JWKS request is not retained as a permanent rejected promise', asyn
   );
   expect(await auth.authenticateScaleReadRequest(request(jwt), env)).toMatchObject({ userId: id });
   expect(transport).toHaveBeenCalledTimes(2);
+});
+
+test('a pending JWKS fetch cannot poison other requests and expires even if transport ignores abort', async () => {
+  const { jwt, key } = await asymmetric('ES256');
+  jest.useFakeTimers();
+  transport.mockReturnValueOnce(new Promise(() => {})).mockResolvedValue(Response.json({ keys: [key] }));
+  const first = auth.authenticateScaleReadRequest(request(jwt), env).catch(error => error);
+  expect(await auth.authenticateScaleReadRequest(request(jwt), env)).toMatchObject({ userId: id });
+  expect(transport).toHaveBeenCalledTimes(2);
+  await jest.advanceTimersByTimeAsync(5_000);
+  expect(await first).toMatchObject({ name: 'TimeoutError', message: 'Read deadline exceeded' });
+  expect(transport.mock.calls[0][1].signal.aborted).toBe(true);
+  expect(await auth.authenticateScaleReadRequest(request(jwt), env)).toMatchObject({ userId: id });
+  expect(transport).toHaveBeenCalledTimes(2);
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('JWKS body settlement is bounded and successful data expires after five minutes', async () => {
+  const { jwt, key } = await asymmetric('ES256');
+  jest.useFakeTimers();
+  transport.mockResolvedValueOnce({ ok: true, json: () => new Promise(() => {}) })
+    .mockImplementation(async () => Response.json({ keys: [key] }));
+  const first = auth.authenticateScaleReadRequest(request(jwt), env).catch(error => error);
+  await jest.advanceTimersByTimeAsync(5_000);
+  expect(await first).toMatchObject({ name: 'TimeoutError', message: 'Read deadline exceeded' });
+  expect(await auth.authenticateScaleReadRequest(request(jwt), env)).toMatchObject({ userId: id });
+  await jest.advanceTimersByTimeAsync(300_001);
+  // JWT remains within the existing 30s clock-skew allowance.
+  expect(await auth.authenticateScaleReadRequest(request(jwt), env)).toMatchObject({ userId: id });
+  expect(transport).toHaveBeenCalledTimes(3);
 });

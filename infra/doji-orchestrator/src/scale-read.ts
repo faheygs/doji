@@ -8,6 +8,7 @@ import {
   scaleReadCache,
   storeScaleReadResponse,
 } from './scale-read-cache';
+import { readDeadline } from './read-deadline';
 
 type ScaleReadEnv = ScaleReadAuthEnv & {
   SCALE_CACHE_VERSION?: string;
@@ -21,7 +22,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const USERNAME = /^[a-z0-9_.]{1,30}$/;
 const READS_PER_MINUTE = 240;
 const MAX_BUDGET_ENTRIES = 10_000;
-const inflight = new Map<string, Promise<OriginResult>>();
 const readBudgets = new Map<string, ReadBudget>();
 
 function consumeReadBudget(userId: string): boolean {
@@ -127,8 +127,9 @@ export function routeFor(url: URL): Route | null {
   return null;
 }
 
-async function originRead(env: ScaleReadEnv, token: string, route: Route): Promise<OriginResult> {
-  const response = await fetch(`${normalizedSupabaseUrl(env)}/rest/v1/rpc/${route.rpc}`, {
+async function originRead(env: ScaleReadEnv, token: string, route: Route,
+  budget: ReturnType<typeof readDeadline>, onHeaders: () => void): Promise<OriginResult> {
+  const response = await budget.wait(fetch(`${normalizedSupabaseUrl(env)}/rest/v1/rpc/${route.rpc}`, {
     method: 'POST',
     headers: {
       apikey: env.SUPABASE_ANON_KEY,
@@ -136,22 +137,16 @@ async function originRead(env: ScaleReadEnv, token: string, route: Route): Promi
       'content-type': 'application/json',
     },
     body: JSON.stringify(route.args),
-    signal: AbortSignal.timeout(8_000),
-  });
-  const body = await response.text();
-  if (!response.ok) {
-    return {
-      body,
-      status: response.status,
-      headers: { 'content-type': 'application/json' },
-    };
-  }
+    signal: budget.signal,
+  }));
+  onHeaders();
+  const body = await budget.wait(response.text());
   return {
-    body: body || 'null',
-    status: 200,
+    body: response.ok ? body || 'null' : body,
+    status: response.ok ? 200 : response.status,
     headers: {
-      'cache-control': `public, max-age=${route.ttl}`,
       'content-type': 'application/json',
+      ...(response.ok ? { 'cache-control': `public, max-age=${route.ttl}` } : {}),
     },
   };
 }
@@ -165,10 +160,17 @@ export async function handleScaleRead(
   if (!url.pathname.startsWith('/v1/')) return null;
   if (request.method !== 'GET') return new Response('Method not allowed', { status: 405 });
   const started = Date.now();
+  // Leave room for the response to reach existing clients with an 8s deadline.
+  const budget = readDeadline(6_000);
+  let phase = 'route';
+  let route: Route | null = null;
+  const ray = request.headers.get('cf-ray');
+  const rayId = ray && /^[0-9a-f]{16}(?:-[A-Z]{3})?$/i.test(ray) ? ray : undefined;
   try {
-    const route = routeFor(url);
+    route = routeFor(url);
     if (!route) return new Response('Not found', { status: 404 });
-    const auth = await authenticateScaleReadRequest(request, env);
+    phase = 'authentication';
+    const auth = await budget.wait(authenticateScaleReadRequest(request, env));
     if (!consumeReadBudget(auth.userId)) {
       return Response.json(
         { error: 'Read rate exceeded' },
@@ -180,41 +182,37 @@ export async function handleScaleRead(
     const cacheKey = new Request(
       `https://scale-cache.doji.internal/${version}/${auth.userId}/${route.label}?args=${requestIdentity}`,
     );
-    const cached = await scaleReadCache().match(cacheKey);
+    phase = 'cache_lookup';
+    const cached = await budget.wait(scaleReadCache().match(cacheKey));
     if (cached) {
-      console.log(
-        JSON.stringify({
+      phase = 'cache_body';
+      const body = await budget.wait(cached.text());
+      console.log(JSON.stringify({
           event: 'scale_read',
           route: route.label,
           status: cached.status,
           cache: 'hit',
           durationMs: Date.now() - started,
-        }),
-      );
-      return forScaleReadClient(cached, 'hit', Date.now() - started);
+      }));
+      return forScaleReadClient(new Response(body, { status: cached.status, headers: cached.headers }), 'hit', Date.now() - started);
     }
-    const key = cacheKey.url;
-    let pending = inflight.get(key);
-    if (!pending) {
-      pending = originRead(env, auth.token, route);
-      inflight.set(key, pending);
-      void pending.finally(() => inflight.delete(key)).catch(() => undefined);
-    }
-    const result = await pending;
+    // Pending upstream I/O belongs to this invocation. Completed responses are
+    // shared only through the existing authorized, member-scoped edge cache.
+    phase = 'origin_fetch';
+    const result = await originRead(env, auth.token, route, budget, () => { phase = 'origin_body'; });
     const response = new Response(result.body, {
       status: result.status,
       headers: result.headers,
     });
-    if (response.ok) await storeScaleReadResponse(cacheKey, response, route.label, context);
-    console.log(
-      JSON.stringify({
+    phase = 'cache_write';
+    if (response.ok) await budget.wait(storeScaleReadResponse(cacheKey, response, route.label, context));
+    console.log(JSON.stringify({
         event: 'scale_read',
         route: route.label,
         status: response.status,
         cache: 'miss',
         durationMs: Date.now() - started,
-      }),
-    );
+    }));
     return forScaleReadClient(response, 'miss', Date.now() - started);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Scale read failed';
@@ -223,10 +221,14 @@ export async function handleScaleRead(
       : /Invalid/.test(message)
         ? 400
         : 503;
-    console.error(JSON.stringify({ event: 'scale_read_error', status, message }));
+    console.error(JSON.stringify({ event: 'scale_read_error', status, route: route?.label,
+      phase, deadlineExceeded: budget.expired || (error instanceof Error && error.name === 'TimeoutError'),
+      durationMs: Date.now() - started, rayId }));
     return Response.json(
       { error: status === 503 ? 'Scale read unavailable' : message },
-      { status },
+      { status, headers: { 'cache-control': 'private, no-store' } },
     );
+  } finally {
+    budget.cleanup();
   }
 }

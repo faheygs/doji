@@ -30,6 +30,7 @@ beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
+  jest.useRealTimers();
   global.fetch = originalFetch;
   if (originalCaches) Object.defineProperty(globalThis, 'caches', originalCaches);
   else Reflect.deleteProperty(globalThis, 'caches');
@@ -132,26 +133,24 @@ test('cache hits are still authenticated and scoped by member, version and argum
   expect(authenticateScaleReadRequest).toHaveBeenCalledTimes(1);
   expect(transport).not.toHaveBeenCalled();
 });
-test('concurrent identical reads share origin work but retain separate response bodies', async () => {
+test('a stalled invocation cannot hold a subsequent member read behind its pending I/O', async () => {
   let finish!: (value: Response) => void;
-  transport.mockImplementation(
+  transport.mockImplementationOnce(
     () =>
       new Promise((resolve) => {
         finish = resolve;
       }),
   );
   const first = handleScaleRead(req(), env);
-  const second = handleScaleRead(req(), env);
   for (let i = 0; i < 8; i++) await Promise.resolve();
   expect(transport).toHaveBeenCalledTimes(1);
-  finish(Response.json({ shared: true }));
-  const responses = await Promise.all([first, second]);
-  expect(await Promise.all(responses.map((r) => r?.json()))).toEqual([
-    { shared: true },
-    { shared: true },
-  ]);
+  const second = await handleScaleRead(req(), env);
+  expect(await second?.json()).toEqual({ value: true });
+  expect(transport).toHaveBeenCalledTimes(2);
+  finish(Response.json({ first: true }));
+  expect(await (await first)?.json()).toEqual({ first: true });
 });
-test('failed inflight work is removed so an explicit retry can recover', async () => {
+test('a failed origin request does not poison the next read', async () => {
   transport.mockRejectedValueOnce(new Error('offline'));
   expect((await handleScaleRead(req(), env))?.status).toBe(503);
   expect((await handleScaleRead(req(), env))?.status).toBe(200);
@@ -177,4 +176,45 @@ test('member request budget rejects the 241st request and resets after a minute'
   expect(throttled?.headers.get('retry-after')).toBe('60');
   now += 60000;
   expect((await handleScaleRead(req(), env))?.status).toBe(200);
+});
+
+test.each(['authentication', 'cache_lookup', 'cache_body', 'origin_fetch', 'origin_body', 'cache_write'])(
+  'bounds a stalled %s within the existing mobile deadline and identifies the phase', async (phase) => {
+    jest.useFakeTimers();
+    const stuck = new Promise<never>(() => {});
+    if (phase === 'authentication') jest.mocked(authenticateScaleReadRequest).mockReturnValueOnce(stuck);
+    if (phase === 'cache_lookup') match.mockReturnValueOnce(stuck);
+    if (phase === 'cache_body') match.mockResolvedValueOnce({ text: () => stuck });
+    if (phase === 'origin_fetch') transport.mockReturnValueOnce(stuck);
+    if (phase === 'origin_body') transport.mockResolvedValueOnce({ text: () => stuck });
+    if (phase === 'cache_write') put.mockReturnValueOnce(stuck);
+    const request = new Request(`https://gateway.invalid/v1/feed/${id}`, {
+      headers: { 'cf-ray': '0123456789abcdef-LAX', authorization: 'Bearer never-log-me' },
+    });
+    const pending = handleScaleRead(request, env);
+    await jest.advanceTimersByTimeAsync(6_000);
+    const response = await pending;
+    expect(response?.status).toBe(503);
+    expect(response?.headers.get('cache-control')).toBe('private, no-store');
+    expect(await response?.json()).toEqual({ error: 'Scale read unavailable' });
+    expect(console.error).toHaveBeenCalledWith(JSON.stringify({ event: 'scale_read_error', status: 503,
+      route: 'feed', phase, deadlineExceeded: true, durationMs: 6000, rayId: '0123456789abcdef-LAX' }));
+    if (phase.startsWith('origin')) expect(transport.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+    // The next request has independent work and can recover in the same runtime.
+    expect((await handleScaleRead(req(), env))?.status).toBe(200);
+  },
+);
+
+test('late authentication cannot issue database work after the read deadline', async () => {
+  jest.useFakeTimers();
+  let finish!: (value: { userId: string; token: string; aal: string }) => void;
+  jest.mocked(authenticateScaleReadRequest).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const pending = handleScaleRead(req(), env);
+  await jest.advanceTimersByTimeAsync(6_000);
+  expect((await pending)?.status).toBe(503);
+  finish({ userId: 'late', token: 'not-logged', aal: 'aal1' });
+  await Promise.resolve();
+  expect(match).not.toHaveBeenCalled();
+  expect(transport).not.toHaveBeenCalled();
 });
