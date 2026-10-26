@@ -117,16 +117,19 @@ test('staging package rejects production bindings and alternate hosts before any
     303,
   );
 });
-test('staging configuration has no production endpoints, credentials or outbound event gates', () => {
+test('staging permits scoped realtime but no production endpoints or health-event gate', () => {
   assert.equal(stagingFlags.independentEmployeeIdentity, true);
   assert.equal(stagingFlags.staffWorkflowEnabled, true);
-  assert.equal(stagingFlags.staffWorkflowRealtimeEnabled, false);
+  assert.equal(stagingFlags.staffWorkflowRealtimeEnabled, true);
   assert.equal(stagingFlags.businessApplicationsEnabled, true);
   assert.equal(stagingFlags.businessPrivacyEnabled, true);
   assert.equal(stagingFlags.healthEventsEnabled, false);
-  assert.match(stagingHeaders, /connect-src 'self';/);
+  assert.match(stagingHeaders, /script-src 'self' https:\/\/cdn\.ably\.com;/);
+  assert.match(stagingHeaders, /connect-src 'self' https:\/\/rest\.ably\.io /);
+  assert.match(stagingHeaders, /wss:\/\/main\.realtime\.ably\.net/);
+  assert.match(stagingHeaders, /wss:\/\/main\.e\.fallback\.ably-realtime\.com;/);
   assert.match(stagingHeaders, /https:\/\/ohrcupagdoilkwhecict.supabase.co/);
-  assert.doesNotMatch(stagingHeaders, /tvixsmqxotuvyjqzmjla|ably|sentry|workos/);
+  assert.doesNotMatch(stagingHeaders, /tvixsmqxotuvyjqzmjla|sentry|workos|https:\/\/\*/);
   assert.match(stagingHtml(html), /Doji Admin · Staging/);
   assert.match(stagingHtml(html), /src="\/react-admin-config.js"/);
   assert.throws(() => stagingHtml(html.replace('/staging/', '/production/')));

@@ -10,7 +10,6 @@ import type {
   EmployeeCommand,
   SignStorage,
   SignRealtime,
-  EmployeeHealth,
 } from './employee-contracts.mts';
 const uuid = (v: unknown): v is string =>
   typeof v === 'string' &&
@@ -28,16 +27,16 @@ export function validEvidence(bucket: unknown, path: unknown) {
       (/^[a-f0-9-]{36}\/original$/.test(path) && uuid(path.split('/')[0])))
   );
 }
-export interface EmployeeResourceConfig {
+export interface EmployeeResourceConfig<Actor = EmployeeActor> {
   staffWorkflowEnabled?: boolean;
   healthEventsEnabled?: boolean;
   storageOrigin: string;
   signStorage: SignStorage;
   signRealtime: SignRealtime;
-  health?: EmployeeHealth;
+  health?: (actor: Actor, signal: AbortSignal) => Promise<unknown>;
 }
-export function createEmployeeResources(
-  application: EmployeeApplication,
+export function createEmployeeResources<Actor = EmployeeActor>(
+  application: EmployeeApplication<Actor>,
   {
     storageOrigin,
     signStorage,
@@ -45,7 +44,7 @@ export function createEmployeeResources(
     health,
     staffWorkflowEnabled = false,
     healthEventsEnabled = false,
-  }: EmployeeResourceConfig,
+  }: EmployeeResourceConfig<Actor>,
 ) {
   if (
     typeof application?.authorize !== 'function' ||
@@ -56,8 +55,8 @@ export function createEmployeeResources(
   )
     throw fail(503);
   return Object.freeze({
-    authorize: (actor: EmployeeActor, signal: AbortSignal) => application.authorize(actor, signal),
-    async command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
+    authorize: (actor: Actor, signal: AbortSignal) => application.authorize(actor, signal),
+    async command(actor: Actor, input: EmployeeCommand, signal: AbortSignal) {
       if (input?.name === 'portal_platform_health_v1') {
         if (!input.args || Object.keys(input.args).length) throw fail(400);
         if (typeof health !== 'function') throw fail(503);

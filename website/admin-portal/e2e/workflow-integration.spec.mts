@@ -365,8 +365,9 @@ test('Command center has shortcuts, no duplicate inbox and no hidden queue reads
   page,
 }, info) => {
   const calls = await install(page);
-  const first = calls.find((c) => c.name === 'get_admin_staff_work_page_v1');
-  expect(first?.args.p_filter).toBe('mine');
+  await expect
+    .poll(() => calls.find((c) => c.name === 'get_admin_staff_work_page_v1')?.args.p_filter)
+    .toBe('mine');
   await page.locator('.portalNav [data-view="overview"]').click();
   await expect(page.locator('.staffOverview')).toBeVisible();
   await expect(page.locator('.staffWorkflow')).toBeHidden();
@@ -469,14 +470,19 @@ test('built section navigation keeps combined work on main pages only', async ({
   for (const area of ['businesses', 'suggestions', 'moderation', 'safety']) {
     await page.locator(`.portalNav [data-view="${area}"]`).click();
     await expect(page.locator(`[data-portal-view="${area}"]`)).toBeVisible();
-    const queue = area === 'moderation' ? 'moderation' : area === 'safety' ? 'restricted_safety' : null;
+    const queue =
+      area === 'moderation' ? 'moderation' : area === 'safety' ? 'restricted_safety' : null;
     if (process.env.DOJI_WORKFLOW_RELEASE_DIR && queue) {
       // Production enables unified safety: its area-specific table is expected,
       // but it must never render the personal/combined inbox here.
       await expect(page.locator(`[data-portal-view="${area}"] .staffWorkflow`)).toBeVisible();
-      await expect(page.locator(`[data-portal-view="${area}"] .staffWorkflow tbody tr`)).toHaveCount(2);
-      expect(calls.some(c => c.name === 'get_admin_safety_work_page_v1' && c.args.p_queue === queue)).toBe(true);
-      await expect(page.getByRole('region', {name:'My work',exact:true})).toBeHidden();
+      await expect(
+        page.locator(`[data-portal-view="${area}"] .staffWorkflow tbody tr`),
+      ).toHaveCount(2);
+      expect(
+        calls.some((c) => c.name === 'get_admin_safety_work_page_v1' && c.args.p_queue === queue),
+      ).toBe(true);
+      await expect(page.getByRole('region', { name: 'My work', exact: true })).toBeHidden();
     } else {
       await expect(page.locator('.staffWorkflow')).toBeHidden();
       await expect(page.locator(`[data-portal-view="${area}"] .staffWorkflow`)).toHaveCount(0);

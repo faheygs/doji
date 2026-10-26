@@ -101,18 +101,28 @@ export function developmentTransport(csrf: string): typeof createEmployeeBrowser
         if (!fresh) throw fail('Persona session ended.', 401);
       },
       signOut,
-      clearSession() {
-        void signOut().catch(() => {});
+      clearSession({ revoke = true } = {}) {
+        if (revoke) void signOut().catch(() => {});
+        else {
+          fresh = false;
+          epoch++;
+        }
       },
       signIn: unavailable,
       enrollTotp: unavailable,
       verifyPendingChallenge: unavailable,
       verifyTotpEnrollment: unavailable,
-      signEvidence: async () => {
-        throw fail('Private media signing is not configured for staging.', 503);
+      async signEvidence(bucket: string, path: string) {
+        if (!bucket || !path) return null;
+        const result = await rpc('portal_sign_evidence_v1', { bucket, path });
+        if (!record(result) || typeof result.signedUrl !== 'string')
+          throw fail('Private media signing is unavailable.');
+        return result.signedUrl;
       },
       async request(path, { method = 'GET', body = {} } = {}) {
         if (path === '/portal/admin/session') return session();
+        if (path === '/portal/admin/realtime-token' && method === 'GET')
+          return rpc('portal_realtime_token_v1', {});
         const direct = employeeDirectRoute(path, method, localStagingFlags);
         if (direct) return rpc(direct, body);
         const url = new URL(path, localAdminOrigin);

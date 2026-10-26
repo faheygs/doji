@@ -1,5 +1,15 @@
 import { z } from 'zod';
 import type { FileCoverageData } from 'istanbul-lib-coverage';
+import { randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+export function writeCoverageSnapshot(directory: string, value: unknown, pid = process.pid) {
+  // Windows can reuse a PID before the next offline test finishes.
+  const file = join(directory, `process-${pid}-${randomUUID()}.json`);
+  writeFileSync(file, JSON.stringify(value), { flag: 'wx' });
+  return file;
+}
 
 const count = z.number().finite().nonnegative();
 // Istanbul represents an implicit else arm with {start:{}, end:{}}. Preserve

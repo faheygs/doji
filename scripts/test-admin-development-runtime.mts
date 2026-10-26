@@ -4,10 +4,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   createDevelopmentGateway,
   createDevelopmentSql,
+  createDevelopmentResources,
   developmentEndpoint,
   developmentSql,
 } from '../infra/portal-identity/admin-development.mts';
 import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
+import type { DevelopmentInvoke } from '../infra/portal-identity/admin-development.mts';
 
 const token = 'a'.repeat(43);
 const persona = '98000000-0000-4000-8000-000000000001';
@@ -30,6 +32,131 @@ const request = (
     headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json', ...extra },
     body: JSON.stringify(body),
   });
+
+test('development resources reuse permission checks and pin staging providers', async () => {
+  const operations: string[] = [];
+  const origin = 'https://ohrcupagdoilkwhecict.supabase.co';
+  const keyName = 'eVKl2g.synthetic';
+  let revoked = false,
+    denied = false,
+    signed = 0;
+  const invoke: DevelopmentInvoke = async (credential, input) => {
+    assert.equal(credential, token);
+    assert.equal(input.persona, persona);
+    assert.equal(input.requestId, call.requestId);
+    operations.push(input.name);
+    if (revoked) throw Object.assign(Error('revoked'), { status: 401 });
+    if (denied) return { ok: false, code: '42501' };
+    return {
+      ok: true,
+      result:
+        input.name === 'get_admin_portal_session_v3'
+          ? { user_id: persona, capabilities: { moderation_read: false } }
+          : input.name === 'get_admin_staff_event_channels_v1'
+            ? ['staff:workflow:ideas']
+            : { bucket: input.args.p_bucket, path: input.args.p_path, expiresIn: 300 },
+    };
+  };
+  const config = {
+    storageOrigin: origin,
+    realtimeKeyName: keyName,
+    signStorage: async ({ bucket, path }: { bucket: string; path: string }) => {
+      signed++;
+      return `${origin}/storage/v1/object/sign/${bucket}/${path}?token=synthetic`;
+    },
+    signRealtime: async (grant: {
+      clientId: string;
+      ttl: number;
+      capability: Record<string, string[]>;
+    }) => {
+      signed++;
+      assert.equal(grant.clientId, persona);
+      assert.equal(grant.ttl, 900000);
+      assert.deepEqual(grant.capability, { 'staff:workflow:ideas': ['subscribe'] });
+      return { keyName, ...grant };
+    },
+  };
+  const resources = createDevelopmentResources(invoke, config);
+  const signal = new AbortController().signal;
+  const media = {
+    ...call,
+    name: 'portal_sign_evidence_v1',
+    args: { bucket: 'post-media', path: 'synthetic.jpg' },
+  };
+  const realtime = { ...call, name: 'portal_realtime_token_v1' };
+  assert.deepEqual(await resources(token, media, signal), {
+    ok: true,
+    result: {
+      signedUrl: `${origin}/storage/v1/object/sign/post-media/synthetic.jpg?token=synthetic`,
+      expiresIn: 300,
+    },
+  });
+  assert.deepEqual(operations, ['portal_evidence_authorization_v1', 'get_admin_portal_session_v3']);
+  operations.length = 0;
+  await resources(token, realtime, signal);
+  assert.deepEqual(operations, [
+    'get_admin_portal_session_v3',
+    'get_admin_staff_event_channels_v1',
+    'get_admin_portal_session_v3',
+  ]);
+  assert.equal(signed, 2);
+  const gateway = createDevelopmentGateway(resources);
+  const channels = { ...call, name: 'get_admin_staff_event_channels_v1' };
+  const listed = await gateway(request(channels));
+  assert.equal(listed.status, 200);
+  assert.deepEqual(await listed.json(), ['staff:workflow:ideas']);
+  assert.equal(signed, 2);
+  denied = true;
+  assert.equal((await gateway(request(channels))).status, 403);
+  for (const input of [media, realtime])
+    await assert.rejects(resources(token, input, signal), { status: 403 });
+  denied = false;
+  for (const name of [
+    'portal_evidence_authorization_v1',
+    'get_admin_realtime_token_capabilities',
+  ])
+    await assert.rejects(resources(token, { ...call, name }, signal), { status: 403 });
+  await assert.rejects(resources(token, { ...realtime, persona: null }, signal), { status: 403 });
+  for (const path of ['../secret', 'a%2fb', 'a\\b', 'a?b'])
+    await assert.rejects(
+      resources(token, { ...media, args: { bucket: 'post-media', path } }, signal),
+      { status: 400 },
+    );
+  assert.equal(signed, 2);
+  await resources(token, call, signal);
+  assert.throws(() =>
+    createDevelopmentResources(invoke, {
+      ...config,
+      storageOrigin: 'https://tvixsmqxotuvyjqzmjla.supabase.co',
+    }),
+  );
+  assert.throws(() =>
+    createDevelopmentResources(invoke, { ...config, realtimeKeyName: 'BBDaog.synthetic' }),
+  );
+  const wrongKey = createDevelopmentResources(invoke, {
+    ...config,
+    signRealtime: async () => ({ keyName: 'BBDaog.synthetic' }),
+  });
+  await assert.rejects(wrongKey(token, realtime, signal), { status: 503 });
+  const revokedWhileSigning = createDevelopmentResources(invoke, {
+    ...config,
+    signStorage: async () => {
+      revoked = true;
+      return `${origin}/storage/v1/object/sign/post-media/synthetic.jpg?token=synthetic`;
+    },
+  });
+  await assert.rejects(revokedWhileSigning(token, media, signal), { status: 401 });
+  revoked = false;
+  const controller = new AbortController();
+  const aborted = createDevelopmentResources(invoke, {
+    ...config,
+    signRealtime: async () => {
+      controller.abort();
+      return { keyName };
+    },
+  });
+  await assert.rejects(aborted(token, realtime, controller.signal));
+});
 test('development ingress denies browser/prod/malformed requests before SQL', async () => {
   let calls = 0;
   const handler = createDevelopmentGateway(async () => {

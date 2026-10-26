@@ -132,6 +132,150 @@ and bypass-disabled; its action has not yet run. Artifacts expire after 14 days.
 The pipeline deploys admin Pages/proxy only, not SQL, Edge, shared Worker or other
 apps. Kedd's credential/vault handoff and all messages remain held.
 
+## Staging backend foundation
+
+October 25 owner-approved staging-only provisioning: `doji-orchestrator-staging`
+has five new Durable Object namespaces, no production bindings/routes, and four
+new Edge functions: `orchestrate-doji`, `schedule-daily-challenge`,
+`run-data-maintenance`, `operational-health`. Fresh secrets are staging-only;
+`STAGING_BACKEND_ENABLED=false` and empty cron keep incomplete integration inactive.
+The disabled source deployment is `706ac786-4e08-4c5f-99e6-4eb7a0794d95`; prior
+disabled version `4ef72c59-f98c-42ff-a914-fa3fc1285376` retains the same namespaces
+and secrets. Production was not deployed. Edge secret installation refreshed the
+existing employee/development function versions to 10/5 without changing their source.
+
+Migration `20261025172000` was applied forward with a function fingerprint guard:
+`d53835a47acdea37c588c58f05fa7ad9` -> `bdbd6a8c37fb7874a682abb2fe799b88`.
+Staging scheduling/retention/activation/voting/retry/600-second timing/permissions
+regression passed in a rolled-back transaction. Anonymous Edge calls returned 401,
+invalid activation 400, and authorized health 200 with `healthy=false`, not all-clear.
+Local workerd tested isolated reads, stalled-request recovery and 40 concurrent
+synthetic requests with all upstream network intercepted. Full hosted lifecycle,
+portal/relay realtime, test delivery, monitoring, promotion and Kedd handoff remain
+unqualified. Owner approved staging's metered Ably usage on the existing Standard
+subscription after cost clarification. Separate app `eVKl2g` uses `staging-runtime`
+key `eVKl2g.pmnIEA`, publish/subscribe only on documented Doji channel families,
+with no queue/push/admin permissions. The secret is installed only in staging
+Supabase. A bounded synthetic publish/subscribe passed; subscribe-only publishing
+and an unapproved channel were denied. Existing portal config digests and Edge
+source metadata remained unchanged. Provider-generated default keys were not
+exported or installed. To disconnect this integration, keep execution disabled
+and remove only the new staging `ABLY_API_KEY`; never change production keys.
+Protected source/configuration/SQL inverse and receipts are at
+`%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`; disable execution before rollback.
+No real email/push was sent, no plan upgrade or additional subscription was made,
+and no production data was copied. Staging Ably usage is billed to the existing account.
+
+### Isolated backend activation and acceptance
+
+October 25 follow-through enabled Worker `63b0feeb-faff-4a6c-a608-0d76867889b3`,
+retaining all five staging namespaces and empty cron. Rollback is the disabled
+`706ac786-4e08-4c5f-99e6-4eb7a0794d95` version above. Seven handlers now use the
+staging fetch guard: the four listed above plus `relay-domain-events`,
+`fanout-doji-push` and `realtime-token`. Only exact staging origins and the isolated
+Ably credential are accepted; redirects and real email/push endpoints are denied.
+Production handler bodies are unchanged. Preserve the guarded package when updating.
+
+The relay published 26 queued synthetic events with zero failures/pushes. Actual
+one-shot alarms activated an intervening photo, removed the future poll card,
+then recreated exactly one card at poll activation. Authenticated synthetic vote
+and identical retry recorded one vote/one completion credit. Both windows were
+600 seconds; the photo closed at 19:09:43 UTC and poll at 19:10:27 UTC without
+manual close or recurring polling. Their fixtures use the `97000000-0000-4000-8000-`
+ID prefix and remain in staging for evidence; next-event chaining was disabled.
+The two completed challenge templates were marked inactive so future queues cannot
+select these acceptance fixtures. Their events, votes and audit were not deleted.
+
+Employee `staffWorkflowEnabled` and database `staff_workflow_private.settings.events_enabled`
+changed from false to true; other gates stayed unchanged. The configuration SHA-256
+changed from `1630fd8eaeb335d040d2d04dbe0a7c143b7dc605355bdf782e90628c6d75fd37`
+to `0424c7c80db5e6089edb941a2b1eb4a75ae96f3553365f0b861bf39b1fffe7f9`.
+Protected `employee-realtime-rollback.env` restores the former runtime flag; disable
+only the database events flag to stop new staff events without deleting audit data.
+
+Staging Pages acceptance package `admin-realtime-v1` enabled scoped Ably CSP/config;
+its retained prior Pages deployment is `a078ab9d-5016-4a98-83aa-0c620bb3f1bf`.
+Hosted staff tokens connected. Claiming synthetic idea `a4100000-0000-4000-8000-000000000002`
+invalidated another tab, but its first refreshed read failed; Retry recovered the
+correct assignment counts. A subsequent session failure ended both tabs. Source
+inspection found failed session checks request logout; the prepared correction
+locks/clears local state without revoking a shared cookie on an unavailable read.
+The correction passed unavailable/busy/rate-limited authorization regressions,
+preserving fail-closed access, expiry and explicit logout. It is deployed only to
+staging Pages `36462b3c-085d-4164-b392-37859729b529` (`admin-realtime-v2`); its rollback
+is `1c25bdc1-a6c6-4ffb-95c3-b0f80ea32878`. Live root/config/entry hashes match, with
+anonymous 401 and invalid-origin 403. Fresh login succeeded. The next two-tab test
+recorded `/api/session` HTTP 409 at 21:53:37 UTC; an explicit session check restored
+access without another MFA login. The server's exclusive session lease was being
+contended by independently queued browser tabs.
+
+Staging-only Pages `15f9f0cf-bb6e-49a0-a504-dbc582544e41` (`admin-realtime-v5`)
+now uses a same-origin Web Lock with a bounded 15-second acquisition wait. It
+does not steal locks, retry commands, change server leases or weaken authorization.
+Unsupported browsers retain the previous per-tab queue and server-side fencing.
+Rollback is `36462b3c-085d-4164-b392-37859729b529`. Shared command context, expiry
+handling and deferred-command session checkpoints remove duplication without
+raising bundle budgets. The deployed config/entry hashes match the package; HTML
+references that entry but Cloudflare injects its analytics beacon, so its complete
+response is not byte-identical to the packaged HTML.
+
+At 22:08 UTC, both tabs restored successfully; releasing then reclaiming the same
+synthetic idea updated the observing overview from three assignments to two and
+back to three without reload, retry or logout. Both remained realtime-connected.
+The 15 latest visible invocation rows covering those actions/session checks were
+HTTP 200. This bounded check does not establish absence of errors outside its window.
+All 309 web tests, 193 transport/workflow tests, strict portal/tooling/web checks,
+and six package tests including two browser cases passed. Added regressions cover
+cross-tab serialization, failure release, queued logout fencing, acquisition timeout,
+no uncoordinated fallback after lock failure and explicit session recovery.
+
+Root Jest passed 255 suites/4,780 tests; staging isolation/egress passed 34 tests;
+root strict checks and all 309 web tests/build checks passed after the correction,
+along with 82 transport/session-store tests and staging-package browser checks. These are
+not exact-head CI or production promotion approval. Manual staging acceptance
+packages from uncommitted source must not be promoted as tested CI artifacts.
+Monitoring, safe delivery tests, coordinated backend promotion and Kedd's handoff
+remain outstanding. Local resource integration is recorded below.
+
+### Local resource integration
+
+October 25: the owner-approved resource upgrade added two private authorization
+routes (44 to 46), without changing existing permission functions or direct grants.
+Development Edge v9, with `ADMIN_DEVELOPMENT_RESOURCES_ENABLED`,
+matches package SHA-256 `f5387c2369ddf2f8bf831d253ed26debc4f0a192b8afedf9b2db64d2a7ac3d5a`.
+It reuses hosted media/channel policy with distinct developer proof and checks
+revocation again before releasing a signed resource. Hosted MFA and production
+were untouched; signing keys remain server-side and staging-pinned.
+
+Live acceptance: seven subscribe-only Ably channels attached in app `eVKl2g`;
+an authorized 634-byte synthetic JPEG signed/downloaded with a five-minute URL.
+Unrelated objects, traversal, intermediate HTTP routes and invalid credentials
+were denied. SQL audit retained developer/persona attribution for allowed/denied
+authorization. Report `a1100000-0000-4000-8000-000000000002` and staging member two's
+`staging-resource-acceptance.jpg` are retained synthetic fixtures. Live Chrome
+acceptance passed Gavin/Kedd selection and switching, cancel preserving the current
+case, reload restoring Kedd, and realtime reconnection. The protected image loaded
+from staging storage; returning to Gavin restored his assigned-work count (3 versus
+Kedd's 0). No case mutations or messages were sent. The actual localhost
+session/channel-list/token/media HTTP flow passed, as did the isolated browser
+connection/reload/switch/revocation regression.
+Local realtime is enabled; the permission-checked channel-list read is public to
+authorized developers, while intermediate evidence authorization remains private.
+
+Isolated database permissions/revocation/rollback, 312 web tests, 4,780 Jest tests
+and 845 browser tests passed (one existing skip). All 17 coverage budgets passed
+after rerunning the 60 offline scripts with collision-safe report filenames:
+Windows PID reuse had overwritten two reports. Thresholds were unchanged.
+Strict checks, lint, artifact exclusions, size and hygiene passed; this is not
+exact-head CI or production promotion qualification.
+
+Recovery: owner-restricted `staging-backend/2026-10-25/development-resources-v1`
+contains apply/retaining inverse and fixture SQL; `development-resources-v2`
+contains the final package. `development-resources-rollback-v6`
+contains the prior gateway (SHA-256 `8d4ad8fdea9296be7f1dc5c16fec6d805db1801eff932f9e1a6e997a3068c8e6`).
+Disable the resource flag, restore that gateway, then apply the definition/route-pinned
+SQL inverse. Preserve audit and fixtures; do not reset staging or alter hosted identity.
+
 ## Retained recovery
 
 The October 16 development-route correction added six existing staff-workflow

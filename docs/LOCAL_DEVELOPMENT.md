@@ -185,12 +185,14 @@ approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guid
   raw execution of all historical SQL against the hosted project. Do not reset it,
   replay old migrations or bulk-apply overlays. New changes need a reviewed diff
   against the actual staging schema and their own forward migration.
+  The separately reviewed poll-activation fix adds entry 291; its staging voting,
+  retry and timing regression passed. The baseline must still not be replayed.
 - Member signup and email provider remain disabled. The staging employee runtime
   and separate local-development gateway use their own restricted SQL logins;
   employee realm/session settings are enabled;
   other runtime roles remain NOLOGIN. No production credentials, cron jobs, media
   or member identities were copied. Approved employee subjects are mapped separately
-  to staging permissions. Realtime and outbound integrations remain disabled.
+  to staging permissions. Isolated Ably is connected; real email/push remain disabled.
 - Obtain named access to this **separate staging organization**. Production-org
   membership does not establish staging membership. Do not share the owner's
   credentials or put privileged keys into Vite/Expo public configuration.
@@ -210,7 +212,11 @@ approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guid
 
 The current setup scope is the admin portal and its employee backend. Business,
 public-site and mobile staging are deferred, not prerequisites for admin readiness.
-Do not enable shared scheduling, push or member signup to test an admin page.
+The separate staging backend has its own Worker/five objects and seven guarded
+Edge functions. One-shot activation/close, voting/retry and Ably relay have passed
+hosted synthetic acceptance; recurring jobs and real email/push remain off.
+Never enable production scheduling, push or
+member signup to fill a staging gap. See the [backend receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation).
 Keep invitations held until the environment is configured and the owner requests them.
 
 For connected **admin frontend** development, after the locked installs above:
@@ -238,7 +244,9 @@ HTTP is for a trusted developer machine only: never expose this server through a
 tunnel, LAN binding or shared/untrusted host. A local process can inspect its own
 memory/traffic. Sign out before stopping; restart discards jars but does not revoke
 unexpired remote sessions. Unexpected/uncertain writes are not retried automatically.
-Realtime and monitoring stay unavailable; no polling is added.
+This login mode uses hosted staff realtime and the staging database health reads;
+Sentry and automatic health collection remain disconnected.
+The separate impersonation mode below also supports scoped staging resources. No polling is added.
 
 `npm run test:admin-staging:browser --prefix web` verifies the actual browser and
 relay using synthetic upstream responses only. It requires installed Playwright
@@ -270,8 +278,10 @@ package to `doji-admin` or change the existing production package command.
 Remaining admin readiness work: reproducible employee-backend packaging/config
 checks; staging deploy/rollback access and scoped backend secret handoff; and hosted
 broader end-to-end permission/provider acceptance. Login, idea review/history/audit,
-report assignment and business assignment are verified. Realtime/health integrations stay
-explicitly unavailable until independently configured for staging. A package build
+report assignment and business assignment are verified. Hosted staff realtime and
+two-tab restoration/queue reconciliation passed. Platform health reads staging
+database metrics, but Sentry, recurring collection and archived delivery summaries
+are not qualified. A package build
 does not establish these checks, and staff onboarding is not their substitute.
 
 The exact baseline, verification, known test differences and recovery artifact are
@@ -286,8 +296,10 @@ GitHub environments exist and permit only the `main` branch; production requires
 manual dispatch. Separate account-owned Pages Write tokens and the account ID are
 configured in both environments. PR #15 is merged and activation is enabled.
 The first automatic staging release passed on October 16 (run `38947921226`,
-source `e347f4f`). Hosted session restoration and the downloaded promotion package
-were verified. Production deployment remains unexecuted and approval-gated.
+source `e347f4f`). Owner-approved production promotion passed October 24 (run
+`40134309699`); see current state for the exact artifact and rollback. Every new
+production promotion remains approval-gated. The newer manually deployed staging
+acceptance package must first pass the PR/main pipeline before promotion.
 
 Release flow:
 
@@ -318,8 +330,9 @@ The activation variable `ADMIN_DEPLOYMENTS_ENABLED` is already true. Verify curr
 capacity, project bindings, hosted acceptance and rollback before each release.
 Pages Write is account-scoped, not project-isolated. The workflows' fixed targets
 do not restrict what a stolen token could access. No DNS, email, SQL or shared
-Worker permissions were added. The staging token passed its first CI release;
-the production token has not yet been exercised.
+Worker permissions were added. Both tokens have been exercised: production run
+`40134309699` promoted staging run `40117275364` after owner approval. This verifies
+the Pages path, not deployment of the separate backend/database boundaries.
 
 Artifacts/receipts expire after 14 days. An expired or unsuccessful staging run
 cannot be promoted; stage a new reviewed release. Each receipt records the prior
@@ -391,8 +404,12 @@ The browser gets an opaque HTTP-only local cookie and persona-scoped CSRF value.
 Do not expose Vite through a tunnel, LAN binding or shared machine. Localhost is
 not a security boundary against other processes running as your OS user.
 No new provider, dependency or subscription is introduced. Writes affect shared
-synthetic staging data. Media signing, realtime, monitoring and outbound delivery
-remain unavailable; this is not an offline demo or a full production-service clone.
+synthetic staging data. Permission-checked media signing and subscribe-only realtime
+use staging storage and its isolated Ably app. Monitoring and outbound delivery
+remain incomplete; this is not an offline demo or a full production-service clone.
+Signing rechecks the developer/persona before returning results. Previously issued
+media URLs and realtime grants expire after five and fifteen minutes respectively;
+revocation does not retroactively erase an already issued capability.
 
 The database foundation is `supabase/overlays/admin_development_v1.sql`, assembled
 by `scripts/build-admin-development-sql.mts` from reviewed function definitions.

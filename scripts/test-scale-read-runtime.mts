@@ -6,9 +6,11 @@ import { performance } from 'node:perf_hooks';
 import { Miniflare, Response, Log, LogLevel, convertV4MiniflareOptions } from '../infra/doji-orchestrator/node_modules/miniflare/dist/src/index.js';
 import { build } from '../infra/doji-orchestrator/node_modules/esbuild/lib/main.js';
 
-const artifact = process.argv[2];
+const staging = process.argv[2] === '--staging';
+const artifact = staging ? undefined : process.argv[2];
+const databaseOrigin = staging ? 'https://ohrcupagdoilkwhecict.supabase.co' : 'https://database.invalid';
 const script = artifact ? await readFile(artifact, 'utf8') : (await build({
-  entryPoints: ['infra/doji-orchestrator/src/index.ts'], bundle: true, write: false,
+  entryPoints: [`infra/doji-orchestrator/src/${staging ? 'staging' : 'index'}.ts`], bundle: true, write: false,
   format: 'esm', platform: 'neutral', external: ['cloudflare:workers'],
 })).outputFiles[0]?.text;
 assert.ok(script);
@@ -18,7 +20,7 @@ const publicKey = { ...keys.publicKey.export({ format: 'jwk' }), kid: 'synthetic
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 function token(sub: string, role = 'authenticated') {
   const body = `${encode({ alg: 'HS256' })}.${encode({ sub, role, aud: 'authenticated',
-    iss: 'https://database.invalid/auth/v1', exp: Math.floor(Date.now() / 1000) + 600 })}`;
+    iss: `${databaseOrigin}/auth/v1`, exp: Math.floor(Date.now() / 1000) + 600 })}`;
   return `${body}.${createHmac('sha256', secret).update(body).digest('base64url')}`;
 }
 let calls = 0;
@@ -35,14 +37,16 @@ const forbidden: string[] = [];
 const mf = new Miniflare(convertV4MiniflareOptions({
   modules: true, script, compatibilityDate: '2026-08-11', host: '127.0.0.1',
   log: new Log(LogLevel.NONE),
-  bindings: { SUPABASE_URL: 'https://database.invalid', SUPABASE_ANON_KEY: 'synthetic',
-    SUPABASE_JWT_SECRET: secret, SCALE_CACHE_VERSION: 'runtime-test' },
+  bindings: { SUPABASE_URL: databaseOrigin, SUPABASE_ANON_KEY: 'synthetic',
+    SUPABASE_JWT_SECRET: secret, SCALE_CACHE_VERSION: staging ? 'staging-v1' : 'runtime-test',
+    ...(staging ? { DOJI_ENVIRONMENT: 'staging', STAGING_BACKEND_ENABLED: 'true', ORCHESTRATOR_SECRET: secret,
+      OUTBOX_RELAY_SECRET: secret, ADMIN_PORTAL_ORIGINS: 'https://admin-staging.dojipro.com' } : {}) },
   durableObjects: { DOJI_EVENT_ALARM: 'DojiEventAlarm', OUTBOX_RELAY_ALARM: 'OutboxRelayAlarm',
     PUSH_FANOUT_ALARM: 'PushFanoutAlarm', DATA_MAINTENANCE_ALARM: 'DataMaintenanceAlarm',
     HEALTH_MONITOR: 'HealthMonitor' },
   outboundService: async request => {
     const url = new URL(request.url);
-    if (url.origin === 'https://database.invalid' && url.pathname === '/auth/v1/.well-known/jwks.json') {
+    if (url.origin === databaseOrigin && url.pathname === '/auth/v1/.well-known/jwks.json') {
       keyReads++;
       if (stallKeys) {
         stallKeys = false;
@@ -51,7 +55,7 @@ const mf = new Miniflare(convertV4MiniflareOptions({
       }
       return new Response(JSON.stringify({ keys: [publicKey] }), { headers: { 'content-type': 'application/json' } });
     }
-    if (url.origin !== 'https://database.invalid' || url.pathname !== '/rest/v1/rpc/get_feed_page_snapshot_v2') {
+    if (url.origin !== databaseOrigin || url.pathname !== '/rest/v1/rpc/get_feed_page_snapshot_v2') {
       forbidden.push(`${request.method} ${url.origin}${url.pathname}`);
       return new Response('Unmocked external request denied', { status: 599 });
     }
@@ -102,7 +106,7 @@ try {
   results.authAndCache = 'passed';
 
   const body = `${encode({ alg: 'ES256', kid: publicKey.kid })}.${encode({ sub: member,
-    role: 'authenticated', aud: 'authenticated', iss: 'https://database.invalid/auth/v1',
+    role: 'authenticated', aud: 'authenticated', iss: `${databaseOrigin}/auth/v1`,
     exp: Math.floor(Date.now() / 1000) + 600 })}`;
   const signed = `${body}.${sign('sha256', Buffer.from(body), { key: keys.privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
   const keyRead = () => mf.dispatchFetch(`https://gateway.invalid/v1/feed/${event}`, {
@@ -162,7 +166,7 @@ try {
   await Promise.all(members.map(async owner => assert.equal((await read(owner, burstEvent)).headers.get('x-doji-scale-cache'), 'hit')));
   assert.equal(calls - before, 40, 'Warm reads must not amplify upstream traffic');
   assert.deepEqual(forbidden, [], 'No unmocked network or unrelated service calls');
-  console.log(JSON.stringify({ runtime: 'workerd', artifact: artifact ?? 'current source', results }, null, 2));
+  console.log(JSON.stringify({ runtime: 'workerd', artifact: artifact ?? (staging ? 'staging source' : 'current source'), results }, null, 2));
 } finally {
   releaseStall();
   await mf.dispose();

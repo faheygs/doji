@@ -1,9 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assess, areaFor } from './check-coverage.mts';
-import { coverageEntry } from './coverage-contracts.mts';
+import { coverageEntry, writeCoverageSnapshot } from './coverage-contracts.mts';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import coverageLibrary from 'istanbul-lib-coverage';
 const { createFileCoverage } = coverageLibrary;
+test('reused process IDs retain independent measured coverage', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'doji-coverage-'));
+  try {
+    const first = writeCoverageSnapshot(directory, { first: 1 }, 123);
+    const second = writeCoverageSnapshot(directory, { second: 2 }, 123);
+    assert.notEqual(first, second);
+    assert.deepEqual(JSON.parse(readFileSync(first, 'utf8')), { first: 1 });
+    assert.deepEqual(JSON.parse(readFileSync(second, 'utf8')), { second: 2 });
+  } finally {
+    rmSync(directory, { recursive: true });
+  }
+});
 function entry(file: string, covered = 9, total = 10) {
   const data = createFileCoverage(file).data;
   for (let i = 0; i < total; i++) {

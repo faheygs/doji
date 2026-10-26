@@ -95,14 +95,21 @@ export function createEmployeeSession(
   const current = (stamp: number) => {
     if (stamp !== generation) throw Error('Employee session changed.');
   };
+  function sessionCheckpoint() {
+    const captured = state.session;
+    return () => {
+      if (!captured || state.session !== captured) throw Error('Employee session changed.');
+    };
+  }
+  function expire() {
+    clear('signed-out', 'Your employee session expired. Sign in again.');
+    transport.clearSession();
+  }
   function scheduleExpiry() {
     if (createdAt === undefined) createdAt = clock();
     clearTimeout(expiry);
     expiry = setTimeout(
-      () => {
-        clear('signed-out', 'Your employee session expired. Sign in again.');
-        transport.clearSession();
-      },
+      expire,
       Math.max(0, Math.min(30 * 60_000, createdAt + 8 * 3600_000 - clock())),
     );
   }
@@ -142,11 +149,9 @@ export function createEmployeeSession(
         install(await transport.session(), stamp);
       } catch (error) {
         if (stamp === generation) {
-          clear(
-            status(error) === 401 ? 'signed-out' : 'error',
-            status(error) === 401 ? '' : message(error),
-          );
-          transport.clearSession();
+          const unauthorized = status(error) === 401;
+          clear(unauthorized ? 'signed-out' : 'error', unauthorized ? '' : message(error));
+          transport.clearSession({ revoke: unauthorized });
         }
       } finally {
         restoreTask = null;
@@ -193,6 +198,13 @@ export function createEmployeeSession(
       if (stamp === generation) publish({ busy: false });
     }
   }
+  const commandContext = {
+    state: () => state,
+    transport,
+    restore,
+    signOut,
+    touch: scheduleExpiry,
+  };
   return Object.freeze({
     announcementWritesEnabled: config.announcementComposeEnabled === true,
     historyReadsEnabled: config.historyReadsEnabled === true,
@@ -204,16 +216,10 @@ export function createEmployeeSession(
           state,
           () => state,
           async (input, signal) => {
-            const captured = state.session;
+            const checkpoint = sessionCheckpoint();
             const { createAnnouncementCommand } = await import('./announcement-command');
-            if (!captured || state.session !== captured) throw Error('Employee session changed.');
-            return createAnnouncementCommand({
-              state: () => state,
-              transport,
-              restore,
-              signOut,
-              touch: scheduleExpiry,
-            })(input, signal);
+            checkpoint();
+            return createAnnouncementCommand(commandContext)(input, signal);
           },
         );
       return announcementFlow;
@@ -248,8 +254,7 @@ export function createEmployeeSession(
         throw Error('Employee permission required.');
       signal.throwIfAborted();
       if (!transport.hasSession()) {
-        clear('signed-out', 'Your employee session expired. Sign in again.');
-        transport.clearSession();
+        expire();
         throw Error('Employee session expired.');
       }
       const value = await transport
@@ -271,83 +276,29 @@ export function createEmployeeSession(
       queue: import('./safety-record').SafetyQueue,
       signal: AbortSignal,
     ) {
-      const captured = state.session;
+      const checkpoint = sessionCheckpoint();
       const { createSafetyReport } = await import('./safety-report');
-      if (!captured || state.session !== captured) throw Error('Employee session changed.');
-      return createSafetyReport({
-        state: () => state,
-        transport,
-        restore,
-        signOut,
-        touch: scheduleExpiry,
-      })(input, queue, signal);
+      checkpoint();
+      return createSafetyReport(commandContext)(input, queue, signal);
     },
     async createPrivacy(input: import('./privacy-create').PrivacyCreateInput, signal: AbortSignal) {
-      const captured = state.session;
+      const checkpoint = sessionCheckpoint();
       const { createPrivacyRequest } = await import('./privacy-create');
-      if (!captured || state.session !== captured) throw Error('Employee session changed.');
-      return createPrivacyRequest({
-        state: () => state,
-        transport,
-        restore,
-        signOut,
-        touch: scheduleExpiry,
-      })(input, signal);
+      checkpoint();
+      return createPrivacyRequest(commandContext)(input, signal);
     },
     async changePrivacy(input: import('./privacy-command').PrivacyInput, signal: AbortSignal) {
-      const captured = state.session;
+      const checkpoint = sessionCheckpoint();
       const { createPrivacyCommand } = await import('./privacy-command');
-      if (!captured || state.session !== captured) throw Error('Employee session changed.');
-      return createPrivacyCommand({
-        state: () => state,
-        transport,
-        restore,
-        signOut,
-        touch: scheduleExpiry,
-      })(input, signal);
+      checkpoint();
+      return createPrivacyCommand(commandContext)(input, signal);
     },
-    changeEmployeeRole: createEmployeeRoleCommand({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
-    reviewIdea: createIdeaCommand({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
-    readEvidence: createEvidenceRead({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
-    moderate: createModerationCommand({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
-    changeSafety: createSafetyCommand({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
-    ...createBusinessCommands({
-      state: () => state,
-      transport,
-      restore,
-      signOut,
-      touch: scheduleExpiry,
-    }),
+    changeEmployeeRole: createEmployeeRoleCommand(commandContext),
+    reviewIdea: createIdeaCommand(commandContext),
+    readEvidence: createEvidenceRead(commandContext),
+    moderate: createModerationCommand(commandContext),
+    changeSafety: createSafetyCommand(commandContext),
+    ...createBusinessCommands(commandContext),
   });
 }
 export type EmployeeSessionController = ReturnType<typeof createEmployeeSession>;

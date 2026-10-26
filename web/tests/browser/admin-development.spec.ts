@@ -20,6 +20,7 @@ import {
 } from '../../../scripts/database/admin-development-fixture.mts';
 import { buildAdminDevelopmentSql } from '../../../scripts/build-admin-development-sql.mts';
 import { source } from '../../../scripts/database/integration.mts';
+import type { BrowserRealtimeSdk } from '../../../website/ably-browser.d.mts';
 
 const origin = 'http://127.0.0.1:4313';
 const database = process.env.DOJI_ADMIN_DATABASE_E2E === '1';
@@ -74,7 +75,20 @@ test.beforeAll(async () => {
         result: {
           user_id: call.persona,
           display_name: call.persona === id(1) ? 'Test persona 1' : 'Test persona 2',
-          capabilities: { operator_manage: call.persona === id(1) },
+          capabilities: { operator_manage: call.persona === id(1), moderation_read: true },
+        },
+      };
+    if (call.name === 'get_admin_staff_event_channels_v1')
+      return { ok: true, result: ['staff:workflow:moderation'] };
+    if (call.name === 'portal_realtime_token_v1')
+      return {
+        ok: true,
+        result: {
+          keyName: 'eVKl2g.synthetic',
+          nonce: 'synthetic',
+          mac: 'synthetic',
+          capability: '{"staff:workflow:moderation":["subscribe"]}',
+          timestamp: Date.now(),
         },
       };
     return { ok: false, code: '42501' };
@@ -105,6 +119,37 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
 }) => {
   test.setTimeout(90000);
   const external: string[] = [];
+  let selections = 0;
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/dev/select' && request.method() === 'POST')
+      selections++;
+  });
+  await page.routeWebSocket('**/*', (socket) => socket.close());
+  await page.addInitScript(() => {
+    class SyntheticRealtime {
+      changed?: (change: { current: string }) => void;
+      constructor(
+        private options: {
+          authCallback(params: object, callback: (error: unknown, token: unknown) => void): void;
+        },
+      ) {}
+      channels = { get: () => ({ subscribe: async () => {}, unsubscribe: () => {} }) };
+      connection = {
+        on: (handler: (change: { current: string }) => void) => {
+          this.changed = handler;
+        },
+      };
+      connect() {
+        this.options.authCallback({}, (error, token) => {
+          if (!error && token) this.changed?.({ current: 'connected' });
+        });
+      }
+      close() {
+        delete this.changed;
+      }
+    }
+    window.Ably = { Realtime: SyntheticRealtime } as unknown as BrowserRealtimeSdk;
+  });
   await page.route('**/*', (route) => {
     if (new URL(route.request().url()).origin === origin) return route.continue();
     external.push(route.request().url());
@@ -120,6 +165,10 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   await expect(page.getByRole('note')).toHaveCSS('background-color', 'rgb(251, 192, 45)');
   await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Authenticator code')).toHaveCount(0);
+  if (!database) {
+    await expect(page.getByText('Queue updates: connected', { exact: true })).toBeVisible();
+    expect(calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
+  }
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Welcome back, Test persona 1.' })).toBeVisible();
   if (database) {
@@ -177,14 +226,13 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   const before = await page.evaluate(
     async () => (await (await fetch('/api/dev/personas')).json()).csrf,
   );
-  const selections = () => calls.filter((c) => c.name === 'get_admin_portal_session_v3').length;
-  const priorSelections = selections();
+  const priorSelections = selections;
   await page.getByRole('button', { name: 'Account menu' }).click();
   await page.getByRole('menuitem', { name: 'Impersonate user' }).click();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Welcome back, Test persona 1.' })).toBeVisible();
-  expect(selections()).toBe(priorSelections);
+  expect(selections).toBe(priorSelections);
   await page.evaluate(() => {
     document.documentElement.dataset.previousUser = 'present';
   });

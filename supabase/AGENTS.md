@@ -32,14 +32,18 @@ Hosted staging is `ohrcupagdoilkwhecict`, never production `tvixsmqxotuvyjqzmjla
 Read `docs/LOCAL_DEVELOPMENT.md#hosted-staging-database` before connected work.
 Its migration ledger represents a reconciled schema baseline including deployed
 overlays; do not replay/reset history. The staging employee runtime and restricted
-developer gateway logins are enabled. Keep other runtime roles NOLOGIN and external
-integrations disabled until separately approved. Never substitute production keys.
+developer gateway logins are enabled. Approved isolated lifecycle/realtime services
+are recorded in current state; keep other runtime roles and external integrations
+disabled until separately approved. Never substitute production keys.
 
 `admin_development_v1.sql` is a disabled staging-only preparation template, not a
 production migration. Assemble it from reviewed exact definitions with
 `scripts/build-admin-development-sql.mts`; preserve its hash checks and retaining
 rollback. Development proof is not MFA. Tokens/persona grants and the private
 gateway login must never be exposed to member roles or hosted portal sessions.
+The resource upgrade builder pins existing media/channel permission definitions
+and adds only private authorization routes. Signing stays in the separate staging
+gateway, not SQL; direct callers retain no execution grant on its private helper.
 
 `admin_development_employees_v2.sql` is the deployed staging-only directory upgrade;
 employee records replace duplicate persona registration for explicitly authorized

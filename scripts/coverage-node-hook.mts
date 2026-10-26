@@ -2,13 +2,14 @@
 // calls are permitted; tests must inject their own in-memory fetch boundaries.
 import { registerHooks, syncBuiltinESMExports } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { resolve, join, extname } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { resolve, extname } from 'node:path';
 import net from 'node:net';
 import tls from 'node:tls';
 import http from 'node:http';
 import https from 'node:https';
 import { eligible, instrument } from './coverage-instrument.mts';
+import { writeCoverageSnapshot } from './coverage-contracts.mts';
 declare global {
   var __coverage__: unknown;
 }
@@ -57,8 +58,5 @@ registerHooks({
 const output = resolve(import.meta.dirname, '../test-results/coverage/current/node');
 process.on('exit', () => {
   mkdirSync(output, { recursive: true });
-  writeFileSync(
-    join(output, `process-${process.pid}.json`),
-    JSON.stringify(globalThis.__coverage__ ?? {}),
-  );
+  writeCoverageSnapshot(output, globalThis.__coverage__ ?? {});
 });

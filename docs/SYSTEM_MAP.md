@@ -60,7 +60,15 @@ Development has a separate Supabase database, `ohrcupagdoilkwhecict`, in the Fre
 not production member identities, credentials or media. Approved employee subjects
 are explicitly mapped to separate staging roles. The staging employee runtime and
 Pages package are deployed separately; owner password/MFA login is verified.
-Business/mobile, shared Worker and realtime connections remain disconnected.
+The staging backend uses `infra/doji-orchestrator/wrangler.staging.jsonc` and
+`src/staging.ts`: the same Worker implementations with exact staging bindings and
+five independent Durable Object namespaces. Execution is enabled, cron empty.
+`scripts/build-staging-edge.mts` packages seven unchanged lifecycle/health/realtime
+handlers behind `_shared/staging-egress.ts`, restricting fetches to staging and
+its scoped Ably credential. Timed lifecycle and single-credit voting passed.
+Ably app `eVKl2g` isolates staging channels under the existing account; relay and
+hosted staff connection and cross-tab queue reconciliation passed. Real
+email/push and business/mobile remain disconnected.
 See [staging connection requirements](LOCAL_DEVELOPMENT.md#hosted-staging-database).
 The current scope is admin only; business/site/mobile staging are deferred.
 `scripts/build-admin-staging.mts` builds the admin Pages artifact from source with
@@ -70,7 +78,11 @@ loopback-only connected frontend command; only fixed employee routes reach the
 staging Pages host. Hosted cookies stay in per-browser server memory; no developer
 WorkOS/SQL/API keys are needed. Local and hosted staging share the yellow
 `StagingEnvironment` strip; hosted staging never includes developer impersonation.
-Internal workflow reads are enabled independently of realtime, which stays off.
+Internal workflow reads and hosted staff realtime are enabled independently.
+Local impersonation uses the same resource policy with a distinct developer context:
+staging-only media signing and subscribe-only Ably grants, never fabricated MFA.
+The separate `buildAdminDevelopmentEdge` packager in `build-staging-edge.mts`
+bundles its infra dependencies; the seven-handler backend package excludes it.
 
 The separate staging-only development-auth path lives in
 `supabase/overlays/admin_development_v1.sql` with its retaining rollback;
