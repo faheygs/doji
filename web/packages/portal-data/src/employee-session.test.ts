@@ -106,6 +106,46 @@ describe('employee React session boundary', () => {
     expect(client.getSnapshot().phase).not.toBe('ready');
     expect(client.getSnapshot().cache).toBeNull();
   });
+  it.each([409, 429, 503])(
+    'locks on a %i session check without revoking another tab, then explicitly reauthorizes',
+    async (failureStatus) => {
+      let unavailable = false;
+      const { client, upstream } = fixture(async () =>
+        unavailable
+          ? Response.json({ message: 'Session check unavailable' }, { status: failureStatus })
+          : Response.json(authenticated()),
+      );
+      await client.restore();
+      const previous = client.getSnapshot();
+      previous.cache!.setQueryData(['private'], 'old record');
+      unavailable = true;
+      await client.restore();
+      expect(client.getSnapshot().phase).toBe('error');
+      expect(client.getSnapshot().session).toBeNull();
+      expect(client.getSnapshot().cache).toBeNull();
+      expect(previous.cache!.getQueryData(['private'])).toBeUndefined();
+      expect(client.isFresh()).toBe(false);
+      await expect(
+        client.read(
+          'moderation_read',
+          '/staff-workflow/inbox',
+          {},
+          (v) => v,
+          new AbortController().signal,
+        ),
+      ).rejects.toThrow('permission');
+      expect(upstream).toHaveBeenCalledTimes(2);
+      unavailable = false;
+      await client.restore();
+      expect(client.getSnapshot().phase).toBe('ready');
+      expect(client.getSnapshot().session).not.toBe(previous.session);
+      expect(upstream.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+        '/api/session',
+        '/api/session',
+        '/api/session',
+      ]);
+    },
+  );
   it('rechecks changed permissions after a denied read without retrying the request', async () => {
     let op = employee;
     const { client, upstream } = fixture(async (url) => {

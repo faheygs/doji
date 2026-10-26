@@ -18,9 +18,9 @@ export interface EmployeeCommand {
   name: string;
   args: Record<string, unknown>;
 }
-export interface EmployeeApplication {
-  authorize(actor: EmployeeActor, signal: AbortSignal): Promise<unknown>;
-  command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal): Promise<unknown>;
+export interface EmployeeApplication<Actor = EmployeeActor> {
+  authorize(actor: Actor, signal: AbortSignal): Promise<unknown>;
+  command(actor: Actor, input: EmployeeCommand, signal: AbortSignal): Promise<unknown>;
 }
 export type SqlParameter = string | number | boolean | null;
 export type PortalExecute = (

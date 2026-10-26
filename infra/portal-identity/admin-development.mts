@@ -2,6 +2,8 @@ import type { CreatePortalSqlClient } from './restricted-sql.mts';
 import { record } from './portal-contracts.mts';
 import { boundedBody } from './bounded-body.mts';
 import { employeeStagingProject } from './employee-contracts.mts';
+import type { SignStorage, SignRealtime } from './employee-contracts.mts';
+import { createEmployeeResources } from './employee-resources.mts';
 
 export const developmentEndpoint = `https://${employeeStagingProject}.supabase.co/functions/v1/admin-development`;
 export const developmentSql =
@@ -33,6 +35,80 @@ export const developmentFailure = (status = 503) =>
     ),
     { status },
   );
+function developmentResult(result: unknown): unknown {
+  if (!record(result)) throw developmentFailure();
+  if (result.ok === true) return result.result;
+  const statuses: Record<string, number> = {
+    '42501': 403,
+    '22023': 400,
+    '22P02': 400,
+    PT409: 409,
+    '55000': 409,
+    '40001': 409,
+    P0001: 400,
+  };
+  throw developmentFailure(typeof result.code === 'string' ? (statuses[result.code] ?? 503) : 503);
+}
+
+// Reuse hosted resource policy with a distinct developer context, never MFA proof.
+// Every authorization still traverses the revocable, audited restricted SQL adapter.
+export function createDevelopmentResources(
+  invoke: DevelopmentInvoke,
+  config: {
+    storageOrigin: string;
+    realtimeKeyName: string;
+    signStorage: SignStorage;
+    signRealtime: SignRealtime;
+  },
+): DevelopmentInvoke {
+  if (
+    config.storageOrigin !== `https://${employeeStagingProject}.supabase.co` ||
+    !/^eVKl2g\.[A-Za-z0-9_-]+$/.test(config.realtimeKeyName)
+  )
+    throw developmentFailure();
+  type Context = { token: string; call: DevelopmentCall };
+  const command = async (
+    { token, call }: Context,
+    input: { name: string; args: Record<string, unknown> },
+    signal: AbortSignal,
+  ) => developmentResult(await invoke(token, { ...call, ...input }, signal));
+  const resources = createEmployeeResources<Context>(
+    {
+      command,
+      authorize: (context, signal) =>
+        command(context, { name: 'get_admin_portal_session_v3', args: {} }, signal),
+    },
+    {
+      ...config,
+      staffWorkflowEnabled: true,
+      healthEventsEnabled: false,
+      signRealtime: async (grant, signal) => {
+        const result = await config.signRealtime(grant, signal);
+        if (!record(result) || result.keyName !== config.realtimeKeyName)
+          throw developmentFailure();
+        return result;
+      },
+    },
+  );
+  return async (token, call, signal) => {
+    if (
+      [
+        'portal_evidence_authorization_v1',
+        'get_admin_realtime_token_capabilities',
+      ].includes(call.name)
+    )
+      throw developmentFailure(403);
+    if (!['portal_sign_evidence_v1', 'portal_realtime_token_v1'].includes(call.name))
+      return invoke(token, call, signal);
+    if (!call.persona) throw developmentFailure(403);
+    const context = { token, call };
+    const result = await resources.command(context, call, signal);
+    // Do not release a signed resource after revocation during provider I/O.
+    await resources.authorize(context, signal);
+    signal.throwIfAborted();
+    return { ok: true, result };
+  };
+}
 export function validDevelopmentCall(value: unknown): value is DevelopmentCall {
   return (
     record(value) &&
@@ -182,7 +258,8 @@ export function createDevelopmentGateway(invoke: DevelopmentInvoke) {
       const url = new URL(request.url);
       const gatewayUrl = `http://${employeeStagingProject}.supabase.co/admin-development`;
       if (
-        (request.url !== developmentEndpoint && request.url !== gatewayUrl) || url.search ||
+        (request.url !== developmentEndpoint && request.url !== gatewayUrl) ||
+        url.search ||
         request.method !== 'POST' ||
         request.headers.has('origin') ||
         request.headers.has('cookie') ||
@@ -200,25 +277,18 @@ export function createDevelopmentGateway(invoke: DevelopmentInvoke) {
           new TextDecoder().decode(await boundedBody(request.body, signal, 16384)),
         );
         if (!validDevelopmentCall(value)) throw developmentFailure(400);
+        if (
+          [
+            'portal_evidence_authorization_v1',
+            'get_admin_realtime_token_capabilities',
+          ].includes(value.name)
+        )
+          throw developmentFailure(403);
         const result = await invoke(match[1]!, value, signal);
         if (!record(result)) throw developmentFailure();
         if (value.name === 'personas' && value.persona === null)
           return Response.json(result, { headers });
-        if (result.ok !== true) {
-          const statuses: Record<string, number> = {
-            '42501': 403,
-            '22023': 400,
-            '22P02': 400,
-            PT409: 409,
-            '55000': 409,
-            '40001': 409,
-            P0001: 400,
-          };
-          throw developmentFailure(
-            typeof result.code === 'string' ? (statuses[result.code] ?? 503) : 503,
-          );
-        }
-        return Response.json(result.result, { headers });
+        return Response.json(developmentResult(result), { headers });
       } finally {
         active--;
       }

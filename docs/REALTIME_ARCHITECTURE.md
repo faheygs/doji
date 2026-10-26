@@ -99,6 +99,11 @@ Tokens grant exact authorized channels for fifteen minutes, never `post:*`.
 | `staff:workflow:{area}` | Authorized employee work-area hints |
 | `profiles:global` | Retired; never restore all-account profile broadcast |
 
+Local admin impersonation signs subscribe-only grants for the selected staging
+employee's authorized channels using the isolated staging Ably app. Its distinct
+developer proof is not hosted MFA. Persona switching closes session-owned sockets
+and fences late grants; revocation denies new grants but issued tokens keep their TTL.
+
 Mounted post subscriptions are reference-counted and released when their last
 consumer leaves. Initial attachment rewinds ten seconds of identifier hints to
 close the read/attach gap. Initial capability requests collect for 80 ms with at

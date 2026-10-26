@@ -34,6 +34,72 @@ const routeTarget = (name: string) =>
         ? 'staff_workflow_private.assignees'
         : `public.${name}`;
 
+// Add resource authorization only; signing remains outside the SQL transaction.
+export function buildAdminDevelopmentResourceSql(definitions: readonly DevelopmentDefinition[]) {
+  const signatures = [
+    'public.employee_can_read_report_evidence_v1(text)',
+    'public.employee_can_read_avatar_evidence_v1(text)',
+    'public.employee_can_read_preserved_media_v1(text)',
+    'public.get_admin_staff_event_channels_v1()',
+  ];
+  const checks = signatures
+    .map((signature) => {
+      const matches = definitions.filter((d) => d.signature.replaceAll(' ', '') === signature);
+      if (matches.length !== 1)
+        throw Error(`One reviewed resource definition required: ${signature}`);
+      return `if md5(pg_get_functiondef(${quote(signature)}::regprocedure))<>${quote(md5(matches[0]!.definition))} then
+ raise exception 'Resource permission definition drifted';end if;`;
+    })
+    .join('\n');
+  const guard = `begin;set local lock_timeout='2s';set local statement_timeout='15s';
+do $guard$begin
+ if not exists(select 1 from portal_identity_private.realms where realm='employee'
+ and issuer='https://api.workos.com/user_management/client_01M3VE4WTBYS2XN6NZPH9EDMQD'
+ and audience='client_01M51GRQJVKXFZ98RG21MK7J64') then
+ raise exception 'Shared staging employee realm required';end if;
+ ${checks}
+end$guard$;
+lock table admin_development_private.routes in exclusive mode;`;
+  const signature = 'admin_development_private.evidence_authorization_v1(text,text)';
+  const body = String.raw`begin
+ if auth.jwt()->>'aal' is distinct from 'staging_development'
+ or not admin_development_private.assurance_v1(auth.jwt()->>'aal')
+ or p_path is null or length(p_path) not between 1 and 1024
+ or p_path ~ '[%?#\\]' or p_path ~ '[[:cntrl:]]'
+ or p_path ~ '(^|/)(\.|\.\.)?(/|$)'
+ or not coalesce(case p_bucket
+ when 'post-media' then public.employee_can_read_report_evidence_v1(p_path)
+ when 'avatars' then public.employee_can_read_avatar_evidence_v1(p_path)
+ when 'moderation-evidence' then public.employee_can_read_preserved_media_v1(p_path)
+ else false end,false) then
+ raise exception using errcode='42501',message='Evidence access denied';end if;
+ return jsonb_build_object('bucket',p_bucket,'path',p_path,'expiresIn',300);
+end`;
+  const rows = [
+    `'portal_evidence_authorization_v1',${quote(signature)}::regprocedure,array['p_bucket','p_path']::text[],array['text','text']::text[],'{}'::jsonb`,
+    `'get_admin_staff_event_channels_v1','public.get_admin_staff_event_channels_v1()'::regprocedure,array[]::text[],array[]::text[],'{}'::jsonb`,
+  ];
+  return {
+    apply: `${guard}
+create function ${signature.replace('(text,text)', '(p_bucket text,p_path text)')} returns jsonb
+language plpgsql security definer set search_path='' as ${quote(body)};
+revoke all on function ${signature} from public,anon,authenticated,service_role,doji_employee,doji_business,doji_staging_development;
+insert into admin_development_private.routes values ${rows.map((row) => `(${row})`).join(',')};
+commit;`,
+    rollback: `${guard}
+do $undo$begin
+ if not exists(select 1 from pg_proc where oid=${quote(signature)}::regprocedure
+ and prosrc=${quote(body)} and prosecdef and proconfig=array['search_path=""']::text[]
+ and proowner=(select oid from pg_roles where rolname='postgres')) then
+ raise exception 'Resource adapter definition drifted';end if;
+ ${rows.map((row) => `if not exists(select 1 from admin_development_private.routes where (name,target,fields,types,defaults)=row(${row})) then raise exception 'Resource route drifted';end if;`).join('\n')}
+end$undo$;
+delete from admin_development_private.routes where name in ('portal_evidence_authorization_v1','get_admin_staff_event_channels_v1');
+drop function ${signature};
+commit;`,
+  };
+}
+
 // Add only missing local workflow routes; never replay the installed adapter.
 export function buildAdminDevelopmentWorkflowSql(definitions: readonly DevelopmentDefinition[]) {
   const rows = workflowEntries.map(([name, contract]) => {

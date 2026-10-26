@@ -171,7 +171,7 @@ test('employee portal enters after MFA without a duplicate session read and stil
   expect(sessionCount()).toBe(1); // signed-out restoration only, never after completed MFA
   await expect(page.locator('#adminChallengeCode')).toHaveValue('');
   await expect(page.locator('#portalPageTitle')).toBeFocused();
-  expect(calls).toContain('/api/rpc');
+  await expect.poll(() => calls.includes('/api/rpc')).toBe(true);
   await page.getByRole('button', { name: 'Lock session' }).click();
   await expect(page.locator('#portalApp')).toBeHidden();
   await expect(page.locator('#adminAuthTitle')).toHaveText('Workspace locked');
@@ -314,9 +314,10 @@ test('password is cleared while signing in and the attempt cannot be submitted t
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#adminPassword')).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Signing in…', exact: true })).toBeDisabled();
-  expect(calls.filter((path) => path === '/auth/start')).toHaveLength(1);
+  await expect.poll(() => calls.filter((path) => path === '/auth/start').length).toBe(1);
   release();
   await expect(page.locator('#adminMfaChallengeForm')).toBeVisible();
+  expect(calls.filter((path) => path === '/auth/start')).toHaveLength(1);
 });
 
 test('a rejected one-use MFA flow returns to a fresh sign-in without retaining the code', async ({

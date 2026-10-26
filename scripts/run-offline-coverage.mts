@@ -18,6 +18,7 @@ const files = [
   'test-employee-resources.mts',
   'test-employee-proxy.mts',
   'test-admin-staging-build.mts',
+  'test-staging-edge.mts',
   'test-admin-release.mts',
   'test-admin-release-ci.mts',
   'test-admin-development-sql.mts',

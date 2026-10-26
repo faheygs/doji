@@ -90,6 +90,25 @@ changes. They define how the product and system connect.
   components rather than screen-local substitutes.
 - Update the context documents with any changed contract or connection.
 
+## Staging parity (standing owner requirement)
+
+- Staging must reproduce production behavior for the surface being released,
+  including its backend dependencies, not just its UI and a separate database.
+  Current scope is admin and its backend workflows; other app surfaces remain deferred.
+- Use the same versioned code, database contracts, permissions and lifecycle rules,
+  with isolated staging data, storage, jobs, queues, service state and credentials.
+  Shared employee identity is intentional; application audiences, grants and sessions
+  remain separate. The approved localhost impersonation path is not hosted login.
+- Exercise complete workflows and failure/retry paths with synthetic data. Delivery
+  tests use approved test recipients/devices; never production members or destinations.
+  Reject mixed-environment bindings. Mocks alone do not establish hosted parity.
+- Qualify database, runtime and integration changes in staging before production,
+  then promote the tested versions through each boundary's approved release process.
+  Missing dependencies or untested differences block a parity/readiness claim.
+  An emergency bypass requires explicit owner approval and recorded follow-up.
+- This requirement does not authorize provisioning, spending, sending messages or
+  deployment. Review capacity, isolation and rollback before enabling integrations.
+
 ## Portal / member-app isolation (standing owner requirement)
 
 - Member-app authentication remains on Supabase Auth. WorkOS is only for independent

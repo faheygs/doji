@@ -85,10 +85,20 @@ read-recovery implementation and synthetic regressions.
 
 ## Admin development and release status
 
+Required target: production-like staging for admin and the backend workflows it
+controls, with isolated state and safe test destinations. The Pages release pipeline
+works, but the environment is **not yet parity-complete**: safe outbound delivery,
+monitoring and coordinated backend/schema
+promotion remain gaps. Hosted queue reconciliation and the synthetic
+schedule/intervening activation/poll activation/vote/retry/close lifecycle passed,
+including single-credit behavior. These checks do not qualify the remaining
+integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-parity-standing-owner-requirement).
+
 - Staging database: `ohrcupagdoilkwhecict`, Free `doji-staging` organization,
   Canada Central. Reconciled schema and synthetic member data; no production
   member identities, passwords or media copied. Do not reset or replay its baseline.
-- Hosted staging: `admin-staging.dojipro.com`, employee Edge v8 and separate
+- Hosted staging: `admin-staging.dojipro.com`, employee Edge v8 source (v11 after
+  the staging-secret refresh) and separate
   Pages project. Existing employee password/MFA works through a dedicated WorkOS
   application/audience. Gavin and Kedd have explicit staging Super Admin grants;
   other production staff do not gain staging access automatically.
@@ -97,17 +107,37 @@ read-recovery implementation and synthetic regressions.
   directory access. Its initial expiry is January 13, 2027; non-expiring revocable
   credentials are supported/tested, but no live expiry was changed. Hosted MFA
   remains mandatory. `dev:admin` is a separate offline sample-data preview.
-- Local workflow routes: the staging-only registry correction is deployed (44
+- Local workflow routes: the staging-only registry corrections are deployed (46
   routes). Live home, assigned-work and ownership reads pass; existing routes,
   function/grant fingerprints, identity and workflow flags are unchanged. The
   existing builder includes definition-pinned upgrade/rollback and database/browser
   regression tests. Production promotion still requires hosted acceptance.
+- Local resources: development Edge v9 signs
+  permission-checked staging media and subscribe-only staging Ably grants. Actual
+  signed-image download and seven-channel attachment passed; malformed paths,
+  unauthorized objects, direct internal routes and invalid credentials were denied.
+  Developer/persona checks run again before releasing signed results. Hosted MFA
+  and production were not changed. The actual localhost-to-staging HTTP flow passed;
+  isolated browser tests cover connection/reload/switch/revocation. Live Chrome
+  acceptance passed employee selection/cancel/switch, reload restoration, realtime
+  reconnection and the protected synthetic image from staging storage.
 - Verification: local selection/switching, reload, writes/replay/audit and revocation
   passed against disposable PostgreSQL; live staging selection and hosted
   idea review/history/audit, report/business assignment and session restoration passed.
 - Enabled staging scope: internal admin workflows with labelled synthetic records.
-  Email, push, scheduling, realtime, monitoring integrations and member signup are
-  disconnected. Business/site/mobile staging and full-stack restore are deferred.
+  The separate Worker/five objects and seven guarded Edge functions now execute
+  against staging only. The poll fix is migration 291. Real one-shot alarms passed
+  intervening activation, poll-card recreation, vote/identical retry, single credit
+  and natural close with the 600-second window. Fixtures and audit are retained.
+  Isolated Ably app `eVKl2g` relayed 26 queued synthetic events without failure;
+  hosted staff tokens connect. Two-tab testing exposed session-lease HTTP 409s and
+  destructive client cleanup. Staging Pages `15f9f0cf-bb6e-49a0-a504-dbc582544e41`
+  coordinates requests across tabs and locks locally on unavailable authorization
+  reads. Fresh login, simultaneous restoration and synthetic release/reclaim now
+  pass with automatic cross-tab counts, without retry/logout. This is a manual
+  acceptance package from uncommitted source, not a promotable CI artifact.
+  Real email/push, recurring health/recovery jobs and member signup remain off.
+  Business/site/mobile staging are deferred. See the [backend receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation).
 - Release pipeline: PR #15 merged as `e347f4f`; all four exact-head and main
   quality jobs passed. Run `38947921226` automatically deployed Pages
   `2d75152f-260f-409e-8f1b-1e010a865b7d`. Docs-only main run `38953049163`

@@ -15,15 +15,19 @@ const repository = resolve(import.meta.dirname, '..');
 export const stagingFlags = Object.freeze({
   independentEmployeeIdentity: true,
   staffWorkflowEnabled: true,
-  staffWorkflowRealtimeEnabled: false,
+  staffWorkflowRealtimeEnabled: true,
   businessApplicationsEnabled: true,
   businessPrivacyEnabled: true,
   healthEventsEnabled: false,
   announcementComposeEnabled: true,
   historyReadsEnabled: true,
 });
+const stagingRealtimeOrigins = [
+  'rest.ably.io', 'realtime.ably.io', 'main.realtime.ably.net',
+  ...['a', 'b', 'c', 'd', 'e'].map(region => `main.${region}.fallback.ably-realtime.com`),
+].flatMap(host => [`https://${host}`, `wss://${host}`]).join(' ');
 export const stagingHeaders = `/*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://${employeeStagingProject}.supabase.co; media-src 'self' https://${employeeStagingProject}.supabase.co; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://cdn.ably.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://${employeeStagingProject}.supabase.co; media-src 'self' https://${employeeStagingProject}.supabase.co; connect-src 'self' ${stagingRealtimeOrigins}; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Robots-Tag: noindex, nofollow

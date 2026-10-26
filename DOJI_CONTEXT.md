@@ -205,6 +205,9 @@ directory grants permit acting as those employees only inside staging; no WorkOS
 session, production identity proof or member token is minted. Hosted staging and
 production share employee credentials/MFA but require separate application audiences,
 database access grants and sessions. Hosted access retains MFA.
+Local media/realtime signing preserves the same resource permissions but uses only
+staging storage and its isolated Ably app. Recheck developer/persona authorization
+before releasing signed results; issued capabilities remain bounded by their TTL.
 See current state for whether this separately gated development gateway is enabled.
 
 Business has owned Doji account forms backed by an independent WorkOS realm.

@@ -5,6 +5,9 @@ import assert from 'node:assert/strict';
 import { createEmployeeBrowserTransport } from '../infra/portal-identity/employee-browser-transport.mts';
 import { present } from './employee-test-fixtures.mts';
 type Config = Parameters<typeof createEmployeeBrowserTransport>[0];
+type RequestLocks = NonNullable<
+  NonNullable<Parameters<typeof createEmployeeBrowserTransport>[1]>['locks']
+>;
 type Call = RequestInit & { url: string };
 function body(call: Call): unknown {
   assert.equal(typeof call.body, 'string');
@@ -389,4 +392,163 @@ test('evidence calls require both identifiers and return only the signed URL res
     name: 'portal_sign_evidence_v1',
     args: { bucket: 'post-media', path: 'exact/path' },
   });
+});
+
+test('tabs serialize shared-cookie requests, release on failure and never replay writes', async () => {
+  let queue: Promise<unknown> = Promise.resolve();
+  const locks: RequestLocks = {
+    request(name, options, task) {
+      assert.equal(name, 'employee');
+      assert.deepEqual(Object.keys(options), ['signal']);
+      assert.equal(options.signal.aborted, false);
+      const next = queue.then(task);
+      queue = next.catch(() => {});
+      return next;
+    },
+  };
+  const started = deferred(),
+    release = deferred();
+  const calls: string[] = [];
+  let hold = false;
+  const make = (tab: string) =>
+    createEmployeeBrowserTransport(
+      { independentEmployeeIdentity: true },
+      {
+        origin,
+        locks,
+        upstream: async (url) => {
+          calls.push(tab + new URL(url).pathname);
+          if (hold && url.endsWith('/api/rpc')) {
+            started.resolve();
+            await release.promise;
+            return response({}, 409);
+          }
+          return response(authenticated);
+        },
+      },
+    );
+  const first = make('first'),
+    second = make('second');
+  await Promise.all([first.session(), second.session()]);
+  hold = true;
+  const command = assert.rejects(first.request('/safety/command', { method: 'POST' }), {
+    status: 409,
+  });
+  await started.promise;
+  const restore = second.session();
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+  assert.deepEqual(calls, ['first/api/session', 'second/api/session', 'first/api/rpc']);
+  release.resolve();
+  await Promise.all([command, restore]);
+  assert.deepEqual(calls, [
+    'first/api/session',
+    'second/api/session',
+    'first/api/rpc',
+    'second/api/session',
+  ]);
+});
+
+test('logout fences a request waiting for another tab before dispatch', async () => {
+  const waiting = deferred(),
+    release = deferred();
+  let pause = false,
+    calls = 0;
+  const locks: RequestLocks = {
+    async request(_name, _options, task) {
+      if (pause) {
+        waiting.resolve();
+        await release.promise;
+      }
+      return task();
+    },
+  };
+  const client = createEmployeeBrowserTransport(
+    { independentEmployeeIdentity: true },
+    {
+      origin,
+      locks,
+      upstream: async (url) => {
+        calls++;
+        return response(url.endsWith('/auth/logout') ? { signedIn: false } : authenticated);
+      },
+    },
+  );
+  await client.session();
+  pause = true;
+  const stale = assert.rejects(client.session(), { status: 401 });
+  await waiting.promise;
+  const logout = client.signOut();
+  release.resolve();
+  await Promise.all([stale, logout]);
+  assert.equal(calls, 2, 'only initial session and explicit logout reach the server');
+});
+
+test('a failed browser lock never falls back to an uncoordinated request', async () => {
+  let calls = 0;
+  const client = createEmployeeBrowserTransport(
+    { independentEmployeeIdentity: true },
+    {
+      origin,
+      locks: {
+        async request() {
+          throw Error('lock unavailable');
+        },
+      },
+      upstream: async () => {
+        calls++;
+        return response(authenticated);
+      },
+    },
+  );
+  await assert.rejects(client.session(), /lock unavailable/);
+  assert.equal(calls, 0);
+});
+
+test('a tab waiting too long times out without sending or replaying a request', async (t) => {
+  const timeout = new AbortController();
+  t.mock.method(AbortSignal, 'timeout', (ms: number) => {
+    assert.equal(ms, 15000);
+    return timeout.signal;
+  });
+  const waiting = deferred();
+  let calls = 0;
+  const client = createEmployeeBrowserTransport(
+    { independentEmployeeIdentity: true },
+    {
+      origin,
+      locks: {
+        request(_name, { signal }) {
+          waiting.resolve();
+          return new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+          });
+        },
+      },
+      upstream: async () => {
+        calls++;
+        return response(authenticated);
+      },
+    },
+  );
+  const rejected = assert.rejects(client.session(), { name: 'TimeoutError' });
+  await waiting.promise;
+  timeout.abort(new DOMException('Timed out', 'TimeoutError'));
+  await rejected;
+  assert.equal(calls, 0);
+  assert.equal(client.hasSession(), false);
+});
+
+test('local lock keeps server logout explicit and permits a fresh authorized recheck', async () => {
+  const f = fixture();
+  await f.client.session();
+  f.client.clearSession({ revoke: false });
+  assert.equal(f.client.hasSession(), false);
+  await f.client.session();
+  assert.equal(f.client.hasSession(), true);
+  assert.equal(f.calls.length, 2);
+  assert.ok(f.calls.every((call) => call.url.endsWith('/api/session')));
+  await f.client.signOut();
+  assert.equal(f.calls.at(-1)?.url, origin + '/auth/logout');
 });

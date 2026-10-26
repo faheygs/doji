@@ -8,7 +8,8 @@ Read it alongside the [system map](SYSTEM_MAP.md) for internal code ownership an
 This is the navigation and responsibility map for services found in the audited
 source and release records. URLs and project names are identifiers, **not access
 grants**. Ask the owner for named, task-scoped access. No service's current billing
-allowance, account membership or availability was freshly verified for this doc.
+allowance, account membership or availability is guaranteed by this inventory;
+dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
 The hosting/product rows describe established integrations, not a claim that every
@@ -20,13 +21,14 @@ is granted per service and environment, never inherited from an admin-portal rol
 
 | Service | What Doji uses it for | Dashboard and identifiers | Source or evidence |
 | --- | --- | --- | --- |
-| GitHub and GitHub Actions | Monorepo source, PRs, protected main, quality CI; admin-only Pages release workflows | `faheygs/doji`; main-only `admin-staging`/`admin-production` environments, owner production approval | [.github/workflows/quality.yml](../.github/workflows/quality.yml), [release setup](LOCAL_DEVELOPMENT.md#admin-deployment-workflow); automatic staging release verified October 16, production promotion unexecuted |
+| GitHub and GitHub Actions | Monorepo source, PRs, protected main, quality CI; admin-only Pages release workflows | `faheygs/doji`; main-only `admin-staging`/`admin-production` environments, owner production approval | [.github/workflows/quality.yml](../.github/workflows/quality.yml), [release setup](LOCAL_DEVELOPMENT.md#admin-deployment-workflow); staging and owner-approved production Pages promotion verified |
 | Supabase | Postgres, member Auth, Storage, Edge Functions, Vault and protected database APIs | [Project dashboard](https://supabase.com/dashboard/project/tvixsmqxotuvyjqzmjla); project `tvixsmqxotuvyjqzmjla` | `supabase/`, `lib/supabase.ts`, `types/database.ts` |
-| Supabase staging | Isolated development database and empty Storage buckets; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
+| Supabase staging | Isolated development database and Storage; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
+| Staging Worker and Edge | Enabled isolated lifecycle/relay; real email/push and recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps seven unchanged handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
-| Ably | Capability-scoped realtime invalidation, not a database | [Dashboard](https://ably.com/dashboard); owner identifies the production app before granting access | `lib/realtimeClient.ts`, `realtime-token`, relay and employee resource signer |
+| Ably | Capability-scoped realtime invalidation, not a database | Account `ci6PMw`: existing `Doji` app `BBDaog`; isolated [Doji Staging](https://ably.com/accounts/ci6PMw/apps/eVKl2g) app `eVKl2g`. Same Standard subscription, owner-approved metered usage; no second subscription. Staging relay, hosted cross-tab reconciliation and local developer channel attachment passed | `lib/realtimeClient.ts`, `realtime-token`, relay and employee/development resource signers. Staging server key: staging Supabase `ABLY_API_KEY`, owner-restricted recovery configuration; never client bundles or Git |
 | WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); employee staging/production share a directory with separate applications; business identities remain independent | `infra/portal-identity/`, owned-auth/onboarding records |
 | Resend | Transactional email: member moderation notices, admin operational alerts, owned business password recovery and separately gated application notices | [Dashboard](https://resend.com/); business sending domain `mail.dojipro.com`; business sending key separate from shared email key | [Relay sender](../supabase/functions/relay-domain-events/index.ts), [admin sender](../supabase/functions/send-admin-email/index.ts), [business recovery](../infra/portal-identity/business-owned-recovery-email.mts), [application sender](../infra/business-email/dispatch.mts) |
 | Cloudflare Email Routing / dedicated safety email API | Inbound support forwarding and selected employee-address forwarding; a separate narrow sender delivers urgent safety-intake alerts | Cloudflare account email configuration; owner approves exact destinations | [Safety transport](../supabase/functions/_shared/safety-removal-cloudflare.ts), [email release record](releases/CLOUDFLARE_SAFETY_EMAIL_2026-09-28.md); not general mailbox hosting |
@@ -64,7 +66,7 @@ stay in their hosted stores. Separate Cloudflare account-owned Pages Write token
 `doji-admin-staging-github`/`doji-admin-production-github` were created with owner
 approval and saved only in their respective environment secrets on October 15.
 They expire January 14, 2027 and grant account-wide Pages access, not provider-enforced
-project isolation; staging CI use is verified, production token use remains untested.
+project isolation; staging CI and owner-approved production promotion are verified.
 Review Actions artifact/runner and Cloudflare capacity before
 activation; prepared code is not a cost guarantee. Releases preserve the previous
 Pages deployment ID for approved rollback and stop on binding/flag drift or
@@ -216,8 +218,17 @@ and the scoped import remain pending. Never place server
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
-Member Auth/email, business, Worker/realtime and scheduling remain disconnected or
-disabled. Never restore production secret stores or job rows into staging.
+Member signup/email, business, real push and recurring jobs remain disabled.
+The separate staging Worker and seven guarded Edge functions are enabled with
+isolated Ably. Actual timed activation/close and single-credit voting passed.
+Fresh orchestration/relay secrets live only in that Worker's secret store, staging
+Edge, and staging Vault; no production credential was copied. Owner/SYSTEM-only
+recovery is `%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`. On October 25, staging
+used 394/500,000 included Edge calls and 8% database quota; Cloudflare showed zero
+usage overage with ample Worker/DO allowance. No plan upgrade was made. Keep
+cron empty until separately qualified; disable `STAGING_BACKEND_ENABLED` before
+the exact-function SQL inverse or removal of staging delivery secrets. Never restore
+production secret stores or job rows into staging.
 
 The explicit `dev:admin:staging-login` command uses a loopback relay to the
 existing staging Pages host, not a new service or direct SQL connection. It needs
@@ -228,8 +239,8 @@ hosted server stores. Do not import them into a broadly shared developer project
 Enabled in staging only: `admin_development_v1`, the `admin-development` Edge function and
 `infra/portal-identity/admin-development.mts` supply private staging authorization
 for the local persona selector (`dev:admin:staging`). They reuse the existing Free
-Supabase staging project, not a new provider/subscription. October 15 capacity
-checks found 13/500,000 included Edge invocations and 39/500 MB database usage.
+Supabase staging project, not a new provider/subscription. October 25 capacity
+checks found 558/500,000 included Edge invocations and 0.041/0.5 GB database usage.
 One revocable owner token is installed in the OS-account-restricted local env file;
 Bitwarden delivery and additional developer credentials remain pending.
 Only hashes reach SQL. The dedicated restricted database login/config belongs in
@@ -241,6 +252,15 @@ disabled. Offline browser/database/rollback and live HTTP/SQL acceptance passed;
 owner-browser selection/switching acceptance passed. Recovery is owner-restricted at
 `%LOCALAPPDATA%/Doji/staging-admin-development/2026-10-15`; disable the Edge gate
 and use the retaining SQL rollback, never reset the shared staging database.
+
+`ADMIN_DEVELOPMENT_RESOURCES_ENABLED` is enabled only in staging. The development
+gateway uses its existing server-only `ABLY_API_KEY` and built-in staging storage
+service key after exact permission checks; it never uses that key for general SQL.
+Media URLs expire in five minutes, subscribe-only realtime grants in fifteen.
+Actual signed-image download, channel attachment and denial checks passed.
+Disable this flag, restore the preserved v6 gateway, then apply the pinned resource
+SQL inverse to roll back; retain fixtures/audit. Recovery is under the existing
+owner-restricted `staging-backend/2026-10-25/development-resources-*` directories.
 
 Deployed in staging: `admin_development_employees_v2` reuses this gateway/database to
 select active staging employees with explicit developer directory authorization.
@@ -264,7 +284,8 @@ template now derives the audience from the application; production's preview
 retains its existing audience. Strict client/issuer verification and the complete
 HTTP session lifecycle are tested; the owner confirmed hosted password/MFA login.
 Staging internal staff, business-review and privacy gates are enabled with synthetic
-records. Realtime, business-facing login, email sending and scheduling remain off.
+records. Staging realtime and one-shot lifecycle execution are enabled; business-facing
+login and real email/push sending remain off.
 Rollback uses the protected prior runtime/config plus the retaining shared-identity
 inverse before directory-v2/v1 inverses; do not restore production settings.
 AuthKit's included allowance covers the two existing identities;

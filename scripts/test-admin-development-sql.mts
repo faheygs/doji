@@ -4,6 +4,7 @@ import {
   developmentGate,
   buildAdminDevelopmentSql,
   buildAdminDevelopmentWorkflowSql,
+  buildAdminDevelopmentResourceSql,
 } from './build-admin-development-sql.mts';
 import { employeeRouteContracts } from '../infra/portal-identity/employee-route-contracts.mts';
 import { employeeHistoryContracts } from '../infra/portal-identity/employee-history-contracts.mts';
@@ -31,6 +32,28 @@ test('development authority substitutes only reviewed employee assurance guards'
     assert.equal(developmentGate({ ...input, schema: 'auth' }), null);
     assert.equal(developmentGate({ ...input, name: 'member_function' }), null);
   }
+});
+
+test('resource upgrade pins all existing permission helpers and has retaining drift-checked rollback', () => {
+  const definitions = [
+    'employee_can_read_report_evidence_v1',
+    'employee_can_read_avatar_evidence_v1',
+    'employee_can_read_preserved_media_v1',
+    'get_admin_staff_event_channels_v1',
+  ].map((name) => ({
+    schema: 'public',
+    name,
+    signature: `public.${name}(${name.startsWith('employee') ? 'text' : ''})`,
+    definition: 'select null;',
+  }));
+  assert.throws(() => buildAdminDevelopmentResourceSql([]));
+  assert.throws(() => buildAdminDevelopmentResourceSql([...definitions, definitions[0]!]));
+  const patch = buildAdminDevelopmentResourceSql(definitions);
+  assert.match(patch.apply, /assurance_v1/);
+  assert.match(patch.apply, /revoke all/);
+  assert.doesNotMatch(patch.apply, /grant execute|create or replace/i);
+  assert.match(patch.rollback, /Resource adapter definition drifted/);
+  assert.doesNotMatch(patch.rollback, /delete from (public|admin_development_private.audit)/);
 });
 
 test('unknown guards, missing definitions, duplicate identities and incomplete manifests fail closed', () => {

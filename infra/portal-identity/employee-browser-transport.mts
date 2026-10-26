@@ -11,6 +11,9 @@ interface BrowserConfig extends EmployeeFeatureGates {
   onAccessInvalidated?: (message: string) => void;
   onSessionCleanupFailed?: (message: string) => void;
 }
+interface RequestLocks {
+  request<T>(name: string, options: { signal: AbortSignal }, task: () => Promise<T>): Promise<T>;
+}
 const fail = (message = 'Sign in again to continue.', status = 401) =>
   Object.assign(Error(message), { status });
 export function createEmployeeBrowserTransport(
@@ -19,7 +22,8 @@ export function createEmployeeBrowserTransport(
     upstream = fetch,
     origin = location.origin,
     now = Date.now,
-  }: { upstream?: PortalFetch; origin?: string; now?: () => number } = {},
+    locks = globalThis.navigator?.locks,
+  }: { upstream?: PortalFetch; origin?: string; now?: () => number; locks?: RequestLocks } = {},
 ) {
   if (!isEmployeeOrigin(origin) || config.independentEmployeeIdentity !== true)
     throw fail('Employee transport is not configured.', 503);
@@ -33,7 +37,11 @@ export function createEmployeeBrowserTransport(
     queue: Promise<unknown> = Promise.resolve();
   const expired = () => !signedIn || created + 28800000 <= now() || touched + 1800000 <= now();
   const enqueue = <T,>(task: () => Promise<T>) => {
-    const next = queue.then(task);
+    // Tabs share the HttpOnly session and its server lease. The default exclusive
+    // lock coordinates dispatch; it never replays commands or steals active work.
+    const next = queue.then(
+      () => locks?.request('employee', { signal: AbortSignal.timeout(15000) }, task) ?? task(),
+    );
     queue = next.catch(() => {});
     return next;
   };
@@ -63,7 +71,7 @@ export function createEmployeeBrowserTransport(
     try {
       result = await response.json();
     } catch {
-      throw fail('Employee service returned an invalid response.', 503);
+      throw fail('Employee request could not be completed.', 503);
     }
     // Fixed routes/numeric durations only; no request body, identity or tokens.
     const timing = response.headers?.get('server-timing') || '';
@@ -223,7 +231,13 @@ export function createEmployeeBrowserTransport(
     verifyPendingChallenge: complete,
     verifyTotpEnrollment: complete,
     signOut: logout,
-    clearSession() {
+    clearSession({ revoke = true }: { revoke?: boolean } = {}) {
+      if (!revoke) {
+        // A failed authorization read locks this tab, not other tabs sharing the
+        // cookie. Only a successful explicit recheck can restore local access.
+        reset();
+        return;
+      }
       const cleanup = logout();
       const cleanupEpoch = epoch;
       void cleanup.catch(() => {
@@ -259,7 +273,7 @@ export function createEmployeeBrowserTransport(
       if (!bucket || !path) return null;
       const value = await rpc('portal_sign_evidence_v1', { bucket, path });
       if (!record(value) || typeof value.signedUrl !== 'string')
-        throw fail('Invalid evidence response.', 503);
+        throw fail('Employee request could not be completed.', 503);
       return value.signedUrl;
     },
   });

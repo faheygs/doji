@@ -84,7 +84,7 @@ function ActiveWorkspace({
         <Suspense fallback={<CircularProgress aria-label="Loading workspace" />}>
           <Workspace
             controller={controller}
-            realtimeEnabled={false}
+            realtimeEnabled
             accountAction={{ label: 'Impersonate user', onClick: choose }}
           />
         </Suspense>

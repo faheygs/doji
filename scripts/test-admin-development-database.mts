@@ -10,7 +10,10 @@ import {
   verifyDevelopmentWorkflowUpgrade,
 } from './database/admin-development-fixture.mts';
 import { source } from './database/integration.mts';
-import { buildAdminDevelopmentSql } from './build-admin-development-sql.mts';
+import {
+  buildAdminDevelopmentSql,
+  buildAdminDevelopmentResourceSql,
+} from './build-admin-development-sql.mts';
 import { errorOutput } from './database/contracts.mts';
 
 assert.equal(process.argv.length, 2, 'No target overrides accepted');
@@ -285,6 +288,88 @@ try {
     'PASS: non-expiring developer credential supports directory/session access and immediate revocation',
   );
   verifyDevelopmentWorkflowUpgrade(sql, call, id(5));
+  const resourcePatch = buildAdminDevelopmentResourceSql(snapshot());
+  const routesBeforeResources = sql(
+    'select jsonb_agg(to_jsonb(r) order by name) from admin_development_private.routes r',
+  );
+  sql(resourcePatch.apply);
+  assert.throws(() => sql(resourcePatch.apply), /./, 'No replacement of installed resource routes');
+  sql('update staff_workflow_private.settings set events_enabled=true');
+  assert.deepEqual(call(id(5), 'get_admin_staff_event_channels_v1').result, [
+    'staff:workflow:moderation',
+    'staff:workflow:restricted',
+    'staff:workflow:ideas',
+    'staff:workflow:business',
+    'staff:workflow:privacy',
+  ]);
+  sql(`update public.admin_employees set roles=array['moderator'] where id='${id(5)}'`);
+  assert.deepEqual(call(id(5), 'get_admin_staff_event_channels_v1').result, [
+    'staff:workflow:moderation',
+  ]);
+  sql(`insert into auth.users(id,aud,role,email,raw_user_meta_data) values('${id(80)}','authenticated','authenticated','resource@test.invalid',
+      jsonb_build_object('terms_version','2026-08-20','privacy_version','2026-08-20','terms_accepted_at',now(),'privacy_accepted_at',now()));
+    insert into storage.buckets(id,name) values('avatars','avatars') on conflict do nothing;
+    insert into storage.objects(bucket_id,name,owner_id) values('avatars','${id(80)}/avatar.jpg','${id(80)}');
+    insert into public.profiles(id,username,display_name,avatar_url) values('${id(80)}','resource_fixture','Synthetic resource',
+      'https://ohrcupagdoilkwhecict.supabase.co/storage/v1/object/public/avatars/${id(80)}/avatar.jpg')
+      on conflict(id) do update set avatar_url=excluded.avatar_url;
+    insert into public.reports(id,reported_user_id,reporter_id,reason,target_kind)
+      values('${id(81)}','${id(80)}','${id(80)}','other','profile_photo');`);
+  const evidenceArgs = { p_bucket: 'avatars', p_path: `${id(80)}/avatar.jpg` };
+  assert.deepEqual(call(id(5), 'portal_evidence_authorization_v1', evidenceArgs).result, {
+    bucket: 'avatars',
+    path: evidenceArgs.p_path,
+    expiresIn: 300,
+  });
+  for (const args of [
+    { ...evidenceArgs, p_path: `${id(80)}/unrelated.jpg` },
+    { ...evidenceArgs, p_path: '../avatar.jpg' },
+    { ...evidenceArgs, p_path: 'a%2fb' },
+    { ...evidenceArgs, p_bucket: 'other' },
+    { p_bucket: 'post-media', p_path: 'unreported.jpg' },
+    { p_bucket: 'moderation-evidence', p_path: `${id(80)}/original` },
+  ])
+    assert.equal(call(id(5), 'portal_evidence_authorization_v1', args).code, '42501');
+  sql(
+    `insert into public.admin_report_triage(report_id,queue) values('${id(81)}','restricted_safety')`,
+  );
+  assert.equal(call(id(5), 'portal_evidence_authorization_v1', evidenceArgs).code, '42501');
+  sql(`update public.admin_employees set roles=array['super_admin'] where id='${id(5)}'`);
+  assert.equal(call(id(5), 'portal_evidence_authorization_v1', evidenceArgs).ok, true);
+  for (const role of [
+    'anon',
+    'authenticated',
+    'service_role',
+    'doji_employee',
+    'doji_business',
+    'doji_staging_development',
+  ])
+    assert.equal(
+      sql(
+        `select has_function_privilege('${role}','admin_development_private.evidence_authorization_v1(text,text)','execute')`,
+      ),
+      'f',
+    );
+  assert.throws(() =>
+    sql(
+      `select admin_development_private.evidence_authorization_v1('avatars','${evidenceArgs.p_path}')`,
+    ),
+  );
+  sql(`update admin_development_private.credentials set enabled=false where id='${id(10)}'`);
+  assert.throws(() => call(id(5), 'portal_evidence_authorization_v1', evidenceArgs));
+  sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}'`);
+  const resourceAudit = sql('select count(*) from admin_development_private.audit');
+  sql(resourcePatch.rollback);
+  assert.equal(sql('select count(*) from admin_development_private.audit'), resourceAudit);
+  assert.equal(
+    sql('select jsonb_agg(to_jsonb(r) order by name) from admin_development_private.routes r'),
+    routesBeforeResources,
+  );
+  assert.equal(call(id(5), 'portal_evidence_authorization_v1', evidenceArgs).code, '42501');
+  assert.equal(sql(`select count(*) from public.reports where id='${id(81)}'`), '1');
+  console.log(
+    'PASS: permission-checked staging media/channels, restricted evidence, revocation and data-retaining rollback',
+  );
   assert.equal(
     sql(
       `select principal_id from portal_identity_private.resolve_identity('employee','${sharedIssuer}','${sharedAudience}','user_shared_fixture','synthetic-session',true)`,
