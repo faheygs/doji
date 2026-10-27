@@ -365,7 +365,7 @@ status. The picker refreshes on opening, supports up to 100 employees and fails
 explicitly rather than silently hiding overflow. Its internal `personas` wire
 name remains for compatibility; it is not another identity source.
 
-Only the owner's token currently has directory-wide access. No token is granted
+The owner's and Kedd's individually approved tokens have directory-wide access. No token is granted
 broader access merely by installing the overlay. The separately deployed
 `employee_shared_staging_v1.sql` pins the shared employee issuer and staging
 application audience. Existing verified WorkOS subjects map to separate staging
@@ -378,8 +378,8 @@ Developer credentials may be non-expiring (`expires_at = 'infinity'` in the priv
 staging credential registry). They remain individually revocable: disabling the
 credential denies subsequent directory, session and command requests. Do not use
 a distant invented expiration date or change hosted session/MFA lifetimes. Only an
-explicitly approved handoff may provision a credential; Kedd's handoff is held
-until the complete workflow is accepted.
+explicitly approved handoff may provision a credential. Kedd's token is issued;
+vault acceptance/confirmation and read-only project assignment remain pending.
 
 After your credential is issued:
 
@@ -434,9 +434,11 @@ sends mail or reads secrets. The SQL template is disabled by default and does no
 provision credentials/personas/login itself. The separately approved hosted release
 now provides **Gavin Fahey** and **Kedd** with approved staging Super Admin roles;
 the previous synthetic employee identities are inactive, retained for audit.
-Intentional writes affect shared staging data. The owner's initial credential expires January 13, 2027 and can
-be revoked earlier. Bitwarden distribution and additional developer tokens are
-not yet provisioned. See the [staging release record](releases/STAGING_DATABASE_BASELINE_2026-10-14.md).
+Intentional writes affect shared staging data. The owner's initial credential expires
+January 13, 2027 and can be revoked earlier. Kedd's separate credential has no expiry;
+its value is stored owner-only in Bitwarden until the approved membership and project
+handoff completes. See [vault access](SECURITY_AND_ACCESS.md#shared-development-vault)
+and the [staging release record](releases/STAGING_DATABASE_BASELINE_2026-10-14.md).
 The restricted gateway must use its own NOINHERIT SQL login with connection limit
 2, verified TLS, no role/DB creation or RLS bypass, and only membership in
 `doji_staging_development`. Verify parameter/error logging does not retain private

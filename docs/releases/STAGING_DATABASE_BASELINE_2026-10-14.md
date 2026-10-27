@@ -294,6 +294,7 @@ rollback. No production service, function, grant or flag changed.
 | Workflow flags / manual Pages | `%LOCALAPPDATA%/Doji/staging-admin/workflows-20261016`: previous flags and exact packages; initial Pages ID `b2225370-b47b-45b2-8f53-a4d39ab5c493` |
 | CI Pages | Protected workflow artifact/receipt records exact source and previous deployment; retain before 14-day expiry |
 | October 27 monitoring/email | `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`: exact previous employee source/config, Worker source/settings/namespaces, candidate packages, credential recovery and delivery/configuration receipts |
+| Kedd developer credential | `%LOCALAPPDATA%/Doji/staging-admin-development/kedd-20261027`: owner/SYSTEM-only credential recovery and acceptance; revoke by disabling credential `992726fc-b214-42c6-a618-39a8650df517`, retaining audit |
 
 October 27 integration release: reviewed `fc5d4f3` passed main CI `40437463837`
 and automatic admin Pages deployment `40438805370`. Staging Worker
@@ -333,3 +334,15 @@ development-v1 inverse in that order. Hash guards reject newer drift; retain
 employee/test/audit records and review mappings before re-enabling. A UI rollback
 uses the prior Pages artifact without changing SQL, data or WorkOS. Do not reset
 staging, remove member data or revoke production identities as rollback.
+
+October 27 developer handoff: the owner approved a non-expiring, individually
+revocable credential for Kedd's staging employee directory. Only its SHA-256 digest
+is registered in staging. The local configuration loader and live directory/session
+reads passed; an unauthorized employee returned 403, and disabling the credential
+returned 401 for directory and session reads. Re-enablement restored access; audit
+attribution records Kedd and the selected employee. The value is stored in Bitwarden
+`Doji` / `admin-staging`, not Git. All four CI jobs in run `40592478425` passed before
+the User/Secrets Manager invitation was sent to `kedd@dojipro.com`. Acceptance,
+owner confirmation and read-only project assignment remain pending. Revoke both
+the registry credential and vault access to undo the handoff; no production,
+provider credentials, hosted MFA or runtime deployment changed.

@@ -74,7 +74,7 @@ inconclusive verification. They do not deploy shared/member services.
 
 | Service or tool | Purpose and status | Evidence / boundary |
 | --- | --- | --- |
-| Bitwarden Secrets Manager | Selected shared configuration vault for admin staging; owner reports the Free Doji organization and empty `admin-staging` project created | [Vault](https://vault.bitwarden.com/); owner Gavin Fahey. No secret import, developer invitations, CLI or CI integration verified. Free setup screen lists 2 users, 3 projects and 3 machine accounts; review capacity before expansion. See [vault handling](SECURITY_AND_ACCESS.md#shared-development-vault). |
+| Bitwarden Secrets Manager | Restricted admin staging developer configuration; Free `Doji` organization, `admin-staging` project contains Kedd's individual development token | [Vault](https://vault.bitwarden.com/); owner Gavin Fahey. Kedd invited as User after passing CI; acceptance/confirmation and read-only project assignment pending. Two included user seats allocated; no CLI/CI integration or machine accounts. Review capacity before expansion. See [vault handling](SECURITY_AND_ACCESS.md#shared-development-vault). |
 | GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
 | npm registry | Downloads locked JavaScript/TypeScript dependencies for local and CI builds; dependency audit metadata | Root and `web/` package/lockfiles. Not app hosting; preserve the separate lockfiles and do not upgrade automatically. |
 | Docker Hub / Amazon ECR Public | Development/CI-only downloads of official Supabase test images; Docker Hub is selected, ECR is the previous source | `scripts/database/config.mts` pins identical verified manifests. Anonymous public reads need no stored secret or new account; registry limits fail preparation, never skip tests. No member data is sent. Reverting the registry requires the same digests; do not add paid capacity automatically. |
@@ -212,9 +212,9 @@ session/admission keys and a separate application in the shared employee WorkOS
 environment `environment_01M3VE4WMDRZ1VBVS5MNVVF19J`. `doji-admin-staging` Pages holds only its
 staging proxy secret/endpoint/origin; preview authentication is disabled. Recovery
 copies are owner-restricted outside Git at `%LOCALAPPDATA%/Doji/staging-admin`.
-Bitwarden `Doji` / `admin-staging` is selected for developer secret sharing;
-Owner MFA/recovery setup is confirmed by the owner; project-access verification
-and the scoped import remain pending. Never place server
+Bitwarden `Doji` / `admin-staging` stores Kedd's individual staging developer token;
+owner MFA and free-plan capacity are verified. His invitation is sent; recipient
+acceptance, owner confirmation and read-only project access remain pending. Never place server
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
@@ -272,8 +272,10 @@ Enabled in staging only: `admin_development_v1`, the `admin-development` Edge fu
 for the local persona selector (`dev:admin:staging`). They reuse the existing Free
 Supabase staging project, not a new provider/subscription. October 25 capacity
 checks found 558/500,000 included Edge invocations and 0.041/0.5 GB database usage.
-One revocable owner token is installed in the OS-account-restricted local env file;
-Bitwarden delivery and additional developer credentials remain pending.
+The owner's token is installed in an OS-account-restricted local env file. Kedd's
+separate non-expiring credential passed live directory/session, denied-persona,
+audit and revocation checks; its value is in Bitwarden, pending the scoped membership
+handoff. No database-login, production or provider-key access is included.
 Only hashes reach SQL. The dedicated restricted database login/config belongs in
 the staging Edge secret store (`ADMIN_DEVELOPMENT_DATABASE`), not the developer
 vault. `ADMIN_DEVELOPMENT_ENABLED` defaults off in source and is enabled only in

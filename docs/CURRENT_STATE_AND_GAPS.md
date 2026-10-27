@@ -167,9 +167,13 @@ integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-par
   repetitions passed unchanged). Pages deployment `2a305892-e114-4844-8320-0f1e7aa650ea`
   retains rollback `09a9d34e-d99c-4373-a511-2ec92ea10487`. No SQL, Edge runtime,
   shared Worker, mobile, business or public-site deployment was included.
-- Handoff: Kedd's developer credential, vault delivery and messages are held.
-  Owner reports Bitwarden organization/MFA setup; scoped project access/import
-  remain unverified. Do not send invitations or share the owner's credential.
+- Handoff: Kedd's individual non-expiring, revocable staging token is issued and
+  stored in Bitwarden `Doji` / `admin-staging`. The actual local configuration
+  loader, authorized directory/session, unauthorized-persona rejection, audit
+  attribution and revoked-token rejection passed against staging. His standard-User
+  vault invitation was sent after all four PR CI jobs passed; acceptance, owner
+  confirmation and read-only project assignment remain pending. No provider keys,
+  production access or shared password collections were granted.
 
 Use [local development and promotion](LOCAL_DEVELOPMENT.md#admin-deployment-workflow)
 for commands, [security/access](SECURITY_AND_ACCESS.md#shared-development-vault)

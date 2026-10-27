@@ -100,10 +100,18 @@ Builds run without deployment credentials. See the
 
 Use Bitwarden Secrets Manager organization `Doji`, project `admin-staging`, for
 approved admin staging configuration. The signed-in organization confirms the
-owner's two-step login, free plan and one available member seat. The project is
-empty and owner-only; no invitation was sent. Keep all Kedd invitations, credentials
-and access grants held until end-to-end acceptance and explicit handoff approval.
-The vault is not yet a populated or tested developer handoff.
+owner's two-step login and free plan. Kedd's approved invitation uses the second
+included seat, the standard **User** role, Secrets Manager access and no Password
+Manager collections. His individually revocable, non-expiring development token is
+stored in the currently owner-only project; its staging access/revocation tests passed.
+
+To complete this handoff, Kedd accepts the invitation using `kedd@dojipro.com` and
+enables two-step login. Gavin verifies the recipient/fingerprint through a trusted
+channel and confirms the membership, then grants **Can read** on `admin-staging`
+only. Verify Kedd can retrieve his own token and no other secrets. Do not mark
+recipient-side setup complete before this check. No CLI or machine account is needed.
+Keep this project limited to Kedd's approved local configuration; never add another
+developer's token or server/provider credentials to a project he can read.
 
 - Import only reviewed staging values needed by the supported development path;
   do not copy the owner's entire runtime bundle or production `.env` files.
@@ -124,6 +132,8 @@ The vault is not yet a populated or tested developer handoff.
   do not rotate or remove working credentials merely to populate the vault.
 - Offboarding must revoke vault/machine access and review rotation of retrieved
   credentials; removing membership cannot recall previously downloaded values.
+  Disable the individual's staging registry credential as well, retaining its audit
+  history. Previously signed media/realtime grants retain their documented short TTL.
 
 ## Authorization and data protection
 

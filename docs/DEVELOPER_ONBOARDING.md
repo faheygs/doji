@@ -96,8 +96,10 @@ Intentional writes affect shared staging test data, not a private local database
 | Connected employee login | `npm run dev:admin:staging-login` | Port 4313; employee staging grant and normal MFA |
 | Connected impersonation | `npm run dev:admin:staging` | Port 4313; individually issued developer token, staging employee picker, no local MFA |
 
-Run only one port-4313 mode at a time. Kedd's employee mapping exists; his separate
-impersonation token/vault handoff is still held. Do not copy Gavin's credential.
+Run only one port-4313 mode at a time. Kedd's employee mapping and individual
+non-expiring, revocable impersonation token are provisioned. His Bitwarden invitation
+was sent after passing CI; acceptance, owner confirmation and read-only project
+assignment remain required before he can retrieve it. Do not copy Gavin's credential.
 See [token installation and switching users](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
 
 For an existing checkout, preserve local changes before switching to `main` and
