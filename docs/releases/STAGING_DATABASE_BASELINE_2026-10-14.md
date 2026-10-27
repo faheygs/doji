@@ -293,6 +293,40 @@ rollback. No production service, function, grant or flag changed.
 | Shared identity / v8 | `%LOCALAPPDATA%/Doji/staging-admin/shared-employee-20261016`: prior packages, SQL and fingerprints; `authorization-correction` is v8, `correction` its v7 inverse |
 | Workflow flags / manual Pages | `%LOCALAPPDATA%/Doji/staging-admin/workflows-20261016`: previous flags and exact packages; initial Pages ID `b2225370-b47b-45b2-8f53-a4d39ab5c493` |
 | CI Pages | Protected workflow artifact/receipt records exact source and previous deployment; retain before 14-day expiry |
+| October 27 monitoring/email | `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`: exact previous employee source/config, Worker source/settings/namespaces, candidate packages, credential recovery and delivery/configuration receipts |
+| Kedd developer credential | `%LOCALAPPDATA%/Doji/staging-admin-development/kedd-20261027`: owner/SYSTEM-only credential recovery and acceptance; revoke by disabling credential `992726fc-b214-42c6-a618-39a8650df517`, retaining audit |
+
+October 27 integration release: reviewed `fc5d4f3` passed main CI `40437463837`
+and automatic admin Pages deployment `40438805370`. Staging Worker
+`02de84b9-c1be-4b18-afd5-d0f1039d7e01` matches the tested bundle and preserves
+all five namespaces, existing bindings and empty cron schedule. Only isolated
+Sentry capture bindings were added. Employee Edge source v13 and guarded
+`send-admin-email` source v1 were deployed; secret updates can increment the
+provider's displayed function version without changing source. The exact employee
+artifact passed 26 synthetic authentication/monitoring tests.
+
+Sentry project `4512328707342336` (`doji-staging`) ingested one synthetic event;
+the owner-approved `event:read` integration retrieved it with the staging filter.
+No default Sentry email alerts or plan changes were enabled. The domain-restricted,
+sending-only Resend key delivered one labelled email through the deployed handler
+at 14:45 UTC; provider receipt `01a17dd2-fb66-7bb6-a1bf-cd9ce050d2cb` shows
+Delivered. Logo, staging branding and staging admin button were inspected.
+`STAGING_EMAIL_ENABLED=false` was restored and verified by its provider digest;
+anonymous sender access returns 401. Signed-in Platform Health displayed the single
+`[STAGING TEST] Monitoring connection check` issue from `doji-staging`, fresh
+database observations, connected staff realtime and the yellow stage banner.
+The already-open tab first failed to load an old `c434440` lazy-loaded asset;
+the explicit Reload workspace action loaded the current release and restored the
+session without another login. Long-lived tabs can require this reload after deployment.
+No production, push, database schema, recurring job or developer access changes.
+
+Integration rollback: keep email disabled and retain its database receipt; restore
+the captured employee runtime plus `employee-config-rollback.env`. Disable
+`STAGING_SENTRY_ENABLED`, then restore Worker `63b0feeb-faff-4a6c-a608-0d76867889b3`
+with its captured bindings/namespaces. The new capture key may remain stored but
+unused; do not copy it to the production DSN binding. Remove/revoke newly provisioned
+credentials only after the corresponding runtime is disconnected. Never retry an
+uncertain email automatically or delete its claim to force another delivery.
 
 Disable staging gates/logins before identity rollback. Restore runtime/config,
 then apply the shared-identity retaining inverse, directory-v2 inverse and
@@ -300,3 +334,15 @@ development-v1 inverse in that order. Hash guards reject newer drift; retain
 employee/test/audit records and review mappings before re-enabling. A UI rollback
 uses the prior Pages artifact without changing SQL, data or WorkOS. Do not reset
 staging, remove member data or revoke production identities as rollback.
+
+October 27 developer handoff: the owner approved a non-expiring, individually
+revocable credential for Kedd's staging employee directory. Only its SHA-256 digest
+is registered in staging. The local configuration loader and live directory/session
+reads passed; an unauthorized employee returned 403, and disabling the credential
+returned 401 for directory and session reads. Re-enablement restored access; audit
+attribution records Kedd and the selected employee. The value is stored in Bitwarden
+`Doji` / `admin-staging`, not Git. All four CI jobs in run `40592478425` passed before
+the User/Secrets Manager invitation was sent to `kedd@dojipro.com`. Acceptance,
+owner confirmation and read-only project assignment remain pending. Revoke both
+the registry credential and vault access to undo the handoff; no production,
+provider credentials, hosted MFA or runtime deployment changed.

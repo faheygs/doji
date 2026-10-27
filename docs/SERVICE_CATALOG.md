@@ -26,7 +26,7 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Supabase staging | Isolated development database and Storage; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
-| Staging Worker and Edge | Enabled isolated lifecycle/relay; real email/push and recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps seven unchanged handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
+| Staging Worker and Edge | Enabled lifecycle/relay/error capture; one approved email tested, sending/push/recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps eight handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | Account `ci6PMw`: existing `Doji` app `BBDaog`; isolated [Doji Staging](https://ably.com/accounts/ci6PMw/apps/eVKl2g) app `eVKl2g`. Same Standard subscription, owner-approved metered usage; no second subscription. Staging relay, hosted cross-tab reconciliation and local developer channel attachment passed | `lib/realtimeClient.ts`, `realtime-token`, relay and employee/development resource signers. Staging server key: staging Supabase `ABLY_API_KEY`, owner-restricted recovery configuration; never client bundles or Git |
 | WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); employee staging/production share a directory with separate applications; business identities remain independent | `infra/portal-identity/`, owned-auth/onboarding records |
@@ -74,7 +74,7 @@ inconclusive verification. They do not deploy shared/member services.
 
 | Service or tool | Purpose and status | Evidence / boundary |
 | --- | --- | --- |
-| Bitwarden Secrets Manager | Selected shared configuration vault for admin staging; owner reports the Free Doji organization and empty `admin-staging` project created | [Vault](https://vault.bitwarden.com/); owner Gavin Fahey. No secret import, developer invitations, CLI or CI integration verified. Free setup screen lists 2 users, 3 projects and 3 machine accounts; review capacity before expansion. See [vault handling](SECURITY_AND_ACCESS.md#shared-development-vault). |
+| Bitwarden Secrets Manager | Restricted admin staging developer configuration; Free `Doji` organization, `admin-staging` project contains Kedd's individual development token | [Vault](https://vault.bitwarden.com/); owner Gavin Fahey. Kedd invited as User after passing CI; acceptance/confirmation and read-only project assignment pending. Two included user seats allocated; no CLI/CI integration or machine accounts. Review capacity before expansion. See [vault handling](SECURITY_AND_ACCESS.md#shared-development-vault). |
 | GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
 | npm registry | Downloads locked JavaScript/TypeScript dependencies for local and CI builds; dependency audit metadata | Root and `web/` package/lockfiles. Not app hosting; preserve the separate lockfiles and do not upgrade automatically. |
 | Docker Hub / Amazon ECR Public | Development/CI-only downloads of official Supabase test images; Docker Hub is selected, ECR is the previous source | `scripts/database/config.mts` pins identical verified manifests. Anonymous public reads need no stored secret or new account; registry limits fail preparation, never skip tests. No member data is sent. Reverting the registry requires the same digests; do not add paid capacity automatically. |
@@ -212,17 +212,17 @@ session/admission keys and a separate application in the shared employee WorkOS
 environment `environment_01M3VE4WMDRZ1VBVS5MNVVF19J`. `doji-admin-staging` Pages holds only its
 staging proxy secret/endpoint/origin; preview authentication is disabled. Recovery
 copies are owner-restricted outside Git at `%LOCALAPPDATA%/Doji/staging-admin`.
-Bitwarden `Doji` / `admin-staging` is selected for developer secret sharing;
-Owner MFA/recovery setup is confirmed by the owner; project-access verification
-and the scoped import remain pending. Never place server
+Bitwarden `Doji` / `admin-staging` stores Kedd's individual staging developer token;
+owner MFA and free-plan capacity are verified. His invitation is sent; recipient
+acceptance, owner confirmation and read-only project access remain pending. Never place server
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
 Member signup/email, business, real push and recurring jobs remain disabled.
-The separate staging Worker and seven guarded Edge functions are enabled with
+The separate staging Worker and seven core guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
-Prepared source adds `send-admin-email` as an eighth guarded handler, not a live
-deployment. Its report/health mail uses `DOJI_ENVIRONMENT=staging`,
+`send-admin-email` is deployed/configured as an eighth guarded handler. One approved
+test email was delivered October 27; its sending gate was then disabled. Its report/health mail uses `DOJI_ENVIRONMENT=staging`,
 `STAGING_EMAIL_ENABLED=true`, separate `STAGING_RESEND_API_KEY`, explicit
 `ADMIN_ALERT_EMAIL`, `ADMIN_FROM_EMAIL` (`Doji Staging <verified-sender>`) and
 `STAGING_EMAIL_RECIPIENTS` (JSON array of 1–5 exact approved mailboxes).
@@ -231,7 +231,7 @@ files. The outbound guard permits one allowlisted recipient per message, no
 CC/BCC/attachments, a staging idempotency key, labelled subject and staging portal
 links. This does not enable other email families or copy production mail credentials.
 
-Prepared monitoring: hosted employee `EMPLOYEE_V2_CONFIG.monitoring.environment`
+Connected monitoring: hosted employee `EMPLOYEE_V2_CONFIG.monitoring.environment`
 must explicitly be `staging`; production defaults stay `production`. Its bounded
 read token/project configuration stays server-side. Worker capture requires the
 separate `STAGING_SENTRY_ENABLED=true` and `STAGING_SENTRY_DSN` bindings and labels
@@ -239,8 +239,19 @@ events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected ther
 Provider/project selection, capacity and approved recipients must be verified before
 deployment or sending. Cron remains empty. Rollback disables these staging gates,
 restores the retained exact runtime packages/config and preserves delivery receipts.
-No new subscription, credential provisioning or actual delivery is established by
-these source changes. Sentry environment filtering is logical, not physical isolation.
+October 27 deployed/configured isolated Sentry project `doji-staging`
+(`4512328707342336`) and `Doji Staging Health Read` (`event:read` only), without
+default alert emails. A synthetic event was ingested, read and displayed in the
+signed-in staging portal. Resend key `Doji admin staging` is sending-only for
+`mail.dojipro.com`; one labelled email reached the owner and sending is off again.
+Credentials stay in staging Edge/Worker stores and owner/SYSTEM-only recovery
+under `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`, never developer env files.
+Supabase showed 929/500,000 Edge calls and 8% database quota before release;
+Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
+its existing paid allowance. Sentry's Business trial has one day remaining before
+reverting to Developer; no plan change was made. Its integration token has
+owner-approved organization-wide issue-read permission; staging
+project/environment filtering is logical, not a provider-level permission boundary.
 Fresh orchestration/relay secrets live only in that Worker's secret store, staging
 Edge, and staging Vault; no production credential was copied. Owner/SYSTEM-only
 recovery is `%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`. On October 25, staging
@@ -261,8 +272,10 @@ Enabled in staging only: `admin_development_v1`, the `admin-development` Edge fu
 for the local persona selector (`dev:admin:staging`). They reuse the existing Free
 Supabase staging project, not a new provider/subscription. October 25 capacity
 checks found 558/500,000 included Edge invocations and 0.041/0.5 GB database usage.
-One revocable owner token is installed in the OS-account-restricted local env file;
-Bitwarden delivery and additional developer credentials remain pending.
+The owner's token is installed in an OS-account-restricted local env file. Kedd's
+separate non-expiring credential passed live directory/session, denied-persona,
+audit and revocation checks; its value is in Bitwarden, pending the scoped membership
+handoff. No database-login, production or provider-key access is included.
 Only hashes reach SQL. The dedicated restricted database login/config belongs in
 the staging Edge secret store (`ADMIN_DEVELOPMENT_DATABASE`), not the developer
 vault. `ADMIN_DEVELOPMENT_ENABLED` defaults off in source and is enabled only in

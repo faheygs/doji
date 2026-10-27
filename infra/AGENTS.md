@@ -33,7 +33,7 @@ Supabase `ohrcupagdoilkwhecict` and its separate WorkOS application/client in th
 shared employee directory. Pin both the shared issuer and staging client/audience;
 employee credentials are shared, database grants and sessions are not. The proxy/runtime
 reject mixed staging/production connections. Staging staff realtime is connected;
-monitoring remains gated. See current state for incomplete workflow acceptance.
+monitoring is configured with a separate staging project. See current state for incomplete workflow acceptance.
 `employee-staging-pages-worker.mts` is the staging-only package entry; it rejects
 production bindings and alternate hosts before forwarding. Do not replace the
 production entry with it. Business/mobile/site staging are outside the current scope.
@@ -48,9 +48,10 @@ the same implementations while rejecting mixed database/origin bindings. Preserv
 all five staging namespaces separately. Execution is enabled with isolated Ably;
 cron remains empty. `scripts/build-staging-edge.mts` wraps the shared handlers
 with a staging-only fetch destination guard; do not deploy raw handlers over it.
-Prepared admin report/health email requires an explicit staging key, sender and
-recipient allowlist; the deployed seven-handler baseline still blocks delivery.
-Prepared monitoring requires an explicit staging environment and separate Worker
+The eighth guarded handler, admin report/health email, has a staging-only key,
+sender and exact recipient allowlist. One approved test was delivered; sending is
+disabled again. Do not infer ongoing sending permission from retained credentials.
+Deployed monitoring support requires an explicit staging environment and separate Worker
 capture binding. See the service catalog for gates; real email/push and full
 workflow parity remain unqualified.
 

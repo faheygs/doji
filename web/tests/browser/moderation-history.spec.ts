@@ -25,8 +25,13 @@ test('history pages locally, keeps evidence access separate, and preserves an un
   });
   await expect(table.getByText('History note 49', { exact: true })).toBeVisible();
   await expect(page.getByText('3 recorded evidence views')).toBeVisible();
+  // Visible rows precede the end of MUI's expanding accordion transition.
+  await expect(page.locator('.MuiCollapse-root').filter({ has: table })).toHaveClass(
+    /MuiCollapse-entered/,
+  );
   const reads = f.reads.length;
   await page.getByRole('button', { name: 'Go to next page', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '11–20 of 50' })).toBeVisible();
   await expect(table.getByText('History note 39', { exact: true })).toBeVisible();
   expect(f.reads.length).toBe(reads);
   await page.getByRole('combobox', { name: 'Action', exact: true }).click();
