@@ -293,6 +293,39 @@ rollback. No production service, function, grant or flag changed.
 | Shared identity / v8 | `%LOCALAPPDATA%/Doji/staging-admin/shared-employee-20261016`: prior packages, SQL and fingerprints; `authorization-correction` is v8, `correction` its v7 inverse |
 | Workflow flags / manual Pages | `%LOCALAPPDATA%/Doji/staging-admin/workflows-20261016`: previous flags and exact packages; initial Pages ID `b2225370-b47b-45b2-8f53-a4d39ab5c493` |
 | CI Pages | Protected workflow artifact/receipt records exact source and previous deployment; retain before 14-day expiry |
+| October 27 monitoring/email | `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`: exact previous employee source/config, Worker source/settings/namespaces, candidate packages, credential recovery and delivery/configuration receipts |
+
+October 27 integration release: reviewed `fc5d4f3` passed main CI `40437463837`
+and automatic admin Pages deployment `40438805370`. Staging Worker
+`02de84b9-c1be-4b18-afd5-d0f1039d7e01` matches the tested bundle and preserves
+all five namespaces, existing bindings and empty cron schedule. Only isolated
+Sentry capture bindings were added. Employee Edge source v13 and guarded
+`send-admin-email` source v1 were deployed; secret updates can increment the
+provider's displayed function version without changing source. The exact employee
+artifact passed 26 synthetic authentication/monitoring tests.
+
+Sentry project `4512328707342336` (`doji-staging`) ingested one synthetic event;
+the owner-approved `event:read` integration retrieved it with the staging filter.
+No default Sentry email alerts or plan changes were enabled. The domain-restricted,
+sending-only Resend key delivered one labelled email through the deployed handler
+at 14:45 UTC; provider receipt `01a17dd2-fb66-7bb6-a1bf-cd9ce050d2cb` shows
+Delivered. Logo, staging branding and staging admin button were inspected.
+`STAGING_EMAIL_ENABLED=false` was restored and verified by its provider digest;
+anonymous sender access returns 401. Signed-in Platform Health displayed the single
+`[STAGING TEST] Monitoring connection check` issue from `doji-staging`, fresh
+database observations, connected staff realtime and the yellow stage banner.
+The already-open tab first failed to load an old `c434440` lazy-loaded asset;
+the explicit Reload workspace action loaded the current release and restored the
+session without another login. Long-lived tabs can require this reload after deployment.
+No production, push, database schema, recurring job or developer access changes.
+
+Integration rollback: keep email disabled and retain its database receipt; restore
+the captured employee runtime plus `employee-config-rollback.env`. Disable
+`STAGING_SENTRY_ENABLED`, then restore Worker `63b0feeb-faff-4a6c-a608-0d76867889b3`
+with its captured bindings/namespaces. The new capture key may remain stored but
+unused; do not copy it to the production DSN binding. Remove/revoke newly provisioned
+credentials only after the corresponding runtime is disconnected. Never retry an
+uncertain email automatically or delete its claim to force another delivery.
 
 Disable staging gates/logins before identity rollback. Restore runtime/config,
 then apply the shared-identity retaining inverse, directory-v2 inverse and

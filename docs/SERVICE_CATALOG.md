@@ -26,7 +26,7 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Supabase staging | Isolated development database and Storage; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
-| Staging Worker and Edge | Enabled isolated lifecycle/relay; real email/push and recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps seven unchanged handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
+| Staging Worker and Edge | Enabled lifecycle/relay/error capture; one approved email tested, sending/push/recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps eight handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | Account `ci6PMw`: existing `Doji` app `BBDaog`; isolated [Doji Staging](https://ably.com/accounts/ci6PMw/apps/eVKl2g) app `eVKl2g`. Same Standard subscription, owner-approved metered usage; no second subscription. Staging relay, hosted cross-tab reconciliation and local developer channel attachment passed | `lib/realtimeClient.ts`, `realtime-token`, relay and employee/development resource signers. Staging server key: staging Supabase `ABLY_API_KEY`, owner-restricted recovery configuration; never client bundles or Git |
 | WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); employee staging/production share a directory with separate applications; business identities remain independent | `infra/portal-identity/`, owned-auth/onboarding records |
@@ -219,10 +219,10 @@ secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
 Member signup/email, business, real push and recurring jobs remain disabled.
-The separate staging Worker and seven guarded Edge functions are enabled with
+The separate staging Worker and seven core guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
-Prepared source adds `send-admin-email` as an eighth guarded handler, not a live
-deployment. Its report/health mail uses `DOJI_ENVIRONMENT=staging`,
+`send-admin-email` is deployed/configured as an eighth guarded handler. One approved
+test email was delivered October 27; its sending gate was then disabled. Its report/health mail uses `DOJI_ENVIRONMENT=staging`,
 `STAGING_EMAIL_ENABLED=true`, separate `STAGING_RESEND_API_KEY`, explicit
 `ADMIN_ALERT_EMAIL`, `ADMIN_FROM_EMAIL` (`Doji Staging <verified-sender>`) and
 `STAGING_EMAIL_RECIPIENTS` (JSON array of 1–5 exact approved mailboxes).
@@ -231,7 +231,7 @@ files. The outbound guard permits one allowlisted recipient per message, no
 CC/BCC/attachments, a staging idempotency key, labelled subject and staging portal
 links. This does not enable other email families or copy production mail credentials.
 
-Prepared monitoring: hosted employee `EMPLOYEE_V2_CONFIG.monitoring.environment`
+Connected monitoring: hosted employee `EMPLOYEE_V2_CONFIG.monitoring.environment`
 must explicitly be `staging`; production defaults stay `production`. Its bounded
 read token/project configuration stays server-side. Worker capture requires the
 separate `STAGING_SENTRY_ENABLED=true` and `STAGING_SENTRY_DSN` bindings and labels
@@ -239,8 +239,19 @@ events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected ther
 Provider/project selection, capacity and approved recipients must be verified before
 deployment or sending. Cron remains empty. Rollback disables these staging gates,
 restores the retained exact runtime packages/config and preserves delivery receipts.
-No new subscription, credential provisioning or actual delivery is established by
-these source changes. Sentry environment filtering is logical, not physical isolation.
+October 27 deployed/configured isolated Sentry project `doji-staging`
+(`4512328707342336`) and `Doji Staging Health Read` (`event:read` only), without
+default alert emails. A synthetic event was ingested, read and displayed in the
+signed-in staging portal. Resend key `Doji admin staging` is sending-only for
+`mail.dojipro.com`; one labelled email reached the owner and sending is off again.
+Credentials stay in staging Edge/Worker stores and owner/SYSTEM-only recovery
+under `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`, never developer env files.
+Supabase showed 929/500,000 Edge calls and 8% database quota before release;
+Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
+its existing paid allowance. Sentry's Business trial has one day remaining before
+reverting to Developer; no plan change was made. Its integration token has
+owner-approved organization-wide issue-read permission; staging
+project/environment filtering is logical, not a provider-level permission boundary.
 Fresh orchestration/relay secrets live only in that Worker's secret store, staging
 Edge, and staging Vault; no production credential was copied. Owner/SYSTEM-only
 recovery is `%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`. On October 25, staging

@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated October 26, 2026. This separates source, recorded deployments and owner
+Updated October 27, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -140,11 +140,21 @@ integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-par
   two-tab sessions, realtime, protected synthetic media and integrated history passed.
   Real email/push, recurring health/recovery jobs and member signup remain off.
   Business/site/mobile staging are deferred. See the [backend receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation).
-- Prepared, not deployed: explicit staging Sentry reads/Worker event labels and
-  restricted admin report/health test email. Email requires a separate staging key,
-  labelled sender and exact approved-recipient list; ambiguous operational sends
-  retain their staging receipt. No provider credentials, delivery gates, cron or
-  production settings were changed. Member/business/provider-owned mail, local
+- Staging monitoring/email deployed October 27; monitoring connected, email test delivered.
+  PR #27 merged as `fc5d4f3`; main CI `40437463837` and automatic admin staging
+  deployment `40438805370` passed. Worker `02de84b9-c1be-4b18-afd5-d0f1039d7e01`
+  matches its tested bundle and preserves every binding/five namespaces; rollback
+  is `63b0feeb-faff-4a6c-a608-0d76867889b3`. Employee Edge v13 and the eighth
+  guarded handler, `send-admin-email` v1, are active. Exact employee artifacts passed
+  26 synthetic authentication/monitoring checks. Isolated Sentry project `doji-staging`
+  (`4512328707342336`) accepted one synthetic event; an approved `event:read` token
+  retrieved it with the staging filter. Signed-in Platform Health displayed that
+  staging-only issue, fresh database observations and connected staff realtime.
+  One branded, clearly labelled test email to the owner's approved mailbox was
+  delivered through the guarded handler; sending was then disabled and its gate
+  digest verified. Its key is domain-restricted and sending-only; ambiguous operational
+  sends retain their staging receipt. Cron, production and push remain unchanged.
+  Member/business/provider-owned mail, local
   impersonation monitoring and coordinated backend/schema promotion remain gaps.
 - Release pipeline: PR #15 merged as `e347f4f`; all four exact-head and main
   quality jobs passed. Run `38947921226` automatically deployed Pages

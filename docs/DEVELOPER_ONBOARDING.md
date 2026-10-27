@@ -70,6 +70,56 @@ The developer verifies their destination inbox. WorkOS is identity infrastructur
 not an email inbox. Developer email and intended portal permissions are still
 owner choices; never infer them from a repository collaborator's name.
 
+## Admin staging quick start
+
+Use the existing admin app, not a separate staging copy of its source. The staging
+database, storage, Worker/queues and Ably app are separate from production; employee
+password/MFA identity is shared, but environment access and sessions are separate.
+
+From a clean checkout of `faheygs/doji` on reviewed `main` (Node 24):
+
+```sh
+npm ci
+npm ci --prefix infra/portal-identity
+npm ci --prefix infra/doji-orchestrator
+npm ci --prefix web
+npm run dev:admin:staging-login
+```
+
+Open `http://127.0.0.1:4313`, sign in with your employee account/MFA, and confirm
+the yellow **DOJI STAGE** banner. No production `.env` or provider keys are needed.
+Intentional writes affect shared staging test data, not a private local database.
+
+| Mode | Command | Access / data |
+| --- | --- | --- |
+| Offline UI preview | `npm run dev:admin` | Port 4310; synthetic browser fixtures, no shared DB |
+| Connected employee login | `npm run dev:admin:staging-login` | Port 4313; employee staging grant and normal MFA |
+| Connected impersonation | `npm run dev:admin:staging` | Port 4313; individually issued developer token, staging employee picker, no local MFA |
+
+Run only one port-4313 mode at a time. Kedd's employee mapping exists; his separate
+impersonation token/vault handoff is still held. Do not copy Gavin's credential.
+See [token installation and switching users](LOCAL_DEVELOPMENT.md#local-developer-impersonation).
+
+For an existing checkout, preserve local changes before switching to `main` and
+running `git pull --ff-only`. If using a fork, sync its `main` from `faheygs/doji`
+first; submit PRs to **`faheygs/doji:main`**, not only to the fork. Work on a feature
+branch. Run the relevant [checks](TEST_SUITE_HANDOFF.md#required-checks-before-merging),
+then merge only after all four required CI jobs pass.
+
+An admin-affecting merge automatically deploys **Admin staging** after main CI.
+Test [the hosted portal](https://admin-staging.dojipro.com), retain that successful
+deployment run ID, then use **Admin production → Run workflow → main** with that
+ID; Gavin approves production. This promotes the tested frontend package, not
+database migrations, Edge functions or the shared Worker. Those need separate
+reviewed staging qualification and release. See the
+[deployment and rollback procedure](LOCAL_DEVELOPMENT.md#admin-deployment-workflow).
+
+Hosted Sentry monitoring and one restricted email-delivery test are verified.
+Ongoing sending, real push and recurring jobs are off; local impersonation
+monitoring and broader parity gaps remain explicit in
+[current state](CURRENT_STATE_AND_GAPS.md). Do not enable missing services or use
+production credentials to work around a limitation.
+
 ## First change
 
 1. Agree on a small reversible issue. Prefer a unit-tested helper or portal

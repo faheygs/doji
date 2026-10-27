@@ -212,8 +212,9 @@ approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guid
 
 The current setup scope is the admin portal and its employee backend. Business,
 public-site and mobile staging are deferred, not prerequisites for admin readiness.
-The separate staging backend has its own Worker/five objects and seven guarded
-Edge functions. One-shot activation/close, voting/retry and Ably relay have passed
+The separate staging backend has its own Worker/five objects and eight guarded
+Edge functions, including the configured but disabled admin email sender.
+One-shot activation/close, voting/retry and Ably relay have passed
 hosted synthetic acceptance; recurring jobs and real email/push remain off.
 Never enable production scheduling, push or
 member signup to fill a staging gap. See the [backend receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation).
@@ -244,8 +245,9 @@ HTTP is for a trusted developer machine only: never expose this server through a
 tunnel, LAN binding or shared/untrusted host. A local process can inspect its own
 memory/traffic. Sign out before stopping; restart discards jars but does not revoke
 unexpired remote sessions. Unexpected/uncertain writes are not retried automatically.
-This login mode uses hosted staff realtime and the staging database health reads;
-Sentry and automatic health collection remain disconnected.
+This login mode uses hosted staff realtime and staging database health reads.
+Hosted Sentry is configured for the isolated staging project; its signed-in UI
+acceptance passed. Automatic health collection remains disabled.
 The separate impersonation mode below also supports scoped staging resources. No polling is added.
 
 `npm run test:admin-staging:browser --prefix web` verifies the actual browser and
@@ -280,8 +282,8 @@ checks; staging deploy/rollback access and scoped backend secret handoff; and ho
 broader end-to-end permission/provider acceptance. Login, idea review/history/audit,
 report assignment and business assignment are verified. Hosted staff realtime and
 two-tab restoration/queue reconciliation passed. Platform health reads staging
-database metrics, but Sentry, recurring collection and archived delivery summaries
-are not qualified. A package build
+database metrics and isolated Sentry issues. Recurring collection and archived
+delivery summaries remain unqualified. A package build
 does not establish these checks, and staff onboarding is not their substitute.
 
 The exact baseline, verification, known test differences and recovery artifact are
@@ -298,8 +300,9 @@ configured in both environments. PR #15 is merged and activation is enabled.
 The first automatic staging release passed on October 16 (run `38947921226`,
 source `e347f4f`). Owner-approved production promotion passed October 24 (run
 `40134309699`); see current state for the exact artifact and rollback. Every new
-production promotion remains approval-gated. The newer manually deployed staging
-acceptance package must first pass the PR/main pipeline before promotion.
+production promotion remains approval-gated. Current frontend code has passed the
+PR/main pipeline; use the successful staging run identified in current state,
+not a manually packaged backend artifact or an older Quality gates run.
 
 Release flow:
 
@@ -481,6 +484,7 @@ activate an actual daily event to make a test pass.
 | Mobile backend unreachable | Loopback/device networking and whether the isolated backend actually exists |
 | Test references missing SQL/absolute path | Retained fixture dependency; use the documented fixture handoff, not production |
 | UI differs from the live site | Compare exact artifact flags and release record; source prototype is a separate surface |
+| Workspace cannot open after a deployment | An old tab may reference a removed lazy-loaded asset. Use Reload workspace once to load the current release; the verified staging session restores without another login. If it persists, inspect the failing asset/request rather than changing credentials. |
 
 Do not run the root `npm run format` over the owner's dirty worktree. Format only
 files you changed, preserve unrelated work and report setup limitations honestly.
