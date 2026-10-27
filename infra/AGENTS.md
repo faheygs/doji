@@ -46,9 +46,13 @@ Runtime secrets stay hosted; deployment-token setup and activation are separate.
 Wrangler environment inherited from production. Its `src/staging.ts` entry reuses
 the same implementations while rejecting mixed database/origin bindings. Preserve
 all five staging namespaces separately. Execution is enabled with isolated Ably;
-cron remains empty. `scripts/build-staging-edge.mts` wraps the seven unchanged
-handlers with a staging-only fetch destination guard; do not deploy raw handlers
-over that guard. Real email/push and full workflow parity remain unqualified.
+cron remains empty. `scripts/build-staging-edge.mts` wraps the shared handlers
+with a staging-only fetch destination guard; do not deploy raw handlers over it.
+Prepared admin report/health email requires an explicit staging key, sender and
+recipient allowlist; the deployed seven-handler baseline still blocks delivery.
+Prepared monitoring requires an explicit staging environment and separate Worker
+capture binding. See the service catalog for gates; real email/push and full
+workflow parity remain unqualified.
 
 `admin-development.mts` is a separate, deployed staging-only gateway for local
 developer personas. It uses a restricted private SQL login and revocable developer

@@ -22,7 +22,7 @@ test('staging packages unchanged named handlers behind fail-closed egress, with 
     const config = await readFile(join(output, 'supabase/config.toml'), 'utf8');
     const manifest = JSON.parse(await readFile(join(output, 'manifest.json'), 'utf8'));
     assert.equal(manifest.projectRef, 'ohrcupagdoilkwhecict');
-    assert.equal(manifest.realDelivery, 'denied');
+    assert.equal(manifest.realDelivery, 'denied-unless-approved-admin-test-email');
     for (const name of stagingFunctions) {
       assert.ok(config.includes(`[functions.${name}]\nverify_jwt = false`));
       const source = await readFile(resolve('supabase/functions', name, 'index.ts'), 'utf8');

@@ -7,6 +7,7 @@ interface Patch {
   unconfigured?: boolean;
   projectSlugs?: string[];
   response?: () => Response;
+  environment?: 'production' | 'staging';
 }
 function fixture(patch: Patch = {}) {
   let time = 100000,
@@ -31,6 +32,7 @@ function fixture(patch: Patch = {}) {
           organization: 'doji-test',
           projectIds: ['123'],
           projectSlugs: patch.projectSlugs || [],
+          environment: patch.environment,
         },
     {
       now: () => time,
@@ -131,4 +133,14 @@ test('unexpected provider fields and external links are not forwarded', async ()
   assert.equal(issue.password, undefined);
   assert.equal(issue.permalink, null);
   assert.equal(issue.event_count, null);
+});
+
+test('staging reads only staging issues and does not label them production', async () => {
+  const f = fixture({ environment: 'staging', response: () => Response.json([{ id: '1' }]) });
+  const result = await f.read();
+  const request = present(f.calls.find((c) => typeof c === 'object'));
+  assert.equal(new URL(request.url).searchParams.get('environment'), 'staging');
+  assert.equal(testRecord(testList(result.sentry.issues)[0]).title, 'Unhandled staging issue');
+  for (const environment of ['', '*', 'production&environment=staging', null])
+    assert.throws(() => Reflect.apply(fixture, undefined, [{ environment }]));
 });

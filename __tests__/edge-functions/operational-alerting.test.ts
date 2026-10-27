@@ -28,7 +28,7 @@ describe('operational alerting contract', () => {
     const migration = read(
       'supabase/migrations/20260925223000_classify_realtime_delivery_stage.sql',
     );
-    const email = read('supabase/functions/send-admin-email/index.ts');
+    const email = read('supabase/functions/send-admin-email/operational-content.ts');
     expect(migration).toContain('realtime_publish_attempts');
     expect(migration).toContain('event.realtime_publish_attempts, event.attempts');
     expect(migration).toContain("'realtime_retried_samples_5m'");

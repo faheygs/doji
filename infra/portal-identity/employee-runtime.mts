@@ -78,11 +78,13 @@ export function createEmployeeRuntime(
           (policy.clientId === employeeSharedStagingClient &&
             policy.issuerClientId === employeeSharedIssuerClient)
         ) ||
-        !!policy.monitoring
+        (policy.monitoring !== undefined && policy.monitoring.environment !== 'staging')
       : policy.database.projectRef === employeeStagingProject ||
         policy.clientId === employeeStagingClient ||
         policy.clientId === employeeSharedStagingClient ||
-        policy.issuerClientId !== undefined) ||
+        policy.issuerClientId !== undefined ||
+        (policy.monitoring?.environment !== undefined &&
+          policy.monitoring.environment !== 'production')) ||
     !/^client_[A-Za-z0-9]+$/.test(policy.clientId || '')
   )
     throw Error('Employee runtime configuration unavailable');

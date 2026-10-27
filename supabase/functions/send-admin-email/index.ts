@@ -3,11 +3,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { assertCronAuthorized } from '../_shared/cron-auth.ts';
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
 import { readJsonBody } from '../_shared/json-body.ts';
+import { stagingEmailPolicy } from '../_shared/staging-egress.ts';
+import { operationalFacts, operationalGuidance } from './operational-content.ts';
 import {
   formatEmailTimestamp,
   humanizeEmailToken,
   renderDojiEmail,
-  type DojiEmailFact,
   type DojiEmailTone,
 } from '../_shared/doji-email.ts';
 
@@ -23,7 +24,11 @@ const supabase = createClient(
 const ADMIN_EMAIL = Deno.env.get('ADMIN_ALERT_EMAIL') ?? 'faheygs@gmail.com';
 const FROM_EMAIL = Deno.env.get('ADMIN_FROM_EMAIL') ?? 'Doji <noreply@doji.app>';
 
-const ADMIN_PORTAL_URL = 'https://admin.dojipro.com/';
+const STAGING = Deno.env.get('SUPABASE_URL') === 'https://ohrcupagdoilkwhecict.supabase.co';
+const ENVIRONMENT = STAGING ? 'staging' : 'production';
+const ADMIN_PORTAL_URL = STAGING
+  ? 'https://admin-staging.dojipro.com/'
+  : 'https://admin.dojipro.com/';
 
 const REPORT_CATEGORY_LABELS: Record<string, string> = {
   bullying_harassment: 'Bullying or unwanted contact',
@@ -80,109 +85,6 @@ function reportPriority(category: string, detail: string): string {
   return 'Standard · 24-hour target';
 }
 
-function formatMetric(value: unknown, suffix = ''): string | null {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  return `${new Intl.NumberFormat('en-US').format(number)}${suffix}`;
-}
-
-function operationalFacts(payload: Record<string, unknown>): DojiEmailFact[] {
-  const definitions: Array<[string, string, string]> = [
-    ['realtime_p95_ms_5m', 'Realtime p95 (5m)', ' ms'],
-    ['realtime_max_ms_5m', 'Realtime max (5m)', ' ms'],
-    ['realtime_sample_count_5m', 'Realtime samples (5m)', ''],
-    ['realtime_over_5s_5m', 'Events over 5s (5m)', ''],
-    ['realtime_retried_samples_5m', 'Realtime publish retries (5m)', ''],
-    ['realtime_max_publish_attempts_5m', 'Max realtime publish attempts (5m)', ''],
-    ['outbox_overdue', 'Overdue outbox rows', ''],
-    ['outbox_exhausted', 'Exhausted outbox rows', ''],
-    ['outbox_oldest_due_seconds', 'Oldest overdue work', ' sec'],
-    ['push_stale_shards', 'Stale push shards', ''],
-    ['push_exhausted_shards', 'Exhausted push shards', ''],
-    ['apns_provider_credential_errors', 'APNs credential errors', ''],
-    ['consecutive_unhealthy_checks', 'Consecutive unhealthy checks', ''],
-    ['attempts', 'Health-read attempts', ''],
-    ['upstream_status', 'Upstream HTTP status', ''],
-  ];
-  const facts: DojiEmailFact[] = [];
-  for (const [key, label, suffix] of definitions) {
-    if (payload[key] === null || payload[key] === undefined) continue;
-    const value = formatMetric(payload[key], suffix);
-    if (value !== null) facts.push({ label, value });
-  }
-  for (const [key, label] of [
-    ['suspected_layer', 'Suspected layer'],
-    ['failure_kind', 'Failure class'],
-    ['durable_event_state', 'Durable event state'],
-  ] as const) {
-    const value = boundedString(payload[key], 120);
-    if (value) facts.push({ label, value: humanizeEmailToken(value) });
-  }
-  if (typeof payload.database_writes_at_risk === 'boolean') {
-    facts.push({
-      label: 'Committed writes at risk',
-      value: payload.database_writes_at_risk ? 'Yes' : 'No',
-    });
-  }
-  return facts;
-}
-
-function operationalGuidance(
-  issueFamily: string,
-  payload: Record<string, unknown>,
-): { meaning: string; steps: string[] } {
-  if (issueFamily === 'realtime-delivery-degraded') {
-    const suspectedLayer = String(payload.suspected_layer ?? '');
-    const relayPickupDelayed = suspectedLayer === 'relay-wake-or-supabase-edge' ||
-      suspectedLayer === 'relay-or-publication-path';
-    return {
-      meaning:
-        'Committed data is still authoritative in Postgres, but live updates are arriving slower than the delivery objective.',
-      steps: relayPickupDelayed
-        ? [
-            'Open Platform operations and compare realtime latency with durable outbox health.',
-            'Review orchestrator relay timing, database waits/timeouts, and Supabase Edge Function availability for the same observation window.',
-            'Compare wake, claim, provider publication, and database acknowledgement timing; a first attempt does not isolate the slow stage.',
-          ]
-        : [
-            'Open Platform operations and compare realtime latency with durable outbox health.',
-            'Compare Sentry and database timeout logs with relay/provider errors for the same observation window.',
-            'Retries can follow provider failure or a failed database acknowledgement after successful publication. A recovered queue does not identify the cause.',
-          ],
-    };
-  }
-  if (issueFamily === 'domain-outbox-delayed' || issueFamily === 'domain-outbox-exhausted') {
-    return {
-      meaning:
-        'Durable domain-event work is delayed or exhausted. The underlying application writes remain committed, but realtime and notification delivery need attention.',
-      steps: [
-        'Open Platform operations and inspect overdue and exhausted outbox counts.',
-        'Review the relay and orchestration Sentry groups for the matching time window.',
-        'Confirm the protected relay wake and provider credentials are healthy before attempting manual intervention.',
-      ],
-    };
-  }
-  if (issueFamily.includes('push') || issueFamily.includes('apns')) {
-    return {
-      meaning:
-        'Native notification delivery is degraded. In-app state remains authoritative and will reconcile when members open or foreground Doji.',
-      steps: [
-        'Open Platform operations and inspect the affected provider and shard telemetry.',
-        'Check recent credential/provider failures in Sentry without rotating credentials blindly.',
-        'Verify the exact production release provider configuration before retrying any delivery workflow.',
-      ],
-    };
-  }
-  return {
-    meaning:
-      'The protected production monitor detected a condition that needs an administrator review.',
-    steps: [
-      'Open Platform operations and review the authoritative health snapshot.',
-      'Correlate the observation time with the newest Sentry issue groups.',
-      'Record any intervention in the operational audit trail.',
-    ],
-  };
-}
 
 Deno.serve(async (req) => {
   let operationalReceiptKey: string | null = null;
@@ -207,7 +109,19 @@ Deno.serve(async (req) => {
       if (cronDenied) return cronDenied;
     }
 
-    const resendKey = Deno.env.get('RESEND_API_KEY');
+    if ((Deno.env.get('DOJI_ENVIRONMENT') ?? 'production') !== ENVIRONMENT)
+      throw Error('Email environment rejected');
+    if (STAGING) {
+      if (Deno.env.get('STAGING_EMAIL_ENABLED') !== 'true') throw Error('Staging email disabled');
+      const policy = stagingEmailPolicy(
+        Deno.env.get('STAGING_RESEND_API_KEY'),
+        Deno.env.get('ADMIN_FROM_EMAIL'),
+        Deno.env.get('STAGING_EMAIL_RECIPIENTS'),
+      );
+      if (!Deno.env.get('ADMIN_ALERT_EMAIL') || !policy.recipients.includes(ADMIN_EMAIL))
+        throw Error('Staging email recipient rejected');
+    }
+    const resendKey = Deno.env.get(STAGING ? 'STAGING_RESEND_API_KEY' : 'RESEND_API_KEY');
     if (!resendKey) {
       console.error('send-admin-email: RESEND_API_KEY not configured');
       return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
@@ -258,6 +172,7 @@ Deno.serve(async (req) => {
       const reportedName = identityLabel(reportedRes.data, reportedUserId ?? 'Unknown account');
       const targetId = postId || commentId || pollVoteId;
       const template = renderDojiEmail({
+        ...(STAGING ? { brand: 'Doji Staging' } : {}),
         preheader: `${priority}: ${categoryLabel} · ${detailLabel}`,
         eyebrow:
           tone === 'critical'
@@ -326,7 +241,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const guidance = operationalGuidance(issueFamily, payload);
+      const guidance = operationalGuidance(issueFamily, payload, ENVIRONMENT);
       const observedAt = formatEmailTimestamp(payload.observed_at ?? payload.checked_at);
       const immediate =
         Boolean(payload.immediate) ||
@@ -336,10 +251,11 @@ Deno.serve(async (req) => {
       const tone: DojiEmailTone = immediate ? 'critical' : 'danger';
       const familyLabel = humanizeEmailToken(issueFamily);
       const template = renderDojiEmail({
-        preheader: `${familyLabel} detected in production at ${observedAt}`,
+        ...(STAGING ? { brand: 'Doji Staging' } : {}),
+        preheader: `${familyLabel} detected in ${ENVIRONMENT} at ${observedAt}`,
         eyebrow: immediate
-          ? 'Production incident · immediate attention'
-          : 'Production health · action required',
+          ? `${STAGING ? 'Staging' : 'Production'} incident · immediate attention`
+          : `${STAGING ? 'Staging' : 'Production'} health · action required`,
         title: 'Doji needs attention',
         summary: guidance.meaning,
         tone,
@@ -365,7 +281,7 @@ Deno.serve(async (req) => {
         footerNote:
           'Confidential Doji operations alert. Metrics are content-free and safe for authorized administrators only.',
       });
-      subject = `${immediate ? '[INCIDENT]' : '[Degraded]'} ${familyLabel} · Doji production`;
+      subject = `${immediate ? '[INCIDENT]' : '[Degraded]'} ${familyLabel} · Doji ${ENVIRONMENT}`;
       html = template.html;
       text = template.text;
       idempotencyKey = operationalReceiptKey ? `operational-alert/${operationalReceiptKey}` : null;
@@ -376,6 +292,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (STAGING) {
+      subject = `[STAGING] ${subject}`;
+      idempotencyKey = `staging/${idempotencyKey}`;
+    }
     const res = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -389,14 +309,14 @@ Deno.serve(async (req) => {
     const result = await res.json();
 
     if (!res.ok) {
-      if (operationalReceiptKey) {
+      if (operationalReceiptKey && !STAGING) {
         await supabase
           .from('operational_alert_deliveries')
           .delete()
           .eq('idempotency_key', operationalReceiptKey);
       }
-      console.error('Resend error:', result);
-      return new Response(JSON.stringify({ error: 'Email send failed', detail: result }), {
+      console.error('Resend error:', STAGING ? res.status : result);
+      return new Response(JSON.stringify({ error: 'Email send failed', ...(!STAGING ? { detail: result } : {}) }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -406,14 +326,16 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: unknown) {
-    if (operationalReceiptKey) {
+    // Staging retains the claim after uncertain delivery; retries cannot resend it.
+    // Production receipt behavior is outside this staging-only preparation.
+    if (operationalReceiptKey && !STAGING) {
       await supabase
         .from('operational_alert_deliveries')
         .delete()
         .eq('idempotency_key', operationalReceiptKey);
     }
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('send-admin-email error:', err);
+    const message = STAGING ? 'Staging email unavailable' : err instanceof Error ? err.message : String(err);
+    console.error('send-admin-email error:', STAGING ? message : err);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
