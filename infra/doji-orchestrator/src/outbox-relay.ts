@@ -218,7 +218,7 @@ export class OutboxRelayAlarm extends DurableObject<Env> {
         await Promise.allSettled([
           captureWorkerException(this.env.SENTRY_DSN, 'domain_relay_repeated_failure', safeError, {
             failures,
-          }),
+          }, this.env.DOJI_ENVIRONMENT),
           sendOperationalAlert(this.env, 'domain-relay-repeated-failure', {
             failures,
             error: safeError.message,

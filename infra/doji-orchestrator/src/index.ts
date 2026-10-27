@@ -22,6 +22,7 @@ export interface Env {
   ORCHESTRATOR_SECRET: string;
   OUTBOX_RELAY_SECRET: string;
   SENTRY_DSN?: string;
+  DOJI_ENVIRONMENT?: string;
   SENTRY_API_TOKEN?: string;
   SENTRY_ORG_SLUG?: string;
   SENTRY_PROJECT_SLUGS?: string;
@@ -345,6 +346,7 @@ export class PushFanoutAlarm extends DurableObject<Env> {
               dailyEventId: state.dailyEventId,
               unfinishedShards: state.tasks.map((task) => task.shard).join(','),
             },
+            this.env.DOJI_ENVIRONMENT,
           ),
           sendOperationalAlert(this.env, 'push-fanout-expired', {
             dailyEventId: state.dailyEventId,
@@ -408,6 +410,7 @@ export class PushFanoutAlarm extends DurableObject<Env> {
           'push_fanout_repeated_failure',
           new Error('One or more push shards repeatedly failed'),
           { dailyEventId: state.dailyEventId },
+          this.env.DOJI_ENVIRONMENT,
         ),
         sendOperationalAlert(this.env, 'push-fanout-repeated-failure', {
           dailyEventId: state.dailyEventId,

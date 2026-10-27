@@ -8,6 +8,7 @@ export interface EmployeeMonitoringConfig {
   organization?: string;
   projectIds?: string[];
   projectSlugs?: string[];
+  environment?: 'production' | 'staging';
 }
 interface HealthCache {
   until: number;
@@ -18,13 +19,21 @@ interface HealthCache {
 // aggregate health only, at most 25 unresolved issues over the past 24 hours.
 export function createEmployeeHealth(
   application: EmployeeApplication,
-  { token, organization, projectIds = [], projectSlugs = [] }: EmployeeMonitoringConfig = {},
+  {
+    token,
+    organization,
+    projectIds = [],
+    projectSlugs = [],
+    environment = 'production',
+  }: EmployeeMonitoringConfig = {},
   {
     upstream = fetch,
     now = Date.now,
     healthEventsEnabled = false,
   }: { upstream?: PortalFetch; now?: () => number; healthEventsEnabled?: boolean } = {},
 ) {
+  if (environment !== 'production' && environment !== 'staging')
+    throw Error('Invalid monitoring environment');
   const configured =
     typeof token === 'string' && token.length > 0 && /^[a-z0-9-]{1,100}$/.test(organization || '');
   if (projectIds.some((id) => !/^\d+$/.test(id)) || projectIds.length > 5)
@@ -56,7 +65,7 @@ export function createEmployeeHealth(
   async function sentry() {
     if (!configured) return { configured: false, available: false, issues: [] };
     const query = new URLSearchParams({
-      environment: 'production',
+      environment,
       statsPeriod: '24h',
       sort: 'date',
       limit: '25',
@@ -91,7 +100,8 @@ export function createEmployeeHealth(
           id: text(issue.id, 80),
           short_id: text(issue.shortId, 80),
           title:
-            text(issue.title ?? metadata.title ?? metadata.value) ?? 'Unhandled production issue',
+            text(issue.title ?? metadata.title ?? metadata.value) ??
+            `Unhandled ${environment} issue`,
           culprit: text(issue.culprit),
           level: text(issue.level, 30) ?? 'error',
           event_count: count(issue.count),

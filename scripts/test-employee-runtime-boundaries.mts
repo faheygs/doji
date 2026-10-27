@@ -296,6 +296,11 @@ test('staging binds the WorkOS realm, SQL project and storage without production
     issuerClientId: 'client_01M3VE4WTBYS2XN6NZPH9EDMQD',
   };
   assert.doesNotThrow(() => fixture({ patch: shared }));
+  assert.doesNotThrow(() =>
+    fixture({ patch: { ...shared, monitoring: { environment: 'staging' } } }),
+  );
+  assert.throws(() => fixture({ patch: { ...shared, monitoring: { environment: 'production' } } }));
+  assert.throws(() => fixture({ patch: { monitoring: { environment: 'staging' } } }));
   for (const patch of [
     { issuerClientId: undefined },
     { issuerClientId: shared.clientId },

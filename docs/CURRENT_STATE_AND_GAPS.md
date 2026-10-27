@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated October 25, 2026. This separates source, recorded deployments and owner
+Updated October 26, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -134,10 +134,18 @@ integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-par
   destructive client cleanup. Staging Pages `15f9f0cf-bb6e-49a0-a504-dbc582544e41`
   coordinates requests across tabs and locks locally on unavailable authorization
   reads. Fresh login, simultaneous restoration and synthetic release/reclaim now
-  pass with automatic cross-tab counts, without retry/logout. This is a manual
-  acceptance package from uncommitted source, not a promotable CI artifact.
+  pass with automatic cross-tab counts, without retry/logout. PR #26 subsequently
+  merged as `c434440ba685837dc560b4e00756e9f567979c19`; all four PR/main CI jobs passed.
+  Automatic staging run `40286223511` deployed that exact commit. Hosted reload,
+  two-tab sessions, realtime, protected synthetic media and integrated history passed.
   Real email/push, recurring health/recovery jobs and member signup remain off.
   Business/site/mobile staging are deferred. See the [backend receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation).
+- Prepared, not deployed: explicit staging Sentry reads/Worker event labels and
+  restricted admin report/health test email. Email requires a separate staging key,
+  labelled sender and exact approved-recipient list; ambiguous operational sends
+  retain their staging receipt. No provider credentials, delivery gates, cron or
+  production settings were changed. Member/business/provider-owned mail, local
+  impersonation monitoring and coordinated backend/schema promotion remain gaps.
 - Release pipeline: PR #15 merged as `e347f4f`; all four exact-head and main
   quality jobs passed. Run `38947921226` automatically deployed Pages
   `2d75152f-260f-409e-8f1b-1e010a865b7d`. Docs-only main run `38953049163`

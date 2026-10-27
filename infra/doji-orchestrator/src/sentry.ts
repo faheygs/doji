@@ -32,7 +32,10 @@ export async function captureWorkerException(
   operation: string,
   error: unknown,
   context: Record<string, SentryContextValue> = {},
+  environment?: string,
 ): Promise<void> {
+  if (environment !== undefined && environment !== 'staging' && environment !== 'production')
+    return;
   const target = dsn ? endpointForDsn(dsn) : null;
   if (!target) return;
 
@@ -43,6 +46,7 @@ export async function captureWorkerException(
     event_id: eventId,
     timestamp: Date.now() / 1000,
     platform: 'javascript',
+    ...(environment ? { environment } : {}),
     level: 'error',
     logger: 'doji.orchestrator',
     message: { formatted: message.slice(0, 1_000) },
@@ -72,6 +76,7 @@ export async function captureWorkerException(
       headers: {
         'content-type': 'application/x-sentry-envelope',
       },
+      ...(environment === 'staging' ? { redirect: 'error' as const } : {}),
       body: envelope,
     });
     if (!response.ok) console.error('Sentry envelope rejected', response.status);

@@ -13,6 +13,7 @@ export const stagingFunctions = Object.freeze([
   'relay-domain-events',
   'fanout-doji-push',
   'realtime-token',
+  'send-admin-email',
 ]);
 
 // Separate artifact: ordinary backend packaging must not redeploy local impersonation.
@@ -78,11 +79,15 @@ export async function buildStagingEdge(output: string) {
     await writeFile(join(functions, name, 'handler.ts'), handler, { flag: 'wx' });
     await writeFile(
       join(functions, name, 'index.ts'),
-      `import { stagingFetch } from '../_shared/staging-egress.ts';
+      `import { stagingFetch, stagingEmailPolicy } from '../_shared/staging-egress.ts';
 globalThis.fetch = stagingFetch({
   projectUrl: Deno.env.get('SUPABASE_URL'),
   orchestratorUrl: Deno.env.get('DOJI_ORCHESTRATOR_URL'),
   ablyKey: Deno.env.get('ABLY_API_KEY'),
+  email: Deno.env.get('STAGING_EMAIL_ENABLED') === 'true'
+    ? stagingEmailPolicy(Deno.env.get('STAGING_RESEND_API_KEY'),
+        Deno.env.get('ADMIN_FROM_EMAIL'), Deno.env.get('STAGING_EMAIL_RECIPIENTS'))
+    : undefined,
 }, globalThis.fetch);
 await import('./handler.ts');
 `,
@@ -104,7 +109,7 @@ await import('./handler.ts');
         egressSha256: createHash('sha256')
           .update(await readFile(join(source, '_shared/staging-egress.ts')))
           .digest('hex'),
-        realDelivery: 'denied',
+        realDelivery: 'denied-unless-approved-admin-test-email',
       },
       null,
       2,

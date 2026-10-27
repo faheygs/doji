@@ -221,6 +221,26 @@ deployment; it is not unlimited/free hosting. Owner password/MFA login is verifi
 Member signup/email, business, real push and recurring jobs remain disabled.
 The separate staging Worker and seven guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
+Prepared source adds `send-admin-email` as an eighth guarded handler, not a live
+deployment. Its report/health mail uses `DOJI_ENVIRONMENT=staging`,
+`STAGING_EMAIL_ENABLED=true`, separate `STAGING_RESEND_API_KEY`, explicit
+`ADMIN_ALERT_EMAIL`, `ADMIN_FROM_EMAIL` (`Doji Staging <verified-sender>`) and
+`STAGING_EMAIL_RECIPIENTS` (JSON array of 1–5 exact approved mailboxes).
+These values belong only in staging Supabase Edge secrets, never developer env
+files. The outbound guard permits one allowlisted recipient per message, no
+CC/BCC/attachments, a staging idempotency key, labelled subject and staging portal
+links. This does not enable other email families or copy production mail credentials.
+
+Prepared monitoring: hosted employee `EMPLOYEE_V2_CONFIG.monitoring.environment`
+must explicitly be `staging`; production defaults stay `production`. Its bounded
+read token/project configuration stays server-side. Worker capture requires the
+separate `STAGING_SENTRY_ENABLED=true` and `STAGING_SENTRY_DSN` bindings and labels
+events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected there.
+Provider/project selection, capacity and approved recipients must be verified before
+deployment or sending. Cron remains empty. Rollback disables these staging gates,
+restores the retained exact runtime packages/config and preserves delivery receipts.
+No new subscription, credential provisioning or actual delivery is established by
+these source changes. Sentry environment filtering is logical, not physical isolation.
 Fresh orchestration/relay secrets live only in that Worker's secret store, staging
 Edge, and staging Vault; no production credential was copied. Owner/SYSTEM-only
 recovery is `%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`. On October 25, staging

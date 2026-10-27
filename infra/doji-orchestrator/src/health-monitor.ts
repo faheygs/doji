@@ -86,6 +86,7 @@ export class HealthMonitor extends DurableObject<Env> {
               issue.family,
               new Error(`Operational health issue persisted: ${issue.family}`),
               { consecutiveChecks: state.consecutiveUnhealthy, ...issue.diagnostics },
+              this.env.DOJI_ENVIRONMENT,
             ),
             sendOperationalAlert(this.env, issue.family, {
               ...health,
@@ -108,7 +109,7 @@ export class HealthMonitor extends DurableObject<Env> {
           captureWorkerException(this.env.SENTRY_DSN, 'operational_health_check', error, {
             consecutiveFailures: state.consecutiveCheckFailures,
             ...operationalHealthFailureDetails(error),
-          }),
+          }, this.env.DOJI_ENVIRONMENT),
           sendOperationalAlert(this.env, 'operational-health-check-failed', {
             consecutive_failures: state.consecutiveCheckFailures,
             error: error instanceof Error ? error.message : String(error),

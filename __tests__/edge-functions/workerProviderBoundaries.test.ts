@@ -52,9 +52,37 @@ test.each(['https://key@host.invalid/123', 'https://key@host.invalid/prefix/123'
     expect(event.message.formatted).toHaveLength(1000);
     expect(event.extra).toEqual({ attempts: 3 });
     expect(event.tags.operation).toBe('synthetic-operation');
+    expect(event.environment).toBeUndefined();
     expect(init.signal).toBeInstanceOf(AbortSignal);
   },
 );
+test.each(['staging', 'production'])(
+  'Worker telemetry labels explicit environment %s',
+  async (environment) => {
+    await captureWorkerException(
+      'https://key@host.invalid/123',
+      'test',
+      Error('synthetic'),
+      {},
+      environment,
+    );
+    expect(JSON.parse(transport.mock.calls[0][1].body.split('\n')[2]).environment).toBe(
+      environment,
+    );
+    expect(transport.mock.calls[0][1].redirect).toBe(environment === 'staging' ? 'error' : undefined);
+  },
+);
+
+test('unknown telemetry environment makes no request', async () => {
+  await captureWorkerException(
+    'https://key@host.invalid/123',
+    'test',
+    Error('synthetic'),
+    {},
+    'other',
+  );
+  expect(transport).not.toHaveBeenCalled();
+});
 test.each(['http', 'transport'])(
   'Sentry %s rejection never replaces the original failure',
   async (kind) => {

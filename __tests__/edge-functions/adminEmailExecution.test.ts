@@ -3,6 +3,7 @@ jest.mock(
   () => ({ createClient: () => ({ rpc: mockRpc, from: mockFrom }) }),
   { virtual: true },
 );
+import { stagingFetch, stagingEmailPolicy } from '../../supabase/functions/_shared/staging-egress';
 const mockRpc = jest.fn();
 const mockFrom = jest.fn();
 const transport = jest.fn();
@@ -280,4 +281,116 @@ test('successful provider handoff returns reference without deleting receipt', a
   const res = await handler(request({ event: 'operational_health' }, 'outbox'));
   expect(await res.json()).toEqual({ ok: true, id: 'synthetic-provider-id' });
   expect(remove).not.toHaveBeenCalled();
+});
+
+function stage(patch: Record<string, string | undefined> = {}) {
+  Object.assign(
+    settings,
+    {
+      SUPABASE_URL: 'https://ohrcupagdoilkwhecict.supabase.co',
+      DOJI_ENVIRONMENT: 'staging',
+      STAGING_EMAIL_ENABLED: 'true',
+      STAGING_RESEND_API_KEY: 'synthetic-stage-key',
+      ADMIN_FROM_EMAIL: 'Doji Staging <stage@example.test>',
+      ADMIN_ALERT_EMAIL: 'approved@example.test',
+      STAGING_EMAIL_RECIPIENTS: '["approved@example.test"]',
+    },
+    patch,
+  );
+  load();
+}
+
+test.each(['report', 'operational_health'])(
+  'staging %s is branded and points only to staging',
+  async (event) => {
+    stage();
+    expect(
+      (await handler(request({ event, report_id: 'r', reporter_id: 'synthetic-reporter' }, event === 'report' ? 'cron' : 'outbox')))
+        .status,
+    ).toBe(200);
+    const email = message();
+    expect(email.subject).toMatch(/^\[STAGING\] /);
+    expect(email.html).toContain('Doji Staging');
+    expect(email.html).toContain('https://admin-staging.dojipro.com/');
+    expect(email.html).not.toContain('https://admin.dojipro.com/');
+    expect(email.text).not.toContain('production');
+    expect(email.to).toEqual(['approved@example.test']);
+    expect(transport.mock.calls[0][1].headers.Authorization).toBe('Bearer synthetic-stage-key');
+    expect(transport.mock.calls[0][1].headers['Idempotency-Key']).toMatch(/^staging\//);
+  },
+);
+
+test.each([
+  { DOJI_ENVIRONMENT: undefined },
+  { DOJI_ENVIRONMENT: 'production' },
+  { STAGING_EMAIL_ENABLED: undefined },
+  { STAGING_EMAIL_ENABLED: 'false' },
+  { STAGING_RESEND_API_KEY: undefined },
+  { ADMIN_ALERT_EMAIL: undefined },
+  { ADMIN_ALERT_EMAIL: 'unapproved@example.test' },
+  { ADMIN_FROM_EMAIL: undefined },
+  { STAGING_EMAIL_RECIPIENTS: '[]' },
+])('staging mail fails closed before reads or sending: %j', (patch) => {
+  stage(patch);
+  return handler(request({ event: 'operational_health' }, 'outbox')).then((response) => {
+    expect(response.status).toBe(500);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+});
+
+test('staging environment cannot send through a production database configuration', async () => {
+  stage({ SUPABASE_URL: 'https://tvixsmqxotuvyjqzmjla.supabase.co' });
+  expect((await handler(request())).status).toBe(500);
+  expect(transport).not.toHaveBeenCalled();
+});
+
+test.each(['timeout', 'invalid-json', 'rejection'])(
+  'staging preserves receipt after %s to prevent resend',
+  async (failure) => {
+    stage();
+    if (failure === 'timeout') transport.mockRejectedValue(Error('synthetic timeout'));
+    else
+      transport.mockResolvedValue(
+        failure === 'invalid-json' ? new Response('invalid') : Response.json({}, { status: 503 }),
+      );
+    expect((await handler(request({ event: 'operational_health' }, 'outbox'))).status).toBe(500);
+    expect(remove).not.toHaveBeenCalled();
+    mockRpc.mockResolvedValue({ data: null });
+    expect((await handler(request({ event: 'operational_health' }, 'outbox'))).status).toBe(200);
+    expect(transport).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('staging sender works through the packaged outbound guard without real network', async () => {
+  stage();
+  global.fetch = stagingFetch(
+    {
+      projectUrl: settings.SUPABASE_URL,
+      orchestratorUrl: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+      ablyKey: 'eVKl2g.synthetic:synthetic',
+      email: stagingEmailPolicy(
+        settings.STAGING_RESEND_API_KEY,
+        settings.ADMIN_FROM_EMAIL,
+        settings.STAGING_EMAIL_RECIPIENTS,
+      ),
+    },
+    async (input) => {
+      const forwarded = new Request(input);
+      expect(forwarded.redirect).toBe('error');
+      return transport(forwarded.url, { body: await forwarded.text() });
+    },
+  );
+  expect((await handler(request({ event: 'operational_health' }, 'outbox'))).status).toBe(200);
+  expect(transport).toHaveBeenCalledTimes(1);
+  expect(message().to).toEqual(['approved@example.test']);
+});
+
+test('staging provider failures do not expose provider bodies or destinations', async () => {
+  stage();
+  transport.mockResolvedValue(Response.json({ message: 'private-provider-detail' }, { status: 503 }));
+  const response = await handler(request({ event: 'operational_health' }, 'outbox'));
+  expect(await response.json()).toEqual({ error: 'Email send failed' });
+  expect(console.error).toHaveBeenCalledWith('Resend error:', 503);
 });
