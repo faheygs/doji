@@ -99,7 +99,15 @@ test('uncertain assignment survives failed reads and retries the identical inten
   await page.goto(url);
   await page.getByRole('button', { name: 'Assign to me', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Retry same action' })).toBeEnabled();
+  // Finish the successful read before making the next request fail.
+  const refreshed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/rpc') &&
+      response.request().postDataJSON().name === 'get_admin_safety_removal_v1' &&
+      response.status() === 200,
+  );
   await page.getByRole('button', { name: 'Refresh case' }).click();
+  await refreshed;
   await expect(page.getByRole('button', { name: 'Retry same action' })).toBeEnabled();
   f.failRead(true);
   await page.getByRole('button', { name: 'Refresh case' }).click();
