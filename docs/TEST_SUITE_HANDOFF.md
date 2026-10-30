@@ -92,7 +92,7 @@ verify branch protection/check contexts before merge rather than bypassing them:
 
 | Job | Checks |
 | --- | --- |
-| `application` | Expo Doctor, strict app/fixture types, lint, source-size caps, Jest, fanout model, critical-level dependency audit, orchestrator types and the two configured Deno entry points |
+| `application` | Expo Doctor, strict app/fixture types, lint, source-size caps, Jest, fanout model, root critical-level and deployment-tooling high-level dependency audits, orchestrator types and the two configured Deno entry points |
 | `coverage` | Full source-inclusive Jest, allowlisted offline provider/session tests, instrumented browser scenarios, merged results and the independent 17-area coverage gate |
 | `database` | Pinned-image preparation, guarded isolated database tests and source-only reproducibility |
 | `web-migration` | Separate locked web install, strict types/lint/Vitest, Vite/Next and connected artifact builds, Playwright and high-level dependency audit |
