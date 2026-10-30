@@ -178,7 +178,7 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
     expect(calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
     await page.getByRole('link', { name: 'Platform health', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Backend & cleanup' })).toBeVisible();
-    expect(calls.some((c) => c.name === 'portal_platform_health_v1')).toBe(true);
+    await expect.poll(() => calls.some((c) => c.name === 'portal_platform_health_v1')).toBe(true);
     await page.getByRole('link', { name: 'Overview', exact: true }).click();
   }
   await page.reload();
