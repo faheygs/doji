@@ -126,7 +126,13 @@ test('health distinguishes a missing observation contract and displays source st
     return route.fulfill({ json: { ...raw, sentry: { ...raw.sentry, observed_at: null } } });
   });
   await page.goto('https://admin.dojipro.com/connected.html#/operations');
+  await expect(
+    page.getByRole('heading', { name: 'Some health signals are unverified' }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Services & coverage' }).click();
+  await expect(page.getByRole('tab', { name: 'Services & coverage' })).toHaveAttribute(
+    'aria-selected', 'true',
+  );
   await expect(page.getByText('Needs attention', { exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Monitoring scope' })).toBeVisible();

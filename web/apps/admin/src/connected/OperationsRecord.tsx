@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Alert, Box, Chip, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { PageHeader, TableFrame } from '@doji/ui';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
@@ -7,8 +7,17 @@ import { OperationsHistory, OperationsIssues, healthColor, observation } from '.
 import { TrendChart } from '../operations/TrendChart';
 import { sentryReadProblem } from '@doji/portal-data/employee-health';
 import { OperationsSources } from './OperationsSources';
+const OperationsWorkflows = lazy(() =>
+  import('./OperationsWorkflows').then((module) => ({ default: module.OperationsWorkflows })),
+);
 
-const sections = ['Overview', 'Services & coverage', 'App issues', 'Doji history'];
+const sections = [
+  'Overview',
+  'Services & coverage',
+  'App issues',
+  'Doji history',
+  'Backend & cleanup',
+];
 export function OperationsRecord({ controller }: { controller: EmployeeSessionController }) {
   const [tab, setTab] = useState(0);
   const { snapshot, history, data, rows, assessment } = useEmployeeHealth(controller);
@@ -22,7 +31,7 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
   const points = (field: 'realtime_p95_ms' | 'outbox_unpublished') =>
     chronological.map((row, index) => ({
       label: `${index + 1} · ${row.fires_at ? new Date(row.fires_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Unknown date'}`,
-      value: row[field],
+      value: field === 'realtime_p95_ms' && row[field] !== null ? row[field] / 1000 : row[field],
     }));
   return (
     <>
@@ -30,14 +39,28 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
         title="Platform health"
         description="Operational readings, app issues and recent Doji delivery."
         action={
-          <Chip label={assessment.label} color={healthColor(assessment.state)} variant="outlined" />
+          <Chip
+            label={
+              assessment.state === 'healthy'
+                ? 'Measured checks passed'
+                : assessment.state === 'unknown'
+                  ? 'Not fully verified'
+                  : 'Needs attention'
+            }
+            color={healthColor(assessment.state)}
+            variant="outlined"
+          />
         }
       />
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-        <Typography component="h2" variant="h3">
+        <Typography component="h2" variant="h5">
           {assessment.title}
         </Typography>
         <Typography sx={{ my: 1 }}>{assessment.summary}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          These checks cover delivery and reported app issues—not every user workflow. Services
+          &amp; coverage lists what is not yet measured.
+        </Typography>
         <Chip size="small" variant="outlined" label={assessment.coverageLabel} />
         <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
           Delivery observation: {observation(data?.operational.checked_at)} · App-error observation:{' '}
@@ -123,10 +146,10 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                     }}
                   >
                     <TrendChart
-                      title="Delivery latency by Doji"
-                      unit="ms"
+                      title="Live-update speed by Doji"
+                      unit="seconds"
                       points={points('realtime_p95_ms')}
-                      description="Archived p95 server publication latency. Missing measurements stay visible."
+                      description="Time within which 95% of measured updates were published. This is server publication, not phone display."
                     />
                     <TrendChart
                       title="Unpublished events by Doji"
@@ -156,13 +179,26 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 problem={sentryProblem}
                 retry={() => void snapshot.refetch()}
               />
-            ) : (
+            ) : index === 3 ? (
               <OperationsHistory
                 data={rows}
                 loading={history.isPending}
                 failed={history.isError}
                 retry={() => void history.refetch()}
               />
+            ) : (
+              <Suspense
+                fallback={
+                  <TableFrame label="backend workflow readings" state="loading" footer={null} />
+                }
+              >
+                <OperationsWorkflows
+                  data={data?.workflows}
+                  loading={snapshot.isPending}
+                  failed={snapshot.isError}
+                  retry={() => void snapshot.refetch()}
+                />
+              </Suspense>
             ))}
         </Box>
       ))}

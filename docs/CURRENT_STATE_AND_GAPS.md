@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated October 27, 2026. This separates source, recorded deployments and owner
+Updated October 30, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -107,7 +107,7 @@ integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-par
   directory access. Its initial expiry is January 13, 2027; non-expiring revocable
   credentials are supported/tested, but no live expiry was changed. Hosted MFA
   remains mandatory. `dev:admin` is a separate offline sample-data preview.
-- Local workflow routes: the staging-only registry corrections are deployed (46
+- Local workflow routes: the staging-only registry corrections are deployed (47
   routes). Live home, assigned-work and ownership reads pass; existing routes,
   function/grant fingerprints, identity and workflow flags are unchanged. The
   existing builder includes definition-pinned upgrade/rollback and database/browser
@@ -154,8 +154,8 @@ integrations. See the standing staging rule in [AGENTS](../AGENTS.md#staging-par
   delivered through the guarded handler; sending was then disabled and its gate
   digest verified. Its key is domain-restricted and sending-only; ambiguous operational
   sends retain their staging receipt. Cron, production and push remain unchanged.
-  Member/business/provider-owned mail, local
-  impersonation monitoring and coordinated backend/schema promotion remain gaps.
+  Member/business/provider-owned mail and coordinated backend/schema promotion remain gaps.
+  October 30 adds the separately approved hosted/local workflow-health read; see below.
 - Release pipeline: PR #15 merged as `e347f4f`; all four exact-head and main
   quality jobs passed. Run `38947921226` automatically deployed Pages
   `2d75152f-260f-409e-8f1b-1e010a865b7d`. Docs-only main run `38953049163`
@@ -182,6 +182,40 @@ for exact artifacts. The [service catalog](SERVICE_CATALOG.md) owns provider pur
 and secret locations; the [system map](SYSTEM_MAP.md) owns source boundaries.
 
 ## Remaining gates
+
+Platform-health presentation is deployed to staging only: plain-language
+latency/coverage labels and backend/cleanup receipts. Mobile recovery remains prepared
+source: actionable submission/feed errors and privacy-filtered submission context.
+The maintenance Worker/Edge and workflow observation overlay
+were separately deployed and synthetically validated **in staging only** October 30.
+Production retention, participation timing, authorization and rewards are unchanged.
+Admin, mobile, Worker and maintenance Edge remain separate release boundaries.
+See the [staging health receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance).
+
+Still missing: aggregate signup/session/profile/submission/feed/media success rates,
+database resource pressure and device-level notification outcomes.
+The gap cards are disclosure, not implemented probes.
+Staging now records fixed-size hourly lifecycle/maintenance attempt counts, latest
+cleanup receipts and failed phases. Scheduler pruning (success: 30 days; failure:
+90 days) passed synthetic hosted checks and is disabled again. Hosted checks covered
+33 SQL assertions, real Storage API deletion, leased-work recovery, handler outcomes,
+the Worker maintenance wake and data-retaining rollback. Existing bindings, secrets,
+unrelated handlers and public function/grant fingerprints were preserved. The daily
+wake is code-tested; a full 24-hour hosted recurrence has not yet elapsed. The existing
+guarded-media feature was not enabled by this release. The service-only snapshot now
+has a staging-enabled employee read bridge and Backend & cleanup view.
+The bridge requires the existing verified employee identity/MFA and operations permission;
+it adds no browser database credential. Portal runtime `workflowHealthEnabled` defaults
+off; staging explicitly enables it. Hosted MFA and localhost impersonation reads
+both passed against staging, including database and isolated Sentry. Local access
+uses its own private route and revocation checks, not MFA substitution. This manual
+staging acceptance package is not a CI promotion artifact. Use main's exact-head
+quality checks and subsequent admin staging run for source/release verification;
+production promotion remains gated. Legacy/orphan-file reconciliation needs its
+own hold-aware preparation. No universal
+health/readiness claim, production deletion, mobile build or release is implied.
+Dependency installation also reported existing root and Worker high-severity audit
+findings; isolate and test their dependency fixes before production, without forced upgrades.
 
 | Before doing this | Required evidence/approval |
 | --- | --- |

@@ -13,7 +13,7 @@ export async function installOperationsFixture(
     failed = false,
     signedIn = true,
     missingHistory = false;
-  let snapshot = healthFixture();
+  let snapshot: ReturnType<typeof healthFixture> & { workflows?: unknown } = healthFixture();
   await page.route('https://admin.dojipro.com/api/session', (route) =>
     route.fulfill({
       status: signedIn ? 200 : 401,
@@ -54,6 +54,9 @@ export async function installOperationsFixture(
   return {
     ...base,
     healthReads: reads,
+    workflows: (value: unknown) => {
+      snapshot.workflows = value;
+    },
     revoke: () => {
       allowed = false;
     },

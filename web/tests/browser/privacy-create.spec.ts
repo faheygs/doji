@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { installPrivacyFixture, privacyUrl } from './privacy-fixture';
 import { privacyId, privacyAccount } from '../privacy-fixture';
+
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
 test('verified request uses MUI date entry and an identical retry; failure to load the new case cannot create duplicates', async ({
   page,
   request,

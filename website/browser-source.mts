@@ -108,6 +108,8 @@ export function compileBrowserSource(asset: string, code: string): string {
   }
   for (const edit of edits.reverse())
     code = code.slice(0, edit.start) + edit.text + code.slice(edit.end);
+  // Native React imports must not retain unused legacy globals and queue helpers.
+  if (assetName(asset) === 'admin-portal/health-model.js') code += '\ninstallBrowserHealth();';
   return transformSync(code, {
     loader: 'ts',
     format: moduleAssets.has(assetName(asset)) ? 'esm' : 'iife',

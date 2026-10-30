@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createEmployeeHealth } from '../infra/portal-identity/employee-health.mts';
 import { testEmployee, testRecord, testList, present } from './employee-test-fixtures.mts';
 interface Patch {
+  workflowHealthEnabled?: boolean;
   dbFails?: boolean;
   unconfigured?: boolean;
   projectSlugs?: string[];
@@ -19,7 +20,18 @@ function fixture(patch: Patch = {}) {
         calls.push('auth');
         return { capabilities: { operations_read: allowed } };
       },
-      command: async () => {
+      command: async (_actor, input) => {
+        if (input.name === 'get_admin_workflow_health_v1') {
+          calls.push('workflow');
+          if (patch.dbFails) throw Error('Synthetic unavailable');
+          return {
+            enabled: true,
+            hours: [],
+            receipts: [],
+            retention_enabled: false,
+            scheduler_receipt: null,
+          };
+        }
         calls.push('db');
         if (patch.dbFails) throw Error();
         return { healthy: true, sample_count: 3 };
@@ -36,6 +48,7 @@ function fixture(patch: Patch = {}) {
         },
     {
       now: () => time,
+      workflowHealthEnabled: patch.workflowHealthEnabled,
       upstream: async (url, options) => {
         calls.push({ url: String(url), options });
         return (
@@ -57,12 +70,36 @@ function fixture(patch: Patch = {}) {
     calls,
     read: async () => {
       const result = await health(testEmployee, AbortSignal.timeout(1000));
-      return { operational: testRecord(result.operational), sentry: testRecord(result.sentry) };
+      return {
+        operational: testRecord(result.operational),
+        sentry: testRecord(result.sentry),
+        workflows: testRecord(result.workflows),
+      };
     },
     deny: () => (allowed = false),
     advance: (ms: number) => (time += ms),
   };
 }
+test('workflow read defaults off, caches without refreshing timestamps, and reauthorizes', async () => {
+  const off = fixture();
+  assert.equal((await off.read()).workflows.available, false);
+  assert.equal(off.calls.includes('workflow'), false);
+  const f = fixture({ workflowHealthEnabled: true });
+  const first = await f.read();
+  assert.equal(first.workflows.available, true);
+  f.advance(1000);
+  assert.equal((await f.read()).workflows.observed_at, first.workflows.observed_at);
+  assert.equal(f.calls.filter((c) => c === 'workflow').length, 1);
+  f.advance(30001);
+  await f.read();
+  assert.equal(f.calls.filter((c) => c === 'workflow').length, 2);
+  f.deny();
+  await assert.rejects(f.read(), { status: 403 });
+  assert.equal(f.calls.filter((c) => c === 'workflow').length, 2);
+  const failed = await fixture({ workflowHealthEnabled: true, dbFails: true }).read();
+  assert.equal(failed.workflows.available, false);
+  assert.equal(failed.sentry.available, true);
+});
 test('health reads are bounded and cached with authorization on every request', async () => {
   const f = fixture();
   const [a, b] = await Promise.all([f.read(), f.read()]);

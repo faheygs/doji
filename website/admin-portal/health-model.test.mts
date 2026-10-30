@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, eventState } from './health-model.mts';
+import { evaluate, eventState, duration, publicationSummary } from './health-model.mts';
 const now = Date.now();
 const operational = {
   available: true,
@@ -35,6 +35,21 @@ const base = {
   sentry: { available: true, configured: true, issues: [] },
   history: [event],
 };
+test('plain-language measurements do not invent device delivery or quiet-window speed', () => {
+  assert.equal(duration(null), 'Not measured');
+  assert.equal(duration(-1), 'Not measured');
+  assert.equal(duration(Infinity), 'Not measured');
+  assert.equal(duration(1), 'Under 0.01 seconds');
+  assert.equal(duration(1210), '1.21 seconds');
+  assert.match(publicationSummary(1210, 1600, 34, 0), /95% of measured updates.*1.21 seconds/);
+  assert.match(publicationSummary(0, 0, 0, 0), /not known/);
+  assert.match(publicationSummary(0, 0, null, 0), /cannot be verified/);
+  assert.match(publicationSummary(null, null, 1, null), /not measured/);
+  const app = evaluate(base).signals.find((signal) => signal.name.startsWith('App errors'));
+  assert.ok(app);
+  assert.match(app.detail, /this environment/);
+  assert.doesNotMatch(app.detail, /production/);
+});
 test('only complete, fresh measured coverage is healthy', () =>
   assert.equal(evaluate(base).state, 'healthy'));
 test('quiet delivery explains lack of traffic without claiming healthy latency', () => {
@@ -158,7 +173,7 @@ test('a critical signal remains visible even when another measurement is missing
   const result = evaluate({...base, operational: {...operational, outbox_exhausted: 1}, sentry: {available:false}});
   assert.equal(result.state, 'critical');
   assert.equal(result.coverage, 'unavailable');
-  assert.equal(result.attention[0]?.name, 'Realtime outbox');
+  assert.equal(result.attention[0]?.name, 'Updates waiting to publish');
 });
 test('a healthy snapshot does not claim universal app coverage', () => {
   const result = evaluate(base);

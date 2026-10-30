@@ -10,6 +10,9 @@ import {
   appealId,
 } from '../moderation-fixture';
 import type { Page, APIRequestContext } from '@playwright/test';
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
 for (const legal of [false, true])
   test(`overview report preserves restricted permission ${legal}`, async ({ page, request }) => {
     const f = await fixture(page, request, legal);

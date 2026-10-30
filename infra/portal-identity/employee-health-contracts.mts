@@ -2,9 +2,12 @@
 import type { EmployeeRouteContract } from './employee-route-contracts.mts';
 export const employeeHealthSql =
   'select portal_identity_private.employee_health_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result';
+export const employeeWorkflowHealthSql =
+  'select portal_identity_private.employee_workflow_health_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result';
 export const employeeHealthContracts: Readonly<Record<string, EmployeeRouteContract>> =
   Object.freeze({
     get_admin_health_feed_v1: Object.freeze({ fields: [], types: [], defaults: {} }),
+    get_admin_workflow_health_v1: Object.freeze({ fields: [], types: [], defaults: {} }),
   });
 export function healthVersions(value: unknown): Record<'delivery' | 'history' | 'sentry', string> {
   if (!value || typeof value !== 'object' || Array.isArray(value))

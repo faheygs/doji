@@ -72,7 +72,7 @@ export function TrendChart({
                   max: points.every((point) => point.value === null || point.value === 0)
                     ? 1
                     : undefined,
-                  tickMinStep: 1,
+                  tickMinStep: unit === 'seconds' ? 0.1 : 1,
                   label: unit,
                 },
               ]}

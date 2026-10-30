@@ -1,4 +1,20 @@
 /* Portal presentation only: never changes delivery, paging, or member authorization. */
+/** Presentation only: never infer a device outcome from server publication. */
+export function duration(value: unknown): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'Not measured';
+  return value < 10 ? 'Under 0.01 seconds' : `${(value / 1000).toFixed(2)} seconds`;
+}
+export function publicationSummary(p95: unknown, maximum: unknown, samples: unknown, slow: unknown): string {
+  if (samples === 0) return 'No updates measured in this period. Update speed is not known.';
+  const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+  if (!valid(samples) || samples === 0) return 'The number of measured updates is unavailable. Update speed cannot be verified.';
+  return [
+    valid(p95) ? `95% of measured updates were published within ${duration(p95)}.` : 'Update speed is not measured.',
+    valid(maximum) ? `Slowest update: ${duration(maximum)}.` : 'Slowest update is not measured.',
+    `${samples} updates measured; ${valid(slow) ? `${slow} took longer than 5 seconds` : 'the number taking longer than 5 seconds is unknown'}.`,
+    'Measures server publication, not arrival or display on a phone.',
+  ].join(' ');
+}
 export type HealthState = 'healthy' | 'unknown' | 'watch' | 'degraded' | 'critical';
 // Read boundaries intentionally retain unknown values: missing or malformed
 // telemetry must remain unknown, never become a healthy zero.
@@ -20,7 +36,7 @@ type Deadline = { state: DeadlineState; at: number; remaining?: number };
 const timestamp = (value: unknown) => Date.parse(typeof value === 'string' ? value : '');
 export const labels = {
   healthy: 'Healthy',
-  watch: 'Watch',
+  watch: 'Needs attention',
   degraded: 'Degraded',
   critical: 'Critical',
   unknown: 'Limited visibility',
@@ -99,9 +115,12 @@ export function evaluate({
     stale ? 'unknown' : latency(p95, max, samples, slow),
     stale
       ? 'The delivery snapshot is unavailable or more than 3 minutes old.'
-      : `p95 ${p95 ?? '—'} ms · max ${max ?? '—'} ms · ${samples ?? '—'} samples · ${slow ?? '—'} over 5s. Fewer than 20 samples cannot establish healthy latency.`,
+      : publicationSummary(p95, max, samples, slow),
   );
   const signals = [first];
+  if (first.state === 'watch') first.label = 'Updates slower than target';
+  if (first.state === 'degraded') first.label = 'Updates significantly delayed';
+  if (first.state === 'critical') first.label = 'Severe update delays';
   if (first.state === 'unknown') {
     first.label = stale
       ? loaded
@@ -123,8 +142,8 @@ export function evaluate({
           : `${samples} events measured; at least 20 are needed for a reliable latency assessment. Review the latest Doji summary below.`;
   }
   for (const [name, activeKey, terminalKey] of [
-    ['Realtime outbox', 'outbox_overdue', 'outbox_exhausted'],
-    ['Push fanout', 'push_stale_shards', 'push_exhausted_shards'],
+    ['Updates waiting to publish', 'outbox_overdue', 'outbox_exhausted'],
+    ['Notification processing', 'push_stale_shards', 'push_exhausted_shards'],
   ] as const) {
     const active = number(operational[activeKey]),
       terminal = number(operational[terminalKey]);
@@ -140,7 +159,7 @@ export function evaluate({
     const backlog = signal(
       name,
       state,
-      `${active ?? '—'} ${activeKey === 'outbox_overdue' ? 'overdue events' : 'stale shards'} · ${terminal ?? '—'} exhausted.`,
+      `${active ?? 'Not measured'} ${activeKey === 'outbox_overdue' ? 'updates are overdue for publication' : 'notification-processing groups are overdue'}. ${terminal ?? 'Not measured'} could not finish after the allowed attempts.`,
     );
     signals.push(backlog);
     if (state === 'unknown') {
@@ -152,9 +171,9 @@ export function evaluate({
   }
   const credentials = number(operational.apns_provider_credential_errors);
   const credentialSignal = signal(
-    'APNs provider credentials',
+    'Apple notification authorization',
     stale || credentials === null ? 'unknown' : credentials > 0 ? 'critical' : 'healthy',
-    `${credentials ?? '—'} credential failures. This does not verify that a phone displayed a notification.`,
+    `${credentials ?? 'Not measured'} failures authenticating with Apple’s notification service. This does not verify that a phone displayed a notification.`,
   );
   signals.push(credentialSignal);
   if (credentialSignal.state === 'unknown') {
@@ -186,8 +205,8 @@ export function evaluate({
     !available
       ? 'Sentry coverage is unavailable. Missing errors are not proof that the app is healthy.'
       : issues.length
-        ? `${issues.length}${issues.length >= 25 ? '+' : ''} unresolved issue groups returned. Review crashes, account, comments, and timeout errors below; this is not a live outage count.`
-        : 'No unresolved issues returned by the bounded production query. Resolved issues, unreported failures, and feature success rates are not covered.',
+        ? `${issues.length}${issues.length >= 25 ? '+' : ''} unresolved issue ${issues.length === 1 ? 'group' : 'groups'} returned. Review crashes, account, comments, and timeout errors below; this is not a live outage count.`
+        : 'No unresolved issues returned for this environment. Resolved issues, unreported failures, and feature success rates are not covered.',
   );
   if (!available) {
     const accessDenied = sentry.upstream_status === 401 || sentry.upstream_status === 403;
@@ -279,7 +298,7 @@ export function evaluate({
               : 'Some health signals are unverified'
           : `${labels[state]} — review the affected signals`,
     summary: attention.length
-      ? `${attention.length} signal${attention.length === 1 ? '' : 's'} need attention. ${app.state === 'watch' ? 'Reported app issues are not proof of a current outage.' : 'See the affected services below.'}`
+      ? `${attention.length} ${attention.length === 1 ? 'signal needs' : 'signals need'} attention. ${app.state === 'watch' ? 'Reported app issues are not proof of a current outage.' : 'See the affected services below.'}`
       : quiet
         ? 'No delivery events in the last 5 minutes. Other readings and recent Doji results are shown separately.'
         : `${allSignals.length - unknown.length} of ${allSignals.length} available health signals verified. Unmeasured services are not included.`,
@@ -384,4 +403,7 @@ declare global {
     DojiPortalHealth: typeof api;
   }
 }
-if (typeof window !== 'undefined') Object.assign(window, { DojiPortalHealth: Object.freeze(api) });
+/** Only the retained classic-script adapter installs this API; React imports stay pure. */
+export function installBrowserHealth(): void {
+  if (typeof window !== 'undefined') Object.assign(window, { DojiPortalHealth: Object.freeze(api) });
+}

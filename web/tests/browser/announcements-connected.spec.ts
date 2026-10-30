@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { installBusinessFixture } from './business-fixture';
 import { announcementFixture, announcementId } from '../announcement-fixture';
+
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
 test('Overview is distinct; announcements have bounded reads, record navigation and no writes', async ({
   page,
   request,

@@ -2,7 +2,11 @@
 // supplied by the portal. The database reauthorizes each fixed atomic operation.
 import { employeeRouteContracts } from './employee-route-contracts.mts';
 import { employeeWorkflowContracts, employeeWorkflowSql } from './employee-workflow-contracts.mts';
-import { employeeHealthContracts, employeeHealthSql } from './employee-health-contracts.mts';
+import {
+  employeeHealthContracts,
+  employeeHealthSql,
+  employeeWorkflowHealthSql,
+} from './employee-health-contracts.mts';
 import {
   employeeAnnouncementContract,
   employeeAnnouncementSql,
@@ -126,7 +130,9 @@ export function createEmployeeApplicationAdapter(
           : compose
             ? employeeAnnouncementSql
             : Object.hasOwn(employeeHealthContracts, input.name)
-              ? employeeHealthSql
+              ? input.name === 'get_admin_workflow_health_v1'
+                ? employeeWorkflowHealthSql
+                : employeeHealthSql
               : Object.hasOwn(employeeWorkflowContracts, input.name)
                 ? employeeWorkflowSql
                 : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',

@@ -45,8 +45,8 @@ test('app errors prevent an all-clear even after delivery recovers', async ({ pa
       },
     },
   });
-  await expect(page.locator('#platformStatusMetric')).toHaveText('Watch');
-  await expect(page.locator('#operationsStatusPill')).toHaveText('Watch');
+  await expect(page.locator('#platformStatusMetric')).toHaveText('Needs attention');
+  await expect(page.locator('#operationsStatusPill')).toHaveText('Needs attention');
   await expect(page.locator('.sentryPanel')).toContainText('Could not load comments');
   await expect(page.getByRole('button', {name:'Refresh health',exact:true})).toHaveCount(0);
   await expect(page.locator('.opsAttention')).toContainText('App errors');
@@ -75,7 +75,7 @@ test('recent incident remains visible and empty Sentry failure is unknown', asyn
       },
     ],
   });
-  await expect(page.locator('#operationsStatusPill')).toHaveText('Watch');
+  await expect(page.locator('#operationsStatusPill')).toHaveText('Needs attention');
   await expect(page.locator('.eventHealthRow')).toContainText('Critical');
   await expect(page.locator('.eventHealthRow')).toContainText('103938');
   await expect(page.locator('.sentryPanel .healthState')).toHaveText('Feed unavailable');

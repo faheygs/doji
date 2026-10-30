@@ -19,6 +19,21 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 - `employee_shared_staging_v1.sql` and its paired rollback: deployed exact staging
   realm cutover to the shared employee directory and separate application audience.
   Retains old identities/audit; rollback this before directory v2 and development v1.
+- `workflow_health_v1.sql` and its retaining rollback: **staging only**, observations
+  enabled; scheduler pruning disabled after synthetic validation. Production unchanged.
+  Bounded lifecycle/maintenance observations and separately gated scheduler-log retention.
+  Success logs: 30 days; failure logs: 90 days; active/unfinished/unknown runs and
+  explicit evidence holds survive. No scheduler jobs are created or changed. See
+  [monitoring contract](../../docs/REALTIME_ARCHITECTURE.md#monitoring-and-validation).
+- `employee_workflow_health_v1.sql` and its paired rollback: deployed in staging, employee-only
+  bounded projection of workflow health; requires `workflow_health_v1` and the
+  existing independent employee registry. No member grants or data mutation.
+  Deploy SQL before enabling portal runtime `workflowHealthEnabled`; disable that
+  flag before rollback. Production remains gated.
+- `admin_development_health_v1.sql` and its paired rollback: staging-only private
+  workflow-health route with existing developer/persona permission checks. No public
+  MFA bypass or direct execution grant. Disable `ADMIN_DEVELOPMENT_HEALTH_ENABLED`
+  before retaining rollback; restore the captured runtime/config first.
 
 Cleanup changes paths only, not SQL definitions, grants, deployment order or
 production state. Preserve evidence, leases, receipts and holds during rollback.

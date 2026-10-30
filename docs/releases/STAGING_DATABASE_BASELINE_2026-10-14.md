@@ -278,6 +278,86 @@ SQL inverse. Preserve audit and fixtures; do not reset staging or alter hosted i
 
 ## Retained recovery
 
+### October 30 workflow health and maintenance
+
+Owner-approved staging-only release from uncommitted `codex/platform-health-recovery`
+source; this is not a reviewed-main or production promotion receipt. Worker
+`541f3b8b-5a70-4526-987c-a37f011c95ba` preserves all five namespaces, bindings,
+observability and empty cron. Its compiled diff changes only maintenance response
+validation, deferred retry and the daily safety wake. Rollback Worker:
+`02de84b9-c1be-4b18-afd5-d0f1039d7e01`.
+
+Guarded staging packages `orchestrate-doji` and `run-data-maintenance` are deployed
+(displayed v14 after secret updates). Bundle hashes respectively:
+`28f1eab0ade1a883edc514d9d594cfd19e426e50cfa3c5d090ec2bf8bc321173` and
+`8d3c7740c7047b707022d76670e8cf7a833bd9e8eead56bb2518fe837b5cc4ed`.
+Downloaded handlers/dependencies match the candidate. Unrelated function hashes
+and pre-existing secret digests are unchanged. `workflow_health_v1` is installed;
+both observation gates are enabled, both scheduler-pruning gates are disabled.
+No production, Pages, mobile, email/push, identity or developer-access changes.
+
+Capacity checked: staging Free database 41/500 MB and Edge 1,101/500,000 calls;
+Cloudflare 28.82k/10M requests and 36.83k/400k Durable Object GB-seconds, within
+existing included capacity. No new plan/resource. Existing public function/grant
+fingerprint stayed identical. Thirty-three hosted SQL assertions passed in a
+rollback-only transaction, including cutoff boundaries, permissions and holds.
+Actual Edge checks covered unauthorized rejection, a missing-event failure and a
+close no-op, plus cleanup of two disposable one-pixel images. Leased media stayed
+available with a one-hour backoff; released media was deleted through Storage API.
+Synthetic old success/failure cron rows were pruned while held/active rows survived.
+Receipts retained confirmed counts and the first deferred phase. A first immediate
+object readback was inconclusive (status not captured); subsequent ordinary/fresh
+reads rejected it, and a second full cleanup run passed. This is not proof of
+instantaneous CDN revocation. All disposable objects/queue/cron/hold fixtures are gone.
+
+A synthetic Worker close no-op (`chainNext=false`) triggered real maintenance;
+the 24-hour recurrence is code-tested, not elapsed-time-qualified. Guarded-media
+feature activation and legacy-orphan reconciliation remain separate. The retaining
+SQL rollback was exercised live: writes/pruning disabled, receipts retained, then
+staging observations re-enabled. The separately approved admin read release below
+connects this data without enabling pruning.
+
+Recovery is owner/SYSTEM-only `%LOCALAPPDATA%/Doji/staging-backend/2026-10-30`:
+exact previous/candidate packages, settings, fingerprints and acceptance receipts.
+Restore the captured prior Edge handlers **before** the prior Worker, then apply
+`workflow_health_v1.rollback.sql` and disable the two new Edge flags. Retain tables,
+receipts, holds and Durable Objects; pruning cannot recover deleted logs. No pre-existing
+cron rows/jobs existed before synthetic tests. Do not replay baseline migrations.
+
+October 30 admin read release: additive `employee_workflow_health_v1` and
+`admin_development_health_v1` bridges are installed in staging. Existing function/grant
+fingerprint `71f2138d1d5cd67094fe1652b75974df` and all prior gates/cron remain unchanged;
+the private route count increased by one. Both inverses passed a rollback-only
+hosted rehearsal. Employee Edge source v22 (v23 after secret update) and local
+gateway v20 match their downloaded candidates. Gateway v20 only synchronizes final
+source formatting; executable-code equivalence with v18/v19 was verified.
+Unrelated Edge source hashes and prior secrets are unchanged except the approved
+employee read flag. Local monitoring adds two server-only bindings using the
+existing staging Sentry read scope. Email, push and deletion gates stayed unchanged.
+
+Pages `511b6557-daf6-4e3e-99d8-6a83817cc00c` serves the verified health assets;
+bindings are unchanged, anonymous same-origin sessions return 401/no-store, and
+missing-origin requests return 403. Hosted password/MFA restoration and local
+impersonation both displayed Backend & cleanup with actual staging counts,
+receipt phases, timestamps and disabled retention. The displayed failure/deferred
+receipts are retained synthetic backend acceptance outcomes, not production incidents.
+No monitoring read invoked cleanup or a consequential command. The exact employee
+artifact passed 78 synthetic tests; local SQL permission/revocation/rollback tests,
+315 web unit tests, six Operations browser cases, local persona browser flow and
+root type/lint/size/hygiene passed. The UI remains within the 507 KiB total and
+180 KiB sign-in gzip budgets. This manual staging qualification is not a reviewed
+main/CI promotion artifact; production and mobile remain unreleased.
+
+Recovery: owner/SYSTEM-only `%LOCALAPPDATA%/Doji/staging-backend/2026-10-30-admin-health`
+retains source, configuration, fingerprints and final packages. Restore Pages
+`6e9a1798-7ead-4f7a-a757-9620e58223d1`; restore the captured employee config and
+disable `ADMIN_DEVELOPMENT_HEALTH_ENABLED`, then restore the two exact previous
+Edge packages. Apply the local health inverse, then employee health inverse only
+after checking their installed definitions still match the captured candidate.
+Keep workflow observations and developer audit; never remove the base overlay
+or replay historical migrations as UI rollback. No additional service/plan was added;
+the previously checked included capacity was reused.
+
 The October 16 development-route correction added six existing staff-workflow
 contracts to the staging registry (38 to 44 routes). Live local home, assigned-work
 and ownership reads passed. All prior rows, identity/settings and the function/grant

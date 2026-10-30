@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { stagingDevelopment } from '../../apps/admin/vite.staging.config';
 import { createDevelopmentProxy } from '../../apps/admin/dev/development-proxy';
+import { healthFixture } from '../health-fixture';
 import {
   createDevelopmentGateway,
   developmentEndpoint,
@@ -75,11 +76,18 @@ test.beforeAll(async () => {
         result: {
           user_id: call.persona,
           display_name: call.persona === id(1) ? 'Test persona 1' : 'Test persona 2',
-          capabilities: { operator_manage: call.persona === id(1), moderation_read: true },
+          capabilities: {
+            operator_manage: call.persona === id(1),
+            moderation_read: true,
+            operations_read: call.persona === id(1),
+          },
         },
       };
     if (call.name === 'get_admin_staff_event_channels_v1')
       return { ok: true, result: ['staff:workflow:moderation'] };
+    if (call.name === 'portal_platform_health_v1') return { ok: true, result: healthFixture() };
+    if (call.name === 'get_admin_event_health_history_v1')
+      return { ok: true, result: { items: [] } };
     if (call.name === 'portal_realtime_token_v1')
       return {
         ok: true,
@@ -120,7 +128,7 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   test.setTimeout(90000);
   const external: string[] = [];
   let selections = 0;
-  page.on('request', request => {
+  page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/api/dev/select' && request.method() === 'POST')
       selections++;
   });
@@ -168,6 +176,10 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   if (!database) {
     await expect(page.getByText('Queue updates: connected', { exact: true })).toBeVisible();
     expect(calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
+    await page.getByRole('link', { name: 'Platform health', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'Backend & cleanup' })).toBeVisible();
+    expect(calls.some((c) => c.name === 'portal_platform_health_v1')).toBe(true);
+    await page.getByRole('link', { name: 'Overview', exact: true }).click();
   }
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Welcome back, Test persona 1.' })).toBeVisible();

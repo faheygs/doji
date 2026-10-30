@@ -10,8 +10,75 @@ import {
 } from '../infra/portal-identity/admin-development.mts';
 import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
 import type { DevelopmentInvoke } from '../infra/portal-identity/admin-development.mts';
+import { createDevelopmentHealth } from '../infra/portal-identity/admin-development-health.mts';
 
 const token = 'a'.repeat(43);
+test('local health uses audited persona reads, exact staging scope and post-read revocation', async () => {
+  const monitoring = {
+    token: 'synthetic',
+    environment: 'staging' as const,
+    organization: 'doji-i0',
+    projectIds: ['4512328707342336'],
+    projectSlugs: ['doji-staging'],
+  };
+  let allowed = true,
+    revokeDuringRead = false;
+  const names: string[] = [];
+  const upstream = async (url: string | URL | Request) => {
+    assert.match(String(url), /environment=staging/);
+    assert.match(String(url), /project=4512328707342336/);
+    if (revokeDuringRead) allowed = false;
+    return Response.json([]);
+  };
+  const invoke: DevelopmentInvoke = async (credential, input) => {
+    assert.equal(credential, token);
+    names.push(input.name);
+    return {
+      ok: true,
+      result:
+        input.name === 'get_admin_portal_session_v3'
+          ? { capabilities: { operations_read: allowed } }
+          : { enabled: true },
+    };
+  };
+  const health = createDevelopmentHealth(invoke, monitoring, { upstream });
+  const input = {
+    persona: '98000000-0000-4000-8000-000000000001',
+    name: 'portal_platform_health_v1',
+    args: {},
+    requestId: randomUUID(),
+  };
+  assert.equal(
+    ((await health(token, input, AbortSignal.timeout(2000))) as { ok: boolean }).ok,
+    true,
+  );
+  assert.ok(names.includes('get_admin_workflow_health_v1'));
+  allowed = false;
+  await assert.rejects(health(token, input, AbortSignal.timeout(2000)), { status: 403 });
+  allowed = true;
+  revokeDuringRead = true;
+  await assert.rejects(
+    createDevelopmentHealth(invoke, monitoring, { upstream })(
+      token,
+      input,
+      AbortSignal.timeout(2000),
+    ),
+    { status: 403 },
+  );
+  for (const patch of [
+    { environment: 'production' },
+    { projectIds: ['4511550449647616'] },
+    { organization: 'other' },
+    { projectSlugs: ['react-native'] },
+  ])
+    assert.throws(() =>
+      Reflect.apply(createDevelopmentHealth, undefined, [invoke, { ...monitoring, ...patch }]),
+    );
+  await assert.rejects(
+    health(token, { ...input, args: { actor: 'other' } }, AbortSignal.timeout(2000)),
+    { status: 400 },
+  );
+});
 const persona = '98000000-0000-4000-8000-000000000001';
 const call = { persona, name: 'get_admin_portal_session_v3', args: {}, requestId: randomUUID() };
 const config = {
@@ -111,10 +178,7 @@ test('development resources reuse permission checks and pin staging providers', 
   for (const input of [media, realtime])
     await assert.rejects(resources(token, input, signal), { status: 403 });
   denied = false;
-  for (const name of [
-    'portal_evidence_authorization_v1',
-    'get_admin_realtime_token_capabilities',
-  ])
+  for (const name of ['portal_evidence_authorization_v1', 'get_admin_realtime_token_capabilities'])
     await assert.rejects(resources(token, { ...call, name }, signal), { status: 403 });
   await assert.rejects(resources(token, { ...realtime, persona: null }, signal), { status: 403 });
   for (const path of ['../secret', 'a%2fb', 'a\\b', 'a?b'])

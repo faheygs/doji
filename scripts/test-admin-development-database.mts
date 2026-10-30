@@ -388,6 +388,30 @@ try {
     );
   assert.equal(grantsSnapshot(), baselineGrants);
   const sharedAuditCount = sql('select count(*) from admin_development_private.audit');
+  const healthTablesBefore = snapshot();
+  sql(source('supabase/overlays/workflow_health_v1.sql'));
+  sql(source('supabase/overlays/admin_development_health_v1.sql'));
+  assert.equal(call(id(5), 'get_admin_workflow_health_v1').result.enabled, false);
+  sql(`update public.admin_employees set roles=array['moderator'] where id='${id(5)}'`);
+  assert.equal(call(id(5), 'get_admin_workflow_health_v1').code, '42501');
+  sql(`update public.admin_employees set roles=array['super_admin'] where id='${id(5)}'`);
+  assert.equal(call(id(5), 'get_admin_workflow_health_v1', { actor: id(1) }).code, '22023');
+  assert.throws(() => sql('select admin_development_private.workflow_health_v1()'));
+  sql(`update admin_development_private.credentials set enabled=false where id='${id(10)}'`);
+  assert.throws(() => call(id(5), 'get_admin_workflow_health_v1'));
+  sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}'`);
+  sql(source('supabase/overlays/admin_development_health_v1.rollback.sql'));
+  assert.equal(call(id(5), 'get_admin_workflow_health_v1').code, '42501');
+  // Disposable test-only schema: restore the exact baseline for subsequent inverse checks.
+  sql(
+    'drop function public.record_workflow_health_v1(text,text,text,integer,jsonb),public.run_scheduler_log_retention_v1(integer),public.get_workflow_health_v1();drop schema workflow_health_private cascade;',
+  );
+  assert.deepEqual(snapshot(), healthTablesBefore);
+  const healthAuditCount = sql('select count(*) from admin_development_private.audit');
+  assert.ok(Number(healthAuditCount) > Number(sharedAuditCount));
+  console.log(
+    'PASS: local workflow-health permissions, revoked developer denial and retaining route rollback',
+  );
   sql(source('supabase/overlays/employee_shared_staging_v1.rollback.sql'));
   assert.equal(
     sql(
@@ -395,7 +419,7 @@ try {
     ),
     directoryAdapter,
   );
-  assert.equal(sql('select count(*) from admin_development_private.audit'), sharedAuditCount);
+  assert.equal(sql('select count(*) from admin_development_private.audit'), healthAuditCount);
   assert.equal(
     sql("select bool_and(revoked) from portal_identity_private.identities where realm='employee'"),
     't',

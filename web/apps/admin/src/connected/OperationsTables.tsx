@@ -13,6 +13,7 @@ import { QueuePagination, TableFrame } from '@doji/ui';
 import { useState } from 'react';
 import type { EmployeeHealth, EmployeeHealthHistory } from '@doji/portal-data/employee-health';
 import {
+  duration,
   eventState,
   labels,
   type HealthState,
@@ -158,10 +159,10 @@ export function OperationsHistory({
           <TableRow>
             {[
               'Doji',
-              'p95 / max (ms)',
-              'Samples / over 5s',
-              'Unpublished / exhausted',
-              'Push expired / exhausted',
+              'Update publication time',
+              'Updates measured',
+              'Updates not published',
+              'Notification-processing problems',
               'Assessment',
             ].map((x) => (
               <TableCell key={x}>{x}</TableCell>
@@ -181,16 +182,20 @@ export function OperationsHistory({
                 </Typography>
               </TableCell>
               <TableCell>
-                {row.realtime_p95_ms ?? '—'} / {row.realtime_max_ms ?? '—'}
+                {row.realtime_sample_count === 0 ? 'No updates measured' : `95% within ${duration(row.realtime_p95_ms)}`}
+                <Typography variant="caption" component="p">Slowest: {row.realtime_sample_count === 0 ? 'Not measured' : duration(row.realtime_max_ms)}</Typography>
               </TableCell>
               <TableCell>
-                {row.realtime_sample_count ?? '—'} / {row.realtime_over_5s ?? '—'}
+                {row.realtime_sample_count ?? 'Not measured'} measured
+                <Typography variant="caption" component="p">{row.realtime_over_5s ?? 'Unknown'} took longer than 5 seconds</Typography>
               </TableCell>
               <TableCell>
-                {row.outbox_unpublished ?? '—'} / {row.outbox_exhausted ?? '—'}
+                {row.outbox_unpublished ?? 'Unknown'} not published
+                <Typography variant="caption" component="p">{row.outbox_exhausted ?? 'Unknown'} used all attempts</Typography>
               </TableCell>
               <TableCell>
-                {row.push_shards_expired ?? '—'} / {row.push_shards_exhausted ?? '—'}
+                {row.push_shards_expired ?? 'Unknown'} groups expired
+                <Typography variant="caption" component="p">{row.push_shards_exhausted ?? 'Unknown'} groups used all attempts</Typography>
               </TableCell>
               <TableCell>
                 <Chip

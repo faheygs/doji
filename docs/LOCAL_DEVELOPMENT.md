@@ -408,8 +408,10 @@ Do not expose Vite through a tunnel, LAN binding or shared machine. Localhost is
 not a security boundary against other processes running as your OS user.
 No new provider, dependency or subscription is introduced. Writes affect shared
 synthetic staging data. Permission-checked media signing and subscribe-only realtime
-use staging storage and its isolated Ably app. Monitoring and outbound delivery
-remain incomplete; this is not an offline demo or a full production-service clone.
+use staging storage and its isolated Ably app. Platform health also reads staging
+database observations and isolated Sentry through the same bounded aggregator as
+hosted staging. No extra developer secret is needed. Outbound delivery and complete
+health coverage remain incomplete; this is not a full production-service clone.
 Signing rechecks the developer/persona before returning results. Previously issued
 media URLs and realtime grants expire after five and fifteen minutes respectively;
 revocation does not retroactively erase an already issued capability.

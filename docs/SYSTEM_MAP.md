@@ -53,6 +53,23 @@ Web versions are separately locked in [web workspace](../web/package.json) and
 its app/package manifests. Do not collapse web React 19.3 into mobile React 19.2.
 Do not upgrade packages merely to match a tutorial.
 
+Health presentation lives in `website/admin-portal/health-model.mts` and connected
+admin Operations components. `lib/submissionJourney.ts` links mobile submission
+steps in the existing diagnostic timeline; it is not an aggregate analytics service.
+Maintenance continuation is owned by `DataMaintenanceAlarm`,
+`supabase/functions/run-data-maintenance` and `_shared/maintenance-progress.ts`.
+Backend observations are in `_shared/workflow-health.ts`; bounded private
+counts, cleanup receipts and scheduler-log holds/retention are defined in
+`supabase/overlays/workflow_health_v1.sql`. Its paired rollback disables without
+dropping evidence. `scripts/database/workflow-health.mts` runs the owned offline
+database checks and is also part of the main database harness.
+The `employee_workflow_health_v1` SQL bridge and portal `employee-health.mts`
+serve the default-off authorized read; `OperationsWorkflows.tsx` and portal-data's
+`workflow-health.ts` own the deferred UI and bounded projection. Local staging
+uses `admin-development-health.mts` and the private `admin_development_health_v1`
+route with developer/persona reauthorization, not hosted MFA substitution.
+Current state distinguishes these prepared changes from deployed services.
+
 ## How requests connect
 
 Development has a separate Supabase database, `ohrcupagdoilkwhecict`, in the Free

@@ -17,6 +17,8 @@ const body = (path: string) =>
 const id = '98000000-0000-4000-8000-000000000001';
 const call = (name: string, args: Record<string, unknown> = {}) =>
   `portal_identity_private.employee_rpc_v1('https://employee.test/','employee','user_test','session_test',true,'${name}',$args$${JSON.stringify(args)}$args$::jsonb)`;
+const workflowCall =
+  "portal_identity_private.employee_workflow_health_rpc_v1('https://employee.test/','employee','user_test','session_test',true,'get_admin_workflow_health_v1','{}')";
 const claim = {
   p_report_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   p_action: 'claim',
@@ -57,6 +59,8 @@ create temp table before_functions as select oid,pg_get_functiondef(oid) definit
 ${body('supabase/overlays/portal_identity_employee_rpc_v1.sql')}
 ${body('supabase/overlays/portal_employee_directory_v1.sql')}
 ${body('supabase/overlays/employee_login_admission_v1.sql')}
+${body('supabase/overlays/workflow_health_v1.sql')}
+${body('supabase/overlays/employee_workflow_health_v1.sql')}
 -- Local harness may impersonate the new NOLOGIN transport role; rolled back.
 grant doji_employee_application to postgres;
 create function pg_temp.ok(v boolean,label text) returns text language plpgsql as $$begin if v is distinct from true then raise exception 'FAIL: %',label;end if;return 'PASS: '||label;end$$;
@@ -91,6 +95,12 @@ reset role;
 update portal_identity_private.employee_rpc_settings set enabled=true;
 set local role doji_employee_application;
 select pg_temp.ok((${call('get_admin_portal_session_v3')}->>'user_id')='${id}','session resolves external ID, overriding stale caller claims');
+select pg_temp.ok((${workflowCall}->>'enabled')='false','employee workflow read preserves observation gate');
+select pg_temp.ok(current_setting('request.jwt.claims')=current_setting('test.prior_claims'),'workflow read restores stale caller claims');
+select pg_temp.denied($q$select ${workflowCall.replace("true,'get_admin", "false,'get_admin")}$q$,'42501','workflow read requires MFA');
+select pg_temp.denied($q$select ${workflowCall.replace("'employee','user_test'", "'wrong','user_test'")}$q$,'42501','workflow read rejects wrong audience');
+select pg_temp.denied($q$select ${workflowCall.replace("'{}'", '\'{"actor":"other"}\'')}$q$,'22023','workflow read rejects argument injection');
+select pg_temp.denied($q$select public.get_workflow_health_v1()$q$,'42501','portal transport cannot bypass workflow authorization');
 select pg_temp.ok((${call('get_admin_realtime_token_capabilities')}->>'userId')='${id}','realtime capability uses independent employee actor');
 select pg_temp.ok((${call('portal_evidence_authorization_v1', { p_bucket: 'post-media', p_path: 'employee-test-routine.jpg' })}->>'expiresIn')='300','reported media keeps existing authorized TTL');
 select pg_temp.denied($q$select ${call('portal_evidence_authorization_v1', { p_bucket: 'post-media', p_path: 'employee-test-unreported.jpg' })}$q$,'42501','unreported media is not authorized');
@@ -146,6 +156,7 @@ select pg_temp.ok(not has_function_privilege('doji_employee_application','public
 update public.admin_employees set roles=array['moderator'] where id='${id}';
 set local role doji_employee_application;
 select pg_temp.denied($q$select ${call('get_admin_employee_directory_v1')}$q$,'42501','moderator cannot read employee account directory');
+select pg_temp.denied($q$select ${workflowCall}$q$,'42501','moderator cannot read workflow monitoring');
 select pg_temp.denied($q$select ${call('portal_evidence_authorization_v1', { p_bucket: 'post-media', p_path: 'employee-test-restricted.jpg' })}$q$,'42501','moderator cannot authorize restricted media');
 select pg_temp.denied($q$select ${call('admin_set_employee_role_v1', { p_username: 'owner@test.invalid', p_role: 'super_admin', p_active: true, p_reason: 'Synthetic self escalation attempt', p_idempotency_key: 'external-bridge-escalation' })}$q$,'42501','moderator cannot escalate own role');
 select pg_temp.denied($q$select ${call('get_admin_report_case_v3', { p_report_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' })}$q$,'P0001','moderator cannot read restricted case');
@@ -154,6 +165,7 @@ reset role;
 update public.admin_employees set status='disabled' where id='${id}';
 set local role doji_employee_application;
 select pg_temp.denied($q$select ${call('get_admin_portal_session_v3')}$q$,'42501','disabled employee denied');
+select pg_temp.denied($q$select ${workflowCall}$q$,'42501','disabled employee cannot read workflow monitoring');
 reset role;
 update public.admin_employees set status='active',roles=array['super_admin'] where id='${id}';
 reset role;
@@ -166,10 +178,15 @@ ${readFileSync('scripts/test-poll-reserved-other.sql', 'utf8')}
 select portal_identity_private.revoke_session('employee','user_test','session_test','synthetic bridge revoke');
 set local role doji_employee_application;
 select pg_temp.denied($q$select ${call('get_admin_portal_session_v3')}$q$,'42501','revoked exact session denied');
+select pg_temp.denied($q$select ${workflowCall}$q$,'42501','revoked session cannot read workflow monitoring');
 select pg_temp.denied($q$select * from public.profiles limit 1$q$,'42501','transport role cannot read member tables');
 select pg_temp.denied($q$select public.get_admin_portal_session_v3()$q$,'42501','transport role cannot bypass identity bridge');
 reset role;
 select pg_temp.ok(not exists(select 1 from before_functions b join pg_proc p on p.oid=b.oid where b.definition<>pg_get_functiondef(p.oid) or b.proacl is distinct from p.proacl),'existing RPCs and grants unchanged');
+select pg_temp.ok(not has_function_privilege('authenticated','public.get_admin_workflow_health_v1()','EXECUTE') and not has_function_privilege('anon','public.get_admin_workflow_health_v1()','EXECUTE'),'members and anonymous cannot read workflow monitoring');
+select public.record_workflow_health_v1('activate','succeeded','command',1);
+${body('supabase/overlays/employee_workflow_health_v1.rollback.sql')}
+select pg_temp.ok(to_regprocedure('public.get_admin_workflow_health_v1()') is null and to_regprocedure('public.get_workflow_health_v1()') is not null,'employee read rollback preserves backend observation contract');
 ${body('supabase/overlays/portal_identity_employee_rpc_v1.rollback.sql')}
 select pg_temp.ok(not (select enabled from portal_identity_private.employee_rpc_settings),'rollback disables only employee bridge');
 rollback;`;
