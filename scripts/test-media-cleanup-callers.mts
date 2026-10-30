@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import {evidenceRecord,evidenceStrings} from './release-evidence.mts';
 import type {MediaObject} from '../supabase/functions/_shared/moderation-media.ts';
+import { cleanupQueued, MaintenanceProgress } from '../supabase/functions/_shared/maintenance-progress.ts';
 type CleanupClient={available():boolean;remove(bucket:string,paths:string[]):Promise<{completed:string[];deferred:string[]}>};
 type CleanupFactory=(baseUrl:string,key:string,upstream:typeof fetch,milliseconds:number,maximum:number)=>CleanupClient;
 const compile=(path:string)=>ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -25,10 +26,17 @@ for(const enabled of [false,true]) for(const failing of [false,true]) {
    if(['delete_media_upload_intents','delete_pending_media_deletions'].includes(name)){acks.push(args);return {data:evidenceStrings(args.p_ids).length};}
    return {data:0,error:null};
   },auth:{getUser:async()=>({data:{user:{id:'u'}}}),admin:{deleteUser:async()=>{deletedIdentity=true;return {error:null};}}},
-  from:()=>({upsert:async()=>({error:null}),delete:()=>({eq:async()=>{acks.push('account-intent-deleted');return {error:null};}}),update:()=>({eq:async()=>({error:null})})})};
+  from:()=>({select:()=>({limit:()=>({abortSignal:async()=>({data:[],error:null})})}),upsert:async()=>({error:null}),delete:()=>({eq:async()=>{acks.push('account-intent-deleted');return {error:null};}}),update:()=>({eq:async()=>({error:null})})})};
  const env:Record<string,string>={OUTBOX_RELAY_SECRET:'local-only',SUPABASE_URL:'https://local.invalid',SUPABASE_SERVICE_ROLE_KEY:'local-only',SUPABASE_ANON_KEY:'local-only',MODERATION_MEDIA_CLEANUP_ENABLED:String(enabled)};
  function load(path:string){const module={exports:{}};vm.runInNewContext(compile(path),{module,exports:module.exports,Request,Response,crypto:globalThis.crypto,fetch:cleanup.fetch,console:{error(){}},
-  Deno:{env:{get:(k:string)=>env[k]},serve:(fn:(request:Request)=>Promise<Response>)=>{handler=fn;}},require:(name:string)=>name.startsWith('https:')?{createClient:()=>database}:{createMediaCleanupClient:()=>cleanup}});}
+  Deno:{env:{get:(k:string)=>env[k]},serve:(fn:(request:Request)=>Promise<Response>)=>{handler=fn;}},require:(name:string)=>{
+   if(name.startsWith('https:'))return {createClient:()=>database};
+   if(name.includes('maintenance-progress'))return {cleanupQueued,MaintenanceProgress};
+   if(name.includes('account-media-cleanup'))return load('supabase/functions/_shared/account-media-cleanup.ts');
+   if(name.includes('workflow-health'))return load('supabase/functions/_shared/workflow-health.ts');
+   if(name.includes('moderation-media-cleanup-client'))return {createMediaCleanupClient:()=>cleanup};
+   throw Error('Unexpected test dependency');
+  }});return module.exports;}
  load('supabase/functions/run-data-maintenance/index.ts');
  assert.ok(handler,'maintenance handler registered');
  const response=await handler(new Request('https://local.invalid',{method:'POST',headers:{'x-outbox-secret':'local-only'}}));

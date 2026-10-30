@@ -383,19 +383,29 @@ describe('maintenance and router boundaries', () => {
     expect((await alarm.fetch(req())).status).toBe(200);
     expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW);
   });
-  test.each([true, false, undefined])(
-    'maintenance continues only explicit hasMore=%s',
+  test.each([true, false])(
+    'maintenance drains explicit backlog or retains its daily safety wake (%s)',
     async (hasMore) => {
       transport.mockResolvedValue(Response.json({ hasMore }));
       await new DataMaintenanceAlarm(fixture.ctx, env).alarm();
-      expect(fixture.storage.setAlarm).toHaveBeenCalledTimes(hasMore === true ? 1 : 0);
-      if (hasMore) expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW + 1000);
+      expect(fixture.storage.setAlarm).toHaveBeenCalledTimes(1);
+      expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW + (hasMore === true ? 1000 : 86400000));
     },
   );
   test('maintenance failure schedules bounded recovery', async () => {
     transport.mockResolvedValue(new Response('failed', { status: 503 }));
     await new DataMaintenanceAlarm(fixture.ctx, env).alarm();
     expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW + 30000);
+  });
+  test.each([{}, null, { hasMore: 'false' }])('unknown maintenance state is not drained (%j)', async payload => {
+    transport.mockResolvedValue(Response.json(payload));
+    await new DataMaintenanceAlarm(fixture.ctx, env).alarm();
+    expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW + 30000);
+  });
+  test.each([3600000, -1, '3600000', 99999999])('maintenance validates retry delay %j', async (retryAfterMs) => {
+    transport.mockResolvedValue(Response.json({ hasMore: true, retryAfterMs }));
+    await new DataMaintenanceAlarm(fixture.ctx, env).alarm();
+    expect(fixture.storage.setAlarm).toHaveBeenCalledWith(NOW + (retryAfterMs === 3600000 ? 3600000 : 1000));
   });
   test.each([handleCommandGateway, handlePortalRead, handleScaleRead])(
     'a recognized request is handled before the internal authorization gate',

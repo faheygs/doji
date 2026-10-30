@@ -1,6 +1,7 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readJsonBody } from '../_shared/json-body.ts';
+import { observeWorkflow } from '../_shared/workflow-health.ts';
 
 type OrchestrationRequest = {
   action?: 'prelive' | 'activate' | 'close' | 'close_targeted';
@@ -37,10 +38,12 @@ Deno.serve(async (request) => {
       : input.action === 'close_targeted'
         ? 'close_targeted_daily_event'
         : 'close_daily_event';
-  const { data, error } = await database.rpc(functionName, {
-    p_daily_event_id: input.dailyEventId,
-  });
-  if (error) return new Response(error.message, { status: 500 });
+  return observeWorkflow(input.action, (name, args) => database.rpc(name, args), async () => {
+    const { data, error } = await database.rpc(functionName, {
+      p_daily_event_id: input.dailyEventId,
+    });
+    if (error) return new Response(error.message, { status: 500 });
 
-  return Response.json(data);
+    return Response.json(data);
+  });
 });

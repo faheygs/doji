@@ -28,7 +28,7 @@ describe('100k hardening contracts', () => {
   it('continues bounded maintenance while a backlog remains', () => {
     const worker = read('infra/doji-orchestrator/src/index.ts');
     expect(worker).toContain('class DataMaintenanceAlarm');
-    expect(worker).toContain('if (result.hasMore)');
+    expect(worker).toContain('result.hasMore ? result.retryAfterMs : 86_400_000');
     expect(worker).toContain('scheduleDataMaintenance(this.env)');
   });
 
