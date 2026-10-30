@@ -77,6 +77,9 @@ jobs:
       - name: Typecheck Cloudflare orchestrator
         working-directory: infra/doji-orchestrator
         run: npm run typecheck
+      - name: Deployment tooling security
+        working-directory: infra/doji-orchestrator
+        run: npm audit --audit-level=high
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

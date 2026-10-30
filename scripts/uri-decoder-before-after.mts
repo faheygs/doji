@@ -12,7 +12,7 @@ assert.equal(metadata.version, '0.2.2');
 const evidence = [];
 for (const [name, path] of [
   ['old-0.2.2', old],
-  ['fixed-0.5.0-adapter', require.resolve('../vendor/decode-uri-component-compat')],
+  ['current-patched-adapter', require.resolve('../vendor/decode-uri-component-compat')],
 ] as const) {
   const started = Date.now();
   const run = spawnSync(

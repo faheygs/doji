@@ -28,7 +28,7 @@ test('actual query-string dependency resolves to the adapter and fixed upstream'
   const upstream = lock.packages['node_modules/decode-uri-component-upstream'];
   assert.ok(record(upstream));
   assert.equal(upstream.name, 'decode-uri-component');
-  assert.equal(upstream.version, '0.5.0');
+  assert.equal(upstream.version, '0.5.1');
   assert.ok(typeof upstream.integrity === 'string' && upstream.integrity.startsWith('sha512-'));
   assert.ok(
     !Object.values(lock.packages).some(
@@ -116,6 +116,11 @@ test('malformed input terminates within a bounded child process via real query-s
         assert.ok(value.length > 0);
       }
     }
+    // Distinct malformed runs caught the quadratic replacement missed by repeats.
+    const runs = Array.from({ length: 32000 }, (_, i) =>
+      '%' + (i >> 8).toString(16).padStart(2, '0') +
+      '%' + (i & 255).toString(16).padStart(2, '0') + 'x').join('') + '%zz';
+    assert.equal(typeof q.parse('value=' + runs).value, 'string');
   `,
     ],
     { timeout: 8000, encoding: 'utf8' },

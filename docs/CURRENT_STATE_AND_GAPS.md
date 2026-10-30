@@ -214,8 +214,14 @@ quality checks and subsequent admin staging run for source/release verification;
 production promotion remains gated. Legacy/orphan-file reconciliation needs its
 own hold-aware preparation. No universal
 health/readiness claim, production deletion, mobile build or release is implied.
-Dependency installation also reported existing root and Worker high-severity audit
-findings; isolate and test their dependency fixes before production, without forced upgrades.
+Production dependency preflight found separate tooling blockers. The prepared
+security patch pins Wrangler 4.156.0 (clean audit), updates the URI decoder to
+0.5.1 with a distinct-malformed-run regression, and patches supported root
+dependencies without changing Expo/React Native versions. Expo CLI 57.0.32 still
+requires Zod 3.25.76; the published fix is Zod 4.6.6+, with no compatible v3
+release. Its three transitive high findings remain unresolved; do not force a
+major override or downgrade Expo to make the audit green. Production qualification
+and native acceptance remain separate from these source patches.
 
 | Before doing this | Required evidence/approval |
 | --- | --- |
