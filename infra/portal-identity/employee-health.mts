@@ -17,8 +17,8 @@ interface HealthCache {
 }
 // Same bounded monitoring contract as the existing portal: no new polling,
 // aggregate health only, at most 25 unresolved issues over the past 24 hours.
-export function createEmployeeHealth(
-  application: EmployeeApplication,
+export function createEmployeeHealth<Actor = EmployeeActor>(
+  application: EmployeeApplication<Actor>,
   {
     token,
     organization,
@@ -30,7 +30,13 @@ export function createEmployeeHealth(
     upstream = fetch,
     now = Date.now,
     healthEventsEnabled = false,
-  }: { upstream?: PortalFetch; now?: () => number; healthEventsEnabled?: boolean } = {},
+    workflowHealthEnabled = false,
+  }: {
+    upstream?: PortalFetch;
+    now?: () => number;
+    healthEventsEnabled?: boolean;
+    workflowHealthEnabled?: boolean;
+  } = {},
 ) {
   if (environment !== 'production' && environment !== 'staging')
     throw Error('Invalid monitoring environment');
@@ -45,21 +51,24 @@ export function createEmployeeHealth(
   )
     throw Error('Invalid monitoring projects');
   let operationsCache: HealthCache | null = null,
-    sentryCache: HealthCache | null = null;
+    sentryCache: HealthCache | null = null,
+    workflowCache: HealthCache | null = null;
   function cached(
-    kind: 'operations' | 'sentry',
+    kind: 'operations' | 'sentry' | 'workflows',
     ttl: number,
     version: string,
     load: () => Promise<Record<string, unknown>>,
   ) {
-    const existing = kind === 'operations' ? operationsCache : sentryCache;
+    const existing =
+      kind === 'operations' ? operationsCache : kind === 'sentry' ? sentryCache : workflowCache;
     if (existing && existing.until > now() && existing.version === version) return existing.promise;
     const promise = Promise.resolve()
       .then(load)
       .then((value) => ({ ...value, observed_at: new Date(now()).toISOString() }));
     const cell = { until: now() + ttl, promise, version };
     if (kind === 'operations') operationsCache = cell;
-    else sentryCache = cell;
+    else if (kind === 'sentry') sentryCache = cell;
+    else workflowCache = cell;
     return promise;
   }
   async function sentry() {
@@ -119,7 +128,7 @@ export function createEmployeeHealth(
       }),
     };
   }
-  return async (actor: EmployeeActor, signal: AbortSignal) => {
+  return async (actor: Actor, signal: AbortSignal) => {
     // Authorization precedes every cache hit. Cache is not authority.
     const operator = await application.authorize(actor, signal);
     if (
@@ -153,6 +162,17 @@ export function createEmployeeHealth(
           return value;
         }),
         cached('sentry', 60000, versions.sentry, sentry),
+        workflowHealthEnabled
+          ? cached('workflows', 30000, 'v1', async () => {
+              const value = await application.command(
+                actor,
+                { name: 'get_admin_workflow_health_v1', args: {} },
+                AbortSignal.timeout(5000),
+              );
+              if (!record(value)) throw Error('Invalid workflow snapshot');
+              return { ...value, available: true };
+            })
+          : Promise.resolve({ available: false }),
       ]);
       signal.throwIfAborted();
       if (healthEventsEnabled) {
@@ -164,6 +184,7 @@ export function createEmployeeHealth(
       }
       return {
         generated_at: new Date(now()).toISOString(),
+        workflows: results[2].status === 'fulfilled' ? results[2].value : { available: false },
         ...(healthEventsEnabled ? { source_revisions: versions } : {}),
         operational:
           results[0].status === 'fulfilled'

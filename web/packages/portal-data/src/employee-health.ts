@@ -1,5 +1,6 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeSessionController } from './employee-session';
+import { workflowSnapshot } from './workflow-health';
 
 const text = (v: unknown, limit = 500) => (typeof v === 'string' ? v.slice(0, limit) : null);
 const date = (v: unknown) =>
@@ -80,6 +81,7 @@ export function healthSnapshot(value: unknown) {
     : [];
   return {
     generated_at: date(value.generated_at),
+    workflows: workflowSnapshot(value.workflows),
     operational: {
       ...metrics(op, operationalMetrics),
       available: op.available === true,

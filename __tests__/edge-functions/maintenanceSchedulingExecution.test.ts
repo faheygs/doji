@@ -10,6 +10,7 @@ const mockCreateClient = jest.fn();
 const rpc = jest.fn();
 const list = jest.fn();
 const remove = jest.fn();
+const backlog = jest.fn();
 const transport = jest.fn();
 const id = '11111111-1111-4111-8111-111111111111';
 const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'Deno');
@@ -48,9 +49,11 @@ beforeEach(() => {
   rpc.mockReset().mockResolvedValue({ data: null, error: null });
   list.mockReset().mockResolvedValue({ data: [] });
   remove.mockReset().mockResolvedValue({ error: null });
+  backlog.mockReset().mockResolvedValue({ data: [], error: null });
   mockCreateClient
     .mockReset()
-    .mockReturnValue({ rpc, storage: { from: () => ({ list, remove }) } });
+    .mockReturnValue({ rpc, storage: { from: () => ({ list, remove }) },
+      from: () => ({ select: () => ({ limit: () => ({ abortSignal: backlog }) }) }) });
   transport.mockReset().mockImplementation(async () => new Response(null));
   global.fetch = transport;
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -68,6 +71,34 @@ describe('maintenance queues and hard bounds', () => {
   beforeEach(() => load('run-data-maintenance'));
   const item = { id, bucket_id: 'post-media', object_path: 'member/file' };
   const account = { user_id: id, claim_token: 'synthetic-lease' };
+  test.each(['succeeded', 'failed', 'deferred'])('enabled monitoring records actual maintenance %s', async outcome => {
+    settings.WORKFLOW_HEALTH_ENABLED = 'true';
+    settings.DOJI_ENVIRONMENT = 'staging';
+    settings.SUPABASE_URL = 'https://ohrcupagdoilkwhecict.supabase.co';
+    const priorRuntime = Object.getOwnPropertyDescriptor(globalThis, 'EdgeRuntime');
+    const tasks: Promise<unknown>[] = [];
+    const record = jest.fn().mockResolvedValue({ data: true, error: null });
+    Object.defineProperty(globalThis, 'EdgeRuntime', { configurable: true,
+      value: { waitUntil: (task: Promise<unknown>) => tasks.push(task) } });
+    rpc.mockImplementation(name => name === 'record_workflow_health_v1'
+      ? { abortSignal: record }
+      : Promise.resolve(name === 'claim_pending_media_deletions' && outcome === 'failed'
+        ? { error: { message: 'synthetic-private' } } : { data: null, error: null }));
+    if (outcome === 'deferred') backlog.mockResolvedValue({ data: [{ id: 'leased' }], error: null });
+    try {
+      const result = await handler(request());
+      expect(result.status).toBe(outcome === 'failed' ? 500 : 200);
+      await Promise.all(tasks);
+      expect(rpc).toHaveBeenCalledWith('record_workflow_health_v1', expect.objectContaining({
+        p_workflow: 'maintenance', p_outcome: outcome,
+        p_phase: outcome === 'failed' ? 'post_media' : outcome === 'deferred' ? 'queue_check' : 'complete',
+      }));
+      expect(record).toHaveBeenCalledTimes(1);
+    } finally {
+      if (priorRuntime) Object.defineProperty(globalThis, 'EdgeRuntime', priorRuntime);
+      else Reflect.deleteProperty(globalThis, 'EdgeRuntime');
+    }
+  });
   test.each([undefined, ''])('missing secret rejects before database', async (secret) => {
     settings.OUTBOX_RELAY_SECRET = secret;
     expect((await handler(request())).status).toBe(401);
@@ -76,6 +107,19 @@ describe('maintenance queues and hard bounds', () => {
   test('wrong caller rejected', async () => {
     expect((await handler(request({}, 'wrong'))).status).toBe(401);
   });
+  test('leased or deferred queue entries schedule recovery even when claim readers are empty', async () => {
+    backlog.mockResolvedValueOnce({ data: [{ id: 'leased' }], error: null });
+    expect(await (await handler(request())).json()).toMatchObject({ hasMore: true, retryAfterMs: 3600000 });
+    expect(remove).not.toHaveBeenCalled();
+    expect(backlog).toHaveBeenCalledTimes(2);
+    expect(backlog.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+  });
+  test.each([{ data: null, error: null }, { data: [], error: { message: 'private' } }])(
+    'unavailable queue probe never claims maintenance is complete (%j)', async response => {
+      backlog.mockResolvedValueOnce(response);
+      await expect(handler(request())).rejects.toThrow('Cleanup queue status unavailable');
+    },
+  );
   test('empty queues yield explicit zero totals', async () => {
     const res = await handler(request());
     expect(res.status).toBe(200);
@@ -202,6 +246,7 @@ describe('maintenance queues and hard bounds', () => {
     expect(await (await handler(request())).json()).toMatchObject({
       orphaned_media: 2500,
       deleted_post_media: 2500,
+      hasMore: true,
     });
     expect(remove).toHaveBeenCalledTimes(10);
   });
@@ -317,8 +362,20 @@ describe('maintenance queues and hard bounds', () => {
       });
       if (state === 'failure') expect(result.totals.media_cleanup_deferred).toBe(2);
       expect(result.deleted_account_media).toBe(state === 'complete' ? 1 : 0);
+      if (state !== 'complete') expect(result).toMatchObject({ hasMore: true, retryAfterMs: 3600000 });
     },
   );
+});
+
+test('a bounded queue that subsequently drains does not retain a false backlog', () => {
+  const { MaintenanceProgress } = require('../../supabase/functions/_shared/maintenance-progress');
+  const progress = new MaintenanceProgress();
+  progress.page('media', 20, 20);
+  expect(progress.result(false)).toEqual({ hasMore: true });
+  progress.page('media', 0, 20);
+  expect(progress.result(false)).toEqual({ hasMore: false });
+  progress.defer();
+  expect(progress.result(false)).toEqual({ hasMore: true, retryAfterMs: 3600000 });
 });
 
 describe('atomic daily preparation and durable alarm registration', () => {

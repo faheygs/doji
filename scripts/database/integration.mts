@@ -73,6 +73,8 @@ export async function integration(room: TestRoom) {
   }
 
   room.sql('create extension if not exists pgtap with schema extensions;');
+  const { workflowHealth } = await import('./workflow-health.mts');
+  pass(workflowHealth(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

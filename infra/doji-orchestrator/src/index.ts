@@ -152,7 +152,7 @@ async function prepareNextDoji(env: Env): Promise<void> {
   }
 }
 
-async function runDataMaintenance(env: Env): Promise<{ hasMore: boolean }> {
+async function runDataMaintenance(env: Env): Promise<{ hasMore: boolean; retryAfterMs: number }> {
   const response = await fetchUpstream(`${env.SUPABASE_URL}/functions/v1/run-data-maintenance`, {
     method: 'POST',
     headers: {
@@ -163,8 +163,9 @@ async function runDataMaintenance(env: Env): Promise<{ hasMore: boolean }> {
   });
   const body = await response.text();
   if (!response.ok) throw new Error(`Data maintenance failed: ${response.status} ${body}`);
-  const result = JSON.parse(body) as { hasMore?: boolean };
-  return { hasMore: result.hasMore === true };
+  const result = JSON.parse(body) as { hasMore?: boolean; retryAfterMs?: number };
+  if (typeof result?.hasMore !== 'boolean') throw new Error('Maintenance response missing backlog state');
+  return { hasMore: result.hasMore === true, retryAfterMs: result.retryAfterMs === 3_600_000 ? 3_600_000 : 1_000 };
 }
 
 async function scheduleDataMaintenance(env: Env): Promise<void> {
@@ -429,7 +430,7 @@ export class PushFanoutAlarm extends DurableObject<Env> {
   }
 }
 
-/** Continues bounded retention batches until the database reports no backlog. */
+/** Drain bounded batches; retain a daily safety wake even when no Doji closes. */
 export class DataMaintenanceAlarm extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -444,7 +445,7 @@ export class DataMaintenanceAlarm extends DurableObject<Env> {
   async alarm(): Promise<void> {
     try {
       const result = await runDataMaintenance(this.env);
-      if (result.hasMore) await this.ctx.storage.setAlarm(Date.now() + 1_000);
+      await this.ctx.storage.setAlarm(Date.now() + (result.hasMore ? result.retryAfterMs : 86_400_000));
     } catch (error) {
       console.error('Data maintenance alarm failed', error);
       await this.ctx.storage.setAlarm(Date.now() + 30_000);

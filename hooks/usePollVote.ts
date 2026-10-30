@@ -5,6 +5,7 @@ import { filterContent } from '../lib/contentFilter';
 import { occurrenceCommandId, runSingleFlight } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { executeCommand } from '../lib/commandGateway';
+import { beginSubmissionJourney, submissionStep } from '../lib/submissionJourney';
 
 type VoteArgs = {
   challengeId: string;
@@ -31,13 +32,16 @@ export function usePollVote() {
           const check = filterContent(customText);
           if (!check.ok) throw new Error(check.reason);
         }
+        const journey = beginSubmissionJourney(userId, userEventId);
+        submissionStep(journey, 'submit', 'started');
         const { error: voteErr } = await executeCommand('submit_poll_vote', {
           p_user_event_id: userEventId,
           p_option_id: optionId,
           p_custom_text: customText?.trim() || null,
           p_idempotency_key: commandId,
         });
-        if (voteErr) throw voteErr;
+        if (voteErr) { submissionStep(journey, 'submit', 'failed', voteErr); throw voteErr; }
+        submissionStep(journey, 'submit', 'confirmed');
       });
     },
     onMutate: () => {

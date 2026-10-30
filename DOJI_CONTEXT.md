@@ -51,6 +51,12 @@ Doji is a daily social challenge. Eligible members receive the same occurrence.
 Participation uses exactly ten minutes of server-authorized time; submission
 returns directly to the feed without a success interstitial.
 
+Submission errors distinguish unavailable participation, sign-in, media upload and
+unconfirmed writes, with a safe next action. Do not expose raw server messages or
+claim a failed request was rolled back. Preserve the existing immutable answer/key
+for an explicit retry. A confirmed answer followed by a feed-loading failure asks
+the member to reload the feed, not submit again.
+
 ### Account and navigation
 
 Signup requires independently unchecked Terms and Privacy consents and a

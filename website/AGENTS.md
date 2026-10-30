@@ -14,6 +14,8 @@ Maintain `.mts` sources and declarations; browser-source.mts generates the same
 public `.js` URLs. Run root `npm run typecheck:website` and affected offline/browser
 regressions. Compiled `.admin-dist`, `.business-dist`, `.safety-preview` and
 `.business-admin-qa-*` packages are ignored and not source authority.
+Health model imports are side-effect-free; the classic-script adapter alone installs
+its legacy global. Preserve native/compiled parity and React tree-shaking.
 
 Builders can read local production-linked configuration and emit live mode.
 Inspect them before invoking; use explicit synthetic settings and network-blocked

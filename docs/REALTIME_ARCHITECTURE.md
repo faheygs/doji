@@ -240,10 +240,74 @@ are unavailable, not healthy or zero. No traffic is not measured zero latency.
 Sentry's bounded unresolved production issue groups are not per-Doji attribution,
 crash-free sessions or feature success rates.
 
+Submission diagnostics reuse the existing 24-step, session-scoped mobile timeline.
+An in-memory journey distinguishes upload, command, receipt lookup and feed display;
+it expires after fifteen minutes and never emits account IDs, answers or media paths.
+Only a confirmed command/receipt permits “Your answer was submitted” after a feed
+failure. An optimistic cache update is not confirmation. This is incident context,
+not a complete success-rate collector; events already captured cannot gain later steps.
+
 Portal delivery labels use the existing health model: watch at p95 >=1 second or
 any sample >5 seconds; degraded p95 >5 seconds requires >=20 samples; any sample
 >30 seconds is critical. Evidence expires after three minutes. Label timers make
 no network requests. Recent missed targets remain visible after recovery.
+
+Presentation translates publication percentiles into “95% of measured updates
+were published within … seconds,” preserving sample counts, thresholds and unknowns.
+That duration is not phone delivery time. Coverage gaps remain explicit.
+
+Maintenance recovery preserves bounded retention batches and Storage API
+deletion, never direct removal of Storage metadata. Full pages continue; deferred
+work recovers after one hour. Two bounded, ID-only queue-presence reads prevent
+leased media/account work from masquerading as an empty queue. Failure is unknown,
+not drained; existing claims, active references and evidence holds still control
+deletion eligibility. Once started, the maintenance object retains a daily safety
+wake after draining, independent of challenge close. Deployment must verify its
+initial wake, staging storage deletion/recovery, shared-service capacity and rollback.
+Release the delay-aware Worker before the maintenance Edge update; an older Worker
+would ignore its backoff and retry deferred work every second. Roll back Edge first,
+then Worker. No database schema or retention-period rollback is involved in this batch.
+This does not introduce automatic pruning of database scheduler logs or change
+existing retention periods. See current state for release status.
+
+The separate `workflow_health_v1` overlay observes only authorized
+pre-live/activation/close and maintenance **attempts**, not unique member actions.
+Its Edge sidecar is best effort, runs after the handler outcome, has a two-second
+deadline and no retry. A failed attempt does not prove the database rolled back.
+Missing observations (including terminated isolates) remain a coverage gap.
+Five fixed workflow names and three outcomes use 24 hourly slots (360 rows maximum),
+plus the last success/failure/deferred receipt per workflow. This gives a current
+hour plus 23-hour trend, not an indefinite per-request archive. Receipts contain
+allowlisted phases and confirmed cleanup counts; no identities, answers, media,
+credentials, raw errors or request payloads. Historical Doji summaries stay intact.
+The `employee_workflow_health_v1` bridge exposes this bounded snapshot only
+after verified employee identity/MFA and `operations.read`. The portal's
+`workflowHealthEnabled` flag defaults off; enabled reads share a 30-second cache
+and five-second database deadline after authorization. Cache hits do not refresh
+observation timestamps. Backend & cleanup uses the existing session-scoped health
+query and foreground/reconnect/manual reconciliation, not polling. Invalid, missing
+or three-minute-old observations remain unavailable. The bridge does not grant
+browser access or enable retention. Staging also uses the separate
+`admin_development_health_v1` private route and `admin-development-health.mts`
+aggregator: existing developer/persona authorization before reads and again before
+return, exact staging Sentry scope, no fabricated MFA. Hosted and local health
+reads are enabled in staging only; production remains gated.
+
+Both `WORKFLOW_HEALTH_ENABLED` and the private database observation gate default off.
+The Edge requires explicit `DOJI_ENVIRONMENT` and the matching Supabase project.
+Scheduler pruning additionally requires `SCHEDULER_LOG_RETENTION_ENABLED` and its
+independent database gate. It scans at most 500 indexed run IDs per maintenance
+turn, with a persisted cursor, and removes only completed `succeeded` runs older
+than 30 days or `failed` runs older than 90 days. Unknown status or missing end time
+is never eligible. Database-owner-managed `scheduler_holds` supports global, job
+and run holds; a table lock serializes holds against deletion. Before activation,
+inventory/export any evidence needed from old scheduler logs and establish holds.
+Neither enabling monitoring nor releasing UI authorizes deletion. Confirm managed
+pg_cron permissions, staging recovery, execution cost and cursor completion before
+production. Rollback restores the prior Edge package and disables both database
+gates, retaining measurements/holds/receipts; it cannot restore already-deleted logs.
+No member RPC, reward, timing, auth, push or storage retention rule is changed by
+this overlay. No new vendor or recurring scheduler job is introduced.
 
 The server monitor runs once per minute with bounded failure recovery and hourly
 deduplicated incident families. It may wake overdue outbox work; it is not a

@@ -55,6 +55,7 @@ current consoles before deciding availability, review state or enforcement.
 | Background phone notifications | Apple APNs and Firebase Cloud Messaging (FCM) | Primary native transports from the committed outbox. Expo push is only a bounded older-client fallback; acceptance by a provider is not proof the phone displayed an alert. |
 | Build and distribute the native app | Expo/EAS, Apple Developer/App Store Connect, Google Play | EAS builds/signs/submits approved artifacts; Apple/Google own store review and distribution. A Git merge does not update installed apps. |
 | Errors and diagnostics | Sentry | App/Worker reporting and source maps; bounded Sentry reads inform portal health. Not a complete uptime monitor or proof every user action succeeded. |
+| Workflow counts and scheduler retention | Existing Supabase Postgres/Edge; no new vendor | `workflow_health_v1` and `_shared/workflow-health.ts`; exact environment binding. Staging observations and hosted/local admin reads enabled and verified; scheduler pruning disabled. Employee projection uses existing restricted portal credentials and `workflowHealthEnabled` (default off). Local aggregator uses a separate private route and staging-only monitoring config; no browser keys. Production unchanged/gated. Fixed hourly slots and latest cleanup receipts, not full user-action analytics. [Capacity, acceptance and retaining rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance). |
 | Application email | Resend, dedicated Cloudflare safety sender, WorkOS and Supabase Auth mail paths | Different message families and credentials; see the routing table below. Business automatic application-mail capture/sending/wakeup remain off in the last acceptance record. |
 
 ## Development, testing and repository services
@@ -246,6 +247,13 @@ signed-in staging portal. Resend key `Doji admin staging` is sending-only for
 `mail.dojipro.com`; one labelled email reached the owner and sending is off again.
 Credentials stay in staging Edge/Worker stores and owner/SYSTEM-only recovery
 under `%LOCALAPPDATA%/Doji/staging-backend/2026-10-27`, never developer env files.
+The October 30 local health adapter reuses this read-only token in staging Edge
+secret `ADMIN_DEVELOPMENT_MONITORING`, enabled by `ADMIN_DEVELOPMENT_HEALTH_ENABLED`.
+It pins the staging organization/project/environment and reauthorizes the developer
+and employee persona before returning. Hosted workflow reads use
+`EMPLOYEE_V2_CONFIG.workflowHealthEnabled`. These are server bindings, not developer
+configuration. Disable these read flags and restore the exact captured runtimes
+before their additive SQL rollback; keep observations and audit records.
 Supabase showed 929/500,000 Edge calls and 8% database quota before release;
 Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
 its existing paid allowance. Sentry's Business trial has one day remaining before
@@ -337,6 +345,7 @@ and can route a local test to production if copied carelessly.
 | Supabase Edge | Platform keys plus `ABLY_API_KEY`, orchestration/relay secrets, APNs/FCM credentials, `RESEND_API_KEY`, sender/alert configuration | Server-only; endpoint-specific authorization |
 | Employee Pages production | `EMPLOYEE_V2_ENABLED`, `EMPLOYEE_V2_ENDPOINT`, secret `EMPLOYEE_V2_PROXY_KEY` | `doji-admin` only; preview must not inherit live credentials accidentally |
 | Employee Edge | `EMPLOYEE_V2_ENABLED`, secret JSON `EMPLOYEE_V2_CONFIG`; server Storage/Ably credentials | Config includes restricted SQL, WorkOS, encryption/admission/proxy and monitoring material; never dump it |
+| Local-development Edge, staging only | `ADMIN_DEVELOPMENT_HEALTH_ENABLED`, secret JSON `ADMIN_DEVELOPMENT_MONITORING` | Existing staging Sentry read token and exact project/environment; no production binding or browser/developer export |
 | Business build | `DOJI_BUSINESS_*` public URL/key/Turnstile/legal versions and enabled flag | Built artifact isolated; no service key; realtime remains off |
 | Admin build | `DOJI_ADMIN_*` output/public backend/feature flags and independent identity selector | Defaults do not reproduce the live root automatically; use reviewed artifact configuration |
 | Safety artifact and Edge | `DOJI_SAFETY_CONFIG` public endpoint/site key; dedicated server gate/Turnstile/alert secrets | Source/preview defaults fail closed; no real submissions during UI tests |

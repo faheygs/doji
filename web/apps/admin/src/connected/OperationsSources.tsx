@@ -11,6 +11,30 @@ import {
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import type { EmployeeHealth } from '@doji/portal-data/employee-health';
 import { observation } from './OperationsTables';
+const monitoringGaps = [
+  ['Accounts & profiles', 'Sign-in, signup, session renewal and avatar-save success.'],
+  [
+    'Doji readiness',
+    'Backend attempts do not verify required poll records or the next scheduled event.',
+  ],
+  [
+    'Answers & rewards',
+    'Submission confirmation, failed attempts and correct single-credit rewards.',
+  ],
+  ['Feed & media', 'Feed display after submission, photo uploads and image display.'],
+  [
+    'Database & hosting',
+    'Current request success, resource pressure and failures by processing step.',
+  ],
+  [
+    'Email & phone delivery',
+    'Recipient delivery outcomes; provider acceptance is not phone display.',
+  ],
+  [
+    'Content cleanup',
+    'Receipts cover recorded deletions, not a complete storage inventory, overdue backlog or evidence-hold audit.',
+  ],
+] as const;
 
 export function OperationsSources({
   data,
@@ -36,6 +60,22 @@ export function OperationsSources({
     Date.parse(data.operational.checked_at) <= Date.now() + 60000;
   const sources = [
     {
+      name: 'Backend processing & cleanup',
+      status: loading
+        ? 'Checking'
+        : failed || !data?.workflows
+          ? 'Unavailable'
+          : Date.now() - Date.parse(data.workflows.observed_at) > 180000 ||
+              Date.parse(data.workflows.observed_at) > Date.now() + 60000
+            ? 'Outdated'
+            : data.workflows.enabled
+              ? 'Current'
+              : 'Observation disabled',
+      detail:
+        'Backend & cleanup shows recorded attempts, latest failure phases and confirmed cleanup counts. These are not member success rates.',
+      observed: data?.workflows?.observed_at,
+    },
+    {
       name: 'Delivery & push',
       status: loading
         ? 'Checking'
@@ -52,7 +92,7 @@ export function OperationsSources({
     {
       name: 'Sentry app issues',
       status: loading ? 'Checking' : sentryProblem ? 'Needs attention' : 'Current',
-      detail: sentryProblem ?? 'Unresolved production issues from the last 24 hours.',
+      detail: sentryProblem ?? 'Unresolved issues in this environment from the last 24 hours.',
       observed: data?.sentry.observed_at,
     },
     {
@@ -104,6 +144,22 @@ export function OperationsSources({
                 Observed {observation(source.observed)}
               </Typography>
             )}
+          </Paper>
+        ))}
+      </Box>
+      <Typography component="h2" variant="h6">
+        Not yet verified by this screen
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2 }}>
+        {monitoringGaps.map(([name, detail]) => (
+          <Paper key={name} variant="outlined" sx={{ p: 2.5 }}>
+            <Typography component="h3" variant="subtitle1">
+              {name}
+            </Typography>
+            <Chip size="small" variant="outlined" label="Not measured" sx={{ my: 1 }} />
+            <Typography variant="body2" color="text.secondary">
+              {detail}
+            </Typography>
           </Paper>
         ))}
       </Box>

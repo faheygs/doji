@@ -6,6 +6,7 @@ import {
   createDevelopmentResources,
 } from '../../../infra/portal-identity/admin-development.mts';
 import { createEmployeeStorageSigner } from '../../../infra/portal-identity/employee-storage-signer.mts';
+import { createDevelopmentHealth } from '../../../infra/portal-identity/admin-development-health.mts';
 
 let handler: ReturnType<typeof createDevelopmentGateway> | undefined;
 Deno.serve(async (request: Request) => {
@@ -38,6 +39,12 @@ Deno.serve(async (request: Request) => {
             return result;
           },
         });
+      }
+      if (Deno.env.get('ADMIN_DEVELOPMENT_HEALTH_ENABLED') === 'true') {
+        invoke = createDevelopmentHealth(
+          invoke,
+          JSON.parse(Deno.env.get('ADMIN_DEVELOPMENT_MONITORING') || '{}'),
+        );
       }
       handler = createDevelopmentGateway(invoke);
     }

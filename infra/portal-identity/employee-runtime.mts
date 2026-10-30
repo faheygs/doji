@@ -37,6 +37,7 @@ export interface EmployeeRuntimeConfig extends Omit<
   admissionKey: string;
   staffWorkflowEnabled?: boolean;
   healthEventsEnabled?: boolean;
+  workflowHealthEnabled?: boolean;
   announcementComposeEnabled?: boolean;
   historyReadsEnabled?: boolean;
 }
@@ -113,6 +114,7 @@ export function createEmployeeRuntime(
       upstream,
       now,
       healthEventsEnabled: policy.healthEventsEnabled === true,
+      workflowHealthEnabled: policy.workflowHealthEnabled === true,
     }),
   });
   type Provider = ReturnType<typeof createWorkosEmployeeProvider>;

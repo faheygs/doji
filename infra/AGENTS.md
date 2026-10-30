@@ -64,3 +64,7 @@ Its optional resource adapter reuses employee media/channel policy with a distin
 developer context, pins staging storage/Ably, and rechecks revocation before returning
 signed results. Keep intermediate authorization routes inaccessible over HTTP.
 Package it separately with `buildAdminDevelopmentEdge`; never deploy raw imports.
+Its optional health aggregator reuses bounded employee monitoring with developer/persona
+reauthorization before returning, an exact staging Sentry project, and a private SQL
+read route. `ADMIN_DEVELOPMENT_HEALTH_ENABLED` and server-only
+`ADMIN_DEVELOPMENT_MONITORING` must not enter local/browser env files or production.

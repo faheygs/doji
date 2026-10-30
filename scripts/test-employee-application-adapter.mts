@@ -13,6 +13,38 @@ const parse = (value: unknown): unknown => {
   return JSON.parse(value);
 };
 const signal = () => AbortSignal.timeout(2000);
+test('workflow monitoring uses only its fixed employee bridge with empty arguments', async () => {
+  let calls = 0;
+  const adapter = createEmployeeApplicationAdapter(async (role, sql, params) => {
+    calls++;
+    assert.equal(role, 'doji_employee_application');
+    assert.equal(
+      sql,
+      'select portal_identity_private.employee_workflow_health_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',
+    );
+    assert.equal(params[5], 'get_admin_workflow_health_v1');
+    assert.equal(params[6], '{}');
+    return { enabled: true };
+  });
+  await adapter.command(actor, { name: 'get_admin_workflow_health_v1', args: {} }, signal());
+  await assert.rejects(
+    adapter.command(
+      actor,
+      { name: 'get_admin_workflow_health_v1', args: { user: 'other' } },
+      signal(),
+    ),
+    { status: 400 },
+  );
+  await assert.rejects(
+    Reflect.apply(adapter.command, adapter, [
+      { ...actor, mfaVerified: false },
+      { name: 'get_admin_workflow_health_v1', args: {} },
+      signal(),
+    ]),
+    { status: 403 },
+  );
+  assert.equal(calls, 1);
+});
 
 test('shared directory accepts only the configured issuer and application audience', async () => {
   const identity = { clientId: 'client_stage', issuerClientId: 'client_directory' };

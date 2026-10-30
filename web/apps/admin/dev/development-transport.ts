@@ -121,6 +121,8 @@ export function developmentTransport(csrf: string): typeof createEmployeeBrowser
       },
       async request(path, { method = 'GET', body = {} } = {}) {
         if (path === '/portal/admin/session') return session();
+        if (path === '/portal/admin/platform-health' && method === 'GET')
+          return rpc('portal_platform_health_v1', {});
         if (path === '/portal/admin/realtime-token' && method === 'GET')
           return rpc('portal_realtime_token_v1', {});
         const direct = employeeDirectRoute(path, method, localStagingFlags);

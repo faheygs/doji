@@ -37,6 +37,11 @@ assert.doesNotMatch(
   /staging_development|DOJI_ADMIN_DEVELOPMENT_TOKEN|doji_admin_development_4313|\/api\/dev\/|Develop with staging/,
 );
 assert.doesNotMatch(source, /Impersonate user|Impersonate User/);
+assert.doesNotMatch(
+  source,
+  /DojiPortalHealth/,
+  'React must not ship the retained classic-script global',
+);
 const bytes = scripts.reduce(
   (sum, file) => sum + gzipSync(readFileSync(new URL(file, assets))).length,
   0,
@@ -126,6 +131,14 @@ for (const prefix of ['AnnouncementEditor-', 'AnnouncementRecord-', 'announcemen
   announcementBytes += gzipSync(readFileSync(new URL(matches[0]!, assets))).length;
 }
 assert.ok(announcementBytes <= 48 * 1024, 'Announcement editor/command exceeds its feature budget');
+// Backend receipts load only when their tab opens. Allocate within the unchanged
+// total bundle cap and sign-in budget. The shared validating projection stays in
+// Operations; its measured 1.1 KiB growth receives 2 KiB from the same total cap.
+const workflowFiles = scripts.filter((file) => file.startsWith('OperationsWorkflows-'));
+assert.equal(workflowFiles.length, 1, 'Backend receipts must remain independently deferred');
+assert.ok(!html.includes(workflowFiles[0]!), 'Do not preload backend receipts at sign-in');
+const workflowBytes = gzipSync(readFileSync(new URL(workflowFiles[0]!, assets))).length;
+assert.ok(workflowBytes <= 5 * 1024, 'Backend receipts exceed their deferred feature budget');
 assert.ok(
   // Standard Drawer, AppBar, account Menu, icons and identity-aware tables plus intake:
   // measured 280.2 KiB core; add 24 KiB explicitly, with sign-in still capped at 180.
@@ -134,8 +147,8 @@ assert.ok(
   // use 293.9 KiB of core. Allocate 4 KiB of the existing total allowance here;
   // total stays 507 KiB and sign-in stays 180 KiB.
   // Personal/lifecycle history adds 1.8 KiB: explicit 2 KiB deferred allocation.
-  bytes - chartBytes - privacyBytes - formBytes - announcementBytes <= 296 * 1024,
-  `Core workspace uses ${bytes - chartBytes - privacyBytes - formBytes - announcementBytes} bytes gzip; budget is ${296 * 1024}`,
+  bytes - chartBytes - privacyBytes - formBytes - announcementBytes - workflowBytes <= 298 * 1024,
+  `Core workspace uses ${bytes - chartBytes - privacyBytes - formBytes - announcementBytes - workflowBytes} bytes gzip; budget is ${298 * 1024}`,
 );
 // Add 5 KiB for bounded idea history, closed-safety navigation and audit handoff.
 // Keep sign-in capped at 180 KiB; the history UI and parser must remain deferred.

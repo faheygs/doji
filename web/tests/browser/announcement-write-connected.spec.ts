@@ -2,6 +2,9 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import AxeBuilder from '@axe-core/playwright';
 import { installBusinessFixture } from './business-fixture';
 import { announcementFixture, announcementId } from '../announcement-fixture';
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
 async function setup(page: Page, request: APIRequestContext, mode = 'success') {
   const base = await installBusinessFixture(page, request, 'success', true, true);
   let item = {

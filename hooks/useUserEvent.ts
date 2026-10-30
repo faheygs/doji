@@ -11,6 +11,8 @@ import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { runMemberRead } from '../lib/runMemberRead';
 import { getCommittedPostReceipt } from '../lib/dojiWriteReceipt';
 import { executeCommand } from '../lib/commandGateway';
+import { atSubmissionStage } from '../lib/dojiSubmissionError';
+import { beginSubmissionJourney, submissionStep } from '../lib/submissionJourney';
 
 export function useUserEvent() {
   const session = useAuthStore((s) => s.session);
@@ -61,7 +63,9 @@ export function useCreatePost() {
           if (!check.ok) throw new Error(check.reason);
         }
 
-        const [photoUrl, frontPhotoUrl, videoUrl] = await Promise.all([
+        const journey = beginSubmissionJourney(userId, payload.userEventId);
+        submissionStep(journey, 'upload', 'started');
+        const [photoUrl, frontPhotoUrl, videoUrl] = await atSubmissionStage('upload', () => Promise.all([
           payload.photoUri
             ? uploadPostMedia(payload.userEventId, commandId, payload.photoUri, 'photo')
             : Promise.resolve(null),
@@ -71,7 +75,9 @@ export function useCreatePost() {
           payload.videoUri
             ? uploadPostVideo(payload.userEventId, commandId, payload.videoUri)
             : Promise.resolve(null),
-        ]);
+        ])).catch(error => { submissionStep(journey, 'upload', 'failed', error); throw error; });
+        submissionStep(journey, 'upload', 'confirmed');
+        submissionStep(journey, 'submit', 'started');
 
         const { data: post, error: postError } = await executeCommand('complete_doji_with_post', {
           p_user_event_id: payload.userEventId,
@@ -85,10 +91,14 @@ export function useCreatePost() {
         });
 
         if (postError) {
-          const committedPost = await getCommittedPostReceipt(payload.userEventId);
-          if (committedPost) return committedPost;
+          submissionStep(journey, 'submit', 'failed', postError);
+          submissionStep(journey, 'receipt', 'started');
+          const committedPost = await getCommittedPostReceipt(payload.userEventId).catch(() => null);
+          if (committedPost) { submissionStep(journey, 'receipt', 'confirmed'); return committedPost; }
+          submissionStep(journey, 'receipt', 'failed');
           throw postError;
         }
+        submissionStep(journey, 'submit', 'confirmed');
         return post;
       });
     },
