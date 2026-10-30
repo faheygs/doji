@@ -209,6 +209,16 @@ test.each([true, false])(
     expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
   },
 );
+test('failed confirmation read preserves the original uncertain command failure', async () => {
+  const failure = { message: 'Gateway timeout', status: 504 };
+  command.mockResolvedValue({ error: failure, data: null } as never);
+  jest.mocked(getCommittedPostReceipt).mockRejectedValue(new Error('Receipt unavailable'));
+  const { result } = setup();
+  await act(async () => { await expect(result.current.mutateAsync(payload)).rejects.toBe(failure); });
+  expect(command).toHaveBeenCalledTimes(1);
+  expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
+});
+
 test('concurrent taps share media upload and completion', async () => {
   let finish!: (value: never) => void;
   command.mockImplementation(

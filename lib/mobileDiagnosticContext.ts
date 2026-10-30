@@ -90,6 +90,13 @@ export function recordDiagnosticMemoryWarning(): void { record('memory', { warni
 export function recordDiagnosticOutcome(operation: string, outcome: 'failed' | 'recovered' | 'success' | 'cancelled', attempts: number): void {
   record('request', { operation: safeDiagnosticOperation(operation), outcome, attempts: bounded(attempts, 100) });
 }
+
+/** Fixed workflow steps only. No member, occurrence, media path or answer is retained. */
+export function recordSubmissionStep(id: string, phase: 'upload' | 'submit' | 'receipt' | 'feed',
+  outcome: 'started' | 'confirmed' | 'failed' | 'rendered', elapsedMs: number): void {
+  if (!validId(id) || !Number.isFinite(elapsedMs)) return;
+  record('submission', { journey_id: id, phase, outcome, elapsed_ms: bounded(elapsedMs) });
+}
 export function mobileDiagnosticSnapshot(): Record<string, Scalar> {
   if (!native()) return {};
   return { schema_version: 1, platform: Platform.OS, ...(installation ? { installation_id: installation } : {}),

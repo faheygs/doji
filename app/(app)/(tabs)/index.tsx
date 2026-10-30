@@ -28,6 +28,7 @@ import { UpcomingDojiBanner } from '../../../components/challenge/UpcomingDojiBa
 import { IconBell } from '../../../components/icons/Icons';
 import { useNotificationCenterContext } from '../../../contexts/NotificationCenterContext';
 import { useUserEvent } from '../../../hooks/useUserEvent';
+import { useSubmissionFeedFeedback } from '../../../hooks/useSubmissionFeedFeedback';
 import { useUpcomingDoji } from '../../../hooks/useUpcomingDoji';
 import { prefetchFeedAudience, useFeed, type FeedAudience } from '../../../hooks/useFeed';
 import { useAuthStore } from '../../../stores/useAuthStore';
@@ -77,11 +78,13 @@ export default function FeedScreen() {
     isFetching: feedFetching,
     isFetchedAfterMount: feedFetchedAfterMount,
     isError: feedError,
+    error: feedFailure,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     refetch,
   } = useFeed(audience, feedUnlocked, userEvent?.daily_event_id);
+  const feedFailureMessage = useSubmissionFeedFeedback(userId, userEvent?.id, feedFailure, feedUnlocked === true && feedPages !== undefined && !feedLoading && !feedFetching);
   const queryClient = useQueryClient();
   const profile = useAuthStore((s) => s.profile);
   const {
@@ -377,7 +380,8 @@ export default function FeedScreen() {
         <FeedChrome />
         <ErrorState
           title="Couldn't load your feed"
-          message="Check your connection and try again."
+          message={feedFailureMessage}
+          actionLabel="Reload feed"
           onRetry={() => void refetch()}
         />
       </SafeAreaView>

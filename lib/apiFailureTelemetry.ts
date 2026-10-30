@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 import { notePushRegistrationIncident } from './pushRegistrationRecovery';
+import { submissionFailureContext } from './submissionJourney';
 import { Platform } from 'react-native';
 import { isCancelledError } from '@tanstack/react-query';
 import { readDiagnosticContext, readFailureDiagnostics } from './memberReadDiagnostics';
@@ -121,7 +122,7 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
         scope.setTag('failure_evidence', diagnosis.failure_evidence);
         scope.setTag('failure_phase', diagnosis.failure_phase);
       }
-      scope.setContext('api', { ...terminal, ...retryContext, ...diagnosis });
+      scope.setContext('api', { ...terminal, ...retryContext, ...diagnosis, ...submissionFailureContext(error) });
       if (mobile) {
         const runtime = requestContext ?? mobileDiagnosticSnapshot();
         scope.setContext('diagnostic', { ...runtime, context_origin: requestContext ? 'request_start' : 'report_time_unattributed' });
