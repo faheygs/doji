@@ -5,6 +5,28 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## October 30 admin health promotion
+
+Owner-approved production run `41125552206` promoted the exact admin package from
+staging run `41118118551`, source `ef2cc4bfaa278b4b5d2fc80f1efd5554226b67f0`, without
+rebuilding it. Deployment `c21bb73d-ec04-4784-83d8-34cffb590936` passed canonical
+release identity, asset/security-header, environment-binding and anonymous/CORS
+checks. Rollback Pages deployment is `2a305892-e114-4844-8320-0f1e7aa650ea`.
+Signed-in session restoration, connected staff realtime, plain-language health
+labels and fresh production delivery/Sentry readings passed. The new Backend &
+cleanup view correctly reports unavailable while its production bridge is disabled.
+No record writes, SQL, Edge, shared Worker, retention, push or mobile release was
+included. This is presentation acceptance, not complete platform-health coverage.
+
+Deployment tooling came from reviewed `510a9ee` (PR #31); all four exact-head and
+main quality jobs passed, including the added Worker-tooling high-severity audit.
+The independently successful newer staging run `41127321420` is not the artifact
+promoted here. Remaining Expo CLI/Zod findings are documented in current state.
+The verified receipt is retained outside Git at
+`%LOCALAPPDATA%/Doji/production-admin/2026-10-30/deployment.json` and in the production
+workflow artifact. Restore only the prior Pages deployment if needed; do not roll
+back shared backend state for this portal release.
+
 ## October 25 poll activation incident
 
 Event `4ff51c34-b62c-4dd0-af70-acf799537d2c` activated without its system poll

@@ -183,8 +183,12 @@ and secret locations; the [system map](SYSTEM_MAP.md) owns source boundaries.
 
 ## Remaining gates
 
-Platform-health presentation is deployed to staging only: plain-language
-latency/coverage labels and backend/cleanup receipts. Mobile recovery remains prepared
+Platform-health presentation is deployed to production October 30 from verified
+staging source `ef2cc4b` through owner-approved run `41125552206`. Session restoration,
+staff realtime and fresh delivery/Sentry reads passed. The production backend bridge
+remains disabled: Backend & cleanup explicitly reports unavailable, not healthy.
+Deployment and rollback are in the [release receipt](releases/README.md#october-30-admin-health-promotion).
+Mobile recovery remains prepared
 source: actionable submission/feed errors and privacy-filtered submission context.
 The maintenance Worker/Edge and workflow observation overlay
 were separately deployed and synthetically validated **in staging only** October 30.
@@ -214,8 +218,9 @@ quality checks and subsequent admin staging run for source/release verification;
 production promotion remains gated. Legacy/orphan-file reconciliation needs its
 own hold-aware preparation. No universal
 health/readiness claim, production deletion, mobile build or release is implied.
-Production dependency preflight found separate tooling blockers. The prepared
-security patch pins Wrangler 4.156.0 (clean audit), updates the URI decoder to
+Production dependency preflight found separate tooling blockers. The tested
+security patch merged as `510a9ee`; all four PR/main quality jobs passed and
+automatic staging run `41127321420` succeeded. It pins Wrangler 4.156.0 (clean audit), updates the URI decoder to
 0.5.1 with a distinct-malformed-run regression, and patches supported root
 dependencies without changing Expo/React Native versions. Expo CLI 57.0.32 still
 requires Zod 3.25.76; the published fix is Zod 4.6.6+, with no compatible v3
