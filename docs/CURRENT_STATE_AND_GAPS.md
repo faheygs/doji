@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated October 30, 2026. This separates source, recorded deployments and owner
+Updated October 31, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -185,44 +185,52 @@ and secret locations; the [system map](SYSTEM_MAP.md) owns source boundaries.
 
 Platform-health presentation is deployed to production October 30 from verified
 staging source `ef2cc4b` through owner-approved run `41125552206`. Session restoration,
-staff realtime and fresh delivery/Sentry reads passed. The production backend bridge
-remains disabled: Backend & cleanup explicitly reports unavailable, not healthy.
+staff realtime and fresh delivery/Sentry reads passed. The separately approved
+backend release completed October 31: workflow observations, the employee read
+bridge and scheduler-log retention are enabled in production. Backend & cleanup
+now returns actual measurements. The initial bounded scan removed 156,264
+successful runs older than 30 days and 15 failed runs older than 90 days; the
+failure records were archived first. It completed with no remaining eligible logs
+or recorded maintenance failures. Existing media eligibility/holds remain unchanged.
+See the [backend release and rollback](releases/README.md#october-31-backend-monitoring-and-retention).
 Deployment and rollback are in the [release receipt](releases/README.md#october-30-admin-health-promotion).
-Mobile recovery remains prepared
-source: actionable submission/feed errors and privacy-filtered submission context.
-Mutation diagnostics also have next-build source for allowlisted action names and
+Mobile recovery remains next-build source: actionable submission/feed errors and
+privacy-filtered submission context. PR #33 merged as `bf2cca9` after all four
+exact-head checks passed. Mutation diagnostics add allowlisted action names and
 typed comment-validation rejection reasons; this does not establish the cause of
 the older `mutation.other` event or change an installed build.
-The maintenance Worker/Edge and workflow observation overlay
-were separately deployed and synthetically validated **in staging only** October 30.
-Production retention, participation timing, authorization and rewards are unchanged.
+The maintenance Worker/Edge and workflow observation overlay were qualified in
+staging October 30, including the automatic daily wake October 31, before the
+separate production release. Participation timing, member authorization and rewards
+are unchanged; all 435 pre-existing public/identity function definitions and grants
+were preserved. No mobile build or store submission accompanied this release.
 Admin, mobile, Worker and maintenance Edge remain separate release boundaries.
 See the [staging health receipt](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance).
 
 Still missing: aggregate signup/session/profile/submission/feed/media success rates,
 database resource pressure and device-level notification outcomes.
 The gap cards are disclosure, not implemented probes.
-Staging now records fixed-size hourly lifecycle/maintenance attempt counts, latest
-cleanup receipts and failed phases. Scheduler pruning (success: 30 days; failure:
-90 days) passed synthetic hosted checks and is disabled again. Hosted checks covered
+Staging and production record fixed-size hourly lifecycle/maintenance attempt counts,
+latest cleanup receipts and failed phases. Scheduler pruning (success: 30 days;
+failure: 90 days) passed synthetic hosted checks and is disabled again in staging.
+Hosted checks covered
 33 SQL assertions, real Storage API deletion, leased-work recovery, handler outcomes,
 the Worker maintenance wake and data-retaining rollback. Existing bindings, secrets,
 unrelated handlers and public function/grant fingerprints were preserved. The daily
 wake passed its hosted 24-hour check October 31 at 16:54:54 UTC: one automatic
 maintenance attempt completed in 2,973 ms, with scheduler pruning still disabled.
-Production deployment remains separate. The existing
-guarded-media feature was not enabled by this release. The service-only snapshot now
-has a staging-enabled employee read bridge and Backend & cleanup view.
+The existing guarded-media feature was not enabled by this release. The service-only
+snapshot has an enabled employee read bridge and Backend & cleanup view in both
+environments; local impersonation remains staging-only.
 The bridge requires the existing verified employee identity/MFA and operations permission;
 it adds no browser database credential. Portal runtime `workflowHealthEnabled` defaults
-off; staging explicitly enables it. Hosted MFA and localhost impersonation reads
-both passed against staging, including database and isolated Sentry. Local access
+off; qualified deployment packages explicitly enable it. Hosted MFA and localhost
+impersonation reads both passed against staging, including database and isolated Sentry. Local access
 uses its own private route and revocation checks, not MFA substitution. This manual
 staging acceptance package is not a CI promotion artifact. Use main's exact-head
-quality checks and subsequent admin staging run for source/release verification;
-production promotion remains gated. Legacy/orphan-file reconciliation needs its
-own hold-aware preparation. No universal
-health/readiness claim, production deletion, mobile build or release is implied.
+quality checks and subsequent admin staging run for Pages source/release verification.
+Legacy/orphan-file reconciliation needs its own hold-aware preparation. No universal
+health/readiness claim or additional deletion/mobile release is implied.
 Production dependency preflight found separate tooling blockers. The tested
 security patch merged as `510a9ee`; all four PR/main quality jobs passed and
 automatic staging run `41127321420` succeeded. It pins Wrangler 4.156.0 (clean audit), updates the URI decoder to

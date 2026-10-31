@@ -291,7 +291,9 @@ browser access or enable retention. Staging also uses the separate
 `admin_development_health_v1` private route and `admin-development-health.mts`
 aggregator: existing developer/persona authorization before reads and again before
 return, exact staging Sentry scope, no fabricated MFA. Hosted and local health
-reads are enabled in staging only; production remains gated.
+reads are enabled in staging; the separately released production employee bridge
+is also enabled. Local impersonation remains staging-only. See current state for
+exact deployed versions and rollback.
 
 Both `WORKFLOW_HEALTH_ENABLED` and the private database observation gate default off.
 The Edge requires explicit `DOJI_ENVIRONMENT` and the matching Supabase project.
