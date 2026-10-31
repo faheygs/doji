@@ -77,6 +77,7 @@ export function useRespondToFriendRequest() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
+    mutationKey: ['respondToFriendRequest'],
     mutationFn: async (variables: {
       friendshipId: string;
       accept: boolean;

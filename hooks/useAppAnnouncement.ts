@@ -27,6 +27,7 @@ export function useAppAnnouncement(enabled: boolean) {
     retry: 1,
   });
   const action = useMutation({
+    mutationKey: ['recordAnnouncementAction'],
     mutationFn: async (args: { id: string; action: 'dismissed' | 'cta' }) => {
       const { error } = await (supabase as any).rpc('record_app_announcement_action', {
         p_announcement_id: args.id,

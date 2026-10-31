@@ -311,7 +311,11 @@ reads rejected it, and a second full cleanup run passed. This is not proof of
 instantaneous CDN revocation. All disposable objects/queue/cron/hold fixtures are gone.
 
 A synthetic Worker close no-op (`chainNext=false`) triggered real maintenance;
-the 24-hour recurrence is code-tested, not elapsed-time-qualified. Guarded-media
+the 24-hour recurrence subsequently passed on October 31 at 16:54:54.308899 UTC.
+The bounded snapshot read at 17:02 UTC confirmed one automatic successful attempt
+in 2,973 ms, phase `complete`, without a manual wake; pruning remained disabled.
+The prior success was October 30 at 16:54:50.420838 UTC. The retained synthetic
+failure/deferred receipts did not advance. Guarded-media
 feature activation and legacy-orphan reconciliation remain separate. The retaining
 SQL rollback was exercised live: writes/pruning disabled, receipts retained, then
 staging observations re-enabled. The separately approved admin read release below

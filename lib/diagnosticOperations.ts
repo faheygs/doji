@@ -8,11 +8,19 @@ const queryRoots = new Set(['feed', 'lockedFeed', 'post', 'profilePost', 'profil
   'badgeTiers', 'userBadgeProgress', 'challengeSuggestionCounts', 'pollVotesCount', 'reactionsGiven',
   'profileFriends', 'mySuggestions', 'pendingSuggestions', 'shopCatalog', 'ownedShopItems', 'isBlocked', 'admin']);
 const commands = new Set<string>(AUTHENTICATED_COMMAND_NAMES);
+const mutationRoots = new Set(['addComment', 'editComment', 'deleteComment', 'toggleCommentLike',
+  'toggleCommentsDisabled', 'toggleReaction', 'purchaseShopItem', 'equipShopItem',
+  'recordAnnouncementAction', 'blockUser', 'unblockUser', 'buyInToday', 'respondToFriendRequest',
+  'submitModerationAppeal', 'pollVote', 'togglePollVoteLike', 'sendFriendRequest', 'removeFriend',
+  'reportContent', 'moderateReport', 'reviewSuggestion', 'createPost']);
+export function mutationFailureOperation(key: readonly unknown[] | undefined): string {
+  return typeof key?.[0] === 'string' && mutationRoots.has(key[0]) ? key[0] : 'other';
+}
 export function queryFailureOperation(key: readonly unknown[]): string {
   return typeof key[0] === 'string' && queryRoots.has(key[0]) ? key[0] : 'other';
 }
 export function safeDiagnosticOperation(value: string): string {
-  return queryRoots.has(value) || commands.has(value) ? value : 'other';
+  return queryRoots.has(value) || commands.has(value) || mutationRoots.has(value) ? value : 'other';
 }
 
 const reads = new Set(['get_locked_feed_previews', 'get_feed_page_snapshot_v2', 'get_leaderboard_snapshot',

@@ -1,5 +1,5 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
-import { filterContent } from '../lib/contentFilter';
+import { ContentValidationError, filterContent } from '../lib/contentFilter';
 import {
   createOptimisticComment,
   prependOptimisticComment,
@@ -34,9 +34,9 @@ export function useAddComment() {
     mutationFn: async (variables: AddCommentVars) => {
       if (!isCurrentMember()) throw new Error('Not authenticated');
       const body = variables.body.trim();
-      if (!body) throw new Error('Comment cannot be empty');
+      if (!body) throw new ContentValidationError('empty_comment');
       const check = filterContent(body);
-      if (!check.ok) throw new Error(check.reason);
+      if (!check.ok) throw new ContentValidationError('prohibited_language');
       variables.commandId ??= newCommandId('comment');
       const { data, error } = await executeCommand('submit_comment', {
         p_post_id: variables.postId,

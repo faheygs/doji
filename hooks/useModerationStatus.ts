@@ -32,6 +32,7 @@ export function useSubmitModerationAppeal() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
+    mutationKey: ['submitModerationAppeal'],
     mutationFn: async (input: { decisionId: string; statement: string }) => {
       const { data, error } = await executeCommand('submit_moderation_appeal', {
         p_decision_id: input.decisionId,

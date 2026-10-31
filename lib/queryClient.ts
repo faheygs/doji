@@ -1,6 +1,7 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 import { reportApiFailure } from './apiFailureTelemetry';
+import { mutationFailureOperation } from './diagnosticOperations';
 import { createApiQueryCache } from './apiQueryCache';
 import { retryDelayWithJitter, shouldRetryQuery } from './apiRetry';
 import { PERSISTED_QUERY_GC_MS } from './queryPersistence';
@@ -8,7 +9,8 @@ import { PERSISTED_QUERY_GC_MS } from './queryPersistence';
 export const queryClient = new QueryClient({
   queryCache: createApiQueryCache(),
   mutationCache: new MutationCache({
-    onError: error => reportApiFailure('mutation', 'other', error),
+    onError: (error, _variables, _context, mutation) =>
+      reportApiFailure('mutation', mutationFailureOperation(mutation.options.mutationKey), error),
   }),
   defaultOptions: {
     queries: {

@@ -35,6 +35,7 @@ export function useModerateReport() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['moderateReport'],
     mutationFn: async (variables: {
       reportId: string;
       action: ModerateAction;

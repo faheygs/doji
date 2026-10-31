@@ -11,6 +11,7 @@ export function useToggleCommentLike() {
   const client = useQueryClient();
   const uid = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
+    mutationKey: ['toggleCommentLike'],
     mutationFn: async (vars: {
       postId: string;
       commentId: string;
@@ -58,6 +59,7 @@ export function useToggleCommentsDisabled() {
   const client = useQueryClient();
   const uid = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
+    mutationKey: ['toggleCommentsDisabled'],
     mutationFn: async (vars: { postId: string; disabled: boolean; commandId?: string }) => {
       if (!uid) throw new Error('Not authenticated');
       vars.commandId ??= newCommandId('post-comments');

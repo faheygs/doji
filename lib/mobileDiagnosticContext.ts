@@ -87,8 +87,11 @@ export function observeDiagnosticNetwork(value: { type?: unknown; isConnected?: 
 export function recordDiagnosticMemoryWarning(): void { record('memory', { warning: true }); }
 
 /** Callers supply only allowlisted operation names and fixed outcomes, never query keys. */
-export function recordDiagnosticOutcome(operation: string, outcome: 'failed' | 'recovered' | 'success' | 'cancelled', attempts: number): void {
-  record('request', { operation: safeDiagnosticOperation(operation), outcome, attempts: bounded(attempts, 100) });
+export function recordDiagnosticOutcome(operation: string, outcome: 'failed' | 'recovered' | 'success' | 'cancelled' | 'rejected', attempts: number,
+  validationReason?: string): void {
+  record('request', { operation: safeDiagnosticOperation(operation), outcome, attempts: bounded(attempts, 100),
+    ...(outcome === 'rejected' && ['empty_comment', 'prohibited_language'].includes(validationReason ?? '')
+      ? { validation_reason: validationReason! } : {}) });
 }
 
 /** Fixed workflow steps only. No member, occurrence, media path or answer is retained. */

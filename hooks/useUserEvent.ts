@@ -51,6 +51,7 @@ export function useCreatePost() {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
+    mutationKey: ['createPost'],
     mutationFn: async (payload: CreatePostPayload) => {
       const userId = session?.user?.id;
       if (!userId) throw new Error('Not authenticated');

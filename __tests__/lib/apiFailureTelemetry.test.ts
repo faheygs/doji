@@ -1,7 +1,10 @@
 import * as Sentry from '@sentry/react-native';
 import { Platform } from 'react-native';
 import { hasPendingPushRegistrationIncident, reportPushRegistrationRecovery } from '../../lib/pushRegistrationRecovery';
-import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { MutationObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
+import { ContentValidationError } from '../../lib/contentFilter';
+import { mutationFailureOperation, safeDiagnosticOperation } from '../../lib/diagnosticOperations';
+import { diagnosticTimeline, recordDiagnosticOutcome } from '../../lib/mobileDiagnosticContext';
 import { apiFailureDetails, queryFailureOperation, reportApiFailure, sanitizeApiFailureEvent } from '../../lib/apiFailureTelemetry';
 import { queryClient } from '../../lib/queryClient';
 import { canKeepQueryDataOnError } from '../../lib/queryDisplayState';
@@ -16,6 +19,80 @@ jest.mock('@sentry/react-native', () => ({
 const originalDev = __DEV__;
 beforeEach(() => { jest.clearAllMocks(); (global as any).__DEV__ = false; jest.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000); });
 afterEach(() => { (global as any).__DEV__ = originalDev; jest.restoreAllMocks(); queryClient.clear(); });
+
+test.each(['ios', 'android'] as const)('%s mutation cache identifies the action without private keys or payloads', async os => {
+  const originalOS = Platform.OS;
+  Platform.OS = os;
+  jest.spyOn(Date, 'now').mockReturnValue(os === 'ios' ? 1_799_999_000_000 : 1_799_999_120_000);
+  try {
+    const error = new TypeError('private comment body');
+    const mutation = new MutationObserver(queryClient, {
+      mutationKey: ['addComment', 'private-member-id'],
+      mutationFn: async (_variables: { body: string }) => { throw error; },
+    });
+    await expect(mutation.mutate({ body: 'private input' })).rejects.toBe(error);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(mockScope.setTag).toHaveBeenCalledWith('operation', 'mutation.addComment');
+    expect(mockScope.setContext).toHaveBeenCalledWith('api', expect.objectContaining({ error_type: 'TypeError' }));
+    expect(diagnosticTimeline().at(-1)?.data).toMatchObject({ operation: 'addComment', outcome: 'failed' });
+    expect(JSON.stringify([mockScope.setContext.mock.calls, mockScope.setTag.mock.calls,
+      mockScope.setFingerprint.mock.calls, jest.mocked(Sentry.addBreadcrumb).mock.calls])).not.toContain('private');
+    expect(jest.mocked(Sentry.captureException).mock.calls[0][0]).toEqual(new Error('Doji mutation.addComment failed (unexpected)'));
+  } finally { Platform.OS = originalOS; }
+});
+
+test.each(['empty_comment', 'prohibited_language'] as const)('typed validation %s remains visible locally without a system incident', async reason => {
+  const originalOS = Platform.OS;
+  Platform.OS = 'android';
+  try {
+    const error = new ContentValidationError(reason);
+    const onError = jest.fn();
+    const mutation = new MutationObserver(queryClient, {
+      mutationKey: ['editComment', 'private-member-id'],
+      mutationFn: async () => { throw error; }, onError,
+    });
+    await expect(mutation.mutate(undefined)).rejects.toBe(error);
+    expect(onError).toHaveBeenCalledWith(error, undefined, undefined, expect.anything());
+    expect(apiFailureDetails(error)).toMatchObject({ kind: 'validation', validation_reason: reason });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(diagnosticTimeline().at(-1)?.data).toMatchObject({ operation: 'editComment', outcome: 'rejected', validation_reason: reason });
+    recordDiagnosticOutcome('editComment', 'rejected', 1, 'private-body');
+    expect(diagnosticTimeline().at(-1)?.data).not.toHaveProperty('validation_reason');
+  } finally { Platform.OS = originalOS; }
+});
+
+test('validation wording or arbitrary reason fields do not suppress unexpected failures', () => {
+  expect(apiFailureDetails(new Error('Your message contains prohibited language.')).kind).toBe('unexpected');
+  expect(apiFailureDetails({ reason: 'prohibited_language', message: 'private' })).not.toHaveProperty('validation_reason');
+});
+
+test.each([undefined, [], ['private text'], [{ private: true }]])('unknown mutation keys stay private: %j', key => {
+  expect(mutationFailureOperation(key)).toBe('other');
+});
+
+test.each(['addComment', 'editComment', 'deleteComment', 'toggleCommentLike', 'toggleCommentsDisabled',
+  'toggleReaction', 'purchaseShopItem', 'equipShopItem', 'recordAnnouncementAction', 'blockUser', 'unblockUser',
+  'buyInToday', 'respondToFriendRequest', 'submitModerationAppeal', 'pollVote', 'togglePollVoteLike',
+  'sendFriendRequest', 'removeFriend', 'reportContent', 'moderateReport', 'reviewSuggestion', 'createPost'])
+('mutation %s retains only its code-owned root in errors and the timeline', operation => {
+  expect(mutationFailureOperation([operation, 'private-user', { body: 'private-text' }])).toBe(operation);
+  expect(safeDiagnosticOperation(operation)).toBe(operation);
+});
+
+test('a server error stays command-attributed and is not duplicated by the mutation fallback', async () => {
+  jest.spyOn(Date, 'now').mockReturnValue(1_799_999_240_000);
+  const error = { status: 503, message: 'private server details' };
+  const mutation = new MutationObserver(queryClient, {
+    mutationKey: ['addComment'], mutationFn: async () => {
+      reportApiFailure('command', 'submit_comment', error);
+      throw error;
+    },
+  });
+  await expect(mutation.mutate()).rejects.toBe(error);
+  expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  expect(mockScope.setTag).toHaveBeenCalledWith('operation', 'command.submit_comment');
+  expect(mockScope.setContext).toHaveBeenCalledWith('api', expect.objectContaining({ status: 503, kind: 'server' }));
+});
 
 test('terminal database failures preserve SQLSTATE, omit private content and dedupe the same exception', () => {
   const error = { code: '57014', status: 500, message: 'private report body and secret token', details: 'private SQL' };

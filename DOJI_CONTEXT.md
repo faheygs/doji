@@ -154,6 +154,9 @@ Sentry uses allowlisted operational evidence and pseudonymous diagnostic
 installation/session IDs, never names, credentials, raw bodies, full URLs or
 arbitrary private messages. Preserve grouping and event budgets. Android native
 hints/Test Lab markers are diagnostic, not identity or root-cause proof.
+Mutation fallback reports use allowlisted action names, never full keys or inputs.
+Typed comment validation retains a fixed rejection reason in the bounded timeline,
+not an unexpected-error alert; unclassified errors must remain reportable.
 Recovery logs require a new confirmed registration acknowledgement, correlate the
 original event, expire with session/account/24 hours, and are capped at three per
 rolling hour. Source-map Debug IDs must match exact release artifacts.
