@@ -5,6 +5,51 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## October 31 backend monitoring and retention
+
+Owner-approved production release followed the automatic staging daily-wake check
+at 16:54:54 UTC. Existing Cloudflare/Supabase capacity was verified; no new vendor,
+plan or resource class was added. Worker `129aeefe-9440-43ff-a961-8eb74a9bbafe`
+preserves the gateway, all five Durable Object namespaces, bindings, schedules and
+unrelated modules. Its main module SHA-256 is
+`4505053a1491daee826332ff59443ad7b985781f83b5a1b97475319ae120032a`.
+
+Only `orchestrate-doji`, `run-data-maintenance` and the separately packaged
+`employee-portal-v2` health bridge were deployed. Downloaded artifacts matched
+tested candidates; unrelated functions and prior secret digests were preserved.
+The employee v26 source hash is
+`6aa2d095cddea234301cfe52df06ce2c74f814d4c4ab41a578aa983eb7489e27`;
+existing production authentication/session modules were not replaced with staging
+ones. Exact-artifact checks passed: 82 Edge tests, five Worker scheduling cases,
+25 employee health/SQL tests and six adapter authorization cases.
+
+The two reviewed workflow-health overlays added five functions; all 435 prior
+public/identity function definitions and grants remained identical. Observation
+and scheduler-retention gates are enabled. The initial scan completed at
+17:48:20 UTC, deleting 156,264 successful scheduler runs older than 30 days and
+15 failed runs older than 90 days. The 15 failures were exported before deletion.
+There were zero eligible old rows, zero unfinished runs and no lock waits at the
+final check. Recent rows, existing jobs, holds and the next Doji time were preserved.
+347 continuing batches and one successful final attempt were recorded, with no
+failed maintenance attempts. Eight expired rate-limit buckets were also removed;
+no media or push-endpoint removal was recorded. The single successful close
+observation is the approved nonexistent-event no-op used to start maintenance,
+not a real Doji or member completion. Hosted admin session restoration, connected
+realtime, delivery/Sentry reads and the new backend snapshot passed.
+
+Private originals, candidate manifests, failure exports and receipts are retained
+outside Git at `%LOCALAPPDATA%/Doji/production-backend/2026-10-31` and
+`2026-10-30-readiness`. Rollback disables observations/retention using the retaining
+overlay inverses and restores captured Edge packages before Worker
+`5d44589a-b0c0-4734-bfaf-08afccada948`; do not drop measurements/holds or recreate
+Durable Objects. Restore the captured employee package independently if needed.
+Rollback cannot restore deleted scheduler logs; only the archived failures have
+an export. Existing guarded-media deletion was not enabled, and no challenge
+timing, rewards, member auth, push, Pages or mobile release was included.
+
+Mobile diagnostics PR #33 merged as `bf2cca9` after all four required checks in
+run `41223928970` passed. This is next-build source, not an installed app update.
+
 ## October 30 admin health promotion
 
 Owner-approved production run `41125552206` promoted the exact admin package from
