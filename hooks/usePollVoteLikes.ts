@@ -33,6 +33,7 @@ export function useTogglePollVoteLike() {
   const userId = useAuthStore((s) => s.session?.user?.id);
 
   return useMutation({
+    mutationKey: ['togglePollVoteLike'],
     mutationFn: async (variables: { pollVoteId: string; liked: boolean; commandId?: string }) => {
       if (!userId) throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('poll-vote-like');

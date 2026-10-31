@@ -10,6 +10,7 @@ import { useAddComment } from '../../hooks/useAddComment';
 import { useEditComment, useDeleteComment } from '../../hooks/useCommentMutations';
 import { useToggleReaction, patchReactionToggle } from '../../hooks/useToggleReaction';
 import { executeCommand } from '../../lib/commandGateway';
+import { ContentValidationError } from '../../lib/contentFilter';
 import { refreshPostEngagement } from '../../lib/postEngagement';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import type { Comment, Post, Profile } from '../../types/database';
@@ -356,9 +357,10 @@ describe.each(['add', 'edit'] as const)('%s content validation', (operation) => 
           changes.push(event.query.queryKey);
       });
       await act(async () => {
-        await expect(
-          result.current[operation].mutateAsync({ ...variables(), body }),
-        ).rejects.toThrow(body.trim() ? 'prohibited language' : 'cannot be empty');
+        const resultPromise = result.current[operation].mutateAsync({ ...variables(), body });
+        await expect(resultPromise).rejects.toThrow(body.trim() ? 'prohibited language' : 'cannot be empty');
+        await expect(resultPromise).rejects.toBeInstanceOf(ContentValidationError);
+        await expect(resultPromise).rejects.toMatchObject({ reason: body.trim() ? 'prohibited_language' : 'empty_comment' });
       });
       unsubscribe();
       expect(changes).toEqual([]);

@@ -13,6 +13,7 @@ export function useBuyInToday(userEvent: UserEvent | null | undefined) {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   const mutation = useMutation({
+    mutationKey: ['buyInToday'],
     mutationFn: async () => {
       if (!userEvent?.id) throw new Error('No Doji is available to reopen');
       const commandId = occurrenceCommandId('buy-in', userEvent.id);

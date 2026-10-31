@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { ContentValidationError } from './contentFilter';
 import { notePushRegistrationIncident } from './pushRegistrationRecovery';
 import { submissionFailureContext } from './submissionJourney';
 import { Platform } from 'react-native';
@@ -27,6 +28,7 @@ export function apiFailureDetails(error: unknown) {
   const message = typeof value.message === 'string' ? value.message : '';
   let kind = 'unexpected';
   if (isCancelledError(error) || value.name === 'AbortError') kind = 'cancelled';
+  else if (error instanceof ContentValidationError) kind = 'validation';
   else if (status === 401 || status === 403 || code === '42501' || code === 'PGRST301' ||
     /^(?:Authentication required|Not authenticated|Invalid access token)$/i.test(message)) kind = 'authorization';
   else if (status === 429) kind = 'rate_limit';
@@ -35,7 +37,7 @@ export function apiFailureDetails(error: unknown) {
   else if (status != null && status >= 500) kind = 'server';
   else if (/network request failed|failed to fetch|fetch failed|network.*(?:lost|unreachable)|connection (?:lost|closed)/i.test(message)) kind = 'network';
   else if (code) kind = 'database';
-  return { kind, status, code };
+  return { kind, status, code, ...(error instanceof ContentValidationError ? { validation_reason: error.reason } : {}) };
 }
 
 // Bounded type information helps distinguish JS exceptions from API envelopes
@@ -88,10 +90,11 @@ export function reportApiFailure(area: 'query' | 'command' | 'mutation', operati
     const requestContext = readDiagnosticContext(error);
     // An old account's delayed request must not acquire the new account's timeline.
     const currentSession = !requestContext || diagnosticSessionIsCurrent(requestContext.session_id);
-    if (currentSession) recordDiagnosticOutcome(operation, details.kind === 'cancelled' ? 'cancelled' : 'failed', retry?.attempt_count ?? 1);
+    if (currentSession) recordDiagnosticOutcome(operation, details.kind === 'cancelled' ? 'cancelled'
+      : details.kind === 'validation' ? 'rejected' : 'failed', retry?.attempt_count ?? 1, details.validation_reason);
     if (details.kind === 'cancelled') return;
     Sentry.addBreadcrumb({ category: `api.${area}`, level: 'warning', message: operation, data: details });
-    if (__DEV__ || ['authorization', 'rejected', 'rate_limit', 'network'].includes(details.kind)) return;
+    if (__DEV__ || ['validation', 'authorization', 'rejected', 'rate_limit', 'network'].includes(details.kind)) return;
     const now = Date.now();
     const key = `${area}:${operation}:${details.kind}:${details.code ?? details.status ?? ''}`;
     if (now - (reportedAt.get(key) ?? -Infinity) < WINDOW_MS) return;

@@ -22,6 +22,7 @@ export function usePollVote() {
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
 
   return useMutation({
+    mutationKey: ['pollVote'],
     mutationFn: async (variables: VoteArgs) => {
       const { optionId, userEventId, customText } = variables;
       if (!userId) throw new Error('Not authenticated');

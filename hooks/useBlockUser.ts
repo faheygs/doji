@@ -29,6 +29,7 @@ export function useBlockUser() {
   const userId = useAuthStore((s) => s.session?.user?.id);
 
   return useMutation({
+    mutationKey: ['blockUser'],
     mutationFn: async (variables: BlockInput) => {
       const { blockedUserId } = variables;
       if (!userId) throw new Error('Not authenticated');
@@ -81,6 +82,7 @@ export function useUnblockUser() {
   const userId = useAuthStore((s) => s.session?.user?.id);
 
   return useMutation({
+    mutationKey: ['unblockUser'],
     mutationFn: async (variables: { blockedUserId: string; commandId?: string }) => {
       const { blockedUserId } = variables;
       if (!userId) throw new Error('Not authenticated');

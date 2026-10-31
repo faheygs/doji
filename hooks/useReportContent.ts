@@ -29,6 +29,7 @@ export function useReportContent() {
   const pendingIntent = useRef<{ signature: string; commandId: string } | null>(null);
 
   return useMutation({
+    mutationKey: ['reportContent'],
     mutationFn: async (variables: ReportContentInput) => {
       const {
         reportedUserId,

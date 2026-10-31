@@ -190,6 +190,9 @@ remains disabled: Backend & cleanup explicitly reports unavailable, not healthy.
 Deployment and rollback are in the [release receipt](releases/README.md#october-30-admin-health-promotion).
 Mobile recovery remains prepared
 source: actionable submission/feed errors and privacy-filtered submission context.
+Mutation diagnostics also have next-build source for allowlisted action names and
+typed comment-validation rejection reasons; this does not establish the cause of
+the older `mutation.other` event or change an installed build.
 The maintenance Worker/Edge and workflow observation overlay
 were separately deployed and synthetically validated **in staging only** October 30.
 Production retention, participation timing, authorization and rewards are unchanged.
@@ -205,7 +208,9 @@ cleanup receipts and failed phases. Scheduler pruning (success: 30 days; failure
 33 SQL assertions, real Storage API deletion, leased-work recovery, handler outcomes,
 the Worker maintenance wake and data-retaining rollback. Existing bindings, secrets,
 unrelated handlers and public function/grant fingerprints were preserved. The daily
-wake is code-tested; a full 24-hour hosted recurrence has not yet elapsed. The existing
+wake passed its hosted 24-hour check October 31 at 16:54:54 UTC: one automatic
+maintenance attempt completed in 2,973 ms, with scheduler pruning still disabled.
+Production deployment remains separate. The existing
 guarded-media feature was not enabled by this release. The service-only snapshot now
 has a staging-enabled employee read bridge and Backend & cleanup view.
 The bridge requires the existing verified employee identity/MFA and operations permission;

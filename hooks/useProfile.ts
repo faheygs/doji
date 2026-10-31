@@ -114,6 +114,7 @@ export function useSendFriendRequest() {
   const session = useAuthStore((s) => s.session);
 
   return useMutation({
+    mutationKey: ['sendFriendRequest'],
     mutationFn: async (variables: { addresseeId: string; commandId?: string }) => {
       const { addresseeId } = variables;
       const requesterId = session?.user?.id;
@@ -184,6 +185,7 @@ export function invalidateFriendCountQueries(queryClient: QueryClient) {
 export function useRemoveFriend() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['removeFriend'],
     mutationFn: async (variables: { friendshipId: string; commandId?: string }) => {
       const { friendshipId } = variables;
       variables.commandId ??= newCommandId('friend-remove');

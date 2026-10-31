@@ -56,6 +56,7 @@ export function useReviewSuggestion() {
   const session = useAuthStore((s) => s.session);
 
   return useMutation({
+    mutationKey: ['reviewSuggestion'],
     mutationFn: async (variables: ReviewPayload) => {
       const { id, status, adminNote } = variables;
       const reviewerId = session?.user?.id;

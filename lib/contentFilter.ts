@@ -71,6 +71,18 @@ const PROFANITY = new Set([
 
 export type FilterResult = { ok: true } | { ok: false; reason: string };
 
+const validationMessages = {
+  empty_comment: 'Comment cannot be empty',
+  prohibited_language: 'Your message contains prohibited language.',
+} as const;
+
+/** Code-owned validation, distinct from unexpected exceptions and server failures. */
+export class ContentValidationError extends Error {
+  constructor(readonly reason: keyof typeof validationMessages) {
+    super(validationMessages[reason]);
+  }
+}
+
 export function filterContent(text: string): FilterResult {
   if (!text || !text.trim()) return { ok: true };
 

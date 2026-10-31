@@ -1,5 +1,5 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
-import { filterContent } from '../lib/contentFilter';
+import { ContentValidationError, filterContent } from '../lib/contentFilter';
 import { newCommandId } from '../lib/idempotency';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Comment, Post } from '../types/database';
@@ -22,9 +22,9 @@ export function useEditComment() {
     }) => {
       if (!isCurrentMember()) throw new Error('Not authenticated');
       const body = vars.body.trim();
-      if (!body) throw new Error('Comment cannot be empty');
+      if (!body) throw new ContentValidationError('empty_comment');
       const check = filterContent(body);
-      if (!check.ok) throw new Error(check.reason);
+      if (!check.ok) throw new ContentValidationError('prohibited_language');
       vars.commandId ??= newCommandId('comment-edit');
       const { error } = await executeCommand('edit_comment', {
         p_comment_id: vars.commentId,
