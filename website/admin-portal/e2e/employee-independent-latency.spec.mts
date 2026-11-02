@@ -284,6 +284,11 @@ test('idle expiry cleanup failure cannot clear newly entered credentials', async
   await page.clock.install();
   await page.goto('https://admin.dojipro.com/');
   await expect(page.locator('#portalApp')).toBeVisible();
+  // The shell opens before its lazy reads finish; a completed read renews idle time.
+  await expect(page.locator('[data-portal-view="operations"] [data-updating]')).toHaveAttribute(
+    'data-updating',
+    'false',
+  );
   await page.clock.fastForward(31 * 60 * 1000);
   await expect(page.locator('#adminPassword')).toBeVisible();
   await expect.poll(() => calls.filter((p) => p === '/auth/logout').length).toBe(1);
