@@ -135,7 +135,10 @@ test('health distinguishes a missing observation contract and displays source st
   );
   await expect(page.getByText('Needs attention', { exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Monitoring scope' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sentry app issues', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Not yet verified by this screen' })).toBeVisible();
+  await expect(page.getByText('Not measured', { exact: true })).toHaveCount(7);
+  await expect(page.getByText('Not verified', { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('health-sources.png'), fullPage: true });
   await page.getByRole('tab', { name: 'App issues', exact: true }).click();
   await expect(

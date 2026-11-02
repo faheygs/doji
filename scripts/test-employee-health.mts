@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createEmployeeHealth } from '../infra/portal-identity/employee-health.mts';
+import {
+  readEmployeeSentry,
+  sentryReadDeadlineMs,
+} from '../infra/portal-identity/employee-sentry.mts';
 import { testEmployee, testRecord, testList, present } from './employee-test-fixtures.mts';
 interface Patch {
   workflowHealthEnabled?: boolean;
@@ -180,4 +184,79 @@ test('staging reads only staging issues and does not label them production', asy
   assert.equal(testRecord(testList(result.sentry.issues)[0]).title, 'Unhandled staging issue');
   for (const environment of ['', '*', 'production&environment=staging', null])
     assert.throws(() => Reflect.apply(fixture, undefined, [{ environment }]));
+});
+
+test('Sentry accepts a 7.4-second response within the bounded portal budget', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100000 });
+  const result = readEmployeeSentry(
+    { token: 'synthetic', organization: 'test' },
+    async () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve(Response.json([])), 7400);
+      }),
+    Date.now,
+  );
+  context.mock.timers.tick(7400);
+  const value = await result;
+  assert.equal(value.available, true);
+  assert.equal(value.elapsed_ms, 7400);
+  assert.equal(value.observed_at, new Date(107400).toISOString());
+});
+
+test('stalled Sentry headers and body have a fixed deadline and safe phase diagnostics', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 100000 });
+  for (const phase of ['headers', 'body']) {
+    const result = readEmployeeSentry(
+      { token: 'synthetic', organization: 'test' },
+      async () => {
+        if (phase === 'headers') return new Promise<Response>(() => {});
+        return new Response(new ReadableStream({ start() {} }));
+      },
+      Date.now,
+    );
+    await Promise.resolve();
+    context.mock.timers.tick(sentryReadDeadlineMs);
+    const value = await result;
+    assert.equal(value.available, false);
+    assert.equal(value.observed_at, undefined);
+    assert.equal(value.failure, 'timeout');
+    assert.equal(value.phase, phase);
+    assert.equal(value.elapsed_ms, sentryReadDeadlineMs);
+  }
+});
+
+test('Sentry failures do not invent observations, leak errors, or hide later recovery', async () => {
+  for (const status of [401, 403, 429, 502]) {
+    const f = fixture({ response: () => new Response('private body', { status }) });
+    const { sentry } = await f.read();
+    assert.equal(sentry.observed_at, undefined);
+    assert.equal(sentry.failure, 'http');
+    assert.equal(sentry.upstream_status, status);
+    assert.ok(sentry.attempted_at);
+    assert.equal(JSON.stringify(sentry).includes('private body'), false);
+    f.advance(10001);
+    await f.read();
+    assert.equal(f.calls.filter((c) => typeof c === 'object').length, status === 502 ? 2 : 1);
+    f.advance(50000);
+    await f.read();
+    assert.equal(f.calls.filter((c) => typeof c === 'object').length, status === 502 ? 3 : 2);
+  }
+  const network = await readEmployeeSentry(
+    { token: 'synthetic', organization: 'test' },
+    async () => {
+      throw Error('secret token and private URL');
+    },
+    Date.now,
+  );
+  assert.equal(network.failure, 'network');
+  assert.equal(JSON.stringify(network).includes('secret'), false);
+  let failed = true;
+  const f = fixture({
+    response: () => (failed ? new Response('bad', { status: 502 }) : Response.json([])),
+  });
+  assert.equal((await f.read()).sentry.available, false);
+  failed = false;
+  assert.equal((await f.read()).sentry.available, false);
+  f.advance(10001);
+  assert.equal((await f.read()).sentry.available, true);
 });

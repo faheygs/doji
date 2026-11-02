@@ -62,5 +62,10 @@ export function useEmployeeHealth(controller: EmployeeSessionController) {
     historyLoaded: !history.isPending,
     now: Date.now(),
   });
-  return { snapshot, history, data, rows, assessment };
+  const refresh = () => {
+    // Coalesce an existing read rather than cancelling it and starting another.
+    void snapshot.refetch({ cancelRefetch: false });
+    void history.refetch({ cancelRefetch: false });
+  };
+  return { snapshot, history, data, rows, assessment, refresh };
 }

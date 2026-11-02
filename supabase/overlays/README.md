@@ -34,6 +34,11 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   workflow-health route with existing developer/persona permission checks. No public
   MFA bypass or direct execution grant. Disable `ADMIN_DEVELOPMENT_HEALTH_ENABLED`
   before retaining rollback; restore the captured runtime/config first.
+- `admin_development_health_events_v1.sql` and its paired rollback: prepared,
+  staging-only health revision route, requiring `employee_health_feed_v1.sql` and
+  the shared staging employee realm. No direct execution grants or MFA substitution.
+  `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED` defaults off; disable it before rollback.
+  The inverse removes only this route/helper and retains observations and audit.
 
 Cleanup changes paths only, not SQL definitions, grants, deployment order or
 production state. Preserve evidence, leases, receipts and holds during rollback.

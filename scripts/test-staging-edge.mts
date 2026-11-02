@@ -65,6 +65,7 @@ test('development gateway artifact includes shared resource authorization withou
       'admin-development',
       'employee-resources',
       'employee-storage-signer',
+      'employee-sentry',
       'bounded-body',
     ])
       assert.ok(manifest.inputs.includes(`infra/portal-identity/${module}.mts`));

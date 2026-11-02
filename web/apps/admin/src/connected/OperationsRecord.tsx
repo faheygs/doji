@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { Alert, Box, Chip, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { PageHeader, TableFrame } from '@doji/ui';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
 import { useEmployeeHealth } from './useEmployeeHealth';
@@ -20,7 +20,7 @@ const sections = [
 ];
 export function OperationsRecord({ controller }: { controller: EmployeeSessionController }) {
   const [tab, setTab] = useState(0);
-  const { snapshot, history, data, rows, assessment } = useEmployeeHealth(controller);
+  const { snapshot, history, data, rows, assessment, refresh } = useEmployeeHealth(controller);
   const issuesCurrent = assessment.signals.some(
     (x) => x.name.startsWith('App errors') && x.state !== 'unknown',
   );
@@ -39,17 +39,26 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
         title="Platform health"
         description="Operational readings, app issues and recent Doji delivery."
         action={
-          <Chip
-            label={
-              assessment.state === 'healthy'
-                ? 'Measured checks passed'
-                : assessment.state === 'unknown'
-                  ? 'Not fully verified'
-                  : 'Needs attention'
-            }
-            color={healthColor(assessment.state)}
-            variant="outlined"
-          />
+          <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              onClick={refresh}
+              disabled={snapshot.isFetching || history.isFetching}
+            >
+              Refresh readings
+            </Button>
+            <Chip
+              label={
+                assessment.state === 'healthy'
+                  ? 'Measured checks passed'
+                  : assessment.state === 'unknown'
+                    ? 'Not fully verified'
+                    : 'Needs attention'
+              }
+              color={healthColor(assessment.state)}
+              variant="outlined"
+            />
+          </Stack>
         }
       />
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
@@ -58,8 +67,7 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
         </Typography>
         <Typography sx={{ my: 1 }}>{assessment.summary}</Typography>
         <Typography variant="body2" color="text.secondary">
-          These checks cover delivery and reported app issues—not every user workflow. Services
-          &amp; coverage lists what is not yet measured.
+          Coverage is partial. Services &amp; coverage lists the unmeasured workflows.
         </Typography>
         <Chip size="small" variant="outlined" label={assessment.coverageLabel} />
         <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
@@ -74,7 +82,10 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
       </Paper>
       <Tabs
         value={tab}
-        onChange={(_, value: number) => setTab(value)}
+        onChange={(_, value: number) => {
+          setTab(value);
+          if (!data?.generated_at || Date.now() - Date.parse(data.generated_at) > 180000) refresh();
+        }}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
@@ -125,7 +136,9 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                           sx={{ my: 1 }}
                         />
                         <Typography variant="body2" color="text.secondary">
-                          {signal.detail}
+                          {signal.name.startsWith('App errors') && sentryProblem
+                            ? sentryProblem
+                            : signal.detail}
                         </Typography>
                       </Paper>
                     ))}
@@ -177,14 +190,14 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 failed={snapshot.isError}
                 available={issuesCurrent}
                 problem={sentryProblem}
-                retry={() => void snapshot.refetch()}
+                retry={() => void snapshot.refetch({ cancelRefetch: false })}
               />
             ) : index === 3 ? (
               <OperationsHistory
                 data={rows}
                 loading={history.isPending}
                 failed={history.isError}
-                retry={() => void history.refetch()}
+                retry={() => void history.refetch({ cancelRefetch: false })}
               />
             ) : (
               <Suspense
@@ -196,7 +209,7 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                   data={data?.workflows}
                   loading={snapshot.isPending}
                   failed={snapshot.isError}
-                  retry={() => void snapshot.refetch()}
+                  retry={() => void snapshot.refetch({ cancelRefetch: false })}
                 />
               </Suspense>
             ))}

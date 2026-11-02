@@ -213,9 +213,28 @@ users do not implicitly acquire moderation topics. Existing issued tokens are
 short-lived but not instantly revoked; every data read reauthorizes.
 
 Admin health uses authorized bounded reads. Sentry successful-observation time is
-fixed at load completion; cache hits cannot make old data fresh. Health-event
-producer/signing/consumer gates remain separately disabled unless explicitly
-released; workflow hints are not a whole-platform health feed.
+fixed at load completion; cache hits cannot make old data fresh. The provider read
+has a ten-second headers/body deadline, no automatic retry, and safe failure/phase,
+attempt-time and elapsed-time diagnostics. Failed attempts have no observation time.
+Successes cache for 60 seconds; failures back off for ten seconds (60 for access
+denials/rate limits). Manual refresh, expired-tab selection and foreground/reconnect
+reconcile authorized reads; expiry itself never polls.
+The React health listener admits only the exact server-granted operations channel,
+filters source/revision hints and coalesces invalidations on the existing socket.
+The channel must be attached as well as the socket connected to report connected
+health updates. Channel reattachment also reconciles authorized reads, including
+after lost continuity. Manual refresh is a fallback, not the normal update path.
+New observations from the existing one-minute server check drive updates while
+Operations is open; Sentry reads retain their shared 60-second cache. This is
+automatic observation-based monitoring, not an instantaneous measurement of every
+request. A stopped collector must age out, never appear fresh because its socket
+is connected. Staging's prepared cron matches production; enablement is still gated.
+Health-event producer/signing gates remain disabled until separately released;
+workflow hints are not a whole-platform health feed. Local impersonation's prepared
+`admin_development_health_events_v1` route uses existing developer/persona checks,
+not MFA substitution. Its server-only `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`
+gate defaults off for both revision reads and channel signing. Hosted parity must
+be verified before enabling this separately deployed route/runtime.
 
 Business protected reads use the existing application controller, atomic versioned
 commands and session-scoped queries. Dirty forms survive reconciliation while

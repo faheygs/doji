@@ -144,8 +144,16 @@ export function ConnectedWorkspace({
                   (key) => pathname === '/' + key,
                 );
   const [connection, setConnection] = useState<EmployeeConnection>('disabled');
+  const [healthConnection, setHealthConnection] = useState<EmployeeConnection>('disabled');
   useEffect(
-    () => attachEmployeeRealtime(controller, realtimeEnabled, setConnection),
+    () =>
+      attachEmployeeRealtime(
+        controller,
+        realtimeEnabled,
+        setConnection,
+        undefined,
+        setHealthConnection,
+      ),
     [controller, realtimeEnabled, state.session],
   );
   if (!state.operator) return null;
@@ -185,9 +193,13 @@ export function ConnectedWorkspace({
         <Stack direction="row" sx={{ gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Chip
             size="small"
-            color={connection === 'connected' ? 'success' : 'default'}
+            color={
+              (operations ? healthConnection : connection) === 'connected' ? 'success' : 'default'
+            }
             variant="outlined"
-            label={'Queue updates: ' + connection}
+            label={
+              operations ? 'Health updates: ' + healthConnection : 'Queue updates: ' + connection
+            }
           />
           <AccountMenu
             name={state.operator.display_name}
