@@ -1,30 +1,14 @@
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Chip,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material';
-import ExpandMore from '@mui/icons-material/ExpandMore';
+import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import type { EmployeeHealth } from '@doji/portal-data/employee-health';
 import { observation } from './OperationsTables';
 const monitoringGaps = [
   ['Accounts & profiles', 'Sign-in, signup, session renewal and avatar-save success.'],
-  [
-    'Doji readiness',
-    'Backend attempts do not verify required poll records or the next scheduled event.',
-  ],
-  [
-    'Answers & rewards',
-    'Submission confirmation, failed attempts and correct single-credit rewards.',
-  ],
+  ['Doji readiness', 'Required poll records and next scheduled Doji readiness.'],
+  ['Answers & rewards', 'Confirmed submissions, failures and single-credit rewards.'],
   ['Feed & media', 'Feed display after submission, photo uploads and image display.'],
   [
     'Database & hosting',
-    'Current request success, resource pressure and failures by processing step.',
+    'Request outcomes, resource pressure and failure phases.',
   ],
   [
     'Email & phone delivery',
@@ -32,7 +16,7 @@ const monitoringGaps = [
   ],
   [
     'Content cleanup',
-    'Receipts cover recorded deletions, not a complete storage inventory, overdue backlog or evidence-hold audit.',
+    'Complete storage inventory, overdue cleanup and evidence-hold coverage.',
   ],
 ] as const;
 
@@ -71,8 +55,7 @@ export function OperationsSources({
             : data.workflows.enabled
               ? 'Current'
               : 'Observation disabled',
-      detail:
-        'Backend & cleanup shows recorded attempts, latest failure phases and confirmed cleanup counts. These are not member success rates.',
+      detail: 'Attempts, failure phases and cleanup receipts—not member success rates.',
       observed: data?.workflows?.observed_at,
     },
     {
@@ -104,14 +87,19 @@ export function OperationsSources({
           : historyCount
             ? `${historyCount} ${historyCount === 1 ? 'summary' : 'summaries'}`
             : 'No summaries',
-      detail: 'Latest 12 archived Doji delivery summaries, including recovered delivery misses.',
+      detail: 'Latest 12 summaries, including recovered delivery misses.',
       observed: undefined,
     },
     {
-      name: 'Health-event connection',
-      status: 'Not enabled',
+      name: 'Health-event availability',
+      status:
+        data?.health_events_enabled === true
+          ? 'Enabled by server'
+          : data?.health_events_enabled === false
+            ? 'Not enabled'
+            : 'Not verified',
       detail:
-        'Readings update on return and reconnect. Continuous health events are not enabled in this release.',
+        'New observations refresh automatically when connected. The header shows connection status; observation times show data freshness.',
       observed: undefined,
     },
   ];
@@ -163,21 +151,11 @@ export function OperationsSources({
           </Paper>
         ))}
       </Box>
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMore />}>Monitoring scope</AccordionSummary>
-        <AccordionDetails>
-          <Typography variant="body2">
-            Delivery metrics measure server publication, not notification display on a device.
-            Sentry returns up to 25 unresolved issue groups; occurrence counts can span an issue’s
-            lifetime. These sources do not measure whole-platform uptime or crash-free sessions.
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            API success rates, authentication, hosting, storage and email do not yet have aggregate
-            monitoring in this view. Missing observations remain unknown; current readings expire
-            after three minutes.
-          </Typography>
-        </AccordionDetails>
-      </Accordion>
+      <Typography variant="caption" color="text.secondary">
+        Delivery measures server publication, not phone display. Sentry shows up to 25 unresolved
+        issues; counts may span their lifetime. Neither proves platform uptime or crash-free
+        sessions. Missing readings stay unknown; readings expire after three minutes.
+      </Typography>
     </Stack>
   );
 }

@@ -81,6 +81,7 @@ export function healthSnapshot(value: unknown) {
     : [];
   return {
     generated_at: date(value.generated_at),
+    health_events_enabled: boolean(value.health_events_enabled),
     workflows: workflowSnapshot(value.workflows),
     operational: {
       ...metrics(op, operationalMetrics),
@@ -93,6 +94,14 @@ export function healthSnapshot(value: unknown) {
       available: source.available === true && validIssues && date(source.observed_at) !== null,
       observed_at: date(source.observed_at),
       upstream_status: metric(source.upstream_status),
+      failure: ['timeout', 'http', 'network', 'invalid_response'].includes(String(source.failure))
+        ? String(source.failure)
+        : null,
+      phase: ['headers', 'body', 'response'].includes(String(source.phase))
+        ? String(source.phase)
+        : null,
+      attempted_at: date(source.attempted_at),
+      elapsed_ms: metric(source.elapsed_ms),
       issues,
     },
   };
@@ -160,6 +169,14 @@ export function sentryReadProblem(
     return 'Sentry temporarily rate-limited the monitoring connection.';
   if (source.upstream_status && source.upstream_status >= 400)
     return `Sentry returned HTTP ${source.upstream_status}. The monitoring read is unavailable.`;
+  if (source.failure === 'timeout')
+    return source.phase === 'body'
+      ? 'Sentry started responding but did not finish in time. Retry the monitoring read.'
+      : 'Sentry did not respond in time. Retry the monitoring read; this does not mean the app is down.';
+  if (source.failure === 'network')
+    return 'The monitoring service could not reach Sentry. Retry the monitoring read.';
+  if (source.failure === 'invalid_response')
+    return 'Sentry returned an incomplete or unexpected response. The monitoring result could not be verified.';
   if (!source.observed_at)
     return 'The monitoring service has not supplied a verified Sentry observation time.';
   if (!source.available)

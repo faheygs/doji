@@ -50,4 +50,39 @@ describe('health connection diagnostics', () => {
       /observation time/,
     );
   });
+  it('retains only safe provider diagnostics and distinguishes timeouts from missing configuration', () => {
+    for (const [failure, phase, wording] of [
+      ['timeout', 'headers', /did not respond in time/],
+      ['timeout', 'body', /did not finish in time/],
+      ['network', 'headers', /could not reach/],
+      ['invalid_response', 'response', /unexpected response/],
+    ] as const) {
+      const parsed = healthSnapshot({
+        ...healthFixture(),
+        health_events_enabled: true,
+        sentry: {
+          configured: true,
+          available: false,
+          issues: [],
+          failure,
+          phase,
+          attempted_at: new Date().toISOString(),
+          elapsed_ms: 10000,
+          private_error: 'secret',
+        },
+      });
+      expect(sentryReadProblem(parsed.sentry, false, false)).toMatch(wording);
+      expect(parsed.sentry.observed_at).toBeNull();
+      expect(parsed.sentry.elapsed_ms).toBe(10000);
+      expect(parsed.health_events_enabled).toBe(true);
+      expect(JSON.stringify(parsed)).not.toContain('secret');
+    }
+    const unknown = healthSnapshot({
+      ...healthFixture(),
+      sentry: { ...source, failure: 'private error', phase: 'private URL' },
+    });
+    expect(unknown.sentry.failure).toBeNull();
+    expect(unknown.sentry.phase).toBeNull();
+    expect(unknown.health_events_enabled).toBeNull();
+  });
 });

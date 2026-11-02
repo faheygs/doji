@@ -1,10 +1,25 @@
 # Current state and handoff gaps
 
-Updated October 31, 2026. This separates source, recorded deployments and owner
+Updated November 2, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+Admin health reliability is prepared locally, not deployed: the bounded Sentry
+read now distinguishes provider timeout/HTTP/network/invalid-response failures,
+does not fabricate observation times, and supports explicit recovery. React adds
+manual/stale-tab refresh and a server-authorized health-event listener without
+polling. Provider, browser and isolated database checks passed; hosted acceptance
+and release remain outstanding. The shared health feed is still disabled. Its
+local-impersonation revision adapter is prepared behind a separate server gate;
+hosted parity and the additional workflow measurements listed below remain
+unfinished. This is not complete platform-health coverage.
+Automatic-update qualification must leave Operations open across multiple real
+collector cycles and verify new timestamps without clicks, disconnect/reattach
+recovery and denied access. The prepared staging Worker cron runs the existing
+health check once a minute; live enablement, capacity and delivery guards still
+need verification. Local browser event tests alone do not establish hosted parity.
 
 October 25 poll incident: the missing community card was repaired; real submissions
 resumed. The approved activation-function fix is live and passed 147 isolated

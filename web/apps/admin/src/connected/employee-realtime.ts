@@ -2,6 +2,7 @@ import type { Realtime, TokenRequest } from 'ably';
 import type { EmployeeSessionController } from '@doji/portal-data/employee';
 import { subscribeWorkflow } from '../../../../../website/admin-portal/workflow-events.mts';
 import { record } from '../../../../../website/admin-portal/workflow-contracts.mts';
+import { createHealthHintFilter } from '../../../../../website/admin-portal/health-model.mts';
 import { loadEmployeeRealtimeSdk } from './employee-realtime-sdk';
 import { subscribeEmployeeAccess } from './employee-access-events';
 import { subscribeAnnouncementEvents } from './employee-announcement-events';
@@ -36,11 +37,14 @@ export function attachEmployeeRealtime(
   enabled: boolean,
   onState: (state: EmployeeConnection) => void,
   loadSdk = loadEmployeeRealtimeSdk,
+  onHealthState: (state: EmployeeConnection) => void = () => {},
 ) {
   const initial = controller.getSnapshot();
   const accessHints = initial.operator?.capabilities.moderation_read === true;
+  const operations = initial.operator?.capabilities.operations_read === true;
   if (!enabled || !initial.session || !initial.operator) {
     onState('disabled');
+    onHealthState('disabled');
     return () => {};
   }
   const capability = ['moderation_read', 'operations_read', 'business_read', 'legal_read'].find(
@@ -48,6 +52,7 @@ export function attachEmployeeRealtime(
   );
   if (!capability) {
     onState('disabled');
+    onHealthState('disabled');
     return () => {};
   }
   const abort = new AbortController();
@@ -55,6 +60,14 @@ export function attachEmployeeRealtime(
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let refreshing = false;
+  let healthSubscribed = false;
+  let healthAuthorized = false;
+  let transport: EmployeeConnection = 'connecting';
+  let healthChannel: EmployeeConnection = 'connecting';
+  const reportHealth = () =>
+    onHealthState(
+      !healthAuthorized ? 'disabled' : transport === 'connected' ? healthChannel : transport,
+    );
   const areas = new Set<'work' | 'safety' | 'operations' | 'audit' | 'team' | 'announcements'>();
   const seen = new Set<string>();
   const current = () =>
@@ -66,6 +79,7 @@ export function attachEmployeeRealtime(
     clearTimeout(timer);
     areas.clear();
     seen.clear();
+    onHealthState('disabled');
     unsubscribe();
     const active = client;
     client = null;
@@ -137,7 +151,7 @@ export function attachEmployeeRealtime(
       abort.signal,
     );
     if (!current()) return;
-    if (!names.length && !accessHints) {
+    if (!names.length && !accessHints && !operations) {
       onState('unavailable');
       return;
     }
@@ -155,21 +169,33 @@ export function attachEmployeeRealtime(
         void controller
           .read(capability!, '/portal/admin/realtime-token', undefined, token, abort.signal)
           .then(
-            (value) =>
-              current() ? callback(null, value) : callback('Employee session ended.', null),
+            (value) => {
+              if (!current()) return callback('Employee session ended.', null);
+              callback(null, value);
+              void subscribeHealth(value).catch(() => {
+                if (current()) {
+                  healthChannel = 'unavailable';
+                  reportHealth();
+                }
+              });
+            },
             () => callback('Realtime authorization unavailable.', null),
           );
       },
     });
     client.connection.on((change) => {
       if (!current()) return;
-      onState(change.current === 'connected' ? 'connected' : 'interrupted');
+      transport = change.current === 'connected' ? 'connected' : 'interrupted';
+      onState(transport);
+      reportHealth();
       if (change.current === 'connected') {
         areas.add('work');
         areas.add('safety');
-        if (initial.operator?.capabilities.operations_read) areas.add('operations');
-        if (initial.operator?.capabilities.operations_read) areas.add('audit');
-        if (initial.operator?.capabilities.operations_read) areas.add('announcements');
+        if (operations) {
+          areas.add('operations');
+          areas.add('audit');
+          areas.add('announcements');
+        }
         if (initial.operator?.capabilities.operator_manage) areas.add('team');
         schedule();
       }
@@ -177,7 +203,7 @@ export function attachEmployeeRealtime(
     client.connect();
     if (
       accessHints &&
-      initial.operator?.capabilities.operations_read &&
+      operations &&
       names.includes('staff:workflow:moderation')
     )
       await subscribeAnnouncementEvents(client, current, (id) => {
@@ -196,7 +222,7 @@ export function attachEmployeeRealtime(
         seen.add(key);
         if (seen.size > 128) seen.delete(seen.values().next().value!);
         if (initial.operator?.capabilities.operator_manage) areas.add('team');
-        if (initial.operator?.capabilities.operations_read) areas.add('audit');
+        if (operations) areas.add('audit');
         areas.add('work');
         areas.add('safety');
         schedule();
@@ -209,15 +235,59 @@ export function attachEmployeeRealtime(
         if (seen.size > 128) seen.delete(seen.values().next().value!);
       }
       areas.add('work');
-      if (initial.operator?.capabilities.operations_read) areas.add('audit');
+      if (operations) areas.add('audit');
       if (['report', 'appeal', 'external_intake'].includes(String(hint.workKind)))
         areas.add('safety');
       schedule();
     });
   }
+  async function subscribeHealth(grant: TokenRequest) {
+    // Only subscribe when the existing, server-issued grant authorizes the
+    // exact staff channel. Local config cannot enable hosted health access.
+    const grants: unknown = JSON.parse(grant.capability || '{}');
+    healthAuthorized =
+      operations &&
+      record(grants) &&
+      Array.isArray(grants['staff:health:operations']) &&
+      grants['staff:health:operations'].includes('subscribe');
+    reportHealth();
+    if (!current() || !healthAuthorized || healthSubscribed || !client) return;
+    healthSubscribed = true;
+    try {
+      const acceptHealth = createHealthHintFilter();
+      const channel = client.channels.get('staff:health:operations', { params: { rewind: '2m' } });
+      channel.on((change) => {
+        if (!current() || !healthAuthorized) return;
+        healthChannel =
+          change.current === 'attached'
+            ? 'connected'
+            : change.current === 'failed'
+              ? 'unavailable'
+              : 'interrupted';
+        reportHealth();
+        // Reattachment can lose continuity even when the socket stayed connected.
+        if (change.current === 'attached') {
+          areas.add('operations');
+          schedule();
+        }
+      });
+      await channel.subscribe((message) => {
+        if (!current() || !healthAuthorized || !acceptHealth(message)) return;
+        areas.add('operations');
+        schedule();
+      });
+    } catch (error) {
+      // Ably retains listeners after attachment failure; reauthorization must not duplicate them.
+      throw error;
+    }
+  }
   void start().catch(() => {
-    if (current()) onState('unavailable');
+    const reportFailure = current();
     stop();
+    if (reportFailure) {
+      onState('unavailable');
+      onHealthState('unavailable');
+    }
   });
   return stop;
 }

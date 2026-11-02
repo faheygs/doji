@@ -9,7 +9,7 @@ import type { PortalFetch } from './portal-contracts.mts';
 export function createDevelopmentHealth(
   invoke: DevelopmentInvoke,
   monitoring: EmployeeMonitoringConfig,
-  dependencies: { upstream?: PortalFetch; now?: () => number } = {},
+  dependencies: { upstream?: PortalFetch; now?: () => number; healthEventsEnabled?: boolean } = {},
 ): DevelopmentInvoke {
   if (
     monitoring.environment !== 'staging' ||

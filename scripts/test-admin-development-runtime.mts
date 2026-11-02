@@ -13,6 +13,70 @@ import type { DevelopmentInvoke } from '../infra/portal-identity/admin-developme
 import { createDevelopmentHealth } from '../infra/portal-identity/admin-development-health.mts';
 
 const token = 'a'.repeat(43);
+test('local health events need explicit runtime and database gates plus operations permission', async () => {
+  let allowed = true,
+    enabled = true,
+    signed = 0,
+    reads = 0;
+  const invoke: DevelopmentInvoke = async (_credential, input) => {
+    if (input.name === 'get_admin_health_feed_v1') reads++;
+    return {
+      ok: true,
+      result:
+        input.name === 'get_admin_portal_session_v3'
+          ? { user_id: persona, capabilities: { operations_read: allowed, moderation_read: false } }
+          : input.name === 'get_admin_staff_event_channels_v1'
+            ? []
+            : input.name === 'get_admin_health_feed_v1'
+              ? { enabled, sources: [] }
+              : {},
+    };
+  };
+  const options = {
+    storageOrigin: 'https://ohrcupagdoilkwhecict.supabase.co',
+    realtimeKeyName: 'eVKl2g.synthetic',
+    signStorage: async () => {
+      throw Error('No storage access expected');
+    },
+    signRealtime: async (grant: { capability: Record<string, string[]> }) => {
+      signed++;
+      assert.deepEqual(grant.capability, { 'staff:health:operations': ['subscribe'] });
+      return { ...grant, keyName: 'eVKl2g.synthetic' };
+    },
+  };
+  const signal = new AbortController().signal;
+  const input = { ...call, name: 'portal_realtime_token_v1' };
+  await assert.rejects(createDevelopmentResources(invoke, options)(token, input, signal));
+  assert.equal(reads, 0);
+  const resources = createDevelopmentResources(invoke, { ...options, healthEventsEnabled: true });
+  await resources(token, input, signal);
+  assert.equal(signed, 1);
+  enabled = false;
+  await assert.rejects(resources(token, input, signal));
+  enabled = true;
+  allowed = false;
+  await assert.rejects(resources(token, input, signal));
+  assert.equal(signed, 1);
+  allowed = true;
+  const health = createDevelopmentHealth(
+    invoke,
+    {
+      token: 'synthetic',
+      environment: 'staging',
+      organization: 'doji-i0',
+      projectIds: ['4512328707342336'],
+      projectSlugs: ['doji-staging'],
+    },
+    { healthEventsEnabled: true, upstream: async () => Response.json([]) },
+  );
+  const result = await health(token, { ...call, name: 'portal_platform_health_v1' }, signal);
+  assert.equal(
+    (result as { result: { health_events_enabled: boolean } }).result.health_events_enabled,
+    true,
+  );
+  enabled = false;
+  await assert.rejects(health(token, { ...call, name: 'portal_platform_health_v1' }, signal));
+});
 test('local health uses audited persona reads, exact staging scope and post-read revocation', async () => {
   const monitoring = {
     token: 'synthetic',

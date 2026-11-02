@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ClientOptions, ConnectionStateChange, Message } from 'ably';
+import type { ClientOptions, ConnectionStateChange, ChannelStateChange, Message } from 'ably';
 import type { BrowserRealtimeSdk } from '../../../../../website/ably-browser.d.mts';
 import { createEmployeeSession } from '@doji/portal-data/employee';
 import { attachEmployeeRealtime } from './employee-realtime';
@@ -22,6 +22,8 @@ async function fixture(
   enabled = true,
   operations = false,
   manager = false,
+  healthGrant = false,
+  healthAttachFails = false,
 ) {
   vi.useFakeTimers();
   let session = {
@@ -44,7 +46,7 @@ async function fixture(
       keyName: 'synthetic.key',
       nonce: 'synthetic',
       mac: 'synthetic',
-      capability: '{}',
+      capability: healthGrant ? JSON.stringify({ 'staff:health:operations': ['subscribe'] }) : '{}',
       timestamp: Date.now(),
     });
   });
@@ -56,14 +58,19 @@ async function fixture(
   let connection!: (change: ConnectionStateChange) => void;
   let options!: ClientOptions;
   const handlers = new Map<string, (message: Message) => void>();
+  const channelStates = new Map<string, (change: ChannelStateChange) => void>();
   const close = vi.fn();
   const get = vi.fn((name: string) => ({
+    on: (handler: (change: ChannelStateChange) => void) => {
+      channelStates.set(name, handler);
+    },
     subscribe: async (handler: (message: Message) => void) => {
       const previous = handlers.get(name);
       handlers.set(name, (message) => {
         previous?.(message);
         handler(message);
       });
+      if (name === 'staff:health:operations' && healthAttachFails) throw Error('Synthetic attach failure');
     },
   }));
   class FakeRealtime {
@@ -81,8 +88,9 @@ async function fixture(
   }
   const load = vi.fn(async () => ({ Realtime: FakeRealtime }) as unknown as BrowserRealtimeSdk);
   const state = vi.fn();
+  const healthState = vi.fn();
   const invalidate = vi.spyOn(controller.getSnapshot().cache!, 'invalidateQueries');
-  const stop = attachEmployeeRealtime(controller, enabled, state, load);
+  const stop = attachEmployeeRealtime(controller, enabled, state, load, healthState);
   stops.push(stop);
   await vi.advanceTimersByTimeAsync(0);
   return {
@@ -90,10 +98,19 @@ async function fixture(
     upstream,
     load,
     state,
+    healthState,
     close,
     get,
     invalidate,
     stop,
+    healthChannel: (current: ChannelStateChange['current']) =>
+      channelStates.get('staff:health:operations')?.({ current } as ChannelStateChange),
+    disconnect: () => connection({ current: 'disconnected' } as ConnectionStateChange),
+    healthHint: (revision: string, source = 'delivery') =>
+      handlers.get('staff:health:operations')?.({
+        name: 'staff.health.changed',
+        data: { source, revision },
+      } as Message),
     announcementHint: (eventId: string, valid = true) =>
       handlers.get('moderation:global')?.({
         name: 'moderation.announcement.publish',
@@ -127,6 +144,78 @@ async function fixture(
   };
 }
 describe('employee socket lifecycle', () => {
+  it('retains one health listener across failed attachment and reauthorization', async () => {
+    const f = await fixture(undefined, true, true, false, true, true);
+    f.connect();
+    f.authorize();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(f.healthState).toHaveBeenLastCalledWith('unavailable');
+    f.authorize();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.get.mock.calls.filter(([name]) => name === 'staff:health:operations')).toHaveLength(1);
+    f.invalidate.mockClear();
+    f.healthChannel('attached');
+    f.healthHint('1');
+    await vi.advanceTimersByTimeAsync(250);
+    expect(f.healthState).toHaveBeenLastCalledWith('connected');
+    expect(f.invalidate.mock.calls.map(([filter]) => filter?.queryKey?.[4])).toEqual(['operations']);
+  });
+  it('reports health channel failure separately and automatically rereads after reattachment', async () => {
+    const f = await fixture(undefined, true, true, false, true);
+    f.authorize();
+    await vi.advanceTimersByTimeAsync(0);
+    f.connect();
+    expect(f.healthState).toHaveBeenLastCalledWith('connecting');
+    f.healthChannel('attached');
+    expect(f.healthState).toHaveBeenLastCalledWith('connected');
+    await vi.advanceTimersByTimeAsync(250);
+    f.invalidate.mockClear();
+    f.healthChannel('suspended');
+    expect(f.healthState).toHaveBeenLastCalledWith('interrupted');
+    expect(f.state).toHaveBeenLastCalledWith('connected');
+    f.healthChannel('attached');
+    await vi.advanceTimersByTimeAsync(250);
+    expect(f.invalidate.mock.calls.map(([filter]) => filter?.queryKey?.[4])).toEqual([
+      'operations',
+    ]);
+    f.disconnect();
+    expect(f.healthState).toHaveBeenLastCalledWith('interrupted');
+    f.healthChannel('attached');
+    expect(f.healthState).toHaveBeenLastCalledWith('interrupted');
+    f.connect();
+    expect(f.healthState).toHaveBeenLastCalledWith('connected');
+    f.healthChannel('failed');
+    expect(f.healthState).toHaveBeenLastCalledWith('unavailable');
+    f.stop();
+    f.healthChannel('attached');
+    expect(f.healthState).toHaveBeenLastCalledWith('disabled');
+  });
+  it('subscribes to health only from an exact server grant and reconciles bounded hints', async () => {
+    const f = await fixture(undefined, true, true, false, true);
+    f.authorize();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.get.mock.calls.map(([name]) => name)).toContain('staff:health:operations');
+    f.healthHint('1', 'member');
+    await vi.advanceTimersByTimeAsync(300);
+    expect(f.invalidate).not.toHaveBeenCalled();
+    for (let i = 0; i < 20; i++) f.healthHint('1');
+    await vi.advanceTimersByTimeAsync(250);
+    expect(f.invalidate.mock.calls.map(([filter]) => filter?.queryKey?.[4])).toEqual([
+      'operations',
+    ]);
+    f.invalidate.mockClear();
+    f.healthHint('1');
+    await vi.advanceTimersByTimeAsync(300);
+    expect(f.invalidate).not.toHaveBeenCalled();
+    f.stop();
+    f.healthHint('2');
+    await vi.advanceTimersByTimeAsync(300);
+    expect(f.invalidate).not.toHaveBeenCalled();
+    const denied = await fixture(undefined, true, false, false, true);
+    denied.authorize();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(denied.get.mock.calls.map(([name]) => name)).not.toContain('staff:health:operations');
+  });
   it('reconciles announcement hints only with both permissions, without trusting event data', async () => {
     const denied = await fixture();
     denied.announcementHint('not-authorized');

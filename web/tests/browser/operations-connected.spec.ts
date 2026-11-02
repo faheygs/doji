@@ -1,7 +1,60 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { installOperationsFixture } from './operations-fixture';
+import { installOperationsFixture, installHealthRealtime } from './operations-fixture';
 const url = 'https://admin.dojipro.com/connected.html#/operations';
+
+test('open health screen updates automatically and recovers missed observations after channel interruption', async ({
+  page,
+  request,
+}) => {
+  const f = await installOperationsFixture(page, request, true, installHealthRealtime);
+  f.healthEvents(true);
+  await page.goto(url);
+  await expect(page.getByText('Health updates: connected', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  f.change();
+  f.healthEvents(true);
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new CustomEvent('test-health-message', {
+        detail: { name: 'staff.health.changed', data: { source: 'delivery', revision: '1' } },
+      }),
+    ),
+  );
+  await expect(page.getByText(/8 updates are overdue for publication/)).toBeVisible();
+  await page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent('test-health-channel', { detail: 'suspended' })),
+  );
+  await expect(page.getByText('Health updates: interrupted', { exact: true })).toBeVisible();
+  f.sentry({
+    configured: true,
+    available: true,
+    observed_at: new Date().toISOString(),
+    issues: [],
+  });
+  // No message is replayed: reattachment must reconcile authoritative data itself.
+  await page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent('test-health-channel', { detail: 'attached' })),
+  );
+  await expect(page.getByText('Health updates: connected', { exact: true })).toBeVisible();
+  await expect(page.getByText(/No unresolved issues returned for this environment/)).toBeVisible();
+  const reads = f.healthReads.length;
+  f.revoke();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new CustomEvent('test-health-message', {
+        detail: { name: 'staff.health.changed', data: { source: 'delivery', revision: '2' } },
+      }),
+    ),
+  );
+  await expect(page.getByRole('heading', { name: 'Page unavailable' })).toBeVisible();
+  expect(f.healthReads).toHaveLength(reads);
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
 
 test('backend receipts explain partial cleanup, pagination and stale readings without writes', async ({
   page,
@@ -37,7 +90,9 @@ test('backend receipts explain partial cleanup, pagination and stale readings wi
     scheduler_receipt: null,
   });
   await page.goto(url);
-  await expect(page.getByRole('heading', { name: 'Needs attention — review the affected signals' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Needs attention — review the affected signals' }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Backend & cleanup' }).click();
   await expect(page.getByRole('heading', { name: 'Backend processing & cleanup' })).toBeVisible();
   await expect(
@@ -58,7 +113,9 @@ test('backend receipts explain partial cleanup, pagination and stale readings wi
     scheduler_receipt: null,
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Needs attention — review the affected signals' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Needs attention — review the affected signals' }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Backend & cleanup' }).click();
   await expect(page.getByText(/Backend workflow readings are outdated/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
@@ -191,4 +248,54 @@ test('missing archived summaries cannot give a platform all clear', async ({ pag
   await expect(page.getByText('No recent summary', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Doji history', exact: true }).click();
   await expect(page.getByText('No archived Doji summaries returned.')).toBeVisible();
+});
+
+test('provider timeout is actionable and a manual refresh recovers without reloading', async ({
+  page,
+  request,
+}) => {
+  const f = await installOperationsFixture(page, request);
+  f.sentry({
+    configured: true,
+    available: false,
+    issues: [],
+    failure: 'timeout',
+    phase: 'headers',
+    attempted_at: new Date().toISOString(),
+    elapsed_ms: 10000,
+  });
+  f.healthEvents(false);
+  await page.goto(url);
+  await expect(page.getByText(/Sentry did not respond in time/)).toBeVisible();
+  await expect(page.getByText(/verified Sentry observation time/)).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Services & coverage', exact: true }).click();
+  await expect(page.getByText('Not enabled', { exact: true })).toBeVisible();
+  f.change();
+  f.healthEvents(true);
+  await page.getByRole('button', { name: 'Refresh readings', exact: true }).click();
+  await expect(page.getByText('Enabled by server', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'App issues', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Synthetic foreground timeout' })).toBeVisible();
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
+test('changing health sections refreshes expired observations without recurring polling', async ({
+  page,
+  request,
+}) => {
+  await page.clock.install();
+  const f = await installOperationsFixture(page, request);
+  await page.goto(url);
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  const before = f.healthReads.length;
+  await page.clock.fastForward(181000);
+  expect(f.healthReads).toHaveLength(before);
+  f.change(await page.evaluate(() => Date.now()));
+  await page.getByRole('tab', { name: 'App issues', exact: true }).click();
+  await expect.poll(() => f.healthReads.length).toBe(before + 2);
+  await expect(page.getByRole('link', { name: 'Synthetic foreground timeout' })).toBeVisible();
+  expect(f.external).toEqual([]);
 });

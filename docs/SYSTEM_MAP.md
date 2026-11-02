@@ -69,6 +69,8 @@ serve the default-off authorized read; `OperationsWorkflows.tsx` and portal-data
 uses `admin-development-health.mts` and the private `admin_development_health_v1`
 route with developer/persona reauthorization, not hosted MFA substitution.
 Current state distinguishes these prepared changes from deployed services.
+`employee-sentry.mts` owns the bounded provider read and safe failure diagnostics;
+`employee-health.mts` retains authorization, cache and source-revision ownership.
 
 ## How requests connect
 

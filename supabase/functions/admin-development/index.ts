@@ -17,6 +17,8 @@ Deno.serve(async (request: Request) => {
     )
       throw Error('Disabled');
     if (!handler) {
+      const healthEventsEnabled =
+        Deno.env.get('ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED') === 'true';
       let invoke = createDevelopmentSql(
         JSON.parse(Deno.env.get('ADMIN_DEVELOPMENT_DATABASE') || 'null'),
         (options) => new pg.Client(options),
@@ -28,6 +30,7 @@ Deno.serve(async (request: Request) => {
         invoke = createDevelopmentResources(invoke, {
           storageOrigin: Deno.env.get('SUPABASE_URL') || '',
           realtimeKeyName,
+          healthEventsEnabled,
           signStorage: createEmployeeStorageSigner({
             origin: Deno.env.get('SUPABASE_URL') || '',
             serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
@@ -44,6 +47,7 @@ Deno.serve(async (request: Request) => {
         invoke = createDevelopmentHealth(
           invoke,
           JSON.parse(Deno.env.get('ADMIN_DEVELOPMENT_MONITORING') || '{}'),
+          { healthEventsEnabled },
         );
       }
       handler = createDevelopmentGateway(invoke);

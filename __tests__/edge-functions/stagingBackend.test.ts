@@ -153,7 +153,8 @@ test('staging owns all five namespaces and never references production Worker st
   ).toEqual(
     config.durable_objects.bindings.map((item: { class_name: string }) => item.class_name).sort(),
   );
-  expect(config.triggers.crons).toEqual([]);
+  // One existing monitoring check per minute, never a separate challenge scheduler.
+  expect(config.triggers.crons).toEqual(['*/1 * * * *']);
   expect(config.vars.STAGING_BACKEND_ENABLED).toBe('true');
   expect(config.routes).toBeUndefined();
 });

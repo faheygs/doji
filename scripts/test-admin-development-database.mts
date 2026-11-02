@@ -388,6 +388,49 @@ try {
     );
   assert.equal(grantsSnapshot(), baselineGrants);
   const sharedAuditCount = sql('select count(*) from admin_development_private.audit');
+  const beforeHealthEvents = snapshot();
+  sql(source('supabase/overlays/employee_health_feed_v1.sql'));
+  sql(source('supabase/overlays/admin_development_health_events_v1.sql'));
+  assert.equal(call(id(5), 'get_admin_health_feed_v1').result.enabled, false);
+  sql(`update employee_health_private.settings set enabled=true;
+    select public.record_employee_health_change_v1('delivery',clock_timestamp(),'synthetic-local-health');`);
+  const localHealth = call(id(5), 'get_admin_health_feed_v1').result;
+  assert.equal(localHealth.enabled, true);
+  assert.equal(localHealth.sources.length, 1);
+  assert.equal(localHealth.sources[0].source, 'delivery');
+  assert.equal(call(id(5), 'get_admin_health_feed_v1', { actor: id(1) }).code, '22023');
+  assert.throws(() => sql('select admin_development_private.health_feed_v1()'));
+  for (const role of [
+    'anon',
+    'authenticated',
+    'service_role',
+    'doji_employee',
+    'doji_business',
+    'doji_staging_development',
+  ])
+    assert.equal(
+      sql(
+        `select has_function_privilege('${role}','admin_development_private.health_feed_v1()','execute')`,
+      ),
+      'f',
+    );
+  sql(`update public.admin_employees set roles=array['moderator'] where id='${id(5)}'`);
+  assert.equal(call(id(5), 'get_admin_health_feed_v1').code, '42501');
+  sql(`update public.admin_employees set roles=array['super_admin'] where id='${id(5)}';
+    update admin_development_private.credentials set enabled=false where id='${id(10)}'`);
+  assert.throws(() => call(id(5), 'get_admin_health_feed_v1'));
+  sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}'`);
+  const eventAudit = sql('select count(*) from admin_development_private.audit');
+  sql(source('supabase/overlays/admin_development_health_events_v1.rollback.sql'));
+  assert.equal(sql('select count(*) from admin_development_private.audit'), eventAudit);
+  assert.equal(sql('select count(*) from employee_health_private.sources'), '1');
+  assert.equal(call(id(5), 'get_admin_health_feed_v1').code, '42501');
+  sql(source('supabase/overlays/employee_health_feed_v1.rollback.sql'));
+  assert.deepEqual(snapshot(), beforeHealthEvents);
+  assert.equal(grantsSnapshot(), baselineGrants);
+  console.log(
+    'PASS: local health revisions enforce permission/revocation; rollback preserves audit and source data',
+  );
   const healthTablesBefore = snapshot();
   sql(source('supabase/overlays/workflow_health_v1.sql'));
   sql(source('supabase/overlays/admin_development_health_v1.sql'));

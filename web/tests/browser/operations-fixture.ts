@@ -1,19 +1,33 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { installBusinessFixture } from './business-fixture';
 import { healthFixture, historyFixture } from '../health-fixture';
+import type { BrowserRealtimeSdk } from '../../../website/ably-browser.d.mts';
 
 export async function installOperationsFixture(
   page: Page,
   request: APIRequestContext,
   enabled = true,
+  realtime?: (page: Page) => Promise<void>,
 ) {
-  const base = await installBusinessFixture(page, request);
+  const base = await installBusinessFixture(
+    page,
+    request,
+    'success',
+    false,
+    false,
+    false,
+    realtime,
+  );
   const reads: { name: string; args: Record<string, unknown> }[] = [];
   let allowed = enabled,
     failed = false,
     signedIn = true,
     missingHistory = false;
-  let snapshot: ReturnType<typeof healthFixture> & { workflows?: unknown } = healthFixture();
+  let snapshot: Omit<ReturnType<typeof healthFixture>, 'sentry'> & {
+    workflows?: unknown;
+    sentry: unknown;
+    health_events_enabled?: boolean;
+  } = healthFixture();
   await page.route('https://admin.dojipro.com/api/session', (route) =>
     route.fulfill({
       status: signedIn ? 200 : 401,
@@ -37,6 +51,20 @@ export async function installOperationsFixture(
   });
   await page.route('https://admin.dojipro.com/api/rpc', async (route) => {
     const body = route.request().postDataJSON() as { name: string; args: Record<string, unknown> };
+    if (body.name === 'portal_realtime_token_v1')
+      return route.fulfill({
+        json: {
+          keyName: 'synthetic.key',
+          nonce: 'synthetic',
+          mac: 'synthetic',
+          timestamp: Date.now(),
+          capability: JSON.stringify(
+            allowed && snapshot.health_events_enabled
+              ? { 'staff:health:operations': ['subscribe'] }
+              : {},
+          ),
+        },
+      });
     if (!['portal_platform_health_v1', 'get_admin_event_health_history_v1'].includes(body.name))
       return route.fallback();
     reads.push(body);
@@ -54,6 +82,12 @@ export async function installOperationsFixture(
   return {
     ...base,
     healthReads: reads,
+    sentry: (value: unknown) => {
+      snapshot.sentry = value;
+    },
+    healthEvents: (value: boolean) => {
+      snapshot.health_events_enabled = value;
+    },
     workflows: (value: unknown) => {
       snapshot.workflows = value;
     },
@@ -69,7 +103,61 @@ export async function installOperationsFixture(
     },
     missingHistory: () => {
       missingHistory = true;
-      snapshot.sentry.issues = [];
+      snapshot.sentry = { ...healthFixture().sentry, issues: [] };
     },
   };
+}
+
+/** Exercises the real portal listener/auth transport without any provider traffic. */
+export async function installHealthRealtime(page: Page) {
+  await page.addInitScript(() => {
+    type Changed = (change: { current: string }) => void;
+    class HealthRealtime {
+      changed?: Changed;
+      channelChanged?: Changed;
+      message?: (value: unknown) => void;
+      closed = false;
+      connection = {
+        on: (handler: Changed) => {
+          this.changed = handler;
+        },
+      };
+      channels = {
+        get: (name: string) => ({
+          on: (handler: Changed) => {
+            if (name === 'staff:health:operations') this.channelChanged = handler;
+          },
+          subscribe: async (handler: (value: unknown) => void) => {
+            if (name !== 'staff:health:operations') return;
+            this.message = handler;
+            this.channelChanged?.({ current: 'attached' });
+          },
+        }),
+      };
+      receive = (event: Event) => this.message?.((event as CustomEvent).detail);
+      connectionChange = (event: Event) =>
+        this.changed?.({ current: (event as CustomEvent).detail });
+      channelChange = (event: Event) =>
+        this.channelChanged?.({ current: (event as CustomEvent).detail });
+      constructor(
+        private options: { authCallback: (params: object, done: (error: unknown) => void) => void },
+      ) {
+        window.addEventListener('test-health-message', this.receive);
+        window.addEventListener('test-health-connection', this.connectionChange);
+        window.addEventListener('test-health-channel', this.channelChange);
+      }
+      connect() {
+        this.options.authCallback({}, (error) => {
+          if (!error && !this.closed) this.changed?.({ current: 'connected' });
+        });
+      }
+      close() {
+        this.closed = true;
+        window.removeEventListener('test-health-message', this.receive);
+        window.removeEventListener('test-health-connection', this.connectionChange);
+        window.removeEventListener('test-health-channel', this.channelChange);
+      }
+    }
+    window.Ably = { Realtime: HealthRealtime } as unknown as BrowserRealtimeSdk;
+  });
 }

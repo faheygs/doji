@@ -238,8 +238,18 @@ read token/project configuration stays server-side. Worker capture requires the
 separate `STAGING_SENTRY_ENABLED=true` and `STAGING_SENTRY_DSN` bindings and labels
 events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected there.
 Provider/project selection, capacity and approved recipients must be verified before
-deployment or sending. Cron remains empty. Rollback disables these staging gates,
+deployment or sending. The last qualified staging cron was empty; the prepared
+health-feed config matches production's existing one-minute monitoring check.
+Before enabling it, budget up to 1,440 scheduled checks/day before retries, plus
+bounded health-event writes/relay and authorized reads for open admin sessions.
+Verify existing Worker/Edge/database/Ably capacity and disabled real delivery;
+this is not a new challenge scheduler. Rollback restores the prior trigger list
+and disables these staging gates,
 restores the retained exact runtime packages/config and preserves delivery receipts.
+The prepared portal Sentry adapter uses one bounded ten-second read, at most 25
+unresolved issue groups, and no automatic retry. Diagnostics exclude credentials
+and raw responses; failure attempts never count as successful observations. This
+does not change provider accounts, capacity, scopes or enable the health-event feed.
 October 27 deployed/configured isolated Sentry project `doji-staging`
 (`4512328707342336`) and `Doji Staging Health Read` (`event:read` only), without
 default alert emails. A synthetic event was ingested, read and displayed in the
@@ -254,6 +264,11 @@ and employee persona before returning. Hosted workflow reads use
 `EMPLOYEE_V2_CONFIG.workflowHealthEnabled`. These are server bindings, not developer
 configuration. Disable these read flags and restore the exact captured runtimes
 before their additive SQL rollback; keep observations and audit records.
+Prepared local health events additionally require server-only
+`ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`, the private staging health-revision
+route and an enabled database feed. This defaults off and grants only the existing
+staging Ably operations channel after fresh persona permission checks. No new app,
+key or developer env value is required; deployment/enablement remains gated.
 Supabase showed 929/500,000 Edge calls and 8% database quota before release;
 Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
 its existing paid allowance. Sentry's Business trial has one day remaining before

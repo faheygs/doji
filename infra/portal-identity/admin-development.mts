@@ -57,6 +57,7 @@ export function createDevelopmentResources(
   config: {
     storageOrigin: string;
     realtimeKeyName: string;
+    healthEventsEnabled?: boolean;
     signStorage: SignStorage;
     signRealtime: SignRealtime;
   },
@@ -81,7 +82,7 @@ export function createDevelopmentResources(
     {
       ...config,
       staffWorkflowEnabled: true,
-      healthEventsEnabled: false,
+      healthEventsEnabled: config.healthEventsEnabled === true,
       signRealtime: async (grant, signal) => {
         const result = await config.signRealtime(grant, signal);
         if (!record(result) || result.keyName !== config.realtimeKeyName)
