@@ -7,6 +7,8 @@ export const productionFlags = Object.freeze({
   staffWorkflowEnabled: true,
   businessApplicationsEnabled: true,
   businessPrivacyEnabled: true,
+  healthEventsEnabled: false,
+  healthSnapshotEnabled: true,
   announcementComposeEnabled: true,
   historyReadsEnabled: true,
 });
