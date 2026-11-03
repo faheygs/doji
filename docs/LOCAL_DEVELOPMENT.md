@@ -248,9 +248,11 @@ unexpired remote sessions. Unexpected/uncertain writes are not retried automatic
 This login mode uses hosted staff realtime and staging database health reads.
 Hosted Sentry is configured for the isolated staging project; its signed-in UI
 acceptance passed. Staging health collection runs once a minute; the Operations
-view uses server-authorized observation hints, not browser polling. Check current
+view reads the bounded server cache. A portal-wide summary refreshes once per
+visible/online minute and on return; only mounted Operations reads reconcile.
+Hidden/offline pages pause without extending employee idle sessions. Check current
 release status for automatic-update acceptance and remaining measurement gaps.
-The separate impersonation mode below also supports scoped staging resources. No polling is added.
+The separate impersonation mode below uses the same scoped staging cache.
 
 `npm run test:admin-staging:browser --prefix web` verifies the actual browser and
 relay using synthetic upstream responses only. It requires installed Playwright

@@ -229,13 +229,14 @@ New observations from the existing one-minute server check drive updates while
 Operations is open; Sentry reads retain their shared 60-second cache. This is
 automatic observation-based monitoring, not an instantaneous measurement of every
 request. A stopped collector must age out, never appear fresh because its socket
-is connected. Staging's one-minute cron and health producer/signing gates are
-enabled; production health-event enablement remains a separate release.
+is connected. The one-minute staging collector remains enabled; its health-event
+producer/signing gates were disabled November 3 in favor of the cache below.
+Production health-event enablement remains gated.
 Workflow hints are not a whole-platform health feed. Local impersonation's
 `admin_development_health_events_v1` route uses existing developer/persona checks,
 not MFA substitution. Its server-only `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`
-gate defaults off for both revision reads and channel signing, and is explicitly
-enabled in the staging runtime. Check current release status for hosted acceptance.
+gate defaults off for both revision reads and channel signing and is disabled in
+staging. Check current release status for hosted acceptance.
 
 Business protected reads use the existing application controller, atomic versioned
 commands and session-scoped queries. Dirty forms survive reconciliation while
@@ -266,7 +267,7 @@ only the typed receipts describe provider outcomes.
 The monitor retains only its latest issue/check receipts, not an incident history.
 See current state for qualification and deployment status.
 
-The prepared cached-health replacement uses the existing server check, not a new
+The staging cached-health replacement uses the existing server check, not a new
 job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact
 `EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT`/Supabase project pair plus an independently
 enabled private SQL setting. Its two-second best-effort sidecar stores a single
@@ -276,11 +277,13 @@ source with unavailable. Reads preserve source times and expire after three minu
 SQL reads require an MFA-verified operations employee; no member/business grants.
 Snapshot and health-event collector modes are mutually exclusive. Before any
 cutover, disable the old SQL health-event producer and runtime signing gates too.
-The prepared employee HTTP/developer bridges serve fixed cached summary/detail reads,
+The employee HTTP/developer bridges serve fixed cached summary/detail reads,
 reauthorizing before and after reads. Hosted access retains MFA; local access uses
 the existing staging-only developer/persona grant, never fabricated MFA. The public
 and server `healthSnapshotEnabled` gates default off, as does the development
-`ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` binding. When enabled, portal-wide
+`ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` binding. Staging collection/local reads
+and hosted reads are enabled; hosted acceptance is tracked in current state.
+Production remains gated. When enabled, portal-wide
 status reads once per visible/online minute and reconciles on return, without
 renewing idle sessions. Source age—not successful HTTP—determines freshness.
 Only mounted Operations queries reconcile after a successful summary read; hidden/

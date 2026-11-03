@@ -51,25 +51,28 @@ current consoles before deciding availability, review state or enforcement.
 | Employee/business login and authenticator MFA | Separate WorkOS realms plus Doji's portal runtime | Current integration. Doji owns portal presentation, approval, permissions and session enforcement; WorkOS identity alone does not grant workspace access. |
 | Public/admin/business websites | Cloudflare Pages (`doji-site`, `doji-admin`, `doji-business`) | Separate release artifacts. Vite/Next are build frameworks, not separate hosting vendors; the public Next site is a static export. |
 | DNS, abuse protection and server coordination | Cloudflare DNS, Turnstile, Workers and Durable Objects | Separate Cloudflare products with separate responsibilities. One-shot alarms own challenge transitions; push delivery does not. |
-| Connected-client updates | Ably | Identifier hints trigger authorized reads; Ably is not database truth. Staging employee health feed enabled on isolated app `eVKl2g`, within the owner's $5/month incremental usage authorization. Production health feed and business realtime remain gated. |
+| Connected-client updates | Ably | Identifier hints trigger authorized reads; Ably is not database truth. Staging staff workflows use isolated app `eVKl2g`; health broadcasts were disabled November 3 in favor of cached reads. Production health feed and business realtime remain gated. |
 | Background phone notifications | Apple APNs and Firebase Cloud Messaging (FCM) | Primary native transports from the committed outbox. Expo push is only a bounded older-client fallback; acceptance by a provider is not proof the phone displayed an alert. |
 | Build and distribute the native app | Expo/EAS, Apple Developer/App Store Connect, Google Play | EAS builds/signs/submits approved artifacts; Apple/Google own store review and distribution. A Git merge does not update installed apps. |
 | Errors and diagnostics | Sentry | App/Worker reporting and source maps; bounded Sentry reads inform portal health. Not a complete uptime monitor or proof every user action succeeded. |
 | Workflow counts and scheduler retention | Existing Supabase Postgres/Edge; no new vendor | `workflow_health_v1` and `_shared/workflow-health.ts`; exact environment binding. Staging observations and hosted/local reads verified; staging pruning disabled after acceptance. Production observations, employee read and 30/90-day scheduler retention enabled October 31 within existing capacity. Flags live in protected Supabase Edge bindings/private database settings; employee packages explicitly enable `workflowHealthEnabled` using existing restricted portal credentials. Local aggregator remains staging-only; no browser keys. Fixed hourly slots/latest receipts, not full user-action analytics. [Production acceptance and retaining rollback](releases/README.md#october-31-backend-monitoring-and-retention); [staging qualification](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance). |
 | Application email | Resend, dedicated Cloudflare safety sender, WorkOS and Supabase Auth mail paths | Different message families and credentials; see the routing table below. Business automatic application-mail capture/sending/wakeup remain off in the last acceptance record. |
 
-The cached admin-health replacement is **local preparation**, not enabled service
-usage. It reuses Supabase's existing operational check and private single-row
+The cached admin-health collector and authorized reads are enabled in staging;
+production remains gated.
+It reuses Supabase's existing operational check and private single-row
 storage; no new vendor, keys or job. Collector environment/enable flags belong in
 protected Edge configuration; project/enable settings are database-owner managed.
-The employee/development runtime gates remain off; the prepared staging package
-enables its public UI gate for the approved cutover. Production defaults remain off. The
+The staging development, public UI and hosted employee read gates are enabled;
+hosted sign-in, automatic updates and browser-offline recovery passed after the
+employee SQL-routing correction.
+Production defaults remain off. The
 summary/detail reads reuse restricted portal SQL credentials and add no browser secrets.
 Visible Operations reconciles cached delivery/workflow data and uses the existing
 per-runtime Sentry cache (60-second success TTL, bounded failure backoff), with the
 existing protected monitoring credential. It does not add background Sentry collection.
-Staging qualification, existing-plan
-capacity verification and a separate release are required; rollback disables reads
+Staging capacity was verified within existing allowances; hosted acceptance is
+tracked in the release receipt. A separate production release is required; rollback disables reads
 and capture while retaining observations. No additional spending is approved.
 
 ## Development, testing and repository services
@@ -257,7 +260,8 @@ events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected ther
 Provider/project selection, capacity and approved recipients must be verified before
 deployment or sending. Staging's November 2 health-feed release enabled the existing
 one-minute monitoring check. Budget up to 1,440 scheduled checks/day before retries, plus
-bounded health-event writes/relay and authorized reads for open admin sessions.
+bounded snapshot writes and authorized reads for visible admin sessions. The
+November 3 cutover disabled the old health-event writes/signing.
 Verify existing Worker/Edge/database/Ably capacity and disabled real delivery;
 this is not a new challenge scheduler. Rollback restores the prior trigger list
 and disables these staging gates,
@@ -280,7 +284,7 @@ and employee persona before returning. Hosted workflow reads use
 `EMPLOYEE_V2_CONFIG.workflowHealthEnabled`. These are server bindings, not developer
 configuration. Disable these read flags and restore the exact captured runtimes
 before their additive SQL rollback; keep observations and audit records.
-Enabled staging local health events additionally require server-only
+The retained, currently disabled staging health-event path requires server-only
 `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`, the private staging health-revision
 route and an enabled database feed. This defaults off and grants only the existing
 staging Ably operations channel after fresh persona permission checks. No new app,
@@ -290,9 +294,9 @@ key or developer env value is required. The employee runtime uses
 with `employee_health_private.settings.enabled` in staging Postgres. November 2
 capacity checks showed 1,326/500,000 Edge calls, 42/500 MB database, and ample
 existing Cloudflare allowance. The existing Ably Standard plan is unchanged;
-the owner authorized up to $5/month incremental health-feed usage. No automated
-provider billing cap is claimed. Verify usage and disable the feed if it exceeds
-that scope. Production enablement and new spending remain gated.
+the earlier $5/month incremental health-feed authorization is superseded by the
+owner's no-additional-spending requirement. Do not re-enable health broadcasts
+without a separate approval. Production enablement and new spending remain gated.
 Supabase showed 929/500,000 Edge calls and 8% database quota before release;
 Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
 its existing paid allowance. Sentry's Business trial has one day remaining before
