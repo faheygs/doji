@@ -22,7 +22,8 @@ test('cached health stays visible on other pages and refreshes without aggregate
   await page.getByRole('button', { name: 'Health: attention needed' }).click();
   await expect(page.getByRole('heading', { name: 'Platform health', exact: true })).toBeVisible();
   await expect(
-    page.getByRole('region', { name: 'Live-update speed by Doji', exact: true })
+    page
+      .getByRole('region', { name: 'Live-update speed by Doji', exact: true })
       .locator('.MuiLineChart-mark'),
   ).toBeVisible();
   await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);

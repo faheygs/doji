@@ -55,11 +55,14 @@ test.beforeAll(async () => {
     calls.push({ persona: call.persona, name: call.name });
     if (database) {
       try {
-        return JSON.parse(
+        const summary = call.name === 'portal_platform_health_summary_v1';
+        const result = JSON.parse(
           sql(`set session authorization doji_staging_development_login;set role doji_staging_development;
           select admin_development_private.invoke_v1(${quote(createHash('sha256').update(credential).digest('hex'))},
-          ${call.persona ? quote(call.persona) : 'null'},${quote(call.name)},${quote(JSON.stringify(call.args))}::jsonb,${quote(call.requestId)});`),
+          ${call.persona ? quote(call.persona) : 'null'},${quote(summary ? 'get_admin_portal_session_v3' : call.name)},${quote(JSON.stringify(call.args))}::jsonb,${quote(call.requestId)});`),
         );
+        // This database fixture has no snapshot overlay; its read gate stays disabled.
+        return summary && result.ok ? { ok: true, result: { enabled: false } } : result;
       } catch {
         throw Object.assign(Error('Synthetic database denial'), { status: 401 });
       }
@@ -86,6 +89,18 @@ test.beforeAll(async () => {
     if (call.name === 'get_admin_staff_event_channels_v1')
       return { ok: true, result: ['staff:workflow:moderation'] };
     if (call.name === 'portal_platform_health_v1') return { ok: true, result: healthFixture() };
+    if (call.name === 'portal_platform_health_summary_v1')
+      return {
+        ok: true,
+        result: {
+          enabled: true,
+          available: true,
+          observed_at: new Date().toISOString(),
+          stale: false,
+          operational: { available: true, healthy: true },
+          workflows: { available: true, enabled: true },
+        },
+      };
     if (call.name === 'get_admin_event_health_history_v1')
       return { ok: true, result: { items: [] } };
     if (call.name === 'portal_realtime_token_v1')
@@ -174,6 +189,7 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Authenticator code')).toHaveCount(0);
   if (!database) {
+    await expect(page.getByRole('button', { name: 'Health: limited coverage' })).toBeVisible();
     await expect(page.getByText('Queue updates: connected', { exact: true })).toBeVisible();
     expect(calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
     await page.getByRole('link', { name: 'Platform health', exact: true }).click();
