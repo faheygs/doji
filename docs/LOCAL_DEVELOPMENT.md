@@ -247,7 +247,9 @@ memory/traffic. Sign out before stopping; restart discards jars but does not rev
 unexpired remote sessions. Unexpected/uncertain writes are not retried automatically.
 This login mode uses hosted staff realtime and staging database health reads.
 Hosted Sentry is configured for the isolated staging project; its signed-in UI
-acceptance passed. Automatic health collection remains disabled.
+acceptance passed. Staging health collection runs once a minute; the Operations
+view uses server-authorized observation hints, not browser polling. Check current
+release status for automatic-update acceptance and remaining measurement gaps.
 The separate impersonation mode below also supports scoped staging resources. No polling is added.
 
 `npm run test:admin-staging:browser --prefix web` verifies the actual browser and

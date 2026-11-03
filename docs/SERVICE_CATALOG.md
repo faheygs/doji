@@ -26,7 +26,7 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Supabase staging | Isolated development database and Storage; synthetic fixtures, not a production clone | [Staging dashboard](https://supabase.com/dashboard/project/ohrcupagdoilkwhecict); Free org `doji-staging` (`fjpnwsnnrbjsdvilesmn`), Canada Central | Same `supabase/` contracts; [verified baseline and gates](releases/STAGING_DATABASE_BASELINE_2026-10-14.md) |
 | Cloudflare DNS and Pages | DNS for Doji web properties; independent public/admin/business artifacts | [Dashboard](https://dash.cloudflare.com/); Pages `doji-site`, `doji-admin`, `doji-business` | `website/`, corresponding release records |
 | Cloudflare Workers and Durable Objects | Member gateways, one-shot event alarms, relay, push coordination, maintenance and health | Worker `doji-orchestrator`; `https://doji-orchestrator.faheygs.workers.dev` | `infra/doji-orchestrator/wrangler.jsonc`, `src/` |
-| Staging Worker and Edge | Enabled lifecycle/relay/error capture; one approved email tested, sending/push/recurring jobs off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps eight handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
+| Staging Worker and Edge | Enabled lifecycle/relay/error capture and one-minute health observations; email/push sending off | Worker `doji-orchestrator-staging`, five independent objects; Supabase `ohrcupagdoilkwhecict` | `wrangler.staging.jsonc`, `src/staging.ts`; `scripts/build-staging-edge.mts` wraps eight handlers with an outbound guard; [receipt and rollback](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#staging-backend-foundation) |
 | Cloudflare Turnstile | Server-validated abuse protection for public safety and business admission | Exact host-scoped widgets in Cloudflare | `safety-removal`, `business-auth`, dedicated frontend configs |
 | Ably | Capability-scoped realtime invalidation, not a database | Account `ci6PMw`: existing `Doji` app `BBDaog`; isolated [Doji Staging](https://ably.com/accounts/ci6PMw/apps/eVKl2g) app `eVKl2g`. Same Standard subscription, owner-approved metered usage; no second subscription. Staging relay, hosted cross-tab reconciliation and local developer channel attachment passed | `lib/realtimeClient.ts`, `realtime-token`, relay and employee/development resource signers. Staging server key: staging Supabase `ABLY_API_KEY`, owner-restricted recovery configuration; never client bundles or Git |
 | WorkOS | Independent employee and business identity/password/MFA behind Doji-owned portal UI | [Dashboard](https://dashboard.workos.com/); employee staging/production share a directory with separate applications; business identities remain independent | `infra/portal-identity/`, owned-auth/onboarding records |
@@ -51,7 +51,7 @@ current consoles before deciding availability, review state or enforcement.
 | Employee/business login and authenticator MFA | Separate WorkOS realms plus Doji's portal runtime | Current integration. Doji owns portal presentation, approval, permissions and session enforcement; WorkOS identity alone does not grant workspace access. |
 | Public/admin/business websites | Cloudflare Pages (`doji-site`, `doji-admin`, `doji-business`) | Separate release artifacts. Vite/Next are build frameworks, not separate hosting vendors; the public Next site is a static export. |
 | DNS, abuse protection and server coordination | Cloudflare DNS, Turnstile, Workers and Durable Objects | Separate Cloudflare products with separate responsibilities. One-shot alarms own challenge transitions; push delivery does not. |
-| Connected-client updates | Ably | Current member realtime transport. Identifier hints trigger authorized reads; Ably is not database truth. Business realtime and the employee health event feed remain gated in the last release record. |
+| Connected-client updates | Ably | Identifier hints trigger authorized reads; Ably is not database truth. Staging employee health feed enabled on isolated app `eVKl2g`, within the owner's $5/month incremental usage authorization. Production health feed and business realtime remain gated. |
 | Background phone notifications | Apple APNs and Firebase Cloud Messaging (FCM) | Primary native transports from the committed outbox. Expo push is only a bounded older-client fallback; acceptance by a provider is not proof the phone displayed an alert. |
 | Build and distribute the native app | Expo/EAS, Apple Developer/App Store Connect, Google Play | EAS builds/signs/submits approved artifacts; Apple/Google own store review and distribution. A Git merge does not update installed apps. |
 | Errors and diagnostics | Sentry | App/Worker reporting and source maps; bounded Sentry reads inform portal health. Not a complete uptime monitor or proof every user action succeeded. |
@@ -238,15 +238,14 @@ read token/project configuration stays server-side. Worker capture requires the
 separate `STAGING_SENTRY_ENABLED=true` and `STAGING_SENTRY_DSN` bindings and labels
 events `staging`; inherited `SENTRY_DSN`/`SENTRY_API_TOKEN` remain rejected there.
 Provider/project selection, capacity and approved recipients must be verified before
-deployment or sending. The last qualified staging cron was empty; the prepared
-health-feed config matches production's existing one-minute monitoring check.
-Before enabling it, budget up to 1,440 scheduled checks/day before retries, plus
+deployment or sending. Staging's November 2 health-feed release enabled the existing
+one-minute monitoring check. Budget up to 1,440 scheduled checks/day before retries, plus
 bounded health-event writes/relay and authorized reads for open admin sessions.
 Verify existing Worker/Edge/database/Ably capacity and disabled real delivery;
 this is not a new challenge scheduler. Rollback restores the prior trigger list
 and disables these staging gates,
 restores the retained exact runtime packages/config and preserves delivery receipts.
-The prepared portal Sentry adapter uses one bounded ten-second read, at most 25
+The staging portal Sentry adapter uses one bounded ten-second read, at most 25
 unresolved issue groups, and no automatic retry. Diagnostics exclude credentials
 and raw responses; failure attempts never count as successful observations. This
 does not change provider accounts, capacity, scopes or enable the health-event feed.
@@ -264,11 +263,19 @@ and employee persona before returning. Hosted workflow reads use
 `EMPLOYEE_V2_CONFIG.workflowHealthEnabled`. These are server bindings, not developer
 configuration. Disable these read flags and restore the exact captured runtimes
 before their additive SQL rollback; keep observations and audit records.
-Prepared local health events additionally require server-only
+Enabled staging local health events additionally require server-only
 `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`, the private staging health-revision
 route and an enabled database feed. This defaults off and grants only the existing
 staging Ably operations channel after fresh persona permission checks. No new app,
-key or developer env value is required; deployment/enablement remains gated.
+key or developer env value is required. The employee runtime uses
+`EMPLOYEE_V2_CONFIG.healthEventsEnabled`; the collector uses
+`EMPLOYEE_HEALTH_EVENTS_ENABLED`. All three remain protected staging Edge settings,
+with `employee_health_private.settings.enabled` in staging Postgres. November 2
+capacity checks showed 1,326/500,000 Edge calls, 42/500 MB database, and ample
+existing Cloudflare allowance. The existing Ably Standard plan is unchanged;
+the owner authorized up to $5/month incremental health-feed usage. No automated
+provider billing cap is claimed. Verify usage and disable the feed if it exceeds
+that scope. Production enablement and new spending remain gated.
 Supabase showed 929/500,000 Edge calls and 8% database quota before release;
 Resend showed 8/3,000 monthly and 0/100 daily emails. Cloudflare remained within
 its existing paid allowance. Sentry's Business trial has one day remaining before
@@ -279,8 +286,8 @@ Fresh orchestration/relay secrets live only in that Worker's secret store, stagi
 Edge, and staging Vault; no production credential was copied. Owner/SYSTEM-only
 recovery is `%LOCALAPPDATA%/Doji/staging-backend/2026-10-25`. On October 25, staging
 used 394/500,000 included Edge calls and 8% database quota; Cloudflare showed zero
-usage overage with ample Worker/DO allowance. No plan upgrade was made. Keep
-cron empty until separately qualified; disable `STAGING_BACKEND_ENABLED` before
+usage overage with ample Worker/DO allowance. No plan upgrade was made. Disable
+the health cron and `STAGING_BACKEND_ENABLED` before
 the exact-function SQL inverse or removal of staging delivery secrets. Never restore
 production secret stores or job rows into staging.
 

@@ -228,13 +228,13 @@ New observations from the existing one-minute server check drive updates while
 Operations is open; Sentry reads retain their shared 60-second cache. This is
 automatic observation-based monitoring, not an instantaneous measurement of every
 request. A stopped collector must age out, never appear fresh because its socket
-is connected. Staging's prepared cron matches production; enablement is still gated.
-Health-event producer/signing gates remain disabled until separately released;
-workflow hints are not a whole-platform health feed. Local impersonation's prepared
+is connected. Staging's one-minute cron and health producer/signing gates are
+enabled; production health-event enablement remains a separate release.
+Workflow hints are not a whole-platform health feed. Local impersonation's
 `admin_development_health_events_v1` route uses existing developer/persona checks,
 not MFA substitution. Its server-only `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED`
-gate defaults off for both revision reads and channel signing. Hosted parity must
-be verified before enabling this separately deployed route/runtime.
+gate defaults off for both revision reads and channel signing, and is explicitly
+enabled in the staging runtime. Check current release status for hosted acceptance.
 
 Business protected reads use the existing application controller, atomic versioned
 commands and session-scoped queries. Dirty forms survive reconciliation while
