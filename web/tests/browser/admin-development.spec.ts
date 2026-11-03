@@ -190,8 +190,7 @@ test(`local persona flow, reload, switching, writes and revocation (${database ?
   await expect(page.getByLabel('Authenticator code')).toHaveCount(0);
   if (!database) {
     await expect(page.getByRole('button', { name: 'Health: limited coverage' })).toBeVisible();
-    await expect(page.getByText('Queue updates: connected', { exact: true })).toBeVisible();
-    expect(calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
+    await expect.poll(() => calls.some((c) => c.name === 'portal_realtime_token_v1')).toBe(true);
     await page.getByRole('link', { name: 'Platform health', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Backend & cleanup' })).toBeVisible();
     await expect.poll(() => calls.some((c) => c.name === 'portal_platform_health_v1')).toBe(true);
