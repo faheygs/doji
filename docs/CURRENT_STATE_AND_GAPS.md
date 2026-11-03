@@ -35,6 +35,10 @@ bounded, per-runtime on-demand cache, not a new background collector. Durable in
 missing workflow measurements and independent monitor heartbeat remain unfinished.
 The owner requires no additional spending; production health broadcasts
 are not approved. Qualify the replacement design in staging before any release.
+Production package policy now selects cached health with broadcasts disabled.
+Do not promote that package until the separately approved production cache SQL,
+collector and employee runtime/configuration are deployed and verified; Pages
+promotion does not install those backend prerequisites.
 
 Admin health reliability source merged in PR #35 (`19edbda`): the bounded Sentry
 read now distinguishes provider timeout/HTTP/network/invalid-response failures,

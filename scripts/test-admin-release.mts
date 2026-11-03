@@ -88,6 +88,13 @@ test('release packages share exact frontend bytes but keep environment policy an
     await mkdir(join(root, 'staging'));
     await assembleStagingSite(candidate, join(root, 'staging/site'), 'staging proxy', sha);
     await assembleAdminRelease(root, sha, 'production proxy');
+    const productionConfig = await readFile(
+      join(root, 'production/site/react-admin-config.js'),
+      'utf8',
+    );
+    assert.match(productionConfig, /"healthSnapshotEnabled":true/);
+    assert.match(productionConfig, /"healthEventsEnabled":false/);
+    assert.doesNotMatch(productionConfig, /impersonat|developmentGateway/i);
     const stage = await verifyAdminPackage(join(root, 'staging'), 'staging', sha);
     await verifyAdminPackage(join(root, 'production'), 'production', sha);
     assert.ok((await readFile(join(root, 'production/site/admin-portal/admin.css'))).length);
