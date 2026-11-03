@@ -11,6 +11,7 @@ import type { PortalFetch } from '../infra/portal-identity/portal-contracts.mts'
 import type { PortalSqlClient } from '../infra/portal-identity/restricted-sql.mts';
 import { present } from './employee-test-fixtures.mts';
 import { testRecord } from './employee-test-fixtures.mts';
+import { employeeHealthSnapshotSql } from '../infra/portal-identity/employee-health-contracts.mts';
 // Deliberately incomplete environment bindings exercise runtime fail-closed paths.
 async function pagesRequest(request: Request, env: unknown): Promise<Response> {
   const response: unknown = await Reflect.apply(pages.fetch, pages, [request, env]);
@@ -56,6 +57,7 @@ for (const shared of [false, true])
           origin: 'https://admin-staging.dojipro.com',
           clientId: 'client_01M51GRQJVKXFZ98RG21MK7J64',
           issuerClientId: 'client_01M3VE4WTBYS2XN6NZPH9EDMQD',
+          healthSnapshotEnabled: true,
           endpoint: 'https://ohrcupagdoilkwhecict.supabase.co/functions/v1/employee-portal-v2',
           storageOrigin: 'https://ohrcupagdoilkwhecict.supabase.co',
           database: {
@@ -80,7 +82,9 @@ for (const shared of [false, true])
       .sign(keys.privateKey);
     const records = new Map<string, string>();
     let authorized = 0,
-      revoked = false;
+      revoked = false,
+      snapshotUnavailable = false;
+    const snapshotCalls: boolean[] = [];
     const runtime = createEmployeeRuntime(policy, {
       createClient: () => ({
         connect: async () => {},
@@ -139,6 +143,20 @@ for (const shared of [false, true])
               default:
                 assert.fail('Unexpected store operation');
             }
+          } else if (query.text === employeeHealthSnapshotSql) {
+            assert.deepEqual(p.slice(0, 6), [
+              issuer,
+              policy.clientId,
+              'user_employee',
+              'session_employee',
+              true,
+              'get_admin_health_snapshot_v1',
+            ]);
+            const args = testRecord(JSON.parse(String(p[6])));
+            assert.equal(typeof args.p_summary, 'boolean');
+            snapshotCalls.push(args.p_summary as boolean);
+            if (snapshotUnavailable) throw Error('Synthetic cache unavailable');
+            result = { enabled: true, available: false };
           } else {
             assert.match(query.text, /employee_rpc_v1/);
             assert.deepEqual(p, [
@@ -151,7 +169,11 @@ for (const shared of [false, true])
               '{}',
             ]);
             authorized++;
-            result = { user_id: 'synthetic-principal', roles: ['super_admin'] };
+            result = {
+              user_id: 'synthetic-principal',
+              roles: ['super_admin'],
+              capabilities: { operations_read: true },
+            };
           }
           return { rows: [{ result }] };
         },
@@ -250,6 +272,27 @@ for (const shared of [false, true])
     const cookie = cookieOf(completed, '__Host-doji_employee');
     assert.equal((await call('/api/session', undefined, cookie)).status, 200);
     assert.equal(authorized, 2);
+    if (shared) {
+      for (const name of ['portal_platform_health_summary_v1', 'portal_platform_health_v1']) {
+        assert.equal(
+          (await call('/api/rpc', { name, args: {} }, cookie, String(grant.csrf))).status,
+          200,
+        );
+        snapshotUnavailable = true;
+        assert.equal(
+          (await call('/api/rpc', { name, args: {} }, cookie, String(grant.csrf))).status,
+          503,
+        );
+        assert.equal((await call('/api/session', undefined, cookie)).status, 200);
+        assert.equal(revoked, false);
+        snapshotUnavailable = false;
+        assert.equal(
+          (await call('/api/rpc', { name, args: {} }, cookie, String(grant.csrf))).status,
+          200,
+        );
+      }
+      assert.deepEqual(snapshotCalls, [true, true, true, false, false, false]);
+    }
     assert.equal((await call('/auth/logout', {}, cookie, String(grant.csrf))).status, 200);
     assert.equal(revoked, true);
     assert.equal(records.size, 0);

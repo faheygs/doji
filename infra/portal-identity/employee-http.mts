@@ -372,13 +372,29 @@ export function createEmployeeHttp(
             !record(input.args)
           )
             throw fail(400);
-          return json(
-            await application.command(
-              saved.actor,
-              { name: input.name, args: input.args },
-              request.signal,
-            ),
-          );
+          try {
+            return json(
+              await application.command(
+                saved.actor,
+                { name: input.name, args: input.args },
+                request.signal,
+              ),
+            );
+          } catch (error) {
+            // A failed cached-health read is not session revocation. Return its
+            // unavailable response inside the verified lease so normal release
+            // still runs; identity, CSRF, cancellation and write failures stay fenced.
+            if (
+              policy.healthSnapshotEnabled === true &&
+              ['portal_platform_health_summary_v1', 'portal_platform_health_v1'].includes(
+                input.name,
+              ) &&
+              errorStatus(error) === 503 &&
+              !request.signal.aborted
+            )
+              return json({ message: 'Health monitoring is temporarily unavailable.' }, 503);
+            throw error;
+          }
         },
         request.signal,
       );
