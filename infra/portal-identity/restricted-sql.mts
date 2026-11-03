@@ -4,7 +4,11 @@
 import { record } from './portal-contracts.mts';
 import { employeeWorkflowSql } from './employee-workflow-contracts.mts';
 import { employeeAnnouncementSql } from './employee-announcement-contracts.mts';
-import { employeeHealthSql, employeeWorkflowHealthSql } from './employee-health-contracts.mts';
+import {
+  employeeHealthSql,
+  employeeWorkflowHealthSql,
+  employeeHealthSnapshotSql,
+} from './employee-health-contracts.mts';
 import { employeeHistorySql } from './employee-history-contracts.mts';
 import { businessOwnedSql } from './business-owned-sql.mts';
 import { businessSetupSql } from './business-setup-contract.mts';
@@ -53,6 +57,7 @@ const operations: Readonly<
     doji_employee_application: Object.freeze({
       [employeeHealthSql]: 7,
       [employeeWorkflowHealthSql]: 7,
+      [employeeHealthSnapshotSql]: 7,
       [employeeHistorySql]: 7,
       [employeeWorkflowSql]: 7,
       [employeeAnnouncementSql]: 7,
