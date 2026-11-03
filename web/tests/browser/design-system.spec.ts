@@ -10,6 +10,7 @@ test('branded overview is bounded, account menu is keyboard accessible, and busi
   await page.goto('https://admin.dojipro.com/connected.html#/');
   await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toBeVisible();
   await expect(page.getByRole('table')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Items needing attention' })).toBeVisible();
   // One bounded page, with at most one initial socket/reconnect reconciliation.
   const intakeReads = fixture.reads.filter((name) => name === 'get_admin_staff_work_page_v1');
   expect(intakeReads.length).toBeGreaterThanOrEqual(1);
@@ -43,6 +44,7 @@ test('branded overview is bounded, account menu is keyboard accessible, and busi
     path: testInfo.outputPath('business-connected-desktop.png'),
     fullPage: true,
   });
+  await expect(page.locator('[role="tooltip"]')).toHaveCount(0);
   expect(
     (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
       .violations,
@@ -80,6 +82,7 @@ test('overview clears prior case content after a failed authorized read', async 
   const fixture = await installBusinessFixture(page, request);
   await page.goto('https://admin.dojipro.com/connected.html#/');
   await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Items needing attention' })).toBeVisible();
   await page.route('**/api/rpc', async (route) => {
     const body = route.request().postDataJSON() as { name: string };
     if (body.name === 'get_admin_staff_work_page_v1')
