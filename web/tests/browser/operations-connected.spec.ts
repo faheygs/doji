@@ -41,6 +41,7 @@ test('open health screen updates automatically and recovers missed observations 
   );
   await expect(page.getByText('Health updates: connected', { exact: true })).toBeVisible();
   await expect(page.getByText(/No unresolved issues returned for this environment/)).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
   const reads = f.healthReads.length;
   f.revoke();
   await page.evaluate(() =>
@@ -205,6 +206,7 @@ test('expiry relabels in place without polling and foreground return reconciles'
   await expect(
     page.getByText(/95% of measured updates were published within 0.18 seconds/),
   ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
   const before = f.healthReads.length;
   await page.clock.fastForward(181000);
   await expect(page.getByText('Reading outdated').first()).toBeVisible();
@@ -290,6 +292,7 @@ test('changing health sections refreshes expired observations without recurring 
   await expect(
     page.getByText(/95% of measured updates were published within 0.18 seconds/),
   ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
   const before = f.healthReads.length;
   await page.clock.fastForward(181000);
   expect(f.healthReads).toHaveLength(before);
