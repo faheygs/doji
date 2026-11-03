@@ -10,18 +10,27 @@ Monitoring follow-up is in local preparation, not deployed: bounded provider
 acknowledgements and persisted notification attempts distinguish accepted,
 suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
-resend. A default-off `employee_health_snapshot_v1` cache and collector sidecar
-are also prepared locally: one bounded delivery/workflow observation, fixed source
+resend.
+
+Cached admin health and its employee-session correction are merged and deployed
+to staging through PRs #39/#40; required PR/main checks and automatic Pages releases
+passed. SQL/runtime readback matched. Fresh hosted sign-in, two natural update
+cycles, global status outside Operations and browser-offline recovery passed
+without reload or reauthentication. Old health broadcasts/signing are disabled.
+Exact release/rollback and acceptance evidence is in the
+[staging receipt](releases/README.md#november-3-staging-cached-health).
+The default-off `employee_health_snapshot_v1` cache and collector sidecar provide
+one bounded delivery/workflow observation, fixed source
 timestamps, permission-checked summary/detail reads and retaining rollback. They
 are connected in source to employee HTTP/local impersonation and a portal-wide
-cached status chip and Operations reads. Runtime/database gates remain off; the
-prepared staging package enables its UI gate for the approved staging cutover. Local tests
+cached status chip and Operations reads. Staging database/local/UI/runtime gates are on;
+production remains unchanged and gated. Local tests
 cover permissions, revocation, idle expiry, cache rollback and visible/online
 refresh, including recovery after a failed first read. The full offline coverage
 run passed all 17 thresholds (4,949 Jest tests, 61 boundary suites and 845 browser
 checks). Final release packaging passes the unchanged bundle-size budgets, including
 two source-SHA builds with identical assets and both packaged browser checks.
-Hosted acceptance of this replacement has not run. Sentry retains its
+Hosted sign-in and natural automatic updates passed. Sentry retains its
 bounded, per-runtime on-demand cache, not a new background collector. Durable incident history/reconciliation,
 missing workflow measurements and independent monitor heartbeat remain unfinished.
 The owner requires no additional spending; production health broadcasts
@@ -33,17 +42,18 @@ does not fabricate observation times, and supports explicit recovery. React adds
 manual/stale-tab refresh and a server-authorized health-event listener without
 polling. Provider, browser and isolated database checks passed. Staging's additive
 SQL, employee/development runtimes and health gates are deployed; production is
-unchanged. Hosted Pages deployed `36dcafa` through the normal staging pipeline;
+unchanged. The November 2 Pages release deployed `36dcafa` through the normal staging pipeline;
 signed-in Operations advanced across two natural collector cycles without refresh.
 The additional workflow measurements listed below remain unfinished. This is not
 complete platform-health coverage.
 Automatic-update qualification must leave Operations open across multiple real
 collector cycles and verify new timestamps without clicks, disconnect/reattach
-recovery and denied access. Staging's existing health check is now scheduled once
-a minute with isolated Ably and verified capacity; real email/push remain disabled.
-The owner approved up to $5/month incremental Ably usage. Local automatic updates
+recovery and denied access. Staging's existing health check runs once a minute;
+November 3 replaces its health broadcasts with cached reads at no additional spend.
+Real email/push remain disabled. The earlier event-based automatic updates
 passed across real collector cycles locally and on hosted staging. Synthetic
-reconnect/permission checks passed; a real network-disconnection drill remains untested.
+reconnect/permission checks passed. The replacement cache passed a hosted Chrome
+network-offline/recovery drill November 3; physical device/network faults were not simulated.
 See the [staging release and rollback](releases/README.md#november-2-staging-automatic-health-updates).
 
 October 25 poll incident: the missing community card was repaired; real submissions

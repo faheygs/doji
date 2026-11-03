@@ -5,6 +5,49 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 3 staging cached health
+
+PR #39 merged as `3d3ebed54f18a18a865507a6b529a480c2ed98e6` after application,
+coverage, database, web-migration and security passed on exact head `85967cc`.
+The unchanged bundle budgets passed: 167.7 KiB sign-in and 497.6 KiB total gzip;
+two source-SHA packages had identical assets and passed packaged browser checks.
+The approved staging SQL passed a rollback rehearsal and preserved existing
+member/portal function fingerprints. Only `employee-portal-v2`, `admin-development`
+and `operational-health` were deployed; downloaded source matched the candidates.
+Main quality run `41683775577` passed. Automatic staging run `41686332317`
+deployed Pages `4f954aae-f030-4d14-aaf1-44402145ef3f`; public source/config and
+the retained receipt match. Pages rollback is `4c155283-e5a5-4dda-b556-76e212df9363`.
+The cache is enabled; old SQL health broadcasts and runtime signing are disabled.
+The first retained observation was 17:45:46 UTC, one 1,688-byte row; member/business
+reads remain denied. Hosted acceptance then exposed a missing restricted SQL
+allowlist entry; the unavailable read removed the session. Hosted cache reads
+were disabled without re-enabling broadcasts or changing collection. The composed
+runtime regression reproduces both the first-read failure and subsequent logout.
+PR #40 passed all required/security checks and merged as
+`7195f7deabd6ccfca5031909509b931d8087f39f` from exact head `b84c371`.
+Its three-file correction adds the missing exact SQL route and returns cache
+unavailability inside the verified session lease. The composed test covers both
+reads, injected failure, session retention, recovery and explicit logout.
+Only the corrected staging employee runtime was deployed and matched downloaded
+source; hosted cache reads were re-enabled with unrelated secrets unchanged.
+Rollback and exact source/hash receipts are retained with the private evidence
+below. Main quality run `41693140828` and automatic staging run `41695990704`
+passed. Pages `7c357ed7-492e-49b0-9fc0-bf361bfeb852` serves exact source `7195f7d`;
+rollback is `4f954aae-f030-4d14-aaf1-44402145ef3f`. Public release and retained receipt match.
+Hosted employee sign-in stayed active; delivery observations advanced 11:55:44,
+11:56:45 and 11:57:46 AM Mountain on November 3 without refresh. Sentry advanced
+11:55:45, 11:56:57 and 11:57:58. Chrome's tab-level Network Offline mode showed
+`Health: offline` and retained the prior timestamps. Restoring No throttling
+automatically recovered delivery 11:59:45 and Sentry 12:00:42 without reload/MFA.
+The global status remained on Overview, and its shortcut reopened Operations.
+This was browser-level network emulation, not a physical network outage or a
+synthetic DOM event. Original browser network settings were restored.
+Private originals, configuration inverse, candidate/readback and database receipts
+are retained under `%LOCALAPPDATA%/Doji/staging-backend/2026-11-03-cache`.
+No production, Worker, mobile, email/push, retention or access changes were made.
+Rollback disables snapshot reads/capture, restores the captured runtime/config
+pair and Pages artifact separately, and retains observations; never reset tables.
+
 ## November 2 staging automatic health updates
 
 PR #35 merged as `19edbda49862fb8edcb69d11c5928c3e5140262d` after all four required

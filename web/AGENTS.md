@@ -36,8 +36,9 @@ Do not pull root React 19.2 into web or install paid MUI packages without approv
   recovery and mounted Operations reconciliation. Summary reads never call providers;
   detail uses stored delivery/workflow data and the existing bounded Sentry cache.
   Neither path may rescan member data or renew idle sessions automatically.
-  Keep unavailable/stale/limited coverage explicit. Staging health events use the existing staff connection;
-  production health events and business realtime remain gated.
+  Keep unavailable/stale/limited coverage explicit. Staging uses the bounded cache;
+  old health broadcasts are disabled. Staff workflow realtime is unchanged;
+  production health-cache/events and business realtime remain gated.
 - Browser preview/sample fixtures must not enter connected artifacts. No real
   email, moderation or approval action in visual tests. Hosted acceptance is
   separate from fixture tests and requires explicit scope.
