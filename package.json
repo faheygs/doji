@@ -40,7 +40,7 @@
     "test:admin-auth": "node website/admin-portal/live-client.test.mts",
     "test:admin-e2e": "node website/build-admin.mts && playwright test --config=website/admin-portal/playwright.config.mts",
     "test:admin-health": "node --test website/browser-source.test.mts website/admin-portal/health-model.test.mts website/admin-portal/queue-health.test.mts scripts/test-admin-health-boundaries.mts",
-    "test:health-events": "node scripts/test-employee-health-events.mts && node scripts/test-health-collector-sidecar.mts",
+    "test:health-events": "node scripts/test-employee-health-events.mts && node scripts/test-health-collector-sidecar.mts && node scripts/test-employee-health-summary.mts",
     "test:health-events:database": "node scripts/test-employee-health-database.mts",
     "test:admin-portal": "npm run test:admin-auth && npm run test:admin-health && npm run test:admin-e2e",
     "test:fanout-model": "node scripts/load/contracts.test.mts && node scripts/load/fanout-model.mts",

@@ -34,7 +34,9 @@ product UI. See [system map](docs/SYSTEM_MAP.md) for entry points and
   issue a new command key.
 - Events contain identifiers; authorized TanStack Query reads supply records.
   Add new server-owned query families to targeted event handling and
-  foreground/reconnect reconciliation. No recurring client polling.
+  foreground/reconnect reconciliation. No recurring member polling. The separately
+  gated admin health cache permits bounded visible/online refresh; it must not
+  rescan member data or make alerts depend on an open dashboard.
 - Member login stays on Supabase Auth. WorkOS is only for independent employee and
   business identities. Same email does not imply the same principal.
 - Portal UI/session work cannot revoke member sessions or change member behavior.

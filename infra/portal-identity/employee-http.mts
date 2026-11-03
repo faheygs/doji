@@ -17,6 +17,7 @@ import type { EmployeeActor, EmployeeApplication } from './employee-contracts.mt
 import type { createEmployeeSessionStore } from './employee-session-store.mts';
 import type { createWorkosEmployeeProvider } from './workos-employee-provider.mts';
 export interface EmployeeHttpConfig {
+  healthSnapshotEnabled?: boolean;
   enabled: boolean;
   realm: 'employee';
   origin: string;
@@ -346,7 +347,18 @@ export function createEmployeeHttp(
             await revoke(saved.actor.sessionId);
             throw fail();
           }
-          saved.touched = now();
+          // Automatic summary refresh is not user activity and must not defeat idle expiry.
+          if (
+            path !== '/api/rpc' ||
+            !(
+              input?.name === 'portal_platform_health_summary_v1' ||
+              (policy.healthSnapshotEnabled === true &&
+                ['portal_platform_health_v1', 'get_admin_event_health_history_v1'].includes(
+                  String(input?.name),
+                ))
+            )
+          )
+            saved.touched = now();
           request.signal.throwIfAborted();
           await cell.replace(seal(saved, 'session'));
           if (path === '/api/session')

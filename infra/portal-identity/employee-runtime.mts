@@ -9,6 +9,7 @@ import { createWorkosEmployeeProvider } from './workos-employee-provider.mts';
 import { createEmployeeEdgeIngress } from './employee-proxy.mts';
 import { boundedBody } from './bounded-body.mts';
 import { createEmployeeHealth } from './employee-health.mts';
+import { createEmployeeHealthSummary } from './employee-health-summary.mts';
 import { createEmployeeTiming } from './employee-timing.mts';
 import type { RestrictedSqlConfig, CreatePortalSqlClient } from './restricted-sql.mts';
 import type { EmployeeProviderConfig } from './workos-employee-provider.mts';
@@ -37,6 +38,7 @@ export interface EmployeeRuntimeConfig extends Omit<
   admissionKey: string;
   staffWorkflowEnabled?: boolean;
   healthEventsEnabled?: boolean;
+  healthSnapshotEnabled?: boolean;
   workflowHealthEnabled?: boolean;
   announcementComposeEnabled?: boolean;
   historyReadsEnabled?: boolean;
@@ -70,6 +72,7 @@ export function createEmployeeRuntime(
   const policy = structuredClone(config);
   if (
     policy.realm !== 'employee' ||
+    (policy.healthSnapshotEnabled === true && policy.healthEventsEnabled === true) ||
     !isEmployeeOrigin(policy.origin) ||
     (policy.origin === employeeStagingOrigin
       ? policy.database.projectRef !== employeeStagingProject ||
@@ -110,11 +113,13 @@ export function createEmployeeRuntime(
     storageOrigin: policy.storageOrigin,
     signStorage,
     signRealtime,
+    healthSummary: createEmployeeHealthSummary(adapter, policy.healthSnapshotEnabled === true),
     health: createEmployeeHealth(adapter, policy.monitoring, {
       upstream,
       now,
       healthEventsEnabled: policy.healthEventsEnabled === true,
       workflowHealthEnabled: policy.workflowHealthEnabled === true,
+      healthSnapshotEnabled: policy.healthSnapshotEnabled === true,
     }),
   });
   type Provider = ReturnType<typeof createWorkosEmployeeProvider>;

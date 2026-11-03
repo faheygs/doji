@@ -8,6 +8,7 @@ export const localStagingFlags = Object.freeze({
   businessApplicationsEnabled: true,
   businessPrivacyEnabled: true,
   healthEventsEnabled: false,
+  healthSnapshotEnabled: false,
   announcementComposeEnabled: true,
   historyReadsEnabled: true,
 });

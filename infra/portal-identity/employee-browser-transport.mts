@@ -151,7 +151,14 @@ export function createEmployeeBrowserTransport(
       try {
         const result = await raw('/api/rpc', { name, args });
         checkpoint();
-        touched = now();
+        if (
+          !(
+            name === 'portal_platform_health_summary_v1' ||
+            (config.healthSnapshotEnabled === true &&
+              ['portal_platform_health_v1', 'get_admin_event_health_history_v1'].includes(name))
+          )
+        )
+          touched = now();
         return result;
       } catch (error) {
         if (errorStatus(error) === 403) {
@@ -256,6 +263,8 @@ export function createEmployeeBrowserTransport(
       if (path === '/portal/admin/session') return session();
       if (path === '/portal/admin/realtime-token') return rpc('portal_realtime_token_v1', {});
       if (path === '/portal/admin/platform-health') return rpc('portal_platform_health_v1', {});
+      if (path === '/portal/admin/platform-health-summary' && method === 'GET')
+        return rpc('portal_platform_health_summary_v1', {});
       const operation = employeeDirectRoute(path, method, config);
       if (operation) return rpc(operation, body);
       const url = new URL(path, origin);

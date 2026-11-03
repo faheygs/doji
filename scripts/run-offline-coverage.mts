@@ -26,6 +26,7 @@ const files = [
   'test-employee-health.mts',
   'test-employee-health-events.mts',
   'test-health-collector-sidecar.mts',
+  'test-employee-health-summary.mts',
   'test-workos-session-reader.mts',
   'test-workos-employee-provider.mts',
   'test-portal-identity-verifier.mts',

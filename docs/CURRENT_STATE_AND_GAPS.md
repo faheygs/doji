@@ -1,10 +1,31 @@
 # Current state and handoff gaps
 
-Updated November 2, 2026. This separates source, recorded deployments and owner
+Updated November 3, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+Monitoring follow-up is in local preparation, not deployed: bounded provider
+acknowledgements and persisted notification attempts distinguish accepted,
+suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
+delivery. Uncertain sends retain their deduplication claim; there is no automatic
+resend. A default-off `employee_health_snapshot_v1` cache and collector sidecar
+are also prepared locally: one bounded delivery/workflow observation, fixed source
+timestamps, permission-checked summary/detail reads and retaining rollback. They
+are connected in source to employee HTTP/local impersonation and a portal-wide
+cached status chip and Operations reads. Runtime/database gates remain off; the
+prepared staging package enables its UI gate for the approved staging cutover. Local tests
+cover permissions, revocation, idle expiry, cache rollback and visible/online
+refresh, including recovery after a failed first read. The full offline coverage
+run passed all 17 thresholds (4,949 Jest tests, 61 boundary suites and 845 browser
+checks). Final release packaging passes the unchanged bundle-size budgets, including
+two source-SHA builds with identical assets and both packaged browser checks.
+Hosted acceptance of this replacement has not run. Sentry retains its
+bounded, per-runtime on-demand cache, not a new background collector. Durable incident history/reconciliation,
+missing workflow measurements and independent monitor heartbeat remain unfinished.
+The owner requires no additional spending; production health broadcasts
+are not approved. Qualify the replacement design in staging before any release.
 
 Admin health reliability source merged in PR #35 (`19edbda`): the bounded Sentry
 read now distinguishes provider timeout/HTTP/network/invalid-response failures,

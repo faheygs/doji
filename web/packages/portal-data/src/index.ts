@@ -8,6 +8,7 @@ export type ReadArea =
   | 'safety'
   | 'application'
   | 'operations'
+  | 'health-summary'
   | 'audit'
   | 'team';
 

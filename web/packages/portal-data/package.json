@@ -27,6 +27,7 @@
     "./business-decision": "./src/business-decision.ts",
     "./business-assignees": "./src/business-assignees.ts",
     "./employee-health": "./src/employee-health.ts",
+    "./employee-health-summary": "./src/employee-health-summary.ts",
     "./safety-record": "./src/safety-record.ts",
     "./safety-command": "./src/safety-command.ts",
     "./safety-target": "./src/safety-target.ts",

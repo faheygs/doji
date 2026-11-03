@@ -19,6 +19,7 @@ export const stagingFlags = Object.freeze({
   businessApplicationsEnabled: true,
   businessPrivacyEnabled: true,
   healthEventsEnabled: false,
+  healthSnapshotEnabled: true,
   announcementComposeEnabled: true,
   historyReadsEnabled: true,
 });

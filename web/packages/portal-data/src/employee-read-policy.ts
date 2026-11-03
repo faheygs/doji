@@ -24,27 +24,25 @@ const getReads = new Set([
   '/portal/admin/operators',
   '/portal/admin/realtime-token',
   '/portal/admin/platform-health',
+  '/portal/admin/platform-health-summary',
   '/portal/admin/platform-health-history?limit=12',
 ]);
 /** A query callback cannot accidentally dispatch an administrative command. */
 export function assertEmployeeRead(path: string, hasBody: boolean) {
-  if (!hasBody && validIdeaArchivePath(path)) return;
-  if (!hasBody && validAnnouncementPath(path)) return;
-  if (!hasBody && validAuditPath(path)) return;
-  if (!hasBody && validAuditExportPath(path)) return;
+  if ((hasBody ? postReads : getReads).has(path)) return;
   if (
     !hasBody &&
-    /^\/portal\/admin\/editorial-item\?kind=(suggestions|announcements)&id=[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(
-      path,
-    )
+    (validIdeaArchivePath(path) ||
+      validAnnouncementPath(path) ||
+      validAuditPath(path) ||
+      validAuditExportPath(path) ||
+      /^\/portal\/admin\/editorial-item\?kind=(suggestions|announcements)&id=[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(
+        path,
+      ) ||
+      /^\/portal\/admin\/(report-case-v3|appeal-case)\?id=[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(
+        path,
+      ))
   )
     return;
-  if (
-    !hasBody &&
-    /^\/portal\/admin\/(report-case-v3|appeal-case)\?id=[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(
-      path,
-    )
-  )
-    return;
-  if (!(hasBody ? postReads : getReads).has(path)) throw Error('Unsupported employee read.');
+  throw Error('Unsupported employee read.');
 }

@@ -139,6 +139,12 @@ assert.equal(workflowFiles.length, 1, 'Backend receipts must remain independentl
 assert.ok(!html.includes(workflowFiles[0]!), 'Do not preload backend receipts at sign-in');
 const workflowBytes = gzipSync(readFileSync(new URL(workflowFiles[0]!, assets))).length;
 assert.ok(workflowBytes <= 5 * 1024, 'Backend receipts exceed their deferred feature budget');
+// Optional cached-health logic is independently gated within the unchanged total cap.
+const summaryFiles = scripts.filter((file) => file.startsWith('HealthSummaryStatus-'));
+assert.equal(summaryFiles.length, 1, 'Cached health logic must remain independently deferred');
+assert.ok(!html.includes(summaryFiles[0]!), 'Do not preload cached health logic at sign-in');
+const summaryBytes = gzipSync(readFileSync(new URL(summaryFiles[0]!, assets))).length;
+assert.ok(summaryBytes <= 2 * 1024, 'Cached health logic exceeds its feature budget');
 assert.ok(
   // Standard Drawer, AppBar, account Menu, icons and identity-aware tables plus intake:
   // measured 280.2 KiB core; add 24 KiB explicitly, with sign-in still capped at 180.
@@ -147,8 +153,15 @@ assert.ok(
   // use 293.9 KiB of core. Allocate 4 KiB of the existing total allowance here;
   // total stays 507 KiB and sign-in stays 180 KiB.
   // Personal/lifecycle history adds 1.8 KiB: explicit 2 KiB deferred allocation.
-  bytes - chartBytes - privacyBytes - formBytes - announcementBytes - workflowBytes <= 298 * 1024,
-  `Core workspace uses ${bytes - chartBytes - privacyBytes - formBytes - announcementBytes - workflowBytes} bytes gzip; budget is ${298 * 1024}`,
+  bytes -
+    chartBytes -
+    privacyBytes -
+    formBytes -
+    announcementBytes -
+    workflowBytes -
+    summaryBytes <=
+    298 * 1024,
+  `Core workspace uses ${bytes - chartBytes - privacyBytes - formBytes - announcementBytes - workflowBytes - summaryBytes} bytes gzip; budget is ${298 * 1024}`,
 );
 // Add 5 KiB for bounded idea history, closed-safety navigation and audit handoff.
 // Keep sign-in capped at 180 KiB; the history UI and parser must remain deferred.

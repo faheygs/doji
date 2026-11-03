@@ -47,7 +47,11 @@ Deno.serve(async (request: Request) => {
         invoke = createDevelopmentHealth(
           invoke,
           JSON.parse(Deno.env.get('ADMIN_DEVELOPMENT_MONITORING') || '{}'),
-          { healthEventsEnabled },
+          {
+            healthEventsEnabled,
+            healthSnapshotEnabled:
+              Deno.env.get('ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED') === 'true',
+          },
         );
       }
       handler = createDevelopmentGateway(invoke);

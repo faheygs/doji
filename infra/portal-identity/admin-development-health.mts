@@ -1,4 +1,5 @@
 import { createEmployeeHealth } from './employee-health.mts';
+import { createEmployeeHealthSummary } from './employee-health-summary.mts';
 import type { EmployeeMonitoringConfig } from './employee-health.mts';
 import { developmentFailure } from './admin-development.mts';
 import type { DevelopmentCall, DevelopmentInvoke } from './admin-development.mts';
@@ -9,9 +10,15 @@ import type { PortalFetch } from './portal-contracts.mts';
 export function createDevelopmentHealth(
   invoke: DevelopmentInvoke,
   monitoring: EmployeeMonitoringConfig,
-  dependencies: { upstream?: PortalFetch; now?: () => number; healthEventsEnabled?: boolean } = {},
+  dependencies: {
+    upstream?: PortalFetch;
+    now?: () => number;
+    healthEventsEnabled?: boolean;
+    healthSnapshotEnabled?: boolean;
+  } = {},
 ): DevelopmentInvoke {
   if (
+    (dependencies.healthSnapshotEnabled === true && dependencies.healthEventsEnabled === true) ||
     monitoring.environment !== 'staging' ||
     monitoring.organization !== 'doji-i0' ||
     JSON.stringify(monitoring.projectIds) !== '["4512328707342336"]' ||
@@ -36,10 +43,16 @@ export function createDevelopmentHealth(
     ...dependencies,
     workflowHealthEnabled: true,
   });
+  const summary = createEmployeeHealthSummary<Context>(
+    { authorize, command },
+    dependencies.healthSnapshotEnabled === true,
+  );
   return async (token, call, signal) => {
-    if (call.name !== 'portal_platform_health_v1') return invoke(token, call, signal);
+    if (!['portal_platform_health_v1', 'portal_platform_health_summary_v1'].includes(call.name))
+      return invoke(token, call, signal);
     if (!call.persona || Object.keys(call.args).length) throw developmentFailure(400);
     const context = { token, call };
+    if (call.name === 'portal_platform_health_summary_v1') return { ok: true, result: await summary(context, signal) };
     const result = await health(context, signal);
     const operator = await authorize(context, signal);
     if (

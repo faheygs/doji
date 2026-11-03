@@ -34,6 +34,7 @@ export interface EmployeeResourceConfig<Actor = EmployeeActor> {
   signStorage: SignStorage;
   signRealtime: SignRealtime;
   health?: (actor: Actor, signal: AbortSignal) => Promise<unknown>;
+  healthSummary?: (actor: Actor, signal: AbortSignal) => Promise<unknown>;
 }
 export function createEmployeeResources<Actor = EmployeeActor>(
   application: EmployeeApplication<Actor>,
@@ -42,6 +43,7 @@ export function createEmployeeResources<Actor = EmployeeActor>(
     signStorage,
     signRealtime,
     health,
+    healthSummary,
     staffWorkflowEnabled = false,
     healthEventsEnabled = false,
   }: EmployeeResourceConfig<Actor>,
@@ -57,6 +59,11 @@ export function createEmployeeResources<Actor = EmployeeActor>(
   return Object.freeze({
     authorize: (actor: Actor, signal: AbortSignal) => application.authorize(actor, signal),
     async command(actor: Actor, input: EmployeeCommand, signal: AbortSignal) {
+      if (input?.name === 'portal_platform_health_summary_v1') {
+        if (!input.args || Object.keys(input.args).length) throw fail(400);
+        if (typeof healthSummary !== 'function') throw fail(503);
+        return healthSummary(actor, signal);
+      }
       if (input?.name === 'portal_platform_health_v1') {
         if (!input.args || Object.keys(input.args).length) throw fail(400);
         if (typeof health !== 'function') throw fail(503);

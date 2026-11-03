@@ -12,6 +12,7 @@ export async function installBusinessFixture(
   announcementCompose = false,
   historyReads = false,
   realtime: (page: Page) => Promise<void> = installOfflineRealtime,
+  healthSnapshot = false,
 ) {
   await realtime(page);
   let signedIn = true,
@@ -187,6 +188,8 @@ export async function installBusinessFixture(
             JSON.stringify(announcementCompose) +
             ',historyReadsEnabled:' +
             JSON.stringify(historyReads) +
+            ',healthSnapshotEnabled:' +
+            JSON.stringify(healthSnapshot) +
             '};</script>',
         ),
       });

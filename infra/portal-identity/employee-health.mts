@@ -1,4 +1,5 @@
 import { readEmployeeSentry } from './employee-sentry.mts';
+import { createEmployeeHealthSummary } from './employee-health-summary.mts';
 import { record } from './portal-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import type { EmployeeApplication, EmployeeActor } from './employee-contracts.mts';
@@ -31,15 +32,19 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     now = Date.now,
     healthEventsEnabled = false,
     workflowHealthEnabled = false,
+    healthSnapshotEnabled = false,
   }: {
     upstream?: PortalFetch;
     now?: () => number;
     healthEventsEnabled?: boolean;
     workflowHealthEnabled?: boolean;
+    healthSnapshotEnabled?: boolean;
   } = {},
 ) {
   if (environment !== 'production' && environment !== 'staging')
     throw Error('Invalid monitoring environment');
+  if (healthSnapshotEnabled && healthEventsEnabled) throw Error('Conflicting health modes');
+  const snapshot = createEmployeeHealthSummary(application, healthSnapshotEnabled, false);
   const configured =
     typeof token === 'string' && token.length > 0 && /^[a-z0-9-]{1,100}$/.test(organization || '');
   if (projectIds.some((id) => !/^\d+$/.test(id)) || projectIds.length > 5)
@@ -90,6 +95,35 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     );
   }
   return async (actor: Actor, signal: AbortSignal) => {
+    if (healthSnapshotEnabled) {
+      const stored = await snapshot(actor, signal);
+      const issues =
+        stored.enabled === true
+          ? await cached('sentry', 60000, 'snapshot', sentry)
+          : { configured, available: false, issues: [] };
+      const current = await application.authorize(actor, signal);
+      signal.throwIfAborted();
+      if (
+        !record(current) ||
+        !record(current.capabilities) ||
+        current.capabilities.operations_read !== true
+      )
+        throw Object.assign(Error('Operations access required'), { status: 403 });
+      return {
+        generated_at: new Date(now()).toISOString(),
+        health_events_enabled: false,
+        health_snapshot_enabled: stored.enabled === true,
+        operational:
+          stored.available === true && record(stored.operational)
+            ? stored.operational
+            : { available: false },
+        workflows:
+          stored.available === true && record(stored.workflows)
+            ? stored.workflows
+            : { available: false },
+        sentry: issues,
+      };
+    }
     // Authorization precedes every cache hit. Cache is not authority.
     const operator = await application.authorize(actor, signal);
     if (

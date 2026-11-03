@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type ComponentProps,
 } from 'react';
-import { Alert, Chip, Stack } from '@mui/material';
+import { Chip, Stack } from '@mui/material';
 import { HashRouter, useLocation, useNavigate } from 'react-router-dom';
 import { AccountMenu, Identity, PageHeader, TableFrame, WorkspaceShell } from '@doji/ui';
 
@@ -22,6 +22,7 @@ import { attachEmployeeRealtime, type EmployeeConnection } from './employee-real
 import { destinations } from '../navigation';
 
 const hashHref = (path: string) => '#' + path;
+const HealthSummaryStatus = lazy(() => import('./HealthSummaryStatus'));
 const WorkspaceOverview = lazy(() =>
   import('./WorkspaceOverview').then((module) => ({ default: module.WorkspaceOverview })),
 );
@@ -85,6 +86,7 @@ export function ConnectedWorkspace({
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const overview = pathname === '/';
+  const operationsAccess = state.operator?.capabilities.operations_read === true;
   const announcementEditId =
     /^\/announcements\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})\/edit$/i.exec(pathname)?.[1];
   const announcementEditor =
@@ -94,18 +96,16 @@ export function ConnectedWorkspace({
     pathname,
   )?.[1];
   const announcements =
-    (pathname === '/announcements' || !!announcementId || announcementEditor) &&
-    state.operator?.capabilities.operations_read === true;
+    (pathname === '/announcements' || !!announcementId || announcementEditor) && operationsAccess;
   const team = pathname === '/team' && state.operator?.capabilities.operator_manage === true;
   const privacyId = /^\/business-privacy\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})$/i.exec(
     pathname,
   )?.[1];
-  const audit = pathname === '/audit' && state.operator?.capabilities.operations_read === true;
+  const audit = pathname === '/audit' && operationsAccess;
   const ideaId = /^\/community-ideas\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})$/i.exec(
     pathname,
   )?.[1];
-  const operations =
-    pathname === '/operations' && state.operator?.capabilities.operations_read === true;
+  const operations = pathname === '/operations' && operationsAccess;
   const businessId = /^\/businesses\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})$/i.exec(
     pathname,
   )?.[1];
@@ -160,8 +160,7 @@ export function ConnectedWorkspace({
   const available = destinations.filter((item) => {
     if (item.path === '/') return true;
     if (item.path === '/team') return state.operator!.capabilities.operator_manage === true;
-    if (['/operations', '/audit', '/announcements'].includes(item.path))
-      return state.operator!.capabilities.operations_read === true;
+    if (['/operations', '/audit', '/announcements'].includes(item.path)) return operationsAccess;
     const key = item.path.slice(1) as QueueArea;
     return Object.hasOwn(queueDefinitions, key) && canReadQueue(state.operator!, key);
   });
@@ -191,16 +190,26 @@ export function ConnectedWorkspace({
       hrefFor={hashHref}
       headerActions={
         <Stack direction="row" sx={{ gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Chip
-            size="small"
-            color={
-              (operations ? healthConnection : connection) === 'connected' ? 'success' : 'default'
-            }
-            variant="outlined"
-            label={
-              operations ? 'Health updates: ' + healthConnection : 'Queue updates: ' + connection
-            }
-          />
+          {controller.healthSnapshotEnabled ? (
+            <Suspense fallback={null}>
+              <HealthSummaryStatus
+                controller={controller}
+                chip={Chip}
+                open={() => navigate('/operations')}
+              />
+            </Suspense>
+          ) : (
+            <Chip
+              size="small"
+              color={
+                (operations ? healthConnection : connection) === 'connected' ? 'success' : 'default'
+              }
+              variant="outlined"
+              label={
+                operations ? 'Health updates: ' + healthConnection : 'Queue updates: ' + connection
+              }
+            />
+          )}
           <AccountMenu
             name={state.operator.display_name}
             signOut={() => void controller.signOut()}
@@ -314,15 +323,10 @@ export function ConnectedWorkspace({
           <EmployeeQueue key={area + state.session?.epoch} controller={controller} area={area} />
         )
       ) : (
-        <>
-          <PageHeader
-            title="Page unavailable"
-            description="Choose an available area from the navigation."
-          />
-          <Alert severity="info">
-            This page is not available in this candidate or your employee permissions.
-          </Alert>
-        </>
+        <PageHeader
+          title="Page unavailable"
+          description="Choose another page or ask an administrator to check your access."
+        />
       )}
     </WorkspaceShell>
   );
