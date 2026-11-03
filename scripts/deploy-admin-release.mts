@@ -4,7 +4,12 @@ import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { adminTarget, targets, type AdminTarget } from './admin-release-policy.mts';
+import {
+  adminTarget,
+  targets,
+  verifyProductionTransition,
+  type AdminTarget,
+} from './admin-release-policy.mts';
 import { inventory } from './build-admin-staging.mts';
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -114,10 +119,13 @@ export async function deployAdminRelease(
       /^window\.DOJI_REACT_ADMIN_CONFIG = Object\.freeze\((\{[^\n]*\})\);\s*$/,
     );
     assert.ok(match?.[1], 'Unrecognized production flags; review before release.');
-    assert.deepEqual(
+    const liveRelease = await publicRead('/release.json');
+    assert.equal(liveRelease.status, 200);
+    verifyProductionTransition(
       JSON.parse(match[1]),
-      config.flags,
-      'Production gates changed; stop and review.',
+      await liveRelease.json(),
+      before.canonical_deployment.id,
+      before.canonical_deployment.deployment_trigger.metadata.commit_hash,
     );
   }
   const receipt = {

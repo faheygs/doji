@@ -4,10 +4,21 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { affectsAdmin, adminTarget, targets, trustedRun } from './admin-release-policy.mts';
+import {
+  affectsAdmin,
+  adminTarget,
+  targets,
+  trustedRun,
+  productionHealthPredecessor,
+  verifyProductionTransition,
+} from './admin-release-policy.mts';
 import { assembleAdminRelease } from './build-admin-release.mts';
 import { assembleStagingSite } from './build-admin-staging.mts';
-import { verifyAdminPackage, verifyStagedRelease } from './deploy-admin-release.mts';
+import {
+  deployAdminRelease,
+  verifyAdminPackage,
+  verifyStagedRelease,
+} from './deploy-admin-release.mts';
 import productionWorker from '../infra/portal-identity/employee-production-pages-worker.mts';
 
 const original = globalThis.fetch;
@@ -20,6 +31,44 @@ after(() => {
   globalThis.fetch = original;
 });
 const sha = 'a'.repeat(40);
+
+test('production permits only the reviewed health transition or an unchanged target policy', () => {
+  const prior = productionHealthPredecessor;
+  const release = { sourceSha: prior.sourceSha, target: 'production' };
+  const check = (
+    flags: unknown,
+    identity: unknown = release,
+    id: string = prior.deploymentId,
+    source: string = prior.sourceSha,
+  ) => verifyProductionTransition(flags, identity, id, source);
+  check(prior.flags);
+  check(targets.production.flags, { sourceSha: sha, target: 'production' }, 'new-deployment', sha);
+  for (const flags of [
+    null,
+    {},
+    { ...prior.flags, healthSnapshotEnabled: true },
+    { ...prior.flags, healthEventsEnabled: false },
+    { ...targets.production.flags, healthEventsEnabled: true },
+    { ...prior.flags, unknownEnabled: true },
+    { ...targets.production.flags, unknownEnabled: true },
+  ])
+    assert.throws(() => check(flags));
+  for (const flags of [prior.flags, targets.production.flags]) {
+    for (const key of Object.keys(flags)) {
+      assert.throws(() => check({ ...flags, [key]: !flags[key as keyof typeof flags] }));
+      assert.throws(() =>
+        check(Object.fromEntries(Object.entries(flags).filter(([name]) => name !== key))),
+      );
+    }
+    assert.throws(() => check(flags, { ...release, target: 'staging' }));
+    assert.throws(() => check(flags, { ...release, sourceSha: sha }));
+    assert.throws(() => check(flags, release, prior.deploymentId, 'invalid'));
+  }
+  assert.throws(() => check(prior.flags, release, 'unreviewed-deployment'));
+  assert.throws(() =>
+    check(prior.flags, { sourceSha: sha, target: 'production' }, prior.deploymentId, sha),
+  );
+});
 
 test('admin dependency selection excludes independent business, site, mobile and database releases', () => {
   for (const path of [
@@ -132,6 +181,82 @@ test('release packages share exact frontend bytes but keep environment policy an
     await assert.rejects(verifyStagedRelease(root, sha));
     await writeFile(join(root, 'staging/deployment.json'), JSON.stringify(receipt));
     await verifyStagedRelease(root, sha);
+    // Exercise the real preflight with an exact synthetic package. A changed
+    // second project read stops before any deploy process can be started.
+    const prior = productionHealthPredecessor;
+    const envKeys = [
+      'GITHUB_ACTIONS',
+      'GITHUB_REPOSITORY',
+      'GITHUB_REF',
+      'CLOUDFLARE_ACCOUNT_ID',
+      'CLOUDFLARE_API_TOKEN',
+    ] as const;
+    const saved = envKeys.map((key) => [key, process.env[key]] as const);
+    const blockedFetch = globalThis.fetch;
+    try {
+      Object.assign(process.env, {
+        GITHUB_ACTIONS: 'true',
+        GITHUB_REPOSITORY: 'faheygs/doji',
+        GITHUB_REF: 'refs/heads/main',
+        CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32),
+        CLOUDFLARE_API_TOKEN: 'synthetic',
+      });
+      for (const accepted of [false, true]) {
+        let projectReads = 0;
+        globalThis.fetch = async (input) => {
+          const url = String(input);
+          if (
+            url ===
+            `https://api.cloudflare.com/client/v4/accounts/${'a'.repeat(32)}/pages/projects/doji-admin`
+          ) {
+            projectReads++;
+            return Response.json({
+              success: true,
+              result: {
+                name: 'doji-admin',
+                production_branch: 'main',
+                canonical_deployment: {
+                  id: projectReads === 1 ? prior.deploymentId : 'intervening-deployment',
+                  latest_stage: { status: 'success' },
+                  deployment_trigger: { metadata: { commit_hash: prior.sourceSha } },
+                },
+                deployment_configs: {
+                  production: {
+                    env_vars: {
+                      EMPLOYEE_V2_ENABLED: { value: 'true' },
+                      EMPLOYEE_V2_ENDPOINT: {
+                        value: `https://${targets.production.supabaseProject}.supabase.co/functions/v1/employee-portal-v2`,
+                      },
+                      EMPLOYEE_V2_PROXY_KEY: { type: 'secret_text' },
+                    },
+                  },
+                },
+              },
+            });
+          }
+          if (url === targets.production.origin + '/release.json')
+            return Response.json({ sourceSha: prior.sourceSha, target: 'production' });
+          if (url === targets.production.origin + '/react-admin-config.js')
+            return new Response(
+              `window.DOJI_REACT_ADMIN_CONFIG = Object.freeze(${JSON.stringify(
+                accepted ? prior.flags : { ...prior.flags, staffWorkflowEnabled: false },
+              )});\n`,
+            );
+          throw Error(`Unexpected external request: ${url}`);
+        };
+        await assert.rejects(
+          deployAdminRelease(join(root, 'production'), 'production', sha),
+          accepted ? /Another deployment intervened/ : /Production gates changed/,
+        );
+        assert.equal(projectReads, accepted ? 2 : 1);
+      }
+    } finally {
+      globalThis.fetch = blockedFetch;
+      for (const [key, value] of saved) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
     await writeFile(join(root, 'production/site/react-admin-config.js'), 'tampered');
     await assert.rejects(verifyStagedRelease(root, sha));
     await assert.rejects(assembleAdminRelease(root, sha, 'overwrite'));

@@ -24,7 +24,8 @@ one bounded delivery/workflow observation, fixed source
 timestamps, permission-checked summary/detail reads and retaining rollback. They
 are connected in source to employee HTTP/local impersonation and a portal-wide
 cached status chip and Operations reads. Staging database/local/UI/runtime gates are on;
-production remains unchanged and gated. Local tests
+production cache SQL, collector and employee runtime are deployed and verified;
+production Pages promotion is still pending. Local tests
 cover permissions, revocation, idle expiry, cache rollback and visible/online
 refresh, including recovery after a failed first read. The full offline coverage
 run passed all 17 thresholds (4,949 Jest tests, 61 boundary suites and 845 browser
@@ -34,11 +35,15 @@ Hosted sign-in and natural automatic updates passed. Sentry retains its
 bounded, per-runtime on-demand cache, not a new background collector. Durable incident history/reconciliation,
 missing workflow measurements and independent monitor heartbeat remain unfinished.
 The owner requires no additional spending; production health broadcasts
-are not approved. Qualify the replacement design in staging before any release.
+are not approved. Preserve the staging-qualified, broadcast-free cache design.
 Production package policy now selects cached health with broadcasts disabled.
 Do not promote that package until the separately approved production cache SQL,
 collector and employee runtime/configuration are deployed and verified; Pages
-promotion does not install those backend prerequisites.
+promotion does not install those backend prerequisites. The November 3 production
+attempt stopped before upload because its guard compared the old live flags with
+the new target flags. The correction pins the reviewed predecessor's source,
+deployment and full flag set; unrelated drift remains an error. Production Pages
+still serves `ef2cc4b` until a protected promotion succeeds.
 
 Admin health reliability source merged in PR #35 (`19edbda`): the bounded Sentry
 read now distinguishes provider timeout/HTTP/network/invalid-response failures,
