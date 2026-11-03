@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { stagingFlags, stagingHeaders } from './build-admin-staging.mts';
 
 export type AdminTarget = 'staging' | 'production';
@@ -12,6 +13,54 @@ export const productionFlags = Object.freeze({
   announcementComposeEnabled: true,
   historyReadsEnabled: true,
 });
+// Only this reviewed predecessor may introduce the cached-health gates. Do not
+// infer a baseline from the target: future policy changes need their own review.
+export const productionHealthPredecessor = Object.freeze({
+  deploymentId: 'c21bb73d-ec04-4784-83d8-34cffb590936',
+  sourceSha: 'ef2cc4bfaa278b4b5d2fc80f1efd5554226b67f0',
+  flags: Object.freeze({
+    independentEmployeeIdentity: true,
+    staffWorkflowEnabled: true,
+    businessApplicationsEnabled: true,
+    businessPrivacyEnabled: true,
+    announcementComposeEnabled: true,
+    historyReadsEnabled: true,
+  }),
+});
+export function verifyProductionTransition(
+  liveFlags: unknown,
+  liveRelease: unknown,
+  deploymentId: string,
+  deployedSource: string,
+) {
+  assert.match(deployedSource, /^[a-f0-9]{40}$/);
+  assert.deepEqual(liveRelease, { sourceSha: deployedSource, target: 'production' });
+  if (isDeepStrictEqual(liveFlags, productionFlags)) return;
+  assert.equal(
+    deploymentId,
+    productionHealthPredecessor.deploymentId,
+    'Unreviewed production predecessor.',
+  );
+  assert.equal(
+    deployedSource,
+    productionHealthPredecessor.sourceSha,
+    'Unreviewed production source.',
+  );
+  assert.deepEqual(
+    liveFlags,
+    productionHealthPredecessor.flags,
+    'Production gates changed; stop and review.',
+  );
+  assert.deepEqual(
+    productionFlags,
+    {
+      ...productionHealthPredecessor.flags,
+      healthSnapshotEnabled: true,
+      healthEventsEnabled: false,
+    },
+    'Unreviewed production gate transition.',
+  );
+}
 // Preserve the live admin policy; changing integration gates requires a separate release review.
 export const productionHeaders = `/*
   Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.ably.com; connect-src 'self' https://tvixsmqxotuvyjqzmjla.supabase.co https://doji-orchestrator.faheygs.workers.dev https://*.ably.io wss://*.ably.io https://*.ably.net wss://*.ably.net https://*.ably-realtime.com wss://*.ably-realtime.com; media-src 'self' https://tvixsmqxotuvyjqzmjla.supabase.co; img-src 'self' data: https://tvixsmqxotuvyjqzmjla.supabase.co; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
