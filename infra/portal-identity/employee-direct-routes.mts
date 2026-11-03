@@ -1,5 +1,6 @@
 // Employee-only same-origin routing. No new shared Worker/member endpoints.
 export interface EmployeeFeatureGates {
+  healthSnapshotEnabled?: boolean;
   announcementComposeEnabled?: boolean;
   historyReadsEnabled?: boolean;
   businessApplicationsEnabled?: boolean;

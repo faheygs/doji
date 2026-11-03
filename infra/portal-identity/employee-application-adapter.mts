@@ -6,6 +6,7 @@ import {
   employeeHealthContracts,
   employeeHealthSql,
   employeeWorkflowHealthSql,
+  employeeHealthSnapshotSql,
 } from './employee-health-contracts.mts';
 import {
   employeeAnnouncementContract,
@@ -130,9 +131,11 @@ export function createEmployeeApplicationAdapter(
           : compose
             ? employeeAnnouncementSql
             : Object.hasOwn(employeeHealthContracts, input.name)
-              ? input.name === 'get_admin_workflow_health_v1'
-                ? employeeWorkflowHealthSql
-                : employeeHealthSql
+              ? input.name === 'get_admin_health_snapshot_v1'
+                ? employeeHealthSnapshotSql
+                : input.name === 'get_admin_workflow_health_v1'
+                  ? employeeWorkflowHealthSql
+                  : employeeHealthSql
               : Object.hasOwn(employeeWorkflowContracts, input.name)
                 ? employeeWorkflowSql
                 : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',

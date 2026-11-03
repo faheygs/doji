@@ -124,6 +124,7 @@ test('staging permits scoped realtime but no production endpoints or health-even
   assert.equal(stagingFlags.businessApplicationsEnabled, true);
   assert.equal(stagingFlags.businessPrivacyEnabled, true);
   assert.equal(stagingFlags.healthEventsEnabled, false);
+  assert.equal(stagingFlags.healthSnapshotEnabled, true);
   assert.match(stagingHeaders, /script-src 'self' https:\/\/cdn\.ably\.com;/);
   assert.match(stagingHeaders, /connect-src 'self' https:\/\/rest\.ably\.io /);
   assert.match(stagingHeaders, /wss:\/\/main\.realtime\.ably\.net/);

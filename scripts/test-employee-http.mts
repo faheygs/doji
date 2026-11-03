@@ -445,6 +445,28 @@ test('idle session expires and revokes only employee provider session', async ()
   assert.equal(f.sessions.size, 0);
   assert.equal(f.calls.revoke, 1);
 });
+for (const name of [
+  'portal_platform_health_summary_v1',
+  'portal_platform_health_v1',
+  'get_admin_event_health_history_v1',
+])
+  test(`automatic cached read ${name} cannot keep an idle employee session alive`, async () => {
+    const f = fixture({ healthSnapshotEnabled: name !== 'portal_platform_health_summary_v1' }),
+      s = await f.login();
+    for (let n = 0; n < 2; n++) {
+      f.advance(600000);
+      assert.equal(
+        (await f.request('/api/rpc', { name, args: {} }, s.cookie, s.data.csrf)).status,
+        200,
+      );
+    }
+    f.advance(600001);
+    assert.equal(
+      (await f.request('/api/rpc', { name, args: {} }, s.cookie, s.data.csrf)).status,
+      401,
+    );
+    assert.equal(f.sessions.size, 0);
+  });
 test('RPC requires CSRF and passes verified identity to restricted adapter', async () => {
   const f = fixture(),
     s = await f.login();

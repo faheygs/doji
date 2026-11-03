@@ -1,6 +1,7 @@
 /// <reference path="../deno.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordEmployeeHealthObservation } from './employee-health-observation.ts';
+import { captureEmployeeHealthSnapshot } from './employee-health-snapshot.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 Deno.serve(async (request) => {
@@ -24,7 +25,29 @@ Deno.serve(async (request) => {
     healthResult.data && typeof healthResult.data === 'object'
       ? (healthResult.data as Record<string, unknown>)
       : { healthy: false, error: 'No health snapshot returned' };
-  if (Deno.env.get('EMPLOYEE_HEALTH_EVENTS_ENABLED') === 'true') {
+  const snapshotEnabled = Deno.env.get('EMPLOYEE_HEALTH_SNAPSHOT_ENABLED') === 'true';
+  const eventsEnabled = Deno.env.get('EMPLOYEE_HEALTH_EVENTS_ENABLED') === 'true';
+  if (snapshotEnabled && eventsEnabled) console.warn('employee_health_modes_conflict');
+  if (snapshotEnabled && !eventsEnabled) {
+    try {
+      EdgeRuntime.waitUntil(
+        captureEmployeeHealthSnapshot(
+          {
+            enabled: true,
+            eventsEnabled,
+            environment: Deno.env.get('EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT'),
+            supabaseUrl: Deno.env.get('SUPABASE_URL'),
+          },
+          health,
+          (args, signal) =>
+            database.rpc('capture_employee_health_snapshot_v1', args).abortSignal(signal),
+        ),
+      );
+    } catch {
+      console.warn('employee_health_snapshot_sidecar_unavailable');
+    }
+  }
+  if (eventsEnabled && !snapshotEnabled) {
     // Diagnostic sidecar cannot make member recovery depend on event publishing.
     try {
       EdgeRuntime.waitUntil(

@@ -247,6 +247,7 @@ test('disabled features, wrong methods and foreign destinations fail before RPC'
     ['/business-privacy/case', { method: 'POST' }, 403],
     ['https://attacker.test/read', {}, 400],
     ['/not-an-operation', {}, 404],
+    ['/portal/admin/platform-health-summary', { method: 'POST' }, 404],
   ] as const)
     await assert.rejects(f.client.request(path, options), { status });
   assert.equal(f.calls.length, 1);
@@ -331,6 +332,29 @@ test('absolute expiry still applies despite regular session restoration', async 
     await f.client.session();
   }
   f.advance(1600000);
+  assert.equal(f.client.hasSession(), false);
+});
+test('automatic summary reads do not renew browser idle time', async () => {
+  const f = fixture();
+  await f.client.session();
+  f.advance(1799999);
+  await f.client.request('/portal/admin/platform-health-summary');
+  assert.deepEqual(body(present(f.calls.at(-1))), {
+    name: 'portal_platform_health_summary_v1',
+    args: {},
+  });
+  f.advance(1);
+  assert.equal(f.client.hasSession(), false);
+  await assert.rejects(f.client.request('/portal/admin/platform-health-summary'), { status: 401 });
+  assert.equal(f.calls.length, 2);
+});
+test('cached Operations and history reads do not renew browser idle time', async () => {
+  const f = fixture({ healthSnapshotEnabled: true });
+  await f.client.session();
+  f.advance(1799999);
+  await f.client.request('/portal/admin/platform-health');
+  await f.client.request('/portal/admin/platform-health-history?limit=12');
+  f.advance(1);
   assert.equal(f.client.hasSession(), false);
 });
 test('logout fences in-flight and queued reads and uses late session CSRF only for cleanup', async () => {

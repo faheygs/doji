@@ -1,8 +1,10 @@
 // Synthetic clean room only. Never accepts a production target or credentials.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { createCleanRoom, installManagedSchemas, replay } from './database/clean-room.mts';
 import { errorOutput } from './database/contracts.mts';
+import { engine } from './database/config.mts';
 assert.equal(process.argv.length, 2);
 const room = createCleanRoom();
 const read = (name: string) => readFileSync(name, 'utf8').replaceAll('\r\n', '\n');
@@ -18,6 +20,7 @@ try {
     'employee_session_store_v1',
     'portal_employee_actors_v1',
     'portal_identity_employee_rpc_v1',
+    'workflow_health_v1',
   ])
     sql(read(`supabase/overlays/${name}.sql`));
   sql(`insert into portal_identity_private.realms(realm,issuer,audience,enabled) values('employee','https://employee.test','employee',true);
@@ -36,8 +39,9 @@ try {
   const fingerprint = () =>
     sql(`select md5(string_agg(x,'|' order by x)) from (
  select pg_get_functiondef(oid)||coalesce(proacl::text,'') x from pg_proc where prokind='f' and pronamespace in('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace,'portal_identity_private'::regnamespace)
- and proname not in('record_employee_health_change_v1','get_admin_health_feed_v1','employee_health_rpc_v1')
- union all select to_jsonb(p)::text from pg_policies p where schemaname<>'employee_health_private'
+ and proname not in('record_employee_health_change_v1','get_admin_health_feed_v1','employee_health_rpc_v1',
+ 'capture_employee_health_snapshot_v1','get_admin_health_snapshot_v1','employee_health_snapshot_rpc_v1')
+ union all select to_jsonb(p)::text from pg_policies p where schemaname not in('employee_health_private','employee_health_snapshot_private')
  union all select to_jsonb(u)::text from auth.users u
  union all select to_jsonb(p)::text from public.profiles p) preserved;`);
   const before = fingerprint();
@@ -52,6 +56,79 @@ try {
   assert.equal(fingerprint(), before);
   assert.equal(sql("select to_regnamespace('employee_health_private') is null;"), 't');
   console.log('PASS: exact inverse restores previous contracts and removes only candidate objects');
+  sql(read('supabase/overlays/employee_health_snapshot_v1.sql'));
+  console.log(sql(read('scripts/test-employee-health-snapshot.sql')));
+  sql('update employee_health_snapshot_private.settings set enabled=true;');
+  const holder = execFile(
+    engine,
+    [
+      'exec',
+      '-i',
+      room.name,
+      'psql',
+      '-X',
+      '-qAt',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+    ],
+    { timeout: 10000 },
+  );
+  const closed = new Promise<void>((resolve) => {
+    holder.on('close', () => resolve());
+  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('Synthetic lock setup timed out')), 5000);
+      const finish = (error?: Error) => {
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve();
+      };
+      holder.once('error', finish);
+      holder.once('close', () => finish(Error('Synthetic lock holder closed early')));
+      let output = '';
+      holder.stdout?.on('data', (chunk: string) => {
+        output += chunk;
+        if (output.includes('SNAPSHOT_LOCK_HELD')) finish();
+      });
+      holder.stdin?.write(
+        'begin;select pg_advisory_xact_lock(682019,1);\n\\echo SNAPSHOT_LOCK_HELD\n',
+      );
+    });
+    assert.throws(
+      () =>
+        sql(`select public.capture_employee_health_snapshot_v1('ohrcupagdoilkwhecict',
+      jsonb_build_object('healthy',true,'checked_at',clock_timestamp()));`),
+      (error: unknown) => /lock timeout/.test(errorOutput(error, 'stderr')),
+    );
+    console.log('PASS: competing collector is bounded by database lock timeout');
+  } finally {
+    holder.stdin?.end('rollback;\n');
+    await closed;
+  }
+  assert.equal(fingerprint(), before);
+  const retained = sql(
+    'select md5(row_to_json(s)::text) from employee_health_snapshot_private.snapshot s;',
+  );
+  sql(read('supabase/overlays/employee_health_snapshot_v1.rollback.sql'));
+  assert.equal(
+    sql('select md5(row_to_json(s)::text) from employee_health_snapshot_private.snapshot s;'),
+    retained,
+  );
+  assert.equal(
+    sql(
+      "select not enabled and not has_function_privilege('service_role','public.capture_employee_health_snapshot_v1(text,jsonb)','EXECUTE') and not has_function_privilege('doji_employee','public.get_admin_health_snapshot_v1(boolean)','EXECUTE') from employee_health_snapshot_private.settings;",
+    ),
+    't',
+  );
+  assert.equal(fingerprint(), before);
+  console.log(
+    'PASS: snapshot rollback disables collection and reads, retains observations and original contracts',
+  );
 } catch (error) {
   console.error(errorOutput(error, 'stderr'));
   throw error;

@@ -58,6 +58,20 @@ current consoles before deciding availability, review state or enforcement.
 | Workflow counts and scheduler retention | Existing Supabase Postgres/Edge; no new vendor | `workflow_health_v1` and `_shared/workflow-health.ts`; exact environment binding. Staging observations and hosted/local reads verified; staging pruning disabled after acceptance. Production observations, employee read and 30/90-day scheduler retention enabled October 31 within existing capacity. Flags live in protected Supabase Edge bindings/private database settings; employee packages explicitly enable `workflowHealthEnabled` using existing restricted portal credentials. Local aggregator remains staging-only; no browser keys. Fixed hourly slots/latest receipts, not full user-action analytics. [Production acceptance and retaining rollback](releases/README.md#october-31-backend-monitoring-and-retention); [staging qualification](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance). |
 | Application email | Resend, dedicated Cloudflare safety sender, WorkOS and Supabase Auth mail paths | Different message families and credentials; see the routing table below. Business automatic application-mail capture/sending/wakeup remain off in the last acceptance record. |
 
+The cached admin-health replacement is **local preparation**, not enabled service
+usage. It reuses Supabase's existing operational check and private single-row
+storage; no new vendor, keys or job. Collector environment/enable flags belong in
+protected Edge configuration; project/enable settings are database-owner managed.
+The employee/development runtime gates remain off; the prepared staging package
+enables its public UI gate for the approved cutover. Production defaults remain off. The
+summary/detail reads reuse restricted portal SQL credentials and add no browser secrets.
+Visible Operations reconciles cached delivery/workflow data and uses the existing
+per-runtime Sentry cache (60-second success TTL, bounded failure backoff), with the
+existing protected monitoring credential. It does not add background Sentry collection.
+Staging qualification, existing-plan
+capacity verification and a separate release are required; rollback disables reads
+and capture while retaining observations. No additional spending is approved.
+
 ## Development, testing and repository services
 
 The admin release workflow reuses GitHub Actions and existing Cloudflare
@@ -103,6 +117,9 @@ The exact message routes are:
 
 - Member moderation notices: `relay-domain-events` calls Resend; admin operational
   alerts use `send-admin-email` with Resend. Both use shared Doji email rendering.
+  Prepared Worker/admin-sender changes preserve uncertain claims and record bounded
+  provider outcomes; neither Sentry ingestion nor Resend acceptance proves inbox
+  delivery. Deployment remains gated; no new service, credential or paid capacity.
 - Business password recovery: WorkOS remains the identity authority, while
   `business-owned-recovery-email.mts` sends the Doji-owned reset email through
   Resend. The business policy requires WorkOS default reset mail to be suppressed;

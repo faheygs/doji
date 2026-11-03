@@ -8,6 +8,7 @@ export async function installOperationsFixture(
   request: APIRequestContext,
   enabled = true,
   realtime?: (page: Page) => Promise<void>,
+  cachedHealth = false,
 ) {
   const base = await installBusinessFixture(
     page,
@@ -17,8 +18,18 @@ export async function installOperationsFixture(
     false,
     false,
     realtime,
+    cachedHealth,
   );
   const reads: { name: string; args: Record<string, unknown> }[] = [];
+  const summaryReads: string[] = [];
+  let summary = {
+    enabled: true,
+    available: true,
+    observed_at: new Date().toISOString(),
+    stale: false,
+    operational: { available: true, healthy: true },
+    workflows: { available: true, enabled: true },
+  };
   let allowed = enabled,
     failed = false,
     signedIn = true,
@@ -51,6 +62,10 @@ export async function installOperationsFixture(
   });
   await page.route('https://admin.dojipro.com/api/rpc', async (route) => {
     const body = route.request().postDataJSON() as { name: string; args: Record<string, unknown> };
+    if (body.name === 'portal_platform_health_summary_v1') {
+      summaryReads.push(body.name);
+      return route.fulfill({ status: allowed && signedIn ? 200 : 403, json: summary });
+    }
     if (body.name === 'portal_realtime_token_v1')
       return route.fulfill({
         json: {
@@ -82,6 +97,10 @@ export async function installOperationsFixture(
   return {
     ...base,
     healthReads: reads,
+    summaryReads,
+    changeSummary: (healthy: boolean, observed: string) => {
+      summary = { ...summary, observed_at: observed, operational: { available: true, healthy } };
+    },
     sentry: (value: unknown) => {
       snapshot.sentry = value;
     },

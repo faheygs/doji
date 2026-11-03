@@ -1,9 +1,17 @@
 // @vitest-environment node
 import { afterEach, expect, it, vi } from 'vitest';
 import { developmentTransport } from './development-transport';
-import { localAdminOrigin } from './transport';
+import { localAdminOrigin, localStagingFlags } from './transport';
 
 afterEach(() => vi.unstubAllGlobals());
+it('uses cached health in local staging without enabling health broadcasts', async () => {
+  expect(localStagingFlags.healthSnapshotEnabled).toBe(true);
+  expect(localStagingFlags.healthEventsEnabled).toBe(false);
+  const f = fixture();
+  await f.transport.session();
+  await f.transport.request('/portal/admin/platform-health-summary');
+  expect(f.requests).toEqual([{ name: 'portal_platform_health_summary_v1', args: {} }]);
+});
 function fixture() {
   vi.stubGlobal('location', { origin: localAdminOrigin });
   const requests: { name: string; args: Record<string, unknown> }[] = [];

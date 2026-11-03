@@ -14,7 +14,8 @@ Historical rollout steps are not instructions to replay.
 - Each daily event has a durable pre-live/activation/close alarm chain. There is no
   recurring due-event poller; close registers the next event.
 - Foreground, reconnect and route entry reconcile authorized state after missed
-  events. No recurring handset or portal polling.
+  events. No recurring handset or general portal polling; the separately gated
+  cached admin-health summary is the bounded exception described below.
 - Member Supabase Auth and independent WorkOS employee/business identities remain
   separate. Member authorization never depends on portal roles or availability.
 - Existing shared infrastructure has residual contention/failure risk. Shared
@@ -253,6 +254,42 @@ Operational-health reads have one 20-second deadline per attempt covering header
 and body, with one retry. Diagnostics distinguish headers/body/parse failures and
 Durable Object alarm-repair failures; they retain only status, elapsed time and a
 validated provider request ID, never response bodies or credentials.
+Monitor-owned repair/relay waits have five-second deadlines so one stalled
+dependency cannot hold subsequent checks; the repair commands remain idempotent.
+
+Health notification attempts are persisted before provider I/O. Keep separate
+Sentry/email outcomes: accepted, rejected, disabled, suppressed or unconfirmed.
+Duplicate suppression and a fulfilled transport promise are not acceptance;
+acceptance is not inbox delivery. A restart must not replay an uncertain attempt.
+Legacy `alerted` storage fields remain admission fences for safe downgrade;
+only the typed receipts describe provider outcomes.
+The monitor retains only its latest issue/check receipts, not an incident history.
+See current state for qualification and deployment status.
+
+The prepared cached-health replacement uses the existing server check, not a new
+job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact
+`EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT`/Supabase project pair plus an independently
+enabled private SQL setting. Its two-second best-effort sidecar stores a single
+allowlisted delivery observation and bounded workflow projection. Older/duplicate
+observations cannot replace newer ones; failed workflow collection replaces that
+source with unavailable. Reads preserve source times and expire after three minutes.
+SQL reads require an MFA-verified operations employee; no member/business grants.
+Snapshot and health-event collector modes are mutually exclusive. Before any
+cutover, disable the old SQL health-event producer and runtime signing gates too.
+The prepared employee HTTP/developer bridges serve fixed cached summary/detail reads,
+reauthorizing before and after reads. Hosted access retains MFA; local access uses
+the existing staging-only developer/persona grant, never fabricated MFA. The public
+and server `healthSnapshotEnabled` gates default off, as does the development
+`ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` binding. When enabled, portal-wide
+status reads once per visible/online minute and reconciles on return, without
+renewing idle sessions. Source age—not successful HTTP—determines freshness.
+Only mounted Operations queries reconcile after a successful summary read; hidden/
+offline pages pause. Delivery/workflow detail never falls back to aggregate scans.
+Sentry detail uses the existing bounded per-runtime cache; summary reads never
+call it. Its 60-second cache is not shared persistent storage or a background
+Sentry collector. Automatic detail/history reads cannot renew idle sessions either.
+No member polling or independent uptime claim is introduced. Hosted qualification
+must verify request/provider volume before enabling the gates.
 
 Monitoring and portal display are different contracts. Missing/stale/failed reads
 are unavailable, not healthy or zero. No traffic is not measured zero latency.

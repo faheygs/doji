@@ -15,6 +15,7 @@ import {
   buildAdminDevelopmentResourceSql,
 } from './build-admin-development-sql.mts';
 import { errorOutput } from './database/contracts.mts';
+import { verifyDevelopmentHealthSnapshot } from './database/health-snapshot-development.mts';
 
 assert.equal(process.argv.length, 2, 'No target overrides accepted');
 const room = createCleanRoom();
@@ -445,6 +446,7 @@ try {
   sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}'`);
   sql(source('supabase/overlays/admin_development_health_v1.rollback.sql'));
   assert.equal(call(id(5), 'get_admin_workflow_health_v1').code, '42501');
+  verifyDevelopmentHealthSnapshot(sql, call, id);
   // Disposable test-only schema: restore the exact baseline for subsequent inverse checks.
   sql(
     'drop function public.record_workflow_health_v1(text,text,text,integer,jsonb),public.run_scheduler_log_retention_v1(integer),public.get_workflow_health_v1();drop schema workflow_health_private cascade;',

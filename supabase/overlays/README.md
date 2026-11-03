@@ -39,6 +39,19 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   the shared staging employee realm. No direct execution grants or MFA substitution.
   `ADMIN_DEVELOPMENT_HEALTH_EVENTS_ENABLED` defaults off; disable it before rollback.
   The inverse removes only this route/helper and retains observations and audit.
+- `employee_health_snapshot_v1.sql` and its retaining rollback: **local preparation
+  only**, default off, requiring workflow health and the employee registry. One
+  bounded cached delivery/workflow observation; no jobs, provider calls or events.
+  SQL settings pin the project; the collector separately pins environment/URL.
+  The employee bridge authorizes MFA/operations access; no direct browser grants.
+  Disable public/runtime/collector gates before rollback, which disables capture/
+  reads and retains the observation. Never enable alongside the
+  prior health-event producer; qualify the complete replacement in staging first.
+- `admin_development_health_snapshot_v1.sql` and its paired rollback: prepared
+  staging-only cached summary/detail route using the existing developer/persona
+  assurance and operations permission. No direct execution grant or MFA substitution.
+  Disable `ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` before removing this route;
+  apply its rollback before the snapshot rollback. Keep cache and audit evidence.
 
 Cleanup changes paths only, not SQL definitions, grants, deployment order or
 production state. Preserve evidence, leases, receipts and holds during rollback.

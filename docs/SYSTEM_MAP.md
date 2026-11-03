@@ -71,6 +71,15 @@ route with developer/persona reauthorization, not hosted MFA substitution.
 Current state distinguishes these prepared changes from deployed services.
 `employee-sentry.mts` owns the bounded provider read and safe failure diagnostics;
 `employee-health.mts` retains authorization, cache and source-revision ownership.
+The prepared `employee_health_snapshot_v1` overlay and operational-health's
+`employee-health-snapshot.ts` sidecar own the bounded delivery/workflow cache.
+The default-off `employee-health-summary.mts` adapter serves the fixed authorized
+summary through employee HTTP and the staging-only development route.
+`HealthSummaryStatus.tsx` owns its session-scoped portal-wide display and visible/
+online refresh, reconciling mounted Operations queries only. In cached mode,
+`employee-health.mts` reads stored delivery/workflow data and the existing bounded
+Sentry cache; it never falls back to aggregate scans. The retained snapshot is
+not incident history or complete platform coverage. Hosted cutover remains gated.
 
 ## How requests connect
 

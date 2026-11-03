@@ -206,6 +206,7 @@ export function createEmployeeSession(
     touch: scheduleExpiry,
   };
   return Object.freeze({
+    healthSnapshotEnabled: config.healthSnapshotEnabled === true,
     announcementWritesEnabled: config.announcementComposeEnabled === true,
     historyReadsEnabled: config.historyReadsEnabled === true,
     getAnnouncementFlow() {
