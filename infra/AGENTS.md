@@ -46,10 +46,10 @@ Runtime secrets stay hosted; deployment-token setup and activation are separate.
 Wrangler environment inherited from production. Its `src/staging.ts` entry reuses
 the same implementations while rejecting mixed database/origin bindings. Preserve
 all five staging namespaces separately. Execution is enabled with isolated Ably;
-the prepared config matches production's one-minute monitoring cron, but activation
-remains release-gated. The last qualified deployment had an empty cron; verify live
-triggers before release. `scripts/build-staging-edge.mts` wraps the shared handlers
-with a staging-only fetch destination guard; do not deploy raw handlers over it.
+the one-minute monitoring cron is enabled in staging. Verify live triggers before
+any release and preserve challenge one-shot alarms. `scripts/build-staging-edge.mts`
+wraps the shared handlers with a staging-only fetch destination guard; do not deploy
+raw handlers over it.
 The eighth guarded handler, admin report/health email, has a staging-only key,
 sender and exact recipient allowlist. One approved test was delivered; sending is
 disabled again. Do not infer ongoing sending permission from retained credentials.

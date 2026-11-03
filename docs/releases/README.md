@@ -5,6 +5,71 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 2 staging automatic health updates
+
+PR #35 merged as `19edbda49862fb8edcb69d11c5928c3e5140262d` after all four required
+quality jobs and GitGuardian passed on exact head `5b9250b`. Production was not
+released. Main's repeated idle-expiry browser failure was reproduced as a test
+race: unfinished initial reads renewed idle time after its simulated clock jump.
+PR #36 (`5ebc0b8`) waits for those reads before advancing the clock; all four PR
+checks passed, as did 30 local repetitions. It changes no runtime behavior.
+The subsequent main run exposed request-count baselines taken before overview or
+health-history reads settled. PR #37 awaits loaded data and tooltip exit without
+relaxing request, authorization or accessibility assertions. Local repeated checks
+passed 30 layout and 45 Operations tests. PR #37 merged as `36dcafa` after all
+four checks and security passed; main quality run `41563923472` then passed.
+Automatic staging run `41565454788` deployed Pages
+`4c155283-e5a5-4dda-b556-76e212df9363`, verified at source
+`36dcafae46bc3aff637aad9e670b2ff4822d2ded` by the public release marker and receipt.
+Pages rollback is `f61229d6-c6fb-4cb7-8dd0-94598cb0d6dd`; configuration hash is
+`459f643d27aa3e6bd0a2a8b2f1289a10febc7ca23234bf5dccb1e617cc16ad3a`.
+Staging-only `employee_health_feed_v1` and
+`admin_development_health_events_v1` overlays preserve all 445 pre-existing
+public/identity/development function definitions and grants, policies, jobs and
+employee realm. The private development registry now has 48 routes. Additive SQL
+and its inverse passed an outer-transaction rollback rehearsal before installation.
+
+Downloaded employee/development artifacts match the tested packages. Their provider
+source digests are `84da192e9706ba0ad2dc41bb58adffc95580afdc0c3a11588b2e4d9a447e2efd`
+and `7175b27c52721f46b9c397eca2c2a46db09b3362cb13c52f6cf1abec3180c5ec` respectively.
+Only those two handlers changed; the collector already contained the gated sidecar.
+Secret updates advanced displayed versions to employee 25, development 22 and
+collector 15 without changing the collector's code. The database feed, employee
+health-event policy, collector flag and development flag are enabled in staging.
+All unrelated secret digests remain unchanged; email and scheduler pruning remain off.
+
+The staging Worker schedule is `*/1 * * * *`. Version
+`541f3b8b-5a70-4526-987c-a37f011c95ba`, settings, bindings and all five Durable
+Objects were preserved. This enables existing monitoring, not a second challenge
+clock. Supabase/Cloudflare capacity was checked; the existing Ably Standard plan
+is unchanged, with owner approval for at most $5/month incremental feed usage.
+Local connection and server gate are verified. With Operations visible and no
+click/reload, delivery observations advanced from 16:32:10 to 16:37:52 and 16:38:49
+Mountain time. Sentry refreshed at 16:37:52 and retained its bounded 60-second cache.
+The first delivery/history hints published on their first attempt without push
+payloads; no overdue outbox rows or lock waits were present. Ably showed two active
+connections and seven channels, versus six before enabling the feed. Hosted Pages
+restored the employee session and displayed the server-enabled, connected feed.
+Without clicks or reloads, delivery timestamps advanced 19:25:47 → 19:26:47 →
+19:27:48 Mountain time; Sentry advanced 19:25:34 → 19:26:47 → 19:27:48.
+Coverage showed current backend, delivery and Sentry observations. The bounded
+queue check found 20 latest health events published on their first attempt, no
+push payloads, no overdue work and no lock waits. A real network-disconnection
+drill remains untested; synthetic reconnection and permission tests are separate.
+Connected transport alone is not freshness, and the seven unmeasured workflow
+areas remain explicit gaps rather than implied healthy services.
+The post-deployment Ably check showed two connections, seven channels and 171
+inbound/176 outbound messages this month, consistent with the bounded feed.
+
+Private exact originals, configuration inverses, source readbacks and database
+receipts are retained at `%LOCALAPPDATA%/Doji/staging-backend/2026-11-02-health`.
+Rollback: restore the empty staging schedule, disable the database/Edge feed gates,
+restore the captured employee and development packages/config, then apply the
+development health-event inverse before the employee feed inverse. Retain existing
+outbox/audit evidence and the five namespaces; never reset staging or use production
+credentials. Restore Pages separately through its release receipt. No member auth,
+participation timing, rewards, push, retention policy or mobile artifact changed.
+
 ## October 31 backend monitoring and retention
 
 Owner-approved production release followed the automatic staging daily-wake check

@@ -31,7 +31,8 @@ Do not pull root React 19.2 into web or install paid MUI packages without approv
 - Queries are memory-only and scoped to realm, identity, epoch and authorized
   read area. Logout/lock/permission loss clears caches and fences late work.
   ID-only events invalidate reads; foreground/reconnect reauthorizes. No polling
-  or extra socket topology. Business realtime and health feeds remain gated.
+  or extra socket topology. Staging health events use the existing staff connection;
+  production health events and business realtime remain gated.
 - Browser preview/sample fixtures must not enter connected artifacts. No real
   email, moderation or approval action in visual tests. Hosted acceptance is
   separate from fixture tests and requires explicit scope.

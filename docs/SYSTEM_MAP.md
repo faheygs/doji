@@ -81,7 +81,8 @@ are explicitly mapped to separate staging roles. The staging employee runtime an
 Pages package are deployed separately; owner password/MFA login is verified.
 The staging backend uses `infra/doji-orchestrator/wrangler.staging.jsonc` and
 `src/staging.ts`: the same Worker implementations with exact staging bindings and
-five independent Durable Object namespaces. Execution is enabled, cron empty.
+five independent Durable Object namespaces. Execution and the one-minute health
+observation cron are enabled in staging; this is not a challenge scheduler.
 `scripts/build-staging-edge.mts` packages eight lifecycle/health/realtime/email
 handlers behind `_shared/staging-egress.ts`, restricting fetches to staging,
 its scoped Ably credential and explicitly gated test-email destinations.
