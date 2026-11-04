@@ -148,7 +148,7 @@ test('each allowlisted command preserves one SQL call and arguments', async () =
       assert.equal(p[5], name);
       assert.deepEqual(parse(p[6]), args);
       return true;
-    });
+    }, { monitorHistoryEnabled: true });
     assert.equal(await a.command(actor, { name, args }, signal()), true);
     assert.equal(count, 1);
   }

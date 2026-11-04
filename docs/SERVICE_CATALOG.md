@@ -12,6 +12,36 @@ allowance, account membership or availability is guaranteed by this inventory;
 dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
+Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
+is an unscheduled one-shot probe for a separately approved external runner. Its
+environment-specific `MONITOR_CHECK_SECRET` would belong only in protected Edge
+and runner secrets, never mobile, Pages or Git. The key can read only a fixed
+heartbeat projection, not incidents or member data. Worker/Edge
+`MONITOR_HISTORY_ENABLED`, private SQL capture and employee `monitorHistoryEnabled`
+all default off. Local parity additionally requires staging-only
+`ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED` in protected Edge configuration and
+the permission-checked development SQL route. No browser key is introduced.
+No runner, key or real alert is provisioned. Before enabling,
+verify independent failure domains, missing-run detection, existing-plan capacity,
+staging failure/recovery and retaining rollback; no extra spending is approved.
+The November 3 read-only Sentry account check showed Developer plan, 0/1 included
+Uptime Monitors used and $0 additional spend. This is the proposed independent
+runner, not an enabled monitor or approval to send alerts. The protected heartbeat
+endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
+monitor cannot mistake a working Edge route for a working collector.
+
+Prepared mobile workflow reporting uses existing Supabase only. Binary flags
+`EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED` and `_ENVIRONMENT` default off; they are
+not secrets. Edge `MOBILE_WORKFLOW_REPORTING_ENABLED`, exact `DOJI_ENVIRONMENT`
+and private SQL capture are independent gates. Project Auth verifies each member
+bearer; service credentials remain in protected Edge configuration. No raw user,
+answer, media, query or error payload enters counts. SQL retains at most 1,440 hourly
+aggregate rows and 65,536 salted admission slots; collisions/rate limits drop
+observations, never block member actions. Data is device-reported and incomplete.
+`buildMobileWorkflowStagingEdge` packages only this function with staging-only
+egress. Capacity, hosted synthetic acceptance, binary release and read/display
+integration remain gated; rollback disables capture and preserves counters.
+
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly
 called out below. Account administration belongs to the owner; engineering access

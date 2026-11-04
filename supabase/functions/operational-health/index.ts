@@ -2,9 +2,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordEmployeeHealthObservation } from './employee-health-observation.ts';
 import { captureEmployeeHealthSnapshot } from './employee-health-snapshot.ts';
+import { handleMonitorHistoryRequest } from './monitor-history.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 Deno.serve(async (request) => {
+  const monitorResponse = await handleMonitorHistoryRequest(request, {
+    enabled: Deno.env.get('MONITOR_HISTORY_ENABLED'), environment: Deno.env.get('DOJI_ENVIRONMENT'),
+    supabaseUrl: Deno.env.get('SUPABASE_URL'), writeSecret: Deno.env.get('OUTBOX_RELAY_SECRET'),
+    readSecret: Deno.env.get('MONITOR_CHECK_SECRET'),
+  }, () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!));
+  if (monitorResponse) return monitorResponse;
   const expectedSecret = Deno.env.get('OUTBOX_RELAY_SECRET');
   if (!expectedSecret || request.headers.get('x-outbox-secret') !== expectedSecret) {
     return new Response('Unauthorized', { status: 401 });

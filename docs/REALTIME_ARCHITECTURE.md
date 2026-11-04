@@ -267,6 +267,34 @@ only the typed receipts describe provider outcomes.
 The monitor retains only its latest issue/check receipts, not an incident history.
 See current state for qualification and deployment status.
 
+The separately gated history preparation records fixed Worker state observations
+through a two-second, no-retry sidecar after the existing check. SQL serializes each
+monitor and rejects older/conflicting observations; a changed incident family is
+superseded, not declared recovered. History survives disable/rollback. Its protected
+employee read requires Operations/MFA and reauthorizes after I/O; it does not repair
+anything or renew timestamps. No UI or independent watchdog is enabled by the SQL.
+The prepared incident view uses that same health-detail read and existing summary
+reconciliation, not a new query timer or channel. Source observations expire
+locally even if no further response arrives. The localhost equivalent retains
+developer/persona permission and revocation checks; it does not weaken hosted MFA.
+The independent one-shot probe reads only source/receipt timestamps and state with
+a separate read-only key. A successful HTTP read cannot make a stale monitor healthy.
+Running that probe beside the Worker is not independent uptime monitoring; an
+approved separate failure domain, missing-probe detection and alert delivery still
+need qualification. Neither provider acceptance nor probe health proves phone delivery.
+
+Optional mobile workflow reporting is foreground-triggered, not polling. It detaches
+bounded device counts at most once per fifteen minutes and has a two-second
+best-effort deadline, no durable queue and no retry after an uncertain acknowledgement.
+Account/session changes fence unsent batches; a request already sent may still commit
+under its original verified actor. Member commands never wait for telemetry. Ingestion
+requires an exact environment/project and verified non-anonymous member bearer.
+Private SQL accepts fixed categories only and atomically fences duplicate/rate-limited
+batches. Receipt-hour slots describe when reports arrived, not reconstructed action
+times. Counts can be missing, capped or client-forged and must never grant rewards,
+establish a success rate, or substitute for authoritative receipts. The independent
+reporting package and SQL/binary gates default off; retention rollback preserves data.
+
 The cached-health replacement uses the existing server check, not a new
 job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact
 `EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT`/Supabase project pair plus an independently

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { recordEmployeeHealthObservation } from '../supabase/functions/operational-health/employee-health-observation.ts';
 import { captureEmployeeHealthSnapshot } from '../supabase/functions/operational-health/employee-health-snapshot.ts';
+import { handleMonitorHistoryRequest } from '../supabase/functions/operational-health/monitor-history.ts';
 const source = readFileSync('supabase/functions/operational-health/index.ts', 'utf8').replace(
   /^import .*;\r?\n/gm,
   '',
@@ -72,6 +73,7 @@ function fixture(
     'EdgeRuntime',
     'recordEmployeeHealthObservation',
     'captureEmployeeHealthSnapshot',
+    'handleMonitorHistoryRequest',
     'console',
     compiled,
   )(
@@ -85,6 +87,7 @@ function fixture(
     },
     recordEmployeeHealthObservation,
     captureEmployeeHealthSnapshot,
+    handleMonitorHistoryRequest,
     { warn: (s: string) => warnings.push(s) },
   );
   return {

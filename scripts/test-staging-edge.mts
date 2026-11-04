@@ -8,7 +8,39 @@ import {
   buildStagingEdge,
   stagingFunctions,
   buildAdminDevelopmentEdge,
+  buildMobileWorkflowStagingEdge,
 } from './build-staging-edge.mts';
+
+test('mobile reporting has its own staging-only package, exact egress and bundled shared contract', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'doji-mobile-observations-test-'));
+  const previous = globalThis.fetch;
+  globalThis.fetch = () => { throw Error('Unexpected external request'); };
+  try {
+    const target = await buildMobileWorkflowStagingEdge(join(scratch, 'package'));
+    assert.deepEqual(await readdir(join(target, 'supabase/functions')), ['mobile-workflow-report']);
+    const manifest = JSON.parse(await readFile(join(target, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.projectRef, 'ohrcupagdoilkwhecict');
+    assert.ok(manifest.inputs.includes('contracts/mobileWorkflowTelemetry.ts'));
+    const entry = await readFile(join(target, 'supabase/functions/mobile-workflow-report/index.ts'), 'utf8');
+    assert.ok(entry.indexOf('globalThis.fetch =') < entry.indexOf("await import('./handler.ts')"));
+    assert.ok(entry.includes("redirect: 'error'"));
+    const install = new Function('Deno', 'Request', 'globalThis', entry.replace("await import('./handler.ts');", ''));
+    const settings = { DOJI_ENVIRONMENT: 'staging', SUPABASE_URL: 'https://ohrcupagdoilkwhecict.supabase.co' };
+    const sent: Request[] = [];
+    const isolated = { fetch: async (request: Request, init: RequestInit) => {
+      sent.push(request); assert.equal(init.redirect, 'error'); return new Response(null, { status: 204 });
+    } };
+    install({ env: { get: (name: keyof typeof settings) => settings[name] } }, Request, isolated);
+    await isolated.fetch(new Request(`${settings.SUPABASE_URL}/auth/v1/user`), {});
+    assert.equal(sent.length, 1);
+    for (const url of ['https://tvixsmqxotuvyjqzmjla.supabase.co/auth/v1/user', `${settings.SUPABASE_URL}/rest/v1/profiles`, `${settings.SUPABASE_URL}/auth/v1/user?token=private`])
+      assert.throws(() => isolated.fetch(new Request(url), {}), /destination rejected/);
+    assert.throws(() => install({ env: { get: () => 'production' } }, Request, isolated), /bindings rejected/);
+    const code = await readFile(join(target, 'supabase/functions/mobile-workflow-report/handler.ts'), 'utf8');
+    assert.equal(manifest.sha256, createHash('sha256').update(code).digest('hex'));
+    assert.ok(!code.includes('../../../contracts/'));
+  } finally { globalThis.fetch = previous; await rm(scratch, { recursive: true, force: true }); }
+});
 
 test('staging packages unchanged named handlers behind fail-closed egress, with no deploy or credentials', async () => {
   const scratch = await mkdtemp(join(tmpdir(), 'doji-stage-edge-test-'));

@@ -15,6 +15,7 @@ export function createDevelopmentHealth(
     now?: () => number;
     healthEventsEnabled?: boolean;
     healthSnapshotEnabled?: boolean;
+    monitorHistoryEnabled?: boolean;
   } = {},
 ): DevelopmentInvoke {
   if (

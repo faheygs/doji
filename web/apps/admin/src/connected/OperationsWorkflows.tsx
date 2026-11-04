@@ -21,6 +21,9 @@ import {
   cleanupNames,
 } from '../../../../packages/portal-data/src/workflow-health';
 import type { WorkflowHealth } from '../../../../packages/portal-data/src/workflow-health';
+// Evidence and coverage views share the existing deferred backend-readings bundle.
+export { OperationsIncidents } from './OperationsIncidents';
+export { OperationsSources } from './OperationsSources';
 
 export function OperationsWorkflows({
   data,

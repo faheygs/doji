@@ -1,6 +1,7 @@
 import { record, uuid } from '../../../../website/admin-portal/workflow-contracts.mts';
 import type { EmployeeSessionController } from './employee-session';
 import { workflowSnapshot } from './workflow-health';
+import { monitorHistory } from './monitor-history';
 
 const text = (v: unknown, limit = 500) => (typeof v === 'string' ? v.slice(0, limit) : null);
 const date = (v: unknown) =>
@@ -83,6 +84,7 @@ export function healthSnapshot(value: unknown) {
     generated_at: date(value.generated_at),
     health_events_enabled: boolean(value.health_events_enabled),
     workflows: workflowSnapshot(value.workflows),
+    monitor_history: monitorHistory(value.monitor_history),
     operational: {
       ...metrics(op, operationalMetrics),
       available: op.available === true,

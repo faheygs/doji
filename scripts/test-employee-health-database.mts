@@ -40,7 +40,9 @@ try {
     sql(`select md5(string_agg(x,'|' order by x)) from (
  select pg_get_functiondef(oid)||coalesce(proacl::text,'') x from pg_proc where prokind='f' and pronamespace in('public'::regnamespace,'auth'::regnamespace,'storage'::regnamespace,'portal_identity_private'::regnamespace)
  and proname not in('record_employee_health_change_v1','get_admin_health_feed_v1','employee_health_rpc_v1',
- 'capture_employee_health_snapshot_v1','get_admin_health_snapshot_v1','employee_health_snapshot_rpc_v1')
+ 'capture_employee_health_snapshot_v1','get_admin_health_snapshot_v1','employee_health_snapshot_rpc_v1',
+ 'record_monitor_observation_v1','get_monitor_incident_history_v1','get_monitor_heartbeat_v1',
+ 'get_admin_monitor_history_v1','employee_monitor_history_rpc_v1')
  union all select to_jsonb(p)::text from pg_policies p where schemaname not in('employee_health_private','employee_health_snapshot_private')
  union all select to_jsonb(u)::text from auth.users u
  union all select to_jsonb(p)::text from public.profiles p) preserved;`);
@@ -129,6 +131,32 @@ try {
   console.log(
     'PASS: snapshot rollback disables collection and reads, retains observations and original contracts',
   );
+  sql(read('supabase/overlays/monitor_incident_history_v1.sql'));
+  sql(read('supabase/overlays/employee_monitor_history_v1.sql'));
+  assert.equal(fingerprint(), before, 'Monitor overlays preserve member functions, grants, policies and rows');
+  console.log(sql(`begin;${read('scripts/test-employee-monitor-history.sql')}rollback;`));
+  sql('update monitor_history_private.settings set enabled=true;');
+  const monitorHolder = execFile(engine, ['exec','-i',room.name,'psql','-X','-qAt','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1'], { timeout: 10000 });
+  const monitorClosed = new Promise<void>(resolve => { monitorHolder.on('close', () => resolve()); });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('Monitor lock setup timed out')), 5000);
+      const finish = (error?: Error) => { clearTimeout(timer); if (error) reject(error); else resolve(); };
+      monitorHolder.once('error', finish);
+      monitorHolder.once('close', () => finish(Error('Monitor lock holder exited early')));
+      let output = '';
+      monitorHolder.stdout?.on('data', (chunk: string) => { output += chunk; if (output.includes('MONITOR_LOCK_HELD')) finish(); });
+      monitorHolder.stdin?.write("begin;select 1 from monitor_history_private.latest where monitor='worker' for update;\n\\echo MONITOR_LOCK_HELD\n");
+    });
+    assert.throws(() => sql("select public.record_monitor_observation_v1('worker',gen_random_uuid(),clock_timestamp(),'healthy',null);"),
+      (error: unknown) => /lock timeout/.test(errorOutput(error, 'stderr')));
+    assert.equal(sql('select count(*) from monitor_history_private.incidents;'), '0');
+    console.log('PASS: concurrent history writer is bounded and leaves no partial incident');
+  } finally { monitorHolder.stdin?.end('rollback;\n'); await monitorClosed; }
+  sql(read('supabase/overlays/employee_monitor_history_v1.rollback.sql'));
+  assert.equal(sql("select to_regprocedure('public.get_admin_monitor_history_v1()') is null;"), 't');
+  assert.equal(sql("select to_regclass('monitor_history_private.incidents') is not null;"), 't');
+  assert.equal(fingerprint(), before);
 } catch (error) {
   console.error(errorOutput(error, 'stderr'));
   throw error;

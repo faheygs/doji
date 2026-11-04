@@ -37,6 +37,10 @@ export function useEmployeeHealth(controller: EmployeeSessionController) {
     ]
       .filter((x): x is string => !!x)
       .flatMap((x) => [Date.parse(x) - 60000, Date.parse(x) + 180001]);
+    for (const row of snapshot.data?.monitor_history.latest ?? []) {
+      if (row.observed_at)
+        times.push(Date.parse(row.observed_at) - 30000, Date.parse(row.observed_at) + 180001);
+    }
     for (const item of history.data ?? []) {
       const at = Date.parse(item.observed_through ?? item.closes_at ?? item.fires_at ?? '');
       if (Number.isFinite(at)) times.push(at, at + 86400001);

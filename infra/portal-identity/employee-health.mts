@@ -1,5 +1,6 @@
 import { readEmployeeSentry } from './employee-sentry.mts';
 import { createEmployeeHealthSummary } from './employee-health-summary.mts';
+import { createEmployeeMonitorHistory } from './employee-monitor-history.mts';
 import { record } from './portal-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import type { EmployeeApplication, EmployeeActor } from './employee-contracts.mts';
@@ -33,18 +34,21 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     healthEventsEnabled = false,
     workflowHealthEnabled = false,
     healthSnapshotEnabled = false,
+    monitorHistoryEnabled = false,
   }: {
     upstream?: PortalFetch;
     now?: () => number;
     healthEventsEnabled?: boolean;
     workflowHealthEnabled?: boolean;
     healthSnapshotEnabled?: boolean;
+    monitorHistoryEnabled?: boolean;
   } = {},
 ) {
   if (environment !== 'production' && environment !== 'staging')
     throw Error('Invalid monitoring environment');
   if (healthSnapshotEnabled && healthEventsEnabled) throw Error('Conflicting health modes');
   const snapshot = createEmployeeHealthSummary(application, healthSnapshotEnabled, false);
+  const history = createEmployeeMonitorHistory(application, monitorHistoryEnabled);
   const configured =
     typeof token === 'string' && token.length > 0 && /^[a-z0-9-]{1,100}$/.test(organization || '');
   if (projectIds.some((id) => !/^\d+$/.test(id)) || projectIds.length > 5)
@@ -94,9 +98,10 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
       now,
     );
   }
-  return async (actor: Actor, signal: AbortSignal) => {
+  return async (actor: Actor, signal: AbortSignal): Promise<Record<string, unknown>> => {
     if (healthSnapshotEnabled) {
       const stored = await snapshot(actor, signal);
+      const incidents = monitorHistoryEnabled ? await history(actor, signal) : undefined;
       const issues =
         stored.enabled === true
           ? await cached('sentry', 60000, 'snapshot', sentry)
@@ -113,6 +118,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
         generated_at: new Date(now()).toISOString(),
         health_events_enabled: false,
         health_snapshot_enabled: stored.enabled === true,
+        ...(incidents ? { monitor_history: incidents } : {}),
         operational:
           stored.available === true && record(stored.operational)
             ? stored.operational

@@ -8,6 +8,7 @@ import {
   employeeHealthSql,
   employeeWorkflowHealthSql,
   employeeHealthSnapshotSql,
+  employeeMonitorHistorySql,
 } from './employee-health-contracts.mts';
 import { employeeHistorySql } from './employee-history-contracts.mts';
 import { businessOwnedSql } from './business-owned-sql.mts';
@@ -58,6 +59,7 @@ const operations: Readonly<
       [employeeHealthSql]: 7,
       [employeeWorkflowHealthSql]: 7,
       [employeeHealthSnapshotSql]: 7,
+      [employeeMonitorHistorySql]: 7,
       [employeeHistorySql]: 7,
       [employeeWorkflowSql]: 7,
       [employeeAnnouncementSql]: 7,

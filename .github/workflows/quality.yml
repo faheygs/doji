@@ -89,6 +89,7 @@ jobs:
           supabase/functions/fanout-doji-push/index.ts
           supabase/functions/run-data-maintenance/index.ts
           supabase/functions/operational-health/index.ts
+          supabase/functions/mobile-workflow-report/index.ts
 
   coverage:
     runs-on: ubuntu-24.04

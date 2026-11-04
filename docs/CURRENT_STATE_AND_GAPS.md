@@ -12,6 +12,43 @@ suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
 
+Additional monitoring preparation is local only. The default-off Worker writer now
+connects fixed observations to retained incident history through a protected Edge
+route; reporting never retries or changes alert admission. A separate employee
+Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
+`monitorHistoryEnabled` is enabled. The local staging-persona bridge and bounded
+Monitor incidents view are connected in source, with disabled/unavailable/stale
+states, source timestamps and superseded-versus-recovered outcomes. They reuse
+the existing health read/reconciliation, with no extra polling or provider calls.
+Synthetic SQL tests cover replay/order, permissions, transitions,
+bounded pages and retaining rollback, including the employee bridge after all 291
+migrations; local parity tests cover revoked credentials and retaining rollback.
+Browser tests cover pagination, permissions and in-place expiry without requests.
+Backend evidence/coverage tabs share the existing deferred bundle; package limits
+remain unchanged and pass. The prior history preparation passed all 17 coverage gates (4,956
+Jest tests, 63 boundary suites, 845 browser checks; one browser check skipped),
+331 web unit tests and 11 Operations browser checks. These are worktree results,
+not isolated-commit CI or hosted acceptance. The one-shot `scripts/monitor-check.mts`
+probe uses a separate read-only secret and fails on stale/missing reports, bad
+clocks and transport failures. The HTTP endpoint now applies the same freshness
+policy, returning 503 for stale, missing, disabled or unhealthy evidence. Sentry's
+account showed 0/1 included Uptime Monitors used and $0 additional spend on November 3;
+using that monitor and a real alert test remain approval-gated. No independent
+runner, schedule or alert destination is configured or qualified.
+
+Mobile counters cover submission/upload/receipt/feed phases and fixed profile,
+Doji, feed, social and economy read attempts. They are memory-only, account-fenced,
+capped and excluded from Sentry context; retries do not multiply read completions.
+Avatar upload outcomes and default-off foreground batch transport/ingestion are
+prepared. The independent mobile Edge package verifies the project member bearer;
+private SQL validates fixed counts, replay/admission fences and bounded hourly
+storage. Synthetic endpoint, lifecycle and SQL/retaining-rollback tests pass; latest
+isolated-commit CI, read/display integration and hosted acceptance remain pending.
+Auth outcomes, authoritative answer/reward evidence, poll readiness, storage
+inventory and phone-delivery evidence remain unfinished.
+These preparations do not establish complete health coverage. Production flags,
+mobile artifacts, services, spending and real sends remain unchanged.
+
 Cached admin health and its employee-session correction are merged and deployed
 to staging through PRs #39/#40; required PR/main checks and automatic Pages releases
 passed. SQL/runtime readback matched. Fresh hosted sign-in, two natural update

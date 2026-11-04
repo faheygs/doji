@@ -7,6 +7,7 @@ import {
   employeeHealthSql,
   employeeWorkflowHealthSql,
   employeeHealthSnapshotSql,
+  employeeMonitorHistorySql,
 } from './employee-health-contracts.mts';
 import {
   employeeAnnouncementContract,
@@ -29,6 +30,7 @@ export function createEmployeeApplicationAdapter(
   options: {
     announcementComposeEnabled?: boolean;
     historyReadsEnabled?: boolean;
+    monitorHistoryEnabled?: boolean;
     identity?: { clientId: string; issuerClientId?: string };
   } = {},
 ) {
@@ -43,7 +45,9 @@ export function createEmployeeApplicationAdapter(
     throw fail(503);
   const announcementComposeEnabled = options.announcementComposeEnabled === true;
   const historyReadsEnabled = options.historyReadsEnabled === true;
+  const monitorHistoryEnabled = options.monitorHistoryEnabled === true;
   async function command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
+    if (input?.name === 'get_admin_monitor_history_v1' && !monitorHistoryEnabled) throw fail(403);
     if (
       actor?.realm !== 'employee' ||
       actor.mfaVerified !== true ||
@@ -133,6 +137,8 @@ export function createEmployeeApplicationAdapter(
             : Object.hasOwn(employeeHealthContracts, input.name)
               ? input.name === 'get_admin_health_snapshot_v1'
                 ? employeeHealthSnapshotSql
+                : input.name === 'get_admin_monitor_history_v1'
+                  ? employeeMonitorHistorySql
                 : input.name === 'get_admin_workflow_health_v1'
                   ? employeeWorkflowHealthSql
                   : employeeHealthSql

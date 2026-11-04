@@ -2,6 +2,10 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import { resumableStorageUpload } from './resumableUpload';
+import {
+  mobileDiagnosticSnapshot,
+  recordAvatarUploadOutcome,
+} from '../lib/mobileDiagnosticContext';
 
 const POST_IMAGE_WIDTH = 1536;
 const POST_IMAGE_HEIGHT = 2048;
@@ -148,17 +152,25 @@ export async function uploadPostVideo(
 }
 
 export async function uploadAvatar(userId: string, uri: string): Promise<string> {
-  const compressedUri = await compressImage(uri);
-  const filePath = `${userId}/avatar-${Date.now()}.jpg`;
-  await resumableStorageUpload({
-    bucketId: 'avatars',
-    objectPath: filePath,
-    uri: compressedUri,
-    contentType: 'image/jpeg',
-  });
+  const session = mobileDiagnosticSnapshot().session_id;
+  recordAvatarUploadOutcome('started', session);
+  try {
+    const compressedUri = await compressImage(uri);
+    const filePath = `${userId}/avatar-${Date.now()}.jpg`;
+    await resumableStorageUpload({
+      bucketId: 'avatars',
+      objectPath: filePath,
+      uri: compressedUri,
+      contentType: 'image/jpeg',
+    });
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-  return withAvatarCacheParam(data.publicUrl);
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    recordAvatarUploadOutcome('confirmed', session);
+    return withAvatarCacheParam(data.publicUrl);
+  } catch (error) {
+    recordAvatarUploadOutcome('request_failed', session);
+    throw error;
+  }
 }
 
 export async function removePublicStorageObject(

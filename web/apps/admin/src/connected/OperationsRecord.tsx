@@ -6,9 +6,14 @@ import { useEmployeeHealth } from './useEmployeeHealth';
 import { OperationsHistory, OperationsIssues, healthColor, observation } from './OperationsTables';
 import { TrendChart } from '../operations/TrendChart';
 import { sentryReadProblem } from '@doji/portal-data/employee-health';
-import { OperationsSources } from './OperationsSources';
+const OperationsSources = lazy(() =>
+  import('./OperationsWorkflows').then((module) => ({ default: module.OperationsSources })),
+);
 const OperationsWorkflows = lazy(() =>
   import('./OperationsWorkflows').then((module) => ({ default: module.OperationsWorkflows })),
+);
+const OperationsIncidents = lazy(() =>
+  import('./OperationsWorkflows').then((module) => ({ default: module.OperationsIncidents })),
 );
 
 const sections = [
@@ -17,6 +22,7 @@ const sections = [
   'App issues',
   'Doji history',
   'Backend & cleanup',
+  'Monitor incidents',
 ];
 export function OperationsRecord({ controller }: { controller: EmployeeSessionController }) {
   const [tab, setTab] = useState(0);
@@ -174,15 +180,19 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 )}
               </Stack>
             ) : index === 1 ? (
-              <OperationsSources
-                data={data}
-                sentryProblem={sentryProblem}
-                failed={snapshot.isError}
-                loading={snapshot.isPending}
-                historyFailed={history.isError}
-                historyLoading={history.isPending}
-                historyCount={rows.length}
-              />
+              <Suspense
+                fallback={<TableFrame label="health coverage" state="loading" footer={null} />}
+              >
+                <OperationsSources
+                  data={data}
+                  sentryProblem={sentryProblem}
+                  failed={snapshot.isError}
+                  loading={snapshot.isPending}
+                  historyFailed={history.isError}
+                  historyLoading={history.isPending}
+                  historyCount={rows.length}
+                />
+              </Suspense>
             ) : index === 2 ? (
               <OperationsIssues
                 data={data?.sentry.issues ?? []}
@@ -199,6 +209,17 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 failed={history.isError}
                 retry={() => void history.refetch({ cancelRefetch: false })}
               />
+            ) : index === 5 ? (
+              <Suspense
+                fallback={<TableFrame label="monitor incidents" state="loading" footer={null} />}
+              >
+                <OperationsIncidents
+                  data={data?.monitor_history}
+                  loading={snapshot.isPending}
+                  failed={snapshot.isError}
+                  retry={() => void snapshot.refetch({ cancelRefetch: false })}
+                />
+              </Suspense>
             ) : (
               <Suspense
                 fallback={

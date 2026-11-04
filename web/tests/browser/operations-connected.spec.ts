@@ -3,6 +3,96 @@ import AxeBuilder from '@axe-core/playwright';
 import { installOperationsFixture, installHealthRealtime } from './operations-fixture';
 const url = 'https://admin.dojipro.com/connected.html#/operations';
 
+test('monitor history preserves uncertainty, source age and bounded pagination without commands', async ({
+  page,
+  request,
+}) => {
+  const f = await installOperationsFixture(page, request);
+  const at = new Date(Date.now() - 240000).toISOString();
+  f.monitorHistory({
+    enabled: true,
+    available: true,
+    latest: [
+      { monitor: 'worker', state: 'healthy', family: null, observed_at: at },
+      { monitor: 'watchdog', state: null, family: null, observed_at: null },
+    ],
+    incidents: Array.from({ length: 6 }, (_, index) => ({
+      id: 6 - index,
+      monitor: 'worker',
+      family: 'domain-outbox-delayed',
+      opened_at: at,
+      last_observed_at: at,
+      ended_at: index === 0 ? null : at,
+      ended_reason: index === 0 ? null : index === 1 ? 'superseded' : 'recovered',
+    })),
+  });
+  await page.goto(url);
+  await expect(page.getByRole('heading', { name: 'Platform health', exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Monitor incidents' }).click();
+  await expect(page.getByRole('tab', { name: 'Monitor incidents' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByText('Report is outdated', { exact: true })).toBeVisible();
+  await expect(page.getByText('No observation recorded', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: 'Issue changed; recovery not confirmed' }),
+  ).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Open at last observation' })).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Recorded monitor incidents' }).getByRole('row'),
+  ).toHaveCount(6);
+  await page.getByRole('button', { name: 'Go to next page' }).click();
+  await expect(
+    page.getByRole('table', { name: 'Recorded monitor incidents' }).getByRole('row'),
+  ).toHaveCount(2);
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([]);
+  f.monitorHistory({ enabled: true, available: false });
+  await page.getByRole('button', { name: 'Refresh readings' }).click();
+  await expect(page.getByText(/Monitor history is unavailable/)).toBeVisible();
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
+test('monitor observation expires locally without manufacturing a new report or request', async ({
+  page,
+  request,
+}) => {
+  await page.clock.install();
+  const f = await installOperationsFixture(page, request);
+  const at = new Date(await page.evaluate(() => Date.now())).toISOString();
+  f.monitorHistory({
+    enabled: true,
+    available: true,
+    incidents: [],
+    latest: [
+      { monitor: 'worker', state: 'healthy', family: null, observed_at: at },
+      { monitor: 'watchdog', state: null, family: null, observed_at: null },
+    ],
+  });
+  await page.goto(url);
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Monitor incidents' }).click();
+  const panel = page.getByRole('tabpanel', { name: 'Monitor incidents' });
+  await expect(panel.getByText('Measured checks passed', { exact: true })).toBeVisible();
+  const before = f.healthReads.length;
+  await page.clock.fastForward(181000);
+  await expect(panel.getByText('Report is outdated', { exact: true })).toBeVisible();
+  await expect(panel.getByText('No observation recorded', { exact: true })).toBeVisible();
+  expect(f.healthReads).toHaveLength(before);
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
 test('open health screen updates automatically and recovers missed observations after channel interruption', async ({
   page,
   request,
