@@ -39,6 +39,7 @@ describe('bounded monitor incident projection', () => {
       { latest: Array(2).fill(fixture().latest[0]) },
       { latest: [{ ...fixture().latest[0], observed_at: 'bad' }, fixture().latest[1]] },
       { latest: [{ ...fixture().latest[0], state: 'degraded' }, fixture().latest[1]] },
+      { latest: [{ ...fixture().latest[0], state: ['healthy'] }, fixture().latest[1]] },
       {
         latest: [{ ...fixture().latest[0], family: 'domain-outbox-delayed' }, fixture().latest[1]],
       },
@@ -55,6 +56,7 @@ describe('bounded monitor incident projection', () => {
         { last_observed_at: '2020-01-01' },
         { ended_at: null },
         { ended_reason: 'fixed' },
+        { ended_reason: ['recovered'] },
       ].map((row) => ({ incidents: [{ ...fixture().incidents[0], ...row }] })),
     ])
       expect(monitorHistory({ ...fixture(), ...patch }).status).toBe('unavailable');

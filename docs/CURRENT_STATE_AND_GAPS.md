@@ -20,7 +20,9 @@ No employee/mobile/UI changes from that PR are deployed. The default-off Worker 
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
 Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
-`monitorHistoryEnabled` is enabled. The local staging-persona bridge and bounded
+`monitorHistoryEnabled` is enabled. Its server boundary projects only fixed incident
+fields and rejects duplicate monitors, inconsistent outcomes and invalid timelines;
+disabled capture does not expose retained rows. The local staging-persona bridge and bounded
 Monitor incidents view are connected in source, with disabled/unavailable/stale
 states, source timestamps and superseded-versus-recovered outcomes. They reuse
 the existing health read/reconciliation, with no extra polling or provider calls.

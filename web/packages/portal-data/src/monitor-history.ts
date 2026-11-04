@@ -40,7 +40,10 @@ export function monitorHistory(value: unknown) {
     const at = date(row.observed_at);
     if (row.observed_at !== null && !at) return unavailable;
     if (
-      at ? !['healthy', 'degraded', 'unavailable'].includes(String(row.state)) : row.state !== null
+      at
+        ? typeof row.state !== 'string' ||
+          !['healthy', 'degraded', 'unavailable'].includes(row.state)
+        : row.state !== null
     )
       return unavailable;
     if (row.family !== null && !family(row.family)) return unavailable;
@@ -74,7 +77,8 @@ export function monitorHistory(value: unknown) {
       Date.parse(last) < Date.parse(opened) ||
       (row.ended_at !== null && (!ended || Date.parse(ended) < Date.parse(last))) ||
       (ended
-        ? !['recovered', 'superseded'].includes(String(row.ended_reason))
+        ? typeof row.ended_reason !== 'string' ||
+          !['recovered', 'superseded'].includes(row.ended_reason)
         : row.ended_reason !== null)
     )
       return unavailable;
