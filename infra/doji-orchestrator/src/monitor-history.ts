@@ -24,7 +24,8 @@ export async function reportMonitorObservation(
     });
     const send = Promise.resolve().then(async () => {
       const response = await fetch(`${env.SUPABASE_URL}/functions/v1/operational-health/monitor-observation`, {
-        method: 'POST', redirect: 'error', signal: controller.signal,
+        // workerd supports manual/follow, not error; only 204 below is accepted.
+        method: 'POST', redirect: 'manual', signal: controller.signal,
         headers: { 'content-type': 'application/json', 'x-outbox-secret': env.OUTBOX_RELAY_SECRET },
         body: JSON.stringify(observation),
       });

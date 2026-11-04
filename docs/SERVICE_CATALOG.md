@@ -14,14 +14,18 @@ Existing plans are not permission to incur new costs.
 
 Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
 is an unscheduled one-shot probe for a separately approved external runner. Its
-environment-specific `MONITOR_CHECK_SECRET` would belong only in protected Edge
+environment-specific `MONITOR_CHECK_SECRET` belongs only in protected Edge
 and runner secrets, never mobile, Pages or Git. The key can read only a fixed
 heartbeat projection, not incidents or member data. Worker/Edge
 `MONITOR_HISTORY_ENABLED`, private SQL capture and employee `monitorHistoryEnabled`
 all default off. Local parity additionally requires staging-only
 `ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED` in protected Edge configuration and
 the permission-checked development SQL route. No browser key is introduced.
-No runner, key or real alert is provisioned. Before enabling,
+The staging-only key is provisioned in protected staging Edge configuration;
+its recovery copy is ACL-restricted outside Git. No runner or real alert is provisioned.
+The narrow staging SQL/Edge installation is disabled after failed Worker transport
+acceptance; the prior Worker is restored. See the
+[retaining rollback](releases/README.md#november-4-staging-monitor-history-hold). Before re-enabling,
 verify independent failure domains, missing-run detection, existing-plan capacity,
 staging failure/recovery and retaining rollback; no extra spending is approved.
 The November 3 read-only Sentry account check showed Developer plan, 0/1 included

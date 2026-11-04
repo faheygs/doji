@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated November 3, 2026. This separates source, recorded deployments and owner
+Updated November 4, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -12,7 +12,11 @@ suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
 
-Additional monitoring preparation is in draft PR #46, not deployed. The default-off Worker writer now
+Additional monitoring preparation is in draft PR #46. Its narrow staging backend
+attempt is held after a real-runtime transport failure; SQL/Edge remain installed
+but disabled and the prior Worker version is restored. See the
+[acceptance and rollback](releases/README.md#november-4-staging-monitor-history-hold).
+No employee/mobile/UI changes from that PR are deployed. The default-off Worker writer now
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
 Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
@@ -36,9 +40,11 @@ account showed 0/1 included Uptime Monitors used and $0 additional spend on Nove
 the owner approved that staging monitor, its scoped read credential and one labelled
 failure/recovery email test to the owner on November 4, after CI and staging backend
 checks pass. No extra spend or production release is approved. No independent
-runner, schedule or alert destination is configured or qualified. PR #46's application,
-database, web and security checks passed; coverage needs the added heartbeat and
-device-contract regressions verified on the new exact head before release.
+runner, schedule or alert destination is configured or qualified. All four checks
+and security passed at `e1069cb`; hosted acceptance then exposed workerd rejecting
+`redirect: 'error'`. The correction uses manual redirects with 204-only acceptance;
+a real-workerd synthetic test covers success, redirect rejection and isolated failure
+and is required in CI. Corrected exact-head CI and hosted acceptance remain gates.
 
 Mobile counters cover submission/upload/receipt/feed phases and fixed profile,
 Doji, feed, social and economy read attempts. They are memory-only, account-fenced,

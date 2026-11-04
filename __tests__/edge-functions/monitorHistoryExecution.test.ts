@@ -26,6 +26,10 @@ test('actual monitor reports success, degradation and failed checks without chan
     expect((await monitor.fetch(new Request('https://local.test', { method: 'POST' }))).status).toBe(200);
     await Promise.all(pending.splice(0));
     expect(payloads[0]).toMatchObject({ state: 'healthy', family: null });
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://ohrcupagdoilkwhecict.supabase.co/functions/v1/operational-health/monitor-observation',
+      expect.objectContaining({ redirect: 'manual' }),
+    );
     (actionableOperationalIssue as jest.Mock).mockReturnValue({ family: 'domain-outbox-delayed', immediate: false, diagnostics: {} });
     expect((await monitor.fetch(new Request('https://local.test', { method: 'POST' }))).status).toBe(200);
     await Promise.all(pending.splice(0));

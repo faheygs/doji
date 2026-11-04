@@ -5,6 +5,36 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 4 staging monitor history hold
+
+Draft PR #46 at `e1069cbfcb2b8244c4bebd05e961299e17c8c4b1` passed all four
+quality jobs in run `41851836770` and GitGuardian. The owner separately approved
+only monitor-history SQL, the guarded staging `operational-health` endpoint and
+the bounded staging Worker reporting hook, not the PR's employee/mobile/UI changes.
+Existing Supabase/Cloudflare/Sentry capacity was checked; no extra spend or alert.
+The SQL preserved all 561 existing function/grant/policy contracts (fingerprint
+`36aecb5defaa724aa2342b7db3a8c8eb`); nine reachable Edge files matched readback,
+nine unrelated function hashes and 33 existing secret digests were unchanged.
+Only the staging monitor flag and scoped heartbeat-read key were added.
+
+Worker version `5584668e-3905-4f54-9dc2-faafc26be7bf` preserved all five Durable
+Object namespace IDs and the existing minute cron. Natural Worker checks returned
+success but no observation reached history. Real local workerd reproduced the
+cause: `redirect: 'error'` throws before sending. Node fetch mocks missed this.
+The correction uses `manual`, still accepts only 204 and never follows redirects
+or retries. A synthetic real-workerd regression is now a required application check.
+Corrected exact-head CI and repeated hosted acceptance are required before re-enabling.
+
+Retaining rollback verified November 4 at 16:13 UTC: prior immutable Worker
+`541f3b8b-5a70-4526-987c-a37f011c95ba` is active at 100% in deployment
+`519f45ed-675a-4576-b794-984e165ff1f4`, with its original bindings. SQL capture and
+Edge monitor routes are disabled (404); the installed schema/runtime and scoped
+key are retained. The ledger has zero observations/incidents; the synthetic SQL
+write was rolled back. Sentry monitor creation and the approved email test did not
+occur. Production, mobile ingestion, existing email/push and member behavior were
+not changed. Private rollback/artifacts and `acceptance-held.json` are retained in
+`Doji/staging-backend/2026-11-04-monitor` outside Git; do not replay deployment helpers.
+
 ## November 3 production cached health
 
 Protected promotion [41750188315](https://github.com/faheygs/doji/actions/runs/41750188315)
