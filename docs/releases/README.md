@@ -26,8 +26,13 @@ Natural healthy source times advanced from `20:54:45` to `20:55:45.37` UTC Novem
 The scoped endpoint returned 200 for fresh evidence, 401 for an invalid key and 405
 for the wrong method. Member/anonymous RPC access and private-schema access stayed
 denied. Initially missing evidence correctly returned 503 rather than false health.
-The Sentry draft uses the existing included monitor allowance; its owner-only email
-alert `6292687` is saved but monitor creation and the failure/recovery test are pending.
+Sentry monitor `10858429` was created for `doji-staging` with the scoped key and
+owner-only email alert `6292687`; its authenticated test returned “Uptime check
+passed successfully.” Activation failed with “You don't have enough budget available
+to create a new seat.” A fresh billing read still showed Developer plan, 0/1 included
+Uptime Monitors, $0 additional spend and no payment method. The monitor remains
+disabled with no check-ins; no budget/plan change or failure injection was attempted.
+Account entitlement resolution and the approved failure/recovery test remain gates.
 No alert was sent; production, mobile, employee history UI and other sending remain unchanged.
 
 Capacity checks showed Sentry 0/1 included monitors, Supabase 6,112/500,000 Edge

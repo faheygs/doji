@@ -25,9 +25,12 @@ The staging-only key is provisioned in protected staging Edge configuration;
 its recovery copy is ACL-restricted outside Git. The narrow staging Worker/SQL/Edge
 reporting path is enabled and verified at `6632592`; production and employee/mobile
 history gates remain off. See the [receipt and retaining rollback](releases/README.md#november-4-staging-monitor-reporting).
-Sentry's monitor draft is not created: its scoped read-key entry and independent
-failure/recovery qualification remain pending. The monitor-specific email alert
-`6292687` targets only the approved owner; no test was sent. Verify missing-run
+Sentry monitor `10858429` is created in `doji-staging` with the scoped read key and
+passed its authenticated HTTP test. It remains disabled: enabling returned a
+seat-budget error although billing showed 0/1 included Uptime Monitors. No budget,
+payment or plan change was made. Account entitlement resolution and independent
+failure/recovery qualification remain pending. Its email alert `6292687` targets
+only the approved owner; no test alert was sent. Verify missing-run
 detection and retaining rollback before claiming alert delivery; no extra spending
 is approved. The November 4 read-only Sentry account check showed Developer plan, 0/1 included
 Uptime Monitors used and $0 additional spend. The owner approved using that included

@@ -40,9 +40,12 @@ account showed 0/1 included Uptime Monitors used and $0 additional spend on Nove
 the owner approved that staging monitor, its scoped read credential and one labelled
 failure/recovery email test to the owner on November 4, after CI and staging backend
 checks pass. No extra spend or production release is approved. No independent
-runner is enabled or delivery-qualified. A monitor-specific owner email alert is
-saved in Sentry; the monitor draft still needs its protected read key, creation
-and the approved failure/recovery test. Natural staging observations advanced
+runner is enabled or delivery-qualified. Sentry monitor `10858429` is created with
+the scoped read key and owner-only email alert `6292687`; its authenticated test
+passed. Activation is blocked by Sentry's seat-budget error despite billing showing
+0/1 included Uptime Monitors and $0 additional spend. No plan/budget was changed;
+the monitor remains disabled and the failure/recovery alert test was not started.
+Resolve the account entitlement before enabling it. Natural staging observations advanced
 without manual collection; invalid credentials/methods were rejected and existing
 database contracts, ten Edge code hashes and 33 secret digests were preserved.
 Manual redirects retain 204-only acceptance; the real-workerd regression is required
