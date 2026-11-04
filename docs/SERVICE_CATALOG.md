@@ -25,8 +25,10 @@ No runner, key or real alert is provisioned. Before enabling,
 verify independent failure domains, missing-run detection, existing-plan capacity,
 staging failure/recovery and retaining rollback; no extra spending is approved.
 The November 3 read-only Sentry account check showed Developer plan, 0/1 included
-Uptime Monitors used and $0 additional spend. This is the proposed independent
-runner, not an enabled monitor or approval to send alerts. The protected heartbeat
+Uptime Monitors used and $0 additional spend. The owner approved using that included
+monitor for staging, a staging-only read credential and one labelled failure/recovery
+email test to faheygs@gmail.com after CI and staging backend checks pass. It is not
+enabled or delivery-qualified; production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
 

@@ -72,14 +72,16 @@ test('real entry validates bearer with project Auth before service-only fixed co
   );
   const signal = abortSignal.mock.calls[0][0];
   expect(signal.aborted).toBe(true);
-  const authFetch = mockClient.mock.calls[0][2].global.fetch;
-  await expect(authFetch('https://local.invalid/', { method: 'GET' })).rejects.toThrow(
-    'Unmocked external',
-  );
-  expect(global.fetch).toHaveBeenCalledWith(
-    'https://local.invalid/',
-    expect.objectContaining({ signal }),
-  );
+  for (const call of mockClient.mock.calls) {
+    const scopedFetch = call[2].global.fetch;
+    await expect(scopedFetch('https://local.invalid/', { redirect: 'follow' })).rejects.toThrow(
+      'Unmocked external',
+    );
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      'https://local.invalid/',
+      expect.objectContaining({ signal, redirect: 'error' }),
+    );
+  }
 });
 test.each([
   { data: { user: null } },

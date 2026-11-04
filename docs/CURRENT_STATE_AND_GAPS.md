@@ -12,7 +12,7 @@ suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
 
-Additional monitoring preparation is local only. The default-off Worker writer now
+Additional monitoring preparation is in draft PR #46, not deployed. The default-off Worker writer now
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
 Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
@@ -33,8 +33,12 @@ probe uses a separate read-only secret and fails on stale/missing reports, bad
 clocks and transport failures. The HTTP endpoint now applies the same freshness
 policy, returning 503 for stale, missing, disabled or unhealthy evidence. Sentry's
 account showed 0/1 included Uptime Monitors used and $0 additional spend on November 3;
-using that monitor and a real alert test remain approval-gated. No independent
-runner, schedule or alert destination is configured or qualified.
+the owner approved that staging monitor, its scoped read credential and one labelled
+failure/recovery email test to the owner on November 4, after CI and staging backend
+checks pass. No extra spend or production release is approved. No independent
+runner, schedule or alert destination is configured or qualified. PR #46's application,
+database, web and security checks passed; coverage needs the added heartbeat and
+device-contract regressions verified on the new exact head before release.
 
 Mobile counters cover submission/upload/receipt/feed phases and fixed profile,
 Doji, feed, social and economy read attempts. They are memory-only, account-fenced,
