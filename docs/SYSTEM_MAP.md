@@ -79,10 +79,9 @@ summary through employee HTTP and the staging-only development route.
 online refresh, reconciling mounted Operations queries only. In cached mode,
 `employee-health.mts` reads stored delivery/workflow data and the existing bounded
 Sentry cache; it never falls back to aggregate scans. The retained snapshot is
-not incident history or complete platform coverage. Staging collection/local reads
-and hosted cache reads are enabled, and old health broadcasts are disabled;
-production remains gated. See current
-state for hosted acceptance.
+not incident history or complete platform coverage. Collection and hosted cache
+reads are enabled in staging and production; development reads remain staging-only.
+Health broadcasts are disabled. See current state for hosted acceptance.
 
 ## How requests connect
 

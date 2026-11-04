@@ -25,8 +25,11 @@ timestamps, permission-checked summary/detail reads and retaining rollback. They
 are connected in source to employee HTTP/local impersonation and a portal-wide
 cached status chip and Operations reads. Staging database/local/UI/runtime gates are on;
 production cache SQL, collector and employee runtime are deployed and verified;
-production Pages promotion is still pending. Local tests
-cover permissions, revocation, idle expiry, cache rollback and visible/online
+production Pages is deployed at `9bf78fe` with cached reads enabled and broadcasts
+disabled. Production natural updates, global status, persistent session and browser
+Offline/recovery passed; see the
+[production receipt](releases/README.md#november-3-production-cached-health).
+Local tests cover permissions, revocation, idle expiry, cache rollback and visible/online
 refresh, including recovery after a failed first read. The full offline coverage
 run passed all 17 thresholds (4,949 Jest tests, 61 boundary suites and 845 browser
 checks). Final release packaging passes the unchanged bundle-size budgets, including
@@ -36,22 +39,20 @@ bounded, per-runtime on-demand cache, not a new background collector. Durable in
 missing workflow measurements and independent monitor heartbeat remain unfinished.
 The owner requires no additional spending; production health broadcasts
 are not approved. Preserve the staging-qualified, broadcast-free cache design.
-Production package policy now selects cached health with broadcasts disabled.
-Do not promote that package until the separately approved production cache SQL,
-collector and employee runtime/configuration are deployed and verified; Pages
-promotion does not install those backend prerequisites. The November 3 production
-attempt stopped before upload because its guard compared the old live flags with
-the new target flags. The correction pins the reviewed predecessor's source,
-deployment and full flag set; unrelated drift remains an error. Production Pages
-still serves `ef2cc4b` until a protected promotion succeeds.
+Production package policy selects cached health with broadcasts disabled. Pages
+promotion does not install its separately qualified SQL/runtime prerequisites.
+The release guard pins the reviewed predecessor's source, deployment and full
+flag set; unrelated drift remains an error. The corrected protected promotion
+succeeded after exact-head PR/main checks and hosted staging acceptance.
 
 Admin health reliability source merged in PR #35 (`19edbda`): the bounded Sentry
 read now distinguishes provider timeout/HTTP/network/invalid-response failures,
 does not fabricate observation times, and supports explicit recovery. React adds
 manual/stale-tab refresh and a server-authorized health-event listener without
 polling. Provider, browser and isolated database checks passed. Staging's additive
-SQL, employee/development runtimes and health gates are deployed; production is
-unchanged. The November 2 Pages release deployed `36dcafa` through the normal staging pipeline;
+SQL, employee/development runtimes and health gates were deployed to staging;
+that release did not change production. The November 2 Pages release deployed
+`36dcafa` through the normal staging pipeline;
 signed-in Operations advanced across two natural collector cycles without refresh.
 The additional workflow measurements listed below remain unfinished. This is not
 complete platform-health coverage.
@@ -105,7 +106,7 @@ while submission/feed reads succeeded; it does not establish the older Android
 | Business email | Branded renderer/runtime deployed | Automatic capture/sending/wakeup remain off; no uncertain-mail auto-resend |
 | Public site | Next.js static export with retained legal/safety controllers | No Next server; safety uses its own private receipt/status contracts |
 | Shared email branding | Shared/employee renderer changes prepared | Shared/member deployment and provider-owned templates remain separate |
-| Health | Bounded delivery/history and Sentry reads; staging observation feed enabled | Production health events remain gated; not whole-platform uptime or crash-free-session measurement |
+| Health | Bounded cached delivery/workflow and Sentry reads enabled in staging and production | Health broadcasts off; seven workflow gaps remain; not whole-platform uptime or crash-free-session measurement |
 
 The [mobile build record](releases/MOBILE_RECOVERY_BUILDS_2026-10-12.md) identifies
 the frozen 1.0.10 artifacts. [Native lifecycle preparation](releases/MOBILE_READ_LIFECYCLE_PREPARATION_2026-10-12.md)

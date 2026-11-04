@@ -5,6 +5,45 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 3 production cached health
+
+Protected promotion [41750188315](https://github.com/faheygs/doji/actions/runs/41750188315)
+succeeded after owner approval, using immutable staging run `41744544693` at
+`9bf78fe16ef5ed8b30233a9b27675bcde5c6341c`. PR #43 and main run `41742734996`
+passed all four required checks; exact-head security checks passed. Staging's
+signed-in natural updates and global status were verified before promotion.
+Production Pages is `fe1b5974-b3d3-4e51-8dfa-7f003e90a5d6`; rollback is
+`c21bb73d-ec04-4784-83d8-34cffb590936`. Public source/config and retained package/
+deployment receipt match: cache enabled, health broadcasts disabled. The earlier
+attempt failed before upload; PR #43 corrected only the pinned predecessor-policy
+transition while retaining artifact, binding, rollback and owner-approval checks.
+
+The separately approved backend preceded Pages: private snapshot SQL, employee
+runtime 31 and collector 41. Five candidate files matched downloaded source;
+16 unrelated function code hashes were unchanged. Four secrets updates advanced
+their configuration revisions, not their code. The 555 existing function/ACL/policy
+contracts retained fingerprint `a2b4b1992a9d79e30c645f3c9a217e32`.
+The bounded post-release read at November 4 01:34:35 UTC found no lock waits or
+near/active Doji, and a fresh healthy snapshot with workflow measurements.
+
+Hosted production delivery observations advanced 6:34:59, 6:36:58 and 6:37:59 PM
+Mountain on November 3 without refresh; Sentry advanced 6:35:07, 6:37:08 and
+6:38:09. The employee session remained active. Chrome tab-level Network Offline
+showed `Health: offline` and retained source timestamps. Restoring No throttling
+recovered delivery 6:38:58 and Sentry 6:39:28 automatically without reload/MFA.
+The global health badge remained available on Overview after recovery.
+This was browser emulation, not a physical network/device test. Current reads had
+no overdue publication/notification work or Apple authorization failures and no
+unresolved Sentry groups returned; one historical Doji delivery warning remained.
+
+Existing Cloudflare/Supabase capacity was verified; no new service, job or spending.
+Private exact packages, configurations, SQL retaining rollback and deployment
+receipts remain under `Doji/production-backend/2026-11-03-cache` outside Git.
+Rollback disables cache reads/capture and restores retained runtime/config/Pages,
+preserving observations. Member auth, timing, votes/rewards, push, cleanup and
+Worker were not changed. Seven workflow measurement gaps, durable incident
+history/reconciliation and independent monitor heartbeat remain unfinished.
+
 ## November 3 staging cached health
 
 PR #39 merged as `3d3ebed54f18a18a865507a6b529a480c2ed98e6` after application,
