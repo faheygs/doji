@@ -1,7 +1,63 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { installOperationsFixture, installHealthRealtime } from './operations-fixture';
+import { healthFixture, historyFixture } from '../health-fixture';
 const url = 'https://admin.dojipro.com/connected.html#/operations';
+
+test('health tables preserve bounded pagination and reset on page-size changes', async ({ page, request }) => {
+  const f = await installOperationsFixture(page, request);
+  const sentry = healthFixture().sentry;
+  sentry.issues = Array.from({ length: 12 }, (_, index) => ({ ...sentry.issues[0]!, id: String(index + 1), title: `Synthetic issue ${index + 1}` }));
+  f.sentry(sentry);
+  const history = historyFixture();
+  history.items = Array.from({ length: 12 }, (_, index) => ({ ...history.items[0]!, daily_event_id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Synthetic event ${index + 1}` }));
+  await page.route('https://admin.dojipro.com/api/rpc', async route => {
+    if (route.request().postDataJSON().name === 'get_admin_event_health_history_v1') await route.fulfill({ json: history });
+    else await route.fallback();
+  });
+  await page.goto(url);
+  await expect(page.getByText(/12 unresolved issue groups returned/)).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  for (const section of ['App issues', 'Doji history']) {
+    await page.getByRole('tab', { name: section, exact: true }).click();
+    await expect(page.getByRole('row')).toHaveCount(11);
+    await page.getByRole('button', { name: 'Go to next page' }).click();
+    await expect(page.getByRole('row')).toHaveCount(3);
+    await page.getByRole('combobox', { name: /Rows per page/ }).click();
+    await page.getByRole('option', { name: '25', exact: true }).click();
+    await expect(page.getByRole('row')).toHaveCount(13);
+    await expect(page.getByRole('button', { name: 'Go to previous page' })).toBeDisabled();
+  }
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
+test('history explains a speed target miss without claiming lost notifications or submissions', async ({ page, request }) => {
+  const f = await installOperationsFixture(page, request);
+  const history = historyFixture();
+  history.items[0]!.realtime_p95_ms = 1070;
+  history.items[0]!.realtime_max_ms = 2255;
+  history.items[0]!.realtime_sample_count = 157;
+  await page.route('https://admin.dojipro.com/api/rpc', async route => {
+    if (route.request().postDataJSON().name === 'get_admin_event_health_history_v1')
+      await route.fulfill({ json: history });
+    else await route.fallback();
+  });
+  await page.goto(url);
+  await expect(page.getByText(/1 recent Doji summaries missed targets/)).toBeVisible();
+  await expect(page.getByText(/does not prove failed phone delivery or participation/)).toBeVisible();
+  await expect(page.getByText(/delivery problems or missed targets/)).toHaveCount(0);
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Doji history', exact: true }).click();
+  await expect(page.getByRole('cell').filter({ hasText: /^95% within 1.07 seconds/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: '95% target: under 1 second' })).toBeVisible();
+  await expect(page.getByText('Slowest (5-second target): 2.25 seconds')).toBeVisible();
+  await expect(page.getByText('0 not published', { exact: false })).toBeVisible();
+  await expect(page.getByText('0 groups expired', { exact: false })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Doji delivery history' }).getByText('Needs attention', { exact: true })).toBeVisible();
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
 
 test('open health screen updates automatically and recovers missed observations after channel interruption', async ({
   page,

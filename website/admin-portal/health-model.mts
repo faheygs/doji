@@ -1,12 +1,14 @@
 /* Portal presentation only: never changes delivery, paging, or member authorization. */
-/** Presentation only: never infer a device outcome from server publication. */
+const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+/** Server publication evidence is not a receipt for arrival or display on a phone. */
 export function duration(value: unknown): string {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'Not measured';
-  return value < 10 ? 'Under 0.01 seconds' : `${(value / 1000).toFixed(2)} seconds`;
+  const ms = number(value);
+  if (ms === null) return 'Not measured';
+  return ms < 10 ? 'Under 0.01 seconds' : `${(ms / 1000).toFixed(2)} seconds`;
 }
 export function publicationSummary(p95: unknown, maximum: unknown, samples: unknown, slow: unknown): string {
   if (samples === 0) return 'No updates measured in this period. Update speed is not known.';
-  const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+  const valid = (v: unknown): v is number => number(v) !== null;
   if (!valid(samples) || samples === 0) return 'The number of measured updates is unavailable. Update speed cannot be verified.';
   return [
     valid(p95) ? `95% of measured updates were published within ${duration(p95)}.` : 'Update speed is not measured.',
@@ -15,6 +17,7 @@ export function publicationSummary(p95: unknown, maximum: unknown, samples: unkn
     'Measures server publication, not arrival or display on a phone.',
   ].join(' ');
 }
+
 export type HealthState = 'healthy' | 'unknown' | 'watch' | 'degraded' | 'critical';
 // Read boundaries intentionally retain unknown values: missing or malformed
 // telemetry must remain unknown, never become a healthy zero.
@@ -42,7 +45,6 @@ export const labels = {
   unknown: 'Limited visibility',
 };
 const rank = { healthy: 0, unknown: 1, watch: 2, degraded: 3, critical: 4 };
-const number = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
 const worst = (states: HealthState[]) =>
   states.reduce<HealthState>((a, b) => (rank[b] > rank[a] ? b : a), 'healthy');
 const signal = (name: string, state: HealthState, detail: string): Signal => ({
@@ -72,20 +74,15 @@ export function eventState(e: HealthRecord): HealthState {
     number(e.realtime_sample_count),
     number(e.realtime_over_5s),
   );
-  if (
-    [e.outbox_exhausted, e.push_shards_exhausted, e.push_shards_expired].some(
-      (v) => (number(v) ?? 0) > 0,
-    )
-  )
-    return 'critical';
-  if ((number(e.outbox_unpublished) ?? 0) > 0 || e.healthy === false)
-    return worst([delivery, 'degraded']);
-  const complete = [
+  const counts = [
     e.outbox_unpublished,
     e.outbox_exhausted,
     e.push_shards_exhausted,
     e.push_shards_expired,
-  ].every((v) => number(v) !== null);
+  ].map(number);
+  if (counts.slice(1).some((v) => (v ?? 0) > 0)) return 'critical';
+  if ((counts[0] ?? 0) > 0 || e.healthy === false) return worst([delivery, 'degraded']);
+  const complete = counts.every((v) => v !== null);
   return worst([delivery, e.healthy === true && complete ? 'healthy' : 'unknown']);
 }
 export function evaluate({
@@ -239,7 +236,7 @@ export function evaluate({
     'Recent Doji delivery · last 24 hours',
     incidents.length ? 'watch' : incomplete ? 'unknown' : 'healthy',
     incidents.length
-      ? `${incidents.length} Doji summaries have delivery problems or missed targets. Current recovery does not erase these results.${historyFailed ? ' History refresh failed; retained summaries may be stale.' : ''}`
+      ? `${incidents.length} recent Doji summaries missed targets; see history. This does not prove failed phone delivery or participation.${historyFailed ? ' History refresh failed; retained summaries may be stale.' : ''}`
       : incomplete
         ? 'Event coverage is missing, low-sample, or still settling. This is not an all-clear for today.'
         : 'Available finalized event summaries meet the displayed delivery targets. They do not measure every app request.',
