@@ -5,6 +5,38 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 4 staging monitor reporting
+
+The narrow retry at draft PR #46 head `6632592694baa55ac47343c4432b99319973a54e`
+passed application, coverage, database and web-migration in run `41908348564`, plus
+GitGuardian. The corrected redirect assertion and real-workerd test cover success,
+redirect rejection and failure isolation; no coverage threshold was lowered.
+
+Staging Worker `3a10f5f7-06ea-47d2-90c6-cd4f7e340af6` is active at 100% in
+deployment `c1620776-672c-402c-9416-a24a8a778400`. Uploaded module SHA-256
+`acb996a9c0185e31088e4a36242bb2d3873d68d4b7098bb78890dfcde6b8c604` matched
+the tested bundle assembled from committed inputs, excluding owner worktree changes.
+All five Durable Object namespaces, prior bindings and minute cron were preserved;
+only the monitor reporting flag was added. Existing SQL capture and Edge monitor
+gates were enabled; no Edge code was redeployed. Ten Edge code hashes and 33 existing
+secret digests remained unchanged. All 564 installed function/grant/policy contracts
+retained fingerprint `267ce47d75bfce6793dc660e27d21391`, with zero lock waits.
+
+Natural healthy source times advanced from `20:54:45` to `20:55:45.37` UTC November 4.
+The scoped endpoint returned 200 for fresh evidence, 401 for an invalid key and 405
+for the wrong method. Member/anonymous RPC access and private-schema access stayed
+denied. Initially missing evidence correctly returned 503 rather than false health.
+The Sentry draft uses the existing included monitor allowance; its owner-only email
+alert `6292687` is saved but monitor creation and the failure/recovery test are pending.
+No alert was sent; production, mobile, employee history UI and other sending remain unchanged.
+
+Capacity checks showed Sentry 0/1 included monitors, Supabase 6,112/500,000 Edge
+calls and 0.044/0.5 GB database, and Cloudflare $0 billable usage. Rollback disables
+SQL/Edge monitor gates and restores immutable Worker `541f3b8b-5a70-4526-987c-a37f011c95ba`,
+retaining evidence. Private `retry-6632592/backend-qualified.json`, source, artifacts
+and readbacks remain under `Doji/staging-backend/2026-11-04-monitor` outside Git.
+The preceding failed attempt below is historical evidence, not the active state.
+
 ## November 4 staging monitor history hold
 
 Draft PR #46 at `e1069cbfcb2b8244c4bebd05e961299e17c8c4b1` passed all four

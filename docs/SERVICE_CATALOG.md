@@ -22,13 +22,14 @@ all default off. Local parity additionally requires staging-only
 `ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED` in protected Edge configuration and
 the permission-checked development SQL route. No browser key is introduced.
 The staging-only key is provisioned in protected staging Edge configuration;
-its recovery copy is ACL-restricted outside Git. No runner or real alert is provisioned.
-The narrow staging SQL/Edge installation is disabled after failed Worker transport
-acceptance; the prior Worker is restored. See the
-[retaining rollback](releases/README.md#november-4-staging-monitor-history-hold). Before re-enabling,
-verify independent failure domains, missing-run detection, existing-plan capacity,
-staging failure/recovery and retaining rollback; no extra spending is approved.
-The November 3 read-only Sentry account check showed Developer plan, 0/1 included
+its recovery copy is ACL-restricted outside Git. The narrow staging Worker/SQL/Edge
+reporting path is enabled and verified at `6632592`; production and employee/mobile
+history gates remain off. See the [receipt and retaining rollback](releases/README.md#november-4-staging-monitor-reporting).
+Sentry's monitor draft is not created: its scoped read-key entry and independent
+failure/recovery qualification remain pending. The monitor-specific email alert
+`6292687` targets only the approved owner; no test was sent. Verify missing-run
+detection and retaining rollback before claiming alert delivery; no extra spending
+is approved. The November 4 read-only Sentry account check showed Developer plan, 0/1 included
 Uptime Monitors used and $0 additional spend. The owner approved using that included
 monitor for staging, a staging-only read credential and one labelled failure/recovery
 email test to faheygs@gmail.com after CI and staging backend checks pass. It is not

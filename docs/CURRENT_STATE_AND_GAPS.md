@@ -12,10 +12,10 @@ suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
 
-Additional monitoring preparation is in draft PR #46. Its narrow staging backend
-attempt is held after a real-runtime transport failure; SQL/Edge remain installed
-but disabled and the prior Worker version is restored. See the
-[acceptance and rollback](releases/README.md#november-4-staging-monitor-history-hold).
+Additional monitoring preparation is in draft PR #46. Its separately approved
+staging Worker/SQL/Edge reporting path is enabled and verified at `6632592` after
+the workerd transport correction passed all four CI jobs and security. See the
+[acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
 No employee/mobile/UI changes from that PR are deployed. The default-off Worker writer now
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
@@ -40,11 +40,13 @@ account showed 0/1 included Uptime Monitors used and $0 additional spend on Nove
 the owner approved that staging monitor, its scoped read credential and one labelled
 failure/recovery email test to the owner on November 4, after CI and staging backend
 checks pass. No extra spend or production release is approved. No independent
-runner, schedule or alert destination is configured or qualified. All four checks
-and security passed at `e1069cb`; hosted acceptance then exposed workerd rejecting
-`redirect: 'error'`. The correction uses manual redirects with 204-only acceptance;
-a real-workerd synthetic test covers success, redirect rejection and isolated failure
-and is required in CI. Corrected exact-head CI and hosted acceptance remain gates.
+runner is enabled or delivery-qualified. A monitor-specific owner email alert is
+saved in Sentry; the monitor draft still needs its protected read key, creation
+and the approved failure/recovery test. Natural staging observations advanced
+without manual collection; invalid credentials/methods were rejected and existing
+database contracts, ten Edge code hashes and 33 secret digests were preserved.
+Manual redirects retain 204-only acceptance; the real-workerd regression is required
+in CI. This is staging backend acceptance, not complete health or alert delivery.
 
 Mobile counters cover submission/upload/receipt/feed phases and fixed profile,
 Doji, feed, social and economy read attempts. They are memory-only, account-fenced,
