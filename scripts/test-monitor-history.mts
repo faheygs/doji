@@ -79,14 +79,19 @@ test('Worker reporting denies mixed environment and preserves original response 
     for (const patch of [{ MONITOR_HISTORY_ENABLED: undefined }, { DOJI_ENVIRONMENT: undefined }, { SUPABASE_URL: 'https://tvixsmqxotuvyjqzmjla.supabase.co' }, { OUTBOX_RELAY_SECRET: '' }])
       assert.equal(await reportMonitorObservation({ ...env, ...patch }, observation), false);
     assert.equal(await reportMonitorObservation(env, { ...observation, id: 'bad' }), false);
-    for (const status of [204, 409, 401, 503]) {
-      let calls = 0;
+    for (const status of [200, 204, 301, 302, 303, 307, 308, 409, 401, 503]) {
+      const calls: { url: Parameters<typeof fetch>[0]; init?: RequestInit }[] = [];
       globalThis.fetch = async (url, init) => {
-        calls++; assert.equal(url, `${config.supabaseUrl}/functions/v1/operational-health/monitor-observation`);
-        assert.equal(init?.redirect, 'error'); assert.equal(init?.body, JSON.stringify(observation));
-        return new Response(null, { status });
+        calls.push({ url, init });
+        return new Response(null, { status, headers: { location: 'https://forbidden.invalid/' } });
       };
-      assert.equal(await reportMonitorObservation(env, observation), status === 204); assert.equal(calls, 1);
+      assert.equal(await reportMonitorObservation(env, observation), status === 204);
+      // Assert outside fetch so the reporter's failure isolation cannot swallow a test failure.
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0]?.url, `${config.supabaseUrl}/functions/v1/operational-health/monitor-observation`);
+      assert.equal(calls[0]?.init?.redirect, 'manual');
+      assert.equal(calls[0]?.init?.body, JSON.stringify(observation));
+      assert.equal(new Headers(calls[0]?.init?.headers).get('x-outbox-secret'), config.writeSecret);
     }
     globalThis.fetch = async () => { throw Error('private upstream detail'); };
     assert.equal(await reportMonitorObservation(env, observation), false);
