@@ -51,29 +51,30 @@ current consoles before deciding availability, review state or enforcement.
 | Employee/business login and authenticator MFA | Separate WorkOS realms plus Doji's portal runtime | Current integration. Doji owns portal presentation, approval, permissions and session enforcement; WorkOS identity alone does not grant workspace access. |
 | Public/admin/business websites | Cloudflare Pages (`doji-site`, `doji-admin`, `doji-business`) | Separate release artifacts. Vite/Next are build frameworks, not separate hosting vendors; the public Next site is a static export. |
 | DNS, abuse protection and server coordination | Cloudflare DNS, Turnstile, Workers and Durable Objects | Separate Cloudflare products with separate responsibilities. One-shot alarms own challenge transitions; push delivery does not. |
-| Connected-client updates | Ably | Identifier hints trigger authorized reads; Ably is not database truth. Staging staff workflows use isolated app `eVKl2g`; health broadcasts were disabled November 3 in favor of cached reads. Production health feed and business realtime remain gated. |
+| Connected-client updates | Ably | Identifier hints trigger authorized reads; Ably is not database truth. Staging staff workflows use isolated app `eVKl2g`; health broadcasts are disabled in favor of cached reads in both environments. Business realtime remains gated. |
 | Background phone notifications | Apple APNs and Firebase Cloud Messaging (FCM) | Primary native transports from the committed outbox. Expo push is only a bounded older-client fallback; acceptance by a provider is not proof the phone displayed an alert. |
 | Build and distribute the native app | Expo/EAS, Apple Developer/App Store Connect, Google Play | EAS builds/signs/submits approved artifacts; Apple/Google own store review and distribution. A Git merge does not update installed apps. |
 | Errors and diagnostics | Sentry | App/Worker reporting and source maps; bounded Sentry reads inform portal health. Not a complete uptime monitor or proof every user action succeeded. |
 | Workflow counts and scheduler retention | Existing Supabase Postgres/Edge; no new vendor | `workflow_health_v1` and `_shared/workflow-health.ts`; exact environment binding. Staging observations and hosted/local reads verified; staging pruning disabled after acceptance. Production observations, employee read and 30/90-day scheduler retention enabled October 31 within existing capacity. Flags live in protected Supabase Edge bindings/private database settings; employee packages explicitly enable `workflowHealthEnabled` using existing restricted portal credentials. Local aggregator remains staging-only; no browser keys. Fixed hourly slots/latest receipts, not full user-action analytics. [Production acceptance and retaining rollback](releases/README.md#october-31-backend-monitoring-and-retention); [staging qualification](releases/STAGING_DATABASE_BASELINE_2026-10-14.md#october-30-workflow-health-and-maintenance). |
 | Application email | Resend, dedicated Cloudflare safety sender, WorkOS and Supabase Auth mail paths | Different message families and credentials; see the routing table below. Business automatic application-mail capture/sending/wakeup remain off in the last acceptance record. |
 
-The cached admin-health collector and authorized reads are enabled in staging;
-production remains gated.
+The cached admin-health collector and authorized hosted reads are enabled in staging
+and production; health broadcasts remain disabled.
 It reuses Supabase's existing operational check and private single-row
 storage; no new vendor, keys or job. Collector environment/enable flags belong in
 protected Edge configuration; project/enable settings are database-owner managed.
 The staging development, public UI and hosted employee read gates are enabled;
 hosted sign-in, automatic updates and browser-offline recovery passed after the
 employee SQL-routing correction.
-Production defaults remain off. The
-summary/detail reads reuse restricted portal SQL credentials and add no browser secrets.
+Runtime defaults remain off; deployed production bindings explicitly enable the cache.
+Summary/detail reads reuse restricted portal SQL credentials and add no browser secrets.
 Visible Operations reconciles cached delivery/workflow data and uses the existing
 per-runtime Sentry cache (60-second success TTL, bounded failure backoff), with the
 existing protected monitoring credential. It does not add background Sentry collection.
-Staging capacity was verified within existing allowances; hosted acceptance is
-tracked in the release receipt. A separate production release is required; rollback disables reads
-and capture while retaining observations. No additional spending is approved.
+Both environments were qualified within existing capacity; see the
+[production receipt](releases/README.md#november-3-production-cached-health).
+Rollback disables reads and capture while retaining observations.
+No additional spending is approved.
 
 ## Development, testing and repository services
 

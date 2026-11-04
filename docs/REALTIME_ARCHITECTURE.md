@@ -267,7 +267,7 @@ only the typed receipts describe provider outcomes.
 The monitor retains only its latest issue/check receipts, not an incident history.
 See current state for qualification and deployment status.
 
-The staging cached-health replacement uses the existing server check, not a new
+The cached-health replacement uses the existing server check, not a new
 job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact
 `EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT`/Supabase project pair plus an independently
 enabled private SQL setting. Its two-second best-effort sidecar stores a single
@@ -281,9 +281,9 @@ The employee HTTP/developer bridges serve fixed cached summary/detail reads,
 reauthorizing before and after reads. Hosted access retains MFA; local access uses
 the existing staging-only developer/persona grant, never fabricated MFA. The public
 and server `healthSnapshotEnabled` gates default off, as does the development
-`ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` binding. Staging collection/local reads
-and hosted reads are enabled; hosted acceptance is tracked in current state.
-Production remains gated. When enabled, portal-wide
+`ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED` binding. Collection and hosted reads
+are enabled in staging and production; local reads remain staging-only. Hosted
+acceptance is tracked in current state. When enabled, portal-wide
 status reads once per visible/online minute and reconciles on return, without
 renewing idle sessions. Source age—not successful HTTP—determines freshness.
 Only mounted Operations queries reconcile after a successful summary read; hidden/
