@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated November 4, 2026. This separates source, recorded deployments and owner
+Updated November 5, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -18,8 +18,16 @@ staging Worker/SQL/Edge reporting path is enabled and verified at `6632592` afte
 the workerd transport correction passed all four CI jobs and security. See the
 [acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
 Staging employee/development read bridges and runtimes are installed and verified;
-their history/device-read flags are enabled. Mobile capture remains off and its
-ingestion endpoint is not deployed. PR #47's safe release-stage diagnostics merged
+their history/device-read flags are enabled. Mobile capture remains off. Its staging
+ingestion endpoint is deployed and disabled after hosted real-Auth qualification.
+Two synthetic accounts exercised all 60 platform/category pairs, identical replay,
+rate limiting and unauthorized/malformed rejection. The bounded server projection
+matched those counts. Temporary Email sign-in and Edge/SQL capture were restored off;
+public signup/anonymous sign-in stayed off. Accounts and synthetic counts were removed,
+with original identities/contracts and unrelated code/secret digests verified unchanged.
+This is endpoint acceptance, not a physical-device or enabled-count portal check; see the
+[ingestion receipt](releases/README.md#november-5-staging-mobile-ingestion-qualification).
+PR #47's safe release-stage diagnostics merged
 as `8249743`; main CI and automatic staging run `41963922156` passed. Exact package,
 public identity and rollback receipt matched, and signed-in timestamps advanced
 naturally. This clears the current staging release gate without establishing the
@@ -53,9 +61,13 @@ shows no added spend, with the temporary credit ending November 28. Recheck that
 entitlement before expiry; no paid replacement is authorized. The approved
 assertion-only drills recovered automatically and owner-only alert `6292687`
 recorded four triggers. Gmail verification found only recovery notices at 18:51
-and 21:11 Mountain, one per drill; failure-email delivery remains unqualified.
-The approved support follow-up requests delivery/suppression traces. No additional
-test sends are approved. The staging read key was rotated and the old key rejected.
+and 21:11 Mountain, one per drill. Sentry support confirmed on November 5 that both
+failure emails were queued, then intentionally filtered after recovery before
+provider handoff. The owner accepted this designed behavior and closed the
+investigation; no threshold changes or further drills are required. Short incidents
+can therefore have retained history and a recovery email without a failure email.
+See the [support closeout](releases/README.md#november-5-sentry-notification-closeout).
+The staging read key was rotated and the old key rejected.
 Production changes and extra spending remain excluded. The separately approved
 Worker reporting path is deployed and natural staging observations advanced
 without manual collection; invalid credentials/methods were rejected and existing
@@ -203,7 +215,7 @@ while submission/feed reads succeeded; it does not establish the older Android
 | Surface | Recorded state | Boundary |
 | --- | --- | --- |
 | Member app | Owner reports iOS 1.0.10 and Android 1.0.11 (31) in use; Android signup retry succeeded | Older 1.0.9 / pending-1.0.10 records are historical, not current store status |
-| Mobile source | Expo 57.0.31 and alert-recovery source merged; 1.0.12 Android 32 / iOS 106 built October 25 | Tester/store availability and device acceptance are separate |
+| Mobile source | Expo 57.0.32 patch alignment in source; historical alert-recovery builds recorded above | No new mobile artifact or device qualification from the dependency update |
 | Update policy | Owner requested Android 1.0.11 / iOS 1.0.10 minimums | Live policy and store availability were not rechecked in this admin release; do not replay October 7 enforcement |
 | Admin production | React/Vite/MUI, employee WorkOS + MFA; sign-out recovery recorded as runtime v24 | Member Supabase Auth and mobile sessions are separate |
 | Admin staging | Same frontend; shared employee identity, separate WorkOS application, database, sessions and grants | Hosted login/MFA and representative workflows verified; local impersonation is not shipped to hosted sites |
@@ -400,11 +412,12 @@ Production dependency preflight found separate tooling blockers. The tested
 security patch merged as `510a9ee`; all four PR/main quality jobs passed and
 automatic staging run `41127321420` succeeded. It pins Wrangler 4.156.0 (clean audit), updates the URI decoder to
 0.5.1 with a distinct-malformed-run regression, and patches supported root
-dependencies without changing Expo/React Native versions. Expo CLI 57.0.32 still
-requires Zod 3.25.76; the published fix is Zod 4.6.6+, with no compatible v3
-release. Its three transitive high findings remain unresolved; do not force a
-major override or downgrade Expo to make the audit green. Production qualification
-and native acceptance remain separate from these source patches.
+dependencies without changing Expo/React Native versions. The November 5 Expo
+57.0.32 alignment includes CLI 57.0.33, which removes its Zod production dependency;
+the fresh root audit reports zero high/critical findings, with nine moderate and
+ten low findings remaining. No forced override or downgrade was used. See the
+[patch record](releases/README.md#november-5-expo-compatibility-alignment).
+Production qualification and native acceptance remain separate from source patches.
 
 | Before doing this | Required evidence/approval |
 | --- | --- |

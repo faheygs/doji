@@ -5,6 +5,109 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 5 Expo compatibility alignment
+
+PR #52's application job stopped at Expo Doctor: nine direct packages were one
+patch behind the SDK's expected versions. The source update aligns Expo 57.0.32,
+Metro runtime 57.0.18, Constants 57.0.23, Dev Client 57.0.21, Image Manipulator
+57.0.22, Image Picker 57.0.21, Notifications 57.0.25, Router 57.0.30 and Splash
+Screen 57.0.11, with their npm-resolved supporting dependencies. React/React Native,
+web and infrastructure manifests/lockfiles are unchanged; no doctor exclusion,
+coverage reduction, forced override or blanket audit fix was added.
+
+The Android passive diagnostics guard now pins 57.0.32 after reviewing its fetch
+module: normalized SHA-256 remains
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`, identical
+to 57.0.31. The exact hash, single-observer and unknown-version rejection remain.
+The owner-approved existing calendar-test correction checks local midnight/civil
+days plus timezone-offset elapsed time, with spring/fall DST fixtures. It changes
+no application timing code; a local day need not be exactly 24 elapsed hours.
+
+Reviewed upstream notes include [Expo](https://github.com/expo/expo/blob/sdk-57/packages/expo/CHANGELOG.md),
+[Router](https://github.com/expo/expo/blob/sdk-57/packages/expo-router/CHANGELOG.md),
+[Notifications](https://github.com/expo/expo/blob/sdk-57/packages/expo-notifications/CHANGELOG.md)
+and [CLI](https://github.com/expo/expo/blob/sdk-57/packages/%40expo/cli/CHANGELOG.md).
+CLI 57.0.33 removes its Zod production dependency. Fresh root audit: zero high or
+critical findings; nine moderate and ten low findings remain. Expo Doctor passes
+21/21 checks and `expo install --check` reports aligned dependencies.
+Isolated local validation passed full root typechecking/lint/size/hygiene, 268 Jest
+suites / 5,023 tests, 335 web tests, web builds/artifact budgets and ten release
+policy tests. Calendar fixtures passed in Denver and UTC. Windows initially denied
+a generated Next.js directory; the unchanged build passed with filesystem permission.
+Reverting the paired manifest/lockfile and diagnostics version pin restores the
+previous source dependency graph. There is no native artifact to roll back: no
+mobile build, OTA update, store submission or production promotion accompanies this change.
+Root dependency changes qualify for the existing automatic admin-staging workflow;
+exact-head CI and release receipts remain separate from local checks.
+
+## November 5 Sentry notification closeout
+
+Sentry support (Igor) confirmed both November 4 failure notifications entered its
+queue, then were intentionally filtered because the issue had resolved before
+queue processing. Neither reached the mail provider; this was not recipient-side
+suppression. Recovery emails use a separate path and both arrived.
+
+Support timestamps below are November 4 PST (Mountain is one hour later):
+
+| Drill | Issue created/regressed | Failure queued | Resolved | Delivery skipped |
+| --- | --- | --- | --- | --- |
+| First | 17:50:48 | 17:51:40 | 17:51:48 | 17:55:07 |
+| Second | 20:09:49 | 20:10:17 | 20:11:49 | 20:15:22 |
+
+The owner accepted detection/recovery as working as designed and closed the
+investigation. No recovery-tolerance change or additional drill is required.
+This closes the previously unexplained missing-email result, not a claim that
+failure emails arrived or that every short incident generates one. Retained
+incident history remains evidence. No production rollout, mobile enablement,
+paid capacity or further sends are authorized by this closeout.
+
+## November 5 staging mobile ingestion qualification
+
+PR #50 merged as `2872e185c2a3ddb2431d8f42c67f88c0843c69f9`; main quality
+`41978375875` passed all four jobs. Staging workflow `41980395506` correctly skipped
+Pages packaging/deployment. The separately approved single-function upload installed
+`mobile-workflow-report` disabled at 06:32 UTC November 5 (November 4 Mountain).
+Both downloaded files matched the isolated package byte-for-byte; handler SHA-256
+is `3e7e16e8f9f440f5bd0beb25b94393e9b71b3ae7a7b05ef0aa960c2bbac480c9`.
+The existing ingestion SQL function bodies/grants matched reviewed source.
+The endpoint rejects disabled requests with HTTP 404. No SQL definitions, Worker,
+Pages, production or mobile artifact were deployed.
+
+Hosted qualification stopped at password sign-in for its first temporary synthetic
+Auth account, before any report submission. The Supabase UI confirmed Email sign-in
+disabled, public signup disabled and anonymous sign-in disabled. No auth setting was
+changed or bypassed. The temporary account was removed; baseline identity/profile,
+function/grant/policy fingerprints and empty counters were restored and verified.
+Both Edge and SQL capture gates remain off. Ten unrelated function code hashes and
+all prior secret digests are unchanged; secret updates refresh configuration metadata,
+not unrelated code. This first attempt did not qualify hosted ingestion.
+
+The owner separately approved temporary staging Email sign-in for two synthetic
+accounts. On November 5 at 15:44 UTC (08:44 Mountain), genuine Supabase password
+sessions submitted iOS and Android batches: HTTP 204 for both, all 60 fixed
+platform/category pairs counted once in the bounded server projection. Identical
+replay returned 204 without incrementing counts; a new batch inside the admission
+window returned 429. Missing/unverified bearers returned 401, wrong method 405,
+injected actor fields 400 and disabled SQL capture 503. Every response was empty
+and no-store. No email, member command or mobile build was used.
+
+Both Edge/SQL capture gates were restored false. The two exact synthetic accounts
+were removed; their 60 count rows and two admission slots were exported privately,
+matched under a bounded lock and removed. Baseline identities/profiles, existing
+function/grant/policy hashes, prior secret digests and ten unrelated code hashes
+matched again. Supabase UI confirmed Email provider disabled after restoration;
+public signup and anonymous sign-in stayed off, email confirmation stayed on.
+The endpoint is qualified, not continuously enabled. Physical-device capture,
+the hosted enabled-count display and production release remain separate gates.
+
+Fresh staging Free capacity: 7,927/500,000 Edge invocations, 0.044/0.5 GB database,
+0.08/5 GB egress, 0.406/1 GB logs, no overage, CPU 3%, 11/60 connections.
+Private artifact, baseline, readback, hold and qualification receipts are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`. Rollback keeps the Edge reporting
+flag and private SQL capture false, retaining evidence; there was no prior endpoint.
+No persistent staging member sign-in, public signup, real email, production or
+mobile-build authorization is implied by this completed test.
+
 ## November 4 staging Sentry history
 
 PR #47 merged as `824974368816f55ef58111ad0bc60fbdae6de3ab`; main quality run
@@ -54,9 +157,10 @@ verification found only two resolved notices, at 18:51 and 21:11 Mountain—one 
 drill, not a failure/recovery pair. Issue Alerts/email are enabled, the exact owner
 recipient and project routing are correct, and the rule has no event filter or
 throttling. The owner-approved support reply sent at 21:33 requests failure-send,
-suppression or receiving-server rejection evidence. No root cause or failure-mail
-delivery is established; independent alerting is not production-qualified. No
-further test sends are authorized by this record.
+suppression or receiving-server rejection evidence. At that point the cause was
+unknown; the [November 5 support closeout](#november-5-sentry-notification-closeout)
+records the explanation and owner acceptance. This staging record is not a
+production release or authorization for further test sends.
 
 ## November 4 staging evidence reads and monitor
 
@@ -111,9 +215,10 @@ then restored its original 200–299 acceptance. Test issue `DOJI-STAGING-2`
 initial failure email was not found in the conversation or Spam. Read-only checks
 showed personal Issue Alerts on with Email delivery and no project override; the
 rule targets Gavin on every trigger with new/resolved conditions and no event
-exclusion. Sentry delivery/suppression evidence is still needed; trigger history
-is not an inbox receipt. At that point no second drill was approved; the later
-separate approval and results are recorded above.
+exclusion. Delivery/suppression evidence was pending at that point; the
+[November 5 support closeout](#november-5-sentry-notification-closeout) resolves the
+investigation. Trigger history is not an inbox receipt. No second drill was then
+approved; the later separate approval and results are recorded above.
 This did not interrupt Doji or establish complete platform-health coverage.
 
 ## November 4 staging monitor reporting

@@ -33,8 +33,12 @@ $0 additional spend and no payment method. The gifted credit ends November 28;
 verify the included seat works before expiry, without authorizing paid capacity.
 Owner-only alert `6292687` recorded four triggers across two separately approved
 assertion-failure/recovery drills. Both recovery emails arrived; neither failure
-email was found in Gmail, including Spam and Trash. A support delivery trace is
-pending; trigger counts are not delivery receipts. No further test sends are approved.
+email was found in Gmail, including Spam and Trash. Sentry support confirmed both
+were queued but filtered after recovery before mail-provider handoff. The owner
+accepted this designed behavior on November 5; no threshold change or additional
+drill is required. Short incidents may not send failure emails; retained incident
+history remains distinct from inbox delivery. See the
+[support closeout](releases/README.md#november-5-sentry-notification-closeout).
 Production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
@@ -74,8 +78,19 @@ query timer is added. Staging read bridges and runtime flags are enabled; bounde
 synthetic SQL acceptance rolled back all fixtures. The newer `8249743` staging
 release passed package/receipt and hosted verification; the historical failed
 run's cause remains unknown. See the current staging receipt above.
-Mobile capture remains off, ingestion is not deployed and binary release remains
-gated. Rollback disables reads/restores retained runtimes and preserves counters.
+Mobile capture and binary release remain gated. The standalone staging ingestion
+endpoint is deployed at reviewed source `2872e18` and disabled after hosted qualification.
+The separately approved temporary Email provider allowed two synthetic real-Auth
+accounts to exercise both platform batches, replay/rate/authorization checks and the
+bounded server projection. Email sign-in and both capture gates were restored off;
+public signup/anonymous sign-in stayed off. The accounts and synthetic counts were
+removed; original contracts/identities and zero counters were verified.
+Existing secret digests and ten unrelated function code hashes are unchanged.
+The new non-secret `MOBILE_WORKFLOW_REPORTING_ENABLED=false` gate is in protected
+staging Edge configuration. Private artifact, baseline, hold and acceptance evidence are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`, outside Git. Rollback keeps Edge/SQL
+capture disabled and retains the installed endpoint/evidence; no prior endpoint existed.
+See the [capacity and qualification receipt](releases/README.md#november-5-staging-mobile-ingestion-qualification).
 
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly

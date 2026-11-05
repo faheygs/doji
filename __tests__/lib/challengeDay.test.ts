@@ -8,6 +8,26 @@ import {
   FEED_HISTORY_VISIBLE_DAYS,
 } from '../../lib/challengeDay';
 
+function expectCalendarDays(startIso: string, endIso: string, days: number) {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  expect([
+    start.getHours(),
+    start.getMinutes(),
+    start.getSeconds(),
+    start.getMilliseconds(),
+  ]).toEqual([0, 0, 0, 0]);
+  expect([end.getHours(), end.getMinutes(), end.getSeconds(), end.getMilliseconds()]).toEqual([
+    0, 0, 0, 0,
+  ]);
+  const civilDay = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  expect(civilDay(end) - civilDay(start)).toBe(days * 86400000);
+  // Elapsed time differs from calendar time across daylight-saving transitions.
+  expect(end.getTime() - start.getTime()).toBe(
+    days * 86400000 + (end.getTimezoneOffset() - start.getTimezoneOffset()) * 60000,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // localDateKeyFromDate
 // ---------------------------------------------------------------------------
@@ -62,10 +82,9 @@ describe('todayFiresAtWindow', () => {
     expect(new Date(start).getTime()).toBeLessThan(new Date(end).getTime());
   });
 
-  it('window spans exactly 24 hours', () => {
+  it('window spans one local calendar day', () => {
     const { start, end } = todayFiresAtWindow();
-    const diffMs = new Date(end).getTime() - new Date(start).getTime();
-    expect(diffMs).toBe(24 * 60 * 60 * 1000);
+    expectCalendarDays(start, end, 1);
   });
 
   it('now is within the window', () => {
@@ -93,11 +112,10 @@ describe('calendarDayWindow', () => {
     expect(yesterdayEnd).toBe(todayStart);
   });
 
-  it('each window spans exactly 24 hours', () => {
+  it('each window spans one local calendar day', () => {
     for (let i = 0; i < 7; i++) {
       const { start, end } = calendarDayWindow(i);
-      const diffMs = new Date(end).getTime() - new Date(start).getTime();
-      expect(diffMs).toBe(24 * 60 * 60 * 1000);
+      expectCalendarDays(start, end, 1);
     }
   });
 });
@@ -108,8 +126,7 @@ describe('calendarDayWindow', () => {
 describe('pastSevenDaysRange', () => {
   it('spans FEED_HISTORY_VISIBLE_DAYS days', () => {
     const { start, end } = pastSevenDaysRange();
-    const diffMs = new Date(end).getTime() - new Date(start).getTime();
-    expect(diffMs).toBe(FEED_HISTORY_VISIBLE_DAYS * 24 * 60 * 60 * 1000);
+    expectCalendarDays(start, end, FEED_HISTORY_VISIBLE_DAYS);
   });
 
   it('end is after start', () => {
@@ -122,6 +139,26 @@ describe('pastSevenDaysRange', () => {
     const now = Date.now();
     expect(now).toBeGreaterThanOrEqual(new Date(start).getTime());
     expect(now).toBeLessThan(new Date(end).getTime());
+  });
+});
+
+describe('calendar boundaries across daylight-saving dates', () => {
+  afterEach(() => jest.useRealTimers());
+  test.each([
+    [2026, 2, 8],
+    [2026, 10, 1],
+    [2026, 5, 15],
+  ])('keeps local midnight boundaries for %i-%i-%i', (year, month, day) => {
+    jest.useFakeTimers().setSystemTime(new Date(year, month, day, 12));
+    const today = todayFiresAtWindow();
+    expectCalendarDays(today.start, today.end, 1);
+    const history = pastSevenDaysRange();
+    expectCalendarDays(history.start, history.end, FEED_HISTORY_VISIBLE_DAYS);
+    for (let offset = 0; offset < FEED_HISTORY_VISIBLE_DAYS; offset++) {
+      const window = calendarDayWindow(offset);
+      expectCalendarDays(window.start, window.end, 1);
+      expect(calendarDayWindow(offset + 1).end).toBe(window.start);
+    }
   });
 });
 

@@ -27,9 +27,9 @@ terms/privacy are built separately with versioned URLs by
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.31 | Native toolchain and modules |
+| Expo | 57.0.32 | Native toolchain and modules |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.29 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.30 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |
@@ -75,7 +75,12 @@ adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
 `monitor-history.ts` render/project bounded history in the existing health read;
 evidence/coverage views share the deferred backend bundle. The separately approved
 Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
-mobile capture and ingestion remain off. The staging UI uploaded, but its workflow's
+mobile capture and ingestion remain off. The standalone staging ingestion endpoint
+is deployed disabled after real-Auth synthetic qualification of both platforms,
+all 60 categories, replay/rate/authorization fences and the server projection.
+Temporary sign-in/capture were restored off and test accounts/counts removed;
+mobile binaries and the hosted enabled-count display remain unqualified.
+The staging UI uploaded, but its workflow's
 post-deployment verification failed; the newer `8249743` staging run passed exact
 artifact/receipt and hosted acceptance. The original failure cause remains unknown.
 `scripts/admin-release-verification.mts` owns the exact post-upload readback checks
@@ -84,10 +89,11 @@ See the [staging receipt](releases/README.md#november-4-staging-evidence-reads-a
 `scripts/database/monitor-history.mts` and `test-employee-health-database.mts` test
 those contracts offline. `scripts/monitor-check.mts` is a one-shot external probe,
 not itself a configured runner or alert sender. Sentry monitor `10858429` supplies
-the staging independent check; both approved drills delivered recovery emails but
-failure-email delivery remains unverified. Retained history records the second
-drill's failure and recovery. All new gates default off; production read/reporting
-gates are unchanged.
+the staging independent check. Sentry confirmed queued failure emails were filtered
+after recovery, before provider handoff; the owner accepted this behavior and closed
+the investigation without more drills or threshold changes. Retained history records
+the second drill's failure and recovery. All new gates default off; production
+read/reporting gates are unchanged.
 `operational-health/sentry-monitor-history.ts` owns the staging-enabled, separately gated import
 of real Sentry checks into the existing watchdog observation RPC. Its shared
 `sentry-monitor-contract.ts` owns the fixed staging destination and strict projection;
