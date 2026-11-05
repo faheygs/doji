@@ -108,6 +108,12 @@ missing or conflicting configuration fails closed. No SQL, Worker, timer or
 alert-routing change is part of this importer.
 Auth outcomes, authoritative answer/reward evidence, poll readiness, storage
 inventory and phone-delivery evidence remain unfinished.
+A default-off, service-only `inspect_doji_readiness_v1` probe is now prepared for
+one exact occurrence: poll options, a live poll's shared card and server window
+consistency. Missing scheduling-time cards are expected, not failures. It performs
+no activation, repair or member write and has bounded option reads. Collector
+selection, cached portal presentation and hosted qualification are not connected
+yet; this preparation does not close the readiness coverage gap.
 These preparations do not establish complete health coverage. Production flags,
 mobile artifacts, services, spending and real sends remain unchanged.
 
