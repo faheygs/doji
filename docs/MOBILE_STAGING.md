@@ -47,12 +47,13 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 ## Configuration and credentials
 
 The `doji-staging` Firebase project is provisioned on Spark ($0/month), with
-Analytics and Gemini disabled. Its Android staging client is registered; the
-downloaded client file is retained outside Git under the owner's private
-`Doji/mobile-staging/2026-11-05` directory and installed in EAS `preview` with its
-project ID. Apple team `HUG35JPQGG` has registered `com.doit.challengeapp.staging`
+Analytics and Gemini disabled. Its Android development/staging clients are registered;
+their client files are retained outside Git under the owner's private
+`Doji/mobile-staging/2026-11-05` directory and byte-verified in EAS `development`/
+`preview` with the staging project ID. Firebase's multi-app download is reduced to
+the selected variant's single client before upload. Apple team `HUG35JPQGG` has registered `com.doit.challengeapp.staging`
 with Push Notifications capability; no certificate, profile or provider key was
-created. Development native identities, signing and delivery qualification remain pending.
+created. The Apple development identity, signing and delivery qualification remain pending.
 GitHub `mobile-staging` exists with `faheygs` as required reviewer and a `main`
 branch-only policy. No build job or credentials have been attached to that gate.
 

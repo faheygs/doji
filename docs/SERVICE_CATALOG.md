@@ -123,10 +123,10 @@ The app's bundle identifier and Android package are both `com.doit.challengeapp`
 Prepared development/staging variants append `.development`/`.staging`, reuse the
 existing EAS project with separate `development`/`preview` configuration, and select
 the existing staging Supabase, Worker, Ably and Sentry services. The separately
-approved Firebase staging project/Android client, Apple staging App ID under team
+approved Firebase staging project/Android clients, Apple staging App ID under team
 `HUG35JPQGG`, and GitHub main-only owner-approval environment now exist. EAS
-development/preview client values are verified staging-only; the Firebase file is
-installed in preview. Production values are preserved and its upload credential is
+development/preview client values are verified staging-only; each environment's
+Firebase file contains only its own app client. Production values are preserved and its upload credential is
 no longer shared with test environments. Native signing, a staging source-map upload
 token, protected build-runner credentials and member access remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in

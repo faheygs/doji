@@ -9,7 +9,7 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 Mobile staging configuration is now prepared in source, not built or enabled:
 distinct Development/Staging identities and schemes, staging-only binding checks,
 environment-aware Android diagnostics, and default-off staging push/reporting.
-Production app config is preserved. The isolated Firebase Spark Android client,
+Production app config is preserved. The isolated Firebase Spark Android clients,
 Apple staging App ID and main-only GitHub approval environment now exist. EAS
 development/preview client destinations were verified; production values remain
 unchanged. No build or provider credential was created. A read-only exact-main
