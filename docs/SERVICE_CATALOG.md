@@ -33,8 +33,12 @@ $0 additional spend and no payment method. The gifted credit ends November 28;
 verify the included seat works before expiry, without authorizing paid capacity.
 Owner-only alert `6292687` recorded four triggers across two separately approved
 assertion-failure/recovery drills. Both recovery emails arrived; neither failure
-email was found in Gmail, including Spam and Trash. A support delivery trace is
-pending; trigger counts are not delivery receipts. No further test sends are approved.
+email was found in Gmail, including Spam and Trash. Sentry support confirmed both
+were queued but filtered after recovery before mail-provider handoff. The owner
+accepted this designed behavior on November 5; no threshold change or additional
+drill is required. Short incidents may not send failure emails; retained incident
+history remains distinct from inbox delivery. See the
+[support closeout](releases/README.md#november-5-sentry-notification-closeout).
 Production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
