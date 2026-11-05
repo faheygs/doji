@@ -12,11 +12,22 @@ suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
 
-Additional monitoring preparation is in draft PR #46. Its separately approved
+Additional monitoring preparation merged in PR #46 as `6871182` after exact-head
+application, coverage, database, web-migration and security checks passed. Its separately approved
 staging Worker/SQL/Edge reporting path is enabled and verified at `6632592` after
 the workerd transport correction passed all four CI jobs and security. See the
 [acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
-No employee/mobile/UI changes from that PR are deployed. The default-off Worker writer now
+Staging employee/development read bridges and runtimes are installed and verified;
+their history/device-read flags are enabled. Mobile capture remains off and its
+ingestion endpoint is not deployed. Main CI passed; automatic Pages run `41953768497`
+uploaded `6871182` but failed post-deployment verification. Read-only package/public
+checks now pass with unchanged Cloudflare configuration, but the original failed
+assertion was suppressed by a generic error. Do not rerun or promote that failed
+workflow; release qualification remains blocked pending diagnosis. The prepared
+release-tool correction records fixed verification-step labels without exposing
+provider errors or weakening any source, configuration, authentication or rollback
+check. It adds no deployment retry and does not establish the original failure's cause.
+The default-off Worker writer now
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
 Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
@@ -37,17 +48,16 @@ Jest tests, 63 boundary suites, 845 browser checks; one browser check skipped),
 not isolated-commit CI or hosted acceptance. The one-shot `scripts/monitor-check.mts`
 probe uses a separate read-only secret and fails on stale/missing reports, bad
 clocks and transport failures. The HTTP endpoint now applies the same freshness
-policy, returning 503 for stale, missing, disabled or unhealthy evidence. Sentry's
-account showed 0/1 included Uptime Monitors used and $0 additional spend on November 3;
-the owner approved that staging monitor, its scoped read credential and one labelled
-failure/recovery email test to the owner on November 4, after CI and staging backend
-checks pass. No extra spend or production release is approved. No independent
-runner is enabled or delivery-qualified. Sentry monitor `10858429` is created with
-the scoped read key and owner-only email alert `6292687`; its authenticated test
-passed. Activation is blocked by Sentry's seat-budget error despite billing showing
-0/1 included Uptime Monitors and $0 additional spend. No plan/budget was changed;
-the monitor remains disabled and the failure/recovery alert test was not started.
-Resolve the account entitlement before enabling it. Natural staging observations advanced
+policy, returning 503 for stale, missing, disabled or unhealthy evidence. Sentry
+monitor `10858429` is now enabled for staging with natural authenticated HTTP 200
+checks. Support supplied a free seat while correcting its entitlement bug; billing
+shows no added spend, with the temporary credit ending November 28. Recheck that
+entitlement before expiry; no paid replacement is authorized. The approved
+assertion-only failure/recovery drill recovered automatically and owner-only alert
+`6292687` recorded two triggers. The owner confirmed the recovery email, but the
+initial failure email is unverified: this is not full delivery qualification.
+The staging read key was rotated and the old key rejected. No production change,
+additional test send or extra spending is approved. Natural staging observations advanced
 without manual collection; invalid credentials/methods were rejected and existing
 database contracts, ten Edge code hashes and 33 secret digests were preserved.
 Manual redirects retain 204-only acceptance; the real-workerd regression is required
@@ -65,7 +75,14 @@ shares existing health reconciliation, separates disabled/unavailable/empty/stal
 reads, and labels capped counts without inventing success rates or unique-user totals.
 `mobileWorkflowReadsEnabled` and the development read flag default off, independently
 of ingestion and binary gates. Synthetic endpoint, lifecycle and SQL/retaining-rollback
-tests cover preparation; latest isolated-commit CI and hosted acceptance remain pending.
+tests and exact-head CI passed. Staging SQL/read-runtime acceptance passed with
+synthetic fixtures rolled back, unchanged prior contracts and no residual fixture
+identities or count rows. Hosted incident timestamps advanced without refresh and
+the session persisted; Device reports correctly showed disabled capture. Sentry's
+external checks are not connected to the portal's independent-monitor history,
+which accurately shows no recorded observation. Release verification remains
+blocked as above; mobile capture,
+ingestion and binary release are still gated.
 Auth outcomes, authoritative answer/reward evidence, poll readiness, storage
 inventory and phone-delivery evidence remain unfinished.
 These preparations do not establish complete health coverage. Production flags,
