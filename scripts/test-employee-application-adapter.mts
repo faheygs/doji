@@ -143,12 +143,15 @@ test('each allowlisted command preserves one SQL call and arguments', async () =
   for (const [name, fields] of Object.entries(employeeOperations)) {
     let count = 0;
     const args = Object.fromEntries(fields.map((k) => [k, null]));
-    const a = createEmployeeApplicationAdapter(async (_role, _sql, p) => {
-      count++;
-      assert.equal(p[5], name);
-      assert.deepEqual(parse(p[6]), args);
-      return true;
-    });
+    const a = createEmployeeApplicationAdapter(
+      async (_role, _sql, p) => {
+        count++;
+        assert.equal(p[5], name);
+        assert.deepEqual(parse(p[6]), args);
+        return true;
+      },
+      { monitorHistoryEnabled: true, mobileWorkflowReadsEnabled: true },
+    );
     assert.equal(await a.command(actor, { name, args }, signal()), true);
     assert.equal(count, 1);
   }

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { newCommandId } from './idempotency';
 import { safeDiagnosticOperation } from './diagnosticOperations';
+import { SubmissionOutcomeCounts, workflowReadPhase } from './submissionOutcomeCounts';
 
 // Diagnostic correlation only: never reuse auth, push, advertising or hardware IDs.
 const INSTALLATION_KEY = '@doji/diagnostic-installation:v1';
@@ -25,6 +26,7 @@ let stateChangedAt = Date.now();
 let network: Network = { type: 'UNKNOWN', connected: 'unknown', reachable: 'unknown', at: 0 };
 let networkChanges = 0, lifecycleChanges = 0;
 let timeline: TimelineItem[] = [];
+const submissionCounts = new SubmissionOutcomeCounts();
 
 function record(category: string, data: Record<string, Scalar>) {
   if (!native()) return;
@@ -49,6 +51,7 @@ export function initializeDiagnosticInstallation(): Promise<void> {
 export function setDiagnosticActor(next: string | null): void {
   if (actor === next) return;
   actor = next; session = freshId(); sessionStarted = Date.now(); timeline = [];
+  submissionCounts.reset();
   record('session', { authenticated: next !== null });
 }
 
@@ -97,8 +100,20 @@ export function recordDiagnosticOutcome(operation: string, outcome: 'failed' | '
 /** Fixed workflow steps only. No member, occurrence, media path or answer is retained. */
 export function recordSubmissionStep(id: string, phase: 'upload' | 'submit' | 'receipt' | 'feed',
   outcome: 'started' | 'confirmed' | 'failed' | 'rendered', elapsedMs: number): void {
-  if (!validId(id) || !Number.isFinite(elapsedMs)) return;
+  if (!native() || !validId(id) || !Number.isFinite(elapsedMs)) return;
+  submissionCounts.record(phase, outcome === 'failed' ? 'request_failed' : outcome, Date.now());
   record('submission', { journey_id: id, phase, outcome, elapsed_ms: bounded(elapsedMs) });
+}
+/** Separate from Sentry context: aggregate transport/ingestion is not enabled. */
+export function submissionOutcomeSnapshot() { return submissionCounts.snapshot(Date.now()); }
+export function takeWorkflowOutcomeCounts() { return submissionCounts.drain(Date.now()); }
+export function recordAvatarUploadOutcome(outcome: 'started' | 'confirmed' | 'request_failed', capturedSession: unknown): void {
+  if (native() && diagnosticSessionIsCurrent(capturedSession)) submissionCounts.record('avatar_upload', outcome, Date.now());
+}
+export function recordWorkflowReadOutcome(operation: unknown, outcome: 'started' | 'confirmed' | 'request_failed', capturedSession: unknown): void {
+  if (!native() || !diagnosticSessionIsCurrent(capturedSession)) return;
+  const phase = workflowReadPhase(operation);
+  if (phase) submissionCounts.record(phase, outcome, Date.now());
 }
 export function mobileDiagnosticSnapshot(): Record<string, Scalar> {
   if (!native()) return {};

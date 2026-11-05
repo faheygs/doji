@@ -12,6 +12,50 @@ allowance, account membership or availability is guaranteed by this inventory;
 dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
+Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
+is an unscheduled one-shot probe for a separately approved external runner. Its
+environment-specific `MONITOR_CHECK_SECRET` belongs only in protected Edge
+and runner secrets, never mobile, Pages or Git. The key can read only a fixed
+heartbeat projection, not incidents or member data. Worker/Edge
+`MONITOR_HISTORY_ENABLED`, private SQL capture and employee `monitorHistoryEnabled`
+all default off. Local parity additionally requires staging-only
+`ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED` in protected Edge configuration and
+the permission-checked development SQL route. No browser key is introduced.
+The staging-only key is provisioned in protected staging Edge configuration;
+its recovery copy is ACL-restricted outside Git. The narrow staging Worker/SQL/Edge
+reporting path is enabled and verified at `6632592`; production and employee/mobile
+history gates remain off. See the [receipt and retaining rollback](releases/README.md#november-4-staging-monitor-reporting).
+Sentry monitor `10858429` is created in `doji-staging` with the scoped read key and
+passed its authenticated HTTP test. It remains disabled: enabling returned a
+seat-budget error although billing showed 0/1 included Uptime Monitors. No budget,
+payment or plan change was made. Account entitlement resolution and independent
+failure/recovery qualification remain pending. Its email alert `6292687` targets
+only the approved owner; no test alert was sent. Verify missing-run
+detection and retaining rollback before claiming alert delivery; no extra spending
+is approved. The November 4 read-only Sentry account check showed Developer plan, 0/1 included
+Uptime Monitors used and $0 additional spend. The owner approved using that included
+monitor for staging, a staging-only read credential and one labelled failure/recovery
+email test to faheygs@gmail.com after CI and staging backend checks pass. It is not
+enabled or delivery-qualified; production and extra spending remain excluded. The protected heartbeat
+endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
+monitor cannot mistake a working Edge route for a working collector.
+
+Prepared mobile workflow reporting uses existing Supabase only. Binary flags
+`EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED` and `_ENVIRONMENT` default off; they are
+not secrets. Edge `MOBILE_WORKFLOW_REPORTING_ENABLED`, exact `DOJI_ENVIRONMENT`
+and private SQL capture are independent gates. Project Auth verifies each member
+bearer; service credentials remain in protected Edge configuration. No raw user,
+answer, media, query or error payload enters counts. SQL retains at most 1,440 hourly
+aggregate rows and 65,536 salted admission slots; collisions/rate limits drop
+observations, never block member actions. Data is device-reported and incomplete.
+`buildMobileWorkflowStagingEdge` packages only this function with staging-only
+egress. Employee `mobileWorkflowReadsEnabled` and
+`ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED` independently gate the prepared
+Operations/MFA and staging-persona aggregate read/display integration; values remain
+in protected runtime configuration, never browser credentials. No new service or
+query timer is added. Capacity, hosted synthetic acceptance, read enablement and
+binary release remain gated; rollback removes read bridges and preserves counters.
+
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly
 called out below. Account administration belongs to the owner; engineering access

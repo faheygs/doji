@@ -16,6 +16,44 @@ export const stagingFunctions = Object.freeze([
   'send-admin-email',
 ]);
 
+// Mobile reporting is independently released, never part of the ordinary backend upload.
+export async function buildMobileWorkflowStagingEdge(output: string) {
+  const target = await reserveOutput(output);
+  const { build } = await import('../infra/doji-orchestrator/node_modules/esbuild/lib/main.js');
+  const result = await build({
+    absWorkingDir: resolve(import.meta.dirname, '..'),
+    entryPoints: ['supabase/functions/mobile-workflow-report/index.ts'],
+    bundle: true, format: 'esm', platform: 'neutral', target: 'esnext',
+    external: ['https://esm.sh/@supabase/supabase-js@2'], write: false, metafile: true,
+  });
+  assert.equal(result.outputFiles.length, 1);
+  const code = result.outputFiles[0]!.text;
+  const functions = join(target, 'supabase/functions/mobile-workflow-report');
+  await mkdir(functions, { recursive: true });
+  await writeFile(join(functions, 'handler.ts'), code, { flag: 'wx' });
+  await writeFile(join(functions, 'index.ts'), `const project = 'https://ohrcupagdoilkwhecict.supabase.co';
+if (Deno.env.get('DOJI_ENVIRONMENT') !== 'staging' || Deno.env.get('SUPABASE_URL') !== project)
+  throw Error('Staging telemetry bindings rejected');
+const upstream = globalThis.fetch;
+globalThis.fetch = (input, init) => {
+  const request = new Request(input, init), url = new URL(request.url);
+  if (url.origin !== project || url.username || url.password || url.search || url.hash
+    || !(request.method === 'GET' && url.pathname === '/auth/v1/user'
+      || request.method === 'POST' && url.pathname === '/rest/v1/rpc/record_mobile_workflow_counts_v1'))
+    throw Error('Staging telemetry destination rejected');
+  return upstream(request, { redirect: 'error' });
+};
+await import('./handler.ts');
+`, { flag: 'wx' });
+  await writeFile(join(target, 'supabase/config.toml'),
+    'project_id = "doji-staging-mobile-observations"\n[functions.mobile-workflow-report]\nverify_jwt = false\n', { flag: 'wx' });
+  await writeFile(join(target, 'manifest.json'), JSON.stringify({ projectRef: 'ohrcupagdoilkwhecict',
+    function: 'mobile-workflow-report', gates: 'disabled-until-qualified',
+    sha256: createHash('sha256').update(code).digest('hex'), inputs: Object.keys(result.metafile.inputs).sort(),
+  }, null, 2) + '\n', { flag: 'wx' });
+  return target;
+}
+
 // Separate artifact: ordinary backend packaging must not redeploy local impersonation.
 export async function buildAdminDevelopmentEdge(output: string) {
   const target = await reserveOutput(output);

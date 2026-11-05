@@ -16,6 +16,7 @@ import {
 } from './build-admin-development-sql.mts';
 import { errorOutput } from './database/contracts.mts';
 import { verifyDevelopmentHealthSnapshot } from './database/health-snapshot-development.mts';
+import { verifyDevelopmentMobileWorkflows } from './database/development-mobile-workflows.mts';
 
 assert.equal(process.argv.length, 2, 'No target overrides accepted');
 const room = createCleanRoom();
@@ -447,6 +448,33 @@ try {
   sql(source('supabase/overlays/admin_development_health_v1.rollback.sql'));
   assert.equal(call(id(5), 'get_admin_workflow_health_v1').code, '42501');
   verifyDevelopmentHealthSnapshot(sql, call, id);
+  verifyDevelopmentMobileWorkflows(sql, call, id);
+  sql(source('supabase/overlays/monitor_incident_history_v1.sql'));
+  sql(source('supabase/overlays/admin_development_monitor_history_v1.sql'));
+  assert.equal(call(id(5), 'get_admin_monitor_history_v1').result.enabled, false);
+  sql('update monitor_history_private.settings set enabled=true;');
+  sql(
+    "select public.record_monitor_observation_v1('worker',gen_random_uuid(),clock_timestamp(),'degraded','domain-outbox-delayed');",
+  );
+  assert.equal(call(id(5), 'get_admin_monitor_history_v1').result.incidents.length, 1);
+  assert.equal(call(id(5), 'get_admin_monitor_history_v1', { actor: id(1) }).code, '22023');
+  assert.throws(() => sql('select admin_development_private.monitor_history_v1();'));
+  sql(`update public.admin_employees set roles=array['moderator'] where id='${id(5)}';`);
+  assert.equal(call(id(5), 'get_admin_monitor_history_v1').code, '42501');
+  sql(`update public.admin_employees set roles=array['super_admin'] where id='${id(5)}';`);
+  sql(`update admin_development_private.credentials set enabled=false where id='${id(10)}';`);
+  assert.throws(() => call(id(5), 'get_admin_monitor_history_v1'));
+  sql(`update admin_development_private.credentials set enabled=true where id='${id(10)}';`);
+  sql(source('supabase/overlays/admin_development_monitor_history_v1.rollback.sql'));
+  assert.equal(call(id(5), 'get_admin_monitor_history_v1').code, '42501');
+  assert.equal(sql('select count(*) from monitor_history_private.incidents;'), '1');
+  // Restore only the owned disposable schema for the existing exact inverse checks.
+  sql(
+    'drop function public.record_monitor_observation_v1(text,uuid,timestamptz,text,text),public.get_monitor_incident_history_v1(bigint,integer),public.get_monitor_heartbeat_v1();drop schema monitor_history_private cascade;',
+  );
+  console.log(
+    'PASS: local monitor history permissions, revoked developer denial and evidence-retaining route rollback',
+  );
   // Disposable test-only schema: restore the exact baseline for subsequent inverse checks.
   sql(
     'drop function public.record_workflow_health_v1(text,text,text,integer,jsonb),public.run_scheduler_log_retention_v1(integer),public.get_workflow_health_v1();drop schema workflow_health_private cascade;',

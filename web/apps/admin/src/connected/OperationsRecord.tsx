@@ -6,9 +6,8 @@ import { useEmployeeHealth } from './useEmployeeHealth';
 import { OperationsHistory, OperationsIssues, healthColor, observation } from './OperationsTables';
 import { TrendChart } from '../operations/TrendChart';
 import { sentryReadProblem } from '@doji/portal-data/employee-health';
-import { OperationsSources } from './OperationsSources';
-const OperationsWorkflows = lazy(() =>
-  import('./OperationsWorkflows').then((module) => ({ default: module.OperationsWorkflows })),
+const OperationsEvidence = lazy(() =>
+  import('./OperationsWorkflows').then((module) => ({ default: module.OperationsEvidence })),
 );
 
 const sections = [
@@ -17,6 +16,8 @@ const sections = [
   'App issues',
   'Doji history',
   'Backend & cleanup',
+  'Monitor incidents',
+  'Device reports',
 ];
 export function OperationsRecord({ controller }: { controller: EmployeeSessionController }) {
   const [tab, setTab] = useState(0);
@@ -173,16 +174,6 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                   </Box>
                 )}
               </Stack>
-            ) : index === 1 ? (
-              <OperationsSources
-                data={data}
-                sentryProblem={sentryProblem}
-                failed={snapshot.isError}
-                loading={snapshot.isPending}
-                historyFailed={history.isError}
-                historyLoading={history.isPending}
-                historyCount={rows.length}
-              />
             ) : index === 2 ? (
               <OperationsIssues
                 data={data?.sentry.issues ?? []}
@@ -200,13 +191,14 @@ export function OperationsRecord({ controller }: { controller: EmployeeSessionCo
                 retry={() => void history.refetch({ cancelRefetch: false })}
               />
             ) : (
-              <Suspense
-                fallback={
-                  <TableFrame label="backend workflow readings" state="loading" footer={null} />
-                }
-              >
-                <OperationsWorkflows
-                  data={data?.workflows}
+              <Suspense fallback={<TableFrame label={section} state="loading" footer={null} />}>
+                <OperationsEvidence
+                  section={index}
+                  data={data}
+                  sentryProblem={sentryProblem}
+                  historyFailed={history.isError}
+                  historyLoading={history.isPending}
+                  historyCount={rows.length}
                   loading={snapshot.isPending}
                   failed={snapshot.isError}
                   retry={() => void snapshot.refetch({ cancelRefetch: false })}

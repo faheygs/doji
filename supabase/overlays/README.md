@@ -11,6 +11,26 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `mobile_workflow_counts_v1.sql` and its retaining rollback: default-off,
+  service-only ingestion/read of fixed device-reported counts. Bounded receipt-hour
+  aggregates and salted admission slots; no authoritative member/reward writes.
+  Synthetic replay, rate, permission, payload and retaining rollback checks:
+  `node scripts/database/mobile-workflow.mts`. No live or mobile enablement implied.
+  `employee_mobile_workflows_v1.sql` adds an Operations/MFA-only read;
+  `admin_development_mobile_workflows_v1.sql` adds the isolated staging-persona
+  equivalent. Their inverses remove only read bridges, retaining counts/admission.
+  Both are exercised by the employee-health and development database harnesses.
+- `monitor_incident_history_v1.sql` and its retaining rollback: local preparation,
+  capture disabled. Service-only, ordered monitor observations and keyset incident
+  history; superseding a family is not recovery. Fixed heartbeat projection excludes
+  incident details. `employee_monitor_history_v1.sql` adds the independently gated
+  Operations/MFA read; its inverse removes only that bridge and retains evidence.
+  `admin_development_monitor_history_v1.sql` and its inverse provide the exact
+  staging-realm-only, permission-checked developer route, retaining history/audit.
+  No producer, independent runner, deletion or alert sending is enabled. Offline
+  tests: `node scripts/database/monitor-history.mts` and
+  `node scripts/test-employee-health-database.mts` and
+  `node scripts/test-admin-development-database.mts`.
 - `../tests/` and `../../scripts/database/`: synthetic regression and
   source-only reconstruction checks.
 - `admin_development_employees_v2.sql` and its paired rollback: deployed staging-only

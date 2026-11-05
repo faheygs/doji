@@ -157,6 +157,15 @@ installation/session IDs, never names, credentials, raw bodies, full URLs or
 arbitrary private messages. Preserve grouping and event budgets. Android native
 hints/Test Lab markers are diagnostic, not identity or root-cause proof.
 Mutation fallback reports use allowlisted action names, never full keys or inputs.
+Next-build submission counters keep only a bounded, session-cleared 15-minute
+in-memory window of device-reported phase attempts and fixed workflow reads. Query
+retries produce one terminal read observation, fenced to the originating account.
+Optional reporting is separately default-off in the binary, Edge and private SQL.
+Foreground return can detach one batch per fifteen minutes; no handset polling,
+durable queue or automatic retry is added. Verified member authentication gates
+ingestion, but reported counts remain untrusted device evidence, not authoritative
+answers, rewards, sign-in measurements or a success rate. Missing reports remain
+unknown. Avatar upload acknowledgement does not mean profile save succeeded.
 Typed comment validation retains a fixed rejection reason in the bounded timeline,
 not an unexpected-error alert; unclassified errors must remain reportable.
 Recovery logs require a new confirmed registration acknowledgement, correlate the

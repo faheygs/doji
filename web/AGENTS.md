@@ -39,6 +39,15 @@ Do not pull root React 19.2 into web or install paid MUI packages without approv
   Keep unavailable/stale/limited coverage explicit. Staging and production use the
   bounded cache; health broadcasts are disabled. Staff workflow realtime is
   unchanged; business realtime remains gated.
+- Prepared monitor-history reads share health detail and reconciliation. Keep
+  source-time expiry, disabled/unavailable/empty distinctions, and superseded
+  versus recovered incidents explicit. Coverage/cleanup/history views share the
+  existing deferred backend bundle and unchanged size limits. This source is not
+  proof that capture or an independent watchdog has been enabled or qualified.
+- Prepared Device reports share health detail and the deferred evidence bundle.
+  Counts are incomplete device reports, not unique users, authoritative completions
+  or success rates. Keep receipt/read times and disabled/empty/unavailable/stale
+  states distinct; capped counts are lower bounds. No added query timer.
 - Browser preview/sample fixtures must not enter connected artifacts. No real
   email, moderation or approval action in visual tests. Hosted acceptance is
   separate from fixture tests and requires explicit scope.

@@ -40,6 +40,8 @@ export interface EmployeeRuntimeConfig extends Omit<
   healthEventsEnabled?: boolean;
   healthSnapshotEnabled?: boolean;
   workflowHealthEnabled?: boolean;
+  monitorHistoryEnabled?: boolean;
+  mobileWorkflowReadsEnabled?: boolean;
   announcementComposeEnabled?: boolean;
   historyReadsEnabled?: boolean;
 }
@@ -106,6 +108,8 @@ export function createEmployeeRuntime(
     identity: { clientId: policy.clientId, issuerClientId: policy.issuerClientId },
     announcementComposeEnabled: policy.announcementComposeEnabled === true,
     historyReadsEnabled: policy.historyReadsEnabled === true,
+    monitorHistoryEnabled: policy.monitorHistoryEnabled === true,
+    mobileWorkflowReadsEnabled: policy.mobileWorkflowReadsEnabled === true,
   });
   const application = createEmployeeResources(adapter, {
     staffWorkflowEnabled: policy.staffWorkflowEnabled === true,
@@ -120,6 +124,8 @@ export function createEmployeeRuntime(
       healthEventsEnabled: policy.healthEventsEnabled === true,
       workflowHealthEnabled: policy.workflowHealthEnabled === true,
       healthSnapshotEnabled: policy.healthSnapshotEnabled === true,
+      monitorHistoryEnabled: policy.monitorHistoryEnabled === true,
+      mobileWorkflowReadsEnabled: policy.mobileWorkflowReadsEnabled === true,
     }),
   });
   type Provider = ReturnType<typeof createWorkosEmployeeProvider>;

@@ -36,6 +36,8 @@ export async function installOperationsFixture(
     missingHistory = false;
   let snapshot: Omit<ReturnType<typeof healthFixture>, 'sentry'> & {
     workflows?: unknown;
+    monitor_history?: unknown;
+    mobile_workflows?: unknown;
     sentry: unknown;
     health_events_enabled?: boolean;
   } = healthFixture();
@@ -109,6 +111,12 @@ export async function installOperationsFixture(
     },
     workflows: (value: unknown) => {
       snapshot.workflows = value;
+    },
+    monitorHistory: (value: unknown) => {
+      snapshot.monitor_history = value;
+    },
+    mobileWorkflows: (value: unknown) => {
+      snapshot.mobile_workflows = value;
     },
     revoke: () => {
       allowed = false;

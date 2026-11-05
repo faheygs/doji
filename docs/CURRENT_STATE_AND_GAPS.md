@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated November 3, 2026. This separates source, recorded deployments and owner
+Updated November 4, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -11,6 +11,65 @@ acknowledgements and persisted notification attempts distinguish accepted,
 suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
 delivery. Uncertain sends retain their deduplication claim; there is no automatic
 resend.
+
+Additional monitoring preparation is in draft PR #46. Its separately approved
+staging Worker/SQL/Edge reporting path is enabled and verified at `6632592` after
+the workerd transport correction passed all four CI jobs and security. See the
+[acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
+No employee/mobile/UI changes from that PR are deployed. The default-off Worker writer now
+connects fixed observations to retained incident history through a protected Edge
+route; reporting never retries or changes alert admission. A separate employee
+Operations/MFA bridge returns the latest 25 incidents in cached-health detail when
+`monitorHistoryEnabled` is enabled. Its server boundary projects only fixed incident
+fields and rejects duplicate monitors, inconsistent outcomes and invalid timelines;
+disabled capture does not expose retained rows. The local staging-persona bridge and bounded
+Monitor incidents view are connected in source, with disabled/unavailable/stale
+states, source timestamps and superseded-versus-recovered outcomes. They reuse
+the existing health read/reconciliation, with no extra polling or provider calls.
+Synthetic SQL tests cover replay/order, permissions, transitions,
+bounded pages and retaining rollback, including the employee bridge after all 291
+migrations; local parity tests cover revoked credentials and retaining rollback.
+Browser tests cover pagination, permissions and in-place expiry without requests.
+Backend evidence/coverage tabs share the existing deferred bundle; package limits
+remain unchanged and pass. The prior history preparation passed all 17 coverage gates (4,956
+Jest tests, 63 boundary suites, 845 browser checks; one browser check skipped),
+331 web unit tests and 11 Operations browser checks. These are worktree results,
+not isolated-commit CI or hosted acceptance. The one-shot `scripts/monitor-check.mts`
+probe uses a separate read-only secret and fails on stale/missing reports, bad
+clocks and transport failures. The HTTP endpoint now applies the same freshness
+policy, returning 503 for stale, missing, disabled or unhealthy evidence. Sentry's
+account showed 0/1 included Uptime Monitors used and $0 additional spend on November 3;
+the owner approved that staging monitor, its scoped read credential and one labelled
+failure/recovery email test to the owner on November 4, after CI and staging backend
+checks pass. No extra spend or production release is approved. No independent
+runner is enabled or delivery-qualified. Sentry monitor `10858429` is created with
+the scoped read key and owner-only email alert `6292687`; its authenticated test
+passed. Activation is blocked by Sentry's seat-budget error despite billing showing
+0/1 included Uptime Monitors and $0 additional spend. No plan/budget was changed;
+the monitor remains disabled and the failure/recovery alert test was not started.
+Resolve the account entitlement before enabling it. Natural staging observations advanced
+without manual collection; invalid credentials/methods were rejected and existing
+database contracts, ten Edge code hashes and 33 secret digests were preserved.
+Manual redirects retain 204-only acceptance; the real-workerd regression is required
+in CI. This is staging backend acceptance, not complete health or alert delivery.
+
+Mobile counters cover submission/upload/receipt/feed phases and fixed profile,
+Doji, feed, social and economy read attempts. They are memory-only, account-fenced,
+capped and excluded from Sentry context; retries do not multiply read completions.
+Avatar upload outcomes and default-off foreground batch transport/ingestion are
+prepared. The independent mobile Edge package verifies the project member bearer;
+private SQL validates fixed counts, replay/admission fences and bounded hourly
+storage. The prepared Operations/MFA and staging-persona read bridges project at
+most 60 device categories across 24 receipt-hour buckets. The Device reports tab
+shares existing health reconciliation, separates disabled/unavailable/empty/stale
+reads, and labels capped counts without inventing success rates or unique-user totals.
+`mobileWorkflowReadsEnabled` and the development read flag default off, independently
+of ingestion and binary gates. Synthetic endpoint, lifecycle and SQL/retaining-rollback
+tests cover preparation; latest isolated-commit CI and hosted acceptance remain pending.
+Auth outcomes, authoritative answer/reward evidence, poll readiness, storage
+inventory and phone-delivery evidence remain unfinished.
+These preparations do not establish complete health coverage. Production flags,
+mobile artifacts, services, spending and real sends remain unchanged.
 
 Cached admin health and its employee-session correction are merged and deployed
 to staging through PRs #39/#40; required PR/main checks and automatic Pages releases

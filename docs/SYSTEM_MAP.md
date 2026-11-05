@@ -56,6 +56,29 @@ Do not upgrade packages merely to match a tutorial.
 Health presentation lives in `website/admin-portal/health-model.mts` and connected
 admin Operations components. `lib/submissionJourney.ts` links mobile submission
 steps in the existing diagnostic timeline; it is not an aggregate analytics service.
+`lib/submissionOutcomeCounts.ts` prepares bounded, memory-only submission and read
+observations. Default-off `MobileWorkflowReporting.tsx`/`mobileWorkflowReporter.ts`
+detach foreground batches; `contracts/mobileWorkflowTelemetry.ts` owns their fixed
+shared schema. The scoped contracts package declares ESM for strict Node/Edge and
+native tooling without adding dependencies. `mobile-workflow-report` verifies the
+member bearer; `mobile_workflow_counts_v1` owns private bounded device counts and
+admission, not authoritative completion/reward evidence. `mobile-workflow-read.mts`
+projects only fixed counts; the employee/development `mobile_workflows_v1` overlays
+and `employee-mobile-workflows.mts` enforce read authority. `OperationsMobile.tsx`
+shows device reports through existing health detail, not a new timer. The mobile
+reporter's standalone staging packager excludes other backend handlers. `apiQueryCache.ts` counts fixed read
+families with account fences. The `monitor_incident_history_v1` overlay,
+Worker `monitor-history.ts` and operational-health's same-named Edge adapter own
+ordered incident evidence. `employee_monitor_history_v1` and the employee runtime
+bridge own the restricted recent-history read. `admin_development_monitor_history_v1`
+adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
+`monitor-history.ts` render/project bounded history in the existing health read;
+evidence/coverage views share the deferred backend bundle. Only the separately approved
+Worker/SQL/Edge reporting path is enabled and verified in staging; employee/mobile/UI
+changes remain preparation. See the [staging receipt](releases/README.md#november-4-staging-monitor-reporting).
+`scripts/database/monitor-history.mts` and `test-employee-health-database.mts` test
+those contracts offline. `scripts/monitor-check.mts` is a one-shot external probe,
+not a configured independent monitor or alert sender. All new gates default off.
 Maintenance continuation is owned by `DataMaintenanceAlarm`,
 `supabase/functions/run-data-maintenance` and `_shared/maintenance-progress.ts`.
 Backend observations are in `_shared/workflow-health.ts`; bounded private

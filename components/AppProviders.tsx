@@ -7,6 +7,7 @@ import { queryClient } from '../lib/queryClient';
 import { ErrorBoundary } from './ErrorBoundary';
 import { QueryCachePersistence } from './QueryCachePersistence';
 import { QueryLifecycle } from './QueryLifecycle';
+import { MobileWorkflowReporting } from './MobileWorkflowReporting';
 import { NotificationCenterProvider } from '../contexts/NotificationCenterContext';
 import { KeyboardToolbarProvider } from '../contexts/KeyboardToolbarContext';
 
@@ -21,6 +22,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                 <KeyboardToolbarProvider>
                   <NotificationCenterProvider>
                     <QueryLifecycle />
+                    <MobileWorkflowReporting />
                     {children}
                   </NotificationCenterProvider>
                 </KeyboardToolbarProvider>
