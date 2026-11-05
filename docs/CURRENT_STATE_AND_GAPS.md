@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated November 4, 2026. This separates source, recorded deployments and owner
+Updated November 5, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -19,11 +19,14 @@ the workerd transport correction passed all four CI jobs and security. See the
 [acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
 Staging employee/development read bridges and runtimes are installed and verified;
 their history/device-read flags are enabled. Mobile capture remains off. Its staging
-ingestion endpoint is deployed but disabled; hosted qualification stopped at synthetic
-password sign-in, and the staging Email provider is disabled. The temporary account
-was removed and original identities/contracts, zero counters and unrelated code/secret
-digests were verified unchanged. Authentication configuration was not changed; see the
-[ingestion hold](releases/README.md#november-4-staging-mobile-ingestion-hold).
+ingestion endpoint is deployed and disabled after hosted real-Auth qualification.
+Two synthetic accounts exercised all 60 platform/category pairs, identical replay,
+rate limiting and unauthorized/malformed rejection. The bounded server projection
+matched those counts. Temporary Email sign-in and Edge/SQL capture were restored off;
+public signup/anonymous sign-in stayed off. Accounts and synthetic counts were removed,
+with original identities/contracts and unrelated code/secret digests verified unchanged.
+This is endpoint acceptance, not a physical-device or enabled-count portal check; see the
+[ingestion receipt](releases/README.md#november-5-staging-mobile-ingestion-qualification).
 PR #47's safe release-stage diagnostics merged
 as `8249743`; main CI and automatic staging run `41963922156` passed. Exact package,
 public identity and rollback receipt matched, and signed-in timestamps advanced

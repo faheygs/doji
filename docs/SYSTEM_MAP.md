@@ -76,8 +76,11 @@ adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
 evidence/coverage views share the deferred backend bundle. The separately approved
 Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
 mobile capture and ingestion remain off. The standalone staging ingestion endpoint
-is deployed disabled; real-Auth qualification is blocked by disabled staging email
-sign-in, not qualified by the passing synthetic local tests. The staging UI uploaded, but its workflow's
+is deployed disabled after real-Auth synthetic qualification of both platforms,
+all 60 categories, replay/rate/authorization fences and the server projection.
+Temporary sign-in/capture were restored off and test accounts/counts removed;
+mobile binaries and the hosted enabled-count display remain unqualified.
+The staging UI uploaded, but its workflow's
 post-deployment verification failed; the newer `8249743` staging run passed exact
 artifact/receipt and hosted acceptance. The original failure cause remains unknown.
 `scripts/admin-release-verification.mts` owns the exact post-upload readback checks

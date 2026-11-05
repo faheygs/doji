@@ -75,16 +75,18 @@ synthetic SQL acceptance rolled back all fixtures. The newer `8249743` staging
 release passed package/receipt and hosted verification; the historical failed
 run's cause remains unknown. See the current staging receipt above.
 Mobile capture and binary release remain gated. The standalone staging ingestion
-endpoint is deployed but disabled at reviewed source `2872e18`; hosted qualification
-stopped at synthetic password sign-in while the staging Email provider was disabled.
-No authentication setting was changed. Both capture gates are off, the temporary
-account was removed, and original contracts/identities and zero counters were verified.
+endpoint is deployed at reviewed source `2872e18` and disabled after hosted qualification.
+The separately approved temporary Email provider allowed two synthetic real-Auth
+accounts to exercise both platform batches, replay/rate/authorization checks and the
+bounded server projection. Email sign-in and both capture gates were restored off;
+public signup/anonymous sign-in stayed off. The accounts and synthetic counts were
+removed; original contracts/identities and zero counters were verified.
 Existing secret digests and ten unrelated function code hashes are unchanged.
 The new non-secret `MOBILE_WORKFLOW_REPORTING_ENABLED=false` gate is in protected
-staging Edge configuration. Private artifact, baseline and hold evidence are under
+staging Edge configuration. Private artifact, baseline, hold and acceptance evidence are under
 `Doji/staging-backend/2026-11-05-mobile-ingestion`, outside Git. Rollback keeps Edge/SQL
 capture disabled and retains the installed endpoint/evidence; no prior endpoint existed.
-See the [capacity and qualification hold](releases/README.md#november-4-staging-mobile-ingestion-hold).
+See the [capacity and qualification receipt](releases/README.md#november-5-staging-mobile-ingestion-qualification).
 
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly

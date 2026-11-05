@@ -5,7 +5,7 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
-## November 4 staging mobile ingestion hold
+## November 5 staging mobile ingestion qualification
 
 PR #50 merged as `2872e185c2a3ddb2431d8f42c67f88c0843c69f9`; main quality
 `41978375875` passed all four jobs. Staging workflow `41980395506` correctly skipped
@@ -24,15 +24,33 @@ changed or bypassed. The temporary account was removed; baseline identity/profil
 function/grant/policy fingerprints and empty counters were restored and verified.
 Both Edge and SQL capture gates remain off. Ten unrelated function code hashes and
 all prior secret digests are unchanged; secret updates refresh configuration metadata,
-not unrelated code. Hosted authentication/ingestion and portal counts remain unqualified.
+not unrelated code. This first attempt did not qualify hosted ingestion.
+
+The owner separately approved temporary staging Email sign-in for two synthetic
+accounts. On November 5 at 15:44 UTC (08:44 Mountain), genuine Supabase password
+sessions submitted iOS and Android batches: HTTP 204 for both, all 60 fixed
+platform/category pairs counted once in the bounded server projection. Identical
+replay returned 204 without incrementing counts; a new batch inside the admission
+window returned 429. Missing/unverified bearers returned 401, wrong method 405,
+injected actor fields 400 and disabled SQL capture 503. Every response was empty
+and no-store. No email, member command or mobile build was used.
+
+Both Edge/SQL capture gates were restored false. The two exact synthetic accounts
+were removed; their 60 count rows and two admission slots were exported privately,
+matched under a bounded lock and removed. Baseline identities/profiles, existing
+function/grant/policy hashes, prior secret digests and ten unrelated code hashes
+matched again. Supabase UI confirmed Email provider disabled after restoration;
+public signup and anonymous sign-in stayed off, email confirmation stayed on.
+The endpoint is qualified, not continuously enabled. Physical-device capture,
+the hosted enabled-count display and production release remain separate gates.
 
 Fresh staging Free capacity: 7,927/500,000 Edge invocations, 0.044/0.5 GB database,
 0.08/5 GB egress, 0.406/1 GB logs, no overage, CPU 3%, 11/60 connections.
-Private artifact, baseline, readback and hold receipts are under
+Private artifact, baseline, readback, hold and qualification receipts are under
 `Doji/staging-backend/2026-11-05-mobile-ingestion`. Rollback keeps the Edge reporting
 flag and private SQL capture false, retaining evidence; there was no prior endpoint.
-Resuming needs separate approval for the staging authentication test boundary;
-it does not authorize public signup, real email, production or a mobile build.
+No persistent staging member sign-in, public signup, real email, production or
+mobile-build authorization is implied by this completed test.
 
 ## November 4 staging Sentry history
 
