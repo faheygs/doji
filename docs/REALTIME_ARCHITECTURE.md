@@ -342,6 +342,12 @@ are unavailable, not healthy or zero. No traffic is not measured zero latency.
 Sentry's bounded unresolved production issue groups are not per-Doji attribution,
 crash-free sessions or feature success rates.
 
+The optional exact-occurrence readiness probe is read-only and service-only.
+Scheduling-time poll cards are not required: activation creates them atomically.
+Only a live poll requires an available shared card. Option inspection is capped;
+oversized sets stay unqualified. Inspection never restores moderated content,
+activates/closes a Doji or proves alarm delivery. Collector integration remains gated.
+
 Submission diagnostics reuse the existing 24-step, session-scoped mobile timeline.
 An in-memory journey distinguishes upload, command, receipt lookup and feed display;
 it expires after fifteen minutes and never emits account IDs, answers or media paths.

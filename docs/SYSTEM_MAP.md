@@ -104,6 +104,10 @@ counts, cleanup receipts and scheduler-log holds/retention are defined in
 `supabase/overlays/workflow_health_v1.sql`. Its paired rollback disables without
 dropping evidence. `scripts/database/workflow-health.mts` runs the owned offline
 database checks and is also part of the main database harness.
+`supabase/overlays/doji_readiness_v1.sql` separately prepares a default-off,
+service-only exact-occurrence probe. `scripts/database/doji-readiness.mts` tests
+poll/card/window observations, permissions and rollback without changing member
+contracts. It is not yet connected to collector selection or portal presentation.
 The `employee_workflow_health_v1` SQL bridge and portal `employee-health.mts`
 serve the default-off authorized read; `OperationsWorkflows.tsx` and portal-data's
 `workflow-health.ts` own the deferred UI and bounded projection. Local staging

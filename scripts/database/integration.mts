@@ -79,6 +79,8 @@ export async function integration(room: TestRoom) {
   pass(monitorHistory(room));
   const { mobileWorkflow } = await import('./mobile-workflow.mts');
   pass(mobileWorkflow(room));
+  const { dojiReadiness } = await import('./doji-readiness.mts');
+  pass(dojiReadiness(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',
