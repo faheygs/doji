@@ -5,6 +5,59 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 4 staging Sentry history
+
+PR #47 merged as `824974368816f55ef58111ad0bc60fbdae6de3ab`; main quality run
+`41962094517` and automatic staging `41963922156` passed. Pages
+`60da6cd3-0478-41ff-afc0-4f3113945786` has rollback `bda0d5c5-cde9-4651-b613-eed0818fe6fe`.
+The retained artifact, public release and verified receipt match, with unchanged
+configuration fingerprint. Signed-in delivery/platform timestamps advanced
+20:51:46, 20:53:45, 20:54:45 Mountain without refresh; app-error timestamps also
+advanced and the session persisted. The earlier failed run below remains historical,
+not relabelled success; its original failure cause is not established.
+
+PR #48 exact head `a185c3d0c63b8d2e45af22ca451f828856064be6` passed all four jobs
+in `41964106791` and GitGuardian, then merged as `ac19f50c5aca6782a00ebf57477f82a7c6009439`.
+Main quality `41965407496` and staging workflow `41966685707` passed; the latter
+correctly skipped Pages packaging/deployment for the backend-only change.
+The separately approved collector-only staging rollout installed disabled, verified
+all 11 downloaded files against the tested candidate, then enabled the importer.
+Nine unrelated Edge code hashes and all 37 existing secret digests were unchanged.
+Two secret updates advanced configuration revisions, not unrelated code. Collector
+version 28 is active. No SQL, Worker, jobs, mobile or production deployment occurred.
+Natural watchdog source times advanced 04:04:44 to 04:05:44 UTC November 5, distinct
+from receipt times 04:05:45.978625 and 04:06:46.339037. The hosted staging independent
+monitor changed from no observation to measured checks passed without refresh.
+
+Capacity before activation: staging Free plan, 7,137/500,000 Edge invocations,
+0.044/0.5 GB database, 0.068/5 GB egress, 0.4/1 GB log ingestion, zero overages;
+database CPU 3% and 13/60 connections. The existing included Sentry monitor remains
+the only runner. Its separate approved Alerts: Read integration is organization-wide,
+but runtime/egress pin only staging monitor 10858429 and its exact target binding.
+No new resources or spending were added. The gifted monitor credit still expires November 28.
+
+Private code/configuration rollback, digests, artifact and acceptance material are
+under `Doji/staging-backend/2026-11-04-monitor/sentry-history`, outside Git.
+Rollback sets `SENTRY_MONITOR_HISTORY_ENABLED=false` and restores only the retained
+collector package; it retains observations and leaves the monitor's rotated read key
+and existing Worker/SQL gates unchanged. Never replay completed installation helpers.
+The second approved assertion-only drill failed checks at 21:07:44 and 21:08:44
+Mountain November 4, entered downtime at 21:09:44, and recovered at 21:11:44 after
+the original 199/300 status bounds were restored. The endpoint continued returning
+HTTP 200; no application outage was induced. Hosted history recorded the failure
+and recovery, retaining the incident alongside fresh healthy independent/platform
+observations at 21:35:44/21:36:45. The old label incorrectly inferred that reporting
+stopped; the focused display correction says independent health check failed.
+
+Alert `6292687` recorded four total triggers across both drills. Direct Gmail
+verification found only two resolved notices, at 18:51 and 21:11 Mountain—one per
+drill, not a failure/recovery pair. Issue Alerts/email are enabled, the exact owner
+recipient and project routing are correct, and the rule has no event filter or
+throttling. The owner-approved support reply sent at 21:33 requests failure-send,
+suppression or receiving-server rejection evidence. No root cause or failure-mail
+delivery is established; independent alerting is not production-qualified. No
+further test sends are authorized by this record.
+
 ## November 4 staging evidence reads and monitor
 
 PR #46 exact head `e1662b0ba08423234121cfe10862241c38ccd85e` passed all four
@@ -59,7 +112,8 @@ initial failure email was not found in the conversation or Spam. Read-only check
 showed personal Issue Alerts on with Email delivery and no project override; the
 rule targets Gavin on every trigger with new/resolved conditions and no event
 exclusion. Sentry delivery/suppression evidence is still needed; trigger history
-is not an inbox receipt. No second drill is approved.
+is not an inbox receipt. At that point no second drill was approved; the later
+separate approval and results are recorded above.
 This did not interrupt Doji or establish complete platform-health coverage.
 
 ## November 4 staging monitor reporting

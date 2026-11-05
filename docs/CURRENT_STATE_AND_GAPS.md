@@ -19,14 +19,12 @@ the workerd transport correction passed all four CI jobs and security. See the
 [acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
 Staging employee/development read bridges and runtimes are installed and verified;
 their history/device-read flags are enabled. Mobile capture remains off and its
-ingestion endpoint is not deployed. Main CI passed; automatic Pages run `41953768497`
-uploaded `6871182` but failed post-deployment verification. Read-only package/public
-checks now pass with unchanged Cloudflare configuration, but the original failed
-assertion was suppressed by a generic error. Do not rerun or promote that failed
-workflow; release qualification remains blocked pending diagnosis. PR #47 merged
-the release-tool correction as `8249743` after exact-head checks. It records fixed verification-step labels without exposing
-provider errors or weakening any source, configuration, authentication or rollback
-check. It adds no deployment retry and does not establish the original failure's cause.
+ingestion endpoint is not deployed. PR #47's safe release-stage diagnostics merged
+as `8249743`; main CI and automatic staging run `41963922156` passed. Exact package,
+public identity and rollback receipt matched, and signed-in timestamps advanced
+naturally. This clears the current staging release gate without establishing the
+cause of earlier run `41953768497`'s post-upload failure. Do not rerun or promote
+that historical failed run. See the [current receipt](releases/README.md#november-4-staging-sentry-history).
 The default-off Worker writer now
 connects fixed observations to retained incident history through a protected Edge
 route; reporting never retries or changes alert admission. A separate employee
@@ -53,13 +51,13 @@ monitor `10858429` is now enabled for staging with natural authenticated HTTP 20
 checks. Support supplied a free seat while correcting its entitlement bug; billing
 shows no added spend, with the temporary credit ending November 28. Recheck that
 entitlement before expiry; no paid replacement is authorized. The approved
-assertion-only failure/recovery drill recovered automatically and owner-only alert
-`6292687` recorded two triggers. The owner confirmed the recovery email, but the
-initial failure email is unverified: this is not full delivery qualification.
-The staging read key was rotated and the old key rejected. No production change,
-extra spending is approved. The owner approved one additional labelled staging
-failure/recovery email test and a separate staging Sentry-to-history importer;
-neither has run or been deployed yet. Natural staging observations advanced
+assertion-only drills recovered automatically and owner-only alert `6292687`
+recorded four triggers. Gmail verification found only recovery notices at 18:51
+and 21:11 Mountain, one per drill; failure-email delivery remains unqualified.
+The approved support follow-up requests delivery/suppression traces. No additional
+test sends are approved. The staging read key was rotated and the old key rejected.
+Production changes and extra spending remain excluded. The separately approved
+Worker reporting path is deployed and natural staging observations advanced
 without manual collection; invalid credentials/methods were rejected and existing
 database contracts, ten Edge code hashes and 33 secret digests were preserved.
 Manual redirects retain 204-only acceptance; the real-workerd regression is required
@@ -81,17 +79,20 @@ tests and exact-head CI passed. Staging SQL/read-runtime acceptance passed with
 synthetic fixtures rolled back, unchanged prior contracts and no residual fixture
 identities or count rows. Hosted incident timestamps advanced without refresh and
 the session persisted; Device reports correctly showed disabled capture. Sentry's
-external checks are not connected to the portal's independent-monitor history,
-which accurately shows no recorded observation. Release verification remains
-blocked as above; mobile capture,
-ingestion and binary release are still gated.
-The importer preparation reuses the existing collector with a two-second total
+external checks now populate independent-monitor history in staging through PR #48's
+tested importer, merged as `ac19f50`. Source timestamps advanced naturally and the
+hosted view changed to measured checks passed. The second assertion-only drill
+produced retained failure history and recovery at 21:11:44 Mountain; fresh healthy
+reports did not erase that incident. Its display labels describe a failed check
+without claiming the monitor stopped reporting. Mobile capture, ingestion and
+binary release are still gated.
+The enabled staging importer reuses the existing collector with a two-second total
 budget, two exact provider reads and at most five ordered observation writes. It
 retains provider check IDs/timestamps, rejects mixed environments and schema drift,
 and never turns a successful fetch or missing result into fresh health. Its Edge
 gate defaults off and rejects production. The existing issue-read token receives
 HTTP 403 for check results; the approved separate Alerts: Read integration is created
-and its credential is restricted outside Git, not yet installed in Edge. Live read-only
+and its credential is installed only in protected staging Edge configuration. Live read-only
 configuration verification matched the staging project, endpoint and environment.
 Checks with empty environment labels require that exact verified monitor binding;
 missing or conflicting configuration fails closed. No SQL, Worker, timer or

@@ -24,7 +24,7 @@ const incidentNames: Record<MonitorFamily, string> = {
   'domain-outbox-delayed': 'Live updates are delayed',
   'realtime-delivery-degraded': 'Live-update publication missed its target',
   'operational-health-check-failed': 'The platform check could not complete',
-  'monitor-heartbeat-missing': 'The monitor stopped reporting',
+  'monitor-heartbeat-missing': 'Independent health check failed',
 };
 const name = (source: string) => (source === 'worker' ? 'Platform monitor' : 'Independent monitor');
 const at = (value: string) => new Date(value).toLocaleString();
@@ -83,7 +83,7 @@ export function OperationsIncidents({
                 ? 'Measured checks passed'
                 : row.state === 'degraded'
                   ? 'Needs attention'
-                  : 'Check could not complete';
+                  : 'Check failed or could not complete';
           return (
             <Paper variant="outlined" key={row.monitor} sx={{ p: 2, flex: 1 }}>
               <Typography component="h3" variant="subtitle1">
