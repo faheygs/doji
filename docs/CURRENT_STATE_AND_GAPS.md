@@ -12,7 +12,9 @@ environment-aware Android diagnostics, and default-off staging push/reporting.
 Production app config is preserved. The isolated Firebase Spark Android clients,
 Apple development/staging App IDs and main-only GitHub approval environment now exist. EAS
 development/preview client destinations were verified; production values remain
-unchanged. No build or provider credential was created. A read-only exact-main
+unchanged. The approved organization-wide Sentry upload token is stored as an EAS
+secret only in development/preview; source-map acceptance still requires a build.
+No build or push-provider credential was created. A read-only exact-main
 quality preflight does not authorize cloud builds. Native credentials, controlled member access, protected
 build runner, hosted parity and physical-device acceptance remain gated. Staging's
 Free-tier media path has transforms off and is not production transform parity.

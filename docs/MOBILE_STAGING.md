@@ -61,8 +61,12 @@ branch-only policy. No build job or credentials have been attached to that gate.
 EAS `development` and `preview` public URL/anon key/DSN were read back against the
 staging destinations. Production variable IDs, values and visibility match the
 retained baseline. The formerly shared production DSN/upload token are now scoped
-only to production; staging has no upload token yet and builds fail closed without
-one. Expo prohibits reducing secret visibility, so two prior preview Supabase
+only to production. The separately approved `Doji staging mobile source maps`
+organization token is stored as secret `SENTRY_AUTH_TOKEN` only in development and
+preview. Its `org:ci` permission is organization-wide; the build configuration targets
+`doji-staging`, not a provider-enforced project restriction. Native source-map upload
+and Debug ID verification still require an approved build. Expo prohibits reducing
+secret visibility, so two prior preview Supabase
 variables are retained as `DOJI_ROLLBACK_20261105_*`, never referenced by app code.
 Their original names/IDs and configuration fingerprints are retained privately;
 remove these rollback entries only after replacement qualification and owner approval.

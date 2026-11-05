@@ -127,8 +127,12 @@ approved Firebase staging project/Android clients, Apple development/staging App
 `HUG35JPQGG`, and GitHub main-only owner-approval environment now exist. EAS
 development/preview client values are verified staging-only; each environment's
 Firebase file contains only its own app client. Production values are preserved and its upload credential is
-no longer shared with test environments. Native signing, a staging source-map upload
-token, protected build-runner credentials and member access remain pending. Staging public client values belong in
+no longer shared with test environments. The approved `Doji staging mobile source maps`
+token has organization-wide `org:ci` upload/release/code-mapping rights and is stored
+only as secret `SENTRY_AUTH_TOKEN` in EAS development/preview. Builds target
+`doji-staging`; native upload acceptance is pending. Rollback removes this staging
+binding and revokes only this token, never the production credential. Native signing,
+protected build-runner credentials and member access remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in
 EAS/provider stores, never public variables or Git. No build, delivery activation or
 plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining rollback
