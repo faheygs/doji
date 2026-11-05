@@ -35,8 +35,14 @@ test('only exact compiler output qualifies as the preinstall artifact', () => {
   const output = compileBootstrap(source);
   assert.doesNotMatch(output, /profile: string/);
   assertBootstrapCurrent(source, output);
-  assert.throws(() => assertBootstrapCurrent(source, output + '\n'), /Bootstrap drift|bootstrap drift/);
-  assert.throws(() => assertBootstrapCurrent(source + '\nconsole.log("changed");', output), /bootstrap drift/);
+  assert.throws(
+    () => assertBootstrapCurrent(source, output + '\n'),
+    /Bootstrap drift|bootstrap drift/,
+  );
+  assert.throws(
+    () => assertBootstrapCurrent(source + '\nconsole.log("changed");', output),
+    /bootstrap drift/,
+  );
   assert.equal(verifyBootstrap(), 'scripts/verify-build-env.mjs');
 });
 const production: NodeJS.ProcessEnv = {
@@ -80,4 +86,45 @@ test('emitted bootstrap executes without dependencies and preserves environment 
     assert.match(result.stderr, /Unsafe production build environment/);
     assert.ok(result.stderr.includes(name));
   }
+});
+
+test('enabled reporting rejects mixed bindings even outside the production profile', () => {
+  const staging = {
+    EAS_BUILD_PROFILE: 'preview',
+    EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED: 'true',
+    EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT: 'staging',
+    EXPO_PUBLIC_APP_ENV: 'staging',
+    EXPO_PUBLIC_SUPABASE_URL: 'https://ohrcupagdoilkwhecict.supabase.co',
+    EXPO_PUBLIC_COMMAND_GATEWAY_URL: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+    EXPO_PUBLIC_SCALE_READ_URL: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+  };
+  assert.equal(run(staging).status, 0);
+  assert.equal(
+    run({
+      ...production,
+      EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED: 'true',
+      EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT: 'production',
+    }).status,
+    0,
+  );
+  for (const [name, value] of [
+    ['EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT', ''],
+    ['EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT', 'production'],
+    ['EXPO_PUBLIC_APP_ENV', 'preview'],
+    ['EXPO_PUBLIC_SUPABASE_URL', production.EXPO_PUBLIC_SUPABASE_URL],
+    ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', production.EXPO_PUBLIC_COMMAND_GATEWAY_URL],
+    ['EXPO_PUBLIC_SCALE_READ_URL', production.EXPO_PUBLIC_SCALE_READ_URL],
+    ['EXPO_PUBLIC_SCALE_READ_URL', ''],
+    ['EXPO_PUBLIC_SUPABASE_URL', staging.EXPO_PUBLIC_SUPABASE_URL + '/extra'],
+    ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', staging.EXPO_PUBLIC_COMMAND_GATEWAY_URL + '?key=private'],
+  ]) {
+    const result = run({ ...staging, [name!]: value });
+    assert.equal(result.status, 1, name);
+    assert.match(result.stderr, /Unsafe mobile reporting environment/);
+    assert.doesNotMatch(result.stderr, /key=private/);
+  }
+  assert.equal(
+    run({ EAS_BUILD_PROFILE: 'preview', EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED: 'false' }).status,
+    0,
+  );
 });

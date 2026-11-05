@@ -84,6 +84,14 @@ The anonymous announcement EXECUTE revokes remain a separately gated local
 candidate in [SQL overlays](../supabase/overlays/announcement_member_execute_v1.sql). Testing that
 candidate and its rollback does not deploy it or authorize applying it live.
 
+`npm run test:health-events:database` also composes the real mobile-report HTTP
+handler, private PostgreSQL ingestion and employee data projection. It exercises
+all 60 fixed platform/category pairs, duplicate and rate admission, malformed and
+unverified callers, mixed-environment denial and evidence-preserving disable.
+Only the Auth boundary is synthetic; this does not replace hosted project-Auth,
+capacity or physical-device acceptance. The test uses the owned network-disabled
+database room and leaves no synthetic count rows for later cases.
+
 ## Required checks before merging
 
 [Quality gates](../.github/workflows/quality.yml) runs on pull requests, pushes to

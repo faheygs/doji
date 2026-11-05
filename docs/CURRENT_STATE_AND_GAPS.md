@@ -86,6 +86,15 @@ produced retained failure history and recovery at 21:11:44 Mountain; fresh healt
 reports did not erase that incident. Its display labels describe a failed check
 without claiming the monitor stopped reporting. Mobile capture, ingestion and
 binary release are still gated.
+The local ingestion qualification now composes the real HTTP handler, private SQL
+and employee projection across all 60 fixed platform/category pairs, with duplicate,
+rate, authorization and retaining-disable checks. It runs in the existing isolated
+database CI job; synthetic authentication does not qualify hosted ingestion or a
+mobile binary. The existing EAS development/preview profiles still include production
+gateway URLs, so they must not be used as staging telemetry acceptance artifacts.
+The mobile preinstall guard now rejects enabled reporting with mixed database,
+command/read gateway or app-environment bindings, including non-production profiles.
+It changes no default flags and does not itself qualify a staging mobile build.
 The enabled staging importer reuses the existing collector with a two-second total
 budget, two exact provider reads and at most five ordered observation writes. It
 retains provider check IDs/timestamps, rejects mixed environments and schema drift,

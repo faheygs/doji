@@ -163,6 +163,13 @@ production profiles currently include the production orchestrator gateway URL.
 Do not run an EAS development/preview build assuming it uses a staging backend.
 Cloud builds also require separate approval and allowance checks.
 
+Optional workflow reporting requires matching `EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT`,
+`EXPO_PUBLIC_APP_ENV`, Supabase URL and command/read gateways. The preinstall guard
+checks these when `EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED=true`, even for development
+and preview profiles. Reporting remains off by default. Passing this binding guard
+is not hosted parity or device acceptance; do not enable a build against an
+unqualified ingestion endpoint.
+
 ## Hosted staging database
 
 The database foundation is installed in project **`ohrcupagdoilkwhecict`**,
