@@ -71,6 +71,8 @@ test('staging packages unchanged named handlers behind fail-closed egress, with 
         );
       }
       const entry = await readFile(join(output, 'supabase/functions', name, 'index.ts'), 'utf8');
+      assert.equal(entry.includes("Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN')"), name === 'operational-health');
+      if (name === 'operational-health') assert.ok(entry.includes("Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true'"));
       assert.ok(
         entry.indexOf('globalThis.fetch = stagingFetch') <
           entry.indexOf("await import('./handler.ts')"),

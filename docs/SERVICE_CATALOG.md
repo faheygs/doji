@@ -33,10 +33,29 @@ $0 additional spend and no payment method. The gifted credit ends November 28;
 verify the included seat works before expiry, without authorizing paid capacity.
 Owner-only alert `6292687` recorded two triggers during the one approved labelled
 assertion-failure/recovery drill. Recovery inbox delivery is confirmed; initial
-failure inbox delivery remains unverified. No further test send is approved.
+failure inbox delivery remains unverified. One additional labelled owner-only
+failure/recovery test is approved but not yet run.
 Production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
+
+The approved staging Sentry history importer is preparation, not enabled. It uses
+the existing one-minute collector and the same included monitor, not another service
+or timer. The separate **Doji Staging Monitor Read** integration has Alerts: Read
+only. Its token is held in ACL-restricted private release material, pending installation
+in protected staging Edge `STAGING_SENTRY_MONITOR_READ_TOKEN`;
+the provider scope is organization-wide but runtime and staging egress pin
+`doji-i0` / `doji-staging` / monitor `10858429`. No token is sent to the browser.
+Sentry's [check-results endpoint](https://github.com/getsentry/sentry/blob/master/src/sentry/uptime/endpoints/project_uptime_alert_checks_index.py)
+is experimental: strict parsing must fail unavailable on drift. The two-second
+import verifies the exact monitor configuration before reading at most five checks.
+Those two fixed GETs preserve actual source times and never substitute request time.
+Empty per-check environment labels are accepted only with the verified staging
+binding; monitor configuration, including its private headers, is never persisted.
+Deployment
+requires exact-source tests, scoped credential verification, capacity and retained
+rollback. Disable `SENTRY_MONITOR_HISTORY_ENABLED` to stop imports without erasing
+history; restore the prior collector package for runtime rollback. Production is excluded.
 
 Prepared mobile workflow reporting uses existing Supabase only. Binary flags
 `EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED` and `_ENVIRONMENT` default off; they are

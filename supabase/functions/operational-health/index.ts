@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordEmployeeHealthObservation } from './employee-health-observation.ts';
 import { captureEmployeeHealthSnapshot } from './employee-health-snapshot.ts';
 import { handleMonitorHistoryRequest } from './monitor-history.ts';
+import { captureSentryMonitorHistory } from './sentry-monitor-history.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 Deno.serve(async (request) => {
@@ -20,6 +21,17 @@ Deno.serve(async (request) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  if (Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true') {
+    try {
+      EdgeRuntime.waitUntil(captureSentryMonitorHistory({
+        enabled: Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED'),
+        historyEnabled: Deno.env.get('MONITOR_HISTORY_ENABLED'),
+        environment: Deno.env.get('DOJI_ENVIRONMENT'), supabaseUrl: Deno.env.get('SUPABASE_URL'),
+        token: Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN'),
+      }, (args, signal) => database.rpc('record_monitor_observation_v1', args).abortSignal(signal))
+        .then(outcome => { if (outcome === 'unavailable') console.warn('sentry_monitor_history_unavailable'); }));
+    } catch { console.warn('sentry_monitor_history_unavailable'); }
+  }
   const [healthResult, alarmResult, archiveResult] = await Promise.all([
     database.rpc('get_operational_health'),
     database.rpc('get_repairable_doji_alarms', { p_limit: 20 }),

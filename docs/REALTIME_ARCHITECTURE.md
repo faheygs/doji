@@ -283,6 +283,16 @@ Running that probe beside the Worker is not independent uptime monitoring; an
 approved separate failure domain, missing-probe detection and alert delivery still
 need qualification. Neither provider acceptance nor probe health proves phone delivery.
 
+The separately gated staging Sentry-history importer reads actual external check
+results from the existing collector, not from browser activity or the heartbeat GET.
+Two fixed GETs (monitor binding, then checks) and at most five ordered watchdog RPC writes share a two-second
+deadline, with no retries. Original check IDs/timestamps fence replay and expiry;
+provider errors, empty/stale results and schema drift cannot renew health. The
+read-only heartbeat credential never gains write authority. The importer is not
+an independent runner: Sentry owns external checks/alerts, while loss of the Doji
+collector also stops imports and must age the portal evidence out. No new job,
+member workflow or alert-routing change is implied; production remains gated.
+
 Optional mobile workflow reporting is foreground-triggered, not polling. It detaches
 bounded device counts at most once per fifteen minutes and has a two-second
 best-effort deadline, no durable queue and no retry after an uncertain acknowledgement.
