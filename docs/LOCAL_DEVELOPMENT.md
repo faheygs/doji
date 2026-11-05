@@ -35,6 +35,23 @@ npm run test:admin-health
 deployment. Do not replace it with an upgrade or blanket `npm audit fix`.
 For mobile unit tests and static checks, see [Testing and releases](TESTING_AND_RELEASES.md).
 
+## Android staging emulator
+
+The owner's Windows setup has Android Studio under `C:/Program Files/Android/Android Studio`,
+SDK at `D:/Android/Sdk` (`ANDROID_HOME`), and AVD `Doji_Staging_API_36`
+under `D:/Android/Avd`. Its Pixel 8 profile uses Android 16/API 36 Google Play
+x86_64, 4 GB RAM and four cores. Windows Hypervisor Platform and a complete boot
+were verified; the emulator is stopped when not in use. Launch that named AVD
+from Device Manager or `emulator -avd Doji_Staging_API_36` after checking it is not
+already running. No Doji artifact is installed yet.
+
+This setup can install an approved staging APK; it is not qualification of local
+Gradle/JDK compatibility or physical Android camera/push/background behavior.
+Do not launch EAS builds, sign in to a personal Google account or install a production
+binary as a setup check. Use the isolated bindings/signing and remaining gates in
+[mobile staging](MOBILE_STAGING.md). macOS/Xcode or a separately approved cloud build
+is still required to produce the iOS artifact.
+
 ## Current React previews
 
 Install the root packages above, then `npm ci --prefix web`. From the repository

@@ -14,9 +14,15 @@ Apple development/staging App IDs and main-only GitHub approval environment now 
 development/preview client destinations were verified; production values remain
 unchanged. The approved organization-wide Sentry upload token is stored as an EAS
 secret only in development/preview; source-map acceptance still requires a build.
-No build or push-provider credential was created. A read-only exact-main
-quality preflight does not authorize cloud builds. Native credentials, controlled member access, protected
-build runner, hosted parity and physical-device acceptance remain gated. Staging's
+No build or push-provider credential was created. Separate Android development/staging
+signing keys are now bound in EAS; production signing metadata is unchanged.
+The approved API 36 Google Play emulator boots with hardware acceleration, but has
+no Doji binary. Two dedicated synthetic member accounts pass staging Auth
+sign-in/refresh/user-read/logout; public signup and anonymous access remain off,
+and the three older fixtures are unchanged. Passwords/signing backups are restricted
+outside Git. Native onboarding and workflow acceptance are not established by API tests.
+A read-only exact-main quality preflight does not authorize cloud builds. iOS signing,
+protected build runner, hosted parity and device acceptance remain gated. Staging's
 Free-tier media path has transforms off and is not production transform parity.
 See the [dependency and release checklist](MOBILE_STAGING.md).
 

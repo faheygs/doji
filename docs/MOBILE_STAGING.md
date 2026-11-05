@@ -33,7 +33,7 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 
 | Boundary / owner | Staging destination and isolation | Acceptance still required |
 | --- | --- | --- |
-| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Controlled sign-in provision, recovery redirects, session restoration/switch/logout; signup/recovery email disabled until separately approved |
+| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Two dedicated synthetic password accounts pass API sign-in/refresh/user-read/logout. Native onboarding/restoration/switch/logout and recovery redirects remain unqualified; public signup stays off and email delivery is not approved |
 | Commands and reads / gateway clients | `doji-orchestrator-staging.faheygs.workers.dev`; member JWT/RLS | Exact deployed source/contracts and authorized/denied reads, idempotent writes, interrupted explicit retries |
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
@@ -53,10 +53,35 @@ their client files are retained outside Git under the owner's private
 `preview` with the staging project ID. Firebase's multi-app download is reduced to
 the selected variant's single client before upload. Apple team `HUG35JPQGG` has
 registered `com.doit.challengeapp.staging` and `com.doit.challengeapp.development`
-with Push Notifications capability. No certificate, profile or provider key was
-created; signing and delivery qualification remain pending.
+with Push Notifications capability. No Apple certificate, profile or push-provider
+key was created; iOS signing and delivery qualification remain pending.
+Android development and staging now have separate default signing keys in EAS,
+with distinct certificate fingerprints from each other and production. Exact
+readback verified both bindings and unchanged production signing metadata. Protected
+local backups and receipts are under `Doji/mobile-staging/2026-11-05/android-signing`,
+restricted to the owner and SYSTEM; do not rotate or replace them for each build.
 GitHub `mobile-staging` exists with `faheygs` as required reviewer and a `main`
 branch-only policy. No build job or credentials have been attached to that gate.
+
+The owner-approved controlled member access uses `mobile-one@test.invalid` and
+`mobile-two@test.invalid`, created through staging Supabase Auth without invitation
+or verification mail. Email/password sign-in is enabled; public signup, anonymous
+sign-in and other providers remain off. Random passwords and exact account IDs are
+in the owner/SYSTEM-only private `member-accounts` directory beside signing evidence,
+not in Git, public EAS variables or developer handoff. API sign-in, refresh, user
+read and logout passed for both; the three retained baseline fixture rows were
+fingerprinted unchanged. Bounded member gateway reads matched the direct authorized
+profile RPC for both accounts; anonymous reads returned 401 and GET requests to
+the write endpoint returned 405. No member command was executed; these are boundary
+smoke checks, not complete lifecycle/storage/realtime acceptance. Retain the accounts for approved device acceptance, with
+onboarding still to exercise. No employee role or production access was granted.
+Rollback disables staging email sign-in and revokes these exact test sessions;
+preserve fixtures and evidence rather than resetting staging.
+
+Android acceptance currently uses the owner-approved `Doji_Staging_API_36` emulator:
+Pixel 8 profile, Android 16/API 36 Google Play image, hardware acceleration and boot
+verified. No Doji binary is installed. Emulator checks do not qualify physical
+camera, background delivery or device push. See [local setup](LOCAL_DEVELOPMENT.md#android-staging-emulator).
 
 EAS `development` and `preview` public URL/anon key/DSN were read back against the
 staging destinations. Production variable IDs, values and visibility match the
@@ -139,8 +164,10 @@ and media cleanup must name owned fixtures, respect holds and leave no real memb
 data involved. Keep receipts/credentials outside Git and only concise status links
 in current guidance. Developer access grants remain separately owner-approved.
 
-Completion requires hosted dependencies, both physical-device checklists, approved
-reporting acceptance, the protected build/release runner and documented handoff.
+Completion requires hosted dependencies, Android emulator and iOS device acceptance,
+explicitly recorded physical-Android gaps, approved reporting acceptance, the
+protected build/release runner and documented handoff. Emulator results must not
+be represented as physical-device parity.
 The configuration foundation alone does not satisfy those conditions.
 
 References: [Expo variants](https://docs.expo.dev/build-reference/variants/),
