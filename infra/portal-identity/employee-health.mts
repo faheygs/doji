@@ -1,6 +1,7 @@
 import { readEmployeeSentry } from './employee-sentry.mts';
 import { createEmployeeHealthSummary } from './employee-health-summary.mts';
 import { createEmployeeMonitorHistory } from './employee-monitor-history.mts';
+import { createEmployeeMobileWorkflows } from './employee-mobile-workflows.mts';
 import { record } from './portal-contracts.mts';
 import type { PortalFetch } from './portal-contracts.mts';
 import type { EmployeeApplication, EmployeeActor } from './employee-contracts.mts';
@@ -35,6 +36,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     workflowHealthEnabled = false,
     healthSnapshotEnabled = false,
     monitorHistoryEnabled = false,
+    mobileWorkflowReadsEnabled = false,
   }: {
     upstream?: PortalFetch;
     now?: () => number;
@@ -42,6 +44,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     workflowHealthEnabled?: boolean;
     healthSnapshotEnabled?: boolean;
     monitorHistoryEnabled?: boolean;
+    mobileWorkflowReadsEnabled?: boolean;
   } = {},
 ) {
   if (environment !== 'production' && environment !== 'staging')
@@ -49,6 +52,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
   if (healthSnapshotEnabled && healthEventsEnabled) throw Error('Conflicting health modes');
   const snapshot = createEmployeeHealthSummary(application, healthSnapshotEnabled, false);
   const history = createEmployeeMonitorHistory(application, monitorHistoryEnabled);
+  const mobile = createEmployeeMobileWorkflows(application, mobileWorkflowReadsEnabled);
   const configured =
     typeof token === 'string' && token.length > 0 && /^[a-z0-9-]{1,100}$/.test(organization || '');
   if (projectIds.some((id) => !/^\d+$/.test(id)) || projectIds.length > 5)
@@ -102,6 +106,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
     if (healthSnapshotEnabled) {
       const stored = await snapshot(actor, signal);
       const incidents = monitorHistoryEnabled ? await history(actor, signal) : undefined;
+      const devices = mobileWorkflowReadsEnabled ? await mobile(actor, signal) : undefined;
       const issues =
         stored.enabled === true
           ? await cached('sentry', 60000, 'snapshot', sentry)
@@ -119,6 +124,7 @@ export function createEmployeeHealth<Actor = EmployeeActor>(
         health_events_enabled: false,
         health_snapshot_enabled: stored.enabled === true,
         ...(incidents ? { monitor_history: incidents } : {}),
+        ...(devices ? { mobile_workflows: devices } : {}),
         operational:
           stored.available === true && record(stored.operational)
             ? stored.operational

@@ -29,6 +29,7 @@ const files = [
   'test-monitor-history.mts',
   'test-mobile-workflow-report.mts',
   'test-employee-monitor-history.mts',
+  'test-employee-mobile-workflows.mts',
   'test-employee-health-summary.mts',
   'test-workos-session-reader.mts',
   'test-workos-employee-provider.mts',

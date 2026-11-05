@@ -3,6 +3,97 @@ import AxeBuilder from '@axe-core/playwright';
 import { installOperationsFixture, installHealthRealtime } from './operations-fixture';
 const url = 'https://admin.dojipro.com/connected.html#/operations';
 
+test('device reports retain uncertainty, bounded pages and local expiry without extra requests', async ({
+  page,
+  request,
+}) => {
+  await page.clock.install();
+  const f = await installOperationsFixture(page, request);
+  const at = new Date(await page.evaluate(() => Date.now())).toISOString();
+  const phases = ['upload', 'submit', 'receipt', 'profile_read', 'doji_read', 'feed_read'];
+  f.mobileWorkflows({
+    source: 'device_reported',
+    enabled: true,
+    checked_at: at,
+    rows: ['ios', 'android'].flatMap((platform) =>
+      phases.map((phase) => ({
+        platform,
+        phase,
+        outcome: 'request_failed',
+        count: 3,
+        capped: true,
+        received_at: at,
+      })),
+    ),
+  });
+  await page.goto(url);
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Device reports' }).click();
+  const panel = page.getByRole('tabpanel', { name: 'Device reports' });
+  await expect(panel.getByText(/cannot be used to calculate a success rate/)).toBeVisible();
+  await expect(panel.getByRole('table').getByRole('row')).toHaveCount(11);
+  await expect(panel.getByRole('cell', { name: 'At least 3 (capped)', exact: true })).toHaveCount(
+    10,
+  );
+  await panel.getByRole('button', { name: 'Go to next page' }).click();
+  await expect(panel.getByRole('table').getByRole('row')).toHaveCount(3);
+  const before = f.healthReads.length;
+  await page.clock.fastForward(181000);
+  await expect(panel.getByText(/This device-report read is outdated/)).toBeVisible();
+  expect(f.healthReads).toHaveLength(before);
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
+      .violations,
+  ).toEqual([]);
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
+test('device reports distinguish disabled, empty and failed reads and recover explicitly', async ({
+  page,
+  request,
+}) => {
+  const f = await installOperationsFixture(page, request);
+  f.mobileWorkflows({ source: 'device_reported', enabled: false });
+  await page.goto(url);
+  await expect(
+    page.getByText(/95% of measured updates were published within 0.18 seconds/),
+  ).toBeVisible();
+  await expect(page.getByText('Updating authorized readings…')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Device reports' }).click();
+  await expect(
+    page.getByText('Device workflow reporting is not enabled for this environment.'),
+  ).toBeVisible();
+  f.mobileWorkflows({
+    source: 'device_reported',
+    enabled: true,
+    checked_at: new Date().toISOString(),
+    rows: [],
+  });
+  await page.getByRole('button', { name: 'Refresh readings' }).click();
+  await expect(
+    page.getByText('No device reports received in this window. App health cannot be inferred.'),
+  ).toBeVisible();
+  f.mobileWorkflows({ source: 'device_reported', enabled: true });
+  await page.getByRole('button', { name: 'Refresh readings' }).click();
+  await expect(page.getByText(/Device workflow reports are unavailable/)).toBeVisible();
+  f.mobileWorkflows({
+    source: 'device_reported',
+    enabled: true,
+    checked_at: new Date().toISOString(),
+    rows: [],
+  });
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(
+    page.getByText('No device reports received in this window. App health cannot be inferred.'),
+  ).toBeVisible();
+  expect(f.commands).toEqual([]);
+  expect(f.external).toEqual([]);
+});
+
 test('monitor history preserves uncertainty, source age and bounded pagination without commands', async ({
   page,
   request,

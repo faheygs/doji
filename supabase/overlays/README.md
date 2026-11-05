@@ -16,6 +16,10 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   aggregates and salted admission slots; no authoritative member/reward writes.
   Synthetic replay, rate, permission, payload and retaining rollback checks:
   `node scripts/database/mobile-workflow.mts`. No live or mobile enablement implied.
+  `employee_mobile_workflows_v1.sql` adds an Operations/MFA-only read;
+  `admin_development_mobile_workflows_v1.sql` adds the isolated staging-persona
+  equivalent. Their inverses remove only read bridges, retaining counts/admission.
+  Both are exercised by the employee-health and development database harnesses.
 - `monitor_incident_history_v1.sql` and its retaining rollback: local preparation,
   capture disabled. Service-only, ordered monitor observations and keyset incident
   history; superseding a family is not recovery. Fixed heartbeat projection excludes

@@ -294,6 +294,11 @@ batches. Receipt-hour slots describe when reports arrived, not reconstructed act
 times. Counts can be missing, capped or client-forged and must never grant rewards,
 establish a success rate, or substitute for authoritative receipts. The independent
 reporting package and SQL/binary gates default off; retention rollback preserves data.
+The separately gated employee read uses Operations permission and MFA; local parity
+uses the revocable staging persona route. At most 1,440 private hourly count rows
+are projected into 60 fixed category/platform/outcome totals. Health detail reuses
+existing reconciliation; receipt times remain distinct from read-check time.
+Disabled, unavailable, empty and outdated reads never establish healthy member flows.
 
 The cached-health replacement uses the existing server check, not a new
 job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact

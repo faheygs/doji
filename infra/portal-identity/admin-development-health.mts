@@ -16,6 +16,7 @@ export function createDevelopmentHealth(
     healthEventsEnabled?: boolean;
     healthSnapshotEnabled?: boolean;
     monitorHistoryEnabled?: boolean;
+    mobileWorkflowReadsEnabled?: boolean;
   } = {},
 ): DevelopmentInvoke {
   if (
@@ -53,7 +54,8 @@ export function createDevelopmentHealth(
       return invoke(token, call, signal);
     if (!call.persona || Object.keys(call.args).length) throw developmentFailure(400);
     const context = { token, call };
-    if (call.name === 'portal_platform_health_summary_v1') return { ok: true, result: await summary(context, signal) };
+    if (call.name === 'portal_platform_health_summary_v1')
+      return { ok: true, result: await summary(context, signal) };
     const result = await health(context, signal);
     const operator = await authorize(context, signal);
     if (

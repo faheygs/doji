@@ -42,7 +42,9 @@ try {
  and proname not in('record_employee_health_change_v1','get_admin_health_feed_v1','employee_health_rpc_v1',
  'capture_employee_health_snapshot_v1','get_admin_health_snapshot_v1','employee_health_snapshot_rpc_v1',
  'record_monitor_observation_v1','get_monitor_incident_history_v1','get_monitor_heartbeat_v1',
- 'get_admin_monitor_history_v1','employee_monitor_history_rpc_v1')
+ 'get_admin_monitor_history_v1','employee_monitor_history_rpc_v1',
+ 'record_mobile_workflow_counts_v1','get_mobile_workflow_counts_v1',
+ 'get_admin_mobile_workflows_v1','employee_mobile_workflows_rpc_v1')
  union all select to_jsonb(p)::text from pg_policies p where schemaname not in('employee_health_private','employee_health_snapshot_private')
  union all select to_jsonb(u)::text from auth.users u
  union all select to_jsonb(p)::text from public.profiles p) preserved;`);
@@ -157,6 +159,22 @@ try {
   assert.equal(sql("select to_regprocedure('public.get_admin_monitor_history_v1()') is null;"), 't');
   assert.equal(sql("select to_regclass('monitor_history_private.incidents') is not null;"), 't');
   assert.equal(fingerprint(), before);
+  sql(read('supabase/overlays/mobile_workflow_counts_v1.sql'));
+  sql(read('supabase/overlays/employee_mobile_workflows_v1.sql'));
+  assert.equal(
+    fingerprint(),
+    before,
+    'Mobile read overlays preserve existing contracts and member rows',
+  );
+  console.log(sql(`begin;${read('scripts/test-employee-mobile-workflows.sql')}rollback;`));
+  sql(read('supabase/overlays/employee_mobile_workflows_v1.rollback.sql'));
+  assert.equal(
+    sql("select to_regprocedure('public.get_admin_mobile_workflows_v1()') is null;"),
+    't',
+  );
+  assert.equal(sql("select to_regclass('mobile_workflow_private.hours') is not null;"), 't');
+  assert.equal(fingerprint(), before);
+  console.log('PASS: device-read rollback retains counts and original member contracts');
 } catch (error) {
   console.error(errorOutput(error, 'stderr'));
   throw error;

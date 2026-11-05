@@ -34,6 +34,7 @@ export function useEmployeeHealth(controller: EmployeeSessionController) {
       snapshot.data?.sentry.observed_at,
       snapshot.data?.generated_at,
       snapshot.data?.workflows?.observed_at,
+      snapshot.data?.mobile_workflows.checked_at,
     ]
       .filter((x): x is string => !!x)
       .flatMap((x) => [Date.parse(x) - 60000, Date.parse(x) + 180001]);

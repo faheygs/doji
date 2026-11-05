@@ -49,8 +49,12 @@ answer, media, query or error payload enters counts. SQL retains at most 1,440 h
 aggregate rows and 65,536 salted admission slots; collisions/rate limits drop
 observations, never block member actions. Data is device-reported and incomplete.
 `buildMobileWorkflowStagingEdge` packages only this function with staging-only
-egress. Capacity, hosted synthetic acceptance, binary release and read/display
-integration remain gated; rollback disables capture and preserves counters.
+egress. Employee `mobileWorkflowReadsEnabled` and
+`ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED` independently gate the prepared
+Operations/MFA and staging-persona aggregate read/display integration; values remain
+in protected runtime configuration, never browser credentials. No new service or
+query timer is added. Capacity, hosted synthetic acceptance, read enablement and
+binary release remain gated; rollback removes read bridges and preserves counters.
 
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly

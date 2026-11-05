@@ -99,12 +99,15 @@ test('development gateway artifact includes shared resource authorization withou
       'employee-storage-signer',
       'employee-sentry',
       'bounded-body',
+      'employee-mobile-workflows',
+      'mobile-workflow-read',
     ])
       assert.ok(manifest.inputs.includes(`infra/portal-identity/${module}.mts`));
     assert.ok(
       manifest.inputs.every(
         (file: string) =>
           file === 'supabase/functions/admin-development/index.ts' ||
+          file === 'contracts/mobileWorkflowTelemetry.ts' ||
           file.startsWith('infra/portal-identity/'),
       ),
     );
@@ -113,6 +116,8 @@ test('development gateway artifact includes shared resource authorization withou
       'utf8',
     );
     assert.equal(manifest.sha256, createHash('sha256').update(entry).digest('hex'));
+    assert.ok(entry.includes('ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED'));
+    assert.doesNotMatch(entry, /record_mobile_workflow_counts_v1|MOBILE_WORKFLOW_REPORTING_ENABLED/);
     assert.deepEqual(await readdir(join(output, 'supabase/functions')), ['admin-development']);
     assert.doesNotMatch(entry, /from ["']\.\./);
     await assert.rejects(buildAdminDevelopmentEdge(output));

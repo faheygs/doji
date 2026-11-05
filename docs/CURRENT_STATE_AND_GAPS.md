@@ -59,8 +59,13 @@ capped and excluded from Sentry context; retries do not multiply read completion
 Avatar upload outcomes and default-off foreground batch transport/ingestion are
 prepared. The independent mobile Edge package verifies the project member bearer;
 private SQL validates fixed counts, replay/admission fences and bounded hourly
-storage. Synthetic endpoint, lifecycle and SQL/retaining-rollback tests pass; latest
-isolated-commit CI, read/display integration and hosted acceptance remain pending.
+storage. The prepared Operations/MFA and staging-persona read bridges project at
+most 60 device categories across 24 receipt-hour buckets. The Device reports tab
+shares existing health reconciliation, separates disabled/unavailable/empty/stale
+reads, and labels capped counts without inventing success rates or unique-user totals.
+`mobileWorkflowReadsEnabled` and the development read flag default off, independently
+of ingestion and binary gates. Synthetic endpoint, lifecycle and SQL/retaining-rollback
+tests cover preparation; latest isolated-commit CI and hosted acceptance remain pending.
 Auth outcomes, authoritative answer/reward evidence, poll readiness, storage
 inventory and phone-delivery evidence remain unfinished.
 These preparations do not establish complete health coverage. Production flags,

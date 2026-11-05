@@ -62,8 +62,11 @@ detach foreground batches; `contracts/mobileWorkflowTelemetry.ts` owns their fix
 shared schema. The scoped contracts package declares ESM for strict Node/Edge and
 native tooling without adding dependencies. `mobile-workflow-report` verifies the
 member bearer; `mobile_workflow_counts_v1` owns private bounded device counts and
-admission, not authoritative completion/reward evidence. Its standalone staging
-packager excludes other backend handlers. `apiQueryCache.ts` counts fixed read
+admission, not authoritative completion/reward evidence. `mobile-workflow-read.mts`
+projects only fixed counts; the employee/development `mobile_workflows_v1` overlays
+and `employee-mobile-workflows.mts` enforce read authority. `OperationsMobile.tsx`
+shows device reports through existing health detail, not a new timer. The mobile
+reporter's standalone staging packager excludes other backend handlers. `apiQueryCache.ts` counts fixed read
 families with account fences. The `monitor_incident_history_v1` overlay,
 Worker `monitor-history.ts` and operational-health's same-named Edge adapter own
 ordered incident evidence. `employee_monitor_history_v1` and the employee runtime
