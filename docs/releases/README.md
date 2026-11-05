@@ -5,6 +5,35 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 4 staging mobile ingestion hold
+
+PR #50 merged as `2872e185c2a3ddb2431d8f42c67f88c0843c69f9`; main quality
+`41978375875` passed all four jobs. Staging workflow `41980395506` correctly skipped
+Pages packaging/deployment. The separately approved single-function upload installed
+`mobile-workflow-report` disabled at 06:32 UTC November 5 (November 4 Mountain).
+Both downloaded files matched the isolated package byte-for-byte; handler SHA-256
+is `3e7e16e8f9f440f5bd0beb25b94393e9b71b3ae7a7b05ef0aa960c2bbac480c9`.
+The existing ingestion SQL function bodies/grants matched reviewed source.
+The endpoint rejects disabled requests with HTTP 404. No SQL definitions, Worker,
+Pages, production or mobile artifact were deployed.
+
+Hosted qualification stopped at password sign-in for its first temporary synthetic
+Auth account, before any report submission. The Supabase UI confirmed Email sign-in
+disabled, public signup disabled and anonymous sign-in disabled. No auth setting was
+changed or bypassed. The temporary account was removed; baseline identity/profile,
+function/grant/policy fingerprints and empty counters were restored and verified.
+Both Edge and SQL capture gates remain off. Ten unrelated function code hashes and
+all prior secret digests are unchanged; secret updates refresh configuration metadata,
+not unrelated code. Hosted authentication/ingestion and portal counts remain unqualified.
+
+Fresh staging Free capacity: 7,927/500,000 Edge invocations, 0.044/0.5 GB database,
+0.08/5 GB egress, 0.406/1 GB logs, no overage, CPU 3%, 11/60 connections.
+Private artifact, baseline, readback and hold receipts are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`. Rollback keeps the Edge reporting
+flag and private SQL capture false, retaining evidence; there was no prior endpoint.
+Resuming needs separate approval for the staging authentication test boundary;
+it does not authorize public signup, real email, production or a mobile build.
+
 ## November 4 staging Sentry history
 
 PR #47 merged as `824974368816f55ef58111ad0bc60fbdae6de3ab`; main quality run

@@ -74,8 +74,17 @@ query timer is added. Staging read bridges and runtime flags are enabled; bounde
 synthetic SQL acceptance rolled back all fixtures. The newer `8249743` staging
 release passed package/receipt and hosted verification; the historical failed
 run's cause remains unknown. See the current staging receipt above.
-Mobile capture remains off, ingestion is not deployed and binary release remains
-gated. Rollback disables reads/restores retained runtimes and preserves counters.
+Mobile capture and binary release remain gated. The standalone staging ingestion
+endpoint is deployed but disabled at reviewed source `2872e18`; hosted qualification
+stopped at synthetic password sign-in while the staging Email provider was disabled.
+No authentication setting was changed. Both capture gates are off, the temporary
+account was removed, and original contracts/identities and zero counters were verified.
+Existing secret digests and ten unrelated function code hashes are unchanged.
+The new non-secret `MOBILE_WORKFLOW_REPORTING_ENABLED=false` gate is in protected
+staging Edge configuration. Private artifact, baseline and hold evidence are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`, outside Git. Rollback keeps Edge/SQL
+capture disabled and retains the installed endpoint/evidence; no prior endpoint existed.
+See the [capacity and qualification hold](releases/README.md#november-4-staging-mobile-ingestion-hold).
 
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly

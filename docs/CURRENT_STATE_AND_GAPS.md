@@ -18,8 +18,13 @@ staging Worker/SQL/Edge reporting path is enabled and verified at `6632592` afte
 the workerd transport correction passed all four CI jobs and security. See the
 [acceptance and rollback](releases/README.md#november-4-staging-monitor-reporting).
 Staging employee/development read bridges and runtimes are installed and verified;
-their history/device-read flags are enabled. Mobile capture remains off and its
-ingestion endpoint is not deployed. PR #47's safe release-stage diagnostics merged
+their history/device-read flags are enabled. Mobile capture remains off. Its staging
+ingestion endpoint is deployed but disabled; hosted qualification stopped at synthetic
+password sign-in, and the staging Email provider is disabled. The temporary account
+was removed and original identities/contracts, zero counters and unrelated code/secret
+digests were verified unchanged. Authentication configuration was not changed; see the
+[ingestion hold](releases/README.md#november-4-staging-mobile-ingestion-hold).
+PR #47's safe release-stage diagnostics merged
 as `8249743`; main CI and automatic staging run `41963922156` passed. Exact package,
 public identity and rollback receipt matched, and signed-in timestamps advanced
 naturally. This clears the current staging release gate without establishing the

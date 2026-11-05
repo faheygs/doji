@@ -75,7 +75,9 @@ adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
 `monitor-history.ts` render/project bounded history in the existing health read;
 evidence/coverage views share the deferred backend bundle. The separately approved
 Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
-mobile capture and ingestion remain off. The staging UI uploaded, but its workflow's
+mobile capture and ingestion remain off. The standalone staging ingestion endpoint
+is deployed disabled; real-Auth qualification is blocked by disabled staging email
+sign-in, not qualified by the passing synthetic local tests. The staging UI uploaded, but its workflow's
 post-deployment verification failed; the newer `8249743` staging run passed exact
 artifact/receipt and hosted acceptance. The original failure cause remains unknown.
 `scripts/admin-release-verification.mts` owns the exact post-upload readback checks
