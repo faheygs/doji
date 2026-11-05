@@ -6,26 +6,49 @@
   "build": {
     "development": {
       "node": "24.18.0",
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "development",
-        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev"
+        "DOJI_APP_VARIANT": "development",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_RELEASE_CHANNEL": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ohrcupagdoilkwhecict.supabase.co",
+        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator-staging.faheygs.workers.dev",
+        "EXPO_PUBLIC_SCALE_READ_URL": "https://doji-orchestrator-staging.faheygs.workers.dev",
+        "EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED": "false",
+        "EXPO_PUBLIC_STAGING_PUSH_ENABLED": "false",
+        "EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED": "false"
       }
     },
     "preview": {
       "node": "24.18.0",
+      "environment": "preview",
       "distribution": "internal",
       "ios": {
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "preview",
-        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev"
+        "DOJI_APP_VARIANT": "staging",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_RELEASE_CHANNEL": "staging",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ohrcupagdoilkwhecict.supabase.co",
+        "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator-staging.faheygs.workers.dev",
+        "EXPO_PUBLIC_SCALE_READ_URL": "https://doji-orchestrator-staging.faheygs.workers.dev",
+        "EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED": "false",
+        "EXPO_PUBLIC_STAGING_PUSH_ENABLED": "false",
+        "EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED": "false"
       }
+    },
+    "staging": {
+      "extends": "preview",
+      "node": "24.18.0",
+      "autoIncrement": false,
+      "android": { "resourceClass": "medium", "buildType": "apk" },
+      "ios": { "resourceClass": "m-medium", "simulator": false }
     },
     "production": {
       "node": "24.18.0",

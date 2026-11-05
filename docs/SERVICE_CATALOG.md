@@ -115,11 +115,28 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Expo and EAS | Native development builds, cloud build/signing, store submission and legacy push fallback transport | [Project](https://expo.dev/accounts/faheybaby/projects/doit-challenge-app); project `064b68b6-f138-4962-8aeb-f00970ba39c8` | `app.json`, `eas.json`, `.easignore`, `scripts/verify-build-env.mjs` |
 | Apple Developer and App Store Connect | Bundle/signing, APNs credentials, TestFlight, review and iOS distribution | [Developer](https://developer.apple.com/account/), [App Store Connect](https://appstoreconnect.apple.com/); app `6768727326` | `docs/APP_STORE_RELEASE.md`, mobile release records |
 | Google Play Console | Android signing/distribution, closed testing and production-access review | [App console](https://play.google.com/console/u/0/developers/6661342012009308283/app/4972908027141050312); Alpha track `4699325792611215201` | `docs/GOOGLE_PLAY_RELEASE.md`, Android 23 record |
-| Firebase and Google Cloud | Android native FCM push; service identity/IAM | [Firebase](https://console.firebase.google.com/); project `doji-connect` | `google-services.json`, `_shared/fcm-push.ts` |
+| Firebase and Google Cloud | Android native FCM push; service identity/IAM | [Firebase](https://console.firebase.google.com/); production `doji-connect`; isolated `doji-staging` on Spark, no billing upgrade | Production `google-services.json`, `_shared/fcm-push.ts`; staging client file retained privately, delivery/signing not yet qualified |
 | APNs | Native iOS remote notification transport | Apple-managed provider; no separate app inbox | `_shared/apns-push.ts`, installation registration |
 | Sentry | App/Worker errors, bounded diagnostics and source maps; portal health read | [Sentry](https://sentry.io/); organization `doji-i0`, app project `react-native` | `app/_layout.tsx`, `lib/apiFailureTelemetry.ts`, Worker `sentry.ts`, employee health |
 
 The app's bundle identifier and Android package are both `com.doit.challengeapp`.
+Prepared development/staging variants append `.development`/`.staging`, reuse the
+existing EAS project with separate `development`/`preview` configuration, and select
+the existing staging Supabase, Worker, Ably and Sentry services. The separately
+approved Firebase staging project/Android clients, Apple development/staging App IDs under team
+`HUG35JPQGG`, and GitHub main-only owner-approval environment now exist. EAS
+development/preview client values are verified staging-only; each environment's
+Firebase file contains only its own app client. Production values are preserved and its upload credential is
+no longer shared with test environments. The approved `Doji staging mobile source maps`
+token has organization-wide `org:ci` upload/release/code-mapping rights and is stored
+only as secret `SENTRY_AUTH_TOKEN` in EAS development/preview. Builds target
+`doji-staging`; native upload acceptance is pending. Rollback removes this staging
+binding and revokes only this token, never the production credential. Native signing,
+protected build-runner credentials and member access remain pending. Staging public client values belong in
+approved local/EAS environments; build tokens and signing files stay protected in
+EAS/provider stores, never public variables or Git. No build, delivery activation or
+plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining rollback
+and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
 

@@ -139,10 +139,12 @@ artifact expecting it to be an offline demo; use the prototype above instead.
 
 ## Mobile configuration and running locally
 
-Review [.env.example](../.env.example). Copy it to an absent `.env.local` using
-your editor, then obtain the public URL/anon key for the approved local/test stack.
-The placeholder key intentionally does not authenticate. Never obtain production
-server secrets just to start Metro.
+Review [mobile staging](MOBILE_STAGING.md) and [.env.example](../.env.example).
+Copy the example only to an absent `.env.local`, then obtain the staging public
+anon key and staging DSN through approved access. The placeholder key intentionally
+fails validation. Never replace an owner's existing env file or obtain production
+server secrets just to start Metro. Local config defaults to the separate Doji Dev
+identity; production values in that mode are rejected.
 
 ```powershell
 npm start
@@ -158,10 +160,12 @@ needs deliberately configured access to the test backend; changing the address
 does not create that backend. Keep storage, realtime, callbacks and mail isolated
 as well, rather than pointing missing dependencies at production.
 
-**EAS profile names are not isolation.** The checked-in development, preview and
-production profiles currently include the production orchestrator gateway URL.
-Do not run an EAS development/preview build assuming it uses a staging backend.
-Cloud builds also require separate approval and allowance checks.
+**Configuration isolation is not hosted parity.** Development and staging/preview
+profiles now pin staging database/gateways, distinct identities and disabled push/
+reporting. Production config remains unchanged. Required public keys, native signing,
+controlled member access and device acceptance are not provisioned by these files.
+Cloud builds require the separate approval, capacity and prerequisite checklist in
+[mobile staging](MOBILE_STAGING.md#cicd-and-release-gates).
 
 Optional workflow reporting requires matching `EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT`,
 `EXPO_PUBLIC_APP_ENV`, Supabase URL and command/read gateways. The preinstall guard

@@ -1,4 +1,18 @@
+import { createRequire } from 'node:module';
+import type { MobileEnvironmentPolicy } from '../plugins/mobileEnvironment.cts';
+const require = createRequire(import.meta.url);
+const {
+  variantFor,
+  validateStagingEnvironment,
+}: MobileEnvironmentPolicy = require('../plugins/mobileEnvironment.cts');
 const profile = process.env.EAS_BUILD_PROFILE;
+const variant = variantFor(process.env);
+if (profile && variant !== 'production') {
+  validateStagingEnvironment(process.env, true);
+  // EAS secret values are available on the builder, not during local config resolution.
+  if (!process.env.SENTRY_AUTH_TOKEN?.trim())
+    throw Error('Unsafe staging build environment: SENTRY_AUTH_TOKEN');
+}
 
 // Optional reporting must not mix test observations with production app traffic.
 // Validate before the production-only guard: preview/development names are not isolation.

@@ -25,6 +25,14 @@ terms/privacy are built separately with versioned URLs by
 
 ## Technology stack
 
+Mobile variants are resolved by `app.config.ts` and
+`plugins/mobileEnvironment.cts`; `app.json` remains the production base.
+Development/staging use separate app identities, schemes, staging service bindings
+and the generated STG icon. `lib/mobileStaging.ts` gates staging token registration
+and separates APNs signing from the data environment. `scripts/mobile-candidate-ci.mts`
+is a read-only source preflight, not a build dispatcher. Hosted/mobile activation
+is still gated; see [mobile staging ownership and acceptance](MOBILE_STAGING.md).
+
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
 | Expo | 57.0.32 | Native toolchain and modules |

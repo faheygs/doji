@@ -190,6 +190,10 @@ registration stays compatible with installed clients.
   App correctness always comes from authorized reads.
 
 Native registration is foreground/account-bound and serialized with unregistration.
+Staging registration is separately default-off and cannot acquire provider tokens
+before its delivery setup is approved. APNs sandbox/production describes signing,
+not the database environment; staging internal distribution requires its explicit
+signing value and isolated provider credentials. Production registration is unchanged.
 Preserve the existing four-attempt bounded policy, six-hour confirmed receipt,
 rotation/release/identity changes and lifecycle cancellation. Interrupted or cached
 registration is not newly confirmed recovery. Recovery logging is privacy-filtered,

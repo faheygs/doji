@@ -6,6 +6,20 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Mobile staging configuration is now prepared in source, not built or enabled:
+distinct Development/Staging identities and schemes, staging-only binding checks,
+environment-aware Android diagnostics, and default-off staging push/reporting.
+Production app config is preserved. The isolated Firebase Spark Android clients,
+Apple development/staging App IDs and main-only GitHub approval environment now exist. EAS
+development/preview client destinations were verified; production values remain
+unchanged. The approved organization-wide Sentry upload token is stored as an EAS
+secret only in development/preview; source-map acceptance still requires a build.
+No build or push-provider credential was created. A read-only exact-main
+quality preflight does not authorize cloud builds. Native credentials, controlled member access, protected
+build runner, hosted parity and physical-device acceptance remain gated. Staging's
+Free-tier media path has transforms off and is not production transform parity.
+See the [dependency and release checklist](MOBILE_STAGING.md).
+
 Monitoring follow-up is in local preparation, not deployed: bounded provider
 acknowledgements and persisted notification attempts distinguish accepted,
 suppressed, disabled, rejected and unconfirmed outcomes. Acceptance is not inbox
@@ -102,8 +116,8 @@ The local ingestion qualification now composes the real HTTP handler, private SQ
 and employee projection across all 60 fixed platform/category pairs, with duplicate,
 rate, authorization and retaining-disable checks. It runs in the existing isolated
 database CI job; synthetic authentication does not qualify hosted ingestion or a
-mobile binary. The existing EAS development/preview profiles still include production
-gateway URLs, so they must not be used as staging telemetry acceptance artifacts.
+mobile binary. The EAS development/staging/preview profiles now select isolated
+staging bindings, but no native artifact is qualified by that source change.
 The mobile preinstall guard now rejects enabled reporting with mixed database,
 command/read gateway or app-environment bindings, including non-production profiles.
 It changes no default flags and does not itself qualify a staging mobile build.
