@@ -15,6 +15,14 @@ Screen 57.0.11, with their npm-resolved supporting dependencies. React/React Nat
 web and infrastructure manifests/lockfiles are unchanged; no doctor exclusion,
 coverage reduction, forced override or blanket audit fix was added.
 
+The Android passive diagnostics guard now pins 57.0.32 after reviewing its fetch
+module: normalized SHA-256 remains
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`, identical
+to 57.0.31. The exact hash, single-observer and unknown-version rejection remain.
+The owner-approved existing calendar-test correction checks local midnight/civil
+days plus timezone-offset elapsed time, with spring/fall DST fixtures. It changes
+no application timing code; a local day need not be exactly 24 elapsed hours.
+
 Reviewed upstream notes include [Expo](https://github.com/expo/expo/blob/sdk-57/packages/expo/CHANGELOG.md),
 [Router](https://github.com/expo/expo/blob/sdk-57/packages/expo-router/CHANGELOG.md),
 [Notifications](https://github.com/expo/expo/blob/sdk-57/packages/expo-notifications/CHANGELOG.md)
@@ -22,9 +30,13 @@ and [CLI](https://github.com/expo/expo/blob/sdk-57/packages/%40expo/cli/CHANGELO
 CLI 57.0.33 removes its Zod production dependency. Fresh root audit: zero high or
 critical findings; nine moderate and ten low findings remain. Expo Doctor passes
 21/21 checks and `expo install --check` reports aligned dependencies.
-Reverting the paired manifest/lockfile restores the previous source dependency
-graph. There is no native artifact to roll back: no mobile build, OTA update,
-store submission or production promotion accompanies this source change.
+Isolated local validation passed full root typechecking/lint/size/hygiene, 268 Jest
+suites / 5,023 tests, 335 web tests, web builds/artifact budgets and ten release
+policy tests. Calendar fixtures passed in Denver and UTC. Windows initially denied
+a generated Next.js directory; the unchanged build passed with filesystem permission.
+Reverting the paired manifest/lockfile and diagnostics version pin restores the
+previous source dependency graph. There is no native artifact to roll back: no
+mobile build, OTA update, store submission or production promotion accompanies this change.
 Root dependency changes qualify for the existing automatic admin-staging workflow;
 exact-head CI and release receipts remain separate from local checks.
 

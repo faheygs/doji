@@ -6,7 +6,7 @@ const { createHash }:typeof import('node:crypto') = require('node:crypto');
 // patch Android-only and fail closed on SDK changes; do not replace the global
 // OkHttp factory (that would also alter Fresco/WebSocket client defaults).
 // The accepted SDK must retain the reviewed normalized ExpoFetchModule.kt hash.
-const VERSION = '57.0.31';
+const VERSION = '57.0.32';
 const SOURCE_HASH = '3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea';
 
 function instrumentExpoClient(source:string, version:string, host:string, gatewayHost:string):string {
