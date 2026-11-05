@@ -51,9 +51,10 @@ Analytics and Gemini disabled. Its Android development/staging clients are regis
 their client files are retained outside Git under the owner's private
 `Doji/mobile-staging/2026-11-05` directory and byte-verified in EAS `development`/
 `preview` with the staging project ID. Firebase's multi-app download is reduced to
-the selected variant's single client before upload. Apple team `HUG35JPQGG` has registered `com.doit.challengeapp.staging`
-with Push Notifications capability; no certificate, profile or provider key was
-created. The Apple development identity, signing and delivery qualification remain pending.
+the selected variant's single client before upload. Apple team `HUG35JPQGG` has
+registered `com.doit.challengeapp.staging` and `com.doit.challengeapp.development`
+with Push Notifications capability. No certificate, profile or provider key was
+created; signing and delivery qualification remain pending.
 GitHub `mobile-staging` exists with `faheygs` as required reviewer and a `main`
 branch-only policy. No build job or credentials have been attached to that gate.
 
