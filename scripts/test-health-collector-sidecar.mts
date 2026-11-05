@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './test-sentry-monitor-history.mts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';

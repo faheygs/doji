@@ -1,4 +1,5 @@
 import { readJsonBody } from './json-body.ts';
+import { stagingSentryChecksUrl, stagingSentryMonitorUrl } from './sentry-monitor-contract.ts';
 
 type StagingEmail = { key: string; from: string; recipients: string[] };
 type StagingConnections = {
@@ -6,6 +7,7 @@ type StagingConnections = {
   orchestratorUrl?: string;
   ablyKey?: string;
   email?: StagingEmail;
+  sentryMonitorToken?: string;
 };
 
 /** Explicit server configuration only; never accept destinations from a caller. */
@@ -59,6 +61,10 @@ export function stagingFetch(config: StagingConnections, upstream: typeof fetch)
     const request = new Request(input, init);
     const url = new URL(request.url);
     const ably = url.protocol === 'https:' && !url.port && ablyHosts.has(url.hostname);
+    if (config.sentryMonitorToken && [stagingSentryChecksUrl, stagingSentryMonitorUrl].includes(url.href)
+      && request.method === 'GET' && !request.body
+      && request.headers.get('authorization') === `Bearer ${config.sentryMonitorToken}`)
+      return upstream(new Request(request, { redirect: 'error' }));
     if (
       email &&
       url.href === 'https://api.resend.com/emails' &&

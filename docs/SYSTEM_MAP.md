@@ -85,6 +85,10 @@ those contracts offline. `scripts/monitor-check.mts` is a one-shot external prob
 not itself a configured runner or alert sender. Sentry monitor `10858429` supplies
 the staging independent check; recovery email arrived, initial failure email remains
 unverified. All new gates default off; production read/reporting gates are unchanged.
+`operational-health/sentry-monitor-history.ts` prepares a separately gated import
+of real Sentry checks into the existing watchdog observation RPC. Its shared
+`sentry-monitor-contract.ts` owns the fixed staging destination and strict projection;
+staging egress grants only its exact configuration/check GETs to the qualified collector package.
 Maintenance continuation is owned by `DataMaintenanceAlarm`,
 `supabase/functions/run-data-maintenance` and `_shared/maintenance-progress.ts`.
 Backend observations are in `_shared/workflow-health.ts`; bounded private
