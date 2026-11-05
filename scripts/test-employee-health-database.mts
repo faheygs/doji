@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { createCleanRoom, installManagedSchemas, replay } from './database/clean-room.mts';
 import { errorOutput } from './database/contracts.mts';
 import { engine } from './database/config.mts';
+import { mobileIngestion } from './database/mobile-ingestion.mts';
 assert.equal(process.argv.length, 2);
 const room = createCleanRoom();
 const read = (name: string) => readFileSync(name, 'utf8').replaceAll('\r\n', '\n');
@@ -161,6 +162,7 @@ try {
   assert.equal(fingerprint(), before);
   sql(read('supabase/overlays/mobile_workflow_counts_v1.sql'));
   sql(read('supabase/overlays/employee_mobile_workflows_v1.sql'));
+  console.log(`PASS: ${await mobileIngestion(room)}`);
   assert.equal(
     fingerprint(),
     before,

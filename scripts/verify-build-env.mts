@@ -1,5 +1,36 @@
 const profile = process.env.EAS_BUILD_PROFILE;
 
+// Optional reporting must not mix test observations with production app traffic.
+// Validate before the production-only guard: preview/development names are not isolation.
+if (process.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED === 'true') {
+  const environment = process.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT;
+  const bindings =
+    environment === 'staging'
+      ? {
+          database: 'https://ohrcupagdoilkwhecict.supabase.co',
+          worker: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+        }
+      : environment === 'production'
+        ? {
+            database: 'https://tvixsmqxotuvyjqzmjla.supabase.co',
+            worker: 'https://doji-orchestrator.faheygs.workers.dev',
+          }
+        : null;
+  const invalid: string[] = [];
+  if (!bindings) invalid.push('EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT');
+  if (!bindings || process.env.EXPO_PUBLIC_APP_ENV !== environment)
+    invalid.push('EXPO_PUBLIC_APP_ENV');
+  if (bindings) {
+    for (const [name, expected] of [
+      ['EXPO_PUBLIC_SUPABASE_URL', bindings.database],
+      ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', bindings.worker],
+      ['EXPO_PUBLIC_SCALE_READ_URL', bindings.worker],
+    ])
+      if (process.env[name!] !== expected) invalid.push(name!);
+  }
+  if (invalid.length) throw Error(`Unsafe mobile reporting environment: ${invalid.join(', ')}`);
+}
+
 if (profile !== 'production') {
   console.log(`Production environment guard skipped for profile: ${profile ?? 'local'}`);
   process.exit(0);
