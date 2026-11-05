@@ -76,16 +76,19 @@ adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
 evidence/coverage views share the deferred backend bundle. The separately approved
 Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
 mobile capture and ingestion remain off. The staging UI uploaded, but its workflow's
-post-deployment verification failed; qualification remains blocked pending diagnosis.
+post-deployment verification failed; the newer `8249743` staging run passed exact
+artifact/receipt and hosted acceptance. The original failure cause remains unknown.
 `scripts/admin-release-verification.mts` owns the exact post-upload readback checks
 and safe step checkpoints; `deploy-admin-release.mts` retains upload/receipt ownership.
 See the [staging receipt](releases/README.md#november-4-staging-evidence-reads-and-monitor).
 `scripts/database/monitor-history.mts` and `test-employee-health-database.mts` test
 those contracts offline. `scripts/monitor-check.mts` is a one-shot external probe,
 not itself a configured runner or alert sender. Sentry monitor `10858429` supplies
-the staging independent check; recovery email arrived, initial failure email remains
-unverified. All new gates default off; production read/reporting gates are unchanged.
-`operational-health/sentry-monitor-history.ts` prepares a separately gated import
+the staging independent check; both approved drills delivered recovery emails but
+failure-email delivery remains unverified. Retained history records the second
+drill's failure and recovery. All new gates default off; production read/reporting
+gates are unchanged.
+`operational-health/sentry-monitor-history.ts` owns the staging-enabled, separately gated import
 of real Sentry checks into the existing watchdog observation RPC. Its shared
 `sentry-monitor-contract.ts` owns the fixed staging destination and strict projection;
 staging egress grants only its exact configuration/check GETs to the qualified collector package.

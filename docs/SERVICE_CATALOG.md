@@ -31,19 +31,19 @@ key and natural authenticated checks. Support supplied a free seat for its
 entitlement bug; November 4 billing showed Developer plan, two seats (one gifted),
 $0 additional spend and no payment method. The gifted credit ends November 28;
 verify the included seat works before expiry, without authorizing paid capacity.
-Owner-only alert `6292687` recorded two triggers during the one approved labelled
-assertion-failure/recovery drill. Recovery inbox delivery is confirmed; initial
-failure inbox delivery remains unverified. One additional labelled owner-only
-failure/recovery test is approved but not yet run.
+Owner-only alert `6292687` recorded four triggers across two separately approved
+assertion-failure/recovery drills. Both recovery emails arrived; neither failure
+email was found in Gmail, including Spam and Trash. A support delivery trace is
+pending; trigger counts are not delivery receipts. No further test sends are approved.
 Production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
 
-The approved staging Sentry history importer is preparation, not enabled. It uses
+The approved staging Sentry history importer is enabled at PR #48's tested source. It uses
 the existing one-minute collector and the same included monitor, not another service
 or timer. The separate **Doji Staging Monitor Read** integration has Alerts: Read
-only. Its token is held in ACL-restricted private release material, pending installation
-in protected staging Edge `STAGING_SENTRY_MONITOR_READ_TOKEN`;
+only. Its token is installed in protected staging Edge `STAGING_SENTRY_MONITOR_READ_TOKEN`,
+with an ACL-restricted private recovery copy outside Git;
 the provider scope is organization-wide but runtime and staging egress pin
 `doji-i0` / `doji-staging` / monitor `10858429`. No token is sent to the browser.
 Sentry's [check-results endpoint](https://github.com/getsentry/sentry/blob/master/src/sentry/uptime/endpoints/project_uptime_alert_checks_index.py)
@@ -52,10 +52,10 @@ import verifies the exact monitor configuration before reading at most five chec
 Those two fixed GETs preserve actual source times and never substitute request time.
 Empty per-check environment labels are accepted only with the verified staging
 binding; monitor configuration, including its private headers, is never persisted.
-Deployment
-requires exact-source tests, scoped credential verification, capacity and retained
+Future deployment requires exact-source tests, scoped credential verification, capacity and retained
 rollback. Disable `SENTRY_MONITOR_HISTORY_ENABLED` to stop imports without erasing
 history; restore the prior collector package for runtime rollback. Production is excluded.
+See the [qualified source and capacity receipt](releases/README.md#november-4-staging-sentry-history).
 
 Prepared mobile workflow reporting uses existing Supabase only. Binary flags
 `EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED` and `_ENVIRONMENT` default off; they are
@@ -71,8 +71,9 @@ egress. Employee `mobileWorkflowReadsEnabled` and
 Operations/MFA and staging-persona aggregate read/display integration; values remain
 in protected runtime configuration, never browser credentials. No new service or
 query timer is added. Staging read bridges and runtime flags are enabled; bounded
-synthetic SQL acceptance rolled back all fixtures. The staging UI uploaded but its
-release workflow failed post-deployment verification; qualification remains blocked.
+synthetic SQL acceptance rolled back all fixtures. The newer `8249743` staging
+release passed package/receipt and hosted verification; the historical failed
+run's cause remains unknown. See the current staging receipt above.
 Mobile capture remains off, ingestion is not deployed and binary release remains
 gated. Rollback disables reads/restores retained runtimes and preserves counters.
 
