@@ -9,6 +9,7 @@ source and its deployment boundaries; merging source does not deploy it.
 - [System and repository map](SYSTEM_MAP.md)
 - [Services and what each one does](SERVICE_CATALOG.md)
 - [Local development](LOCAL_DEVELOPMENT.md)
+- [Mobile staging and release gates](MOBILE_STAGING.md)
 - [Security, configuration and access](SECURITY_AND_ACCESS.md)
 - [Testing and releases](TESTING_AND_RELEASES.md)
 - [Test suite handoff](TEST_SUITE_HANDOFF.md)

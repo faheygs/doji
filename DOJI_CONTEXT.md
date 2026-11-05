@@ -26,6 +26,11 @@ product UI. See [system map](docs/SYSTEM_MAP.md) for entry points and
 
 ## Non-negotiable boundaries
 
+Mobile Development/Staging are separate installed identities using staging data and
+credentials, not alternate member logic. Production remains the existing identity.
+Configuration checks reject mixed bindings; native builds, provider activation and
+physical-device parity have independent gates in [mobile staging](docs/MOBILE_STAGING.md).
+
 - Postgres owns state, authorization, receipts, rewards and the transactional outbox.
 - Poll activation atomically ensures its unique community card after feed retention;
   a card created when scheduling is not sufficient for later vote submission.

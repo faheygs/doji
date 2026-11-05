@@ -58,6 +58,7 @@ test('native identity wins over configuration and is normalized', () => {
 });
 test.each([
   ['production', 'production'],
+  ['staging', 'staging'],
   [' Preview ', 'preview'],
   ['test', 'development'],
   ['', 'development'],

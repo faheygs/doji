@@ -26,11 +26,13 @@
 !/plugins
 /plugins/*
 !/plugins/withAndroidReadDiagnostics.cts
+!/plugins/mobileEnvironment.cts
 !/plugins/android-read-diagnostics
 /plugins/android-read-diagnostics/*
 !/plugins/android-read-diagnostics/DojiReadResponseHints.java
 !/plugins/android-read-diagnostics/expoClientPatch.cts
 !/app.json
+!/app.config.ts
 !/babel.config.cts
 !/metro.config.cts
 !/eas.json

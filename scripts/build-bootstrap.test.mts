@@ -3,6 +3,17 @@ import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { assertBootstrapCurrent, compileBootstrap, verifyBootstrap } from './build-bootstrap.mts';
+// The existing strict-tooling CI entry point owns mobile packaging and source gates.
+import './test-mobile-variants.mts';
+import './test-mobile-candidate.mts';
+
+test('staging icon matches its maintained deterministic generator', () => {
+  const result = spawnSync(process.execPath, ['scripts/mobile-staging-icon.mts'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
 
 test('every EAS profile pins Node 24 for both native platforms', () => {
   const config = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8')) as {
@@ -21,6 +32,8 @@ test('mobile source archive retains the typed Babel config and diagnostic plugin
   for (const file of [
     'babel.config.cts',
     'plugins/withAndroidReadDiagnostics.cts',
+    'plugins/mobileEnvironment.cts',
+    'app.config.ts',
     'plugins/android-read-diagnostics/expoClientPatch.cts',
     'scripts/verify-build-env.mjs',
   ]) {
@@ -68,7 +81,7 @@ function run(environment: NodeJS.ProcessEnv) {
 }
 test('emitted bootstrap executes without dependencies and preserves environment gates', () => {
   assert.equal(run({}).status, 0);
-  assert.equal(run({ EAS_BUILD_PROFILE: 'preview' }).status, 0);
+  assert.equal(run({ EAS_BUILD_PROFILE: 'preview' }).status, 1);
   assert.equal(run(production).status, 0);
   for (const [name, value] of [
     ['EXPO_PUBLIC_SUPABASE_ANON_KEY', ''],
@@ -91,14 +104,23 @@ test('emitted bootstrap executes without dependencies and preserves environment 
 test('enabled reporting rejects mixed bindings even outside the production profile', () => {
   const staging = {
     EAS_BUILD_PROFILE: 'preview',
+    DOJI_STAGING_BUILD_NUMBER: '1',
     EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED: 'true',
     EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT: 'staging',
     EXPO_PUBLIC_APP_ENV: 'staging',
     EXPO_PUBLIC_SUPABASE_URL: 'https://ohrcupagdoilkwhecict.supabase.co',
     EXPO_PUBLIC_COMMAND_GATEWAY_URL: 'https://doji-orchestrator-staging.faheygs.workers.dev',
     EXPO_PUBLIC_SCALE_READ_URL: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+    EXPO_PUBLIC_SUPABASE_ANON_KEY: `header.${Buffer.from(JSON.stringify({ role: 'anon', ref: 'ohrcupagdoilkwhecict' })).toString('base64url')}.synthetic`,
+    EXPO_PUBLIC_SENTRY_DSN:
+      'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@o123.ingest.us.sentry.io/4512328707342336',
+    EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED: 'false',
+    SENTRY_AUTH_TOKEN: 'synthetic-secret-not-a-token',
   };
   assert.equal(run(staging).status, 0);
+  const missingUploadToken = run({ ...staging, SENTRY_AUTH_TOKEN: '' });
+  assert.equal(missingUploadToken.status, 1);
+  assert.match(missingUploadToken.stderr, /SENTRY_AUTH_TOKEN/);
   assert.equal(
     run({
       ...production,
@@ -120,11 +142,11 @@ test('enabled reporting rejects mixed bindings even outside the production profi
   ]) {
     const result = run({ ...staging, [name!]: value });
     assert.equal(result.status, 1, name);
-    assert.match(result.stderr, /Unsafe mobile reporting environment/);
+    assert.match(result.stderr, /Unsafe (mobile reporting|staging build) environment/);
     assert.doesNotMatch(result.stderr, /key=private/);
   }
   assert.equal(
     run({ EAS_BUILD_PROFILE: 'preview', EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED: 'false' }).status,
-    0,
+    1,
   );
 });

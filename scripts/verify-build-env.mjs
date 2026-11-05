@@ -1,5 +1,15 @@
 // Generated from scripts/verify-build-env.mts by scripts/build-bootstrap.mts. Do not edit.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { variantFor, validateStagingEnvironment, } = require('../plugins/mobileEnvironment.cts');
 const profile = process.env.EAS_BUILD_PROFILE;
+const variant = variantFor(process.env);
+if (profile && variant !== 'production') {
+    validateStagingEnvironment(process.env, true);
+    // EAS secret values are available on the builder, not during local config resolution.
+    if (!process.env.SENTRY_AUTH_TOKEN?.trim())
+        throw Error('Unsafe staging build environment: SENTRY_AUTH_TOKEN');
+}
 // Optional reporting must not mix test observations with production app traffic.
 // Validate before the production-only guard: preview/development names are not isolation.
 if (process.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED === 'true') {
@@ -108,4 +118,3 @@ if (missing.length || stale.length || invalid.length) {
     throw new Error(`Unsafe production build environment (${parts.join('; ')})`);
 }
 console.log('Production build environment verified.');
-export {};
