@@ -73,12 +73,18 @@ ordered incident evidence. `employee_monitor_history_v1` and the employee runtim
 bridge own the restricted recent-history read. `admin_development_monitor_history_v1`
 adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
 `monitor-history.ts` render/project bounded history in the existing health read;
-evidence/coverage views share the deferred backend bundle. Only the separately approved
-Worker/SQL/Edge reporting path is enabled and verified in staging; employee/mobile/UI
-changes remain preparation. See the [staging receipt](releases/README.md#november-4-staging-monitor-reporting).
+evidence/coverage views share the deferred backend bundle. The separately approved
+Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
+mobile capture and ingestion remain off. The staging UI uploaded, but its workflow's
+post-deployment verification failed; qualification remains blocked pending diagnosis.
+`scripts/admin-release-verification.mts` owns the exact post-upload readback checks
+and safe step checkpoints; `deploy-admin-release.mts` retains upload/receipt ownership.
+See the [staging receipt](releases/README.md#november-4-staging-evidence-reads-and-monitor).
 `scripts/database/monitor-history.mts` and `test-employee-health-database.mts` test
 those contracts offline. `scripts/monitor-check.mts` is a one-shot external probe,
-not a configured independent monitor or alert sender. All new gates default off.
+not itself a configured runner or alert sender. Sentry monitor `10858429` supplies
+the staging independent check; recovery email arrived, initial failure email remains
+unverified. All new gates default off; production read/reporting gates are unchanged.
 Maintenance continuation is owned by `DataMaintenanceAlarm`,
 `supabase/functions/run-data-maintenance` and `_shared/maintenance-progress.ts`.
 Backend observations are in `_shared/workflow-health.ts`; bounded private

@@ -5,6 +5,63 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 4 staging evidence reads and monitor
+
+PR #46 exact head `e1662b0ba08423234121cfe10862241c38ccd85e` passed all four
+quality jobs and GitGuardian, then merged as `68711826e5858a73a0acaf8ab254cb5781929ae9`.
+Main CI `41951848836` passed all four jobs. Automatic staging run `41953768497`
+packaged successfully and uploaded Pages `bda0d5c5-cde9-4651-b613-eed0818fe6fe`,
+with rollback `3d205cc2-699d-4b18-967a-95fbac8ea4c0`, but failed during post-upload
+verification. Its original receipt remains `needs-inspection`; it was not rewritten
+as success. Independent read-only checks found the exact public release/config,
+78 manifest assets, security headers and session denials correct; Cloudflare showed
+success at the expected source and an unchanged configuration fingerprint. The
+generic catch hid the original failed assertion, so a propagation race is not proven.
+Do not rerun or promote this failed workflow; release qualification needs diagnosis.
+Signed-in hosted reads restored the existing session. Platform-monitor timestamps
+advanced November 4 Mountain time `19:18:45`, `19:19:44`, `19:20:44` without refresh;
+Device reports showed disabled capture. No retained incidents were returned.
+The separate independent-monitor history has no observation: Sentry's external
+checks are not connected to that history. Populated/denied states were tested with
+synthetic SQL/browser fixtures, not claimed as populated hosted acceptance.
+No production or mobile release is authorized by this receipt.
+
+The separately approved staging SQL installed the private mobile-counter dependency
+disabled, plus employee/development history and device-read bridges. All 484 prior
+function/ACL fingerprints and 89 policies were unchanged. Only employee-portal-v2
+and admin-development code was deployed; readback matched the candidate packages.
+Read flags are enabled, with versions 36/32 after configuration updates. Eight
+unrelated Edge code hashes and 34 other secret digests were unchanged. Mobile
+capture remains false and the ingestion endpoint is absent. Synthetic permission,
+MFA, revocation, claim-restoration and retaining-rollback checks passed in a rolled
+back transaction; final reads found zero fixture identities, count/admission rows
+and lock waits. Supabase usage was 6,733/500,000 Edge calls, 0.044/0.5 GB database
+and 0.064/5 GB egress, within existing free capacity.
+
+Private artifacts, five SQL overlays/inverses, prior runtime/configuration and
+`backend-qualified.json` are under `Doji/staging-backend/2026-11-04-evidence-reads`.
+Rollback disables only the new read flags, restores retained runtimes/configuration
+and applies the reviewed retaining inverses; it does not erase observations.
+Completed deployment helpers are not replay instructions.
+
+Sentry support supplied a free monitor seat while fixing its entitlement bug.
+Monitor `10858429` is enabled and natural checks returned HTTP 200. The temporary
+gifted credit ends November 28; no paid continuation is approved. The staging
+read key was rotated, with old-key 401/new-key 200 and 34 other secret digests
+unchanged; the former key's evidence file is not current configuration. Protected
+replacement/rotation evidence is under `2026-11-04-monitor/key-rotation-20261104`.
+
+The approved test changed only Sentry's assertion to reject the healthy HTTP 200,
+then restored its original 200–299 acceptance. Test issue `DOJI-STAGING-2`
+(`7830048458`) recovered automatically; natural healthy checks resumed. Alert
+`6292687` recorded two triggers. The owner received the recovery email only:
+initial failure email was not found in the conversation or Spam. Read-only checks
+showed personal Issue Alerts on with Email delivery and no project override; the
+rule targets Gavin on every trigger with new/resolved conditions and no event
+exclusion. Sentry delivery/suppression evidence is still needed; trigger history
+is not an inbox receipt. No second drill is approved.
+This did not interrupt Doji or establish complete platform-health coverage.
+
 ## November 4 staging monitor reporting
 
 The narrow retry at draft PR #46 head `6632592694baa55ac47343c4432b99319973a54e`

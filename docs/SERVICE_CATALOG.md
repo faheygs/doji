@@ -23,20 +23,18 @@ all default off. Local parity additionally requires staging-only
 the permission-checked development SQL route. No browser key is introduced.
 The staging-only key is provisioned in protected staging Edge configuration;
 its recovery copy is ACL-restricted outside Git. The narrow staging Worker/SQL/Edge
-reporting path is enabled and verified at `6632592`; production and employee/mobile
-history gates remain off. See the [receipt and retaining rollback](releases/README.md#november-4-staging-monitor-reporting).
-Sentry monitor `10858429` is created in `doji-staging` with the scoped read key and
-passed its authenticated HTTP test. It remains disabled: enabling returned a
-seat-budget error although billing showed 0/1 included Uptime Monitors. No budget,
-payment or plan change was made. Account entitlement resolution and independent
-failure/recovery qualification remain pending. Its email alert `6292687` targets
-only the approved owner; no test alert was sent. Verify missing-run
-detection and retaining rollback before claiming alert delivery; no extra spending
-is approved. The November 4 read-only Sentry account check showed Developer plan, 0/1 included
-Uptime Monitors used and $0 additional spend. The owner approved using that included
-monitor for staging, a staging-only read credential and one labelled failure/recovery
-email test to faheygs@gmail.com after CI and staging backend checks pass. It is not
-enabled or delivery-qualified; production and extra spending remain excluded. The protected heartbeat
+reporting path is enabled and verified at `6632592`; staging employee/development
+history reads are enabled at PR #46's tested source. Production remains unchanged.
+See the [receipt and retaining rollback](releases/README.md#november-4-staging-evidence-reads-and-monitor).
+Sentry monitor `10858429` is enabled in `doji-staging` with a rotated scoped read
+key and natural authenticated checks. Support supplied a free seat for its
+entitlement bug; November 4 billing showed Developer plan, two seats (one gifted),
+$0 additional spend and no payment method. The gifted credit ends November 28;
+verify the included seat works before expiry, without authorizing paid capacity.
+Owner-only alert `6292687` recorded two triggers during the one approved labelled
+assertion-failure/recovery drill. Recovery inbox delivery is confirmed; initial
+failure inbox delivery remains unverified. No further test send is approved.
+Production and extra spending remain excluded. The protected heartbeat
 endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
 monitor cannot mistake a working Edge route for a working collector.
 
@@ -53,8 +51,11 @@ egress. Employee `mobileWorkflowReadsEnabled` and
 `ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED` independently gate the prepared
 Operations/MFA and staging-persona aggregate read/display integration; values remain
 in protected runtime configuration, never browser credentials. No new service or
-query timer is added. Capacity, hosted synthetic acceptance, read enablement and
-binary release remain gated; rollback removes read bridges and preserves counters.
+query timer is added. Staging read bridges and runtime flags are enabled; bounded
+synthetic SQL acceptance rolled back all fixtures. The staging UI uploaded but its
+release workflow failed post-deployment verification; qualification remains blocked.
+Mobile capture remains off, ingestion is not deployed and binary release remains
+gated. Rollback disables reads/restores retained runtimes and preserves counters.
 
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly
