@@ -83,6 +83,15 @@ staging SMTP capacity/credentials, hook binding and a valid staging confirmation
 destination are required before opening signup. A signup hook restricts new users,
 not every Auth email path: recipient safety for email changes/recovery must also be
 qualified before general testing. Do not claim mail delivery from provider acceptance.
+`lib/signupOptions.ts` prepares exact `doji-dev://login` and `doji-staging://login`
+confirmation destinations after checking the variant/scheme/staging project;
+production signup options are unchanged. These exact URLs must be allowed in staging
+Auth. Confirmation returns to login, not automatic session installation; sign in
+normally afterward. The currently installed standalone APK predates this change.
+Resend's signed-in November 5 check showed Free transactional usage of 0/3,000
+monthly and 0/100 daily, pay-as-you-go off, and verified `mail.dojipro.com`.
+A separate sending-only staging Auth key is awaiting approval; no SMTP setting or
+mail delivery has changed. Recheck capacity at activation; these are not reserved quotas.
 Preserve the existing age function and legal checks. Rollback closes signup and revokes
 only the approved test sessions; never reset staging or alter production.
 

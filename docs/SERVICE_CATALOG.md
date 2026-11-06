@@ -152,6 +152,11 @@ approved local/EAS environments; build tokens and signing files stay protected i
 EAS/provider stores, never public variables or Git. No build, delivery activation or
 plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining rollback
 and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
+The November 5 Resend check found Free transactional usage 0/3,000 monthly and
+0/100 daily, pay-as-you-go off, and `mail.dojipro.com` verified. A dedicated
+`Doji mobile staging auth` sending-only key for that domain is proposed, not created;
+its destination is protected staging Supabase Auth SMTP, never Expo/client config.
+Existing admin/business/production credentials remain separate and unchanged.
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
 
