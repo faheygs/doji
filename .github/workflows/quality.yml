@@ -16,12 +16,17 @@ concurrency:
 jobs:
   web-migration:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Setup, bounded suites and failure-artifact upload have separate headroom.
+    timeout-minutes: 40
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      options: --init --ipc=host
     defaults:
       run:
         working-directory: web
     env:
       NEXT_TELEMETRY_DISABLED: '1'
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,20 +36,43 @@ jobs:
           cache-dependency-path: web/package-lock.json
       # Imported employee contracts use the repository's locked SDK types.
       # No mobile lifecycle scripts run in the isolated web quality job.
-      - run: npm ci --ignore-scripts --prefix ..
-      # The static site's retained safety compiler uses this locked esbuild.
-      - run: npm ci --prefix ../infra/doji-orchestrator
-      - run: npm ci --ignore-scripts
+      - name: Install locked toolchains
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          npm ci --ignore-scripts --prefix ..
+          npm ci --prefix ../infra/doji-orchestrator
+          npm ci --ignore-scripts
+      - name: Verify bundled browsers before building
+        timeout-minutes: 1
+        run: node scripts/ci-browser-preflight.mts web-migration
+        working-directory: ${{ github.workspace }}
       - run: npm run check
+        timeout-minutes: 6
       - run: npm run build:connected --workspace @doji/admin
+        timeout-minutes: 2
       - run: npm run test:connected-artifacts
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:browser
-      - run: npm run test:admin-staging:browser
+        timeout-minutes: 1
+      - run: npm run test:browser -- --global-timeout=600000
+        timeout-minutes: 11
+      - run: npm run test:admin-staging:browser -- --global-timeout=180000
+        timeout-minutes: 4
       - run: npm run test:admin-staging --prefix ..
+        timeout-minutes: 3
       - run: node --test scripts/test-admin-release.mts scripts/test-admin-release-ci.mts
         working-directory: ${{ github.workspace }}
+        timeout-minutes: 2
       - run: npm audit --audit-level=high
+        timeout-minutes: 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        timeout-minutes: 1
+        with:
+          name: web-browser-failure-evidence
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
 
   application:
     runs-on: ubuntu-24.04
@@ -72,6 +100,8 @@ jobs:
         run: node scripts/test-monitor-history-runtime.mts
       - name: Dependency security and router compatibility
         run: node --test scripts/uri-decoder-security.test.mts scripts/dependency-security.test.mts
+      - name: Browser CI policy regression
+        run: node --test scripts/test-ci-browser-policy.mts
       - run: npm run test:fanout-model
       # Expo/Metro build-tool advisories are tracked separately; a critical
       # production advisory always blocks release.
@@ -96,6 +126,11 @@ jobs:
   coverage:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --init --ipc=host
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -107,8 +142,9 @@ jobs:
       - run: npm ci --prefix infra/doji-orchestrator
       # Coverage exercises real admin packages with the separate web toolchain.
       - run: npm ci --ignore-scripts --prefix web
-      - run: npx playwright install --with-deps chromium
-      - run: node web/node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Verify both locked browser clients against the bundled image
+        timeout-minutes: 2
+        run: node scripts/ci-browser-preflight.mts coverage
       # Fails until every named area reaches 90% statements/branches/functions/lines.
       # Local fixture artifacts only; no production credentials or deployment.
       - run: npm run test:coverage
