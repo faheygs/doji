@@ -143,8 +143,8 @@ Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
 Public signup and anonymous access remain off; no mail was sent. Normal restricted
 signup and verification delivery remain gated. The approved replacement uses Gmail
 test aliases delivered to the owner's inbox, not a new forwarding service. Staging
-Auth still uses Supabase's default sender; existing Resend capacity and isolated
-SMTP credentials must be verified before configuration. The prepared signup hook
+Auth now has the separately approved Resend SMTP configuration; normal signup and
+delivery remain unqualified. The prepared signup hook
 does not enable sending or protect other Auth mail paths. API sign-in/refresh/logout did not
 qualify native onboarding or workflow acceptance. iOS signing
 and protected build-runner credentials remain pending. Staging public client values belong in
@@ -154,8 +154,10 @@ plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining
 and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
 The November 5 Resend check found Free transactional usage 0/3,000 monthly and
 0/100 daily, pay-as-you-go off, and `mail.dojipro.com` verified. A dedicated
-`Doji mobile staging auth` sending-only key for that domain is proposed, not created;
-its destination is protected staging Supabase Auth SMTP, never Expo/client config.
+`Doji mobile staging auth` sending-only key for that domain was created and saved
+in protected staging Supabase Auth SMTP, never Expo/client config. Its transport is
+`smtp.resend.com:465`, with `Doji Staging <staging-auth@mail.dojipro.com>` as sender.
+No mail has been sent. Rollback disables custom SMTP and revokes only this key.
 Existing admin/business/production credentials remain separate and unchanged.
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.

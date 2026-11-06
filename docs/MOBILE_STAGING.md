@@ -77,7 +77,7 @@ required. The owner approved multiple synthetic accounts through normal signup,
 using `faheygs+doji-stage-<test-name>@gmail.com` aliases delivered to the owner's
 inbox, within existing email capacity. The prepared `staging_mobile_signup_v1.sql`
 gate defaults off and delegates to the maintained age function; it is not deployed.
-The staging dashboard currently has no Auth hook, uses the default email sender,
+The staging dashboard currently has no Auth hook,
 and redirects confirmation to `http://localhost:3000`. Exact-head checks, verified
 staging SMTP capacity/credentials, hook binding and a valid staging confirmation
 destination are required before opening signup. A signup hook restricts new users,
@@ -90,8 +90,12 @@ Auth. Confirmation returns to login, not automatic session installation; sign in
 normally afterward. The currently installed standalone APK predates this change.
 Resend's signed-in November 5 check showed Free transactional usage of 0/3,000
 monthly and 0/100 daily, pay-as-you-go off, and verified `mail.dojipro.com`.
-A separate sending-only staging Auth key is awaiting approval; no SMTP setting or
-mail delivery has changed. Recheck capacity at activation; these are not reserved quotas.
+The separately approved `Doji mobile staging auth` sending-only key is saved only
+in protected staging Supabase Auth SMTP: `smtp.resend.com:465`, sender
+`staging-auth@mail.dojipro.com`, display name `Doji Staging`. Saved configuration
+was verified, not provider acceptance or inbox delivery; no test mail has been sent.
+Rollback disables custom SMTP and revokes only this key, leaving other senders
+unchanged. Recheck capacity at activation; these are not reserved quotas.
 Preserve the existing age function and legal checks. Rollback closes signup and revokes
 only the approved test sessions; never reset staging or alter production.
 

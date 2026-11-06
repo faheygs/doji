@@ -37,13 +37,15 @@ approved verification inbox, not fabricated consent or another Auth-only fixture
 The owner approved multiple dummy accounts using a Gmail staging-alias family.
 A default-off staging-only signup gate is locally prepared, not deployed; it calls
 the existing age function and preserves normal confirmation/profile consent.
-Hosted Auth still lacks a hook/custom SMTP and uses a localhost confirmation
+Hosted Auth still lacks the signup hook and uses a localhost confirmation
 redirect. Sender capacity, safe recipient paths and staging confirmation must be
 qualified before enabling registration; no verification email has been sent.
 Local signup options now prepare exact per-variant staging confirmation links;
 production is unchanged and hosted redirect configuration is still pending.
 The signed-in Resend check confirmed available Free allowance with pay-as-you-go
-off; the separate staging Auth sender key/configuration remains gated.
+off. The separately approved sending-only staging Auth key was created and saved
+in staging Supabase SMTP; its stored-password state and smtp.resend.com:465 were
+verified. No verification email or normal signup flow has yet been exercised.
 Passwords/signing backups and the removal receipt are restricted outside Git.
 Native onboarding and workflow acceptance are not established by API tests.
 A read-only exact-main quality preflight does not authorize cloud builds. iOS signing,
