@@ -63,8 +63,11 @@ their client files are retained outside Git under the owner's private
 `preview` with the staging project ID. Firebase's multi-app download is reduced to
 the selected variant's single client before upload. Apple team `HUG35JPQGG` has
 registered `com.doit.challengeapp.staging` and `com.doit.challengeapp.development`
-with Push Notifications capability. No Apple certificate, profile or push-provider
-key was created; iOS signing and delivery qualification remain pending.
+with Push Notifications capability. Separate ad-hoc Dev/Staging profiles now use
+the existing team distribution certificate and contain only the owner's confirmed
+iPhone. Their embedded IPA profiles were verified; no certificate was rotated or
+push-provider key created. No existing TestFlight group receives these builds.
+Push delivery qualification remains pending.
 Android development and staging now have separate default signing keys in EAS,
 with distinct certificate fingerprints from each other and production. Exact
 readback verified both bindings and unchanged production signing metadata. Protected
@@ -111,7 +114,8 @@ follow-up only, not an implemented mail sink or permission for additional spendi
 confirmation destinations after checking the variant/scheme/staging project;
 production signup options are unchanged. These two exact URLs are allowed in staging
 Auth; `doji-staging://login` is the default. Confirmation returns to login, not automatic session installation; sign in
-normally afterward. The currently installed standalone APK predates this change.
+normally afterward. New `7513c6d` artifacts include this change; normal signup and
+inbox/profile acceptance remain separate from installation/startup.
 Resend's signed-in November 5 check showed Free transactional usage of 0/3,000
 monthly and 0/100 daily, pay-as-you-go off, and verified `mail.dojipro.com`.
 The separately approved `Doji mobile staging auth` sending-only key is saved only
@@ -147,6 +151,12 @@ its certificate matches the retained staging key. Sentry's upload report confirm
 bundle/map Debug ID `12a1fdfa-c9e4-405a-b4cf-96b66d9c39cf`. This verifies upload,
 not symbolication of a captured device error. Exact APK/build/config/log receipts
 are private under `Doji/mobile-staging/2026-11-05/android-build-1`.
+The November 6 owner-approved batch uses exact reviewed `7513c6d`, with passing
+main CI `42169655623`: iPhone Dev build 1 and both Staging build 2 artifacts are
+complete. The refreshed Android APK matches the previous staging certificate,
+is installed, and cold-started successfully with Metro stopped. The owner confirmed iPhone Dev
+Fast Refresh and restoration without reload, then repeated Staging startup while
+Metro was stopped. See the [current build receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
 No production build, store submission, push or device reporting was enabled.
 Expo prohibits reducing
 secret visibility, so two prior preview Supabase
