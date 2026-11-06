@@ -32,10 +32,16 @@ and the generated STG icon. `lib/mobileStaging.ts` gates staging token registrat
 and separates APNs signing from the data environment. `scripts/mobile-candidate-ci.mts`
 is a read-only source preflight, not a build dispatcher. Hosted/mobile activation
 is still gated; see [mobile staging ownership and acceptance](MOBILE_STAGING.md).
-The prepared `supabase/overlays/staging_mobile_signup_v1.sql` adds default-off,
+`scripts/mobile-dev.mts` owns local Metro startup from the editing checkout,
+external public-client configuration validation and explicit trusted-LAN mode for
+Android/iPhone Dev clients. It never builds, submits or activates delivery gates.
+The `supabase/overlays/staging_mobile_signup_v1.sql` adds default-off,
 staging-only test-alias admission before the existing minimum-age hook. Its owned
 database fixture is `scripts/database/staging-mobile-signup.mts`; it does not
 configure SMTP, redirects or hosted signup and never creates fixture accounts.
+Its separately approved staging deployment and Before User Created binding now
+restrict new users to the owner's test-alias family. SMTP and exact Dev/Staging
+confirmation URLs are configured separately; native signup acceptance is pending.
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |

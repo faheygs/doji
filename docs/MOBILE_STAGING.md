@@ -22,6 +22,16 @@ is `scripts/mobile-staging-icon.mts`; it never edits production icons. Separate 
 IDs isolate installed storage and sessions. No new OTA service/channel is enabled;
 staging explicitly disables updates so a later production update URL cannot leak in.
 
+Local Dev means Fast Refresh on both Android emulator and the owner's physical
+iPhone from the same working repository/Metro server; it is not a standalone
+staging build. `npm run dev:mobile` validates private local client configuration;
+`--lan` permits the trusted-network iPhone connection. Each device needs its Dev
+client installed once and rebuilt for native changes. Standalone Staging builds
+must run without Metro on both platforms. Restrict iOS Dev/Staging provisioning to
+the owner's iPhone; do not add existing internal TestFlight testers. Windows can
+serve both platforms but needs macOS or an approved cloud build for native iOS.
+See [local development](LOCAL_DEVELOPMENT.md#everyday-android-and-iphone-fast-refresh).
+
 `plugins/mobileEnvironment.cts` fences database, read/command gateways, public anon
 JWT project/role, Sentry project, build number and public secret-like variables.
 The JWT check verifies configuration claims, not a signature; Supabase still owns
@@ -72,28 +82,42 @@ were verified, with no profile or owned media. Only Doji Dev app data was cleare
 `member-accounts` directory retains the removal receipt and prior evidence; account-1
 credentials are obsolete, not a working login. Do not recreate Auth-only accounts
 or fabricate consent. Replacement testing must use the normal app signup/confirmation
-and atomic profile command. Staging signup remains disabled, email confirmation is
+and atomic profile command. Restricted staging signup is enabled, email confirmation is
 required. The owner approved multiple synthetic accounts through normal signup,
 using `faheygs+doji-stage-<test-name>@gmail.com` aliases delivered to the owner's
-inbox, within existing email capacity. The prepared `staging_mobile_signup_v1.sql`
-gate defaults off and delegates to the maintained age function; it is not deployed.
-The staging dashboard currently has no Auth hook,
-and redirects confirmation to `http://localhost:3000`. Exact-head checks, verified
-staging SMTP capacity/credentials, hook binding and a valid staging confirmation
-destination are required before opening signup. A signup hook restricts new users,
+inbox, within existing email capacity. The `staging_mobile_signup_v1.sql`
+gate defaults off in source and is deployed/enabled in staging with the approved
+alias prefix. Its Before User Created binding delegates to the unchanged age
+function. Live outside-family and underage requests returned 403 with no accounts
+or sessions; existing role fences, four identities and age definition/grants were
+preserved. PR #55 merged as `03a050d` after all exact-head checks passed.
+Normal in-app signup, confirmation delivery and profile acceptance remain pending.
+A signup hook restricts new users,
 not every Auth email path: recipient safety for email changes/recovery must also be
 qualified before general testing. Do not claim mail delivery from provider acceptance.
+
+Deferred owner requirement: accept arbitrary syntactically valid dummy email
+identities during controlled staging registration, rather than requiring Gmail
+aliases. Keep the entered identity in staging, but intercept all staging email
+delivery and route it only to `faheygs@gmail.com` (or an approved test inbox), never
+to the entered address. Cover confirmation, recovery and both email-change paths;
+preserve normal age, consent and verification behavior. Retain bounded test-routing
+metadata, not passwords, verification tokens/links or message bodies. Qualify
+fail-closed recipient routing, abuse limits, existing capacity and production
+isolation before replacing the current temporary alias restriction. This is logged
+follow-up only, not an implemented mail sink or permission for additional spending.
+
 `lib/signupOptions.ts` prepares exact `doji-dev://login` and `doji-staging://login`
 confirmation destinations after checking the variant/scheme/staging project;
-production signup options are unchanged. These exact URLs must be allowed in staging
-Auth. Confirmation returns to login, not automatic session installation; sign in
+production signup options are unchanged. These two exact URLs are allowed in staging
+Auth; `doji-staging://login` is the default. Confirmation returns to login, not automatic session installation; sign in
 normally afterward. The currently installed standalone APK predates this change.
 Resend's signed-in November 5 check showed Free transactional usage of 0/3,000
 monthly and 0/100 daily, pay-as-you-go off, and verified `mail.dojipro.com`.
 The separately approved `Doji mobile staging auth` sending-only key is saved only
 in protected staging Supabase Auth SMTP: `smtp.resend.com:465`, sender
 `staging-auth@mail.dojipro.com`, display name `Doji Staging`. Saved configuration
-was verified, not provider acceptance or inbox delivery; no test mail has been sent.
+was verified, not provider acceptance or inbox delivery; activation sent no mail.
 Rollback disables custom SMTP and revokes only this key, leaving other senders
 unchanged. Recheck capacity at activation; these are not reserved quotas.
 Preserve the existing age function and legal checks. Rollback closes signup and revokes

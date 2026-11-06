@@ -12,6 +12,8 @@
     "test:admin-development:database": "node scripts/test-admin-development-database.mts",
     "eas-build-pre-install": "node scripts/verify-build-env.mjs",
     "start": "expo start",
+    "dev:mobile": "node scripts/mobile-dev.mts",
+    "test:mobile-dev": "node --test scripts/test-mobile-dev.mts",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

@@ -140,12 +140,13 @@ Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
 `mobile-one@test.invalid` was removed after missing consent blocked profile creation;
 `mobile-two@test.invalid` remains unchanged. Restricted receipts are in the adjacent
 `member-accounts` directory; removed-account credentials are not reusable logins.
-Public signup and anonymous access remain off; no mail was sent. Normal restricted
-signup and verification delivery remain gated. The approved replacement uses Gmail
+Anonymous access remains off; fixture creation sent no mail. The approved replacement uses Gmail
 test aliases delivered to the owner's inbox, not a new forwarding service. Staging
-Auth now has the separately approved Resend SMTP configuration; normal signup and
-delivery remain unqualified. The prepared signup hook
-does not enable sending or protect other Auth mail paths. API sign-in/refresh/logout did not
+Auth now has the separately approved Resend SMTP configuration and enabled,
+age-preserving signup admission for the owner's staging Gmail aliases. Exact
+Dev/Staging confirmation URLs are configured. Live outside-family and underage
+signup requests returned 403; normal signup and delivery remain unqualified.
+The admission hook does not protect other Auth mail paths. API sign-in/refresh/logout did not
 qualify native onboarding or workflow acceptance. iOS signing
 and protected build-runner credentials remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in
@@ -157,7 +158,7 @@ The November 5 Resend check found Free transactional usage 0/3,000 monthly and
 `Doji mobile staging auth` sending-only key for that domain was created and saved
 in protected staging Supabase Auth SMTP, never Expo/client config. Its transport is
 `smtp.resend.com:465`, with `Doji Staging <staging-auth@mail.dojipro.com>` as sender.
-No mail has been sent. Rollback disables custom SMTP and revokes only this key.
+Activation sent no mail. Rollback disables custom SMTP and revokes only this key.
 Existing admin/business/production credentials remain separate and unchanged.
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
