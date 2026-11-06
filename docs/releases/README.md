@@ -87,6 +87,43 @@ Owner/SYSTEM-restricted before/after receipts and the exact two-field rollback
 are retained at `%LOCALAPPDATA%/Doji/staging-backend/2026-11-06-signup-parity`.
 Rollback changes only those settings; it does not delete accounts or reset data.
 
+## November 6 mobile Doji acceptance and deadline preparation
+
+On the existing `7513c6d` Staging build 2 artifacts, the owner confirmed normal
+signup/profile, restored sessions and sign-out/sign-in on iPhone and Android
+emulator. The staging-wide photo occurrence `8d815b61-ae62-4e81-a89a-5ac649256ae8`
+used the existing prepare RPC and durable pre-live/activate/close implementation,
+with a manually chosen test time and next-day chaining disabled for this single
+test. The active dummy template is retained; no new daily schedule was enabled.
+Server activation was November 6 at 09:51:02.580 Mountain, deadline 10:01:02.580,
+and natural close 10:01:03.329. Both accounts submitted once before the deadline;
+each has one photo, one completion, 50 XP and streak 1. The owner confirmed the feed
+on both devices. Phase hints published on first attempt. Push/reporting stayed off;
+production was untouched. This does not qualify notification delivery or all Doji types.
+
+The iPhone owner reported 10:00 stuck before and during the challenge. The live
+ring capped its displayed text at 600 seconds despite that occurrence's signup-day
+deadline being midnight. Android's pre-live occurrence had its grace deadline
+overwritten at activation; both flags remained true. The existing expiry trigger
+reproduces that join-order difference in a fresh offline database.
+
+Prepared only: full deadline text in compact/ring timers (ring progress stays
+bounded), plus `participation_deadline_v1.sql` preserving grace/paid/terminal rows.
+Its inverse restores the original trigger without data deletion or historical
+backfill. Before deployment, verify the live definition/grants/binding, retain it,
+review existing affected occurrences separately, and qualify staging before any
+production approval. No Edge/Worker, Auth, reward, scheduler or provider changes are
+part of this correction. New native builds and shared SQL deployment are separately
+gated. The pre-live banner uses a separate uncapped clock: real-hook tests cover
+skew, missed ticks and expiry reconciliation, but do not reproduce or resolve the
+reported physical-iPhone freeze. A new device acceptance run remains required.
+
+Local validation passed: 72 focused mobile tests, full typecheck/lint/size/hygiene
+gates, and the complete isolated database suite after replaying 291 migrations.
+The new database regression reproduces the old defect, verifies exception and
+ordinary-window behavior, and proves exact function/grant restoration on rollback.
+These are local results, not exact-head CI or hosted acceptance of the correction.
+
 ## November 5 Expo compatibility alignment
 
 PR #52's application job stopped at Expo Doctor: nine direct packages were one

@@ -105,6 +105,9 @@ an expired occurrence is `missed`. An atomic Sparks buy-in permits `buy_in_open`
 then `late`, without reapplying the original ten-minute cutoff. The existing
 server-owned signup-day exception remains separate. A newer occurrence supersedes
 an older paid opportunity.
+Display timers show the full authorized deadline, including signup-day grace;
+only a countdown ring's graphic is bounded by its normal-window scale. Activation
+and alarm recovery must not shorten signup-day or paid-participation exceptions.
 
 Photo/task/format submissions use `complete_doji_with_post`; poll/WYR submissions
 use `submit_poll_vote`. Uploads alone do not complete participation. Retries
