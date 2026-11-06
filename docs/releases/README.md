@@ -144,9 +144,10 @@ Android pre-live progressed from 4:53 to 4:43; the owner subsequently tested it
 and reported normal behavior. Natural activation at 15:11:00.562 Mountain set close
 to 15:21:00.562, with actual close at 15:21:01.072. Both accounts retained their
 midnight signup-day deadline before activation, after activation and after close.
-The first-day banner correctly has no timer. The owner has not yet specifically
-confirmed the in-challenge ring/compact timer after background return; that check
-remains open. Both participation rows were pending at final read; this run does
+The first-day banner correctly has no timer. In response to the remaining
+in-challenge countdown/background-return check, the owner confirmed everything
+looked good; this is owner-reported device acceptance, not a captured timer trace.
+Both participation rows were pending at the server close read; this run does
 not add completion/reward evidence to the earlier successful photo test.
 
 Local validation passed: 72 focused mobile tests, full typecheck/lint/size/hygiene

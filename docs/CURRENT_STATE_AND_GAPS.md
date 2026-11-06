@@ -73,8 +73,9 @@ signing; push/reporting remain off. Production is unchanged.
 In the build 3 regression, the owner confirmed the iPhone pre-live countdown
 decreased and caught up after background return without reload, and reported the
 Android countdown working. Natural activation/600-second close preserved both
-signup-day deadlines. The first-day banner correctly has no timer; confirmation
-of the timer inside the challenge screen remains pending. See the
+signup-day deadlines. The first-day banner correctly has no timer. In response
+to the final in-challenge countdown/background-return check, the owner confirmed
+everything looked good, closing this countdown acceptance. See the
 [device test and correction scope](releases/README.md#november-6-mobile-doji-acceptance-and-deadline-preparation).
 Email-change/recovery recipient safety is still unqualified; do not test those
 mail paths with arbitrary destinations. See the [configuration receipt](releases/README.md#november-6-staging-signup-parity-correction).

@@ -47,7 +47,7 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 | Commands and reads / gateway clients | `doji-orchestrator-staging.faheygs.workers.dev`; member JWT/RLS | Exact deployed source/contracts and authorized/denied reads, idempotent writes, interrupted explicit retries |
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
-| Lifecycle / Worker + SQL | Existing staging five Durable Objects and one-shot alarms | Photo completion/single reward/natural 600-second close passed on both clients. Build 3 pre-live countdown/return passed by owner report; activation/close preserved grace. In-challenge timer, poll/format and interrupted identical retry remain unqualified |
+| Lifecycle / Worker + SQL | Existing staging five Durable Objects and one-shot alarms | Photo completion/single reward/natural 600-second close passed on both clients. Build 3 countdown/return accepted by owner; activation/close preserved grace. Poll/format and interrupted identical retry remain unqualified |
 | Native push / Firebase + APNs | Separate Firebase project/client and app-specific Apple signing/provider destination | Provision and verify isolated credentials; approved device allowlist; physical receipt/navigation. Sending and client token registration remain off |
 | Sentry / app config | Existing `doji-staging` project `4512328707342336`; environment `staging` | Exact native source-map Debug IDs, error privacy and capacity; build-only upload token never enters public config |
 | Device reports / existing ingestion | Staging member-authenticated endpoint/private SQL; binary, Edge and SQL gates independent | Endpoint synthetic qualification exists; enable only after approval, verify real Android/iOS reports and admin display, replay/rate/account/disable behavior |
@@ -100,8 +100,9 @@ approved Staging build 3 pair uses exact reviewed source `906006d`; both updates
 retained accounts and opened normally. The owner confirmed iPhone pre-live
 countdown/background return and Android countdown behavior. Natural activation
 and close preserved both signup-day deadlines. The first-day banner intentionally
-has no timer; in-challenge timer confirmation remains pending. Do not equate a
-passing rollback fixture or cloud build with complete physical-device acceptance.
+has no timer; the owner accepted the final in-challenge countdown/return check.
+Do not equate a passing rollback fixture or cloud build with complete
+physical-device acceptance.
 
 Signup sends no confirmation email. Recovery and email-change routing are still
 unqualified: do not exercise them against arbitrary test destinations. An approved
