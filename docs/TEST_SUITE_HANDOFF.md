@@ -41,8 +41,17 @@ npm run check:size
 npm run test:coverage
 ```
 
-On Linux, Playwright may need OS libraries; CI uses
-`npx playwright install --with-deps chromium`. On Windows, an already installed
+On Linux hosts, Playwright may need `npx playwright install --with-deps chromium`.
+CI instead uses digest-pinned official Playwright Noble images with browsers and
+OS libraries already installed; it does not download Ubuntu fonts during tests.
+Root and web keep separate lockfiles. The image tag must match its primary locked
+client; coverage additionally rejects incompatible root/web Chromium revisions.
+Both clients launch locally before coverage starts. Update image tags/digests and
+qualify CI together when upgrading Playwright; never substitute a system browser.
+The web job bounds setup and each suite separately, with Playwright global timeouts
+below step limits and job headroom for retained failure traces. Registry/npm outages
+can still fail setup; missing browsers never skip tests or count as passing.
+On Windows, an already installed
 Chrome can be selected for the current PowerShell session before the coverage run:
 
 ```powershell

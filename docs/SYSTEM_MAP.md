@@ -231,9 +231,10 @@ The standard window is ten minutes by Postgres time. Existing signup-day and pai
 buy-in exceptions are server-owned contracts, not permission to extend a phone
 timer. Completion returns directly to feed. See
 [realtime guarantees](REALTIME_ARCHITECTURE.md#guarantees).
-`participation_deadline_v1.sql` prepares a narrow expiry-trigger correction and
+`participation_deadline_v1.sql` owns the narrow expiry-trigger correction and
 retaining inverse; `scripts/database/participation-deadline.mts` reproduces the
-pre-live grace loss and verifies recovery/close isolation offline. It is not deployed.
+pre-live grace loss and verifies recovery/close isolation offline. The correction
+is deployed and transactionally qualified in staging only; production remains gated.
 `ChallengeTimer`/`CountdownRing` own deadline text; only ring progress is capped.
 
 There is no recurring due-challenge poller. There **are** separate scheduled health
