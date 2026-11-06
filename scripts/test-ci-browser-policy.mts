@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { loadBrowserClient } from './ci-browser-preflight.mts';
 import {
   browserJob,
   validateBrowserCompatibility,
@@ -12,6 +14,16 @@ const lockedVersion = (path: string): string =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8')).packages[
     'node_modules/@playwright/test'
   ].version;
+
+test('preflight loads both real locked clients without registering competing test runners', () => {
+  const root = loadBrowserClient(fileURLToPath(new URL('../', import.meta.url)));
+  const web = loadBrowserClient(fileURLToPath(new URL('../web/', import.meta.url)));
+  assert.equal(root.version, lockedVersion('../package-lock.json'));
+  assert.equal(web.version, lockedVersion('../web/package-lock.json'));
+  assert.equal(root.chromium.name(), 'chromium');
+  assert.equal(web.chromium.name(), 'chromium');
+  validateBrowserCompatibility(root.manifest, web.manifest);
+});
 
 test('both browser images match their separate locked clients and immutable digests', () => {
   validateBrowserImage(workflow, 'web-migration', lockedVersion('../web/package-lock.json'));
