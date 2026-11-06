@@ -107,22 +107,54 @@ deadline being midnight. Android's pre-live occurrence had its grace deadline
 overwritten at activation; both flags remained true. The existing expiry trigger
 reproduces that join-order difference in a fresh offline database.
 
-Prepared only: full deadline text in compact/ring timers (ring progress stays
-bounded), plus `participation_deadline_v1.sql` preserving grace/paid/terminal rows.
-Its inverse restores the original trigger without data deletion or historical
-backfill. Before deployment, verify the live definition/grants/binding, retain it,
-review existing affected occurrences separately, and qualify staging before any
-production approval. No Edge/Worker, Auth, reward, scheduler or provider changes are
-part of this correction. New native builds and shared SQL deployment are separately
-gated. The pre-live banner uses a separate uncapped clock: real-hook tests cover
-skew, missed ticks and expiry reconciliation, but do not reproduce or resolve the
-reported physical-iPhone freeze. A new device acceptance run remains required.
+PR #58 merged full deadline text in compact/ring timers (ring progress stays
+bounded) and `participation_deadline_v1.sql` as `906006d76b3e9517a381fecfd0645333826904a4`.
+Exact-head application/coverage/database/web-migration/security passed; main quality
+`42284145134` passed all four jobs. Admin staging `42286014580` skipped package/deploy.
+The owner separately approved staging SQL and one internal build per platform,
+using included credits only. The trigger-only staging deployment preserved owner,
+grants, security-definer/search-path, trigger binding and unrelated contracts;
+13 hosted assertions passed in a rolled-back transaction with no users/events left.
+Staging's default function ACL required an explicit grant on the temporary invoker
+assertion helper only; no application permission changed. The first fixture attempt
+rolled back, and a subsequent harness quoting error executed no fixture changes.
+Exact baseline/function/inverse and hosted evidence are retained under
+`C:/Users/gfahe/AppData/Local/Doji/staging-backend/2026-11-06-deadline`.
+
+Staging build 3 jobs: Android `0739172e-705c-4008-8788-ee56650d4b7e`,
+iPhone `112407f2-a650-4607-a2fb-bbfc20975c3e`, both from `906006d`.
+Both completed with verified staging identities/signatures and Sentry source-map
+uploads. iPhone provisioning remains limited to the owner's device ending 801C.
+The owner confirmed its update retained the session and opened normally; Android
+build 3 was installed over build 2 without clearing data, and its signed-in account
+and feed were visually verified. The pair consumed $3 of included credits; readback
+was $15 of $45, with $30 remaining and no additional spending. Device acceptance
+is bounded by the results below. Receipts are retained under
+`C:/Users/gfahe/AppData/Local/Doji/mobile-staging/2026-11-06-countdown`.
+The retained inverse restores the original trigger without deletion or backfill.
+No production, Edge/Worker, Auth, reward, scheduler, push or reporting change occurred.
+The pre-live banner uses a separate uncapped clock: real-hook tests cover skew,
+missed ticks and expiry reconciliation but did not reproduce the earlier freeze.
+For the approved build 3 regression, existing staging occurrence
+`67918478-67a6-4e1e-be65-6554d8364236` was moved from November 7 at 17:27 Mountain
+to November 6 at 15:11, preserving its ten-minute window and existing alarm chain.
+No new event, scheduler or provider gate was created. The owner confirmed iPhone
+pre-live countdown progression and background-return catch-up without reload.
+Android pre-live progressed from 4:53 to 4:43; the owner subsequently tested it
+and reported normal behavior. Natural activation at 15:11:00.562 Mountain set close
+to 15:21:00.562, with actual close at 15:21:01.072. Both accounts retained their
+midnight signup-day deadline before activation, after activation and after close.
+The first-day banner correctly has no timer. The owner has not yet specifically
+confirmed the in-challenge ring/compact timer after background return; that check
+remains open. Both participation rows were pending at final read; this run does
+not add completion/reward evidence to the earlier successful photo test.
 
 Local validation passed: 72 focused mobile tests, full typecheck/lint/size/hygiene
 gates, and the complete isolated database suite after replaying 291 migrations.
 The new database regression reproduces the old defect, verifies exception and
 ordinary-window behavior, and proves exact function/grant restoration on rollback.
-These are local results, not exact-head CI or hosted acceptance of the correction.
+The temporary assertion grant also passed the isolated regression after hosted
+qualification. None of these checks substitutes for physical-device acceptance.
 
 ## November 5 Expo compatibility alignment
 

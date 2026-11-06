@@ -11,13 +11,15 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
-- `participation_deadline_v1.sql` and its retaining inverse: prepared, not deployed.
+- `participation_deadline_v1.sql` and its retaining inverse: staging deployed and
+  qualified; production remains gated.
   Activation/recovery updates only normal pending deadlines, preserving signup-day
   grace, paid participation and terminal records. No historical backfill, grants,
   reward rules or alarm changes. `node scripts/database/participation-deadline.mts`
   reproduces the original bug and tests pre/post-activation reads, recovery, close,
-  unchanged contracts and rollback in an owned offline database. Before release,
-  verify the live trigger baseline and affected occurrences; qualify staging first.
+  unchanged contracts and rollback in an owned offline database. The hosted rollback
+  fixture passed without retained users/events or unrelated contract changes. Before
+  any further release, verify its live baseline and review affected occurrences.
   Rollback restores the old function without rewriting evidence or deadlines.
 - `staging_mobile_signup_v1.sql`: prepared, disabled staging-only admission for
   a configured Gmail test-alias family. Auth-admin-only execution delegates to the

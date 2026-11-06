@@ -6,6 +6,9 @@ begin
   return 'PASS: ' || label;
 end;
 $$;
+-- Hosted defaults can deny PUBLIC execution; only this temporary assertion needs
+-- authenticated access. The helper and grant disappear with the rollback.
+grant execute on function pg_temp.assert_deadline(boolean, text) to authenticated;
 
 insert into auth.users(id, aud, role, email, email_confirmed_at, raw_user_meta_data)
 select ('99830000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,

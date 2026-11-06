@@ -29,9 +29,9 @@ rejection to safe actionable copy and distinguishes a confirmed save from failed
 follow-up loading. These corrections merged in PR #55 as `03a050d` after all
 exact-head checks passed. PR #56's local-development launcher merged as `7513c6d`;
 main quality run `42169655623` passed all four jobs and the exact-source cloud
-candidate check passed. The owner's `D:/ChallengeApp/DoIt` checkout is aligned to
-that reviewed source on `codex/mobile-device-acceptance`, preserving unrelated edits
-and the recovery stash. Cloud builds use a separate clean checkout, not those edits.
+candidate check passed. The owner's `D:/ChallengeApp/DoIt` checkout follows
+reviewed main, preserving unrelated edits and the recovery stash. Cloud builds use
+a separate clean checkout, not those edits.
 The local-only launcher `npm run dev:mobile` uses external staging client settings;
 `--lan` serves the owner's iPhone and emulator. Android save/Fast Refresh and restoration
 were visually verified without reload; the owner confirmed the same change and
@@ -60,12 +60,21 @@ Use normal in-app signup and atomic profile creation, not fabricated consent or
 another Auth-only fixture. The owner confirmed signup/profile creation, session
 restoration and sign-out/sign-in on iPhone and Android Staging. A staging-wide photo
 Doji produced one post/completion and 50 XP per account, then closed naturally after
-600 seconds. The iPhone reported a stuck 10:00 display. Local preparation now fixes
-the ring's capped deadline text and preserves signup-day grace through activation;
-the server records exposed different grace deadlines for pre/post-activation reads.
-The reported pre-live freeze is not reproduced by the server-clock integration
-tests and remains a physical-iPhone acceptance gap. No corrective backend deployment
-or new binary is authorized by this preparation. See the
+600 seconds. The iPhone reported a stuck 10:00 display. PR #58 merged the full
+deadline display and signup-day grace correction as `906006d`; main quality run
+`42284145134` passed all four jobs. The separately approved trigger-only correction
+is deployed in staging, with 13 hosted rollback-fixture assertions passing and
+unchanged unrelated contracts. No regression-fixture accounts/events remain.
+Staging build 3 completed on both platforms from that exact source; signatures,
+staging identities and Sentry uploads passed. The owner confirmed iPhone startup
+and retained session; Android update/startup retained its account and feed.
+The pair used $3 of included credits ($30 remaining at readback), with existing
+signing; push/reporting remain off. Production is unchanged.
+In the build 3 regression, the owner confirmed the iPhone pre-live countdown
+decreased and caught up after background return without reload, and reported the
+Android countdown working. Natural activation/600-second close preserved both
+signup-day deadlines. The first-day banner correctly has no timer; confirmation
+of the timer inside the challenge screen remains pending. See the
 [device test and correction scope](releases/README.md#november-6-mobile-doji-acceptance-and-deadline-preparation).
 Email-change/recovery recipient safety is still unqualified; do not test those
 mail paths with arbitrary destinations. See the [configuration receipt](releases/README.md#november-6-staging-signup-parity-correction).

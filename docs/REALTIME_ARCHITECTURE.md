@@ -60,8 +60,8 @@ without revealing the challenge or deleting old participation/content. Activatio
 stamps authoritative deadlines; occurrences materialize lazily per member.
 Pending normal occurrences follow the shared close; signup-day and paid exceptions
 retain their own deadlines regardless of whether the read preceded activation.
-Countdown text must not clamp those longer deadlines to ten minutes. The prepared
-trigger/display correction still requires independently approved staging release.
+Countdown text must not clamp those longer deadlines to ten minutes. Release state
+and remaining physical-device acceptance are tracked in the current-state guide.
 Poll activation ensures its unique system-owned feed card after retention and
 before the activation outbox event, in the same transaction. Scheduling-time cards
 are not durable across intervening activations; voting must never depend on them.
