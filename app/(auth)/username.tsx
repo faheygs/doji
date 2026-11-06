@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { executeCommand } from '../../lib/commandGateway';
+import { profileSetupError } from '../../lib/profileSetupError';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { ROUTES } from '../../lib/routes';
 import { DEFAULT_APP_THEME } from '../../constants/theme';
@@ -89,6 +90,7 @@ export default function UsernameScreen() {
 
     setLoading(true);
     let uploadedAvatarUrl: string | null = null;
+    let profileConfirmed = false;
     try {
       if (avatarUri) uploadedAvatarUrl = await uploadAvatar(userId, avatarUri);
 
@@ -124,6 +126,7 @@ export default function UsernameScreen() {
       }
       // A confirmed profile owns its avatar even if subsequent refreshes fail.
       uploadedAvatarUrl = null;
+      profileConfirmed = true;
 
       await supabase.auth.refreshSession();
       await fetchProfile(userId);
@@ -131,8 +134,7 @@ export default function UsernameScreen() {
       router.replace(ROUTES.onboardingHowItWorks);
     } catch (err: unknown) {
       if (uploadedAvatarUrl) void removePublicStorageObject('avatars', uploadedAvatarUrl);
-      const msg = err instanceof Error ? err.message : 'Failed to create profile';
-      setSubmitError(msg);
+      setSubmitError(profileSetupError(err, profileConfirmed));
     } finally {
       setLoading(false);
     }

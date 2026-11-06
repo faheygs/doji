@@ -14,7 +14,7 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { Button } from '../../components/ui/Button';
-import { legalAcceptanceMetadata } from '../../lib/legal';
+import { signupOptions } from '../../lib/signupOptions';
 import { AuthModeBackButton } from '../../components/auth/AuthModeBackButton';
 import { AuthLegalLinks } from '../../components/auth/AuthLegalLinks';
 import { LegalConsentCheckbox } from '../../components/auth/LegalConsentCheckbox';
@@ -158,12 +158,9 @@ export default function LoginScreen() {
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
-          options: {
-            data: {
-              ...legalAcceptanceMetadata(acceptedAt),
-              birth_date: birthDateAssessment.ok ? birthDateAssessment.isoDate : null,
-            },
-          },
+          options: signupOptions(
+            acceptedAt, birthDateAssessment.ok ? birthDateAssessment.isoDate : null,
+          ),
         });
         if (error) throw error;
 

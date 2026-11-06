@@ -399,5 +399,18 @@ it('does not delete a committed signup avatar when the follow-up session refresh
   await submit(ui);
   expect(mockCommand).toHaveBeenCalledTimes(1);
   expect(mockRemove).not.toHaveBeenCalled();
-  expect(ui.getByText('Session refresh unavailable')).toBeTruthy();
+  expect(ui.getByText('Your profile was saved, but Doji could not finish loading your account. Close and reopen the app to continue.')).toBeTruthy();
+});
+
+it('explains missing signup consent without retrying or fabricating acceptance', async () => {
+  mockCommand.mockResolvedValueOnce({ error: {
+    code: 'P0001', message: 'Current Terms of Use and Privacy Policy must be accepted',
+  } });
+  const ui = render(shell(<Username />));
+  input(ui, 'Username', 'synthetic');
+  await submit(ui);
+  expect(ui.getByText('Your account is missing the required Terms of Use and Privacy Policy acceptance. Contact support to finish account setup.')).toBeTruthy();
+  expect(mockCommand).toHaveBeenCalledTimes(1);
+  expect(mockAuth.signUp).not.toHaveBeenCalled();
+  expect(mockAuth.refreshSession).not.toHaveBeenCalled();
 });

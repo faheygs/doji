@@ -121,7 +121,7 @@ export default function AppearanceScreen() {
     >
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/profile')}
+          onPress={() => goBackWithOptionalReturn(router, returnTo, '/(app)/(tabs)/profile')}
           hitSlop={12}
           accessibilityLabel="Back"
         >

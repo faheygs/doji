@@ -2,8 +2,14 @@ import { readFileSync } from 'node:fs';
 const { instrumentExpoClient } = require('../../plugins/android-read-diagnostics/expoClientPatch.cts');
 const source = readFileSync('node_modules/expo/android/src/main/java/expo/modules/fetch/ExpoFetchModule.kt', 'utf8');
 const version = require('expo/package.json').version;
-const host = 'tvixsmqxotuvyjqzmjla.supabase.co';
-const gateway = 'doji-orchestrator.faheygs.workers.dev';
+const stagingHost = 'ohrcupagdoilkwhecict.supabase.co';
+const stagingGateway = 'doji-orchestrator-staging.faheygs.workers.dev';
+const stagingLine = `      .addInterceptor(DojiReadResponseHints("${stagingHost}", "${stagingGateway}")) // Doji passive read observer\n`;
+// A local staging prebuild already attaches this exact reviewed observer. Keep
+// that installed dependency untouched; the patcher still validates its source hash.
+const staging = source.replace(/\r\n/g, '\n').includes(stagingLine);
+const host = staging ? stagingHost : 'tvixsmqxotuvyjqzmjla.supabase.co';
+const gateway = staging ? stagingGateway : 'doji-orchestrator.faheygs.workers.dev';
 
 test('patches only the pinned Expo Android fetch builder and is idempotent', () => {
   const result = instrumentExpoClient(source, version, host, gateway);
@@ -25,6 +31,17 @@ test('fails closed on SDK upgrades, unknown edits and duplicate observers', () =
   const observer = result.split('\n').find((line: string) => line.includes('// Doji passive read observer'));
   expect(() => instrumentExpoClient(result.replace(observer, `${observer}\n${observer}`), version, host, gateway)).toThrow();
   expect(() => instrumentExpoClient(result, version, host, 'different.invalid')).toThrow();
+});
+
+test.each([
+  [stagingHost, stagingGateway],
+  ['tvixsmqxotuvyjqzmjla.supabase.co', 'doji-orchestrator.faheygs.workers.dev'],
+])('validates pristine and already-instrumented source for %s', (target, targetGateway) => {
+  const currentLine = `      .addInterceptor(DojiReadResponseHints("${host}", "${gateway}")) // Doji passive read observer\n`;
+  const pristine = source.replace(/\r\n/g, '\n').replace(currentLine, '');
+  const patched = instrumentExpoClient(pristine, version, target, targetGateway);
+  expect(instrumentExpoClient(patched, version, target, targetGateway)).toBe(patched);
+  expect(() => instrumentExpoClient(patched, version, 'other.invalid', targetGateway)).toThrow('source changed');
 });
 
 test('generates the Expo helper from the reviewed Java source without a global client factory', () => {

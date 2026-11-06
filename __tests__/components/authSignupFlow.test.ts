@@ -20,7 +20,10 @@ describe('auth signup flow contract', () => {
     expect(login).toContain("signupStep === 'age'");
     expect(login).toContain('<SignupAgeStep');
     expect(login).toContain("setSignupStep('credentials')");
-    expect(login).toContain('birth_date: birthDateAssessment.ok');
+    expect(login).toMatch(
+      /options: signupOptions\(\s*acceptedAt,\s*birthDateAssessment\.ok \? birthDateAssessment\.isoDate : null,\s*\)/,
+    );
+    expect(source('lib/signupOptions.ts')).toContain('birth_date: birthDate');
   });
 
   it('keeps the two legal consents in one compact group', () => {

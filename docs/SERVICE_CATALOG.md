@@ -130,20 +130,35 @@ Firebase file contains only its own app client. Production values are preserved 
 no longer shared with test environments. The approved `Doji staging mobile source maps`
 token has organization-wide `org:ci` upload/release/code-mapping rights and is stored
 only as secret `SENTRY_AUTH_TOKEN` in EAS development/preview. Builds target
-`doji-staging`; native upload acceptance is pending. Rollback removes this staging
+`doji-staging`; the approved Android staging build's source-map upload passed,
+but device-error symbolication remains unqualified. Rollback removes this staging
 binding and revokes only this token, never the production credential. EAS holds separate
 default Android development/staging signing keys, verified distinct from production;
 owner/SYSTEM-only backups and binding receipts are outside Git under
 `Doji/mobile-staging/2026-11-05/android-signing`. Production signing metadata is unchanged.
-Staging Supabase password access is enabled for two dedicated non-deliverable synthetic
-accounts; their restricted credentials/receipts are in the adjacent `member-accounts`
-directory. Public signup and anonymous access remain off; no mail was sent. API
-sign-in/refresh/logout passed, not native onboarding or workflow acceptance. iOS signing
+Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
+`mobile-one@test.invalid` was removed after missing consent blocked profile creation;
+`mobile-two@test.invalid` remains unchanged. Restricted receipts are in the adjacent
+`member-accounts` directory; removed-account credentials are not reusable logins.
+Public signup and anonymous access remain off; no mail was sent. Normal restricted
+signup and verification delivery remain gated. The approved replacement uses Gmail
+test aliases delivered to the owner's inbox, not a new forwarding service. Staging
+Auth now has the separately approved Resend SMTP configuration; normal signup and
+delivery remain unqualified. The prepared signup hook
+does not enable sending or protect other Auth mail paths. API sign-in/refresh/logout did not
+qualify native onboarding or workflow acceptance. iOS signing
 and protected build-runner credentials remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in
 EAS/provider stores, never public variables or Git. No build, delivery activation or
 plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining rollback
 and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
+The November 5 Resend check found Free transactional usage 0/3,000 monthly and
+0/100 daily, pay-as-you-go off, and `mail.dojipro.com` verified. A dedicated
+`Doji mobile staging auth` sending-only key for that domain was created and saved
+in protected staging Supabase Auth SMTP, never Expo/client config. Its transport is
+`smtp.resend.com:465`, with `Doji Staging <staging-auth@mail.dojipro.com>` as sender.
+No mail has been sent. Rollback disables custom SMTP and revokes only this key.
+Existing admin/business/production credentials remain separate and unchanged.
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
 
