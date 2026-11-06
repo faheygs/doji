@@ -81,6 +81,8 @@ export async function integration(room: TestRoom) {
   pass(mobileWorkflow(room));
   const { dojiReadiness } = await import('./doji-readiness.mts');
   pass(dojiReadiness(room));
+  const { participationDeadline } = await import('./participation-deadline.mts');
+  pass(participationDeadline(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

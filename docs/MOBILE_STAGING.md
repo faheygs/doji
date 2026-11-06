@@ -43,11 +43,11 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 
 | Boundary / owner | Staging destination and isolation | Acceptance still required |
 | --- | --- | --- |
-| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Owner confirmed iPhone Staging signup with ordinary test email and no confirmation step. Full profile creation, Android signup, restoration/switch/logout and recovery still require acceptance |
+| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Owner confirmed normal signup/profile, restoration and sign-out/sign-in on iPhone and emulator. Account switching and recovery remain unqualified |
 | Commands and reads / gateway clients | `doji-orchestrator-staging.faheygs.workers.dev`; member JWT/RLS | Exact deployed source/contracts and authorized/denied reads, idempotent writes, interrupted explicit retries |
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
-| Lifecycle / Worker + SQL | Existing staging five Durable Objects and one-shot alarms | Real synthetic activation, 600-second participation, poll/photo/format, identical retry, single reward, natural close |
+| Lifecycle / Worker + SQL | Existing staging five Durable Objects and one-shot alarms | Photo completion/single reward/natural 600-second close passed on both clients. Countdown/grace correction is prepared only; pre-live iPhone display, poll/format and interrupted identical retry remain unqualified |
 | Native push / Firebase + APNs | Separate Firebase project/client and app-specific Apple signing/provider destination | Provision and verify isolated credentials; approved device allowlist; physical receipt/navigation. Sending and client token registration remain off |
 | Sentry / app config | Existing `doji-staging` project `4512328707342336`; environment `staging` | Exact native source-map Debug IDs, error privacy and capacity; build-only upload token never enters public config |
 | Device reports / existing ingestion | Staging member-authenticated endpoint/private SQL; binary, Edge and SQL gates independent | Endpoint synthetic qualification exists; enable only after approval, verify real Android/iOS reports and admin display, replay/rate/account/disable behavior |
@@ -91,8 +91,10 @@ verified auto-confirmation setting. Before User Created calls the unchanged
 `hook_enforce_minimum_signup_age` directly, preserving the 13-plus check and normal
 profile consent. The historical `staging_mobile_signup_v1.sql` alias wrapper and
 its tests remain for rollback evidence but its hosted binding is retired.
-The owner confirmed successful signup in iPhone Staging after this configuration
-correction; full profile and subsequent workflow acceptance remain separate.
+The owner confirmed signup/profile, session restoration and sign-out/sign-in on
+both Staging clients. The subsequent photo test passed completion/feed/rewards but
+exposed a countdown/grace defect; its correction and remaining device acceptance
+are recorded in [current state](CURRENT_STATE_AND_GAPS.md).
 
 Signup sends no confirmation email. Recovery and email-change routing are still
 unqualified: do not exercise them against arbitrary test destinations. An approved

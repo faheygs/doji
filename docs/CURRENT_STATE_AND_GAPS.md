@@ -17,7 +17,7 @@ unchanged. The approved organization-wide Sentry upload token is stored as an EA
 secret only in development/preview. Android Staging build 2 from `7513c6d` is
 installed on the emulator; its identity/signature matched and cold startup passed
 with Metro stopped. Staging source-map uploads passed on both platforms; captured
-device-error symbolication and authenticated workflows remain pending. No push-provider credential
+device-error symbolication and broader workflow qualification remain pending. No push-provider credential
 was created. Separate Android development/staging
 signing keys are now bound in EAS; production signing metadata is unchanged.
 The approved API 36 Google Play emulator has both Doji Dev and Doji Staging installed.
@@ -41,7 +41,8 @@ Android directory is retained intact outside the repo at
 iPhone Dev build 1 and Staging build 2 completed from `7513c6d`. Their embedded
 profiles permit only the owner's confirmed iPhone, not the TestFlight tester group.
 The owner installed both and confirmed repeated Staging startup with Metro stopped.
-This qualifies installation/startup and Dev Fast Refresh, not authenticated workflows.
+Installation/startup and Dev Fast Refresh passed; subsequent account/photo acceptance
+and its countdown defect are recorded below.
 All three separately approved builds completed within included credits ($5 total,
 $33 remaining at the final read). No build retry or production release occurred.
 See the [build and device receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
@@ -56,7 +57,16 @@ November 6 correction. Before User Created calls the original minimum-age hook
 directly; the obsolete alias wrapper is retained but unbound. Age/legal function
 definitions and grants, all other Auth settings and production were unchanged.
 Use normal in-app signup and atomic profile creation, not fabricated consent or
-another Auth-only fixture. Full profile/workflow acceptance remains separate.
+another Auth-only fixture. The owner confirmed signup/profile creation, session
+restoration and sign-out/sign-in on iPhone and Android Staging. A staging-wide photo
+Doji produced one post/completion and 50 XP per account, then closed naturally after
+600 seconds. The iPhone reported a stuck 10:00 display. Local preparation now fixes
+the ring's capped deadline text and preserves signup-day grace through activation;
+the server records exposed different grace deadlines for pre/post-activation reads.
+The reported pre-live freeze is not reproduced by the server-clock integration
+tests and remains a physical-iPhone acceptance gap. No corrective backend deployment
+or new binary is authorized by this preparation. See the
+[device test and correction scope](releases/README.md#november-6-mobile-doji-acceptance-and-deadline-preparation).
 Email-change/recovery recipient safety is still unqualified; do not test those
 mail paths with arbitrary destinations. See the [configuration receipt](releases/README.md#november-6-staging-signup-parity-correction).
 The signed-in Resend check confirmed available Free allowance with pay-as-you-go

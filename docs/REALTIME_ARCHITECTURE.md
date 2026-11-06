@@ -58,6 +58,10 @@ a confirmed command. Query cancellation is not server rollback.
 Pre-live occurs twenty minutes before activation and advances active-feed identity
 without revealing the challenge or deleting old participation/content. Activation
 stamps authoritative deadlines; occurrences materialize lazily per member.
+Pending normal occurrences follow the shared close; signup-day and paid exceptions
+retain their own deadlines regardless of whether the read preceded activation.
+Countdown text must not clamp those longer deadlines to ten minutes. The prepared
+trigger/display correction still requires independently approved staging release.
 Poll activation ensures its unique system-owned feed card after retention and
 before the activation outbox event, in the same transaction. Scheduling-time cards
 are not durable across intervening activations; voting must never depend on them.
