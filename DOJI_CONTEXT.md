@@ -70,6 +70,9 @@ Signup requires independently unchecked Terms and Privacy consents and a
 server-enforced 13-plus age check. The asserted birth date belongs only in the
 private age-assurance record, never public profiles or events. Username is
 required; photo, display name and bio are optional.
+Profile setup presents known prerequisite failures without exposing arbitrary
+backend diagnostics, and distinguishes a confirmed save from failed follow-up
+loading. Neither error handling nor test fixtures may manufacture legal acceptance.
 
 The root layout owns session restoration and initial profile authorization.
 An unfinished profile read is not a new account. Bounded transient recovery may

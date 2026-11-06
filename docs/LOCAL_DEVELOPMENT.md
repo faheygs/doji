@@ -41,12 +41,16 @@ The owner's Windows setup has Android Studio under `C:/Program Files/Android/And
 SDK at `D:/Android/Sdk` (`ANDROID_HOME`), and AVD `Doji_Staging_API_36`
 under `D:/Android/Avd`. Its Pixel 8 profile uses Android 16/API 36 Google Play
 x86_64, 4 GB RAM and four cores. Windows Hypervisor Platform and a complete boot
-were verified; the emulator is stopped when not in use. Launch that named AVD
-from Device Manager or `emulator -avd Doji_Staging_API_36` after checking it is not
-already running. No Doji artifact is installed yet.
+were verified. Check it is not already running before launching that named AVD.
+On this machine, use `emulator -avd Doji_Staging_API_36 -gpu swiftshader`:
+automatic graphics failed to load its software OpenGL library. Software graphics
+does not disable CPU virtualization. Doji Dev is installed and reaches member
+sign-in through local Metro; authenticated workflow acceptance is still pending.
 
-This setup can install an approved staging APK; it is not qualification of local
-Gradle/JDK compatibility or physical Android camera/push/background behavior.
+The local native build passed with the existing Temurin JDK 17.0.20.1, SDK 36,
+Build Tools 35.0.0 and NDK 27.1.12297006. Android Studio's bundled JDK 25 failed
+native configuration; set task-local `JAVA_HOME` to JDK 17, not the system default.
+This does not qualify physical Android camera/push/background behavior.
 Do not launch EAS builds, sign in to a personal Google account or install a production
 binary as a setup check. Use the isolated bindings/signing and remaining gates in
 [mobile staging](MOBILE_STAGING.md). macOS/Xcode or a separately approved cloud build
@@ -171,6 +175,28 @@ Use a compatible development client. `npm run android` compiles a native Android
 client using the installed local toolchain; `npm run ios` requires macOS. A web or
 Expo Go preview is not acceptance evidence for native push, camera, background
 behavior, signing or release-only failures.
+
+For Windows emulator development, use the reviewed staging public configuration
+and variant-specific Firebase file, with `DOJI_APP_VARIANT=development`, task-local
+`JAVA_HOME`/`ANDROID_HOME`, and push/reporting off. Keep the file outside Git;
+Node 24 can load it with `--env-file=<absolute-path>`. Do not pull upload tokens or
+provider secrets for local development. With the named emulator already running:
+
+```powershell
+node --env-file=<absolute-path> node_modules/expo/bin/cli start --dev-client --localhost --port 8081
+# In another terminal, compile/install once or after native configuration changes:
+node --env-file=<absolute-path> node_modules/expo/bin/cli run:android --device Doji_Staging_API_36 --no-bundler
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
+```
+
+Verify the AVD/serial before using that example. Open `http://127.0.0.1:8081` in
+the installed Doji Dev launcher's development-server field; do not use the LAN URL
+if Metro is bound to loopback. The first bundle can be slow; check Metro progress
+before treating the splash/blank screen as a crash. Subsequent source edits use
+Fast Refresh, without an EAS build. The local debug key is distinct from remote
+EAS signing; local execution is not a release-signature acceptance test. Android
+Studio may open the generated `android/` project for native debugging; Expo config
+and plugins remain its source of truth, and generated native output stays untracked.
 
 `127.0.0.1` means the machine running the client. A physical phone or emulator
 needs deliberately configured access to the test backend; changing the address

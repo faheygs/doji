@@ -11,6 +11,12 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `staging_mobile_signup_v1.sql`: prepared, disabled staging-only admission for
+  a configured Gmail test-alias family. Auth-admin-only execution delegates to the
+  existing minimum-age hook; normal confirmation and profile consent remain required.
+  Its retaining rollback closes admission without deleting accounts. Installation
+  does not configure Auth hooks, SMTP, redirects or public signup. The development
+  database harness verifies family/age/role boundaries and rollback offline.
 - `mobile_workflow_counts_v1.sql` and its retaining rollback: default-off,
   service-only ingestion/read of fixed device-reported counts. Bounded receipt-hour
   aggregates and salted admission slots; no authoritative member/reward writes.

@@ -114,7 +114,7 @@ export default function ShopScreen() {
   );
 
   const handleBack = useCallback(() => {
-    goBackWithOptionalReturn(router, returnTo, '/(app)/profile');
+    goBackWithOptionalReturn(router, returnTo, '/(app)/(tabs)/profile');
   }, [router, returnTo]);
 
   const handleItemPress = useCallback(

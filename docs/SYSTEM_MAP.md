@@ -32,6 +32,10 @@ and the generated STG icon. `lib/mobileStaging.ts` gates staging token registrat
 and separates APNs signing from the data environment. `scripts/mobile-candidate-ci.mts`
 is a read-only source preflight, not a build dispatcher. Hosted/mobile activation
 is still gated; see [mobile staging ownership and acceptance](MOBILE_STAGING.md).
+The prepared `supabase/overlays/staging_mobile_signup_v1.sql` adds default-off,
+staging-only test-alias admission before the existing minimum-age hook. Its owned
+database fixture is `scripts/database/staging-mobile-signup.mts`; it does not
+configure SMTP, redirects or hosted signup and never creates fixture accounts.
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |

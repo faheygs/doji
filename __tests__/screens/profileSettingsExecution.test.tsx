@@ -318,11 +318,11 @@ it('handles missing profile and optional profile fields, caps bio length and rea
   ui.rerender(shell(<EditProfile />));
   expect(ui.getByDisplayValue('changed')).toBeTruthy();
 });
-it('uses cold-route fallback rather than requiring navigation history', () => {
+it.each([Appearance, Shop])('uses the typed profile tab when navigation history is absent: %p', (Screen) => {
   mockRouter.canGoBack.mockReturnValue(false);
-  const ui = render(<Appearance />);
+  const ui = render(shell(<Screen />));
   fireEvent.press(ui.getByLabelText('Back'));
-  expect(String(mockRouter.replace.mock.calls[0][0])).toContain('/profile');
+  expect(mockRouter.replace).toHaveBeenCalledWith('/(app)/(tabs)/profile');
 });
 it.each(['catalog', 'owned', 'both'])('retries only failed %s shop reads', (source) => {
   const err = Object.assign(new Error('denied'), { status: 403 });

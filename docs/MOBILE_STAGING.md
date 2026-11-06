@@ -33,7 +33,7 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 
 | Boundary / owner | Staging destination and isolation | Acceptance still required |
 | --- | --- | --- |
-| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Two dedicated synthetic password accounts pass API sign-in/refresh/user-read/logout. Native onboarding/restoration/switch/logout and recovery redirects remain unqualified; public signup stays off and email delivery is not approved |
+| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | API sign-in alone did not qualify signup: the first incomplete fixture was removed. Normal in-app signup/confirmation/profile creation, restoration/switch/logout and recovery remain unqualified; restricted signup and verification mail require approval |
 | Commands and reads / gateway clients | `doji-orchestrator-staging.faheygs.workers.dev`; member JWT/RLS | Exact deployed source/contracts and authorized/denied reads, idempotent writes, interrupted explicit retries |
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
@@ -63,24 +63,34 @@ restricted to the owner and SYSTEM; do not rotate or replace them for each build
 GitHub `mobile-staging` exists with `faheygs` as required reviewer and a `main`
 branch-only policy. No build job or credentials have been attached to that gate.
 
-The owner-approved controlled member access uses `mobile-one@test.invalid` and
-`mobile-two@test.invalid`, created through staging Supabase Auth without invitation
-or verification mail. Email/password sign-in is enabled; public signup, anonymous
-sign-in and other providers remain off. Random passwords and exact account IDs are
-in the owner/SYSTEM-only private `member-accounts` directory beside signing evidence,
-not in Git, public EAS variables or developer handoff. API sign-in, refresh, user
-read and logout passed for both; the three retained baseline fixture rows were
-fingerprinted unchanged. Bounded member gateway reads matched the direct authorized
-profile RPC for both accounts; anonymous reads returned 401 and GET requests to
-the write endpoint returned 405. No member command was executed; these are boundary
-smoke checks, not complete lifecycle/storage/realtime acceptance. Retain the accounts for approved device acceptance, with
-onboarding still to exercise. No employee role or production access was granted.
-Rollback disables staging email sign-in and revokes these exact test sessions;
-preserve fixtures and evidence rather than resetting staging.
+The two original Auth-only fixtures passed API sign-in/refresh/logout and bounded
+gateway reads, but that did not establish complete accounts. Native profile creation
+for `mobile-one@test.invalid` returned `P0001`: required signup legal acceptance was
+missing. The owner requested its removal; exact Auth deletion and subsequent 404
+were verified, with no profile or owned media. Only Doji Dev app data was cleared.
+`mobile-two@test.invalid` and three baseline fixtures remain unchanged. The restricted
+`member-accounts` directory retains the removal receipt and prior evidence; account-1
+credentials are obsolete, not a working login. Do not recreate Auth-only accounts
+or fabricate consent. Replacement testing must use the normal app signup/confirmation
+and atomic profile command. Staging signup remains disabled, email confirmation is
+required. The owner approved multiple synthetic accounts through normal signup,
+using `faheygs+doji-stage-<test-name>@gmail.com` aliases delivered to the owner's
+inbox, within existing email capacity. The prepared `staging_mobile_signup_v1.sql`
+gate defaults off and delegates to the maintained age function; it is not deployed.
+The staging dashboard currently has no Auth hook, uses the default email sender,
+and redirects confirmation to `http://localhost:3000`. Exact-head checks, verified
+staging SMTP capacity/credentials, hook binding and a valid staging confirmation
+destination are required before opening signup. A signup hook restricts new users,
+not every Auth email path: recipient safety for email changes/recovery must also be
+qualified before general testing. Do not claim mail delivery from provider acceptance.
+Preserve the existing age function and legal checks. Rollback closes signup and revokes
+only the approved test sessions; never reset staging or alter production.
 
 Android acceptance currently uses the owner-approved `Doji_Staging_API_36` emulator:
 Pixel 8 profile, Android 16/API 36 Google Play image, hardware acceleration and boot
-verified. No Doji binary is installed. Emulator checks do not qualify physical
+verified. Doji Dev and the separately signed Doji Staging APK are installed.
+Local JDK 17 compilation and Metro startup reached member sign-in; authenticated
+acceptance is pending. Emulator checks do not qualify physical
 camera, background delivery or device push. See [local setup](LOCAL_DEVELOPMENT.md#android-staging-emulator).
 
 EAS `development` and `preview` public URL/anon key/DSN were read back against the
@@ -89,8 +99,19 @@ retained baseline. The formerly shared production DSN/upload token are now scope
 only to production. The separately approved `Doji staging mobile source maps`
 organization token is stored as secret `SENTRY_AUTH_TOKEN` only in development and
 preview. Its `org:ci` permission is organization-wide; the build configuration targets
-`doji-staging`, not a provider-enforced project restriction. Native source-map upload
-and Debug ID verification still require an approved build. Expo prohibits reducing
+`doji-staging`, not a provider-enforced project restriction. The single approved
+Android staging build `a076b3c7-8cf7-4627-bd22-f1004d61cb75` succeeded from reviewed
+source `190d88294aeaa664318e8cd91049025a7065b12a`. It uses
+`com.doit.challengeapp.staging`, version `1.0.8` / build `1` (a separate staging
+counter, not the current store version). APK SHA-256 is
+`3d6d50482e83f43c44237f407c172bc926a7c7ffdb4aefe0f1ea1187358bb136`;
+its certificate matches the retained staging key. Sentry's upload report confirms
+`doji-staging`, release `com.doit.challengeapp.staging@1.0.8+1`, dist `1`, and matching
+bundle/map Debug ID `12a1fdfa-c9e4-405a-b4cf-96b66d9c39cf`. This verifies upload,
+not symbolication of a captured device error. Exact APK/build/config/log receipts
+are private under `Doji/mobile-staging/2026-11-05/android-build-1`.
+No production build, store submission, push or device reporting was enabled.
+Expo prohibits reducing
 secret visibility, so two prior preview Supabase
 variables are retained as `DOJI_ROLLBACK_20261105_*`, never referenced by app code.
 Their original names/IDs and configuration fingerprints are retained privately;

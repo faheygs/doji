@@ -6,21 +6,42 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-Mobile staging configuration is now prepared in source, not built or enabled:
+Mobile staging configuration is merged; Android artifacts now exist, but native
+workflow qualification is unfinished:
 distinct Development/Staging identities and schemes, staging-only binding checks,
 environment-aware Android diagnostics, and default-off staging push/reporting.
 Production app config is preserved. The isolated Firebase Spark Android clients,
 Apple development/staging App IDs and main-only GitHub approval environment now exist. EAS
 development/preview client destinations were verified; production values remain
 unchanged. The approved organization-wide Sentry upload token is stored as an EAS
-secret only in development/preview; source-map acceptance still requires a build.
-No build or push-provider credential was created. Separate Android development/staging
+secret only in development/preview. The approved single Android staging build
+`a076b3c7-8cf7-4627-bd22-f1004d61cb75` succeeded from `190d882`, with source maps
+processed for `doji-staging`. APK identity/signature matched and installation passed;
+native startup/authenticated acceptance remains pending. No push-provider credential
+was created. Separate Android development/staging
 signing keys are now bound in EAS; production signing metadata is unchanged.
-The approved API 36 Google Play emulator boots with hardware acceleration, but has
-no Doji binary. Two dedicated synthetic member accounts pass staging Auth
-sign-in/refresh/user-read/logout; public signup and anonymous access remain off,
-and the three older fixtures are unchanged. Passwords/signing backups are restricted
-outside Git. Native onboarding and workflow acceptance are not established by API tests.
+The approved API 36 Google Play emulator has both Doji Dev and Doji Staging installed.
+Local compilation passed with JDK 17 and software graphics; Doji Dev loads through
+loopback Metro and reaches sign-in. Local corrections use typed tab destinations
+for appearance/shop fallback and friend-accepted routing; full typechecking now
+passes with generated Expo routes present. Profile setup maps the known consent
+rejection to safe actionable copy and distinguishes a confirmed save from failed
+follow-up loading. These corrections are not merged or in the staging APK.
+The backend-created `mobile-one@test.invalid` lacked signup consent and profile
+creation correctly rejected it. At the owner's request, that exact Auth identity
+was deleted (absence verified), and only Doji Dev's emulator data was cleared.
+There was no profile or owned media; `mobile-two@test.invalid` and baseline fixtures
+were preserved. Public signup remains off and email confirmation required. Replacement
+acceptance must use normal in-app signup with approved restricted access and an
+approved verification inbox, not fabricated consent or another Auth-only fixture.
+The owner approved multiple dummy accounts using a Gmail staging-alias family.
+A default-off staging-only signup gate is locally prepared, not deployed; it calls
+the existing age function and preserves normal confirmation/profile consent.
+Hosted Auth still lacks a hook/custom SMTP and uses a localhost confirmation
+redirect. Sender capacity, safe recipient paths and staging confirmation must be
+qualified before enabling registration; no verification email has been sent.
+Passwords/signing backups and the removal receipt are restricted outside Git.
+Native onboarding and workflow acceptance are not established by API tests.
 A read-only exact-main quality preflight does not authorize cloud builds. iOS signing,
 protected build runner, hosted parity and device acceptance remain gated. Staging's
 Free-tier media path has transforms off and is not production transform parity.

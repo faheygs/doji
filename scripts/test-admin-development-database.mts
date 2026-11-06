@@ -17,6 +17,7 @@ import {
 import { errorOutput } from './database/contracts.mts';
 import { verifyDevelopmentHealthSnapshot } from './database/health-snapshot-development.mts';
 import { verifyDevelopmentMobileWorkflows } from './database/development-mobile-workflows.mts';
+import { verifyStagingMobileSignup } from './database/staging-mobile-signup.mts';
 
 assert.equal(process.argv.length, 2, 'No target overrides accepted');
 const room = createCleanRoom();
@@ -46,6 +47,7 @@ try {
   await installDevelopmentBase(room);
   const baseline = snapshot();
   const baselineGrants = grantsSnapshot();
+  assert.throws(() => sql(source('supabase/overlays/staging_mobile_signup_v1.sql')));
   const candidate = buildAdminDevelopmentSql(baseline);
   assert.throws(() => sql(candidate), /./, 'Absent staging realm refuses installation');
   sql(developmentRealmSql);
@@ -485,6 +487,7 @@ try {
   console.log(
     'PASS: local workflow-health permissions, revoked developer denial and retaining route rollback',
   );
+  verifyStagingMobileSignup(sql);
   sql(source('supabase/overlays/employee_shared_staging_v1.rollback.sql'));
   assert.equal(
     sql(
