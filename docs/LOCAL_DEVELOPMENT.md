@@ -160,6 +160,44 @@ artifact expecting it to be an offline demo; use the prototype above instead.
 
 ## Mobile configuration and running locally
 
+### Everyday Android and iPhone Fast Refresh
+
+Use the same working checkout for editing and Metro. On the owner's machine that
+is `D:/ChallengeApp/DoIt`, not a temporary qualification worktree. The maintained
+launcher resolves its repository root, prints it, validates staging-only client
+settings, and ignores repository `.env` files and inherited provider credentials.
+Save the approved public development configuration outside Git at
+`%LOCALAPPDATA%/Doji/mobile-development.env` (Windows) or
+`~/.config/doji/mobile-development.env` (macOS/Linux). An explicit absolute
+`DOJI_MOBILE_DEV_ENV_FILE` or `--env-file` can select another external file.
+
+```powershell
+npm run dev:mobile -- --check
+# Android emulator only, using adb reverse for port 8081:
+npm run dev:mobile
+# Alternatively, Android and your iPhone on the same trusted Wi-Fi:
+npm run dev:mobile -- --lan
+```
+
+Run only one Metro server on port 8081. Open **Doji Dev**, not Doji Staging or
+production. JavaScript/TypeScript and UI changes use Fast Refresh after saving;
+native dependencies/plugins require a new development-client build. A physical
+iPhone needs its separately signed Dev client, Developer Mode/local-network access
+where requested, and a route to the PC. Windows serves its JavaScript but does not
+compile iOS native binaries. Use only trusted LAN access; do not expose Metro with
+a public tunnel or broad firewall rule. Firewall/security prompts require the owner.
+
+**Doji Staging** is a separate standalone internal build on the Android emulator
+and the owner's iPhone, with no Metro dependency. iOS provisioning must include
+only the approved owner's device, not the existing TestFlight tester group.
+Production retains its separate app identity, data, signing and release approval.
+The launcher does not build, submit, enable push/reporting or change a backend.
+See [mobile staging gates](MOBILE_STAGING.md#cicd-and-release-gates) before builds.
+The local-only Metro watcher excludes retained agent worktrees and generated
+evidence/output, without deleting them or changing production bundling. Old generated
+native directories can override Expo's app identity: inspect before use and preserve
+them outside the repo before regenerating from reviewed variant configuration.
+
 Review [mobile staging](MOBILE_STAGING.md) and [.env.example](../.env.example).
 Copy the example only to an absent `.env.local`, then obtain the staging public
 anon key and staging DSN through approved access. The placeholder key intentionally

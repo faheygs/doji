@@ -6,6 +6,7 @@ import { assertBootstrapCurrent, compileBootstrap, verifyBootstrap } from './bui
 // The existing strict-tooling CI entry point owns mobile packaging and source gates.
 import './test-mobile-variants.mts';
 import './test-mobile-candidate.mts';
+import './test-mobile-dev.mts';
 
 test('staging icon matches its maintained deterministic generator', () => {
   const result = spawnSync(process.execPath, ['scripts/mobile-staging-icon.mts'], {

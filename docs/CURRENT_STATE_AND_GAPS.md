@@ -26,26 +26,40 @@ loopback Metro and reaches sign-in. Local corrections use typed tab destinations
 for appearance/shop fallback and friend-accepted routing; full typechecking now
 passes with generated Expo routes present. Profile setup maps the known consent
 rejection to safe actionable copy and distinguishes a confirmed save from failed
-follow-up loading. These corrections are not merged or in the staging APK.
+follow-up loading. These corrections merged in PR #55 as `03a050d` after all
+exact-head checks passed; the installed staging APK still predates them.
+The owner's `D:/ChallengeApp/DoIt` checkout is aligned to that reviewed main on
+`codex/mobile-local-dev`, with original local edits preserved and a recovery stash.
+The local-only launcher `npm run dev:mobile` uses external staging client settings;
+`--lan` is prepared for the owner's iPhone. Android save/Fast Refresh and restoration
+were visually verified without reload. The obsolete generated production-identity
+Android directory is retained intact outside the repo at
+`D:/ChallengeApp/DoIt-android-preserved-20261105`; no production build was changed.
+iPhone Dev/Staging signing, builds and physical acceptance are still pending.
+Main run `42159335914` passed application/coverage/database but its browser job was
+cancelled; no passing replacement was found. Cloud candidate qualification remains
+blocked until exact-head quality checks pass; local development is not that gate.
 The backend-created `mobile-one@test.invalid` lacked signup consent and profile
 creation correctly rejected it. At the owner's request, that exact Auth identity
 was deleted (absence verified), and only Doji Dev's emulator data was cleared.
 There was no profile or owned media; `mobile-two@test.invalid` and baseline fixtures
-were preserved. Public signup remains off and email confirmation required. Replacement
+were preserved. Restricted staging signup is enabled and email confirmation required. Replacement
 acceptance must use normal in-app signup with approved restricted access and an
 approved verification inbox, not fabricated consent or another Auth-only fixture.
 The owner approved multiple dummy accounts using a Gmail staging-alias family.
-A default-off staging-only signup gate is locally prepared, not deployed; it calls
-the existing age function and preserves normal confirmation/profile consent.
-Hosted Auth still lacks the signup hook and uses a localhost confirmation
-redirect. Sender capacity, safe recipient paths and staging confirmation must be
-qualified before enabling registration; no verification email has been sent.
-Local signup options now prepare exact per-variant staging confirmation links;
-production is unchanged and hosted redirect configuration is still pending.
+A staging-only signup gate is deployed and bound before user creation; it permits
+the approved Gmail staging-alias family, calls the unchanged age function and
+preserves normal confirmation/profile consent. Live outside-family and underage
+requests returned 403 without creating accounts or sessions; the four existing
+accounts and age-function definition/grants were preserved. Hosted confirmation
+allows only `doji-dev://login` and `doji-staging://login`, with the latter as default.
+Normal in-app signup, inbox confirmation and profile acceptance remain pending.
+This admission hook does not fence every Auth mail path; email-change/recovery
+recipient safety remains a separate qualification before general testing.
 The signed-in Resend check confirmed available Free allowance with pay-as-you-go
 off. The separately approved sending-only staging Auth key was created and saved
 in staging Supabase SMTP; its stored-password state and smtp.resend.com:465 were
-verified. No verification email or normal signup flow has yet been exercised.
+verified. Activation sent no email; normal signup and inbox delivery are not yet verified.
 Passwords/signing backups and the removal receipt are restricted outside Git.
 Native onboarding and workflow acceptance are not established by API tests.
 A read-only exact-main quality preflight does not authorize cloud builds. iOS signing,
