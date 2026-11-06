@@ -136,22 +136,29 @@ binding and revokes only this token, never the production credential. EAS holds 
 default Android development/staging signing keys, verified distinct from production;
 owner/SYSTEM-only backups and binding receipts are outside Git under
 `Doji/mobile-staging/2026-11-05/android-signing`. Production signing metadata is unchanged.
+Separate iOS Dev/Staging ad-hoc profiles reuse the existing team distribution
+certificate and permit only the owner's confirmed iPhone; the downloaded IPAs
+were checked against that exact device allowlist. No TestFlight group, certificate
+rotation or push-provider key was added. Protected EAS holds signing material;
+artifact/signing receipts stay under `Doji/mobile-staging/2026-11-06` outside Git.
+The owner-approved November 6 build batch passed exact-main CI and checked fresh
+included credits before each launch, with no retry or additional spend authorized.
+See the [build receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
 Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
 `mobile-one@test.invalid` was removed after missing consent blocked profile creation;
 `mobile-two@test.invalid` remains unchanged. Restricted receipts are in the adjacent
 `member-accounts` directory; removed-account credentials are not reusable logins.
-Anonymous access remains off; fixture creation sent no mail. The approved replacement uses Gmail
-test aliases delivered to the owner's inbox, not a new forwarding service. Staging
-Auth now has the separately approved Resend SMTP configuration and enabled,
-age-preserving signup admission for the owner's staging Gmail aliases. Exact
-Dev/Staging confirmation URLs are configured. Live outside-family and underage
-signup requests returned 403; normal signup and delivery remain unqualified.
-The admission hook does not protect other Auth mail paths. API sign-in/refresh/logout did not
-qualify native onboarding or workflow acceptance. iOS signing
-and protected build-runner credentials remain pending. Staging public client values belong in
+Anonymous access remains off; fixture creation sent no mail. Staging signup now
+accepts ordinary test emails without confirmation, matching production's verified
+setting. The original minimum-age hook is bound directly; the alias wrapper is
+retained but inactive. The owner confirmed iPhone Staging signup. Existing Resend
+SMTP and exact Dev/Staging redirects are unchanged; signup needs no email delivery.
+Recovery/email-change recipient safety remains unqualified. API sign-in/refresh/logout did not
+qualify native onboarding or workflow acceptance. Protected build-runner
+credentials remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in
-EAS/provider stores, never public variables or Git. No build, delivery activation or
-plan upgrade accompanies this foundation. Capacity, hosted acceptance, retaining rollback
+EAS/provider stores, never public variables or Git. The separately approved internal
+builds do not enable delivery or upgrade a plan. Capacity, hosted acceptance, retaining rollback
 and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
 The November 5 Resend check found Free transactional usage 0/3,000 monthly and
 0/100 daily, pay-as-you-go off, and `mail.dojipro.com` verified. A dedicated
@@ -360,7 +367,8 @@ acceptance, owner confirmation and read-only project access remain pending. Neve
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
-Member signup/email, business, real push and recurring jobs remain disabled.
+Member signup is separately enabled as described above; business and real push
+remain disabled. Current health-job enablement is recorded in current state.
 The separate staging Worker and seven core guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
 `send-admin-email` is deployed/configured as an eighth guarded handler. One approved

@@ -43,7 +43,7 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 
 | Boundary / owner | Staging destination and isolation | Acceptance still required |
 | --- | --- | --- |
-| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | API sign-in alone did not qualify signup: the first incomplete fixture was removed. Normal in-app signup/confirmation/profile creation, restoration/switch/logout and recovery remain unqualified; restricted signup and verification mail require approval |
+| Member auth / `lib/supabase.ts` | Supabase `ohrcupagdoilkwhecict`; never WorkOS | Owner confirmed iPhone Staging signup with ordinary test email and no confirmation step. Full profile creation, Android signup, restoration/switch/logout and recovery still require acceptance |
 | Commands and reads / gateway clients | `doji-orchestrator-staging.faheygs.workers.dev`; member JWT/RLS | Exact deployed source/contracts and authorized/denied reads, idempotent writes, interrupted explicit retries |
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
@@ -63,8 +63,11 @@ their client files are retained outside Git under the owner's private
 `preview` with the staging project ID. Firebase's multi-app download is reduced to
 the selected variant's single client before upload. Apple team `HUG35JPQGG` has
 registered `com.doit.challengeapp.staging` and `com.doit.challengeapp.development`
-with Push Notifications capability. No Apple certificate, profile or push-provider
-key was created; iOS signing and delivery qualification remain pending.
+with Push Notifications capability. Separate ad-hoc Dev/Staging profiles now use
+the existing team distribution certificate and contain only the owner's confirmed
+iPhone. Their embedded IPA profiles were verified; no certificate was rotated or
+push-provider key created. No existing TestFlight group receives these builds.
+Push delivery qualification remains pending.
 Android development and staging now have separate default signing keys in EAS,
 with distinct certificate fingerprints from each other and production. Exact
 readback verified both bindings and unchanged production signing metadata. Protected
@@ -81,37 +84,27 @@ were verified, with no profile or owned media. Only Doji Dev app data was cleare
 `mobile-two@test.invalid` and three baseline fixtures remain unchanged. The restricted
 `member-accounts` directory retains the removal receipt and prior evidence; account-1
 credentials are obsolete, not a working login. Do not recreate Auth-only accounts
-or fabricate consent. Replacement testing must use the normal app signup/confirmation
-and atomic profile command. Restricted staging signup is enabled, email confirmation is
-required. The owner approved multiple synthetic accounts through normal signup,
-using `faheygs+doji-stage-<test-name>@gmail.com` aliases delivered to the owner's
-inbox, within existing email capacity. The `staging_mobile_signup_v1.sql`
-gate defaults off in source and is deployed/enabled in staging with the approved
-alias prefix. Its Before User Created binding delegates to the unchanged age
-function. Live outside-family and underage requests returned 403 with no accounts
-or sessions; existing role fences, four identities and age definition/grants were
-preserved. PR #55 merged as `03a050d` after all exact-head checks passed.
-Normal in-app signup, confirmation delivery and profile acceptance remain pending.
-A signup hook restricts new users,
-not every Auth email path: recipient safety for email changes/recovery must also be
-qualified before general testing. Do not claim mail delivery from provider acceptance.
+or fabricate consent. Testing uses normal in-app signup and the atomic profile
+command. Staging accepts ordinary syntactically valid test email addresses; no
+Gmail alias format or email confirmation is required. This matches production's
+verified auto-confirmation setting. Before User Created calls the unchanged
+`hook_enforce_minimum_signup_age` directly, preserving the 13-plus check and normal
+profile consent. The historical `staging_mobile_signup_v1.sql` alias wrapper and
+its tests remain for rollback evidence but its hosted binding is retired.
+The owner confirmed successful signup in iPhone Staging after this configuration
+correction; full profile and subsequent workflow acceptance remain separate.
 
-Deferred owner requirement: accept arbitrary syntactically valid dummy email
-identities during controlled staging registration, rather than requiring Gmail
-aliases. Keep the entered identity in staging, but intercept all staging email
-delivery and route it only to `faheygs@gmail.com` (or an approved test inbox), never
-to the entered address. Cover confirmation, recovery and both email-change paths;
-preserve normal age, consent and verification behavior. Retain bounded test-routing
-metadata, not passwords, verification tokens/links or message bodies. Qualify
-fail-closed recipient routing, abuse limits, existing capacity and production
-isolation before replacing the current temporary alias restriction. This is logged
-follow-up only, not an implemented mail sink or permission for additional spending.
+Signup sends no confirmation email. Recovery and email-change routing are still
+unqualified: do not exercise them against arbitrary test destinations. An approved
+test inbox/mail sink is a separate follow-up for those paths, not a signup prerequisite.
+Do not infer delivery safety merely because account data lives in staging.
 
 `lib/signupOptions.ts` prepares exact `doji-dev://login` and `doji-staging://login`
 confirmation destinations after checking the variant/scheme/staging project;
 production signup options are unchanged. These two exact URLs are allowed in staging
-Auth; `doji-staging://login` is the default. Confirmation returns to login, not automatic session installation; sign in
-normally afterward. The currently installed standalone APK predates this change.
+Auth; `doji-staging://login` is the default. These retained destinations do not
+require confirmation when Auth auto-confirmation is enabled. Existing `7513c6d`
+artifacts need no rebuild for the corrected server-side signup configuration.
 Resend's signed-in November 5 check showed Free transactional usage of 0/3,000
 monthly and 0/100 daily, pay-as-you-go off, and verified `mail.dojipro.com`.
 The separately approved `Doji mobile staging auth` sending-only key is saved only
@@ -120,8 +113,9 @@ in protected staging Supabase Auth SMTP: `smtp.resend.com:465`, sender
 was verified, not provider acceptance or inbox delivery; activation sent no mail.
 Rollback disables custom SMTP and revokes only this key, leaving other senders
 unchanged. Recheck capacity at activation; these are not reserved quotas.
-Preserve the existing age function and legal checks. Rollback closes signup and revokes
-only the approved test sessions; never reset staging or alter production.
+Preserve the existing age function and legal checks. The signup-setting rollback
+retains the prior two values outside Git; do not reset staging, revoke sessions
+or alter production as a configuration rollback.
 
 Android acceptance currently uses the owner-approved `Doji_Staging_API_36` emulator:
 Pixel 8 profile, Android 16/API 36 Google Play image, hardware acceleration and boot
@@ -147,6 +141,12 @@ its certificate matches the retained staging key. Sentry's upload report confirm
 bundle/map Debug ID `12a1fdfa-c9e4-405a-b4cf-96b66d9c39cf`. This verifies upload,
 not symbolication of a captured device error. Exact APK/build/config/log receipts
 are private under `Doji/mobile-staging/2026-11-05/android-build-1`.
+The November 6 owner-approved batch uses exact reviewed `7513c6d`, with passing
+main CI `42169655623`: iPhone Dev build 1 and both Staging build 2 artifacts are
+complete. The refreshed Android APK matches the previous staging certificate,
+is installed, and cold-started successfully with Metro stopped. The owner confirmed iPhone Dev
+Fast Refresh and restoration without reload, then repeated Staging startup while
+Metro was stopped. See the [current build receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
 No production build, store submission, push or device reporting was enabled.
 Expo prohibits reducing
 secret visibility, so two prior preview Supabase

@@ -39,9 +39,11 @@ The `supabase/overlays/staging_mobile_signup_v1.sql` adds default-off,
 staging-only test-alias admission before the existing minimum-age hook. Its owned
 database fixture is `scripts/database/staging-mobile-signup.mts`; it does not
 configure SMTP, redirects or hosted signup and never creates fixture accounts.
-Its separately approved staging deployment and Before User Created binding now
-restrict new users to the owner's test-alias family. SMTP and exact Dev/Staging
-confirmation URLs are configured separately; native signup acceptance is pending.
+Its historical staging deployment is retained, but the alias wrapper is no longer
+bound. Before User Created calls the original minimum-age hook directly; staging
+accepts ordinary test emails and auto-confirms them, matching production signup.
+SMTP and exact Dev/Staging redirects are separate configuration. The owner confirmed
+iPhone Staging signup; recovery mail and complete workflows remain unqualified.
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |

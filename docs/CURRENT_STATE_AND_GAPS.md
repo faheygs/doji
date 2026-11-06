@@ -1,12 +1,12 @@
 # Current state and handoff gaps
 
-Updated November 5, 2026. This separates source, recorded deployments and owner
+Updated November 6, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-Mobile staging configuration is merged; Android artifacts now exist, but native
+Mobile staging configuration is merged; Android and iPhone artifacts exist, but native
 workflow qualification is unfinished:
 distinct Development/Staging identities and schemes, staging-only binding checks,
 environment-aware Android diagnostics, and default-off staging push/reporting.
@@ -14,10 +14,10 @@ Production app config is preserved. The isolated Firebase Spark Android clients,
 Apple development/staging App IDs and main-only GitHub approval environment now exist. EAS
 development/preview client destinations were verified; production values remain
 unchanged. The approved organization-wide Sentry upload token is stored as an EAS
-secret only in development/preview. The approved single Android staging build
-`a076b3c7-8cf7-4627-bd22-f1004d61cb75` succeeded from `190d882`, with source maps
-processed for `doji-staging`. APK identity/signature matched and installation passed;
-native startup/authenticated acceptance remains pending. No push-provider credential
+secret only in development/preview. Android Staging build 2 from `7513c6d` is
+installed on the emulator; its identity/signature matched and cold startup passed
+with Metro stopped. Staging source-map uploads passed on both platforms; captured
+device-error symbolication and authenticated workflows remain pending. No push-provider credential
 was created. Separate Android development/staging
 signing keys are now bound in EAS; production signing metadata is unchanged.
 The approved API 36 Google Play emulator has both Doji Dev and Doji Staging installed.
@@ -27,43 +27,47 @@ for appearance/shop fallback and friend-accepted routing; full typechecking now
 passes with generated Expo routes present. Profile setup maps the known consent
 rejection to safe actionable copy and distinguishes a confirmed save from failed
 follow-up loading. These corrections merged in PR #55 as `03a050d` after all
-exact-head checks passed; the installed staging APK still predates them.
-The owner's `D:/ChallengeApp/DoIt` checkout is aligned to that reviewed main on
-`codex/mobile-local-dev`, with original local edits preserved and a recovery stash.
+exact-head checks passed. PR #56's local-development launcher merged as `7513c6d`;
+main quality run `42169655623` passed all four jobs and the exact-source cloud
+candidate check passed. The owner's `D:/ChallengeApp/DoIt` checkout is aligned to
+that reviewed source on `codex/mobile-device-acceptance`, preserving unrelated edits
+and the recovery stash. Cloud builds use a separate clean checkout, not those edits.
 The local-only launcher `npm run dev:mobile` uses external staging client settings;
-`--lan` is prepared for the owner's iPhone. Android save/Fast Refresh and restoration
-were visually verified without reload. The obsolete generated production-identity
+`--lan` serves the owner's iPhone and emulator. Android save/Fast Refresh and restoration
+were visually verified without reload; the owner confirmed the same change and
+restoration on the physical iPhone. The obsolete generated production-identity
 Android directory is retained intact outside the repo at
 `D:/ChallengeApp/DoIt-android-preserved-20261105`; no production build was changed.
-iPhone Dev/Staging signing, builds and physical acceptance are still pending.
-Main run `42159335914` passed application/coverage/database but its browser job was
-cancelled; no passing replacement was found. Cloud candidate qualification remains
-blocked until exact-head quality checks pass; local development is not that gate.
+iPhone Dev build 1 and Staging build 2 completed from `7513c6d`. Their embedded
+profiles permit only the owner's confirmed iPhone, not the TestFlight tester group.
+The owner installed both and confirmed repeated Staging startup with Metro stopped.
+This qualifies installation/startup and Dev Fast Refresh, not authenticated workflows.
+All three separately approved builds completed within included credits ($5 total,
+$33 remaining at the final read). No build retry or production release occurred.
+See the [build and device receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
 The backend-created `mobile-one@test.invalid` lacked signup consent and profile
 creation correctly rejected it. At the owner's request, that exact Auth identity
 was deleted (absence verified), and only Doji Dev's emulator data was cleared.
 There was no profile or owned media; `mobile-two@test.invalid` and baseline fixtures
-were preserved. Restricted staging signup is enabled and email confirmation required. Replacement
-acceptance must use normal in-app signup with approved restricted access and an
-approved verification inbox, not fabricated consent or another Auth-only fixture.
-The owner approved multiple dummy accounts using a Gmail staging-alias family.
-A staging-only signup gate is deployed and bound before user creation; it permits
-the approved Gmail staging-alias family, calls the unchanged age function and
-preserves normal confirmation/profile consent. Live outside-family and underage
-requests returned 403 without creating accounts or sessions; the four existing
-accounts and age-function definition/grants were preserved. Hosted confirmation
-allows only `doji-dev://login` and `doji-staging://login`, with the latter as default.
-Normal in-app signup, inbox confirmation and profile acceptance remain pending.
-This admission hook does not fence every Auth mail path; email-change/recovery
-recipient safety remains a separate qualification before general testing.
+were preserved. Staging signup now accepts ordinary test email addresses without
+email confirmation, matching the verified production signup settings. The owner
+confirmed normal signup works in the installed iPhone Staging app after the
+November 6 correction. Before User Created calls the original minimum-age hook
+directly; the obsolete alias wrapper is retained but unbound. Age/legal function
+definitions and grants, all other Auth settings and production were unchanged.
+Use normal in-app signup and atomic profile creation, not fabricated consent or
+another Auth-only fixture. Full profile/workflow acceptance remains separate.
+Email-change/recovery recipient safety is still unqualified; do not test those
+mail paths with arbitrary destinations. See the [configuration receipt](releases/README.md#november-6-staging-signup-parity-correction).
 The signed-in Resend check confirmed available Free allowance with pay-as-you-go
 off. The separately approved sending-only staging Auth key was created and saved
 in staging Supabase SMTP; its stored-password state and smtp.resend.com:465 were
-verified. Activation sent no email; normal signup and inbox delivery are not yet verified.
+verified. Signup auto-confirmation requires no confirmation mail. Other Auth mail
+delivery is not qualified by the successful signup.
 Passwords/signing backups and the removal receipt are restricted outside Git.
 Native onboarding and workflow acceptance are not established by API tests.
-A read-only exact-main quality preflight does not authorize cloud builds. iOS signing,
-protected build runner, hosted parity and device acceptance remain gated. Staging's
+A read-only exact-main quality preflight does not authorize cloud builds. The
+protected build runner, hosted parity and remaining workflow acceptance remain gated. Staging's
 Free-tier media path has transforms off and is not production transform parity.
 See the [dependency and release checklist](MOBILE_STAGING.md).
 

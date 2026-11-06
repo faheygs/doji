@@ -279,7 +279,10 @@ approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guid
   against the actual staging schema and their own forward migration.
   The separately reviewed poll-activation fix adds entry 291; its staging voting,
   retry and timing regression passed. The baseline must still not be replayed.
-- Member signup and email provider remain disabled. The staging employee runtime
+- Member signup is enabled with ordinary test emails, auto-confirmation and the
+  original minimum-age hook, matching production signup. Do not fabricate profile
+  consent or create Auth-only accounts. Staging SMTP is separately configured;
+  recovery/email-change recipient safety remains unqualified. The staging employee runtime
   and separate local-development gateway use their own restricted SQL logins;
   employee realm/session settings are enabled;
   other runtime roles remain NOLOGIN. No production credentials, cron jobs, media

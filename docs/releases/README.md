@@ -5,6 +5,88 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 6 mobile development and staging builds
+
+PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality
+`42169655623` passed application, coverage, database and web-migration after
+exact-head PR/security checks. The clean-source candidate preflight passed.
+The owner separately approved three internal builds using existing credits only:
+
+| Artifact | EAS build | Version/build | Status |
+| --- | --- | --- | --- |
+| iPhone Dev | `278d19fa-e723-45b5-8baa-b32a49a7effd` | 1.0.8 / 1 | Complete; owner-installed, Fast Refresh verified |
+| iPhone Staging | `2f78a1f2-8baa-48f9-b89c-e3890fb9a9ac` | 1.0.8 / 2 | Complete; owner-installed, startup verified with Metro stopped |
+| Android Staging | `331b969b-430d-406e-85ea-81216ef28980` | 1.0.8 / 2 | Complete; emulator-installed, cold startup verified with Metro stopped |
+
+All use exact source `7513c6d`, staging service bindings and disabled push/reporting.
+The separate clean build checkout excludes unrelated owner Worker/email changes.
+Fresh EAS usage before launch was $7 of $45 included credits; a conservative $10
+batch reserve covered the approved builds and delayed prior usage. Final usage
+was $12 of $45 ($5 for this batch, $33 remaining at that read). No store
+submission, production release, plan change or added spending was authorized.
+
+The iPhone IPA identities are `com.doit.challengeapp.development` and `.staging`.
+Both embedded profiles contain exactly the confirmed owner's device (suffix 801C)
+under team `HUG35JPQGG`, expiring May 12, 2027. They reuse the existing distribution
+certificate; no production certificate was replaced or revoked and no TestFlight
+tester group was used. Dev IPA SHA-256 is
+`13cd054e5d28aadd6b5eb71a1bfb44a318589e630519afb58940abf03b69de48`;
+Staging IPA SHA-256 is
+`d6724e5fcd76e7c11b27f5fa31d90b98301f8381acbe0f9d82fffcde2a2a950e`.
+The Staging IPA contains its own JavaScript bundle. Its Sentry upload report
+matches `doji-staging`, release `com.doit.challengeapp.staging@1.0.8+2`, and Debug ID
+`3cb3f734-4a3c-426a-bbde-973a39edb45d`; this is upload evidence, not device-error
+symbolication. Dev JavaScript comes from Metro, not that standalone source map.
+Android APK SHA-256 is
+`4f372121eb5d0162956f7bd2e6c091951e5cb2e4c29e23dec2d601988262c0b3`;
+its staging identity/build 2 and valid signature matched the prior staging
+certificate `37f7fb05679c6ab870c5e05b9f6c8d005eb9afde18bc74eb6a9bf381fdc85d56`.
+Its completed Sentry upload matches the same staging project/release and Debug ID
+`2a5b65c8-7eb8-4076-a769-d171f7aa5fdd`. APK update installation preserved app data.
+
+Metro serves the owner's editing checkout with external staging-only client
+configuration. Android Fast Refresh/change restoration was visually verified;
+the owner confirmed the same on the iPhone without reload. The temporary headline
+edit was restored with no file diff. With Metro stopped and its HTTP endpoint
+unavailable, the owner repeatedly closed/reopened iPhone Staging successfully.
+Android build 2 also cold-started to the welcome screen with Metro unavailable.
+A stalled local ADB server was restarted once; no emulator reset or app-data clear
+was used. The staging activity and installed build were verified afterward.
+Metro and Android port forwarding were then restored in trusted-LAN mode. This does not qualify signup,
+confirmation/profile creation, authenticated workflows, push, telemetry or physical
+Android behavior; the protected GitHub build runner also remains unfinished.
+
+Exact artifacts, hashes, launch/signing/configuration receipts are retained outside
+Git in `%LOCALAPPDATA%/Doji/mobile-staging/2026-11-06`. Older Android build 1 is retained
+for comparison/recovery. There is no instant native rollback: stop distribution
+and qualify a corrective build rather than replace signing or enable OTA. Production
+data/settings, backend runtimes and delivery gates were unchanged by this batch.
+
+## November 6 staging signup parity correction
+
+The owner rejected the staging-only alias and email-verification requirements.
+Readback confirmed production auto-confirmed email while staging did not. With
+explicit approval, only staging `ohrcupagdoilkwhecict` Auth configuration changed:
+`mailer_autoconfirm=true` and Before User Created's URI restored to
+`pg-functions://postgres/public/hook_enforce_minimum_signup_age`.
+The hook stayed enabled. All other Auth settings and the age/legal
+function/grant fingerprint were unchanged; no SQL, runtime or app build changed.
+The public Auth endpoint independently confirmed enabled email signup with
+auto-confirmation. The owner then confirmed successful normal signup in the
+installed iPhone Staging app, without the special address format or verification.
+Full profile/workflow acceptance and Android signup remain separate checks.
+
+The original age hook's definition hash remained
+`98ae11ef08c78fd4a1fc1f37ac30e3df`, with Auth execute permission retained.
+Direct hook invocation was correctly denied to the Management API read-only role;
+no permission was widened to run that diagnostic. The historical alias wrapper
+remains installed but unbound. No account was created by the configuration tool,
+no email was sent, and production was not changed. Recovery/email-change routing
+remains unqualified and must not be tested against arbitrary destinations.
+Owner/SYSTEM-restricted before/after receipts and the exact two-field rollback
+are retained at `%LOCALAPPDATA%/Doji/staging-backend/2026-11-06-signup-parity`.
+Rollback changes only those settings; it does not delete accounts or reset data.
+
 ## November 5 Expo compatibility alignment
 
 PR #52's application job stopped at Expo Doctor: nine direct packages were one
