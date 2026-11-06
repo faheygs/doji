@@ -148,13 +148,12 @@ Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
 `mobile-one@test.invalid` was removed after missing consent blocked profile creation;
 `mobile-two@test.invalid` remains unchanged. Restricted receipts are in the adjacent
 `member-accounts` directory; removed-account credentials are not reusable logins.
-Anonymous access remains off; fixture creation sent no mail. The approved replacement uses Gmail
-test aliases delivered to the owner's inbox, not a new forwarding service. Staging
-Auth now has the separately approved Resend SMTP configuration and enabled,
-age-preserving signup admission for the owner's staging Gmail aliases. Exact
-Dev/Staging confirmation URLs are configured. Live outside-family and underage
-signup requests returned 403; normal signup and delivery remain unqualified.
-The admission hook does not protect other Auth mail paths. API sign-in/refresh/logout did not
+Anonymous access remains off; fixture creation sent no mail. Staging signup now
+accepts ordinary test emails without confirmation, matching production's verified
+setting. The original minimum-age hook is bound directly; the alias wrapper is
+retained but inactive. The owner confirmed iPhone Staging signup. Existing Resend
+SMTP and exact Dev/Staging redirects are unchanged; signup needs no email delivery.
+Recovery/email-change recipient safety remains unqualified. API sign-in/refresh/logout did not
 qualify native onboarding or workflow acceptance. Protected build-runner
 credentials remain pending. Staging public client values belong in
 approved local/EAS environments; build tokens and signing files stay protected in
@@ -368,7 +367,8 @@ acceptance, owner confirmation and read-only project access remain pending. Neve
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
-Member signup/email, business, real push and recurring jobs remain disabled.
+Member signup is separately enabled as described above; business and real push
+remain disabled. Current health-job enablement is recorded in current state.
 The separate staging Worker and seven core guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
 `send-admin-email` is deployed/configured as an eighth guarded handler. One approved

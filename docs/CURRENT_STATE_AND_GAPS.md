@@ -49,23 +49,21 @@ The backend-created `mobile-one@test.invalid` lacked signup consent and profile
 creation correctly rejected it. At the owner's request, that exact Auth identity
 was deleted (absence verified), and only Doji Dev's emulator data was cleared.
 There was no profile or owned media; `mobile-two@test.invalid` and baseline fixtures
-were preserved. Restricted staging signup is enabled and email confirmation required. Replacement
-acceptance must use normal in-app signup with approved restricted access and an
-approved verification inbox, not fabricated consent or another Auth-only fixture.
-The owner approved multiple dummy accounts using a Gmail staging-alias family.
-A staging-only signup gate is deployed and bound before user creation; it permits
-the approved Gmail staging-alias family, calls the unchanged age function and
-preserves normal confirmation/profile consent. Live outside-family and underage
-requests returned 403 without creating accounts or sessions; the four existing
-accounts and age-function definition/grants were preserved. Hosted confirmation
-allows only `doji-dev://login` and `doji-staging://login`, with the latter as default.
-Normal in-app signup, inbox confirmation and profile acceptance remain pending.
-This admission hook does not fence every Auth mail path; email-change/recovery
-recipient safety remains a separate qualification before general testing.
+were preserved. Staging signup now accepts ordinary test email addresses without
+email confirmation, matching the verified production signup settings. The owner
+confirmed normal signup works in the installed iPhone Staging app after the
+November 6 correction. Before User Created calls the original minimum-age hook
+directly; the obsolete alias wrapper is retained but unbound. Age/legal function
+definitions and grants, all other Auth settings and production were unchanged.
+Use normal in-app signup and atomic profile creation, not fabricated consent or
+another Auth-only fixture. Full profile/workflow acceptance remains separate.
+Email-change/recovery recipient safety is still unqualified; do not test those
+mail paths with arbitrary destinations. See the [configuration receipt](releases/README.md#november-6-staging-signup-parity-correction).
 The signed-in Resend check confirmed available Free allowance with pay-as-you-go
 off. The separately approved sending-only staging Auth key was created and saved
 in staging Supabase SMTP; its stored-password state and smtp.resend.com:465 were
-verified. Activation sent no email; normal signup and inbox delivery are not yet verified.
+verified. Signup auto-confirmation requires no confirmation mail. Other Auth mail
+delivery is not qualified by the successful signup.
 Passwords/signing backups and the removal receipt are restricted outside Git.
 Native onboarding and workflow acceptance are not established by API tests.
 A read-only exact-main quality preflight does not authorize cloud builds. The

@@ -62,6 +62,31 @@ for comparison/recovery. There is no instant native rollback: stop distribution
 and qualify a corrective build rather than replace signing or enable OTA. Production
 data/settings, backend runtimes and delivery gates were unchanged by this batch.
 
+## November 6 staging signup parity correction
+
+The owner rejected the staging-only alias and email-verification requirements.
+Readback confirmed production auto-confirmed email while staging did not. With
+explicit approval, only staging `ohrcupagdoilkwhecict` Auth configuration changed:
+`mailer_autoconfirm=true` and Before User Created's URI restored to
+`pg-functions://postgres/public/hook_enforce_minimum_signup_age`.
+The hook stayed enabled. All other Auth settings and the age/legal
+function/grant fingerprint were unchanged; no SQL, runtime or app build changed.
+The public Auth endpoint independently confirmed enabled email signup with
+auto-confirmation. The owner then confirmed successful normal signup in the
+installed iPhone Staging app, without the special address format or verification.
+Full profile/workflow acceptance and Android signup remain separate checks.
+
+The original age hook's definition hash remained
+`98ae11ef08c78fd4a1fc1f37ac30e3df`, with Auth execute permission retained.
+Direct hook invocation was correctly denied to the Management API read-only role;
+no permission was widened to run that diagnostic. The historical alias wrapper
+remains installed but unbound. No account was created by the configuration tool,
+no email was sent, and production was not changed. Recovery/email-change routing
+remains unqualified and must not be tested against arbitrary destinations.
+Owner/SYSTEM-restricted before/after receipts and the exact two-field rollback
+are retained at `%LOCALAPPDATA%/Doji/staging-backend/2026-11-06-signup-parity`.
+Rollback changes only those settings; it does not delete accounts or reset data.
+
 ## November 5 Expo compatibility alignment
 
 PR #52's application job stopped at Expo Doctor: nine direct packages were one
