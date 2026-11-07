@@ -9,6 +9,8 @@ import { Text } from '../../../components/ui/Text';
 import { SearchField } from '../../../components/ui/SearchField';
 import { ListRowsSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
+import { ReadFailureFeedback } from '../../../components/ui/ReadFailureFeedback';
+import { canKeepQueryDataOnError } from '../../../lib/queryDisplayState';
 import { IconChevronLeft } from '../../../components/icons/Icons';
 import { useSearchUsers } from '../../../hooks/useProfile';
 import { useAuthStore } from '../../../stores/useAuthStore';
@@ -32,7 +34,11 @@ export default function AddFriendsScreen() {
   const [query, setQuery] = useState('');
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(trimmedQuery, 250);
-  const { data: results = [], isLoading } = useSearchUsers(debouncedQuery);
+  const searchQuery = useSearchUsers(debouncedQuery);
+  const { data: results, isLoading, isError, error } = searchQuery;
+  const currentSearch = trimmedQuery.length >= 2 && debouncedQuery === trimmedQuery;
+  const searchFailed = currentSearch && isError;
+  const keepResults = !isError || canKeepQueryDataOnError(results, error);
   const currentProfile = useAuthStore((s) => s.profile);
   const { recents, record, remove, clear } = useRecentProfileSearches(currentProfile?.id);
 
@@ -73,10 +79,11 @@ export default function AddFriendsScreen() {
   );
 
   const filteredResults = useMemo(
-    () => debouncedQuery === trimmedQuery
-      ? results.filter((result) => result.id !== currentProfile?.id)
-      : [],
-    [currentProfile?.id, debouncedQuery, results, trimmedQuery],
+    () =>
+      currentSearch && keepResults
+        ? (results ?? []).filter((result) => result.id !== currentProfile?.id)
+        : [],
+    [currentProfile?.id, currentSearch, keepResults, results],
   );
   const openProfile = useCallback(
     (profile: RecentProfileSearch) => {
@@ -138,14 +145,29 @@ export default function AddFriendsScreen() {
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => <UserSearchResult user={item} onOpen={openProfile} />}
+            ListHeaderComponent={
+              searchFailed ? (
+                <ReadFailureFeedback
+                  message={
+                    filteredResults.length
+                      ? 'Could not refresh people. Showing previous results.'
+                      : 'Could not search people. Please try again.'
+                  }
+                  retrying={searchQuery.isFetching}
+                  onRetry={() => void searchQuery.refetch({ cancelRefetch: false })}
+                />
+              ) : null
+            }
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text variant="body" color={colors.textSecondary}>
-                  {trimmedQuery.length < 2
-                    ? 'Keep typing to search'
-                    : `No users found for "${trimmedQuery}"`}
-                </Text>
-              </View>
+              searchFailed ? null : (
+                <View style={styles.empty}>
+                  <Text variant="body" color={colors.textSecondary}>
+                    {trimmedQuery.length < 2
+                      ? 'Keep typing to search'
+                      : `No users found for "${trimmedQuery}"`}
+                  </Text>
+                </View>
+              )
             }
           />
         </SkeletonSwap>
