@@ -166,6 +166,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   byte caps; no mutations, search drafts, secrets or signed URLs.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
+  Each caller waits only for its own object/variant needs, with an eight-second
+  queue/auth/provider deadline. Six provider operations are shared across batches;
+  timed-out uncancellable operations retain their slots and cannot seed the cache
+  or launch a late fallback. Original requests coalesce; in-flight keys deduplicate.
 - Store-release policy uses bounded authorized reads, not push or polling.
   Verify the installed binary's discovery behavior before claiming immediate enforcement.
 

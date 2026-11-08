@@ -1,33 +1,14 @@
-import { supabase } from './supabase';
+import {
+  getSignedMediaUrls,
+  signedMediaKey as requestKey,
+  type SignedMediaRequest,
+  type PostMediaVariant,
+} from './postMediaSigning';
+export type { PostMediaVariant } from './postMediaSigning';
 import type { Post, Report } from '../types/database';
 const BUCKET = 'post-media';
-const SIGNED_URL_TTL_SECONDS = 15 * 60;
-const SIGNED_URL_REFRESH_SKEW_MS = 60_000;
-const MAX_SIGNED_URL_CACHE_ENTRIES = 2_000;
-const TRANSFORM_SIGN_CONCURRENCY = 6;
 const OBJECT_MARKER = /\/storage\/v1\/object\/(?:public|sign|authenticated)\/post-media\//;
-export type PostMediaVariant = 'original' | 'feed' | 'thumbnail';
-type SignedRequest = { path: string; variant: PostMediaVariant };
-const VARIANT_TRANSFORMS = {
-  feed: { width: 1440, height: 1920, resize: 'cover' as const, quality: 90 },
-  thumbnail: { width: 360, height: 360, resize: 'cover' as const, quality: 82 },
-};
-const VARIANT_CACHE_VERSION: Record<Exclude<PostMediaVariant, 'original'>, string> = {
-  // v3 discards feed entries created by the retired decode/re-encode cache
-  // seeding path. A feed cache entry now contains the exact CDN response bytes.
-  feed: 'v3',
-  thumbnail: 'v2',
-};
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-const pendingRequests = new Map<string, SignedRequest>();
-let pendingWaiters: Array<{
-  requests: SignedRequest[];
-  resolve: (signed: Map<string, string>) => void;
-}> = [];
-let batchTimer: ReturnType<typeof setTimeout> | null = null;
-function mediaTransformsEnabled(): boolean {
-  return process.env.EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED === 'true';
-}
+const VARIANT_CACHE_VERSION = { feed: 'v3', thumbnail: 'v2' } as const;
 function objectPath(value: string | null | undefined): string | null {
   if (!value) return null;
   const match = OBJECT_MARKER.exec(value);
@@ -55,139 +36,17 @@ export function postMediaCacheKey(
     ? `${BUCKET}:${path}`
     : `${BUCKET}:${variant}:${VARIANT_CACHE_VERSION[variant]}:${path}`;
 }
-function requestKey(request: SignedRequest): string {
-  return `${request.variant}:${request.path}`;
-}
-async function forEachWithConcurrency<T>(
-  values: T[],
-  concurrency: number,
-  operation: (value: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-      while (cursor < values.length) {
-        const value = values[cursor++];
-        await operation(value);
-      }
-    }),
-  );
-}
-async function flushSignedUrlBatch(): Promise<void> {
-  batchTimer = null;
-  const requests = [...pendingRequests.values()];
-  const waiters = pendingWaiters;
-  pendingRequests.clear();
-  pendingWaiters = [];
-  const signed = new Map<string, string>();
-  if (requests.length > 0) {
-    try {
-      const expiresAt = Date.now() + SIGNED_URL_TTL_SECONDS * 1_000;
-      const transformsEnabled = mediaTransformsEnabled();
-      const originals = transformsEnabled
-        ? requests.filter((request) => request.variant === 'original')
-        : requests;
-      const originalPaths = [...new Set(originals.map((request) => request.path))];
-      if (originalPaths.length > 0) {
-        const { data, error } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrls(originalPaths, SIGNED_URL_TTL_SECONDS);
-        if (!error) {
-          for (const row of data ?? []) {
-            if (!row.path || !row.signedUrl) continue;
-            const matching = requests.filter((request) => request.path === row.path);
-            for (const request of matching) {
-              const key = requestKey(request);
-              signed.set(key, row.signedUrl);
-              signedUrlCache.set(key, { url: row.signedUrl, expiresAt });
-            }
-          }
-        }
-      }
-      if (transformsEnabled) {
-        await forEachWithConcurrency(
-          requests.filter((request) => request.variant !== 'original'),
-          TRANSFORM_SIGN_CONCURRENCY,
-          async (request) => {
-            let { data, error } = await supabase.storage
-              .from(BUCKET)
-              .createSignedUrl(request.path, SIGNED_URL_TTL_SECONDS, {
-                transform: VARIANT_TRANSFORMS[request.variant as 'feed' | 'thumbnail'],
-              });
-            // Preserve image availability if the transformation service rejects
-            // an uncommon source file or has a transient failure.
-            if (error || !data?.signedUrl) {
-              ({ data, error } = await supabase.storage
-                .from(BUCKET)
-                .createSignedUrl(request.path, SIGNED_URL_TTL_SECONDS));
-            }
-            if (error || !data?.signedUrl) return;
-            const key = requestKey(request);
-            signed.set(key, data.signedUrl);
-            signedUrlCache.set(key, { url: data.signedUrl, expiresAt });
-          },
-        );
-      }
-      while (signedUrlCache.size > MAX_SIGNED_URL_CACHE_ENTRIES) {
-        const oldest = signedUrlCache.keys().next().value as string | undefined;
-        if (!oldest) break;
-        signedUrlCache.delete(oldest);
-      }
-    } catch {
-      // A media transport failure leaves the social record usable. A later
-      // visible-card mount or query refresh can retry signing.
-    }
-  }
-  for (const waiter of waiters) {
-    waiter.resolve(
-      new Map(
-        waiter.requests.flatMap((request) => {
-          const key = requestKey(request);
-          const url = signed.get(key) ?? signedUrlCache.get(key)?.url;
-          return url ? [[key, url] as const] : [];
-        }),
-      ),
-    );
-  }
-}
-function queueSignedUrls(requests: SignedRequest[]): Promise<Map<string, string>> {
-  return new Promise((resolve) => {
-    for (const request of requests) pendingRequests.set(requestKey(request), request);
-    pendingWaiters.push({ requests, resolve });
-    // Cards mount in one render pass. A tiny coalescing window turns those
-    // per-card needs into one Storage request without delaying feed chrome.
-    if (!batchTimer) batchTimer = setTimeout(() => void flushSignedUrlBatch(), 24);
-  });
-}
 async function signedUrlMap(
   values: Array<{ value: string | null | undefined; variant: PostMediaVariant }>,
 ): Promise<Map<string, string>> {
-  const requests = new Map<string, SignedRequest>();
+  const requests = new Map<string, SignedMediaRequest>();
   for (const entry of values) {
     const path = objectPath(entry.value);
     if (!path) continue;
     const request = { path, variant: entry.variant };
     requests.set(requestKey(request), request);
   }
-  if (requests.size === 0) return new Map();
-  const now = Date.now();
-  const result = new Map<string, string>();
-  const missing: SignedRequest[] = [];
-  for (const [key, request] of requests) {
-    const cached = signedUrlCache.get(key);
-    if (cached && cached.expiresAt - SIGNED_URL_REFRESH_SKEW_MS > now) {
-      result.set(key, cached.url);
-      signedUrlCache.delete(key);
-      signedUrlCache.set(key, cached);
-    } else {
-      signedUrlCache.delete(key);
-      missing.push(request);
-    }
-  }
-  if (missing.length === 0) return result;
-  const batched = await queueSignedUrls(missing);
-  for (const [path, url] of batched) result.set(path, url);
-  return result;
+  return getSignedMediaUrls([...requests.values()]);
 }
 
 export function hasPrivatePostMedia(post: Post): boolean {
