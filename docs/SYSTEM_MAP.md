@@ -251,7 +251,7 @@ and safety/media recovery checks; those must never become the challenge clock.
 | Writes/replay | Atomic RPC and stable receipt | `contracts/authenticatedCommands.ts`, `lib/commandGateway.ts`, `lib/dojiWriteReceipt.ts` |
 | Cache | TanStack Query; account-scoped persistence | `lib/queryClient.ts`, `lib/queryPersistence.ts`, `components/QueryCachePersistence.tsx` |
 | Events and lifecycle | Targeted hints then authorized reconciliation | `hooks/useDomainRealtime.ts`, `lib/domainRealtimeHandler.ts`, `lib/reconcileQueries.ts`, `components/QueryLifecycle.tsx` |
-| Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
+| Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `lib/postMediaSigning.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
 | New feed-media readiness | Per-feed bounded queue and stale-result fencing | `hooks/usePreparedFeedPosts.ts`, `lib/feedPreparationQueue.ts`, `lib/feedPostPreparation.ts` |
 | Resumable upload lifetime | Bounded preparation and forward-progress watchdog; retained resume identity | `utils/resumableUpload.ts`, `lib/resumableUploadLifetime.ts` |
 | Activity history | Durable account state | `contexts/NotificationCenterContext.tsx`, `lib/notificationHistoryQueue.ts` |
