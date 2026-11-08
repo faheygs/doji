@@ -40,7 +40,9 @@ describe('mobile data architecture', () => {
     expect(persistence).toContain("AppState.addEventListener('change'");
     expect(persistence).toContain('persistNow();');
     expect(persistence).toContain('void cacheRead');
-    expect(persistence).toContain('.then(restoreCache)');
+    expect(persistence).toContain('useAuthStore.subscribe(');
+    expect(persistence).toContain('pendingRestore = { userId, raw };');
+    expect(persistence).toContain('restoreCache();');
     expect(persistence).toContain('MAX_PERSISTED_QUERIES');
     expect(policy).toContain("'commentLikes'");
     expect(policy).toContain("'comments'");

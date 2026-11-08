@@ -8,7 +8,9 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 Mobile performance hardening is local preparation, not deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
-coalescing, per-query single-flight reads and teardown fencing. The performance
+coalescing, per-query single-flight reads and teardown fencing. Disk restoration
+waits for the accepted account and discards reads spanning an identity change,
+including a switch back to the original account. The performance
 targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
 Real-device baselines, remaining request/media fixes, exact-head CI and staging
