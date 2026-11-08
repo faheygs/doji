@@ -60,6 +60,11 @@ the existing keyed/idempotent retry allowance is unchanged. Command session look
 and 401 refresh each have an eight-second caller deadline. Auth failures settle as
 command errors without replaying the write; late credentials cannot resume it.
 This does not cancel Supabase's shared session lifecycle or establish device latency.
+The local-development direct RPC fallback also bounds response observation to twelve
+seconds and requests native cancellation, without retrying or claiming rollback.
+Foreground return checks elapsed deadlines before accepting late results even if
+native timers have not resumed. Account-bound command success is fenced after identity changes on both transports;
+this does not enable direct fallback in production or bypass the configured gateway.
 
 ## Challenge and scale boundaries
 
