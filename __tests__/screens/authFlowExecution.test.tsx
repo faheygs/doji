@@ -358,7 +358,7 @@ it.each(['Display name', 'Bio'])(
     expect(mockCommand).toHaveBeenCalled();
   },
 );
-it.each(['accepted', 'existing', 'conflict', 'error', 'thrown'])(
+it.each(['accepted', 'existing', 'conflict', 'error', 'thrown', 'missing'])(
   'cleans up only orphan uploads: %s',
   async (outcome) => {
     const ui = render(shell(<Username />));
@@ -370,15 +370,16 @@ it.each(['accepted', 'existing', 'conflict', 'error', 'thrown'])(
     if (outcome === 'conflict') mockCommand.mockResolvedValue({ error: { code: '23505' } });
     if (outcome === 'error') mockCommand.mockResolvedValue({ error: { code: 'unavailable' } });
     if (outcome === 'thrown') mockCommand.mockRejectedValue(new Error('network'));
+    if (outcome === 'missing') mockCommand.mockResolvedValue({ data: null, error: null });
     await submit(ui);
     expect(mockUpload).toHaveBeenCalledWith('member', 'file://synthetic.jpg');
-    expect(mockRemove).toHaveBeenCalledTimes(outcome === 'accepted' ? 0 : 1);
+    expect(mockRemove).toHaveBeenCalledTimes(['existing', 'conflict'].includes(outcome) ? 1 : 0);
     if (outcome === 'conflict') {
       expect(ui.getByText('That username was just taken. Pick another.')).toBeTruthy();
       input(ui, 'Username', 'different');
       expect(ui.queryByText('That username was just taken. Pick another.')).toBeNull();
     }
-    if (outcome === 'error' || outcome === 'thrown')
+    if (['error', 'thrown', 'missing'].includes(outcome))
       expect(ui.getByTestId('profile-setup-error')).toBeTruthy();
   },
 );

@@ -14,6 +14,11 @@ import { PHOTO_SELECTION_ERROR, selectedImageUri } from '../lib/imagePickerRecov
 import { reportOperationalFailure } from '../lib/telemetry';
 
 const PICKER_QUALITY = 0.85 as const;
+const afterPhotoSave = (operation: 'cleanup' | 'prefetch' | 'refresh', work: () => unknown) => {
+  void Promise.resolve().then(work).catch(() => {
+    reportOperationalFailure('profile-photo', operation, new Error('Profile photo follow-up failed'));
+  });
+};
 
 export function useChangeProfilePhoto() {
   const { showDialog } = useAppDialog();
@@ -37,14 +42,16 @@ export function useChangeProfilePhoto() {
         await updateProfile({ avatar_url: url });
         uploadedUrl = null; // Never remove committed media after a refresh failure.
         if (currentAvatarUrl && currentAvatarUrl !== url) {
-          void removePublicStorageObject('avatars', currentAvatarUrl);
+          afterPhotoSave('cleanup', () => removePublicStorageObject('avatars', currentAvatarUrl));
         }
-        void ExpoImage.prefetch(url);
-        await invalidateQueryRoots(queryClient, ['feed', 'post', 'friends']);
+        afterPhotoSave('prefetch', () => ExpoImage.prefetch(url));
+        afterPhotoSave('refresh', () => invalidateQueryRoots(queryClient, ['feed', 'post', 'friends']));
         Toast.show({ type: 'success', text1: 'Profile photo updated!' });
       } catch (e: unknown) {
-        if (uploadedUrl) void removePublicStorageObject('avatars', uploadedUrl);
-        const message = e instanceof Error ? e.message : 'Could not upload photo';
+        // A lost acknowledgement may follow commit; this is not an orphan receipt.
+        const message = uploadedUrl
+          ? 'Doji could not confirm your profile photo was saved. Reopen your profile to check before trying again.'
+          : e instanceof Error ? e.message : 'Could not upload photo';
         setError(message);
       } finally {
         setUploading(false);
