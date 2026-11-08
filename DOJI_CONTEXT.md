@@ -137,6 +137,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
   card-local skeleton until native display. Never re-encode a cached image into itself.
 - Camera/library proof is normalized once before approval; upload the approved
   bytes. Preserve the configured original/derivative contract and authorization.
+  Native photo preparation has bounded concurrency/queueing and a local deadline;
+  late results cannot start uploads or replace the preview after failure. This
+  deadline does not cancel native work or change the approved image representation.
 - A confirmed profile save owns its avatar; follow-up refresh failures must not
   delete that committed object as an orphan.
   An unconfirmed save is not proof of an orphan either: retain its uploaded avatar
