@@ -31,11 +31,14 @@ let mockParams: { returnTo?: string } = {};
 let mockPath = '/missing';
 let mockReady = true;
 const mockUpdate = jest.fn();
+const mockRetry = jest.fn().mockResolvedValue(undefined);
 let mockAuth: {
   session: unknown;
   profile: Record<string, unknown> | null;
   isLoading: boolean;
   updateProfile: typeof mockUpdate;
+  profileSaveState?: string;
+  retryProfileUpdate?: typeof mockRetry;
 };
 const mockPermission = jest.fn();
 jest.mock('../../contexts/ThemeContext', () => ({
@@ -60,6 +63,10 @@ jest.mock('expo-router', () => ({
     require('react').createElement(require('react-native').Text, { testID: 'redirect' }, href),
 }));
 jest.mock('../../stores/useAuthStore', () => ({
+  captureProfileAccount: () => {
+    const account = mockAuth.session;
+    return { isCurrent: () => account === mockAuth.session };
+  },
   useAuthStore: Object.assign(
     (selector?: (state: typeof mockAuth) => unknown) => (selector ? selector(mockAuth) : mockAuth),
     { getState: () => mockAuth },
@@ -143,6 +150,27 @@ describe.each(['light', 'dark'])('%s onboarding', (mode) => {
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith(ROUTES.feed));
     expect(mockPermission).not.toHaveBeenCalled();
     expect(mockUpdate.mock.calls[0][0].notification_preferences.push_enabled).toBe(false);
+  });
+  it.each([true, false])('retries a retained save without new permission requests (onboarding confirmed=%s)', async (confirmed) => {
+    mockAuth.profileSaveState = 'uncertain';
+    mockAuth.retryProfileUpdate = mockRetry;
+    mockAuth.profile = { onboarding_completed_at: confirmed ? '2026-01-01' : null };
+    const ui = render(<Notifications />);
+    await act(async () => fireEvent.press(ui.getByText('Retry previous save')));
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+    expect(mockPermission).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRouter.replace).toHaveBeenCalledTimes(confirmed ? 1 : 0);
+  });
+  it('account change during permission request prevents a late profile save', async () => {
+    let finish!: (value: string) => void;
+    mockPermission.mockReturnValueOnce(new Promise((done) => { finish = done; }));
+    const ui = render(<Notifications />);
+    fireEvent.press(ui.getByRole('button', { name: 'Enable Notifications' }));
+    mockAuth.session = { user: { id: 'another-member' } };
+    await act(async () => finish('granted'));
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
   it('keeps interrupted setup on screen without changing preferences or completing onboarding', async () => {
     mockPermission.mockResolvedValueOnce('deferred');

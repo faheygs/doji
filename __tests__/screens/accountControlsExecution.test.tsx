@@ -39,7 +39,10 @@ const mockConstants = {
 };
 jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: Object.assign(
-    () => ({ profile: mockProfile, updateProfile: mockUpdate, signOut: mockSignOut }),
+    (select?: (state: unknown) => unknown) => {
+      const state = { profile: mockProfile, updateProfile: mockUpdate, signOut: mockSignOut, profileSaveState: 'idle' };
+      return select ? select(state) : state;
+    },
     { getState: () => ({ profile: mockProfile, setProfile: mockSetProfile }) },
   ),
 }));

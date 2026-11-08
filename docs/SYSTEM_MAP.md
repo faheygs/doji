@@ -249,6 +249,7 @@ and safety/media recovery checks; those must never become the challenge clock.
 | Feed/social/profile reads | Authorized bounded snapshots | `lib/feedQueries.ts`, `lib/profileQueries.ts`, `hooks/useComments.ts`, `hooks/useFriendsPaged.ts` |
 | Public profile projection | Explicit safe fields, never `profiles(*)` | `lib/profileFields.ts`, `lib/publicProfileView.ts` |
 | Writes/replay | Atomic RPC and stable receipt | `contracts/authenticatedCommands.ts`, `lib/commandGateway.ts`, `lib/dojiWriteReceipt.ts` |
+| Profile-setting recovery | Account-lifetime immutable save and explicit retry | `lib/profileUpdate.ts`, `components/profile/ProfileSaveRecovery.tsx` |
 | Cache | TanStack Query; account-scoped persistence | `lib/queryClient.ts`, `lib/queryPersistence.ts`, `components/QueryCachePersistence.tsx` |
 | Events and lifecycle | Targeted hints then authorized reconciliation | `hooks/useDomainRealtime.ts`, `lib/domainRealtimeHandler.ts`, `lib/reconcileQueries.ts`, `components/QueryLifecycle.tsx` |
 | Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `lib/postMediaSigning.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
