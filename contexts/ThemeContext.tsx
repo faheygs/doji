@@ -54,7 +54,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const profile = useAuthStore((s) => s.profile);
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
-  const { data: owned = [], isFetched: ownedFetched } = useOwnedShopItems(userId);
+  const { data: owned = [], isSuccess: ownedFetched } = useOwnedShopItems(userId);
   const ownedThemeKeys = useMemo(() => ownedThemeKeysFromItems(owned), [owned]);
 
   const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_APP_THEME);
@@ -115,12 +115,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = normalizeAccentTheme(profile.accent_theme);
     const resolved = resolveAccentTheme(profile.accent_theme, ownedThemeKeys);
     if (stored === resolved) return;
-    void useAuthStore.getState().updateProfile({ accent_theme: resolved });
+    const auth = useAuthStore.getState();
+    if (auth.profileSaveState && auth.profileSaveState !== 'idle') return;
+    void auth.updateProfile({ accent_theme: resolved }).catch(() => {});
   }, [profile?.id, profile?.accent_theme, ownedThemeKeys, ownedFetched, userId]);
 
   const persistTheme = useCallback(
     async (mode: ThemePreference, accent: AccentThemeKey, persistAccent: boolean) => {
-      const { session: s, updateProfile } = useAuthStore.getState();
+      const { session: s, updateProfile, profileSaveState } = useAuthStore.getState();
+      if (profileSaveState && profileSaveState !== 'idle') throw new Error('Retry the previous profile save first.');
       const activeUserId = s?.user?.id;
       if (!activeUserId) {
         setPreferenceState(DEFAULT_APP_THEME);

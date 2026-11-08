@@ -18,6 +18,7 @@ import { useAppDialog } from '@/contexts/DialogContext';
 import { Text } from '@/components/ui/Text';
 import { InlineFeedback, type InlineFeedbackTone } from '@/components/ui/InlineFeedback';
 import { Card } from '@/components/ui/Card';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { NotificationPreferences } from '@/types/database';
@@ -67,7 +68,7 @@ export default function NotificationSettingsScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
-  const { profile, updateProfile } = useAuthStore();
+  const { profile, updateProfile, profileSaveState } = useAuthStore();
   const [prefs, setPrefs] = useState<NotificationPreferences>(() =>
     mergeNotificationPreferences(
       profile?.notification_preferences ?? DEFAULT_NOTIFICATION_PREFERENCES,
@@ -290,7 +291,8 @@ export default function NotificationSettingsScreen() {
   );
 
   const masterEnabled = prefs.push_enabled && permStatus === 'granted';
-  const categoriesDisabled = Platform.OS === 'web' ? true : !masterEnabled || Boolean(savingKey);
+  const saveBlocked = Boolean(savingKey || (profileSaveState && profileSaveState !== 'idle'));
+  const categoriesDisabled = Platform.OS === 'web' ? true : !masterEnabled || saveBlocked;
 
   return (
     <SafeAreaView
@@ -321,13 +323,9 @@ export default function NotificationSettingsScreen() {
           </Text>
         </View>
 
-        {pageFeedback ? (
-          <InlineFeedback
-            tone={pageFeedback.tone}
-            message={pageFeedback.message}
-            style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }}
-          />
-        ) : null}
+        <ProfileSaveRecovery onSaved={() => setPageFeedback(null)} />
+        {pageFeedback ? <InlineFeedback tone={pageFeedback.tone} message={pageFeedback.message}
+          style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }} /> : null}
 
         <View style={styles.section}>
           {Platform.OS !== 'web' ? (
@@ -342,10 +340,10 @@ export default function NotificationSettingsScreen() {
                 <Switch
                   value={masterEnabled}
                   onValueChange={onMasterSystemSwitch}
-                  disabled={Boolean(savingKey)}
+                  disabled={saveBlocked}
                   accessibilityLabel="Alerts on this phone"
                   accessibilityHint="Turns Doji phone notifications on or off."
-                  {...themedSwitchProps(masterEnabled, { disabled: Boolean(savingKey) })}
+                  {...themedSwitchProps(masterEnabled, { disabled: saveBlocked })}
                 />
               </View>
             </Card>

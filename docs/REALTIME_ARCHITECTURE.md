@@ -53,6 +53,12 @@ reuse the exact actor/payload/key and durable receipt. Validation/authorization/
 errors are not transient. A successful receipt followed by failed refresh is still
 a confirmed command. Query cancellation is not server rollback.
 
+Mobile profile-setting writes share `lib/profileUpdate.ts`: one frozen patch/key,
+explicit uncertain retry, and an account-lifetime fence before transport and
+after acknowledgement. Photo retries reuse the uploaded URL. Profile, appearance,
+notification and onboarding screens expose the same recovery control; failed
+ownership reads cannot silently erase an accent. No automatic retry is added.
+
 Mobile gateway attempts enforce their existing 12-second deadline across fetch
 and body waits even if native cancellation is ignored. Late completions cannot
 turn a timed-out attempt into UI success. Received HTTP rejections remain failures;

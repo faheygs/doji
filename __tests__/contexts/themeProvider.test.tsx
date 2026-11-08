@@ -32,7 +32,7 @@ const profile = (extra: Partial<Profile> = {}) =>
     ...extra,
   }) as Profile;
 const setOwned = (items: { item_key: string }[] | undefined, fetched = true) =>
-  ownedHook.mockReturnValue({ data: items, isFetched: fetched } as ReturnType<
+  ownedHook.mockReturnValue({ data: items, isFetched: fetched, isSuccess: fetched } as ReturnType<
     typeof useOwnedShopItems
   >);
 const flush = async () => {
@@ -253,4 +253,33 @@ test('pending ownership does not erase an accent; resolved missing ownership res
   await flush();
   expect(result.current.accentTheme).toBe(DEFAULT_ACCENT_THEME);
   expect(initial.updateProfile).toHaveBeenCalledWith({ accent_theme: DEFAULT_ACCENT_THEME });
+});
+
+test('failed ownership is not empty ownership and cannot erase the server accent', async () => {
+  const premium = Object.values(ACCENT_THEME_CATALOG).find((item) => item.key !== 'doji_orange')!;
+  ownedHook.mockReturnValue({ data: undefined, isFetched: true, isSuccess: false, isError: true } as ReturnType<typeof useOwnedShopItems>);
+  useAuthStore.setState({ session: session(), profile: profile({ accent_theme: premium.key }) });
+  const { result } = renderHook(useTheme, { wrapper: ThemeProvider });
+  await flush();
+  expect(result.current.accentTheme).toBe(premium.key);
+  expect(initial.updateProfile).not.toHaveBeenCalled();
+});
+
+test('an unresolved save prevents automatic accent correction and new theme writes', async () => {
+  const premium = Object.values(ACCENT_THEME_CATALOG).find((item) => item.key !== 'doji_orange')!;
+  useAuthStore.setState({ session: session(), profile: profile({ accent_theme: premium.key }), profileSaveState: 'uncertain' });
+  const { result } = renderHook(useTheme, { wrapper: ThemeProvider });
+  await flush();
+  expect(initial.updateProfile).not.toHaveBeenCalled();
+  await act(async () => { await expect(result.current.setPreference('dark')).rejects.toThrow('Retry the previous'); });
+  expect(initial.updateProfile).not.toHaveBeenCalled();
+});
+
+test('automatic correction contains failure rather than starting an unhandled retry loop', async () => {
+  const premium = Object.values(ACCENT_THEME_CATALOG).find((item) => item.key !== 'doji_orange')!;
+  useAuthStore.setState({ session: session(), profile: profile({ accent_theme: premium.key }) });
+  jest.mocked(initial.updateProfile).mockRejectedValueOnce(Error('offline'));
+  renderHook(useTheme, { wrapper: ThemeProvider });
+  await flush();
+  expect(initial.updateProfile).toHaveBeenCalledTimes(1);
 });

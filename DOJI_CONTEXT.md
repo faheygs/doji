@@ -147,6 +147,12 @@ the future poll. Community idea acceptance does not schedule a Doji.
   not successful signup. Confirmed username conflicts can discard their unused upload.
   Confirmed photo saves release UI feedback before optional preview/refresh/cleanup;
   failures in that follow-up work are reported separately, never relabeled as failed saves.
+- Profile settings retain one immutable patch/command key per signed-in account
+  lifetime after an unknown outcome. Navigation and token renewal preserve it;
+  only an explicit retry replays it. New changes wait for confirmation or a definite
+  SQL rejection. Logout/account changes discard the local intent and fence late results,
+  including a switch back to the original account. This is in-memory recovery,
+  not a persistent offline queue or proof of remote rollback.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

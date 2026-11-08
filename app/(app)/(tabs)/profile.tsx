@@ -35,6 +35,7 @@ import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
 import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
 export default function MyProfileScreen() {
   const router = useRouter();
   const navigationOrigin = useNavigationOrigin();
@@ -43,7 +44,7 @@ export default function MyProfileScreen() {
   const profile = useAuthStore((s) => s.profile) as Profile | null;
   const sparks = useSparksBalance();
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
-  const { openChangePhotoDialog, uploading, error: photoError } = useChangeProfilePhoto();
+  const { openChangePhotoDialog, uploading, error: photoError, clearError } = useChangeProfilePhoto();
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
@@ -162,6 +163,7 @@ export default function MyProfileScreen() {
           onChangePhoto={openChangePhotoDialog}
           photoUploading={uploading}
         />
+        <ProfileSaveRecovery onSaved={clearError} />
         {photoError ? (
           <InlineFeedback
             title="Could not update photo"

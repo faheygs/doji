@@ -17,16 +17,19 @@ const mockUpdate = jest.fn();
 jest.mock('../../lib/telemetry', () => ({ reportOperationalFailure: jest.fn() }));
 let mockUser: string | undefined;
 let mockAvatar: string | null;
+let mockEpoch = 0;
+let mockSaveState = 'idle';
+const mockAuth = () => ({ session: mockUser ? { user: { id: mockUser } } : null,
+  profile: { avatar_url: mockAvatar }, updateProfile: mockUpdate, profileSaveState: mockSaveState });
 jest.mock('../../contexts/DialogContext', () => ({
   useAppDialog: () => ({ showDialog: mockShowDialog }),
 }));
 jest.mock('../../stores/useAuthStore', () => ({
-  useAuthStore: (select: (state: unknown) => unknown) =>
-    select({
-      session: mockUser ? { user: { id: mockUser } } : null,
-      profile: { avatar_url: mockAvatar },
-      updateProfile: mockUpdate,
-    }),
+  useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(mockAuth()), { getState: () => mockAuth() }),
+  captureProfileAccount: () => {
+    const epoch = mockEpoch, userId = mockUser;
+    return { userId, isCurrent: () => epoch === mockEpoch && userId === mockUser };
+  },
 }));
 jest.mock('../../utils/upload', () => ({
   uploadAvatar: (...args: unknown[]) => mockUpload(...args),
@@ -70,6 +73,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   Platform.OS = 'ios';
   mockUser = 'member';
+  mockEpoch = 0;
+  mockSaveState = 'idle';
   mockAvatar = 'https://assets.test/old.jpg';
   mockUpload.mockReset().mockResolvedValue('https://assets.test/new.jpg');
   mockRemove.mockReset().mockResolvedValue(undefined);
@@ -92,6 +97,29 @@ afterEach(() => {
   client.clear();
   Platform.OS = originalOS;
   jest.restoreAllMocks();
+});
+
+test.each(['picker', 'upload', 'save'] as const)('late photo %s cannot affect another account lifetime', async (stage) => {
+  const selected = deferred<Picker.ImagePickerResult>(), uploaded = deferred<string>(), saved = deferred<void>();
+  if (stage === 'picker') jest.mocked(Picker.launchImageLibraryAsync).mockReturnValueOnce(selected.promise);
+  if (stage === 'upload') mockUpload.mockReturnValueOnce(uploaded.promise);
+  if (stage === 'save') mockUpdate.mockReturnValueOnce(saved.promise);
+  const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+  await act(async () => { result.current.openChangePhotoDialog(); choose('Select a photo'); });
+  mockEpoch += 2; // A→B→A still supersedes the original operation.
+  await act(async () => { selected.resolve(picked); uploaded.resolve('https://assets.test/new.jpg'); saved.resolve(); });
+  expect(Toast.show).not.toHaveBeenCalled();
+  expect(mockRemove).not.toHaveBeenCalled();
+  if (stage !== 'save') expect(mockUpdate).not.toHaveBeenCalled();
+  if (stage === 'picker') expect(mockUpload).not.toHaveBeenCalled();
+});
+
+test('an uncertain save blocks a replacement upload', async () => {
+  mockSaveState = 'uncertain';
+  const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+  await act(async () => { result.current.openChangePhotoDialog(); choose('Select a photo'); });
+  expect(mockUpload).not.toHaveBeenCalled();
+  expect(result.current.error).toContain('Retry the previous profile save');
 });
 
 test.each(['ios', 'android', 'web'] as const)(
