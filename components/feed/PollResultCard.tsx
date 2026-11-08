@@ -27,6 +27,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../ui/Text';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import { ReadFailureFeedback } from '../ui/ReadFailureFeedback';
 import { fetchPollSummary, fetchPollVotersPage } from '../../lib/pollQueries';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { getEquippedBorder } from '../../lib/cosmetics';
@@ -114,7 +115,7 @@ function PollResultCardImpl({
   const toggleVoteLike = useTogglePollVoteLike();
   const queryClient = useQueryClient();
 
-  const { data } = useQuery<PollSnapshot>({
+  const { data, error, isFetching, refetch } = useQuery<PollSnapshot>({
     queryKey: ['pollResults', dailyEventId, feedAudience, userId],
     queryFn: async ({ signal }): Promise<PollSnapshot> => {
       const summaryRows = await fetchPollSummary(dailyEventId, feedAudience, signal);
@@ -141,9 +142,8 @@ function PollResultCardImpl({
       const totalVotes = rows.reduce((s, r) => s + r.liveCount, 0);
       return { rows, totalVotes, myVoteOptionId };
     },
-    enabled: fetchEnabled,
+    enabled: fetchEnabled && Boolean(userId),
     staleTime: 60_000,
-    placeholderData: (previous) => previous,
   });
 
   const rows: PollRow[] = data?.rows ?? [];
@@ -162,7 +162,7 @@ function PollResultCardImpl({
         ? { createdAt: tail.created_at, id: tail.vote_id }
         : undefined;
     },
-    enabled: modalOpen && Boolean(voterModal?.optionId),
+    enabled: fetchEnabled && Boolean(userId) && modalOpen && Boolean(voterModal?.optionId),
     staleTime: 30_000,
   });
 
@@ -377,7 +377,7 @@ function PollResultCardImpl({
   const modalVoters = voterPages.data?.pages.flat() ?? [];
   const modalIsOther = voterModal?.isOther ?? false;
 
-  if (!fetchEnabled) {
+  if (!fetchEnabled || !data || data.rows.length === 0) {
     return (
       <View style={styles.card}>
         <View style={styles.header}>
@@ -385,9 +385,13 @@ function PollResultCardImpl({
             {challenge.title}
           </Text>
         </View>
-        <Text variant="bodySmall" color={colors.textTertiary}>
-          Results unlock after you vote.
-        </Text>
+        {fetchEnabled && error ? (
+          <ReadFailureFeedback message="Could not load poll results." retrying={isFetching}
+            onRetry={() => { void refetch(); }} />
+        ) : <Text variant="bodySmall" color={colors.textTertiary}>
+          {!fetchEnabled ? 'Results unlock after you vote.' : !data
+            ? 'Loading poll results…' : 'No poll results are available yet.'}
+        </Text>}
       </View>
     );
   }
@@ -400,6 +404,9 @@ function PollResultCardImpl({
         </Text>
       </View>
 
+      {error ? <ReadFailureFeedback
+        message="Could not refresh poll results. Showing saved results."
+        retrying={isFetching} onRetry={() => { void refetch(); }} /> : null}
       {rows.map((opt) => {
         const count = opt.liveCount;
         const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
@@ -537,14 +544,21 @@ function PollResultCardImpl({
                 initialNumToRender={20}
                 windowSize={10}
                 onEndReached={() => {
-                  if (voterPages.hasNextPage && !voterPages.isFetchingNextPage) {
+                  if (voterPages.hasNextPage && !voterPages.isFetchingNextPage && !voterPages.isError) {
                     void voterPages.fetchNextPage();
                   }
                 }}
                 onEndReachedThreshold={0.4}
                 ListFooterComponent={
-                  voterPages.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null
+                  voterPages.isError ? <ReadFailureFeedback message="Could not load voters."
+                    retrying={voterPages.isFetching} onRetry={() => {
+                      if (voterPages.isFetchNextPageError) void voterPages.fetchNextPage();
+                      else void voterPages.refetch();
+                    }} /> : voterPages.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null
                 }
+                ListEmptyComponent={!voterPages.isError ? <Text variant="bodySmall" color={colors.textTertiary}>
+                  {voterPages.isPending ? 'Loading voters…' : 'No voters to show.'}
+                </Text> : null}
                 nestedScrollEnabled
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {

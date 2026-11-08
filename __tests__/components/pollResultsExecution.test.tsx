@@ -162,12 +162,70 @@ it('handles missing summary and preview data without inventing votes', async () 
   mockSummary.mockResolvedValue(null);
   const ui = mount();
   await waitFor(() => expect(mockSummary).toHaveBeenCalled());
-  expect(ui.getByText('0 votes')).toBeTruthy();
+  await waitFor(() => expect(ui.getByText('No poll results are available yet.')).toBeTruthy());
   mockSummary.mockResolvedValue([summary('first', 1, { preview_voters: null })]);
   await act(async () => {
     await ui.client.invalidateQueries({ queryKey: ['pollResults'] });
   });
   await waitFor(() => expect(ui.getByText('1 vote')).toBeTruthy());
+});
+
+it('pending and failed summary reads never impersonate a zero-vote result, and retry is explicit', async () => {
+  let reject!: (error: Error) => void;
+  mockSummary.mockReturnValue(
+    new Promise((_resolve, failed) => {
+      reject = failed;
+    }),
+  );
+  const ui = mount();
+  expect(ui.getByText('Loading poll results…')).toBeTruthy();
+  expect(ui.queryByText('0 votes')).toBeNull();
+  await act(async () => reject(Error('synthetic private server response')));
+  await waitFor(() => expect(ui.getByText('Could not load poll results.')).toBeTruthy());
+  expect(ui.queryByText('synthetic private server response')).toBeNull();
+  expect(ui.queryByText('0 votes')).toBeNull();
+  expect(mockSummary).toHaveBeenCalledTimes(1);
+  mockSummary.mockResolvedValue([summary()]);
+  fireEvent.press(ui.getByLabelText('Try loading again'));
+  await waitFor(() => expect(ui.getByText('3 votes')).toBeTruthy());
+  expect(mockSummary).toHaveBeenCalledTimes(2);
+});
+
+it('a failed refresh labels retained authorized totals and never replaces them with zero', async () => {
+  const ui = mount();
+  await waitFor(() => expect(ui.getByText('3 votes')).toBeTruthy());
+  mockSummary.mockRejectedValue(Error('synthetic refresh failure'));
+  await act(async () => {
+    await ui.client.invalidateQueries({ queryKey: ['pollResults'] });
+  });
+  await waitFor(() =>
+    expect(ui.getByText('Could not refresh poll results. Showing saved results.')).toBeTruthy(),
+  );
+  expect(ui.getByText('3 votes')).toBeTruthy();
+  expect(ui.queryByText('0 votes')).toBeNull();
+});
+
+it('an audience change cannot present the previous audience snapshot as the new one', async () => {
+  const ui = mount();
+  await waitFor(() => expect(ui.getByText('3 votes')).toBeTruthy());
+  mockSummary.mockReturnValue(new Promise(() => {}));
+  ui.update({ feedAudience: 'friends' });
+  expect(ui.queryByText('3 votes from friends')).toBeNull();
+  expect(ui.queryByText('spring')).toBeNull();
+  expect(ui.getByText('Loading poll results…')).toBeTruthy();
+});
+
+it('a failed voter read exposes a bounded read retry instead of a blank sheet', async () => {
+  mockVoters.mockRejectedValue(Error('synthetic voter failure'));
+  const ui = mount();
+  await waitFor(() => expect(ui.getByText('3 votes')).toBeTruthy());
+  fireEvent.press(ui.getByLabelText('spring, 100 percent. Tap to see voters.'));
+  await waitFor(() => expect(ui.getByText('Could not load voters.')).toBeTruthy());
+  expect(mockVoters).toHaveBeenCalledTimes(1);
+  mockVoters.mockResolvedValue([voter()]);
+  fireEvent.press(ui.getByLabelText('Try loading again'));
+  await waitFor(() => expect(ui.getByText('Member other')).toBeTruthy());
+  expect(mockVoters).toHaveBeenCalledTimes(2);
 });
 
 it.each(['self', 'friends', 'pending_out', 'none'] as const)(
@@ -279,6 +337,25 @@ it('paginates a full voter page once and exposes the pending footer', async () =
   await waitFor(() => expect(ui.UNSAFE_queryByType(ActivityIndicator)).toBeNull());
   fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
   expect(mockVoters).toHaveBeenCalledTimes(2);
+});
+
+it('a failed next voter page retains existing rows and requires an explicit identical-page retry', async () => {
+  const rows = Array.from({ length: 40 }, (_, i) => voter(`v${i}`));
+  mockVoters.mockResolvedValueOnce(rows).mockRejectedValueOnce(Error('synthetic page failure'));
+  const ui = mount();
+  await waitFor(() => expect(ui.getByLabelText('3 voters for spring')).toBeTruthy());
+  fireEvent.press(ui.getByLabelText('3 voters for spring'));
+  await waitFor(() => expect(ui.getByLabelText('Open @v0 profile')).toBeTruthy());
+  fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+  await waitFor(() => expect(ui.getByText('Could not load voters.')).toBeTruthy());
+  expect(ui.getByLabelText('Open @v0 profile')).toBeTruthy();
+  fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+  expect(mockVoters).toHaveBeenCalledTimes(2);
+  mockVoters.mockResolvedValueOnce([]);
+  fireEvent.press(ui.getByLabelText('Try loading again'));
+  await waitFor(() => expect(mockVoters).toHaveBeenCalledTimes(3));
+  expect(mockVoters.mock.calls[2][3]).toEqual(mockVoters.mock.calls[1][3]);
+  await waitFor(() => expect(ui.queryByText('Could not load voters.')).toBeNull());
 });
 it.each([0, 800])('handles a sheet drag with velocity %s', async (velocityY) => {
   const ui = mount();
