@@ -56,8 +56,10 @@ a confirmed command. Query cancellation is not server rollback.
 Mobile gateway attempts enforce their existing 12-second deadline across fetch
 and body waits even if native cancellation is ignored. Late completions cannot
 turn a timed-out attempt into UI success. Received HTTP rejections remain failures;
-the existing keyed/idempotent retry allowance is unchanged. Session lookup and
-refresh waits still need separate end-to-end qualification.
+the existing keyed/idempotent retry allowance is unchanged. Command session lookup
+and 401 refresh each have an eight-second caller deadline. Auth failures settle as
+command errors without replaying the write; late credentials cannot resume it.
+This does not cancel Supabase's shared session lifecycle or establish device latency.
 
 ## Challenge and scale boundaries
 
