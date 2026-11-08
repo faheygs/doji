@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { File as ExpoFile } from 'expo-file-system';
-import type { Upload } from 'tus-js-client';
+import { Upload } from 'tus-js-client';
 import { supabase } from '../../lib/supabase';
 import { resumableStorageUpload } from '../../utils/resumableUpload';
+import { awaitUploadPreparation } from '../../lib/resumableUploadLifetime';
 
 type Options = ConstructorParameters<typeof Upload>[1];
 let mockOptions: Options;
@@ -11,6 +12,7 @@ let mockSource: unknown;
 const mockPrevious = jest.fn();
 const mockResume = jest.fn();
 const mockStart = jest.fn();
+const mockAbort = jest.fn();
 jest.mock('../../lib/supabase');
 jest.mock('expo-file-system', () => ({ File: jest.fn() }));
 jest.mock('tus-js-client', () => ({
@@ -21,6 +23,7 @@ jest.mock('tus-js-client', () => ({
       findPreviousUploads: mockPrevious,
       resumeFromPreviousUpload: mockResume,
       start: mockStart,
+      abort: mockAbort,
     };
   }),
 }));
@@ -46,6 +49,7 @@ beforeEach(() => {
   } as Awaited<ReturnType<typeof supabase.auth.getSession>>);
   jest.mocked(ExpoFile).mockImplementation(() => ({ exists: true, size: 1024 }) as ExpoFile);
   mockPrevious.mockResolvedValue([]);
+  mockAbort.mockReset().mockResolvedValue(undefined);
   mockStart.mockImplementation(() => mockOptions.onSuccess?.({} as never));
   global.fetch = jest.fn().mockRejectedValue(Error('Unexpected network access'));
 });
@@ -54,6 +58,7 @@ afterEach(() => {
   global.fetch = originalFetch;
   process.env.EXPO_PUBLIC_SUPABASE_URL = originalUrl;
   jest.restoreAllMocks();
+  jest.useRealTimers();
 });
 
 test.each([null, {}])('missing session token prevents file access or upload', async (session) => {
@@ -133,6 +138,23 @@ test('previous-upload lookup failure never starts a new upload silently', async 
   expect(mockStart).not.toHaveBeenCalled();
 });
 
+test('a rejected lookup without an error value is still failure, never a confirmed upload', async () => {
+  jest.useFakeTimers();
+  mockPrevious.mockRejectedValueOnce(undefined);
+  await expect(resumableStorageUpload(options)).rejects.toThrow('Upload could not be completed');
+  expect(mockStart).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('native upload construction failure releases its watchdog', async () => {
+  jest.useFakeTimers();
+  jest.mocked(Upload).mockImplementationOnce(() => {
+    throw Error('synthetic native unavailable');
+  });
+  await expect(resumableStorageUpload(options)).rejects.toThrow('synthetic native unavailable');
+  expect(jest.getTimerCount()).toBe(0);
+});
+
 test('upload failure is propagated to the caller', async () => {
   mockStart.mockImplementationOnce(() => mockOptions.onError?.(Error('connection lost')));
   await expect(resumableStorageUpload(options)).rejects.toThrow('connection lost');
@@ -140,12 +162,177 @@ test('upload failure is propagated to the caller', async () => {
 
 test('progress handles unknown totals and optional callbacks', async () => {
   const progress = jest.fn();
+  mockStart.mockImplementationOnce(() => {
+    mockOptions.onProgress?.(25, 100);
+    mockOptions.onProgress?.(0, 0);
+    mockOptions.onSuccess?.({} as never);
+  });
   await resumableStorageUpload({ ...options, onProgress: progress });
-  mockOptions.onProgress?.(25, 100);
-  mockOptions.onProgress?.(0, 0);
-  expect(progress.mock.calls).toEqual([[0.25], [0]]);
+  expect(progress.mock.calls).toEqual([[0], [0.25], [0]]);
+  mockOptions.onProgress?.(99, 100);
+  expect(progress).toHaveBeenCalledTimes(3);
   await resumableStorageUpload(options);
   expect(() => mockOptions.onProgress?.(25, 100)).not.toThrow();
+});
+
+test.each(['ios', 'android'])(
+  '%s stalled transfer stops locally without deleting its resumable upload',
+  async (os) => {
+    platform(os);
+    jest.useFakeTimers();
+    mockStart.mockImplementation(() => {});
+    const result = jest.fn(),
+      failure = jest.fn(),
+      progress = jest.fn();
+    void resumableStorageUpload({ ...options, onProgress: progress }).then(result, failure);
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(failure).toHaveBeenCalledWith(expect.objectContaining({ code: 'DOJI_UPLOAD_STALLED' }));
+    expect(mockAbort).toHaveBeenCalledWith(false);
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+    mockOptions.onSuccess?.({} as never);
+    mockOptions.onProgress?.(100, 100);
+    await jest.advanceTimersByTimeAsync(120_000);
+    expect(result).not.toHaveBeenCalled();
+    expect(failure).toHaveBeenCalledTimes(1);
+    expect(progress.mock.calls).toEqual([[0]]);
+    expect(mockStart).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  },
+);
+
+test('a late resume lookup cannot start an upload after the caller has timed out', async () => {
+  jest.useFakeTimers();
+  let resolve!: (value: never[]) => void;
+  mockPrevious.mockReturnValue(
+    new Promise<never[]>((done) => {
+      resolve = done;
+    }),
+  );
+  const failure = jest.fn();
+  void resumableStorageUpload(options).catch(failure);
+  await jest.advanceTimersByTimeAsync(60_000);
+  expect(failure).toHaveBeenCalledTimes(1);
+  resolve([]);
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockStart).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('only increasing bytes extend the stall window and a successful transfer clears it', async () => {
+  jest.useFakeTimers();
+  mockStart.mockImplementation(() => {});
+  const success = jest.fn(),
+    failure = jest.fn();
+  void resumableStorageUpload(options).then(success, failure);
+  await jest.advanceTimersByTimeAsync(50_000);
+  mockOptions.onProgress?.(50, 100);
+  await jest.advanceTimersByTimeAsync(50_000);
+  expect(failure).not.toHaveBeenCalled();
+  mockOptions.onProgress?.(50, 100);
+  mockOptions.onProgress?.(10, 100);
+  mockOptions.onProgress?.(NaN, 100);
+  await jest.advanceTimersByTimeAsync(10_000);
+  expect(failure).toHaveBeenCalledTimes(1);
+  expect(success).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+
+  const work = resumableStorageUpload(options);
+  await jest.advanceTimersByTimeAsync(0);
+  mockOptions.onSuccess?.({} as never);
+  await work;
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test.each(['throw', 'reject', 'hang'])(
+  'native abort may %s without delaying the local stall result',
+  async (kind) => {
+    jest.useFakeTimers();
+    mockStart.mockImplementation(() => {});
+    mockAbort.mockImplementation(() => {
+      if (kind === 'throw') throw Error('synthetic abort');
+      return kind === 'reject' ? Promise.reject(Error('synthetic abort')) : new Promise(() => {});
+    });
+    const failure = jest.fn();
+    void resumableStorageUpload(options).catch(failure);
+    await jest.advanceTimersByTimeAsync(60_000);
+    mockOptions.onError?.(Error('late native error'));
+    expect(failure).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  },
+);
+
+test.each(['progress', 'success'])(
+  'a late %s callback after suspension cannot outrun the stall timer',
+  async (kind) => {
+    jest.useFakeTimers();
+    mockStart.mockImplementation(() => {});
+    const failure = jest.fn();
+    void resumableStorageUpload(options).catch(failure);
+    await jest.advanceTimersByTimeAsync(0);
+    jest.setSystemTime(Date.now() + 60_001);
+    if (kind === 'progress') mockOptions.onProgress?.(100, 100);
+    else mockOptions.onSuccess?.({} as never);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(failure).toHaveBeenCalledTimes(1);
+    expect(mockAbort).toHaveBeenCalledWith(false);
+    expect(jest.getTimerCount()).toBe(0);
+  },
+);
+
+test('a stalled session cannot eventually start an upload with late credentials', async () => {
+  jest.useFakeTimers();
+  let resolve!: (value: unknown) => void;
+  jest.mocked(supabase.auth.getSession).mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }) as never,
+  );
+  const failure = jest.fn();
+  void resumableStorageUpload(options).catch(failure);
+  await jest.advanceTimersByTimeAsync(8_000);
+  expect(failure).toHaveBeenCalledWith(
+    expect.objectContaining({ code: 'DOJI_COMMAND_AUTH_TIMEOUT' }),
+  );
+  resolve({ data: { session: { access_token: 'synthetic-late' } } });
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockStart).not.toHaveBeenCalled();
+  expect(ExpoFile).not.toHaveBeenCalled();
+});
+
+test('stalled web media preparation is bounded before any transfer begins', async () => {
+  jest.useFakeTimers();
+  platform('web');
+  let resolve!: (value: unknown) => void;
+  jest.mocked(global.fetch).mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }) as never,
+  );
+  const failure = jest.fn();
+  void resumableStorageUpload(options).catch(failure);
+  await jest.advanceTimersByTimeAsync(12_000);
+  expect(failure).toHaveBeenCalledWith(
+    expect.objectContaining({ message: expect.stringContaining('preparation took too long') }),
+  );
+  resolve({ ok: true, blob: async () => ({ size: 123 }) });
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockStart).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test('preparation settling after suspension cannot begin upload before its expired timer runs', async () => {
+  jest.useFakeTimers();
+  let resolve!: (value: string) => void;
+  const work = awaitUploadPreparation(
+    new Promise<string>((done) => {
+      resolve = done;
+    }),
+  );
+  const check = expect(work).rejects.toThrow('preparation took too long');
+  jest.setSystemTime(Date.now() + 12_001);
+  resolve('late file');
+  await check;
+  expect(jest.getTimerCount()).toBe(0);
 });
 
 test('web reads the selected blob rather than accessing native files', async () => {

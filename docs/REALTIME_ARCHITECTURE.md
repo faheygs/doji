@@ -60,6 +60,11 @@ the existing keyed/idempotent retry allowance is unchanged. Command session look
 and 401 refresh each have an eight-second caller deadline. Auth failures settle as
 command errors without replaying the write; late credentials cannot resume it.
 This does not cancel Supabase's shared session lifecycle or establish device latency.
+The local-development direct RPC fallback also bounds response observation to twelve
+seconds and requests native cancellation, without retrying or claiming rollback.
+Foreground return checks elapsed deadlines before accepting late results even if
+native timers have not resumed. Account-bound command success is fenced after identity changes on both transports;
+this does not enable direct fallback in production or bypass the configured gateway.
 
 ## Challenge and scale boundaries
 
@@ -166,6 +171,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   audiences. Returning to an audience revalidates without blanking permitted cache.
 - Mounted engagement reads use `get_post_engagement_snapshot_v2` and exact thread
   reads. Partial pages are not totals; one audience never overwrites another.
+  Poll summary/loading failures never impersonate zero votes. Retained same-scope
+  results identify failed refreshes; audience changes cannot borrow the previous
+  snapshot. Voter-page failures retain loaded rows and expose explicit read retry.
+  Ambiguous Doji writes use an eight-second receipt-read observer even when native
+  abort is ignored; failed or late receipts remain unknown, never a second write.
 - A private notification carrying a post ID also reconciles that mounted post,
   covering event-order races. Counter updates do not emit a second feed-wide hint.
 - Optimistic callbacks and delayed reconciliation remain bound to the initiating
@@ -188,6 +198,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   cannot launch more native work while earlier non-cancellable work remains pending.
   Identity/enablement changes and row removal fence queued and late results. Baseline
   and pagination rows render immediately without a page-wide preload.
+- Resumable uploads bound session lookup and file preparation, then stop the local
+  attempt after sixty seconds without advancing bytes. The remote upload and resume
+  fingerprint are retained; a timeout is not rollback or permission to replay the
+  submission. Late lookup/progress/completion cannot restart or confirm that attempt.
 - Store-release policy uses bounded authorized reads, not push or polling.
   Verify the installed binary's discovery behavior before claiming immediate enforcement.
 

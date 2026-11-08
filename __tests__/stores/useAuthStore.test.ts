@@ -373,7 +373,7 @@ describe('useAuthStore', () => {
   describe('updateProfile', () => {
     it('updates profile on server and in state', async () => {
       const updated = { id: 'user-1', username: 'testuser', display_name: 'New Name' };
-      mockRpc.mockResolvedValue({ data: updated, error: null });
+      mockRpc.mockReturnValue(makeRpcChain(updated));
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,
@@ -399,7 +399,7 @@ describe('useAuthStore', () => {
     });
 
     it('throws on supabase error', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: new Error('RLS violation') });
+      mockRpc.mockReturnValue(makeRpcChain(null, new Error('RLS violation')));
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,

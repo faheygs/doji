@@ -95,6 +95,20 @@ test('retains a received HTTP denial when its response body stalls', async () =>
   expect(jest.getTimerCount()).toBe(0);
 });
 
+test.each(['fetch', 'body'])('suspended %s cannot succeed after the gateway deadline before timers resume', async phase => {
+  const held = deferred<unknown>();
+  const readBody = jest.fn(() => phase === 'body' ? held.promise : Promise.resolve('true'));
+  global.fetch = jest.fn(() => phase === 'fetch' ? held.promise : Promise.resolve({ ...ok, text: readBody })) as never;
+  const work = executeCommand('toggle_post_reaction', unkeyedArgs);
+  await jest.advanceTimersByTimeAsync(0);
+  jest.setSystemTime(Date.now() + 12_001);
+  held.resolve(phase === 'fetch' ? { ...ok, text: readBody } : 'true');
+  expect(await work).toMatchObject({ data: null, error: { message: 'Command timed out' } });
+  if (phase === 'fetch') expect(readBody).not.toHaveBeenCalled();
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(jest.getTimerCount()).toBe(0);
+});
+
 test('a keyed stalled body keeps exactly the existing retry and identical payload', async () => {
   const body = deferred<string>();
   global.fetch = jest.fn().mockResolvedValue({ ...ok, text: () => body.promise });
