@@ -6,7 +6,7 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-Mobile performance hardening is local preparation, not deployed. Query-family
+Mobile performance hardening is source preparation, not deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
 coalescing, per-query single-flight reads and teardown fencing. Disk restoration
 waits for the accepted account and discards reads spanning an identity change,

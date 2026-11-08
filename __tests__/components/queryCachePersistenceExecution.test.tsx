@@ -241,6 +241,22 @@ it('cancels queued persistence across an account round trip', async () => {
   expect(storage.setItem).toHaveBeenCalledTimes(1);
   expect(JSON.parse(storage.setItem.mock.calls[0][1]).state.queries[0].state.data).toBe('after');
 });
+it('does not delete a new account lifetime cache after an old read fails', async () => {
+  let reject!: (error: Error) => void;
+  storage.getItem.mockReturnValue(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    }),
+  );
+  render(tree);
+  await flush();
+  act(() => {
+    changeUser('other');
+    changeUser('member');
+  });
+  await act(async () => reject(new Error('old disk read failed')));
+  expect(storage.removeItem).not.toHaveBeenCalled();
+});
 it.each(['invalid json', 'read failure'])(
   'tolerates failed cleanup after %s without blocking startup',
   async (kind) => {

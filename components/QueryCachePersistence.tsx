@@ -176,7 +176,12 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
         restoreCache();
       })
       .catch(() => {
-        if (active && cacheUserId) {
+        if (
+          active &&
+          !restoreInvalidated &&
+          cacheUserId &&
+          (!boundUserId || boundUserId === cacheUserId)
+        ) {
           return AsyncStorage.removeItem(queryCacheStorageKey(cacheUserId)).catch(() => {});
         }
       });
