@@ -188,6 +188,12 @@ These lifecycle changes remain next-build source; check recorded release state.
   member. Stale account results cannot patch, roll back or refresh another cache.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Unobserved idle social reads have separate in-memory limits: 80 queries, 120
+  total pages and five pages per query. Least-recently-used queries are evicted
+  whole, never spliced into invalid cursor sequences. Mounted/disabled observers,
+  fetching/paused reads and pending mutation rollback are protected. A cache miss
+  reopens at the initial authorized page. Sweeps coalesce after cache events, not
+  on a timer; these limits do not bound active-list memory or payload bytes.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second
