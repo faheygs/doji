@@ -10,7 +10,9 @@ Mobile performance hardening is source preparation, not deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
 coalescing, per-query single-flight reads and teardown fencing. Disk restoration
 waits for the accepted account and discards reads spanning an identity change,
-including a switch back to the original account. The performance
+including a switch back to the original account. New head-post media preparation
+has a per-feed native-work limit, arrival-time fallback and identity/removal fences.
+The performance
 targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
 Real-device baselines, remaining request/media fixes, exact-head CI and staging
