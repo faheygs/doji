@@ -53,6 +53,12 @@ reuse the exact actor/payload/key and durable receipt. Validation/authorization/
 errors are not transient. A successful receipt followed by failed refresh is still
 a confirmed command. Query cancellation is not server rollback.
 
+Mobile gateway attempts enforce their existing 12-second deadline across fetch
+and body waits even if native cancellation is ignored. Late completions cannot
+turn a timed-out attempt into UI success. Received HTTP rejections remain failures;
+the existing keyed/idempotent retry allowance is unchanged. Session lookup and
+refresh waits still need separate end-to-end qualification.
+
 ## Challenge and scale boundaries
 
 Pre-live occurs twenty minutes before activation and advances active-feed identity
