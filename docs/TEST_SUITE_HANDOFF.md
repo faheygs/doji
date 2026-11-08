@@ -190,6 +190,51 @@ results as passing or resolve a production incident from a green test alone.
 
 ## Independent release acceptance
 
+### Mobile performance qualification
+
+Use release-mode staging artifacts, exact source/build identities and synthetic
+data. Dev/Fast Refresh and emulator timings are functional evidence, not physical
+device performance qualification. Measure an agreed iPhone and representative
+physical Android separately; record OS, device, thermal state, network latency/
+bandwidth, cache state, sample count and p50/p95/p99. Do not infer a reliable tail
+percentile from a handful of actions. Keep sampled diagnostics bounded and free
+of identities, credentials, content and signed URLs; existing reporting gates stay
+off unless separately approved. No new telemetry service or paid runner is required.
+
+Initial acceptance targets on the defined reference network/device:
+
+| Journey | Target |
+| --- | --- |
+| Tap/submit feedback | p95 <=100 ms, independently of server confirmation |
+| Cached screen navigation | Useful content p95 <=250 ms |
+| Signed-in cold launch with cached content | Interactive primary screen p95 <=2 seconds |
+| Ordinary foreground reads/confirmed writes, excluding uploads | End-to-end p95 <=1 second and p99 <=2 seconds |
+| Scripted feed/navigation at 60 Hz | <1% missed frames; inspect individual long stalls |
+| Media upload | Immediate progress state, bounded progress-aware stall detection and safe recovery |
+| Slow/offline recovery | Usable navigation/cached content; no unexplained indefinite spinner |
+
+These are targets, not measured results or provider guarantees. Record unmet
+targets and their causes rather than silently relaxing them. Latency includes
+auth, scheduling, network, backend, parsing and UI update; upload transfer is
+measured separately by payload size. Faster requests cannot justify duplicate
+writes, weaker authorization or stale challenge eligibility.
+
+Maintain an exact-candidate acceptance record for all routes, grouped as:
+launch/auth/onboarding; feed/post/comments/reactions; challenge capture/upload/
+poll/receipt; profiles/friends/search; rank/shop/appearance/suggestions; settings/
+notifications/moderation. Include cold/warm caches, deep scrolling, background
+return, reconnect, account switching, expired sessions, stalled images/uploads
+and lost write acknowledgements. Compare request counts/bytes, memory growth and
+frame timing as well as elapsed time. Screen inventory alone is not acceptance.
+
+The offline `queryInvalidationBatcher` and `queryInvalidationRequests` suites
+reproduce stalled-family isolation, mixed-family completion, 100-hint coalescing,
+per-family cadence, teardown and real QueryObserver request counts. They never
+contact providers and do not establish hosted/device latency. Add equivalent
+fault regressions before changing each subsequent request/media path. Preserve
+all ordinary quality/coverage gates. Backend changes, staging capacity tests,
+native builds and production promotion retain their separate release gates.
+
 These gates remain separate from the completed automated coverage milestone.
 Record each as passed, failed, blocked or not run against the exact candidate,
 with tester, timestamp and bounded evidence. This guide does not authorize live

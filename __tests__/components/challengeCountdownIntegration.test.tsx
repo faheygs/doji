@@ -49,7 +49,14 @@ describe.each([lightColors, darkColors])('authoritative countdowns', (colors) =>
       await act(async () => {
         jest.advanceTimersByTime(1);
       });
-      expect(invalidate).toHaveBeenCalledTimes(1);
+      expect(invalidate).toHaveBeenCalledTimes(2);
+      for (const root of ['upcomingDoji', 'userEvent']) {
+        expect(
+          invalidate.mock.calls.filter(([filters]) =>
+            filters?.predicate?.({ queryKey: [root] } as never),
+          ),
+        ).toHaveLength(1);
+      }
       expect(invalidate).toHaveBeenCalledWith(
         { predicate: expect.any(Function), refetchType: 'active' },
         { cancelRefetch: false },
@@ -57,7 +64,7 @@ describe.each([lightColors, darkColors])('authoritative countdowns', (colors) =>
       await act(async () => {
         jest.advanceTimersByTime(5000);
       });
-      expect(invalidate).toHaveBeenCalledTimes(1);
+      expect(invalidate).toHaveBeenCalledTimes(2);
       ui.unmount();
       cancelScheduledInvalidations(client);
       client.clear();

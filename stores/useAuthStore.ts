@@ -8,6 +8,7 @@ import { newCommandId } from '../lib/idempotency';
 import { filterContent } from '../lib/contentFilter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '../lib/queryClient';
+import { cancelScheduledInvalidations } from '../lib/queryInvalidationBatcher';
 import { runMemberRead } from '../lib/runMemberRead';
 import { closeRealtimeConnection } from '../lib/realtimeClient';
 import { queryCacheStorageKey } from '../lib/queryPersistence';
@@ -23,9 +24,8 @@ import {
 import { reportOperationalFailure } from '../lib/telemetry';
 import { isEmployeeSession } from '../lib/employeeIdentity';
 
-// Startup, foreground reconciliation, and both realtime transports can all ask
-// for the same profile at once. Share that request instead of repeatedly
-// aborting/restarting it (which previously kept the auth gate busy).
+// Startup, foreground reconciliation and realtime share each account's profile
+// request instead of aborting/restarting it and keeping the auth gate busy.
 let activeProfileFetch: { userId: string; requestId: symbol; promise: Promise<void> } | null = null;
 type AuthState = {
   session: Session | null;
@@ -51,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session) => {
     const prevId = get().session?.user?.id;
     const nextId = session?.user?.id;
+    if (nextId !== prevId || !session) cancelScheduledInvalidations(queryClient);
     if (nextId !== prevId) closeRealtimeConnection();
     if (!session) {
       queryClient.clear();
@@ -99,10 +100,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Signing out must still succeed if token cleanup is temporarily offline.
       // A later registration atomically transfers ownership away from this user.
     }
-    // Sign out this installation only. Supabase defaults to global scope,
-    // which would also terminate the same person's admin-browser and other
-    // device sessions.
+    // Sign out this installation only, preserving the member's other devices.
     await supabase.auth.signOut({ scope: 'local' });
+    cancelScheduledInvalidations(queryClient);
     queryClient.clear();
     if (signedOutUserId) {
       await AsyncStorage.removeItem(queryCacheStorageKey(signedOutUserId));
