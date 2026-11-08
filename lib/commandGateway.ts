@@ -5,6 +5,7 @@ import { diagnosticSessionIsCurrent, mobileDiagnosticSnapshot, recordDiagnosticO
 import { supabase } from './supabase';
 import { Platform } from 'react-native';
 import { inheritReadDiagnostics } from './memberReadDiagnostics';
+import { awaitCommandAuthentication } from './commandAuthentication';
 import { commandError, gatewayCommand, type CommandError } from './commandGatewayTransport';
 import { awaitRegistration, isPushRegistrationInterrupted, PushRegistrationInterrupted, registrationDelay } from './pushRegistrationCancellation';
 
@@ -91,8 +92,11 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
   }
 
   let session;
-  try { session = await awaitRegistration(supabase.auth.getSession(), signal); }
-  catch (error) { if (isPushRegistrationInterrupted(error)) return interrupted(); throw error; }
+  try { session = await awaitCommandAuthentication(supabase.auth.getSession(), signal); }
+  catch (error) {
+    if (isPushRegistrationInterrupted(error)) return interrupted();
+    return { data: null, error: commandError(error, 'Authentication could not be checked.') };
+  }
   const { data: sessionData, error: sessionError } = session;
   if (signal?.aborted) return interrupted();
   if (account && (!account.isCurrent() || sessionData.session?.user?.id !== account.expectedUserId)) return accountChanged();
@@ -145,7 +149,15 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
       if (response.status === 401 && !refreshedUnauthorizedSession) {
         if (account && !account.isCurrent()) return accountChanged();
         refreshedUnauthorizedSession = true;
-        const { data: refreshed, error: refreshError } = await awaitRegistration(supabase.auth.refreshSession(), signal);
+        let renewed;
+        try { renewed = await awaitCommandAuthentication(supabase.auth.refreshSession(), signal); }
+        catch (error) {
+          if (isPushRegistrationInterrupted(error)) throw error;
+          const failure = commandError(error, 'Authentication could not be refreshed.');
+          reportFailure(failure);
+          return { data: null, error: failure };
+        }
+        const { data: refreshed, error: refreshError } = renewed;
         if (signal?.aborted) return interrupted();
         if (account && (!account.isCurrent() || refreshed.session?.user?.id !== account.expectedUserId)) return accountChanged();
         const refreshedToken = refreshed.session?.access_token;

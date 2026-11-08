@@ -20,6 +20,7 @@ describe('mobile data architecture', () => {
   it('prepares only incoming realtime media before stable feed presentation', () => {
     const feed = read('app/(app)/(tabs)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
+    const frame = read('components/feed/PostMediaFrame.tsx');
     expect(feed).toContain('usePreparedFeedPosts');
     expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
     const readiness = read('hooks/usePreparedFeedPosts.ts');
@@ -28,8 +29,9 @@ describe('mobile data architecture', () => {
     const preparation = read('lib/feedPostPreparation.ts');
     expect(preparation).toContain('ExpoImage.writeToCacheAsync(downloadedFile.uri, cacheKey)');
     expect(preparation).toContain('ExpoImage.getCachePathAsync(cacheKey)');
-    expect(card).toContain("cacheKey: postMediaCacheKey(displayReference, 'feed')");
-    expect(card).toContain("postMediaCacheKey(thumbReference, 'thumbnail')");
+    expect(card).toContain('<PostMediaFrame');
+    expect(frame).toContain("cacheKey: postMediaCacheKey(reference, 'feed')");
+    expect(frame).toContain("postMediaCacheKey(thumbRef, 'thumbnail')");
     expect(preparation).toContain("const resolvedPosts = await signPostMedia(posts, 'feed')");
     expect(preparation).toContain('prepareImage(post.photo_url, resolved.photo_url)');
   });
