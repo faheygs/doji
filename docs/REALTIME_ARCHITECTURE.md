@@ -166,6 +166,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   audiences. Returning to an audience revalidates without blanking permitted cache.
 - Mounted engagement reads use `get_post_engagement_snapshot_v2` and exact thread
   reads. Partial pages are not totals; one audience never overwrites another.
+  Poll summary/loading failures never impersonate zero votes. Retained same-scope
+  results identify failed refreshes; audience changes cannot borrow the previous
+  snapshot. Voter-page failures retain loaded rows and expose explicit read retry.
+  Ambiguous Doji writes use an eight-second receipt-read observer even when native
+  abort is ignored; failed or late receipts remain unknown, never a second write.
 - A private notification carrying a post ID also reconciles that mounted post,
   covering event-order races. Counter updates do not emit a second feed-wide hint.
 - Optimistic callbacks and delayed reconciliation remain bound to the initiating
