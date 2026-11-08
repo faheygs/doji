@@ -40,9 +40,12 @@ function makeChain(data: unknown, error: unknown = null) {
 }
 
 function makeRpcChain(data: unknown, error: unknown = null) {
-  return {
+  const chain = {
+    setHeader: jest.fn(),
     abortSignal: jest.fn().mockResolvedValue({ data, error }),
   };
+  chain.setHeader.mockReturnValue(chain);
+  return chain;
 }
 
 describe('useAuthStore', () => {
@@ -371,6 +374,11 @@ describe('useAuthStore', () => {
   });
 
   describe('updateProfile', () => {
+    beforeEach(() => {
+      jest.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: {
+        user: { id: 'user-1' }, access_token: 'synthetic',
+      } as any }, error: null });
+    });
     it('updates profile on server and in state', async () => {
       const updated = { id: 'user-1', username: 'testuser', display_name: 'New Name' };
       mockRpc.mockReturnValue(makeRpcChain(updated));

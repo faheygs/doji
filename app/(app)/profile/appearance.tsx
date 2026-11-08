@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -19,6 +19,8 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useOwnedShopItems, useEquipShopItem, isShopItemOwned } from '@/hooks/useShop';
 import { goBackWithOptionalReturn, hrefWithReturnTo } from '@/lib/navigationReturn';
 import { useNavigationOrigin } from '@/contexts/NavigationOriginContext';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
+import { InlineFeedback } from '@/components/ui/InlineFeedback';
 
 export default function AppearanceScreen() {
   const router = useRouter();
@@ -26,6 +28,9 @@ export default function AppearanceScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors, isDark, setPreference, accentTheme, setAccentTheme } = useTheme();
   const userId = useAuthStore((s) => s.session?.user?.id);
+  const saveState = useAuthStore((s) => s.profileSaveState);
+  const blocked = Boolean(saveState && saveState !== 'idle');
+  const [saveError, setSaveError] = useState('');
   const { data: owned = [] } = useOwnedShopItems(userId);
   const equip = useEquipShopItem();
 
@@ -94,24 +99,28 @@ export default function AppearanceScreen() {
 
   const handleThemeToggle = useCallback(
     (value: boolean) => {
+      if (blocked) return;
+      setSaveError('');
       Haptics.selectionAsync();
-      void setPreference(value ? 'dark' : 'light');
+      void setPreference(value ? 'dark' : 'light').catch(() => setSaveError('Could not confirm your appearance change.'));
     },
-    [setPreference],
+    [setPreference, blocked],
   );
 
   const handleAccent = useCallback(
     (key: AccentThemeKey) => {
+      if (blocked) return;
+      setSaveError('');
       Haptics.selectionAsync();
       if (key === DEFAULT_ACCENT_THEME) {
-        void setAccentTheme(key);
+        void setAccentTheme(key).catch(() => setSaveError('Could not confirm your appearance change.'));
       } else if (isShopItemOwned(owned, key)) {
         // The equip RPC owns cosmetic authorization and the optimistic profile
         // patch; do not issue a second profile command for the same choice.
         void equip.mutateAsync(key).catch(() => {});
       }
     },
-    [setAccentTheme, equip, owned],
+    [setAccentTheme, equip, owned, blocked],
   );
 
   return (
@@ -131,6 +140,8 @@ export default function AppearanceScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxl }}>
+        {saveError ? <InlineFeedback message={saveError} /> : null}
+        <ProfileSaveRecovery onSaved={() => setSaveError('')} />
         <View style={styles.group}>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
@@ -142,6 +153,7 @@ export default function AppearanceScreen() {
               </Text>
             </View>
             <Switch
+              disabled={blocked}
               value={isDark}
               onValueChange={handleThemeToggle}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -163,6 +175,7 @@ export default function AppearanceScreen() {
             return (
               <TouchableOpacity
                 key={theme.key}
+                disabled={blocked}
                 onPress={() => handleAccent(theme.key)}
                 style={{ alignItems: 'center', gap: 6, width: 68 }}
               >

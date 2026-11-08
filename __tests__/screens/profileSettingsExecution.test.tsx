@@ -18,10 +18,12 @@ const mockRouter = {
   back: jest.fn(),
   canGoBack: jest.fn(() => true),
 };
-const mockSetPreference = jest.fn(),
-  mockSetAccent = jest.fn(),
+const mockSetPreference = jest.fn().mockResolvedValue(undefined),
+  mockSetAccent = jest.fn().mockResolvedValue(undefined),
   mockUpdate = jest.fn(),
   mockPhoto = jest.fn();
+const mockRetry = jest.fn().mockResolvedValue(undefined);
+let mockSaveState = 'idle';
 const mockEquip = { mutateAsync: jest.fn(), isPending: false },
   mockPurchase = { mutateAsync: jest.fn(), isPending: false };
 let mockProfile: Profile | null;
@@ -49,11 +51,14 @@ jest.mock('../../contexts/ThemeContext', () => ({
   }),
 }));
 jest.mock('../../stores/useAuthStore', () => ({
+  captureProfileAccount: () => ({ isCurrent: () => true }),
   useAuthStore: (selector: (s: unknown) => unknown) =>
     selector({
       profile: mockProfile,
       session: { user: { id: 'member' } },
       updateProfile: mockUpdate,
+      profileSaveState: mockSaveState,
+      retryProfileUpdate: mockRetry,
     }),
 }));
 jest.mock('../../hooks/useShop', () => ({
@@ -73,6 +78,7 @@ jest.mock('../../hooks/useChangeProfilePhoto', () => ({
     openChangePhotoDialog: mockPhoto,
     uploading: mockUploading,
     error: mockPhotoError,
+    clearError: jest.fn(),
   }),
 }));
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -162,6 +168,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
   mockDark = false;
+  mockSaveState = 'idle';
   mockAccent = DEFAULT_ACCENT_THEME;
   mockReturn = undefined;
   mockProfile = {
@@ -187,6 +194,22 @@ beforeEach(() => {
   mockPurchase.mutateAsync.mockResolvedValue(undefined);
 });
 afterEach(() => jest.useRealTimers());
+
+test.each([Appearance, EditProfile])('profile settings expose retained-save retry without a replacement command', async (Screen) => {
+  mockSaveState = 'uncertain';
+  const ui = render(<KeyboardToolbarProvider><Screen /></KeyboardToolbarProvider>);
+  await act(async () => fireEvent.press(ui.getByText('Retry previous save')));
+  expect(mockRetry).toHaveBeenCalledTimes(1);
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockSetPreference).not.toHaveBeenCalled();
+});
+
+test('appearance save rejection has visible feedback rather than an unhandled promise', async () => {
+  mockSetPreference.mockRejectedValueOnce(Error('offline'));
+  const ui = render(<Appearance />);
+  await act(async () => fireEvent(ui.UNSAFE_getByType(Switch), 'valueChange', true));
+  expect(ui.getByText('Could not confirm your appearance change.')).toBeTruthy();
+});
 
 describe.each([false, true])('profile settings dark=%s', (dark) => {
   beforeEach(() => {

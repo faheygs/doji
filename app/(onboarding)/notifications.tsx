@@ -8,10 +8,11 @@ import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { IconBell } from '@/components/icons/Icons';
 import { requestPushPermissionAndRegisterToken } from '@/lib/pushNotifications';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '@/stores/useAuthStore';
 import { safeReplace, ROUTES } from '@/lib/routes';
 import { mergeNotificationPreferences } from '@/lib/notificationPreferences';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
 
 export default function OnboardingNotificationsScreen() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function OnboardingNotificationsScreen() {
   const [loading, setLoading] = useState(false);
   const [setupError, setSetupError] = useState('');
   const updateProfile = useAuthStore((state) => state.updateProfile);
+  const saveState = useAuthStore((state) => state.profileSaveState);
+  const blocked = loading || Boolean(saveState && saveState !== 'idle');
 
   const styles = useMemo(
     () =>
@@ -53,7 +56,9 @@ export default function OnboardingNotificationsScreen() {
     [colors],
   );
 
-  const goNext = async (pushEnabled: boolean) => {
+  const goNext = async (pushEnabled: boolean, account = captureProfileAccount()) => {
+    if (!account.isCurrent() || (saveState && saveState !== 'idle')) return;
+    setLoading(true);
     setSetupError('');
     try {
       const profile = useAuthStore.getState().profile;
@@ -64,16 +69,21 @@ export default function OnboardingNotificationsScreen() {
           push_enabled: pushEnabled,
         },
       });
-      safeReplace(router, ROUTES.feed);
+      if (account.isCurrent()) safeReplace(router, ROUTES.feed);
     } catch {
-      setSetupError('Could not finish setup. Check your connection and try again.');
+      if (account.isCurrent()) setSetupError('Could not finish setup. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleEnable = async () => {
+    if (blocked) return;
+    const account = captureProfileAccount();
     setLoading(true);
     try {
       const result = await requestPushPermissionAndRegisterToken();
+      if (!account.isCurrent()) return;
       if (result === 'deferred') {
         setSetupError('Alert setup was interrupted. Tap Enable Notifications to try again.');
         return;
@@ -82,7 +92,7 @@ export default function OnboardingNotificationsScreen() {
         setSetupError('Could not connect this phone to alerts. Check your connection and try again.');
         return;
       }
-      await goNext(result === 'granted');
+      await goNext(result === 'granted', account);
     } finally {
       setLoading(false);
     }
@@ -104,10 +114,14 @@ export default function OnboardingNotificationsScreen() {
       </ScrollView>
       <View style={styles.footer}>
         {setupError ? <InlineFeedback message={setupError} /> : null}
-        <Button onPress={() => void handleEnable()} loading={loading} fullWidth size="lg">
+        <ProfileSaveRecovery onSaved={() => {
+          setSetupError('');
+          if (useAuthStore.getState().profile?.onboarding_completed_at) safeReplace(router, ROUTES.feed);
+        }} />
+        <Button onPress={() => void handleEnable()} loading={loading} disabled={blocked} fullWidth size="lg">
           Enable Notifications
         </Button>
-        <Button variant="ghost" onPress={() => void goNext(false)} fullWidth size="md" disabled={loading}>
+        <Button variant="ghost" onPress={() => void goNext(false)} fullWidth size="md" disabled={blocked}>
           Skip for now
         </Button>
       </View>

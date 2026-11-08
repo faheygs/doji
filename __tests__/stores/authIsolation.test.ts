@@ -46,6 +46,7 @@ function deferred<T>() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  useAuthStore.setState({ session: null });
   useAuthStore.setState({
     session: session(),
     profile: null,
@@ -236,7 +237,7 @@ test.each(['patched', 'error', 'empty'] as const)(
     expect(command).toHaveBeenCalledWith('update_own_profile', {
       p_patch: { onboarding_completed_at: '2025-01-01' },
       p_idempotency_key: expect.any(String),
-    });
+    }, { expectedUserId: 'member-a', isCurrent: expect.any(Function) });
     expect(useAuthStore.getState().profile?.onboarding_completed_at).toBe('2025-01-01');
   },
 );
@@ -274,7 +275,45 @@ test('late profile update cannot overwrite another signed-in member', async () =
     useAuthStore.getState().setSession(session('member-b'));
     return { data: profile(), error: null };
   });
-  await useAuthStore.getState().updateProfile({ bio: 'synthetic' });
+  await expect(useAuthStore.getState().updateProfile({ bio: 'synthetic' })).rejects.toThrow('account changed');
   expect(useAuthStore.getState().profile).toBeNull();
   expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+});
+
+test('a switch back to the same member still rejects the old save', async () => {
+  command.mockImplementationOnce(async () => {
+    useAuthStore.getState().setSession(session('member-b'));
+    useAuthStore.getState().setSession(session());
+    return { data: profile(), error: null };
+  });
+  await expect(useAuthStore.getState().updateProfile({ bio: 'old' })).rejects.toThrow('account changed');
+  expect(useAuthStore.getState().profile).toBeNull();
+  expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+});
+
+test('store retains unknown command across refresh and retries original key', async () => {
+  command.mockResolvedValueOnce({ data: null, error: { code: 'DOJI_COMMAND_TIMEOUT', message: 'timeout', details: null, hint: null } });
+  await expect(useAuthStore.getState().updateProfile({ bio: 'original' })).rejects.toMatchObject({ code: 'DOJI_COMMAND_TIMEOUT' });
+  expect(useAuthStore.getState().profileSaveState).toBe('uncertain');
+  useAuthStore.getState().setSession(session()); // Same-account token renewal is not a new lifetime.
+  await useAuthStore.getState().fetchProfile('member-a');
+  await useAuthStore.getState().retryProfileUpdate();
+  expect(command.mock.calls[1][1]).toEqual(command.mock.calls[0][1]);
+  expect(useAuthStore.getState().profileSaveState).toBe('idle');
+});
+
+test('a new account lifetime does not join or accept its older profile read', async () => {
+  const old = deferred<{ data: Profile; error: null }>();
+  read.mockReturnValueOnce(old.promise);
+  const first = useAuthStore.getState().fetchProfile('member-a');
+  await Promise.resolve(); await Promise.resolve();
+  useAuthStore.getState().setSession(session('member-b'));
+  useAuthStore.getState().setSession(session());
+  read.mockResolvedValueOnce({ data: profile({ bio: 'current' }), error: null });
+  const second = useAuthStore.getState().fetchProfile('member-a');
+  expect(second).not.toBe(first);
+  await second;
+  old.resolve({ data: profile({ bio: 'old' }), error: null });
+  await first;
+  expect(useAuthStore.getState().profile?.bio).toBe('current');
 });

@@ -12,8 +12,10 @@ coalescing, per-query single-flight reads and teardown fencing. Disk restoration
 waits for the accepted account and discards reads spanning an identity change,
 including a switch back to the original account. New head-post media preparation
 has a per-feed native-work limit, arrival-time fallback and identity/removal fences.
-The performance
-targets and device/request acceptance matrix are in
+Profile-setting recovery preserves uncertain patches/keys across navigation and
+fences account changes; failed theme ownership reads no longer trigger corrections.
+These changes still require exact-head CI and release-build staging qualification.
+The performance targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
 Real-device baselines, remaining request/media fixes, exact-head CI and staging
 artifact qualification remain pending; no production performance claim follows
