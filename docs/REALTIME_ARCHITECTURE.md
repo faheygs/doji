@@ -132,8 +132,11 @@ reportable; reconnect and foreground reads still reconcile from Postgres.
 
 `domainRealtimeHandler`, `queryInvalidationBatcher`, `reconcileQueries` and
 `QueryLifecycle` own targeted invalidation and catch-up. Hints batch for 80 ms;
-reads are single-flight with bounded trailing reconciliation and
-`cancelRefetch: false` for realtime. Unknown events do not refresh everything.
+each query family has an independent in-flight wait and 350 ms minimum refresh
+gap, with one coalesced trailing pass. A slow comments/feed refresh cannot hold
+challenge-state reads. TanStack retains per-query single-flight behavior and
+`cancelRefetch: false` for realtime. Teardown discards pending work and fences old
+completions. Unknown events do not refresh everything.
 
 Native lifecycle suspension is separate from realtime invalidation: background or
 explicit offline state pauses reads and cancels only the server-read allowlist.

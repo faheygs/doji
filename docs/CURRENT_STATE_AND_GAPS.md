@@ -6,6 +6,15 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Mobile performance hardening is local preparation, not deployed. Query-family
+refresh scheduling now isolates unrelated in-flight waits while retaining hint
+coalescing, per-query single-flight reads and teardown fencing. The performance
+targets and device/request acceptance matrix are in
+[test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
+Real-device baselines, remaining request/media fixes, exact-head CI and staging
+artifact qualification remain pending; no production performance claim follows
+from the synthetic regressions.
+
 Mobile staging configuration is merged; Android and iPhone artifacts exist, but native
 workflow qualification is unfinished:
 distinct Development/Staging identities and schemes, staging-only binding checks,
