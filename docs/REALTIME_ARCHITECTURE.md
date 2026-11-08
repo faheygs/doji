@@ -174,6 +174,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   byte caps; no mutations, search drafts, secrets or signed URLs.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
+  Hidden private cards never expose unsigned references to native loaders. Visible
+  media reconciles on native foreground/reconnect without polling; disk and signing
+  failures are contained. Decode stalls show local retry feedback after fifteen
+  seconds without blocking social controls. Scrolling/count updates do not prefetch
+  unopened comment/reaction lists; thumbnails are requested only for dual photos.
 - Store-release policy uses bounded authorized reads, not push or polling.
   Verify the installed binary's discovery behavior before claiming immediate enforcement.
 

@@ -1,6 +1,5 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { InteractionManager, View, TouchableOpacity } from 'react-native';
-import { Image } from 'expo-image';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { Spacing } from '../../constants/theme';
@@ -27,11 +26,11 @@ import { AppVideo } from '../ui/AppVideo';
 import { usePostRealtimeInvalidation } from '../../hooks/usePostRealtimeInvalidation';
 import { usePostCardStyles } from './usePostCardStyles';
 import { usePostMedia } from '../../hooks/usePostMedia';
-import { postMediaCacheKey } from '../../lib/postMedia';
 import { Skeleton } from '../ui/Skeleton';
+import { PostMediaFeedback } from './PostMediaFeedback';
+import { PostMediaFrame } from './PostMediaFrame';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchCommentsForPost } from '../../hooks/useComments';
-import { prefetchPostReactions } from '../../hooks/useFeed';
 
 type Props = {
   post: Post;
@@ -106,48 +105,28 @@ function PostCardImpl({
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [postAction, setPostAction] = useState<'options' | null>(null);
-  const [mainMediaReady, setMainMediaReady] = useState(false);
   const media = usePostMedia(post, !blurred && realtimeActive, 'feed');
-  const thumbnailMedia = usePostMedia(post, !blurred && realtimeActive, 'thumbnail');
+  const thumbnailMedia = usePostMedia(
+    post,
+    !blurred && realtimeActive && Boolean(post.front_photo_url) && !post.video_url,
+    'thumbnail',
+  );
   const hasVideo = Boolean(media.video_url && !blurred);
   usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
-
-  useEffect(() => {
-    if (blurred || !realtimeActive || !meId) return;
-    if (post.comment_count <= 0 && post.reaction_count <= 0) return;
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (post.comment_count > 0) {
-        void prefetchCommentsForPost(queryClient, {
-          postId: post.id,
-          userId: meId,
-          audience: feedAudience,
-        });
-      }
-      if (post.reaction_count > 0) {
-        void prefetchPostReactions(queryClient, {
-          postId: post.id,
-          userId: meId,
-          audience: feedAudience,
-        });
-      }
-    });
-    return () => task.cancel();
-  }, [
-    blurred,
-    feedAudience,
-    meId,
-    post.comment_count,
-    post.id,
-    post.reaction_count,
-    queryClient,
-    realtimeActive,
-  ]);
 
   useEffect(() => {
     if (initialCommentsOpen) setCommentsOpen(true);
   }, [initialCommentsOpen, post.id]);
 
-  const openComments = useCallback(() => setCommentsOpen(true), []);
+  const openComments = useCallback(() => {
+    if (blurred || !realtimeActive || !meId) return;
+    setCommentsOpen(true);
+    void prefetchCommentsForPost(queryClient, {
+      postId: post.id,
+      userId: meId,
+      audience: feedAudience,
+    });
+  }, [blurred, realtimeActive, meId, queryClient, post.id, feedAudience]);
   const closeComments = useCallback(() => setCommentsOpen(false), []);
 
   const handleProfilePress = useCallback(() => {
@@ -163,30 +142,14 @@ function PostCardImpl({
     }
   }, [media.front_photo_url, hasVideo]);
 
-  const displayUri = showFront && media.front_photo_url ? media.front_photo_url : media.photo_url;
-  const displayReference =
-    showFront && post.front_photo_url ? post.front_photo_url : post.photo_url;
-  const mainImageSource = useMemo(
-    () => ({
-      uri: displayUri ?? '',
-      cacheKey: postMediaCacheKey(displayReference, 'feed'),
-    }),
-    [displayReference, displayUri],
+  const hasPhotoLayer = Boolean(
+    showFront && media.front_photo_url ? media.front_photo_url : media.photo_url,
   );
-  const thumbReference = showFront ? post.photo_url : post.front_photo_url;
-  const thumbImageSource = useMemo(
-    () => ({
-      uri: showFront ? (thumbnailMedia.photo_url ?? '') : (thumbnailMedia.front_photo_url ?? ''),
-      cacheKey: postMediaCacheKey(thumbReference, 'thumbnail'),
-    }),
-    [showFront, thumbnailMedia.photo_url, thumbnailMedia.front_photo_url, thumbReference],
-  );
+  const retryMedia = () => {
+    media.retry();
+    thumbnailMedia.retry();
+  };
 
-  const hasPhotoLayer = Boolean(displayUri);
-
-  useEffect(() => {
-    setMainMediaReady(false);
-  }, [displayReference]);
   const isQuestionPost =
     post.type === 'task_complete' ||
     post.challenge?.type === 'task' ||
@@ -349,40 +312,27 @@ function PostCardImpl({
           {showMedia ? (
             <View style={styles.imageTap}>
               {hasPhotoLayer ? (
-                <TouchableOpacity
-                  onPress={handleImageToggle}
-                  activeOpacity={media.front_photo_url && !hasVideo ? 0.95 : 1}
-                  disabled={!media.front_photo_url || hasVideo}
-                  style={styles.mediaFrame}
-                >
-                  <Image
-                    source={mainImageSource}
-                    style={[styles.media, !mainMediaReady && styles.mediaHidden]}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    recyclingKey={`${post.id}-main-${showFront ? 'front' : 'back'}`}
-                    onDisplay={() => setMainMediaReady(true)}
-                  />
-                  {!mainMediaReady ? (
-                    <Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />
-                  ) : null}
-                  {media.front_photo_url && !hasVideo ? (
-                    <View style={styles.frontThumbnailContainer}>
-                      <Image
-                        source={thumbImageSource}
-                        style={styles.frontThumbnail}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                        recyclingKey={`${post.id}-thumb-${showFront ? 'back' : 'front'}`}
-                      />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
+                <PostMediaFrame
+                  post={post}
+                  media={media}
+                  thumbnail={thumbnailMedia}
+                  showFront={showFront}
+                  active={realtimeActive}
+                  onToggle={handleImageToggle}
+                  styles={styles}
+                />
               ) : null}
 
               {!hasPhotoLayer && !hasVideo && expectsMedia ? (
-                <View style={styles.media} accessibilityLabel="Photo loading">
-                  <Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />
+                <View
+                  style={styles.mediaFrame}
+                  accessibilityLabel={media.error ? 'Media unavailable' : 'Photo loading'}
+                >
+                  {media.error ? (
+                    <PostMediaFeedback message={media.error} onRetry={retryMedia} />
+                  ) : (
+                    <Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />
+                  )}
                 </View>
               ) : null}
 
