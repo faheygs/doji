@@ -140,3 +140,18 @@ test('returning from suspension cannot accept credentials past the deadline befo
   await outcome;
   expect(jest.getTimerCount()).toBe(0);
 });
+
+test('ordinary gateway command success is fenced after an account switch, without push cancellation', async () => {
+  let current = true;
+  const held = deferred<string>();
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: () => held.promise });
+  const work = executeCommand('dismiss_notification', args, {
+    expectedUserId: 'member', isCurrent: () => current,
+  });
+  await jest.advanceTimersByTimeAsync(0);
+  current = false;
+  held.resolve('true');
+  expect(await work).toMatchObject({ data: null, error: { status: 401 } });
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(jest.getTimerCount()).toBe(0);
+});

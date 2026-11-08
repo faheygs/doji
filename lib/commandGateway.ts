@@ -6,8 +6,9 @@ import { supabase } from './supabase';
 import { Platform } from 'react-native';
 import { inheritReadDiagnostics } from './memberReadDiagnostics';
 import { awaitCommandAuthentication } from './commandAuthentication';
+import { directCommand } from './directCommand';
 import { commandError, gatewayCommand, type CommandError } from './commandGatewayTransport';
-import { awaitRegistration, isPushRegistrationInterrupted, PushRegistrationInterrupted, registrationDelay } from './pushRegistrationCancellation';
+import { isPushRegistrationInterrupted, PushRegistrationInterrupted, registrationDelay } from './pushRegistrationCancellation';
 
 const TRANSIENT_RETRY_DELAY_MS = 250;
 const REGISTRATION_COMMANDS = new Set<string>(['register_native_push_endpoint', 'register_native_push_endpoint_v2', 'register_native_push_endpoint_v3']);
@@ -58,13 +59,6 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-async function directCommand<Name extends FunctionName>(
-  name: Name,
-  args: FunctionArgs<Name>,
-): Promise<CommandResult<Name>> {
-  return supabase.rpc(name, args as never) as unknown as Promise<CommandResult<Name>>;
-}
-
 /**
  * Executes an authenticated atomic RPC and wakes the realtime relay.
  * Direct PostgREST remains available in local environments without a gateway;
@@ -108,12 +102,9 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
     };
   }
   if (!baseUrl) {
-    const query = supabase.rpc(name, args as never).setHeader('Authorization', `Bearer ${token}`);
-    if (!signal) return query as unknown as Promise<CommandResult<Name>>;
-    try {
-      const result = await awaitRegistration(query.abortSignal(signal), signal);
-      return signal.aborted ? interrupted() : result as unknown as CommandResult<Name>;
-    } catch (error) { if (isPushRegistrationInterrupted(error)) return interrupted(); throw error; }
+    const result = await directCommand(name, args, token, signal);
+    if (signal?.aborted) return interrupted();
+    return account && !account.isCurrent() ? accountChanged() : result;
   }
 
   const retryable = mayRetryCommand(name, args);
@@ -139,7 +130,7 @@ export async function executeCommand<Name extends FunctionName & AuthenticatedCo
       const { response, payload } = await gatewayCommand(baseUrl, token, name, args, signal);
       if (response.ok) {
         if (signal?.aborted) return interrupted();
-        if (signal && account && !account.isCurrent()) return accountChanged();
+        if (account && !account.isCurrent()) return accountChanged();
         if (diagnosticSessionIsCurrent(diagnosticSession)) recordDiagnosticOutcome(name, attempts > 1 ? 'recovered' : 'success', attempts);
         return { data: payload as FunctionResult<Name>, error: null };
       }
