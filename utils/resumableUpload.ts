@@ -3,6 +3,8 @@ import { File as ExpoFile } from 'expo-file-system';
 import { Platform } from 'react-native';
 import * as tus from 'tus-js-client';
 import { supabase } from '../lib/supabase';
+import { awaitCommandAuthentication } from '../lib/commandAuthentication';
+import { awaitUploadPreparation, runResumableTransfer } from '../lib/resumableUploadLifetime';
 
 const TUS_CHUNK_BYTES = 6 * 1024 * 1024;
 const TUS_STORAGE_PREFIX = '@doji/tus-upload:';
@@ -91,10 +93,12 @@ export async function resumableStorageUpload(options: {
 }): Promise<void> {
   const {
     data: { session },
-  } = await supabase.auth.getSession();
+  } = await awaitCommandAuthentication(supabase.auth.getSession());
   if (!session?.access_token) throw new Error('Your session expired. Please sign in again.');
 
-  const source = await uploadSource(options.uri, options.contentType, options.objectPath);
+  const source = await awaitUploadPreparation(
+    uploadSource(options.uri, options.contentType, options.objectPath),
+  );
   const fingerprint = [
     'doji',
     options.bucketId,
@@ -102,40 +106,29 @@ export async function resumableStorageUpload(options: {
     (source as { size?: number }).size ?? 'unknown',
   ].join(':');
 
-  await new Promise<void>((resolve, reject) => {
-    const upload = new tus.Upload(source, {
-      endpoint: directStorageEndpoint(),
-      chunkSize: TUS_CHUNK_BYTES,
-      retryDelays: [0, 1_000, 3_000, 5_000, 10_000, 20_000],
-      headers: {
-        authorization: `Bearer ${session.access_token}`,
-        'x-upsert': options.upsert ? 'true' : 'false',
-      },
-      metadata: {
-        bucketName: options.bucketId,
-        objectName: options.objectPath,
-        contentType: options.contentType,
-        cacheControl: '31536000',
-      },
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      storeFingerprintForResuming: true,
-      urlStorage,
-      fingerprint: async () => fingerprint,
-      onProgress: (uploaded, total) => options.onProgress?.(total ? uploaded / total : 0),
-      onError: reject,
-      onSuccess: () => resolve(),
-    });
-
-    void upload
-      .findPreviousUploads()
-      .then((previous) => {
-        const latest = previous.sort((a, b) =>
-          b.creationTime.localeCompare(a.creationTime),
-        )[0];
-        if (latest) upload.resumeFromPreviousUpload(latest);
-        upload.start();
-      })
-      .catch(reject);
-  });
+  await runResumableTransfer(
+    (callbacks) =>
+      new tus.Upload(source, {
+        endpoint: directStorageEndpoint(),
+        chunkSize: TUS_CHUNK_BYTES,
+        retryDelays: [0, 1_000, 3_000, 5_000, 10_000, 20_000],
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+          'x-upsert': options.upsert ? 'true' : 'false',
+        },
+        metadata: {
+          bucketName: options.bucketId,
+          objectName: options.objectPath,
+          contentType: options.contentType,
+          cacheControl: '31536000',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        storeFingerprintForResuming: true,
+        urlStorage,
+        fingerprint: async () => fingerprint,
+        ...callbacks,
+      }),
+    options.onProgress,
+  );
 }
