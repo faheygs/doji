@@ -68,6 +68,11 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
     let unsubscribe = () => {};
     let removeAppStateListener = () => {};
     let cacheUserId: string | undefined;
+    let observedUserId = useAuthStore.getState().session?.user?.id;
+    let boundUserId = observedUserId;
+    let restoreInvalidated = false;
+    let persistenceGeneration = 0;
+    let pendingRestore: { userId: string; raw: string } | undefined;
 
     const persistNow = () => {
       const userId = useAuthStore.getState().session?.user?.id;
@@ -80,10 +85,11 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
 
     const schedulePersistence = () => {
       if (timer) clearTimeout(timer);
+      const generation = persistenceGeneration;
       timer = setTimeout(() => {
         persistenceTask?.cancel();
         persistenceTask = InteractionManager.runAfterInteractions(() => {
-          if (active) persistNow();
+          if (active && generation === persistenceGeneration) persistNow();
         });
       }, 2_000);
     };
@@ -106,10 +112,7 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
       }),
     ]);
 
-    const restoreCache = ({ userId, raw }: { userId: string | undefined; raw: string | null }) => {
-      cacheUserId = userId;
-      if (!active || !raw) return;
-      const snapshot = JSON.parse(raw) as Snapshot;
+    const hydrateSnapshot = (snapshot: Snapshot) => {
       if (Date.now() - snapshot.savedAt <= MAX_AGE_MS) {
         const restoredHashes = new Set(snapshot.state.queries.map((query) => query.queryHash));
         const newerHashes = new Set(
@@ -133,12 +136,55 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
       }
     };
 
+    const restoreCache = () => {
+      if (!active || !pendingRestore) return;
+      if (restoreInvalidated || (boundUserId && boundUserId !== pendingRestore.userId)) {
+        pendingRestore = undefined;
+        return;
+      }
+      // Children accept the bootstrap session after the bounded splash gate.
+      // Do not warm an unaccepted identity, or reuse a read across A -> B -> A.
+      if (observedUserId !== pendingRestore.userId) return;
+      const { userId, raw } = pendingRestore;
+      pendingRestore = undefined;
+      try {
+        hydrateSnapshot(JSON.parse(raw) as Snapshot);
+      } catch {
+        void AsyncStorage.removeItem(queryCacheStorageKey(userId)).catch(() => {});
+      }
+    };
+    const unsubscribeAuth = useAuthStore.subscribe(() => {
+      const userId = useAuthStore.getState().session?.user?.id;
+      if (userId !== observedUserId) {
+        if (boundUserId) restoreInvalidated = true;
+        else boundUserId = userId;
+        observedUserId = userId;
+        persistenceGeneration += 1;
+        if (timer) clearTimeout(timer);
+        persistenceTask?.cancel();
+      }
+      restoreCache();
+    });
+
     // The native splash handoff remains bounded, but a slow AsyncStorage read
     // must not be discarded. TanStack hydration keeps newer network results, so
     // a late snapshot can still warm queries that have not completed yet.
-    void cacheRead.then(restoreCache).catch(() => {
-      if (cacheUserId) return AsyncStorage.removeItem(queryCacheStorageKey(cacheUserId));
-    });
+    void cacheRead
+      .then(({ userId, raw }) => {
+        if (!active || restoreInvalidated || !userId || !raw) return;
+        pendingRestore = { userId, raw };
+        restoreCache();
+      })
+      .catch(() => {
+        if (
+          active &&
+          !restoreInvalidated &&
+          cacheUserId &&
+          (!boundUserId || boundUserId === cacheUserId)
+        ) {
+          return AsyncStorage.removeItem(queryCacheStorageKey(cacheUserId)).catch(() => {});
+        }
+      });
 
     void boundedCacheRead
       .catch(() => ({ userId: undefined, raw: null }) as const)
@@ -161,10 +207,12 @@ export function QueryCachePersistence({ children }: { children: React.ReactNode 
 
     return () => {
       active = false;
+      pendingRestore = undefined;
       if (hydrationTimer) clearTimeout(hydrationTimer);
       if (timer) clearTimeout(timer);
       persistenceTask?.cancel();
       unsubscribe();
+      unsubscribeAuth();
       removeAppStateListener();
     };
   }, []);

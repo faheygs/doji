@@ -144,6 +144,12 @@ challenge-state reads. TanStack retains per-query single-flight behavior and
 `cancelRefetch: false` for realtime. Teardown discards pending work and fences old
 completions. Unknown events do not refresh everything.
 
+Persisted mobile queries warm only the accepted account. The 1.2-second startup
+handoff stays bounded; late disk reads remain usable only within the same account
+lifetime. Logout/account changes discard pending restoration and deferred writes,
+even when returning to the original account; same-account token renewal preserves
+them. Hydration cannot overwrite or invalidate a newer network result.
+
 Native lifecycle suspension is separate from realtime invalidation: background or
 explicit offline state pauses reads and cancels only the server-read allowlist.
 Unknown network state permits reads; it is not a reachability probe. Available
