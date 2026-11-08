@@ -73,12 +73,15 @@ describe('staged product backlog regressions', () => {
     const feed = source('app/(app)/(tabs)/index.tsx');
     const card = source('components/feed/PostCard.tsx');
     const media = source('hooks/usePostMedia.ts');
+    const frame = source('components/feed/PostMediaFrame.tsx');
     expect(feed).toContain('usePreparedFeedPosts');
     expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
-    expect(card).toContain('onDisplay={() => setMainMediaReady(true)}');
-    expect(card).toContain('!mainMediaReady && styles.mediaHidden');
-    expect(card).toContain('<Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />');
-    expect(media).toContain('enabled && hasPrivatePostMedia(post)');
+    expect(card).toContain('<PostMediaFrame');
+    expect(frame).toContain('onDisplay={() => {');
+    expect(frame).toContain('setReadyFor(identity)');
+    expect(frame).toContain('!ready && styles.mediaHidden');
+    expect(frame).toContain('<Skeleton height="100%" radius={0} style={styles.mediaSkeleton} />');
+    expect(media).toContain('hasPrivatePostMedia(post) ? EMPTY_MEDIA');
   });
 
   it('records native release identity without dropping support for older endpoint RPCs', () => {
@@ -118,7 +121,7 @@ describe('staged product backlog regressions', () => {
   it('uses the system camera UI and preserves the approved 3:4 photo', () => {
     const camera = source('app/(app)/camera.tsx');
     const upload = source('utils/upload.ts');
-    const postCard = source('components/feed/PostCard.tsx');
+    const frame = source('components/feed/PostMediaFrame.tsx');
     expect(camera).toContain('ImagePicker.launchCameraAsync');
     expect(camera).toContain('Use phone camera');
     expect(camera).toContain('const pickerQuality = 1');
@@ -129,7 +132,7 @@ describe('staged product backlog regressions', () => {
     expect(upload).toContain('const POST_IMAGE_WIDTH = 1536');
     expect(upload).toContain('const POST_IMAGE_HEIGHT = 2048');
     expect(upload).toContain('uri: prepared.uri');
-    expect(postCard).toMatch(/source=\{mainImageSource\}[\s\S]*?contentFit="cover"/);
+    expect(frame).toMatch(/source=\{source\}[\s\S]*?contentFit="cover"/);
   });
 
   it('keeps Android resizable and edge-to-edge without forcing portrait', () => {
