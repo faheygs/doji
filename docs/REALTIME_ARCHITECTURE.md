@@ -188,6 +188,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   member. Stale account results cannot patch, roll back or refresh another cache.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Profile reads also capture the local profile revision. A later setting save or
+  optimistic profile update fences older disk/network results and retries. Only
+  the owning request clears loading; receipt replay reconciles with a new read
+  rather than joining a pre-save request. This is not a server revision protocol.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second
