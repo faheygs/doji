@@ -210,6 +210,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   cannot launch more native work while earlier non-cancellable work remains pending.
   Identity/enablement changes and row removal fence queued and late results. Baseline
   and pagination rows render immediately without a page-wide preload.
+- Native image preparation shares two execution slots and at most four queued
+  requests across preview/post/avatar callers. Its fifteen-second deadline starts
+  on arrival, including queue time; expired queued work never starts. Non-cancellable
+  work retains its slot until native settlement, and late results cannot begin an
+  upload. Existing crop, orientation, dimensions, quality and one-encode proof remain.
 - Resumable uploads bound session lookup and file preparation, then stop the local
   attempt after sixty seconds without advancing bytes. The remote upload and resume
   fingerprint are retained; a timeout is not rollback or permission to replay the
