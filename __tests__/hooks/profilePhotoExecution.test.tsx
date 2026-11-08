@@ -304,16 +304,16 @@ test.each([new Error('upload failed'), 'opaque failure'])(
     expect(result.current.error).toBe('');
   },
 );
-test('failed profile commit removes only the newly uploaded orphan', async () => {
+test('unconfirmed profile commit retains both possible authoritative avatars', async () => {
   mockUpdate.mockRejectedValue(new Error('profile write failed'));
   const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
   await act(async () => {
     result.current.openChangePhotoDialog();
     choose('Take a picture');
   });
-  expect(mockRemove).toHaveBeenCalledTimes(1);
-  expect(mockRemove).toHaveBeenCalledWith('avatars', 'https://assets.test/new.jpg');
-  expect(result.current.error).toBe('profile write failed');
+  expect(mockRemove).not.toHaveBeenCalled();
+  expect(result.current.error).toContain('could not confirm');
+  expect(mockUpdate).toHaveBeenCalledTimes(1);
   expect(Image.prefetch).not.toHaveBeenCalled();
 });
 
@@ -327,6 +327,31 @@ test('a refresh failure after profile commit never deletes the committed avatar'
   expect(mockUpdate).toHaveBeenCalledWith({ avatar_url: 'https://assets.test/new.jpg' });
   expect(mockRemove).toHaveBeenCalledTimes(1);
   expect(mockRemove).toHaveBeenCalledWith('avatars', 'https://assets.test/old.jpg');
+});
+
+test('confirmed photo save releases feedback without waiting for background refresh', async () => {
+  jest.spyOn(client, 'invalidateQueries').mockReturnValue(new Promise(() => {}));
+  const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+  await act(async () => {
+    result.current.openChangePhotoDialog();
+    choose('Select a photo');
+  });
+  expect(result.current.uploading).toBe(false);
+  expect(result.current.error).toBe('');
+  expect(Toast.show).toHaveBeenCalledWith({ type: 'success', text1: 'Profile photo updated!' });
+});
+
+test('optional cleanup and preview failures cannot relabel a confirmed save as failed', async () => {
+  mockRemove.mockRejectedValueOnce(new Error('synthetic cleanup failure'));
+  jest.mocked(Image.prefetch).mockRejectedValueOnce(new Error('synthetic prefetch failure'));
+  const { result } = renderHook(useChangeProfilePhoto, { wrapper: Wrapper });
+  await act(async () => {
+    result.current.openChangePhotoDialog();
+    choose('Select a photo');
+  });
+  expect(result.current).toMatchObject({ uploading: false, error: '' });
+  expect(mockUpdate).toHaveBeenCalledTimes(1);
+  expect(reportOperationalFailure).toHaveBeenCalledTimes(2);
 });
 test.each(['Take a picture', 'Select a photo'])(
   'update handles %s permission denial and cancel',

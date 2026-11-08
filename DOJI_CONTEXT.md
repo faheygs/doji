@@ -139,6 +139,11 @@ the future poll. Community idea acceptance does not schedule a Doji.
   bytes. Preserve the configured original/derivative contract and authorization.
 - A confirmed profile save owns its avatar; follow-up refresh failures must not
   delete that committed object as an orphan.
+  An unconfirmed save is not proof of an orphan either: retain its uploaded avatar
+  until authoritative state establishes non-use. Missing response rows are unknown,
+  not successful signup. Confirmed username conflicts can discard their unused upload.
+  Confirmed photo saves release UI feedback before optional preview/refresh/cleanup;
+  failures in that follow-up work are reported separately, never relabeled as failed saves.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.
