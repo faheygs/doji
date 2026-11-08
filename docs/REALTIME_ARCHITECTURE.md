@@ -176,6 +176,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   queue/auth/provider deadline. Six provider operations are shared across batches;
   timed-out uncancellable operations retain their slots and cannot seed the cache
   or launch a late fallback. Original requests coalesce; in-flight keys deduplicate.
+- New head-post preparation shares two native slots per mounted feed across realtime
+  batches. Every queued row has an eight-second arrival-to-fallback limit; a timeout
+  cannot launch more native work while earlier non-cancellable work remains pending.
+  Identity/enablement changes and row removal fence queued and late results. Baseline
+  and pagination rows render immediately without a page-wide preload.
 - Store-release policy uses bounded authorized reads, not push or polling.
   Verify the installed binary's discovery behavior before claiming immediate enforcement.
 

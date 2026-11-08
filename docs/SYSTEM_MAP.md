@@ -252,6 +252,7 @@ and safety/media recovery checks; those must never become the challenge clock.
 | Cache | TanStack Query; account-scoped persistence | `lib/queryClient.ts`, `lib/queryPersistence.ts`, `components/QueryCachePersistence.tsx` |
 | Events and lifecycle | Targeted hints then authorized reconciliation | `hooks/useDomainRealtime.ts`, `lib/domainRealtimeHandler.ts`, `lib/reconcileQueries.ts`, `components/QueryLifecycle.tsx` |
 | Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `lib/postMediaSigning.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
+| New feed-media readiness | Per-feed bounded queue and stale-result fencing | `hooks/usePreparedFeedPosts.ts`, `lib/feedPreparationQueue.ts`, `lib/feedPostPreparation.ts` |
 | Activity history | Durable account state | `contexts/NotificationCenterContext.tsx`, `lib/notificationHistoryQueue.ts` |
 | Phone alerts | Outbox policy and installation claims | `lib/pushNotifications.ts`, `hooks/useNativeNotifications.ts`, `_shared/notification-policy.ts` |
 | Sparks/shop/badges | Server ledger and atomic uniqueness | `hooks/useSparks.ts`, `hooks/useShop.ts`, `constants/sparks.ts`, corresponding SQL |
