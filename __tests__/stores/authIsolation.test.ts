@@ -12,6 +12,7 @@ import { unregisterCurrentPushInstallation } from '../../lib/pushNotifications';
 import { queryClient } from '../../lib/queryClient';
 import { queryCacheStorageKey } from '../../lib/queryPersistence';
 import { reportOperationalFailure } from '../../lib/telemetry';
+import { waitFor } from '@testing-library/react-native';
 
 jest.mock('../../lib/supabase');
 jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
@@ -46,6 +47,8 @@ function deferred<T>() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  read.mockReset();
+  command.mockReset();
   useAuthStore.setState({ session: null });
   useAuthStore.setState({
     session: session(),
@@ -158,8 +161,7 @@ test.each([false, true])(
     const pending = deferred<{ data: Profile | null; error: null | { status: number } }>();
     read.mockReturnValueOnce(pending.promise);
     const request = useAuthStore.getState().fetchProfile('member-a');
-    await Promise.resolve();
-    await Promise.resolve();
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
     useAuthStore.getState().setSession(session('member-b'));
     pending.resolve({ data: failure ? null : profile(), error: failure ? { status: 403 } : null });
     await request;
@@ -306,7 +308,7 @@ test('a new account lifetime does not join or accept its older profile read', as
   const old = deferred<{ data: Profile; error: null }>();
   read.mockReturnValueOnce(old.promise);
   const first = useAuthStore.getState().fetchProfile('member-a');
-  await Promise.resolve(); await Promise.resolve();
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
   useAuthStore.getState().setSession(session('member-b'));
   useAuthStore.getState().setSession(session());
   read.mockResolvedValueOnce({ data: profile({ bio: 'current' }), error: null });

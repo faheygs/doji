@@ -19,6 +19,7 @@ import {
   PROFILE_FETCH_ATTEMPTS,
   PROFILE_REQUEST_TIMEOUT_MS,
   profileCacheKey,
+  readCachedProfile,
   waitForProfileRetry,
 } from '../lib/profileFetchPolicy';
 import { reportOperationalFailure } from '../lib/telemetry';
@@ -134,15 +135,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const requestId = Symbol(userId);
     const promise = Promise.resolve().then(async () => {
       try {
-        // Keep verified screens mounted on refresh, including signup when Android
-        // returns from a picker. Replacing signup here discards its native result.
+        // Keep verified screens mounted: replacing signup discards native picker results.
         const hadVerifiedProfile =
           get().profile?.id === userId && get().profileLoadState === 'ready';
         const hadVerifiedMissing = isCurrent() &&
           get().profile === null && get().profileLoadState === 'missing';
         if (!hadVerifiedMissing && get().profile?.id !== userId) {
           try {
-            const raw = await AsyncStorage.getItem(profileCacheKey(userId));
+            const raw = await readCachedProfile(userId);
             const cached = raw ? JSON.parse(raw) as Profile : null;
             if (cached?.id === userId && isCurrent()) {
               set({
