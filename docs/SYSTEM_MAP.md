@@ -245,6 +245,7 @@ and safety/media recovery checks; those must never become the challenge clock.
 | Area | Ownership | Start reading |
 | --- | --- | --- |
 | Member identity/profile | Supabase Auth/Postgres | `lib/supabase.ts`, `stores/useAuthStore.ts`, `lib/initialSessionBootstrap.ts` |
+| Optional profile disk baseline | Bounded native wait before authoritative reconciliation | `lib/profileFetchPolicy.ts` |
 | Challenge timing | Database occurrence/eligibility | `hooks/useUserEvent.ts`, `lib/serverClock.ts`, `lib/participationGate.ts` |
 | Feed/social/profile reads | Authorized bounded snapshots | `lib/feedQueries.ts`, `lib/profileQueries.ts`, `hooks/useComments.ts`, `hooks/useFriendsPaged.ts` |
 | Public profile projection | Explicit safe fields, never `profiles(*)` | `lib/profileFields.ts`, `lib/publicProfileView.ts` |

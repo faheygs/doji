@@ -188,6 +188,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   member. Stale account results cannot patch, roll back or refresh another cache.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Optional profile-disk presentation waits at most 1.2 seconds before authorized
+  server reconciliation. At most one native cache read remains outstanding;
+  another account/request skips it rather than joining an older lifetime. A late
+  native result cannot replace the reconciled profile. Disk failure is not account
+  failure, authorization or proof of a missing profile.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second

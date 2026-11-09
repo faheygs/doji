@@ -19,6 +19,7 @@ import {
   PROFILE_FETCH_ATTEMPTS,
   PROFILE_REQUEST_TIMEOUT_MS,
   profileCacheKey,
+  readCachedProfile,
   waitForProfileRetry,
 } from '../lib/profileFetchPolicy';
 import { reportOperationalFailure } from '../lib/telemetry';
@@ -137,7 +138,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         get().profile === null && get().profileLoadState === 'missing';
       if (!hadVerifiedMissing && get().profile?.id !== userId) {
         try {
-          const raw = await AsyncStorage.getItem(profileCacheKey(userId));
+          const raw = await readCachedProfile(userId);
           const cached = raw ? JSON.parse(raw) as Profile : null;
           if (cached?.id === userId && isCurrent()) {
             set({
