@@ -95,12 +95,12 @@ export function ReactionVotersSheet({
     (username: string | undefined) => {
       if (!username) return;
       Haptics.selectionAsync();
-      const href = prepareProfileHref(username, navigationOrigin);
+      const href = prepareProfileHref(username, navigationOrigin, queryClient);
       if (!href) return;
       pendingNavigationRef.current = () => router.push(href);
       handleClose();
     },
-    [handleClose, navigationOrigin, router],
+    [handleClose, navigationOrigin, router, queryClient],
   );
 
   const finishDismiss = useCallback(() => {

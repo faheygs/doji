@@ -1,4 +1,9 @@
 import React from 'react';
+const mockPrefetchClient = { prefetchQuery: jest.fn().mockResolvedValue(undefined) };
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => mockPrefetchClient,
+}));
 import { act, fireEvent, render } from '@testing-library/react-native';
 import AddFriends from '../../app/(app)/friends/add';
 import type { SearchProfile } from '../../hooks/useProfile';
@@ -37,6 +42,7 @@ jest.mock('../../hooks/useRecentProfileSearches', () => ({
   useRecentProfileSearches: () => ({
     recents: [],
     record: jest.fn(),
+    recordQuery: jest.fn(),
     remove: jest.fn(),
     clear: jest.fn(),
   }),
@@ -70,7 +76,7 @@ afterEach(() => jest.useRealTimers());
 
 function search() {
   const view = render(<AddFriends />);
-  fireEvent.changeText(view.getByLabelText('Search people by username'), 'synthetic');
+  fireEvent.changeText(view.getByLabelText('Search people by name or username'), 'synthetic');
   act(() => jest.advanceTimersByTime(250));
   return view;
 }
@@ -109,14 +115,14 @@ test.each([{ status: 403 }, { code: '42501' }, { message: 'unexpected private er
 
 test('an older query error does not leak into a newer, short or cleared query', () => {
   const view = search();
-  fireEvent.changeText(view.getByLabelText('Search people by username'), 'different');
+  fireEvent.changeText(view.getByLabelText('Search people by name or username'), 'different');
   expect(view.queryByLabelText('Try loading again')).toBeNull();
   expect(view.getByLabelText('Searching people')).toBeTruthy();
-  fireEvent.changeText(view.getByLabelText('Search people by username'), 'x');
+  fireEvent.changeText(view.getByLabelText('Search people by name or username'), 'x');
   act(() => jest.advanceTimersByTime(250));
   expect(view.queryByLabelText('Try loading again')).toBeNull();
   expect(view.getByText('Keep typing to search')).toBeTruthy();
-  fireEvent.changeText(view.getByLabelText('Search people by username'), '');
+  fireEvent.changeText(view.getByLabelText('Search people by name or username'), '');
   expect(view.getByText('Find your people')).toBeTruthy();
   expect(mockRefetch).not.toHaveBeenCalled();
 });

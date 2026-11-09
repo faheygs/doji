@@ -215,6 +215,15 @@ These lifecycle changes remain next-build source; check recorded release state.
   fetching/paused reads and pending mutation rollback are protected. A cache miss
   reopens at the initial authorized page. Sweeps coalesce after cache events, not
   on a timer; these limits do not bound active-list memory or payload bytes.
+- Binary comment/poll-answer hearts preserve newer actor fields against reads
+  overlapping a pending/settled command. They reconcile only returned authorized
+  rows; removals and non-heart fields still update. Late receipts and targeted
+  rollback are fenced by command and account lifetime. Direct SQL reads need no
+  gateway cache-settle delay; existing realtime/foreground reconciliation remains.
+- Member profile reads include the viewer in their key. Navigation-intent warming
+  shares the route's query and starts the dependent friendship read immediately.
+  Route state resets per viewer/username; action readiness waits for authoritative
+  target-specific relationship/privacy data without hiding fresh data as it ages.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second

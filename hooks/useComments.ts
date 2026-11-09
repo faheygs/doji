@@ -1,4 +1,5 @@
-import { type QueryClient, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { type QueryClient, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { preserveHeartRead } from '../lib/heartConsistency';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { FeedAudience } from '../lib/feedAudience';
@@ -18,7 +19,9 @@ export async function fetchCommentsForPost(
   audience: FeedAudience,
   page: { beforeCreatedAt: string; beforeId: string } | null,
   parentSignal?: AbortSignal,
+  consistency?: { client: QueryClient; userId: string },
 ): Promise<CommentWithMeta[]> {
+  const startedAt = Date.now();
   const { data } = await runAbortableQuery(supabase
     .rpc('get_comment_thread_snapshot', {
       p_post_id: postId,
@@ -27,7 +30,9 @@ export async function fetchCommentsForPost(
       p_before_id: page?.beforeId ?? null,
       p_limit: 50,
     }), parentSignal);
-  return (data ?? []) as CommentWithMeta[];
+  const rows = (data ?? []) as CommentWithMeta[];
+  return consistency ? preserveHeartRead(consistency.client, 'comment', consistency.userId,
+    ['comments', postId, consistency.userId, audience], startedAt, rows) : rows;
 }
 
 export function prefetchCommentsForPost(
@@ -37,7 +42,7 @@ export function prefetchCommentsForPost(
   return client.prefetchInfiniteQuery({
     queryKey: ['comments', args.postId, args.userId, args.audience],
     queryFn: ({ signal, pageParam }) =>
-      fetchCommentsForPost(args.postId, args.audience, pageParam, signal),
+      fetchCommentsForPost(args.postId, args.audience, pageParam, signal, { client, userId: args.userId }),
     initialPageParam: null as { beforeCreatedAt: string; beforeId: string } | null,
     getNextPageParam: (lastPage: CommentWithMeta[]) => {
       if (lastPage.length < 50) return undefined;
@@ -52,6 +57,7 @@ export function useComments(
   postId: string | undefined,
   options?: { fetchEnabled?: boolean; feedAudience?: FeedAudience },
 ) {
+  const client = useQueryClient();
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
   const fetchEnabled = options?.fetchEnabled !== false;
@@ -60,7 +66,7 @@ export function useComments(
   return useInfiniteQuery({
     queryKey: ['comments', postId, userId, feedAudience],
     queryFn: ({ signal, pageParam }) =>
-      fetchCommentsForPost(postId!, feedAudience, pageParam, signal),
+      fetchCommentsForPost(postId!, feedAudience, pageParam, signal, userId ? { client, userId } : undefined),
     initialPageParam: null as { beforeCreatedAt: string; beforeId: string } | null,
     getNextPageParam: (lastPage) => {
       if (lastPage.length < 50) return undefined;

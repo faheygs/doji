@@ -3,14 +3,14 @@ import { FlatList, Pressable, StyleSheet, TouchableOpacity, View } from 'react-n
 import * as Haptics from 'expo-haptics';
 import { Radius, Spacing, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { RecentProfileSearch } from '../../lib/recentProfileSearches';
-import { IconClose } from '../icons/Icons';
+import { isTextSearch, type RecentSearch } from '../../lib/recentProfileSearches';
+import { IconClose, IconSearch } from '../icons/Icons';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Text } from '../ui/Text';
 
 type Props = {
-  recents: readonly RecentProfileSearch[];
-  onSelect: (profile: RecentProfileSearch) => void;
+  recents: readonly RecentSearch[];
+  onSelect: (profile: RecentSearch) => void;
   onRemove: (profileId: string) => void;
   onClear: () => void;
 };
@@ -69,7 +69,9 @@ export function RecentProfileSearchList({ recents, onSelect, onRemove, onClear }
                 onClear();
               }}
             >
-              <Text variant="label" color={colors.primary}>Clear all</Text>
+              <Text variant="label" color={colors.primary}>
+                Clear all
+              </Text>
             </Pressable>
           </View>
         ) : null
@@ -92,13 +94,23 @@ export function RecentProfileSearchList({ recents, onSelect, onRemove, onClear }
               onSelect(item);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${item.display_name || item.username}'s profile`}
+            accessibilityLabel={
+              isTextSearch(item)
+                ? `Search again for ${item.query}`
+                : `Open ${item.display_name || item.username}'s profile`
+            }
           >
-            <ProfileAvatar profile={item} size={46} />
+            {isTextSearch(item) ? (
+              <IconSearch size={24} color={colors.textSecondary} />
+            ) : (
+              <ProfileAvatar profile={item} size={46} />
+            )}
             <View style={styles.names}>
-              <Text variant="subhead" numberOfLines={1}>{item.display_name || item.username}</Text>
+              <Text variant="subhead" numberOfLines={1}>
+                {isTextSearch(item) ? item.query : item.display_name || item.username}
+              </Text>
               <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={1}>
-                @{item.username}
+                {isTextSearch(item) ? 'Search' : `@${item.username}`}
               </Text>
             </View>
           </TouchableOpacity>
@@ -106,7 +118,7 @@ export function RecentProfileSearchList({ recents, onSelect, onRemove, onClear }
             style={({ pressed }) => [styles.remove, pressed && { opacity: 0.55 }]}
             hitSlop={4}
             accessibilityRole="button"
-            accessibilityLabel={`Remove ${item.username} from recent searches`}
+            accessibilityLabel={`Remove ${isTextSearch(item) ? item.query : item.username} from recent searches`}
             onPress={() => onRemove(item.id)}
           >
             <IconClose size={18} color={colors.textTertiary} />

@@ -1,12 +1,12 @@
-import { patchCommentLike } from '../../lib/commentLikeOptimism';
+import { heartState } from '../../lib/heartConsistency';
 import type { CommentWithMeta } from '../../hooks/useComments';
 
 const comment = (overrides: Partial<CommentWithMeta> = {}) =>
   ({ id: 'comment-1', my_like: false, like_count: 2, ...overrides }) as CommentWithMeta;
 
-describe('patchCommentLike', () => {
+describe('shared heart state preserves comment optimism', () => {
   it('shows a new heart immediately', () => {
-    expect(patchCommentLike([comment()], 'comment-1', true)[0]).toMatchObject({
+    expect(heartState(comment(), true)).toMatchObject({
       my_like: true,
       like_count: 3,
     });
@@ -14,11 +14,11 @@ describe('patchCommentLike', () => {
 
   it('removes a heart without allowing a negative count', () => {
     expect(
-      patchCommentLike([comment({ my_like: true, like_count: 0 })], 'comment-1', false)[0],
+      heartState(comment({ my_like: true, like_count: 0 }), false),
     ).toMatchObject({ my_like: false, like_count: 0 });
   });
 
   it('accepts the authoritative server count', () => {
-    expect(patchCommentLike([comment()], 'comment-1', true, 9)[0].like_count).toBe(9);
+    expect(heartState(comment(), true, 9).like_count).toBe(9);
   });
 });

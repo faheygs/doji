@@ -49,7 +49,8 @@ describe('staged product backlog regressions', () => {
     expect(profile).toContain('optimisticallyRequestFriendship');
     expect(requests).toContain("status: 'accepted'");
     expect(requests).toContain("'friends'");
-    expect(member).toContain("? 'Requested'");
+    expect(member).toContain('<ProfileFriendButton');
+    expect(source('components/profile/ProfileFriendButton.tsx')).toContain("? 'Requested'");
   });
 
   it('renders a shared poll skeleton or five challenge-shaped post skeletons', () => {

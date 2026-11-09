@@ -1,4 +1,9 @@
 import React from 'react';
+const mockPrefetchClient = { prefetchQuery: jest.fn().mockResolvedValue(undefined) };
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => mockPrefetchClient,
+}));
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { ActivityIndicator, TouchableOpacity } from 'react-native';
 import { PodiumTopThree } from '../../components/leaderboard/PodiumTopThree';
@@ -8,7 +13,7 @@ import { MentionAutocomplete } from '../../components/comments/MentionAutocomple
 import AddFriends from '../../app/(app)/friends/add';
 import type { LeaderboardEntry, Profile } from '../../types/database';
 import type { SearchProfile } from '../../hooks/useProfile';
-import type { RecentProfileSearch } from '../../lib/recentProfileSearches';
+import type { RecentSearch } from '../../lib/recentProfileSearches';
 
 const mockRouter = { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true };
 const mockSend = { mutate: jest.fn(), isPending: false };
@@ -17,8 +22,9 @@ let mockSearch: { data?: SearchProfile[]; isLoading: boolean };
 let mockDark = false;
 const mockAuth = { profile: { id: 'self', username: 'self' }, session: { user: { id: 'self' } } };
 const mockRecents = {
-  recents: [] as RecentProfileSearch[],
+  recents: [] as RecentSearch[],
   record: jest.fn(),
+  recordQuery: jest.fn(),
   remove: jest.fn(),
   clear: jest.fn(),
 };
@@ -168,29 +174,60 @@ it('find-people debounces, filters self and preserves origin when opening result
   mockSearch.data = [person('self'), person()];
   const ui = render(<AddFriends />);
   expect(ui.getByText('Find your people')).toBeTruthy();
-  fireEvent.changeText(ui.getByLabelText('Search people by username'), 'o');
+  fireEvent.changeText(ui.getByLabelText('Search people by name or username'), 'o');
   act(() => jest.advanceTimersByTime(250));
-  fireEvent.changeText(ui.getByLabelText('Search people by username'), 'other');
+  fireEvent.changeText(ui.getByLabelText('Search people by name or username'), 'other');
   expect(ui.getByLabelText('Searching people')).toBeTruthy();
   act(() => jest.advanceTimersByTime(250));
   expect(ui.queryByText('@self')).toBeNull();
   fireEvent.press(ui.getByText('@other'));
   expect(mockRecents.record).toHaveBeenCalledWith(person());
   expect(String(mockRouter.push.mock.calls[0][0])).toContain('other');
-  expect(ui.getByLabelText('Search people by username').props.value).toBe('');
+  expect(ui.getByLabelText('Search people by name or username').props.value).toBe('');
 });
 it('find-people supports no matches, short query, recents and back', () => {
   const ui = render(<AddFriends />);
   fireEvent.press(ui.UNSAFE_getAllByType(TouchableOpacity)[0]);
   expect(mockRouter.back).toHaveBeenCalled();
-  fireEvent.changeText(ui.getByLabelText('Search people by username'), 'x');
+  fireEvent.changeText(ui.getByLabelText('Search people by name or username'), 'x');
   act(() => jest.advanceTimersByTime(250));
   expect(ui.getByText('Keep typing to search')).toBeTruthy();
-  fireEvent.changeText(ui.getByLabelText('Search people by username'), 'missing');
+  fireEvent.changeText(ui.getByLabelText('Search people by name or username'), 'missing');
   act(() => jest.advanceTimersByTime(250));
   expect(ui.getByText('No users found for "missing"')).toBeTruthy();
   mockRecents.recents = [person()];
-  fireEvent.changeText(ui.getByLabelText('Search people by username'), '');
+  fireEvent.changeText(ui.getByLabelText('Search people by name or username'), '');
   fireEvent.press(ui.getByLabelText("Open Other's profile"));
   expect(mockRecents.record).toHaveBeenCalledWith(person());
+});
+
+it('records a settled search with no results, without requiring a profile click', () => {
+  const ui = render(<AddFriends />);
+  const field = ui.getByLabelText('Search people by name or username');
+  fireEvent.changeText(field, 'Alex');
+  act(() => jest.advanceTimersByTime(250));
+  act(() => jest.advanceTimersByTime(500));
+  fireEvent.changeText(field, 'Alex Johnson');
+  act(() => jest.advanceTimersByTime(250));
+  expect(mockRecents.recordQuery).not.toHaveBeenCalled();
+  act(() => jest.advanceTimersByTime(750));
+  expect(mockRecents.recordQuery).toHaveBeenCalledTimes(1);
+  expect(mockRecents.recordQuery).toHaveBeenCalledWith('Alex Johnson');
+  expect(mockRecents.record).not.toHaveBeenCalled();
+});
+
+it('records keyboard submission and clearing, and re-runs text history without opening a profile', () => {
+  const query = { id: 'query:smith', kind: 'query' as const, query: 'Smith' };
+  mockRecents.recents = [query];
+  const ui = render(<AddFriends />);
+  fireEvent.press(ui.getByLabelText('Search again for Smith'));
+  const field = ui.getByLabelText('Search people by name or username');
+  expect(field.props.value).toBe('Smith');
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  fireEvent(field, 'submitEditing');
+  expect(mockRecents.recordQuery).toHaveBeenLastCalledWith('Smith');
+  fireEvent.changeText(field, '');
+  expect(mockRecents.recordQuery).toHaveBeenLastCalledWith('Smith');
+  fireEvent.press(ui.getByLabelText('Remove Smith from recent searches'));
+  expect(mockRecents.remove).toHaveBeenCalledWith(query.id);
 });

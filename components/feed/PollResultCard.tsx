@@ -153,7 +153,8 @@ function PollResultCardImpl({
   const voterPages = useInfiniteQuery({
     queryKey: ['pollVotersDetail', dailyEventId, voterModal?.optionId, feedAudience, userId],
     queryFn: async ({ pageParam, signal }): Promise<VoterRow[]> => {
-      return await fetchPollVotersPage(dailyEventId, voterModal!.optionId, feedAudience, pageParam, signal) as VoterRow[];
+      return await fetchPollVotersPage(dailyEventId, voterModal!.optionId, feedAudience, pageParam, signal,
+        userId ? { client: queryClient, userId } : undefined) as VoterRow[];
     },
     initialPageParam: null as { createdAt: string; id: string } | null,
     getNextPageParam: (last) => {
@@ -315,11 +316,11 @@ function PollResultCardImpl({
   }, [finishVoterDismiss]);
 
   const openVoterProfile = useCallback((username: string) => {
-    const href = prepareProfileHref(username, navigationOrigin);
+    const href = prepareProfileHref(username, navigationOrigin, queryClient);
     if (!href) return;
     pendingNavigationRef.current = () => router.push(href);
     closeVoters();
-  }, [closeVoters, navigationOrigin, router]);
+  }, [closeVoters, navigationOrigin, router, queryClient]);
   const openVoters = useCallback((optionId: string, label: string, isOther: boolean, count: number) => {
     setVoterModal({ optionId, label, isOther, count }); setVoterVisible(true);
   }, []);

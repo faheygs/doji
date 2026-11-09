@@ -22,6 +22,7 @@ import { syncServerClock } from '../../lib/serverClock';
 import { shouldRetryQuery } from '../../lib/apiRetry';
 
 const mockRead = jest.fn();
+const mockQueryClient = jest.fn();
 const mockRpc = jest.fn().mockImplementation(() => ({ abortSignal: mockRead }));
 const mockSelect = jest.fn();
 const mockEq = jest.fn();
@@ -45,7 +46,7 @@ jest.mock('../../lib/supabase', () => ({ supabase: {
 jest.mock('react', () => ({ ...jest.requireActual('react'), useEffect: jest.fn() }));
 jest.mock('@tanstack/react-query', () => ({ ...jest.requireActual('@tanstack/react-query'),
   useQuery: jest.fn(options => options), useInfiniteQuery: jest.fn(options => options),
-  useQueryClient: () => ({}),
+  useQueryClient: () => mockQueryClient(),
 }));
 jest.mock('../../stores/useAuthStore', () => ({ useAuthStore: (select: any) => select({ session: { user: { id: 'member' } } }) }));
 jest.mock('../../utils/upload', () => ({}));
@@ -102,6 +103,7 @@ beforeEach(() => {
   onError = jest.fn();
   client = new QueryClient({ queryCache: new QueryCache({ onError }),
     defaultOptions: { queries: { retry: shouldRetryQuery, retryDelay: 1, gcTime: 0 } } });
+  mockQueryClient.mockReturnValue(client);
 });
 afterEach(() => { client.clear(); jest.useRealTimers(); });
 

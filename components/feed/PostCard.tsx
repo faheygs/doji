@@ -134,9 +134,9 @@ function PostCardImpl({
 
   const handleProfilePress = useCallback(() => {
     Haptics.selectionAsync();
-    const href = prepareProfileHref(post.profile?.username, navigationOrigin);
+    const href = prepareProfileHref(post.profile?.username, navigationOrigin, queryClient);
     if (href) router.push(href);
-  }, [router, post.profile?.username, navigationOrigin]);
+  }, [router, post.profile?.username, navigationOrigin, queryClient]);
 
   const handleImageToggle = useCallback(() => {
     if (media.front_photo_url && !hasVideo) {
