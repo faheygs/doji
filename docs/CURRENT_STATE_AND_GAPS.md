@@ -1,19 +1,25 @@
 # Current state and handoff gaps
 
-Updated November 6, 2026. This separates source, recorded deployments and owner
+Updated November 9, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-Feed smoothness follow-up is source preparation, not deployed: mounted image
-retention with two-card lookahead, stale-reaction read fencing and adjacent
-authorized feed warming (including a just-confirmed own post). Native scroll/reopen,
-rapid reaction and post-to-tab-switch acceptance on both platforms remains required;
-synthetic races cannot establish frame-time or network performance. Staging's
-Free-tier image transformation difference remains explicit. Production is unchanged.
+Feed smoothness PR #77 is merged as `d0f36be`; exact-head and main CI passed.
+The separately approved iPhone/Android Staging build 5 pair is complete, with
+verified identities/signing and source-map upload receipts. The owner installed
+iPhone build 5 and reported the previously noted issues seem better so far.
+Android update installation retained the account; full feed acceptance is pending.
+This is not a measured performance sign-off or physical Android qualification.
+Mounted image retention/two-card lookahead, reaction read fencing and adjacent
+authorized feed warming are staged, not production-deployed. The bounded image
+audit found 79 post images with a 32,032-byte median and 579,936-byte maximum;
+these mostly synthetic payloads do not establish production media performance.
+Free Staging's transforms remain off. See the
+[build 5 receipt](releases/README.md#november-9-feed-smoothness-staging-builds).
 
-Mobile performance hardening is source preparation, not deployed. Query-family
+Mobile performance hardening is merged and included in Staging, not production-deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
 coalescing, per-query single-flight reads and teardown fencing. Disk restoration
 waits for the accepted account and discards reads spanning an identity change,
@@ -21,11 +27,11 @@ including a switch back to the original account. New head-post media preparation
 has a per-feed native-work limit, arrival-time fallback and identity/removal fences.
 Profile-setting recovery preserves uncertain patches/keys across navigation and
 fences account changes; failed theme ownership reads no longer trigger corrections.
-These changes still require exact-head CI and release-build staging qualification.
+Source and artifact checks passed; broader native workflow/performance qualification remains.
 The performance targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
-Real-device baselines, remaining request/media fixes, exact-head CI and staging
-artifact qualification remain pending; no production performance claim follows
+Real-device baselines, remaining request/media work and full native workflow
+qualification remain pending; no production performance claim follows
 from the synthetic regressions.
 
 Mobile staging configuration is merged; Android and iPhone artifacts exist, but native

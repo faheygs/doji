@@ -5,6 +5,47 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 9 feed smoothness staging builds
+
+PR #77 exact head `ddb967983da2d5feede1ba06b484688a6bc4a0b6` passed all four
+quality jobs and security, then squash-merged as
+`d0f36be970dc7dd4d3bee7d96fe9c681fe889b45`. Main quality `42652910708` passed;
+admin-staging `42655809321` correctly skipped packaging/deployment. Local validation
+passed 328 targeted tests plus full typecheck/lint/size/hygiene/link checks.
+
+The owner separately approved one internal build per platform using included credit:
+
+| Artifact | EAS build | Version/build | Acceptance |
+| --- | --- | --- | --- |
+| iPhone Staging | `3cac1d5e-f7dd-469c-a6f5-e6907ebe4ab0` | 1.0.8 / 5 | Owner installed; reported the identified issues seem better so far |
+| Android Staging | `2fcf27f8-b1ee-4c92-ae6c-7fcb87834814` | 1.0.8 / 5 | Emulator update retained account; feed acceptance pending |
+
+The 385-file archive byte-matched reviewed source. Both artifacts use the isolated
+staging app ID, unchanged signing and disabled OTA/push/reporting. The iPhone
+embedded profile contains only the owner's device ending 801C; Windows inspection
+is not full macOS code-signature validation. Android release signature matches the
+retained staging certificate. Sentry upload reports match `doji-staging`, release
+`com.doit.challengeapp.staging@1.0.8+5` and Debug IDs
+`03623b14-e091-4677-a8b8-a643e2d200aa` (iOS) /
+`2a840277-edd3-44f3-9a76-f4fca430c746` (Android); device-error symbolication is untested.
+IPA SHA-256: `38b096e4ba991f048e2231795e7fce5cf146dc47283fd7d9fa352650ec1ae5f7`.
+APK SHA-256: `984e5f32bab9f0f123cf297cfebe9956131c5f4604b7e66998d857601bf949ad`.
+Fresh EAS usage increased from $18 to $21 of $45 included credit ($24 remaining).
+No plan, production, backend, store-submission or delivery/reporting changes occurred.
+
+A read-only, three-second-bounded Staging storage audit sampled the latest 100
+objects: 79 JPEG post images, median 32,032 bytes, p95 33,280, maximum 579,936.
+The 78 seeded image receipts account for 2,502,104 bytes; the sample is not a
+production-camera benchmark or measured transfer/decode latency. Image transforms
+remain disabled on Free Staging; no paid feature was enabled.
+
+Private artifacts, source/config/signing receipts and image audit are retained at
+`%LOCALAPPDATA%/Doji/mobile-staging/2026-11-09-feed-smoothness`; prior build 4 evidence
+remains intact. Native scroll/reopen, reactions, audience-switch and recovery
+qualification remains distinct from synthetic tests. Physical Android was unavailable;
+emulator results cannot qualify real-device speed. No instant native rollback is
+claimed: stop distribution and qualify a corrective build if acceptance fails.
+
 ## November 6 mobile development and staging builds
 
 PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality
