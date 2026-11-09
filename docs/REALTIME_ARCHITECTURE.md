@@ -188,6 +188,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   member. Stale account results cannot patch, roll back or refresh another cache.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Root route guards subscribe to derived authorization decisions, not the entire
+  profile/session. Theme consumers observe only the current member's appearance
+  fields; stable colors/context avoid app-wide updates on unrelated profile changes.
+  Ban, onboarding, profile-read failure, sign-out and appearance transitions still
+  reconcile immediately; this does not change authorization or introduce polling.
 - Unobserved idle social reads have separate in-memory limits: 80 queries, 120
   total pages and five pages per query. Least-recently-used queries are evicted
   whole, never spliced into invalid cursor sequences. Mounted/disabled observers,

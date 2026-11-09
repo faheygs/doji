@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useShallow } from 'zustand/react/shallow';
 import type { AccentThemeKey, AppColors, ThemeName } from '../constants/theme';
 import {
   buildThemedColors,
@@ -33,6 +34,7 @@ const LAST_THEME_STORAGE_KEY = '@doit/last-app-theme';
 const LAST_ACCENT_STORAGE_KEY = '@doit/last-accent-theme';
 const userThemeStorageKey = (userId: string) => `@doit/app-theme/${userId}`;
 const userAccentStorageKey = (userId: string) => `@doit/accent-theme/${userId}`;
+const EMPTY_OWNED_ITEMS: { item_key: string }[] = [];
 
 export function presentedThemeForSession(
   userId: string | undefined,
@@ -51,10 +53,13 @@ function ownedThemeKeysFromItems(items: { item_key: string }[]): AccentThemeKey[
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const profile = useAuthStore((s) => s.profile);
-  const session = useAuthStore((s) => s.session);
-  const userId = session?.user?.id;
-  const { data: owned = [], isSuccess: ownedFetched } = useOwnedShopItems(userId);
+  const profile = useAuthStore(useShallow((s) =>
+    s.profile && s.profile.id === s.session?.user?.id ? {
+      id: s.profile.id, appearance_mode: s.profile.appearance_mode,
+      app_theme: s.profile.app_theme, accent_theme: s.profile.accent_theme,
+    } : null));
+  const userId = useAuthStore((s) => s.session?.user?.id);
+  const { data: owned = EMPTY_OWNED_ITEMS, isSuccess: ownedFetched } = useOwnedShopItems(userId);
   const ownedThemeKeys = useMemo(() => ownedThemeKeysFromItems(owned), [owned]);
 
   const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_APP_THEME);
@@ -162,7 +167,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const accentHex = ACCENT_THEME_CATALOG[presented.accentTheme]?.color ?? ACCENT_THEME_CATALOG.doji_orange.color;
-  const colors = buildThemedColors(presented.preference, accentHex);
+  const colors = useMemo(() => buildThemedColors(presented.preference, accentHex),
+    [presented.preference, accentHex]);
   const dark = isDarkTheme(presented.preference);
 
   const value = useMemo<ThemeContextValue>(
