@@ -134,6 +134,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
   Committed reads reconcile in the background without covering usable content.
   Reaction reads started before/during the write retain newer local reaction fields
   through the existing bounded cache-settle interval; other fields still reconcile.
+  Comment and poll-answer hearts use the same account/command ordering principle;
+  their direct SQL reads need no artificial cache-settle delay. Rollback restores
+  only the affected heart fields, not the entire thread or voter page.
 - When scrolled, new head posts wait behind New posts; unauthorized rows disappear
   immediately. Only new realtime media uses the bounded readiness queue.
 - Unobserved, idle social caches retain at most 80 queries / 120 pages, with no
@@ -167,7 +170,12 @@ the future poll. Community idea acceptance does not schedule a Doji.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.
-  Search history is device-local, account-scoped and bounded.
+  Search matches username prefixes and public display-name words (first/last/full
+  name), never private identity fields. Search history includes settled queries,
+  not just opened profiles; it is device-local, account-scoped and bounded to ten.
+  Profile navigation warms the authorized viewer-keyed read and its relationship
+  dependency. An unknown or stale-on-entry relationship/privacy read shows a
+  neutral action placeholder, never another member's action or a guessed Add/Accept.
 - Blocking is a separate privacy action, not a report. It removes friendship and
   hides content. Global competition excludes banned accounts, not ordinary blocks.
 

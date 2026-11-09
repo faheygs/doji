@@ -142,6 +142,7 @@ it.each(['everyone', 'friends'] as const)(
       feedAudience,
       null,
       expect.any(AbortSignal),
+      { client: expect.any(QueryClient), userId: 'self' },
     );
     fireEvent.press(ui.getByLabelText('Dismiss voter list'));
     await waitFor(() => expect(ui.UNSAFE_queryByType(Modal)).toBeNull());

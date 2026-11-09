@@ -11,6 +11,13 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `member_profile_search_v1.sql` and its retaining inverse: source-only member
+  discovery expansion. Indexed public display-name token prefixes join literal
+  username prefixes; existing identity/block/demo/ban rules, grants and safe fields
+  remain. `node scripts/database/member-profile-search.mts` verifies matches,
+  permissions, bounds, index eligibility and exact rollback offline. Hosted release
+  requires a verified live function/index baseline, capacity/locking review and
+  staging qualification; rollback retains profiles and local app history.
 - `participation_deadline_v1.sql` and its retaining inverse: staging deployed and
   qualified; production remains gated.
   Activation/recovery updates only normal pending deadlines, preserving signup-day

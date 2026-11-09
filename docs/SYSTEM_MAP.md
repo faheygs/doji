@@ -29,6 +29,15 @@ terms/privacy are built separately with versioned URLs by
 post-channel subscriptions. `lib/reactionReadConsistency.ts` coordinates local
 reaction writes with feed, detail and engagement reads; server authorization and
 audience-specific aggregates remain owned by the existing RPC contracts.
+`lib/heartConsistency.ts` and `hooks/useHeartMutation.ts` provide shared ordering
+for comment/poll-answer hearts. `lib/memberProfileQueries.ts` owns viewer-keyed
+profile/relationship options shared by navigation warming and route observers;
+`ProfileFriendButton` and `useProfileActionReadiness` prevent guessed actions.
+`member_profile_search_v1` owns public-name/username search and its GIN index;
+`scripts/database/member-profile-search.mts` verifies isolation, query plan and
+retaining rollback in an owned disposable database. Hosted installation is gated.
+The superseded comment-only optimism helper was consolidated into the shared
+heart module; its regression cases remain, and the prior file is recoverable in Git.
 
 Mobile variants are resolved by `app.config.ts` and
 `plugins/mobileEnvironment.cts`; `app.json` remains the production base.

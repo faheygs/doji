@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FlatList, Keyboard, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, usePathname, useLocalSearchParams, type Href } from 'expo-router';
@@ -20,9 +21,15 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useRecentProfileSearches } from '../../../hooks/useRecentProfileSearches';
 import { RecentProfileSearchList } from '../../../components/friends/RecentProfileSearchList';
 import { UserSearchResult } from '../../../components/friends/UserSearchResult';
-import type { RecentProfileSearch } from '../../../lib/recentProfileSearches';
+import {
+  isTextSearch,
+  normalizeSearchQuery,
+  SEARCH_QUERY_LIMIT,
+  type RecentProfileSearch,
+} from '../../../lib/recentProfileSearches';
 
 export default function AddFriendsScreen() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
@@ -32,7 +39,7 @@ export default function AddFriendsScreen() {
   );
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
-  const trimmedQuery = query.trim();
+  const trimmedQuery = normalizeSearchQuery(query);
   const debouncedQuery = useDebouncedValue(trimmedQuery, 250);
   const searchQuery = useSearchUsers(debouncedQuery);
   const { data: results, isLoading, isError, error } = searchQuery;
@@ -40,7 +47,18 @@ export default function AddFriendsScreen() {
   const searchFailed = currentSearch && isError;
   const keepResults = !isError || canKeepQueryDataOnError(results, error);
   const currentProfile = useAuthStore((s) => s.profile);
-  const { recents, record, remove, clear } = useRecentProfileSearches(currentProfile?.id);
+  const { recents, record, recordQuery, remove, clear } = useRecentProfileSearches(
+    currentProfile?.id,
+  );
+  useEffect(() => {
+    setQuery('');
+  }, [currentProfile?.id]);
+  useEffect(() => {
+    if (!currentSearch || isLoading || searchQuery.isFetching) return;
+    // Record a settled search, including empty/failed results, not every keystroke.
+    const timer = setTimeout(() => recordQuery(trimmedQuery), 750);
+    return () => clearTimeout(timer);
+  }, [currentSearch, isLoading, searchQuery.isFetching, recordQuery, trimmedQuery]);
 
   const styles = useMemo(
     () =>
@@ -88,12 +106,13 @@ export default function AddFriendsScreen() {
   const openProfile = useCallback(
     (profile: RecentProfileSearch) => {
       Keyboard.dismiss();
+      recordQuery(trimmedQuery);
       setQuery('');
       record(profile);
-      const href = prepareProfileHref(profile.username, navigationOrigin);
+      const href = prepareProfileHref(profile.username, navigationOrigin, queryClient);
       if (href) router.push(href);
     },
-    [navigationOrigin, record, router],
+    [navigationOrigin, record, recordQuery, router, trimmedQuery, queryClient],
   );
 
   return (
@@ -103,7 +122,10 @@ export default function AddFriendsScreen() {
     >
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackToExplicitReturn(router, returnTo, '/(app)/friends' as Href)}
+          onPress={() => {
+            recordQuery(trimmedQuery);
+            goBackToExplicitReturn(router, returnTo, '/(app)/friends' as Href);
+          }}
           hitSlop={16}
         >
           <IconChevronLeft size={24} color={colors.textSecondary} />
@@ -114,10 +136,18 @@ export default function AddFriendsScreen() {
 
       <View style={styles.searchContainer}>
         <SearchField
-          accessibilityLabel="Search people by username"
+          accessibilityLabel="Search people by name or username"
           placeholder="Search people…"
           value={query}
-          onChangeText={setQuery}
+          maxLength={SEARCH_QUERY_LIMIT}
+          onChangeText={(value) => {
+            if (!value.trim()) recordQuery(trimmedQuery);
+            setQuery(value);
+          }}
+          onSubmitEditing={() => {
+            recordQuery(trimmedQuery);
+            Keyboard.dismiss();
+          }}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -127,7 +157,10 @@ export default function AddFriendsScreen() {
       {!trimmedQuery ? (
         <RecentProfileSearchList
           recents={recents}
-          onSelect={openProfile}
+          onSelect={(item) => {
+            if (isTextSearch(item)) setQuery(item.query);
+            else openProfile(item);
+          }}
           onRemove={remove}
           onClear={clear}
         />

@@ -19,12 +19,14 @@ import type { Profile } from '../../types/database';
 import type { ProfileFriendListRow } from '../../hooks/useProfile';
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true };
 let mockParams: { username?: string | string[]; returnTo?: string } = { username: 'other' };
-const mockAuth = { profile: null as Profile | null, fetchProfile: jest.fn() };
+const mockAuth = { session: { user: { id: 'self' } }, profile: null as Profile | null, fetchProfile: jest.fn() };
 const mockProfile = {
   data: undefined as Partial<Profile> | undefined,
   isLoading: false,
   isFetched: true,
   blockedByUser: false,
+  isError: false,
+  refetch: jest.fn(),
 };
 const mockPhoto = {
   openChangePhotoDialog: jest.fn(),
@@ -47,6 +49,11 @@ const mockSend = mutation(),
 let mockFriendship = { id: 'friendship' } as { id: string } | undefined,
   mockStatus = 'none',
   mockBlocked = false;
+let mockRelationshipPending = false;
+let mockRelationshipError = false;
+let mockRelationshipStale = false;
+let mockRelationshipTarget = 'other';
+const mockRelationshipRetry = jest.fn();
 const mockDialog = jest.fn(),
   mockReport = jest.fn();
 const mockFriends = {
@@ -72,7 +79,19 @@ jest.mock('../../stores/useAuthStore', () => ({
 }));
 jest.mock('../../hooks/useProfile', () => ({
   useProfile: () => mockProfile,
-  useFriendship: () => ({ data: mockFriendship }),
+  deriveFriendshipStatus: jest.requireActual('../../hooks/useProfile').deriveFriendshipStatus,
+  useFriendship: () => ({
+    data: mockRelationshipPending ? undefined : mockStatus === 'none' ? null : mockFriendship ? {
+      ...mockFriendship,
+      requester_id: mockStatus === 'pending_out' ? 'self' : mockRelationshipTarget,
+      addressee_id: mockStatus === 'pending_out' ? mockRelationshipTarget : 'self',
+      status: mockStatus === 'friends' ? 'accepted' : mockStatus === 'blocked' ? 'blocked' : 'pending',
+    } : undefined,
+    isError: mockRelationshipError,
+    isStale: mockRelationshipStale,
+    isFetchedAfterMount: !mockRelationshipStale,
+    refetch: mockRelationshipRetry,
+  }),
   useFriendshipStatus: () => ({ data: mockStatus }),
   useFriendCount: () => ({ data: 2 }),
   useSendFriendRequest: () => mockSend,
@@ -84,7 +103,7 @@ jest.mock('../../hooks/useFriendRequests', () => ({
 jest.mock('../../hooks/useBlockUser', () => ({
   useBlockUser: () => mockBlock,
   useUnblockUser: () => mockUnblock,
-  useIsBlockedByMe: () => ({ data: mockBlocked }),
+  useIsBlockedByMe: () => ({ data: mockBlocked, refetch: jest.fn() }),
 }));
 jest.mock('../../hooks/useCurrentProfilePost', () => ({
   useCurrentProfilePost: () => ({ data: null, isLoading: false }),
@@ -170,6 +189,11 @@ beforeEach(() => {
   mockPhoto.uploading = false;
   mockSuggestions.data = [];
   mockStatus = 'none';
+  mockRelationshipPending = false;
+  mockRelationshipError = false;
+  mockRelationshipStale = false;
+  mockRelationshipTarget = 'other';
+  mockProfile.isError = false;
   mockFriendship = { id: 'friendship' };
   mockBlocked = false;
   [mockSend, mockRemove, mockRespond, mockBlock, mockUnblock].forEach((m) => {
@@ -183,6 +207,61 @@ beforeEach(() => {
   });
   useProfileNavigationStore.getState().clear();
 });
+it('never guesses a friendship action while the authoritative relationship is unknown', () => {
+  mockRelationshipPending = true;
+  const ui = render(shell(<Member />));
+  expect(ui.getByLabelText('Loading friendship status')).toBeTruthy();
+  expect(ui.queryByText('Add friend')).toBeNull();
+  expect(ui.queryByText('Accept')).toBeNull();
+  expect(ui.queryByText('Unfriend')).toBeNull();
+  mockRelationshipPending = false;
+  mockStatus = 'friends';
+  ui.rerender(shell(<Member />));
+  expect(ui.getByText('Unfriend')).toBeTruthy();
+});
+
+it('a stale incoming request is revalidated before offering Accept', () => {
+  mockStatus = 'pending_in'; mockRelationshipStale = true;
+  const ui = render(shell(<Member />));
+  expect(ui.queryByText('Accept')).toBeNull();
+  expect(ui.getByLabelText('Loading friendship status')).toBeTruthy();
+  mockStatus = 'friends'; mockRelationshipStale = false;
+  ui.rerender(shell(<Member />));
+  expect(ui.getByText('Unfriend')).toBeTruthy();
+});
+
+it('a previous profile relationship cannot flash Accept on the next member', () => {
+  mockStatus = 'pending_in';
+  const ui = render(shell(<Member />));
+  expect(ui.getByText('Accept')).toBeTruthy();
+  mockParams = { username: 'next' };
+  mockProfile.data = profile('next');
+  ui.rerender(shell(<Member />));
+  expect(ui.queryByText('Accept')).toBeNull();
+  expect(ui.getByLabelText('Loading friendship status')).toBeTruthy();
+  mockStatus = 'friends'; mockRelationshipTarget = 'next';
+  ui.rerender(shell(<Member />));
+  expect(ui.getByText('Unfriend')).toBeTruthy();
+});
+
+it('relationship read errors retain the profile and expose retry, not Add friend', () => {
+  mockRelationshipPending = true; mockRelationshipError = true;
+  const ui = render(shell(<Member />));
+  expect(ui.getByText('Could not load friendship status')).toBeTruthy();
+  expect(ui.queryByText('Add friend')).toBeNull();
+  fireEvent.press(ui.getByText('Retry actions'));
+  expect(mockRelationshipRetry).toHaveBeenCalled();
+});
+
+it('profile read failure is not User not found', () => {
+  mockProfile.data = undefined; mockProfile.isError = true;
+  const ui = render(shell(<Member />));
+  expect(ui.getByText('Could not load profile')).toBeTruthy();
+  expect(ui.queryByText('User not found')).toBeNull();
+  fireEvent.press(ui.getByText('Retry'));
+  expect(mockProfile.refetch).toHaveBeenCalled();
+});
+
 afterEach(() => {
   clients.splice(0).forEach((c) => c.clear());
   jest.useRealTimers();

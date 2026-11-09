@@ -6,6 +6,15 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Social feedback follow-up is source preparation, not installed in Staging build 5:
+comment/poll-answer heart read ordering and targeted rollback, viewer-keyed profile
+warming and identity-safe friendship actions, plus public-name search and local
+query history. The search client/SQL work was not included in PR #77/build 5.
+The isolated SQL fixture verifies search, permissions, indexing and exact rollback;
+hosted search installation, exact-head CI and new iOS/Android builds remain gated.
+Native smoothness and performance are not established by synthetic race tests.
+No production change is included in this follow-up.
+
 Feed smoothness follow-up is source preparation, not deployed: mounted image
 retention with two-card lookahead, stale-reaction read fencing and adjacent
 authorized feed warming (including a just-confirmed own post). Native scroll/reopen,

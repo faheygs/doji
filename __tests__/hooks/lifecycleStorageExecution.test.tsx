@@ -205,6 +205,42 @@ test('recent history switches identity safely and ignores old reads after dispos
   act(() => result.current.clear());
   expect(AsyncStorage.setItem).not.toHaveBeenCalled();
 });
+test('text history is persisted and stale callbacks cannot write across account visits', async () => {
+  const { result, rerender } = renderHook(
+    ({ user }: { user: string }) => useRecentProfileSearches(user),
+    {
+      initialProps: { user: 'first' },
+    },
+  );
+  await act(async () => {});
+  const oldRecord = result.current.recordQuery;
+  act(() => result.current.recordQuery('  Alex Smith  '));
+  await act(async () => {});
+  expect(AsyncStorage.setItem).toHaveBeenLastCalledWith(
+    'doji:recent-profile-searches:first',
+    JSON.stringify([{ id: 'query:alex smith', kind: 'query', query: 'Alex Smith' }]),
+  );
+  rerender({ user: 'second' });
+  await act(async () => {});
+  rerender({ user: 'first' });
+  await act(async () => {});
+  jest.mocked(AsyncStorage.setItem).mockClear();
+  act(() => oldRecord('stale query'));
+  act(() => result.current.recordQuery(' '));
+  await act(async () => {});
+  expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+});
+
+test('history remains usable after a storage read failure', async () => {
+  jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('storage unavailable'));
+  const { result } = renderHook(() => useRecentProfileSearches('member'));
+  await act(async () => {});
+  expect(result.current.recents).toEqual([]);
+  act(() => result.current.recordQuery('Smith'));
+  await act(async () => {});
+  expect(result.current.recents[0].id).toBe('query:smith');
+});
+
 test('one rejected storage write does not prevent later recent-search updates', async () => {
   jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('storage unavailable'));
   const { result } = renderHook(() => useRecentProfileSearches('member'));

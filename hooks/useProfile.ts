@@ -7,25 +7,16 @@ import type { Profile, Post, Friendship } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
+import { friendshipOptions, memberProfileOptions } from '../lib/memberProfileQueries';
 import { runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
-import { fetchPublicProfileView } from '../lib/profileQueries';
 import { preserveRecentReaction } from '../lib/reactionReadConsistency';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
-  const query = useQuery({
-    queryKey: ['profile', normalized],
-    queryFn: async ({ signal }) => {
-      if (!normalized) return { status: 'not_found' as const, profile: null };
-      const data = await fetchPublicProfileView(normalized, signal);
-      const view = parsePublicProfileView(data);
-      return { ...view, profile: normalizePublicProfile(view.profile) };
-    },
-    enabled: !!normalized,
-    staleTime: 30_000,
-  });
+  const client = useQueryClient();
+  const userId = useAuthStore(state => state.session?.user.id);
+  const query = useQuery(memberProfileOptions(normalized, userId, client));
   return {
     ...query,
     data: query.data?.profile ?? null,
@@ -66,25 +57,7 @@ export function usePost(postId?: string) {
 export function useFriendship(targetUserId?: string) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
-  return useQuery({
-    queryKey: ['friendship', userId, targetUserId],
-    queryFn: async ({ signal }): Promise<Friendship | null> => {
-      if (!userId || !targetUserId) return null;
-      const query = supabase
-          .from('friendships')
-          .select('id, requester_id, addressee_id, status, created_at, accepted_at')
-          .or(
-            `and(requester_id.eq.${userId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${userId})`,
-          );
-      const { data } = await runAbortableQuery({
-        retry: enabled => query.retry(enabled),
-        abortSignal: requestSignal => query.abortSignal(requestSignal).maybeSingle(),
-      }, signal);
-      return data as Friendship | null;
-    },
-    enabled: !!userId && !!targetUserId,
-    staleTime: 30_000,
-  });
+  return useQuery(friendshipOptions(userId, targetUserId));
 }
 
 /** Viewer-relative friendship state between the signed-in user and a target profile. */
@@ -216,8 +189,9 @@ export type SearchProfile = Pick<
 };
 
 export function useSearchUsers(query: string) {
+  const userId = useAuthStore(state => state.session?.user.id);
   return useQuery({
-    queryKey: ['searchUsers', query || '__browse__'],
+    queryKey: ['searchUsers', query || '__browse__', userId],
     queryFn: async ({ signal }): Promise<SearchProfile[]> => {
       const { data, error } = await runAbortableQuery(supabase.rpc('search_profiles', {
         p_query: query,
@@ -226,7 +200,7 @@ export function useSearchUsers(query: string) {
       if (error) throw error;
       return (data ?? []) as SearchProfile[];
     },
-    enabled: query.length >= 2,
+    enabled: !!userId && query.length >= 2,
     staleTime: 30_000,
   });
 }
