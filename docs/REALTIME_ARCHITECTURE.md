@@ -193,6 +193,12 @@ These lifecycle changes remain next-build source; check recorded release state.
   another account/request skips it rather than joining an older lifetime. A late
   native result cannot replace the reconciled profile. Disk failure is not account
   failure, authorization or proof of a missing profile.
+- Unobserved idle social reads have separate in-memory limits: 80 queries, 120
+  total pages and five pages per query. Least-recently-used queries are evicted
+  whole, never spliced into invalid cursor sequences. Mounted/disabled observers,
+  fetching/paused reads and pending mutation rollback are protected. A cache miss
+  reopens at the initial authorized page. Sweeps coalesce after cache events, not
+  on a timer; these limits do not bound active-list memory or payload bytes.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second
