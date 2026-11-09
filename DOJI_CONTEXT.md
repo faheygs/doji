@@ -122,6 +122,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
 
 - Feed identity is the authoritative daily-event ID, not the phone's calendar.
   Completing or paid late participation unlocks it.
+- Locked text-only task/format previews use fixed decorative text lines, not a
+  photo frame. Choose the shape from challenge metadata, never hidden answers or
+  redacted media URLs; media-required tasks retain the media preview.
 - Friends includes accepted friends and self; Everyone is independently cached.
   Poll/WYR has one shared post, global totals and friend-scoped social alerts.
   Adjacent feed metadata warms after the visible read, including photo feeds;

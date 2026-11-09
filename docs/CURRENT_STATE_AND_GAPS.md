@@ -12,6 +12,9 @@ explicit retry; friendship/privacy prefetch also runs on cached-profile entry.
 Unknown actions use a fixed-size loading button rather than the gray placeholder.
 Exact-head CI and a new native staging artifact/device check remain required;
 existing installed builds and production are unchanged by this correction.
+Locked text-only task/format cards also have a source-only text-shaped preview;
+photo/poll and media-required previews retain their existing presentation. Native
+visual acceptance remains required; no hidden content is fetched for placeholders.
 
 Social feedback follow-up is source preparation, not installed in Staging build 5:
 comment/poll-answer heart read ordering and targeted rollback, viewer-keyed profile

@@ -14,7 +14,8 @@ import { PollResultCard } from './PollResultCard';
 import { ChallengeTypeGlyph } from '../challenge/ChallengeTypeGlyph';
 import { PostQuestionBlock, PostAnswerBlock, PostPhotoPrompt } from './PostContentBlocks';
 import { challengeKindLabel } from '../../lib/challengeDisplay';
-import { IconLock, IconMoreVertical } from '../icons/Icons';
+import { IconMoreVertical } from '../icons/Icons';
+import { LockedPostBody } from './LockedPostBody';
 import { useReportFlow } from '../../contexts/ReportFlowContext';
 import { PostOptionsSheet } from './PostOptionsSheet';
 import { Post } from '../../types/database';
@@ -81,7 +82,9 @@ export function postsVisuallyEqual(a: Post, b: Post): boolean {
     ac?.id !== bc?.id ||
     ac?.title !== bc?.title ||
     ac?.category !== bc?.category ||
-    ac?.type !== bc?.type
+    ac?.type !== bc?.type ||
+    ac?.requires_photo !== bc?.requires_photo ||
+    ac?.requires_video !== bc?.requires_video
   )
     return false;
   return true;
@@ -164,21 +167,7 @@ function PostCardImpl({
 
   const isPollVotePost = post.type === 'poll_vote' && post.challenge;
 
-  const lockedBody = (
-    <View
-      style={styles.lockedBody}
-      accessibilityRole="text"
-      accessibilityLabel="Complete today's challenge to see this post"
-    >
-      <IconLock size={32} color={colors.textSecondary} />
-      <Text variant="bodySmall" color={colors.textSecondary} style={styles.lockMessage}>
-        Do it and see
-      </Text>
-      <Text variant="micro" color={colors.textTertiary} style={styles.lockMessage}>
-        {"Finish today's challenge first."}
-      </Text>
-    </View>
-  );
+  const lockedBody = <LockedPostBody challenge={post.challenge} />;
 
   if (isPollVotePost) {
     const c = post.challenge!;

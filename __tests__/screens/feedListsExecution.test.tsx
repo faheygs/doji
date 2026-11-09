@@ -404,7 +404,7 @@ it('completed feed refresh allows a later new refresh', async () => {
   await act(async () => refresh());
   expect(mockFeed.refetch).toHaveBeenCalledTimes(2);
 });
-it.each(['poll', 'wyr', 'photo', 'video', 'task', 'unknown'])(
+it.each(['poll', 'wyr', 'photo', 'video', 'task', 'format', 'unknown'])(
   'feed skeleton matches %s challenge shape',
   (kind) => {
     const challenge =

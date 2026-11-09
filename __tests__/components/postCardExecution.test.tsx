@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Image } from 'expo-image';
@@ -177,6 +178,35 @@ describe.each([false, true])('post card dark=%s', (dark) => {
     expect(mockCommentsPrefetch).not.toHaveBeenCalled();
     expect(mockRealtime).toHaveBeenCalledWith('post', false, 'everyone');
   });
+  it.each(['task', 'format', 'task-photo', 'format-video', 'photo', 'poll', 'wyr', 'unknown'])(
+    'locked %s preview reflects metadata without revealing or loading the answer', (kind) => {
+      const type = kind === 'wyr' ? 'poll' : kind.split('-')[0];
+      const textOnly = kind === 'task' || kind === 'format';
+      const p = post({
+        type: type === 'poll' ? 'poll_vote' : type === 'photo' ? 'photo' : 'task_complete',
+        caption: 'PRIVATE ANSWER MUST STAY HIDDEN',
+        photo_url: null, front_photo_url: null, video_url: null,
+        challenge: kind === 'unknown' ? undefined : {
+          id: 'challenge', type, title: 'PRIVATE PROMPT', poll_kind: kind === 'wyr' ? 'wyr' : 'poll',
+          requires_photo: kind === 'photo' || kind === 'task-photo',
+          requires_video: kind === 'format-video',
+        } as Challenge,
+      });
+      const ui = render(shell(<PostCard post={p} blurred />));
+      const body = ui.getByLabelText(textOnly
+        ? "Text response hidden. Complete today's challenge to read it."
+        : "Complete today's challenge to see this post");
+      expect(StyleSheet.flatten(body.props.style).aspectRatio).toBe(textOnly ? undefined : 1);
+      expect(Boolean(ui.queryByText('Text response hidden'))).toBe(textOnly);
+      expect(ui.queryByText('PRIVATE ANSWER MUST STAY HIDDEN')).toBeNull();
+      expect(ui.queryByText('PRIVATE PROMPT')).toBeNull();
+      expect(ui.UNSAFE_queryByType(PollResultCard)).toBeNull();
+      expect(ui.UNSAFE_queryByType(ReactionBar)).toBeNull();
+      expect(ui.UNSAFE_queryByType(AppVideo)).toBeNull();
+      expect(jest.mocked(usePostMedia).mock.calls.every(call => call[1] === false)).toBe(true);
+      expect(mockRealtime).toHaveBeenCalledWith('post', false, 'everyone');
+    },
+  );
   it('renders and swaps dual-camera images without exposing blank placeholders', () => {
     mockMedia = {
       photo_url: 'https://example.test/back',
@@ -333,6 +363,9 @@ it('compares every visually meaningful post field without relying on object iden
     ),
     ...['id', 'title', 'category', 'type'].map(
       (k) => ({ challenge: { ...a.challenge, [k]: 'new' } }) as Partial<Post>,
+    ),
+    ...['requires_photo', 'requires_video'].map(
+      (k) => ({ challenge: { ...a.challenge, [k]: true } }) as Partial<Post>,
     ),
   ];
   for (const change of changes) expect(postsVisuallyEqual(a, { ...a, ...change })).toBe(false);
