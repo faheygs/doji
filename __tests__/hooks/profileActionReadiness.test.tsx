@@ -43,3 +43,24 @@ test('new target requires its own entry readiness', () => {
   hook.rerender({ target: 'bob', read: fetched });
   expect(hook.result.current).toBe(true);
 });
+
+test('resolved stale-entry controls remain mounted through refresh failures and recovery', () => {
+  const hook = renderHook(
+    ({ read }: { read: typeof fresh }) => useProfileActionReadiness('alice', read, read),
+    { initialProps: { read: stale } },
+  );
+  expect(hook.result.current).toBe(false);
+  hook.rerender({ read: fetched });
+  expect(hook.result.current).toBe(true);
+  hook.rerender({ read: { ...fetched, isError: true } });
+  expect(hook.result.current).toBe(true);
+  hook.rerender({ read: fetched });
+  expect(hook.result.current).toBe(true);
+});
+
+test('an initial read failure cannot qualify cached action data', () => {
+  const hook = renderHook(() =>
+    useProfileActionReadiness('alice', { ...fresh, isError: true }, fresh),
+  );
+  expect(hook.result.current).toBe(false);
+});

@@ -122,6 +122,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
 
 - Feed identity is the authoritative daily-event ID, not the phone's calendar.
   Completing or paid late participation unlocks it.
+- Locked text-only task/format previews use fixed decorative text lines, not a
+  photo frame. Choose the shape from challenge metadata, never hidden answers or
+  redacted media URLs; media-required tasks retain the media preview.
 - Friends includes accepted friends and self; Everyone is independently cached.
   Poll/WYR has one shared post, global totals and friend-scoped social alerts.
   Adjacent feed metadata warms after the visible read, including photo feeds;
@@ -174,8 +177,11 @@ the future poll. Community idea acceptance does not schedule a Doji.
   name), never private identity fields. Search history includes settled queries,
   not just opened profiles; it is device-local, account-scoped and bounded to ten.
   Profile navigation warms the authorized viewer-keyed read and its relationship
-  dependency. An unknown or stale-on-entry relationship/privacy read shows a
-  neutral action placeholder, never another member's action or a guessed Add/Accept.
+  dependencies, including when the profile itself is already cached. Unknown or
+  stale-on-entry actions use a fixed-size loading control, never another member's
+  action or a guessed Add/Accept. The overflow trigger retains its position while
+  disabled. Once resolved, background read errors retain labels but disable commands
+  and expose retry instead of replacing the action bar with placeholders.
 - Blocking is a separate privacy action, not a report. It removes friendship and
   hides content. Global competition excludes banned accounts, not ordinary blocks.
 

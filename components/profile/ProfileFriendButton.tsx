@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Button } from '../ui/Button';
 import { IconPlus } from '../icons/Icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -10,43 +10,44 @@ export function ProfileFriendButton({
   blocked,
   status,
   busy,
+  error = false,
   onPress,
 }: {
   ready: boolean;
   blocked: boolean;
   status?: ViewerFriendshipStatus;
   busy: boolean;
+  error?: boolean;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  if (!ready)
-    return (
-      <View
-        style={[styles.button, { backgroundColor: colors.surfaceMuted }]}
-        accessibilityLabel="Loading friendship status"
-        accessibilityState={{ busy: true }}
-      />
-    );
-  if (blocked) return null;
+  if (ready && blocked) return null;
   const friend = status === 'friends',
     outgoing = status === 'pending_out';
   return (
     <Button
       onPress={onPress}
-      variant={friend || outgoing ? 'secondary' : 'primary'}
+      variant={!ready || friend || outgoing ? 'secondary' : 'primary'}
       size="sm"
-      loading={busy}
-      disabled={busy || outgoing || status === 'blocked'}
+      loading={busy || (!ready && !error)}
+      disabled={!ready || error || busy || outgoing || status === 'blocked'}
+      accessibilityLabel={
+        !ready ? (error ? 'Friendship status unavailable' : 'Loading friendship status') : undefined
+      }
       style={styles.button}
-      leftIcon={!friend && !outgoing ? <IconPlus size={15} color={colors.onPrimary} /> : undefined}
+      leftIcon={
+        ready && !friend && !outgoing ? <IconPlus size={15} color={colors.onPrimary} /> : undefined
+      }
     >
-      {friend
-        ? 'Unfriend'
-        : outgoing
-          ? 'Requested'
-          : status === 'pending_in'
-            ? 'Accept'
-            : 'Add friend'}
+      {!ready
+        ? 'Unavailable'
+        : friend
+          ? 'Unfriend'
+          : outgoing
+            ? 'Requested'
+            : status === 'pending_in'
+              ? 'Accept'
+              : 'Add friend'}
     </Button>
   );
 }

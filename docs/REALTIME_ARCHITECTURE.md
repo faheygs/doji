@@ -221,9 +221,13 @@ These lifecycle changes remain next-build source; check recorded release state.
   rollback are fenced by command and account lifetime. Direct SQL reads need no
   gateway cache-settle delay; existing realtime/foreground reconciliation remains.
 - Member profile reads include the viewer in their key. Navigation-intent warming
-  shares the route's query and starts the dependent friendship read immediately.
+  shares the route's query and starts friendship/privacy reads together, including
+  when a fresh profile cache skips its query function.
   Route state resets per viewer/username; action readiness waits for authoritative
-  target-specific relationship/privacy data without hiding fresh data as it ages.
+  target-specific relationship/privacy data without hiding resolved controls as
+  data ages or a background refresh fails. Failed reads disable commands and expose
+  retry; they never manufacture a new friendship state. Initial loading reserves
+  button space and keeps the overflow trigger mounted through revalidation/failure.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
   Each caller waits only for its own object/variant needs, with an eight-second

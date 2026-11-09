@@ -3,6 +3,7 @@ import {
   memberProfileOptions,
   friendshipOptions,
   friendshipMatchesTarget,
+  blockStatusOptions,
 } from '../../lib/memberProfileQueries';
 import { prepareProfileHref } from '../../lib/profileNavigation';
 import { fetchPublicProfileView } from '../../lib/profileQueries';
@@ -22,18 +23,23 @@ const profile = { id: 'target', username: 'target', display_name: 'Test Member' 
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-  (supabase.from as jest.Mock).mockImplementation(() => ({
+  (supabase.from as jest.Mock).mockImplementation((table: string) => ({
     select() {
       return this;
     },
     or() {
       return this;
     },
+    eq() {
+      return this;
+    },
     retry() {
       return this;
     },
     abortSignal() {
-      return { maybeSingle: async () => ({ data: null, error: null }) };
+      return table === 'blocks'
+        ? Promise.resolve({ count: 0, error: null })
+        : { maybeSingle: async () => ({ data: null, error: null }) };
     },
   }));
 });
@@ -55,9 +61,67 @@ test('navigation begins the authorized profile read without waiting, and route e
   expect(read).toHaveBeenCalledTimes(1);
   expect(supabase.from).toHaveBeenCalledWith('friendships');
   await client.fetchQuery(friendshipOptions('me', 'target'));
-  expect(supabase.from).toHaveBeenCalledTimes(1);
+  await client.fetchQuery(blockStatusOptions('me', 'target'));
+  expect(supabase.from).toHaveBeenCalledTimes(2);
   await client.fetchQuery(memberProfileOptions('target', 'me', client));
   expect(read).toHaveBeenCalledTimes(1);
+});
+
+test('fresh profile navigation still warms missing privacy and stale relationship reads', async () => {
+  read.mockResolvedValueOnce({ status: 'visible', profile });
+  await client.fetchQuery(memberProfileOptions('target', 'me', client));
+  await Promise.all([
+    client.fetchQuery(friendshipOptions('me', 'target')),
+    client.fetchQuery(blockStatusOptions('me', 'target')),
+  ]);
+  client.removeQueries({ queryKey: blockStatusOptions('me', 'target').queryKey, exact: true });
+  client.setQueryData(friendshipOptions('me', 'target').queryKey, null, { updatedAt: 1 });
+  jest.clearAllMocks();
+  prepareProfileHref('target', '/feed', client);
+  await Promise.all([
+    client.fetchQuery(friendshipOptions('me', 'target')),
+    client.fetchQuery(blockStatusOptions('me', 'target')),
+  ]);
+  expect(read).not.toHaveBeenCalled();
+  expect(supabase.from).toHaveBeenCalledWith('blocks');
+  expect(supabase.from).toHaveBeenCalledWith('friendships');
+  expect(supabase.from).toHaveBeenCalledTimes(2);
+});
+
+test('a failed friendship read rejects instead of caching an authoritative none', async () => {
+  (supabase.from as jest.Mock).mockImplementation(() => ({
+    select() {
+      return this;
+    },
+    or() {
+      return this;
+    },
+    retry() {
+      return this;
+    },
+    abortSignal() {
+      return {
+        maybeSingle: async () => ({
+          data: null,
+          error: { message: 'synthetic unavailable', code: 'XX000' },
+          status: 500,
+        }),
+      };
+    },
+  }));
+  await expect(client.fetchQuery(friendshipOptions('me', 'target'))).rejects.toBeDefined();
+  expect(client.getQueryData(friendshipOptions('me', 'target').queryKey)).toBeUndefined();
+});
+
+test('privacy warming remains viewer/target scoped and skips incomplete identities', async () => {
+  expect(blockStatusOptions('me', 'alice').queryKey).not.toEqual(
+    blockStatusOptions('other', 'alice').queryKey,
+  );
+  expect(blockStatusOptions('me', 'alice').queryKey).not.toEqual(
+    blockStatusOptions('me', 'bob').queryKey,
+  );
+  expect(await client.fetchQuery(blockStatusOptions(undefined, 'alice'))).toBe(false);
+  expect(supabase.from).not.toHaveBeenCalled();
 });
 
 test.each(['blocked_by_user', 'not_found'])(
