@@ -11,6 +11,7 @@ import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicPro
 import { runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
 import { fetchPublicProfileView } from '../lib/profileQueries';
+import { preserveRecentReaction } from '../lib/reactionReadConsistency';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
@@ -34,11 +35,13 @@ export function useProfile(username?: string) {
 
 /** Single post — same shape as feed (for profile grid → detail). */
 export function usePost(postId?: string) {
+  const client = useQueryClient();
   const session = useAuthStore((s) => s.session);
   const me = session?.user?.id;
   return useQuery({
     queryKey: ['post', postId, me],
     queryFn: async ({ signal }): Promise<Post | null> => {
+      const startedAt = Date.now();
       if (!postId) return null;
       const { data, error } = await runAbortableQuery(
         supabase.rpc('get_post_detail', { p_post_id: postId }),
@@ -52,7 +55,8 @@ export function usePost(postId?: string) {
       // PostCard resolves a current signed URL only while the authorized card
       // is mounted, so a bearer capability is never persisted.
       const [withReaction] = await attachReactionFields([data as Post], me, signal);
-      return withReaction as Post;
+      return me ? preserveRecentReaction(client, me, startedAt, withReaction as Post,
+        client.getQueryData<Post | null>(['post', postId, me])) : withReaction as Post;
     },
     enabled: !!postId,
     staleTime: 15_000,

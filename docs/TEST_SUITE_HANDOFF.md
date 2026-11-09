@@ -213,6 +213,13 @@ Initial acceptance targets on the defined reference network/device:
 | Media upload | Immediate progress state, bounded progress-aware stall detection and safe recovery |
 | Slow/offline recovery | Usable navigation/cached content; no unexplained indefinite spinner |
 
+Feed smoothness qualification includes cold/warm scrolling through photo pages,
+background-return without image blanking, reaction taps during delayed reads, and
+posting in Everyone followed by switching to Friends. Verify both platforms,
+account/permission changes and slow/offline recovery; record frame stalls and media
+readiness rather than treating emulator impressions as physical-device timing.
+The two-card media lookahead is a bounded initial window, not a measured optimum.
+
 These are targets, not measured results or provider guarantees. Record unmet
 targets and their causes rather than silently relaxing them. Latency includes
 auth, scheduling, network, backend, parsing and UI update; upload transfer is

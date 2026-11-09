@@ -36,6 +36,7 @@ type Props = {
   post: Post;
   blurred: boolean;
   realtimeActive?: boolean;
+  mediaActive?: boolean;
   feedAudience?: FeedAudience;
   initialCommentsOpen?: boolean;
 };
@@ -90,6 +91,7 @@ function PostCardImpl({
   post,
   blurred,
   realtimeActive = true,
+  mediaActive = realtimeActive,
   feedAudience = 'everyone',
   initialCommentsOpen = false,
 }: Props) {
@@ -105,13 +107,14 @@ function PostCardImpl({
   const [showFront, setShowFront] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const [postAction, setPostAction] = useState<'options' | null>(null);
-  const media = usePostMedia(post, !blurred && realtimeActive, 'feed');
+  const media = usePostMedia(post, !blurred, 'feed', post.video_url ? realtimeActive : mediaActive);
   const thumbnailMedia = usePostMedia(
     post,
-    !blurred && realtimeActive && Boolean(post.front_photo_url) && !post.video_url,
+    !blurred && Boolean(post.front_photo_url) && !post.video_url,
     'thumbnail',
+    mediaActive,
   );
-  const hasVideo = Boolean(media.video_url && !blurred);
+  const hasVideo = Boolean(media.video_url && !blurred && realtimeActive);
   usePostRealtimeInvalidation(post.id, !blurred && realtimeActive, feedAudience);
 
   useEffect(() => {
@@ -397,6 +400,7 @@ function PostCardImpl({
 export const PostCard = React.memo(PostCardImpl, (prev, next) => {
   if (prev.blurred !== next.blurred) return false;
   if (prev.realtimeActive !== next.realtimeActive) return false;
+  if (prev.mediaActive !== next.mediaActive) return false;
   if (prev.feedAudience !== next.feedAudience) return false;
   if (prev.initialCommentsOpen !== next.initialCommentsOpen) return false;
   return postsVisuallyEqual(prev.post, next.post);

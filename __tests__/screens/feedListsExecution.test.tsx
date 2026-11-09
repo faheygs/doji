@@ -228,7 +228,7 @@ describe.each([false, true])('lists dark=%s', (dark) => {
       dailyEventId: 'daily',
       audience: 'friends',
       unlocked: true,
-    });
+    }, undefined);
     expect(ui.getByText('Nothing yet')).toBeTruthy();
     fireEvent.press(ui.getByLabelText('Your profile'));
     expect(mockRouter.push).toHaveBeenCalledWith('/(app)/profile');
@@ -340,14 +340,15 @@ it.each([false, true])('deep links resolve exact post and comments array=%s', (a
   ui.rerender(shell(<Feed />));
   expect(mockRouter.setParams).toHaveBeenCalledTimes(1);
 });
-it('does not resolve absent deep links or repeat warming once media cards are presented', () => {
+it('warms photo-feed metadata once, without repeating on rerender or while signed out', () => {
   mockFeed = paged([{ ...post(), photo_url: 'private-ref' }]);
   mockParams = { postId: 'missing' };
-  const ui = render(shell(<Feed />));
+  const client = new QueryClient({defaultOptions:{queries:{gcTime:Infinity}}});
+  const ui = render(shell(<Feed />, client));
   expect(mockRouter.setParams).not.toHaveBeenCalled();
-  // Stable presentation initializes empty; the cold effect schedules once before admission.
+  expect(mockPrefetch).toHaveBeenCalledTimes(1);
   const coldCalls = mockPrefetch.mock.calls.length;
-  ui.rerender(shell(<Feed />));
+  ui.rerender(shell(<Feed />, client));
   expect(mockPrefetch).toHaveBeenCalledTimes(coldCalls);
   ui.unmount();
   mockFeed = paged();

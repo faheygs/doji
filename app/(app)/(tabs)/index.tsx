@@ -41,6 +41,7 @@ import { useFeedScreenStyles } from '../../../components/feed/useFeedScreenStyle
 import { useFeedAudiencePreference } from '../../../hooks/useFeedAudiencePreference';
 import { useStableFeedPresentation } from '../../../hooks/useStableFeedPresentation';
 import { usePreparedFeedPosts } from '../../../hooks/usePreparedFeedPosts';
+import { feedMediaWindow } from '../../../lib/feedMediaWindow';
 import { FeedAudienceMenu } from '../../../components/feed/FeedAudienceMenu';
 export default function FeedScreen() {
   const router = useRouter();
@@ -116,6 +117,8 @@ export default function FeedScreen() {
   );
   const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
   const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const hasFeed = feedPages !== undefined;
+  const ownPostId = latestPosts.find(post => post.user_id === userId)?.id;
   const presentationReadyPosts = usePreparedFeedPosts(
     latestPosts,
     feedIdentity,
@@ -139,11 +142,8 @@ export default function FeedScreen() {
       feedLoading ||
       (feedFetching && !feedFetchedAfterMount));
   useEffect(() => {
-    if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
-    // Media cards resolve private URLs after their social records render. Do
-    // not compete with those visible-image requests by warming an invisible
-    // audience. Text-only feeds retain the inexpensive adjacent-tab prefetch.
-    if (posts.some((post) => post.photo_url || post.front_photo_url || post.video_url)) return;
+    if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !hasFeed) return;
+    // Warm authorized metadata only; this does not download the other tab's media.
     const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
     const task = InteractionManager.runAfterInteractions(() => {
       void prefetchFeedAudience(queryClient, {
@@ -151,10 +151,10 @@ export default function FeedScreen() {
         dailyEventId: userEvent.daily_event_id,
         audience: nextAudience,
         unlocked: feedUnlocked,
-      });
+      }, ownPostId);
     });
     return () => task.cancel();
-  }, [audience, feedPages, feedUnlocked, posts, queryClient, userEvent?.daily_event_id, userId]);
+  }, [audience, hasFeed, ownPostId, feedUnlocked, queryClient, userEvent?.daily_event_id, userId]);
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
     if (deepLinkHandledRef.current === pendingPostId) return;
@@ -224,17 +224,19 @@ export default function FeedScreen() {
     setNotificationsOpen(true);
   }, []);
 
+  const mediaPostIds = useMemo(() => feedMediaWindow(posts, visiblePostIds), [posts, visiblePostIds]);
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <PostCard
         post={item}
         blurred={shouldBlur}
         realtimeActive={visiblePostIds.has(item.id)}
+        mediaActive={mediaPostIds.has(item.id)}
         feedAudience={audience}
         initialCommentsOpen={focusPostId === item.id && focusOpenComments}
       />
     ),
-    [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds],
+    [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds, mediaPostIds],
   );
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<Post>[] }) => {

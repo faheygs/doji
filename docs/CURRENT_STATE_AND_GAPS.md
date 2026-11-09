@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Feed smoothness follow-up is source preparation, not deployed: mounted image
+retention with two-card lookahead, stale-reaction read fencing and adjacent
+authorized feed warming (including a just-confirmed own post). Native scroll/reopen,
+rapid reaction and post-to-tab-switch acceptance on both platforms remains required;
+synthetic races cannot establish frame-time or network performance. Staging's
+Free-tier image transformation difference remains explicit. Production is unchanged.
+
 Mobile performance hardening is source preparation, not deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
 coalescing, per-query single-flight reads and teardown fencing. Disk restoration

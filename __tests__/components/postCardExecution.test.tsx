@@ -295,6 +295,16 @@ it('only a visible dual-camera photo requests the thumbnail variant', () => {
   );
   expect(thumbnail()?.[1]).toBe(false);
 });
+it('image lookahead does not start or retain offscreen native video playback', () => {
+  const p = post({video_url:'private-video'});
+  mockMedia = {photo_url:null,front_photo_url:null,video_url:'https://example.test/video'};
+  const ui = render(shell(<PostCard post={p} blurred={false} realtimeActive mediaActive />));
+  expect(ui.UNSAFE_queryAllByType(AppVideo)).toHaveLength(1);
+  ui.rerender(shell(<PostCard post={p} blurred={false} realtimeActive={false} mediaActive />));
+  expect(usePostMedia).toHaveBeenCalledWith(p,true,'feed',false);
+  expect(ui.UNSAFE_queryAllByType(AppVideo)).toHaveLength(0);
+});
+
 it('uses paused uncached video defaults', () => {
   render(<AppVideo uri="https://example.test/video" />);
   expect(mockPause).toHaveBeenCalled();

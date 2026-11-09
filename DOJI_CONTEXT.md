@@ -124,12 +124,16 @@ the future poll. Community idea acceptance does not schedule a Doji.
   Completing or paid late participation unlocks it.
 - Friends includes accepted friends and self; Everyone is independently cached.
   Poll/WYR has one shared post, global totals and friend-scoped social alerts.
+  Adjacent feed metadata warms after the visible read, including photo feeds;
+  confirmed own posts refresh a pre-submission tab without copying scoped totals.
 - Bounded snapshots/keyset reads supply feed, comments, reactions, voters,
   friends, leaderboard, notifications and shop. Partial pages are not totals.
   Gateway recovery source keeps pending I/O request-owned and bounds the whole
   read, not only database fetch. See current state for deployment and rollback.
 - Optimistic actor feedback rolls back only its own cache version and account.
   Committed reads reconcile in the background without covering usable content.
+  Reaction reads started before/during the write retain newer local reaction fields
+  through the existing bounded cache-settle interval; other fields still reconcile.
 - When scrolled, new head posts wait behind New posts; unauthorized rows disappear
   immediately. Only new realtime media uses the bounded readiness queue.
 - Unobserved, idle social caches retain at most 80 queries / 120 pages, with no
@@ -139,6 +143,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
 - Private media references may be cached; signed bearer URLs may not. Visible
   cards coalesce signing, use stable object/variant cache keys and retain a
   card-local skeleton until native display. Never re-encode a cached image into itself.
+  The next two mounted cards may prepare images without social subscriptions.
+  Scrolling away retains resolved images, not authorization; revocation clears them.
+  Native video players remain visible-only.
 - Camera/library proof is normalized once before approval; upload the approved
   bytes. Preserve the configured original/derivative contract and authorization.
   Native photo preparation has bounded concurrency/queueing and a local deadline;

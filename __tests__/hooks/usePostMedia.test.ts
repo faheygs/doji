@@ -54,7 +54,7 @@ describe('usePostMedia', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.photo_url).toBe('https://signed.example/main.jpg');
+      expect(result.current.photo_url).toBe('file:///native-cache/main.jpg');
     });
   });
 });

@@ -67,6 +67,19 @@ const rows = (size: number) =>
     equipped_border_key: null,
     current_streak: 2,
   }));
+
+test('adjacent feed warming refreshes a pre-submission cache without copying Everyone totals', async () => {
+  const key = ['feed','event','friends','viewer','full'];
+  client.setQueryData(key,{pages:[[]],pageParams:[{offset:0}]});
+  mockFeedRead.mockResolvedValue([{id:'own',reaction_count:2}]);
+  const args = {userId:'viewer',dailyEventId:'event',audience:'friends' as const,unlocked:true};
+  await prefetchFeedAudience(client,args,'own');
+  expect(mockFeedRead).toHaveBeenCalledTimes(1);
+  expect(client.getQueryData(key)).toMatchObject({pages:[[{id:'own',reaction_count:2}]]});
+  await prefetchFeedAudience(client,args,'own');
+  expect(mockFeedRead).toHaveBeenCalledTimes(1);
+  expect(client.getQueryData(['feed','event','everyone','viewer','full'])).toBeUndefined();
+});
 const paged = [
   [
     'friends',
@@ -236,7 +249,7 @@ test.each([true, false])(
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockFeedRead).toHaveBeenCalledWith(
-      { userId: 'viewer', dailyEventId: 'event', audience: 'everyone', unlocked },
+      { userId: 'viewer', dailyEventId: 'event', audience: 'everyone', unlocked, client },
       { offset: 0 },
       expect.any(AbortSignal),
     );
