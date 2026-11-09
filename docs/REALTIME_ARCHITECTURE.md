@@ -193,6 +193,15 @@ These lifecycle changes remain next-build source; check recorded release state.
   fields; stable colors/context avoid app-wide updates on unrelated profile changes.
   Ban, onboarding, profile-read failure, sign-out and appearance transitions still
   reconcile immediately; this does not change authorization or introduce polling.
+- Optional profile-disk presentation waits at most 1.2 seconds before authorized
+  server reconciliation. At most one native cache read remains outstanding;
+  another account/request skips it rather than joining an older lifetime. A late
+  native result cannot replace the reconciled profile. Disk failure is not account
+  failure, authorization or proof of a missing profile.
+- Profile reads also capture the local profile revision. A later setting save or
+  optimistic profile update fences older disk/network results and retries. Only
+  the owning request clears loading; receipt replay reconciles with a new read
+  rather than joining a pre-save request. This is not a server revision protocol.
 - Unobserved idle social reads have separate in-memory limits: 80 queries, 120
   total pages and five pages per query. Least-recently-used queries are evicted
   whole, never spliced into invalid cursor sequences. Mounted/disabled observers,

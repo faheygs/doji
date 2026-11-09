@@ -282,8 +282,7 @@ describe('useAuthStore', () => {
       useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       const pending = useAuthStore.getState().fetchProfile('user-1');
-      await Promise.resolve();
-      await Promise.resolve();
+      await waitFor(() => expect(finishRequest).toBeDefined());
       expect(useAuthStore.getState().profile).toMatchObject({ id: 'user-1', username: 'cached' });
       expect(useAuthStore.getState().profileLoadState).toBe('loading');
       expect(useAuthStore.getState().isProfileLoading).toBe(true);

@@ -19,6 +19,7 @@ import {
   PROFILE_FETCH_ATTEMPTS,
   PROFILE_REQUEST_TIMEOUT_MS,
   profileCacheKey,
+  readCachedProfile,
   waitForProfileRetry,
 } from '../lib/profileFetchPolicy';
 import { reportOperationalFailure } from '../lib/telemetry';
@@ -27,6 +28,8 @@ import { isEmployeeSession } from '../lib/employeeIdentity';
 // Startup, foreground reconciliation and realtime share each account's profile
 // request instead of aborting/restarting it and keeping the auth gate busy.
 let activeProfileFetch: { userId: string; requestId: symbol; isCurrent: () => boolean; promise: Promise<void> } | null = null;
+// A confirmed/optimistic local profile supersedes reads begun before that change.
+let profileRevision = 0;
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
@@ -82,6 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ session });
   },
   setProfile: (profile) => {
+    profileRevision += 1;
     set({
       profile,
       profileLoadState: profile ? 'ready' : get().session ? get().profileLoadState : 'idle',
@@ -125,40 +129,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     if (activeProfileFetch?.userId === userId && activeProfileFetch.isCurrent()) return activeProfileFetch.promise;
     const account = profileUpdater.capture();
-    const isCurrent = () => account.userId === userId && account.isCurrent();
+    const revision = profileRevision;
+    const isCurrent = () => account.userId === userId && account.isCurrent() && revision === profileRevision;
 
     const requestId = Symbol(userId);
     const promise = Promise.resolve().then(async () => {
-      // Keep verified screens mounted on refresh, including signup when Android
-      // returns from a picker. Replacing signup here discards its native result.
-      const hadVerifiedProfile =
-        get().profile?.id === userId && get().profileLoadState === 'ready';
-      const hadVerifiedMissing = isCurrent() &&
-        get().profile === null && get().profileLoadState === 'missing';
-      if (!hadVerifiedMissing && get().profile?.id !== userId) {
-        try {
-          const raw = await AsyncStorage.getItem(profileCacheKey(userId));
-          const cached = raw ? JSON.parse(raw) as Profile : null;
-          if (cached?.id === userId && isCurrent()) {
-            set({
-              profile: normalizeProfile(cached),
-              // Persisted presentation never authorizes a new session.
-              isProfileLoading: true,
-              profileLoadState: 'loading',
-            });
-          }
-        } catch {
-          if (isCurrent()) void AsyncStorage.removeItem(profileCacheKey(userId));
-        }
-      }
-      if (!isCurrent()) {
-        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
-        return;
-      }
-      if (!hadVerifiedMissing && get().profile?.id !== userId) {
-        set({ isProfileLoading: true, profileLoadState: 'loading' });
-      }
       try {
+        // Keep verified screens mounted: replacing signup discards native picker results.
+        const hadVerifiedProfile =
+          get().profile?.id === userId && get().profileLoadState === 'ready';
+        const hadVerifiedMissing = isCurrent() &&
+          get().profile === null && get().profileLoadState === 'missing';
+        if (!hadVerifiedMissing && get().profile?.id !== userId) {
+          try {
+            const raw = await readCachedProfile(userId);
+            const cached = raw ? JSON.parse(raw) as Profile : null;
+            if (cached?.id === userId && isCurrent()) {
+              set({
+                profile: normalizeProfile(cached),
+                // Persisted presentation never authorizes a new session.
+                isProfileLoading: true,
+                profileLoadState: 'loading',
+              });
+            }
+          } catch {
+            if (isCurrent()) void AsyncStorage.removeItem(profileCacheKey(userId));
+          }
+        }
+        if (!isCurrent()) return;
+        if (!hadVerifiedMissing && get().profile?.id !== userId) {
+          set({ isProfileLoading: true, profileLoadState: 'loading' });
+        }
         let data: unknown = null;
         let error: { message?: string; status?: number; code?: string } | null = null;
         for (let attempt = 0; attempt < PROFILE_FETCH_ATTEMPTS; attempt += 1) {
@@ -169,6 +170,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } catch (caught) {
             error = caught instanceof Error ? caught : { message: String(caught) };
           }
+          if (!isCurrent()) return;
           if (!error || isNonRetryableProfileError(error) || attempt === PROFILE_FETCH_ATTEMPTS - 1) {
             break;
           }
@@ -219,9 +221,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           persistProfile(profile);
         }
       } finally {
-        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
-        if (isCurrent()) {
-          set({ isProfileLoading: false, isLoading: false });
+        if (activeProfileFetch?.requestId === requestId) {
+          activeProfileFetch = null;
+          if (account.userId === userId && account.isCurrent()) set({ isProfileLoading: false, isLoading: false });
         }
       }
     });
@@ -240,8 +242,7 @@ const profileUpdater = createProfileUpdater({
   state: (profileSaveState) => useAuthStore.setState({ profileSaveState }),
   confirmed: (data, replayed) => {
     const profile = normalizeProfile(data);
-    useAuthStore.setState({ profile, profileLoadState: 'ready' });
-    persistProfile(profile);
+    useAuthStore.getState().setProfile(profile);
     // A receipt proves this save, not that its returned snapshot is still newest.
     if (replayed) void useAuthStore.getState().fetchProfile(profile.id);
   },
