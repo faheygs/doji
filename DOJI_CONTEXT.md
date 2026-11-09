@@ -132,6 +132,10 @@ the future poll. Community idea acceptance does not schedule a Doji.
   Committed reads reconcile in the background without covering usable content.
 - When scrolled, new head posts wait behind New posts; unauthorized rows disappear
   immediately. Only new realtime media uses the bounded readiness queue.
+- Unobserved, idle social caches retain at most 80 queries / 120 pages, with no
+  abandoned query over five pages. Eviction is whole-query and waits for pending
+  mutations; mounted lists retain their exact pages/cursors and are not memory-capped.
+  Reopening an evicted list starts from its initial authorized page, not a saved tail.
 - Private media references may be cached; signed bearer URLs may not. Visible
   cards coalesce signing, use stable object/variant cache keys and retain a
   card-local skeleton until native display. Never re-encode a cached image into itself.

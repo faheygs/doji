@@ -5,6 +5,7 @@ import { mutationFailureOperation } from './diagnosticOperations';
 import { createApiQueryCache } from './apiQueryCache';
 import { retryDelayWithJitter, shouldRetryQuery } from './apiRetry';
 import { PERSISTED_QUERY_GC_MS } from './queryPersistence';
+import { installInactiveQueryBudget } from './inactiveQueryBudget';
 
 export const queryClient = new QueryClient({
   queryCache: createApiQueryCache(),
@@ -16,7 +17,7 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 2,
       // Recent inactive social surfaces remain available for instant reopen.
-      // Disk persistence is separately allowlisted and size-bounded.
+      // Dormant social snapshots also have count/page budgets; disk has byte caps.
       gcTime: PERSISTED_QUERY_GC_MS,
       retry: shouldRetryQuery,
       retryDelay: retryDelayWithJitter,
@@ -36,3 +37,5 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+installInactiveQueryBudget(queryClient);
