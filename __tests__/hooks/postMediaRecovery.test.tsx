@@ -109,6 +109,53 @@ test('an offline mount can read permitted disk bytes but waits for reconnect bef
   expect(result.current.photo_url).toBe('file:///cache/one');
   expect(sign).not.toHaveBeenCalled();
   await act(async () => onlineManager.setOnline(true));
+  expect(result.current.photo_url).toBe('file:///cache/one');
+});
+
+test('explicit native-image retry bypasses a broken disk entry and uses the signed replacement', async () => {
+  disk.mockResolvedValue('/cache/broken');
+  const held = deferred<Post[]>();
+  sign.mockReturnValueOnce(held.promise);
+  const { result } = renderHook(() => usePostMedia(post(), true));
+  await act(async () => {});
+  expect(result.current.photo_url).toBe('file:///cache/broken');
+  await act(async () => held.resolve([{ ...post(), photo_url: 'https://signed.test/one' }]));
+  expect(result.current.photo_url).toBe('file:///cache/broken');
+  disk.mockClear();
+  await act(async () => result.current.retry());
+  expect(disk).not.toHaveBeenCalled();
+  expect(result.current.photo_url).toBe('https://signed.test/one');
+});
+
+test('scrolling offscreen retains the image but revocation clears it immediately', async () => {
+  const { result, rerender } = renderHook(
+    ({ enabled, active }: { enabled: boolean; active: boolean }) =>
+      usePostMedia(post(), enabled, 'feed', active),
+    { initialProps: { enabled: true, active: true } },
+  );
+  await act(async () => {});
+  const displayed = result.current.photo_url;
+  rerender({ enabled: true, active: false });
+  expect(result.current.photo_url).toBe(displayed);
+  await act(async () => {
+    onlineManager.setOnline(false);
+    onlineManager.setOnline(true);
+  });
+  expect(sign).toHaveBeenCalledTimes(1);
+  rerender({ enabled: false, active: false });
+  expect(result.current.photo_url).toBeNull();
+});
+
+test('lookahead can authorize an image without enabling hidden-card retries', async () => {
+  const { result, rerender } = renderHook(
+    ({ active }: { active: boolean }) => usePostMedia(post(), true, 'feed', active),
+    { initialProps: { active: false } },
+  );
+  await act(async () => {});
+  expect(sign).not.toHaveBeenCalled();
+  expect(result.current.photo_url).toBeNull();
+  rerender({ active: true });
+  await act(async () => {});
   expect(result.current.photo_url).toBe('https://signed.test/one');
 });
 

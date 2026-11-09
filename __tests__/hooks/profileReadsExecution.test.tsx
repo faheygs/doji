@@ -144,6 +144,26 @@ test('missing post id remains empty even on manual refresh', async () => {
   });
   expect(mockRpc).not.toHaveBeenCalled();
 });
+
+test.each([false, true])('detail refresh fences a local reaction but respects denied=%s', async (denied) => {
+  const cached = {id:'post',reaction_count:2,my_reactions:['fire'],comment_count:1};
+  client.setQueryData(['post','post','member'],cached);
+  client.getMutationCache().build(client,{mutationKey:['toggleReaction','member']},{
+    status:'pending',submittedAt:Date.now(),variables:{postId:'post'},context:{},data:undefined,
+    error:null,failureCount:0,failureReason:null,isPaused:false,
+  });
+  mockRead.mockResolvedValue({data:denied ? null : {...cached,reaction_count:1,my_reactions:[],comment_count:7},error:null});
+  const {result} = renderHook(() => {
+    const query = usePost('post');
+    return {data:query.data,refetch:query.refetch};
+  },{wrapper:Wrapper});
+  await act(async () => {
+    const refreshed = await result.current.refetch();
+    expect(refreshed.error).toBeNull();
+    expect(refreshed.data).toEqual(denied ? null : {...cached,comment_count:7});
+  });
+  await waitFor(() => expect(result.current.data).toEqual(denied ? null : {...cached,comment_count:7}));
+});
 test.each([
   ['member', undefined],
   [undefined, 'target'],

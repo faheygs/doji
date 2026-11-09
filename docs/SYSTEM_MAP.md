@@ -25,6 +25,11 @@ terms/privacy are built separately with versioned URLs by
 
 ## Technology stack
 
+`lib/feedMediaWindow.ts` owns bounded feed image lookahead, separate from visible
+post-channel subscriptions. `lib/reactionReadConsistency.ts` coordinates local
+reaction writes with feed, detail and engagement reads; server authorization and
+audience-specific aggregates remain owned by the existing RPC contracts.
+
 Mobile variants are resolved by `app.config.ts` and
 `plugins/mobileEnvironment.cts`; `app.json` remains the production base.
 Development/staging use separate app identities, schemes, staging service bindings

@@ -175,6 +175,9 @@ These lifecycle changes remain next-build source; check recorded release state.
 
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
+  Photo and text feeds warm adjacent authorized metadata, not its image backlog.
+  An observed own post missing from the adjacent cache makes that cache stale before
+  warming; reaction/count updates alone do not restart the warm-up effect.
 - Mounted engagement reads use `get_post_engagement_snapshot_v2` and exact thread
   reads. Partial pages are not totals; one audience never overwrites another.
   Poll summary/loading failures never impersonate zero votes. Retained same-scope
@@ -186,6 +189,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   covering event-order races. Counter updates do not emit a second feed-wide hint.
 - Optimistic callbacks and delayed reconciliation remain bound to the initiating
   member. Stale account results cannot patch, roll back or refresh another cache.
+  `reactionReadConsistency` fences feed/detail/engagement reaction fields against
+  pending writes and reads started before the receipt's existing 1.5-second settle
+  interval ends. Coalesced reads retain their original start time. Fresh reads still
+  reconcile; failed commands restore only their reaction fields, not whole pages.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
 - Root route guards subscribe to derived authorization decisions, not the entire
@@ -219,6 +226,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   failures are contained. Decode stalls show local retry feedback after fifteen
   seconds without blocking social controls. Scrolling/count updates do not prefetch
   unopened comment/reaction lists; thumbnails are requested only for dual photos.
+  `feedMediaWindow` permits visible rows plus two forward rows to resolve images.
+  Videos remain visible-only; image lookahead never mounts an offscreen player.
+  Visibility does not discard a mounted row's resolved image. Valid native disk
+  sources stay stable after signing; explicit image retry bypasses a failed disk
+  entry. Authorization and row identity still clear old content immediately.
 - New head-post preparation shares two native slots per mounted feed across realtime
   batches. Every queued row has an eight-second arrival-to-fallback limit; a timeout
   cannot launch more native work while earlier non-cancellable work remains pending.
