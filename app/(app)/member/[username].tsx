@@ -105,6 +105,8 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
   const isBlockedByMe = blockQuery.data;
   const entryReady = useProfileActionReadiness(profile?.id, friendshipQuery, blockQuery);
   const actionsReady = relationshipKnown && isBlockedByMe !== undefined && entryReady;
+  const actionReadError = friendshipQuery.isError || blockQuery.isError;
+  const actionsEnabled = actionsReady && !actionReadError;
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
@@ -268,7 +270,7 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
   const pendingIncoming = friendshipStatus === 'pending_in';
 
   const handleFriendAction = () => {
-    if (!actionsReady) return;
+    if (!actionsEnabled) return;
     setFriendActionError(null);
     if (isFriend) return;
     if (pendingIncoming && friendship?.id) {
@@ -297,7 +299,7 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
   };
 
   const handleRemoveFriend = () => {
-    if (!profile || !friendship?.id) return;
+    if (!actionsEnabled || !profile || !friendship?.id) return;
     showDialog({
       title: 'Unfriend?',
       message: `Remove ${profile.display_name} from your friends?`,
@@ -313,7 +315,7 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
   };
 
   const handleBlockUser = () => {
-    if (!profile) return;
+    if (!actionsEnabled || !profile) return;
     showDialog({
       title: 'Block user?',
       message: `Block ${profile.display_name}? Their content will leave your feed immediately. Use Report separately if you also want our moderation team to review the account.`,
@@ -333,7 +335,7 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
   };
 
   const handleUnblockUser = () => {
-    if (!profile) return;
+    if (!actionsEnabled || !profile) return;
     showDialog({
       title: 'Unblock user?',
       message: `Unblock ${profile.display_name}? They'll be able to see your posts and interact with you again.`,
@@ -375,19 +377,21 @@ function MemberProfile({ username, returnTo }: { username?: string; returnTo?: s
           <View style={styles.topBarSpacer} />
           <View style={styles.topActions}>
             <ProfileFriendButton ready={actionsReady} blocked={!!isBlockedByMe} status={friendshipStatus}
+              error={actionReadError}
               busy={sendRequest.isPending || respondRequest.isPending || removeFriend.isPending}
               onPress={isFriend ? handleRemoveFriend : handleFriendAction} />
-            {actionsReady ? <ProfileManageMenu
+            <ProfileManageMenu
+              ready={actionsEnabled}
               isBlocked={!!isBlockedByMe}
               busy={removeFriend.isPending || blockUser.isPending || unblockUser.isPending}
               onBlock={handleBlockUser}
               onUnblock={handleUnblockUser}
               onReport={() => openReport({ reportedUserId: profile.id })}
-            /> : null}
+            />
           </View>
         </View>
 
-        {(!actionsReady && (friendshipQuery.isError || blockQuery.isError)) ? (
+        {actionReadError ? (
           <View style={{ marginHorizontal: Spacing.lg }}>
             <InlineFeedback title="Could not load friendship status" message="Your profile is available. Retry to load its actions." />
             <Button onPress={() => { void friendshipQuery.refetch(); void blockQuery.refetch(); }}>Retry actions</Button>

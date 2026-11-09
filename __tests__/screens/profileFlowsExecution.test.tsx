@@ -211,13 +211,40 @@ it('never guesses a friendship action while the authoritative relationship is un
   mockRelationshipPending = true;
   const ui = render(shell(<Member />));
   expect(ui.getByLabelText('Loading friendship status')).toBeTruthy();
+  expect(ui.getByLabelText('Loading friendship status').props.accessibilityRole).toBe('button');
   expect(ui.queryByText('Add friend')).toBeNull();
   expect(ui.queryByText('Accept')).toBeNull();
   expect(ui.queryByText('Unfriend')).toBeNull();
+  const menu = ui.getByLabelText('Manage profile connection');
+  expect(menu.props.accessibilityState.disabled).toBe(true);
   mockRelationshipPending = false;
   mockStatus = 'friends';
   ui.rerender(shell(<Member />));
   expect(ui.getByText('Unfriend')).toBeTruthy();
+  expect(ui.getByLabelText('Manage profile connection')).toBe(menu);
+  expect(menu.props.accessibilityState.disabled).toBe(false);
+});
+
+it('background action errors retain the label/menu and disable commands until retry succeeds', () => {
+  mockStatus = 'pending_in'; mockRelationshipStale = true;
+  const ui = render(shell(<Member />));
+  mockStatus = 'friends'; mockRelationshipStale = false;
+  ui.rerender(shell(<Member />));
+  const menu = ui.getByLabelText('Manage profile connection');
+  expect(ui.getByText('Unfriend')).toBeTruthy();
+  mockRelationshipError = true;
+  ui.rerender(shell(<Member />));
+  expect(ui.getByText('Unfriend')).toBeTruthy();
+  expect(ui.queryByLabelText('Loading friendship status')).toBeNull();
+  expect(ui.getByLabelText('Manage profile connection')).toBe(menu);
+  expect(menu.props.accessibilityState.disabled).toBe(true);
+  expect(ui.getByText('Could not load friendship status')).toBeTruthy();
+  fireEvent.press(ui.getByText('Unfriend'));
+  expect(mockDialog).not.toHaveBeenCalled();
+  mockRelationshipError = false;
+  ui.rerender(shell(<Member />));
+  expect(menu.props.accessibilityState.disabled).toBe(false);
+  expect(ui.queryByText('Could not load friendship status')).toBeNull();
 });
 
 it('a stale incoming request is revalidated before offering Accept', () => {

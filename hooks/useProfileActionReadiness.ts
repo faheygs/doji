@@ -14,17 +14,25 @@ export function useProfileActionReadiness(
     targetId?: string;
     relationshipStale: boolean;
     blockStale: boolean;
+    ready: boolean;
   } | null>(null);
   if (!entry.current || entry.current.targetId !== targetId) {
     entry.current = {
       targetId,
       relationshipStale: relationship.isStale,
       blockStale: block.isStale,
+      ready: false,
     };
   }
-  return (
+  if (
+    !relationship.isError &&
+    !block.isError &&
     (!entry.current.relationshipStale ||
       (relationship.isFetchedAfterMount && !relationship.isError)) &&
     (!entry.current.blockStale || (block.isFetchedAfterMount && !block.isError))
-  );
+  )
+    entry.current.ready = true;
+  // A background refresh failure must not dismantle a resolved action bar.
+  // Callers keep the last label, disable commands and offer an explicit retry.
+  return entry.current.ready;
 }

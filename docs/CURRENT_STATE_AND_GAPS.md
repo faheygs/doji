@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Profile action-bar follow-up is source-only after the owner's Staging build 6 report:
+resolved labels/menu survive background read errors with commands disabled and
+explicit retry; friendship/privacy prefetch also runs on cached-profile entry.
+Unknown actions use a fixed-size loading button rather than the gray placeholder.
+Exact-head CI and a new native staging artifact/device check remain required;
+existing installed builds and production are unchanged by this correction.
+
 Social feedback follow-up is source preparation, not installed in Staging build 5:
 comment/poll-answer heart read ordering and targeted rollback, viewer-keyed profile
 warming and identity-safe friendship actions, plus public-name search and local

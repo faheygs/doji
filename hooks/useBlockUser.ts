@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteD
 import { supabase } from '../lib/supabase';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
+import { blockStatusOptions } from '../lib/memberProfileQueries';
 import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
@@ -144,19 +145,5 @@ export function useBlockedUserCount() {
 
 export function useIsBlockedByMe(targetUserId?: string) {
   const userId = useAuthStore((s) => s.session?.user?.id);
-  return useQuery<boolean>({
-    queryKey: ['isBlocked', userId, targetUserId],
-    queryFn: async ({ signal }): Promise<boolean> => {
-      if (!userId || !targetUserId) return false;
-      const { count, error } = await runAbortableQuery(supabase
-        .from('blocks')
-        .select('id', { count: 'exact', head: true })
-        .eq('blocker_id', userId)
-        .eq('blocked_id', targetUserId), signal);
-      if (error) throw error;
-      return (count ?? 0) > 0;
-    },
-    enabled: !!userId && !!targetUserId,
-    staleTime: 30_000,
-  });
+  return useQuery(blockStatusOptions(userId, targetUserId));
 }

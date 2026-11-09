@@ -1,5 +1,8 @@
 import React from 'react';
-const mockPrefetchClient = { prefetchQuery: jest.fn().mockResolvedValue(undefined) };
+const mockPrefetchClient = {
+  prefetchQuery: jest.fn().mockResolvedValue(undefined),
+  getQueryData: jest.fn(),
+};
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => mockPrefetchClient,

@@ -43,15 +43,40 @@ export function memberProfileOptions(
       const view = parsePublicProfileView(await fetchPublicProfileView(username, signal));
       const profile = normalizePublicProfile(view.profile);
       if (profile && !signal.aborted) {
-        // Begin the dependent read before the route renders. Navigation and the
-        // screen share this exact query, avoiding duplicate requests or fake rows.
-        void client.prefetchQuery(friendshipOptions(userId, profile.id));
+        // Begin dependent reads before the route renders. Navigation and the
+        // screen share the exact queries, avoiding duplicate requests or fake rows.
+        warmProfileActions(client, userId, profile.id);
       }
       return { ...view, profile };
     },
     enabled: !!username && !!userId,
     staleTime: 30_000,
   });
+}
+
+export function blockStatusOptions(userId: string | undefined, targetId: string | undefined) {
+  return queryOptions({
+    queryKey: ['isBlocked', userId, targetId],
+    queryFn: async ({ signal }): Promise<boolean> => {
+      if (!userId || !targetId) return false;
+      const { count } = await runAbortableQuery(
+        supabase
+          .from('blocks')
+          .select('id', { count: 'exact', head: true })
+          .eq('blocker_id', userId)
+          .eq('blocked_id', targetId),
+        signal,
+      );
+      return (count ?? 0) > 0;
+    },
+    enabled: !!userId && !!targetId,
+    staleTime: 30_000,
+  });
+}
+
+export function warmProfileActions(client: QueryClient, viewer: string, target: string) {
+  void client.prefetchQuery(friendshipOptions(viewer, target));
+  void client.prefetchQuery(blockStatusOptions(viewer, target));
 }
 
 export function friendshipMatchesTarget(

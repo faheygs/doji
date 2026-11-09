@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useProfileNavigationStore } from '../stores/useProfileNavigationStore';
 import { hrefWithReturnTo, ROUTES } from './navigationReturn';
 import type { QueryClient } from '@tanstack/react-query';
-import { memberProfileOptions } from './memberProfileQueries';
+import { memberProfileOptions, warmProfileActions } from './memberProfileQueries';
 
 export function normalizeProfileUsername(value: string | null | undefined): string {
   return value?.trim().toLowerCase().replace(/^@/, '') ?? '';
@@ -24,6 +24,12 @@ export function prepareProfileHref(
   }
   useProfileNavigationStore.getState().begin(handle);
   const userId = useAuthStore.getState().session?.user.id;
-  if (client && userId) void client.prefetchQuery(memberProfileOptions(handle, userId, client));
+  if (client && userId) {
+    const options = memberProfileOptions(handle, userId, client);
+    const cached = client.getQueryData(options.queryKey);
+    // A fresh profile cache skips its queryFn: still warm stale/missing action reads.
+    if (cached?.profile?.username === handle) warmProfileActions(client, userId, cached.profile.id);
+    void client.prefetchQuery(options);
+  }
   return hrefWithReturnTo(`/(app)/member/${encodeURIComponent(handle)}`, returnTo);
 }
