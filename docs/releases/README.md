@@ -5,6 +5,65 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 9 social feedback and search staging
+
+PR #79 exact head `10f86be164f4897f46f4fcb04c5e39db96165669` passed the four
+quality jobs and security, then squash-merged without bypass as
+`3c35e567f9a53f43d4ab5f41c22ef9e39d381ee2`. Main quality `42691212240` passed
+all four jobs and all 17 coverage budgets. Source includes comment/poll-answer
+heart consistency, profile/relationship identity fencing and warming, public-name
+search and account-scoped query history. No production release is included.
+Automatic admin staging `42694176813` passed its plan and skipped package/deploy.
+
+Only staging `ohrcupagdoilkwhecict` received `member_profile_search_v1.sql`.
+Its old function body exactly matched the reviewed retaining inverse; the index
+was absent. Capacity was 43,865,779 database bytes / 105 profiles with zero lock
+waits. The bounded transaction added one GIN index and replaced only the search
+function. Owner/grants/definer settings, unrelated functions, policies and triggers
+were unchanged. Authorized hosted RPC reads passed name matching, literal percent,
+length/result bounds, safe-field projection and self exclusion. A diagnostic's
+direct table read was correctly denied; the corrected RPC check passed without
+widening permissions. Full synthetic exclusion/friendship/index/rollback coverage
+passed in isolated database CI. No test accounts or messages were created.
+
+The owner approved one internal build per platform using included credits only.
+Fresh preflight found $24 available, no active builds, existing staging signing and
+exactly the owner's iPhone (suffix 801C). Build 6 changes only the source and counter
+relative to build 5's native service configuration; push/reporting and OTA stay off.
+The 389-file upload archive matched clean reviewed source and excluded credentials,
+native generated folders and unrelated owner changes. EAS's cached counter read
+initially lagged the successful 5-to-6 reservation; fresh readback verified it before
+archive completion. Neither the reservation nor build submission was replayed.
+
+| Artifact | EAS build | Version/build | Status |
+| --- | --- | --- | --- |
+| iPhone Staging | `31fd3df7-b287-49fd-9a8c-36e6160df5fb` | 1.0.8 / 6 | Complete; artifact verified, owner acceptance pending |
+| Android Staging | `81a90446-326b-4ecc-b8d7-aff826f305ee` | 1.0.8 / 6 | Complete; signed artifact verified and emulator updated, native acceptance pending |
+
+iPhone IPA SHA-256 is `ee3fc9e0f7ed2533766a94cb47a3969fd7a7ddaf4ef2a07bd04814c626312240`.
+Its embedded identity/build and owner-only provisioning matched; OTA is disabled.
+The source-map upload matched `doji-staging`, release
+`com.doit.challengeapp.staging@1.0.8+6` and Debug ID
+`5f1da1f0-351c-46f6-9875-901291f097ca`. This is not device-error symbolication or
+full macOS code-signature verification.
+
+Android APK SHA-256 is `8dc714ae5e63f8e5eeab54e6f9e93709f3ce562688dd99dde7630c9d51024a61`.
+Its release package/build 6 and valid APK signature matched the existing staging
+certificate; it is not debuggable. Source-map upload matched the same staging
+project/release and Debug ID `13c10c3a-f86b-458e-a718-2d3284630caa`. Update installation
+used `install -r` without clearing app data; installed version 1.0.8/build 6 was read
+back. Signed-in UI/heart/profile/search acceptance is pending. The owner received
+the iPhone installation link and targeted regression checklist. EAS's final read
+was $21 included credits remaining: $3 used by this pair, no added spending or retry.
+
+Private baseline, candidate, rollback and readback evidence is retained in
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-09-member-search`; build/configuration
+and source receipts are in `%LOCALAPPDATA%/Doji/mobile-staging/2026-11-09-social-feedback`.
+The SQL inverse retains data. Native recovery requires stopping distribution and
+qualifying a corrective build; do not downgrade signatures or enable OTA.
+Native smoothness, physical Android speed and final device acceptance remain
+separate from passing CI. Production, delivery gates and owner local edits are unchanged.
+
 ## November 6 mobile development and staging builds
 
 PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality

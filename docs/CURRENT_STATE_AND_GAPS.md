@@ -1,41 +1,35 @@
 # Current state and handoff gaps
 
-Updated November 6, 2026. This separates source, recorded deployments and owner
+Updated November 9, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-Social feedback follow-up is source preparation, not installed in Staging build 5:
-comment/poll-answer heart read ordering and targeted rollback, viewer-keyed profile
-warming and identity-safe friendship actions, plus public-name search and local
-query history. The search client/SQL work was not included in PR #77/build 5.
-The isolated SQL fixture verifies search, permissions, indexing and exact rollback;
-hosted search installation, exact-head CI and new iOS/Android builds remain gated.
-Native smoothness and performance are not established by synthetic race tests.
-No production change is included in this follow-up.
+PR #79's social feedback/search follow-up merged as `3c35e56`; exact-head PR checks
+and main quality `42691212240` passed. It adds comment/poll-answer heart read ordering
+and targeted rollback, viewer-keyed profile warming, identity-safe friendship
+actions, and account-scoped query history. The separately approved staging search
+function/index is deployed: username and public first/last-name token prefixes,
+safe fields, bounds and unchanged permissions/contracts passed hosted checks.
+Its isolated fixture additionally covers exclusions, friendships, index eligibility
+and exact retaining rollback. Production search is unchanged.
 
-Feed smoothness follow-up is source preparation, not deployed: mounted image
-retention with two-card lookahead, stale-reaction read fencing and adjacent
-authorized feed warming (including a just-confirmed own post). Native scroll/reopen,
-rapid reaction and post-to-tab-switch acceptance on both platforms remains required;
-synthetic races cannot establish frame-time or network performance. Staging's
-Free-tier image transformation difference remains explicit. Production is unchanged.
-
-Mobile performance hardening is source preparation, not deployed. Query-family
-refresh scheduling now isolates unrelated in-flight waits while retaining hint
-coalescing, per-query single-flight reads and teardown fencing. Disk restoration
-waits for the accepted account and discards reads spanning an identity change,
-including a switch back to the original account. New head-post media preparation
-has a per-feed native-work limit, arrival-time fallback and identity/removal fences.
-Profile-setting recovery preserves uncertain patches/keys across navigation and
-fences account changes; failed theme ownership reads no longer trigger corrections.
-These changes still require exact-head CI and release-build staging qualification.
-The performance targets and device/request acceptance matrix are in
-[test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
-Real-device baselines, remaining request/media fixes, exact-head CI and staging
-artifact qualification remain pending; no production performance claim follows
-from the synthetic regressions.
+Staging build 6 completed for iPhone and Android from that exact source. Artifact
+identities/signing metadata and staging source-map uploads passed; Android is
+installed over build 5 without clearing data, and the owner has the iPhone link.
+Focused native acceptance is still pending. The pair used $3 of included credits
+($21 remaining at the final read), with no added spending. It includes the prior
+performance/feed hardening: refresh
+single-flight isolation, account-fenced disk restoration, bounded image preparation
+and retention, reaction read fencing, authorized adjacent-feed warming and uncertain
+profile-setting recovery. The owner reported improved feed/reaction behavior on
+iPhone build 5 and passed theme restoration on build 4. These reports and synthetic
+tests do not establish frame-time/network budgets or physical Android performance.
+The emulator is not a physical-device baseline. Staging's Free-tier image
+transformation difference remains explicit; production is unchanged.
+See the [release receipt](releases/README.md#november-9-social-feedback-and-search-staging)
+and [performance acceptance matrix](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
 
 Mobile staging configuration is merged; Android and iPhone artifacts exist, but native
 workflow qualification is unfinished:
