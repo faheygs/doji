@@ -188,6 +188,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   member. Stale account results cannot patch, roll back or refresh another cache.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Root route guards subscribe to derived authorization decisions, not the entire
+  profile/session. Theme consumers observe only the current member's appearance
+  fields; stable colors/context avoid app-wide updates on unrelated profile changes.
+  Ban, onboarding, profile-read failure, sign-out and appearance transitions still
+  reconcile immediately; this does not change authorization or introduce polling.
 - Optional profile-disk presentation waits at most 1.2 seconds before authorized
   server reconciliation. At most one native cache read remains outstanding;
   another account/request skips it rather than joining an older lifetime. A late
