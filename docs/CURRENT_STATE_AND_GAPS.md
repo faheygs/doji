@@ -1,12 +1,12 @@
 # Current state and handoff gaps
 
-Updated November 6, 2026. This separates source, recorded deployments and owner
+Updated November 8, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-Mobile performance hardening is source preparation, not deployed. Query-family
+Mobile performance hardening is merged, not production-deployed. Query-family
 refresh scheduling now isolates unrelated in-flight waits while retaining hint
 coalescing, per-query single-flight reads and teardown fencing. Disk restoration
 waits for the accepted account and discards reads spanning an identity change,
@@ -14,11 +14,20 @@ including a switch back to the original account. New head-post media preparation
 has a per-feed native-work limit, arrival-time fallback and identity/removal fences.
 Profile-setting recovery preserves uncertain patches/keys across navigation and
 fences account changes; failed theme ownership reads no longer trigger corrections.
-These changes still require exact-head CI and release-build staging qualification.
+Optional profile disk reads now yield to server reconciliation after 1.2 seconds;
+late reads cannot overwrite a newer save or cross account lifetimes. Dormant social
+caches are bounded, and unrelated profile/token updates no longer rerender root
+authorization/theme consumers. The combined source passed all PR/main gates at
+`c45e27c`; the separately approved Staging build 4 pair is complete, verified and
+installed. iPhone owner checks and Android emulator navigation/theme/session smoke
+checks passed. Android cold-launch waits timed out before eventually reaching the
+feed; the emulator launcher also showed substantial rendering delay. The cause
+and physical-device performance remain unqualified; see the
+[staging qualification receipt](releases/README.md#november-8-mobile-performance-staging-qualification).
 The performance targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
-Real-device baselines, remaining request/media fixes, exact-head CI and staging
-artifact qualification remain pending; no production performance claim follows
+Real-device baselines, remaining request/media fixes and full staging workflow/failure
+qualification remain pending; no production performance claim follows
 from the synthetic regressions.
 
 Mobile staging configuration is merged; Android and iPhone artifacts exist, but native

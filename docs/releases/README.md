@@ -5,6 +5,69 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 8 mobile performance staging qualification
+
+The combined mobile performance candidate is reviewed main
+`c45e27c711f9aec4eb21eb6971ee9dc4cf8db7a1`. PRs #73, #74 and #75 passed exact-head
+application, coverage, database, web-migration and security checks. Final main
+quality `42544875568` passed all four jobs; admin staging `42545952773` passed its
+plan and skipped packaging/deployment. The complete source tree matches the
+locally validated candidate: 290 suites / 5,296 tests, full typecheck, lint, size,
+hygiene and diff checks. Existing coverage budgets were unchanged.
+
+The owner approved exactly one internal Staging build per platform, no automatic
+retry or additional spending. Fresh allowance before launch was $30 included
+credit. Both completed on the existing medium build classes; final usage was
+$18 of $45 included credit, confirming $3 for this pair and $27 remaining.
+The clean source archive contains only 383 reviewed mobile inputs; unrelated
+owner Worker/email changes are excluded. Staging connections, disabled push/device
+reporting, separate Android signing and owner-only iPhone provisioning were checked.
+
+| Artifact | EAS build | Build number | Qualification |
+| --- | --- | --- | --- |
+| Android Staging | `636aa512-1287-4995-8028-bb5e0ffb0e1b` | 4 | Complete; artifact/signature/upload verified; functional smoke passed, launch timing open |
+| iPhone Staging | `cae1c632-5b65-4a2d-bde3-32f98fa1d99f` | 4 | Complete; artifact/provisioning/upload verified; owner confirmed retained account/feed |
+
+The iPhone artifact has the staging identity and build 4, disabled OTA and exactly
+the owner's provisioned device (suffix 801C), retaining the prior ad-hoc profile.
+Its staging source-map upload report matches release
+`com.doit.challengeapp.staging@1.0.8+4` and Debug ID
+`15d414d3-d1da-4689-a27e-3515a78334ad`. This verifies upload and package metadata,
+not captured-error symbolication or full macOS code-signature verification.
+The owner installed build 4 over the existing iPhone Staging app and confirmed
+that the account remained signed in and the feed opened normally, then reported
+Friends/Rank/Profile/Settings navigation and background-return working normally.
+The owner also confirmed changing appearance, restoring the original theme and
+navigating away/back did not revert the theme or leave saving stuck.
+This is owner-reported functional acceptance, not measured latency or frame timing.
+
+The Android APK is release-mode, matches the retained staging signing certificate
+and was installed with `adb install -r`, preserving account/data. Feed, Rank,
+Friends, Profile, Settings, appearance change/restoration and background return
+were visually verified. The restored dark theme survived relaunch. Its upload
+report matches the same staging release and Debug ID
+`dfd8ef01-e539-4637-ae9b-4504555b0af9`.
+Initial and controlled repeat `am start -W` waits timed out after 17.074 and
+12.845 seconds respectively; both eventually reached the signed-in feed without
+data reset. A hot return reported 2.373 seconds. These few emulator samples are
+not end-to-end percentiles. Bounded error-category checks found no sampled crash
+or render-loop errors. The Android launcher also showed substantial frame delays;
+WHPX and the NVIDIA-backed emulator renderer are present. This does not isolate
+the cause or establish that the app meets its performance targets. Controlled
+physical Android/iPhone baselines and Android startup investigation remain open.
+
+Private configuration, archive and launch receipts are retained outside Git under
+`%LOCALAPPDATA%/Doji/mobile-staging/2026-11-08-performance`; the prior build 3 pair
+remains retained for comparison/recovery. No backend, production, store, push,
+reporting, signing-key or service-plan change is included. Native rollback is not
+instant: stop distribution and separately qualify a correction; do not reset
+accounts, replace signing or enable OTA.
+
+This is not complete performance acceptance. Physical iPhone/Android measurements,
+the full route/failure matrix, remaining request/media work and the documented
+Free-staging media-transform difference remain separate gates. Emulator functional
+checks cannot establish real-device latency or frame-rate targets.
+
 ## November 6 mobile development and staging builds
 
 PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality
