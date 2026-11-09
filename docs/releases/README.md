@@ -25,7 +25,7 @@ reporting, separate Android signing and owner-only iPhone provisioning were chec
 
 | Artifact | EAS build | Build number | Qualification |
 | --- | --- | --- | --- |
-| Android Staging | `636aa512-1287-4995-8028-bb5e0ffb0e1b` | 4 | Complete; artifact/signature/upload verified; functional smoke passed, launch timing open |
+| Android Staging | `636aa512-1287-4995-8028-bb5e0ffb0e1b` | 4 | Complete; artifact/signature/upload verified; emulator smoke and bounded post-restart activity timings recorded |
 | iPhone Staging | `cae1c632-5b65-4a2d-bde3-32f98fa1d99f` | 4 | Complete; artifact/provisioning/upload verified; owner confirmed retained account/feed |
 
 The iPhone artifact has the staging identity and build 4, disabled OTA and exactly
@@ -52,9 +52,29 @@ Initial and controlled repeat `am start -W` waits timed out after 17.074 and
 data reset. A hot return reported 2.373 seconds. These few emulator samples are
 not end-to-end percentiles. Bounded error-category checks found no sampled crash
 or render-loop errors. The Android launcher also showed substantial frame delays;
-WHPX and the NVIDIA-backed emulator renderer are present. This does not isolate
-the cause or establish that the app meets its performance targets. Controlled
-physical Android/iPhone baselines and Android startup investigation remain open.
+WHPX and the NVIDIA-backed emulator renderer are present.
+
+The owner requested emulator qualification without the unavailable physical
+Android phone. The emulator had over three days of uptime; host checks found
+about 11 GB free RAM and 25% CPU load. A same-configuration, data-preserving cold
+restart initially crashed before Android boot; one diagnostic launch then booted
+successfully. No crash report was sent, graphics/security settings changed or
+app data wiped. The launch overlapping Android boot took 23.765 seconds and is
+not a settled baseline. Once boot work settled, three cold activity launches
+reported `Status: ok` with `TotalTime` 681, 513 and 499 ms. Each subsequently
+reached the signed-in feed; these numbers measure Android activity startup, not
+authenticated feed-ready latency or statistical percentiles.
+After resetting diagnostic frame counters, Feed/Rank/Friends/Profile/Settings
+navigation rendered 210 frames with 8 janky frames (3.81%), median 17 ms and p95
+19 ms, versus the earlier roughly 400 ms median. Android's launcher also improved.
+This supports an emulator-wide degradation contribution, not an isolated root
+cause or a claim that all app performance targets pass. The account and restored
+dark theme remained intact. Return after at least 20 seconds in the background
+reported a 63 ms hot activity launch and restored the feed without sign-in.
+A bounded current-process error-category check found no sampled fatal exception,
+ANR, render-loop, type/reference or invariant errors; this is not exhaustive logging.
+No app binary, backend or production change was needed.
+Controlled physical Android/iPhone baselines remain open.
 
 Private configuration, archive and launch receipts are retained outside Git under
 `%LOCALAPPDATA%/Doji/mobile-staging/2026-11-08-performance`; the prior build 3 pair

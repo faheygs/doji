@@ -42,10 +42,16 @@ SDK at `D:/Android/Sdk` (`ANDROID_HOME`), and AVD `Doji_Staging_API_36`
 under `D:/Android/Avd`. Its Pixel 8 profile uses Android 16/API 36 Google Play
 x86_64, 4 GB RAM and four cores. Windows Hypervisor Platform and a complete boot
 were verified. Check it is not already running before launching that named AVD.
-On this machine, use `emulator -avd Doji_Staging_API_36 -gpu swiftshader`:
-automatic graphics failed to load its software OpenGL library. Software graphics
-does not disable CPU virtualization. Doji Dev is installed and reaches member
-sign-in through local Metro; authenticated workflow acceptance is still pending.
+The current verified renderer is `-gpu auto`, using the NVIDIA host GPU with
+WHPX; `swiftshader` was an earlier setup fallback, not a device-speed baseline.
+For emulator-wide slowdown, compare Android's launcher with Doji, check host
+resource pressure, and cold-start the same AVD without wiping data. Do not start
+a duplicate instance. `-no-snapshot` avoids restoring the running VM state while
+retaining installed apps and disk data; never substitute `-wipe-data`. Allow
+Android boot work to settle before collecting bounded activity/frame samples.
+Activity startup timings are not authenticated feed-ready measurements, and
+emulator results do not qualify physical-device performance. See the
+[recorded emulator checks](releases/README.md#november-8-mobile-performance-staging-qualification).
 
 The local native build passed with the existing Temurin JDK 17.0.20.1, SDK 36,
 Build Tools 35.0.0 and NDK 27.1.12297006. Android Studio's bundled JDK 25 failed

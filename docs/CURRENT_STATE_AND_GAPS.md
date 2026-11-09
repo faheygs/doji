@@ -20,9 +20,11 @@ caches are bounded, and unrelated profile/token updates no longer rerender root
 authorization/theme consumers. The combined source passed all PR/main gates at
 `c45e27c`; the separately approved Staging build 4 pair is complete, verified and
 installed. iPhone owner checks and Android emulator navigation/theme/session smoke
-checks passed. Android cold-launch waits timed out before eventually reaching the
-feed; the emulator launcher also showed substantial rendering delay. The cause
-and physical-device performance remain unqualified; see the
+checks passed. Earlier Android launch timeouts coincided with emulator-wide
+rendering delay. A data-preserving emulator restart restored substantially better
+rendering; three settled cold activity launches completed in 499–681 ms with the
+account retained. This is not feed-ready latency or physical-device qualification;
+the earlier emulator degradation's cause remains unisolated. See the
 [staging qualification receipt](releases/README.md#november-8-mobile-performance-staging-qualification).
 The performance targets and device/request acceptance matrix are in
 [test qualification](TEST_SUITE_HANDOFF.md#mobile-performance-qualification).
