@@ -182,7 +182,14 @@ These lifecycle changes remain next-build source; check recorded release state.
   Privacy failures discard cached rows; transient failures retain authorized data
   with explicit retry. The general model caps a window at 250 rows; the staging
   inline consumer tightens this to 60 roots and 30 replies per retained expanded
-  root. Offscreen reply observers pause reads, and closure/root eviction removes
+  root. Root pages leaving that window enter an independent memory-only backtrack
+  cache capped at 20 pages / 400 rows / 2 MiB serialized UTF-16 accounting. Entries
+  expire two minutes after their original read, never after their latest reuse.
+  Restoring a page preserves query freshness and creates no fetching state.
+  Invalidated/error queries cannot restore cache; refresh drops it before I/O,
+  including failed refresh, and write patches discard it. Scope/account teardown
+  removes it with the window. Evicted data is not included in refresh fanout.
+  Offscreen reply observers pause reads, and closure/root eviction removes
   their memory-only cache. Confirmed edits/deletes and heart rollback touch matching
   records only. The UI remains one newest-first list with inline replies, no separate
   reply page or Show latest control. New head reads are accepted only while still

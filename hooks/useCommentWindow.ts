@@ -4,6 +4,7 @@ import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
 import { commentScopeKey, type CommentWindow, type CommentScope } from '../lib/commentWindow';
 import { readCommentWindow, type CommentReadIntent } from '../lib/commentWindowReads';
 import { canKeepQueryDataOnError } from '../lib/queryDisplayState';
+import { restoreCommentPage } from '../lib/commentWindowCache';
 
 const canRead = () => focusManager.isFocused() && onlineManager.isOnline();
 const subscribe = (notify: () => void) => {
@@ -33,6 +34,7 @@ export function useCommentWindow(
   const visibleIds = useRef<ReadonlySet<string>>(new Set());
   const headRefreshAllowed = useRef(false);
   const pending = useRef(false);
+  const cacheOwner = useRef(captureProfileAccount());
   const [lastIntent, setLastIntent] = useState<CommentReadIntent>('refresh');
   const query = useQuery({
     queryKey: key,
@@ -42,6 +44,12 @@ export function useCommentWindow(
       setLastIntent(readIntent);
       intent.current = 'refresh';
       if (!account.isCurrent() || account.userId !== viewerId) throw new Error('Not authenticated');
+      cacheOwner.current = account;
+      // Refresh/permission hints invalidate evicted pages even if the new read fails.
+      if (readIntent === 'refresh' || readIntent === 'latest')
+        client.setQueryData<CommentWindow>(key, (old) =>
+          old?.history ? { ...old, history: undefined } : old,
+        );
       try {
         return await readCommentWindow({
           client,
@@ -61,7 +69,15 @@ export function useCommentWindow(
         ) {
           // A subsequent transient failure must not resurrect data denied by this read.
           client.setQueryData<CommentWindow>(key, (old) =>
-            old ? { ...old, pages: [], parentRow: undefined, revision: old.revision + 1 } : old,
+            old
+              ? {
+                  ...old,
+                  pages: [],
+                  history: undefined,
+                  parentRow: undefined,
+                  revision: old.revision + 1,
+                }
+              : old,
           );
         }
         throw error;
@@ -83,6 +99,12 @@ export function useCommentWindow(
         client.isFetching({ queryKey: key, exact: true })
       )
         return;
+      if (!cacheOwner.current.isCurrent() || captureProfileAccount().userId !== viewerId) return;
+      if (
+        (next === 'next' || next === 'previous') &&
+        restoreCommentPage(client, key, next, visibleIds.current, budget?.maxPages ?? 5)
+      )
+        return;
       pending.current = true;
       intent.current = next;
       setLastIntent(next);
@@ -93,7 +115,7 @@ export function useCommentWindow(
         intent.current = 'refresh';
       }
     },
-    [client, enabled, key, refetch, viewerId],
+    [client, enabled, key, refetch, viewerId, budget?.maxPages],
   );
   return { ...query, load, lastIntent, visibleIds, headRefreshAllowed, available };
 }

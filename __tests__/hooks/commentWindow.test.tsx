@@ -9,7 +9,7 @@ import {
 import { useCommentWindow } from '../../hooks/useCommentWindow';
 import { readCommentWindow } from '../../lib/commentWindowReads';
 import { commentScopeKey, type CommentWindow } from '../../lib/commentWindow';
-import { deferred, scope, windowData } from '../fixtures/commentWindow';
+import { cursor, deferred, page, scope, windowData } from '../fixtures/commentWindow';
 
 let mockUser = 'me';
 let mockEpoch = 0;
@@ -85,11 +85,13 @@ test('manual edge reads are single-flight and refused offline', async () => {
 });
 
 test('authorization failure purges retained data and a later network failure cannot restore it', async () => {
+  read.mockResolvedValueOnce(cachedWindow());
   const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
   read.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: '42501' }));
   await act(async () => result.current.load('refresh'));
   expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.pages).toEqual([]);
+  expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.history).toBeUndefined();
   read.mockRejectedValueOnce(new TypeError('Network request failed'));
   await act(async () => result.current.load('refresh'));
   expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.pages).toEqual([]);
@@ -119,8 +121,63 @@ test('account lifetime predicate invalidates even a sign-out/sign-in to the same
 });
 
 test('unmounted panes leave no accumulated paging cache', async () => {
+  read.mockResolvedValueOnce(cachedWindow());
   const { result, unmount } = renderHook(() => useCommentWindow(scope, true), { wrapper });
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
   unmount();
   await waitFor(() => expect(client.getQueryData(commentScopeKey(scope))).toBeUndefined());
 });
+
+const cachedWindow = () => ({
+  ...windowData(['current']),
+  pages: [{ ...page(['current']), previous: cursor('current') }],
+  history: [
+    {
+      direction: 'previous' as const,
+      cursor: cursor('current'),
+      page: { ...page(['cached']), readAt: Date.now() },
+      bytes: 100,
+    },
+  ],
+});
+
+test('a cached backtrack never enters fetching state or executes the network reader', async () => {
+  read.mockResolvedValueOnce(cachedWindow());
+  const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  await act(async () => result.current.load('previous'));
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.pages[0].items[0].id).toBe(
+    'cached',
+  );
+  expect(result.current.isFetching).toBe(false);
+  await waitFor(() => expect(result.current.data?.pages[0].items[0].id).toBe('cached'));
+});
+
+test('refresh discards evicted cache before I/O even when transport fails', async () => {
+  read.mockResolvedValueOnce(cachedWindow());
+  const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  read.mockImplementationOnce(async () => {
+    expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.history).toBeUndefined();
+    throw new TypeError('Network request failed');
+  });
+  await act(async () => result.current.load('refresh'));
+  expect(client.getQueryData<CommentWindow>(commentScopeKey(scope))?.history).toBeUndefined();
+  await waitFor(() => expect(result.current.data?.history).toBeUndefined());
+  expect(result.current.data?.pages[0].items[0].id).toBe('current');
+});
+
+test.each(['other-account', 'same-account-new-lifetime'])(
+  'a stale callback cannot restore the prior account cache: %s',
+  async (transition) => {
+    read.mockResolvedValueOnce(cachedWindow());
+    const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    if (transition === 'other-account') mockUser = 'other';
+    else mockEpoch++;
+    await act(async () => result.current.load('previous'));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(result.current.data?.pages[0].items[0].id).toBe('current');
+  },
+);

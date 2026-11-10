@@ -37,6 +37,8 @@ profile/relationship options shared by navigation warming and route observers;
 it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
+`lib/commentPageHistory.ts` owns bounded, expiring root-page backtracking independently
+of the rendered window; reply reads remain on demand and no disk cache is introduced.
 `lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
 window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
 account/lifecycle fencing, reconciliation and validated transport. The staging-gated
