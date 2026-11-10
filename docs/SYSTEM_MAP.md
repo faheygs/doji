@@ -39,8 +39,9 @@ it does not load protected answers or media.
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
 `lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
 window model; `useCommentWindow`, `commentWindowReads` and `CommentWindowList/Page`
-connect it to separate native root/reply lists behind the default-off
-`commentPagingFeature` gate. `commentWindowCache` owns per-record write reconciliation;
+connect it to separate native root/reply lists behind the Staging-bound Dev-only
+`commentPagingFeature` gate; installed releases stay off.
+`commentWindowCache` owns per-record write reconciliation;
 the cache family participates in targeted realtime and native lifecycle recovery.
 The additive
 `supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are

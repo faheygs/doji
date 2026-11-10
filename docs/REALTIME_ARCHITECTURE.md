@@ -176,7 +176,7 @@ These lifecycle changes remain next-build source; check recorded release state.
 - Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
   first), each with bidirectional keyset cursors. Retained-ID refresh returns at
   most 50 authorized rows per call, not a replay of all previously visited pages.
-  The disabled native adapter uses memory-only `commentWindow` keys scoped by post,
+  The Staging-bound Dev-only adapter uses memory-only `commentWindow` keys scoped by post,
   viewer, audience and parent. Comment/heart, profile, block/friendship and moderation
   hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
   Privacy failures discard cached rows; transient failures retain authorized data
