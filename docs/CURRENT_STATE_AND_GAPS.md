@@ -6,13 +6,19 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-The reply-count correction is prepared, not deployed: the v2 projection supplies
+The reply-count correction is installed and read-qualified in Staging only: the v2 projection supplies
 an exact audience/visibility-filtered count for `View X replies`, independently of
 the replies loaded on the phone. The prior server/rollback retains its unnumbered
 label rather than inventing a total. Initial comments use a centered spinner;
 heart reconciliation keeps loaded content interactive without refresh spinners,
-and failed hearts surface feedback. Exact-head CI, staging SQL approval and hosted
-acceptance remain required; installed builds and production are unchanged.
+and failed hearts surface feedback. All exact-head checks passed at `58c3ccd`.
+The approved SQL readback matched, with 680 unrelated function/grant contracts,
+policies, triggers and indexes unchanged; private preflight/rollback/read evidence
+is retained under the November 10 staging reply-count record outside Git.
+Hosted Everyone/Friends pages, retained-row refresh and inline reply reads matched
+visibility-filtered counts. Android hot-reload Dev displayed numbered reply labels
+and expanded replies inline. Owner iPhone interaction/smoothness acceptance remains
+pending; installed Staging build 7 and production are unchanged.
 
 The comment paging SQL/index is installed and read-qualified in Staging only;
 existing reads/writes remain unchanged. Private installation/rollback evidence is
