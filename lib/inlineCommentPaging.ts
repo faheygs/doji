@@ -1,12 +1,10 @@
 import type { CommentPageRow, CommentWindow } from './commentWindow';
 import { canKeepQueryDataOnError } from './queryDisplayState';
 
-// Bound the whole expanded tree, not just each individual cursor. At most 60
-// roots and 30 replies per retained root: 1,860 list records regardless of thread
-// size, plus at most 60 parent snapshots used to reauthorize expanded threads.
-export const INLINE_ROOT_BUDGET = { pageSize: 20, maxPages: 3 } as const;
+// Root pages remain in order until the sheet closes; native virtualization owns
+// rendered-view limits. Reply windows remain bounded and load only on demand.
+export const INLINE_ROOT_BUDGET = { pageSize: 20, maxPages: 3, retainLoadedRoots: true } as const;
 export const INLINE_REPLY_BUDGET = { pageSize: 10, maxPages: 3 } as const;
-export const INLINE_COMMENT_RECORD_LIMIT = 60 * 31;
 export type InlineWindowState = {
   data?: CommentWindow;
   isError: boolean;

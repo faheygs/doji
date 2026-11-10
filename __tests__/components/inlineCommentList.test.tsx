@@ -58,6 +58,7 @@ function visible(ui: ReturnType<typeof render>, keys: string[]) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockRoot = windowData(['newest', 'older']);
+  mockRoot.retainLoadedRoots = true;
   mockRoot.pages[0].next = null;
   mockRoot.pages[0].items.forEach((item) => {
     item.has_replies = true;
@@ -102,6 +103,7 @@ test.each(['ios', 'android'] as const)(
     ]);
     expect(ui.queryByText(/Show latest|Back to comments/)).toBeNull();
     expect(list.props.getItemLayout).toBeUndefined();
+    expect(list.props.onStartReached).toBeUndefined();
     expect(list.props.maintainVisibleContentPosition.minIndexForVisible).toBe(0);
     expect(list.props.maintainVisibleContentPosition.autoscrollToTopThreshold).toBeUndefined();
     fireEvent.press(ui.getAllByLabelText('Hide replies')[0]);
@@ -120,19 +122,19 @@ test('reply targets expand inline; offscreen expanded threads pause without clos
   expect(ui.getByText('Synthetic newest-reply')).toBeTruthy();
 });
 
-test('older-root paging pins the parent when its reply is visible and evicts only a safe edge', () => {
+test('downward paging keeps loaded roots even when an early root reply is visible', () => {
   mockRoot.pages = [page(['newest']), page(['middle']), page(['older'])];
   mockRoot.pages[0].items[0].has_replies = true;
   const ui = render(<InlineCommentList {...props} replyTargetId="newest" />);
-  visible(ui, ['newest-reply']);
   mockLoad.mockClear();
+  visible(ui, ['newest-reply']);
   fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
-  expect(mockLoad).not.toHaveBeenCalled();
+  expect(mockLoad).toHaveBeenCalledWith('next');
   visible(ui, ['older']);
   expect(mockLoad).toHaveBeenCalledWith('next');
 });
 
-test('root eviction unmounts reply observers and their expansion state', () => {
+test('root removal unmounts reply observers and their expansion state', () => {
   const ui = render(<InlineCommentList {...props} replyTargetId="newest" />);
   expect(ui.getByText('Synthetic newest-reply')).toBeTruthy();
   mockRoot = windowData(['older']);
@@ -140,6 +142,15 @@ test('root eviction unmounts reply observers and their expansion state', () => {
   ui.rerender(<InlineCommentList {...props} />);
   expect(ui.queryByText('Synthetic newest-reply')).toBeNull();
   expect(mockCalls.mock.calls.every((call) => call[0] === null)).toBe(true);
+});
+
+test('returning to an invalidated loaded page reconciles visible IDs, never pages upward', () => {
+  mockRoot.pages[0].needsRefresh = true;
+  const ui = render(<InlineCommentList {...props} />);
+  visible(ui, ['newest']);
+  expect(mockLoad).toHaveBeenCalledWith('visible');
+  expect(mockLoad).not.toHaveBeenCalledWith('previous');
+  expect(ui.UNSAFE_getByType(FlatList).props.data[0].comment.id).toBe('newest');
 });
 
 test('new roots refresh at the head automatically, never through a latest button or while scrolled', () => {

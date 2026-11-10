@@ -18,7 +18,7 @@ const subscribe = (notify: () => void) => {
 export function useCommentWindow(
   scopeInput: Omit<CommentScope, 'viewerId'>,
   enabled: boolean,
-  budget?: { pageSize: number; maxPages: number },
+  budget?: { pageSize: number; maxPages: number; retainLoadedRoots?: boolean },
 ) {
   const client = useQueryClient();
   const viewerId = useAuthStore((state) => state.session?.user.id) ?? '';

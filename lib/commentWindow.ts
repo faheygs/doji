@@ -6,6 +6,7 @@ export const COMMENT_WINDOW_PAGES = 5;
 export type CommentCursor = { createdAt: string; id: string };
 export type CommentPageRow = Comment & { has_replies: boolean };
 export type CommentPage = {
+  needsRefresh?: boolean;
   items: CommentPageRow[];
   previous: CommentCursor | null;
   next: CommentCursor | null;
@@ -21,6 +22,7 @@ export type CommentPageRequest = {
   cursor: CommentCursor | null;
 };
 export type CommentWindow = {
+  retainLoadedRoots?: boolean;
   scope: CommentScope;
   pages: CommentPage[];
   headChanged?: boolean;
@@ -101,7 +103,7 @@ export function acceptCommentPage(
   const unique = { ...page, items: page.items.filter((row) => !existing.has(row.id)) };
   const pages = ticket.direction === 'next' ? [...window.pages, unique] : [unique, ...window.pages];
   let removedIds: string[] = [];
-  if (pages.length > maxPages) {
+  if (!(window.retainLoadedRoots && !window.scope.parentId) && pages.length > maxPages) {
     const edge = ticket.direction === 'next' ? pages[0] : pages.at(-1)!;
     if (visibleIds.size === 0 || edge.items.some((row) => visibleIds.has(row.id)))
       return { window, status: 'deferred', removedIds: [] };

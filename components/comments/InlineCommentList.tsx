@@ -203,8 +203,6 @@ export function InlineCommentList({
         scrollEventThrottle={32}
         onEndReached={() => loadRoot('next')}
         onEndReachedThreshold={2}
-        onStartReached={() => loadRoot('previous')}
-        onStartReachedThreshold={1}
         ListFooterComponent={
           <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
             {root.isFetching ? <ActivityIndicator color={colors.textSecondary} /> : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { useCommentWindow } from './useCommentWindow';
 import type { CommentReadIntent } from '../lib/commentWindowReads';
 
@@ -18,6 +18,17 @@ export function useInlineWindowPaging(
   current.current = { query, enabled, visible, atHead };
   query.visibleIds.current = visible;
   query.headRefreshAllowed.current = atHead;
+  const dirtyRoots = useMemo(
+    () =>
+      new Set(
+        query.data?.retainLoadedRoots
+          ? query.data.pages
+              .filter((page) => page.needsRefresh)
+              .flatMap((page) => page.items.map((row) => row.id))
+          : [],
+      ),
+    [query.data],
+  );
   const load = useCallback((intent: CommentReadIntent, retry = false) => {
     const { query: q, enabled: active, visible: ids, atHead: top } = current.current;
     if (!active || !q.available || q.isFetching || (q.isError && !retry)) return;
@@ -30,7 +41,7 @@ export function useInlineWindowPaging(
       const pages = data?.pages ?? [];
       if (intent === 'next' && !pages.at(-1)?.next) return;
       if (intent === 'previous' && !pages[0]?.previous) return;
-      if (pages.length >= 3) {
+      if (pages.length >= 3 && !data?.retainLoadedRoots) {
         const edge = intent === 'previous' ? pages.at(-1) : pages[0];
         if (!ids.size || edge?.items.some((row) => ids.has(row.id))) return;
       }
@@ -44,10 +55,16 @@ export function useInlineWindowPaging(
   useEffect(() => {
     const data = query.data;
     if (!data || !enabled) return;
-    const rows = data.pages.flatMap((page) => page.items);
+    const rows = data.retainLoadedRoots
+      ? [...(data.pages[0]?.items ?? []), ...(data.pages.at(-1)?.items ?? [])]
+      : data.pages.flatMap((page) => page.items);
     const indexes = rows.flatMap((row, index) => (visible.has(row.id) ? [index] : []));
     const first = Math.min(...indexes),
       last = Math.max(...indexes);
+    if (data.retainLoadedRoots && [...visible].some((id) => dirtyRoots.has(id))) {
+      load('visible');
+      return;
+    }
     if (!data.scope.parentId && data.headChanged && atHead && !data.pages[0]?.previous) {
       load('latest');
       return;
@@ -61,7 +78,7 @@ export function useInlineWindowPaging(
       load(rows.length ? 'tail' : 'latest');
       return;
     }
-    if (first < 5 && data.pages[0]?.previous) {
+    if (!data.retainLoadedRoots && first < 5 && data.pages[0]?.previous) {
       load('previous');
       return;
     }
@@ -75,6 +92,7 @@ export function useInlineWindowPaging(
     visible,
     atHead,
     load,
+    dirtyRoots,
   ]);
   return load;
 }

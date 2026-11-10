@@ -182,10 +182,15 @@ the future poll. Community idea acceptance does not schedule a Doji.
   errors, closure or native read suspension. Variable-height text remains accessible.
   The prepared scalable read contract separates root and reply cursors and reconciles
   retained IDs without inserting new head rows into a scrolled viewport. Its client
-  window model caps retained pages and refuses to evict visible rows. The staging
-  adapter retains up to 60 roots and 30 replies per retained expanded root (1,860
-  list records plus at most 60 authorization parent snapshots). Visible replies pin
-  their root; closed/evicted threads discard cache, and offscreen threads pause reads.
+  window model supports bounded reply pages without evicting visible rows. The
+  staging adapter appends older root pages and keeps every loaded root in the same
+  list until closure or head replacement: scrolling back up never pages roots.
+  Native virtualization bounds rendered views, not accumulated root data; memory
+  grows with visited roots, and no native 100K-memory claim follows from model tests.
+  Refresh checks at most three visible root pages, marking other loaded pages for
+  in-place ID reconciliation on return rather than replaying their page cursors.
+  Replies retain up to 30 rows per expanded root and load on demand; closed/removed
+  threads discard cache, and offscreen threads pause reads.
   New root rows enter automatically only at the head, with a completion-time scroll
   fence; new reply tails append without replacing the inline thread. Native frame/
   anchor acceptance remains separate from model tests. Partial pages are never totals.
