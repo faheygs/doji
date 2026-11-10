@@ -66,6 +66,7 @@ test('expanded replies stay inline with their per-thread page limit and stable i
         error: null,
         isFetching: false,
         isLoading: false,
+        isPaging: false,
       },
     ]),
   );

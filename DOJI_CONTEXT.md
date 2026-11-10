@@ -176,6 +176,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
   composing a reply must not navigate to a separate thread page. Multiple threads
   can stay expanded. Newest root comments appear first by default, without a
   Show latest control. Performance changes must preserve this interaction.
+  Collapsed threads show `View X replies` using the server's authorized total,
+  never the number of reply rows currently cached. The reply-count projection is
+  separately gated; old-server compatibility must not invent a count.
   Root comments follow the descending server cursor so older pages extend below
   loaded roots; replies stay chronological. Visible threads prepare one cursor page
   ahead of the viewport, with a guarded edge fallback, and stop automatic reads on

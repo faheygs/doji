@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { FlatList, Platform, Text } from 'react-native';
+import { FlatList, Platform, StyleSheet, Text } from 'react-native';
 import { InlineCommentList } from '../../components/comments/InlineCommentList';
 import { page, row, scope, windowData } from '../fixtures/commentWindow';
 import type { CommentWindow } from '../../lib/commentWindow';
@@ -13,17 +13,20 @@ let mockReplies: Map<string, CommentWindow>;
 let mockError: unknown = null;
 let mockReplyError: unknown = null;
 let mockFetching = false;
+let mockPaging = false;
 let mockOnline = true;
+let mockInitial = false;
 const mockVisible = { current: new Set<string>() };
 jest.mock('../../hooks/useCommentWindow', () => ({
   useCommentWindow: (owner: { parentId: string | null }, enabled: boolean, budget: unknown) => {
     mockCalls(owner.parentId, enabled, budget);
     const error = owner.parentId ? mockReplyError : mockError;
     return {
-      data: owner.parentId ? mockReplies.get(owner.parentId) : mockRoot,
+      data: owner.parentId ? mockReplies.get(owner.parentId) : mockInitial ? undefined : mockRoot,
       error,
       isError: !!error,
       isFetching: mockFetching,
+      isPaging: mockPaging,
       isLoading: false,
       available: mockOnline,
       visibleIds: mockVisible,
@@ -76,9 +79,80 @@ beforeEach(() => {
   mockError = null;
   mockReplyError = null;
   mockFetching = false;
+  mockPaging = false;
   mockOnline = true;
+  mockInitial = false;
 });
 afterEach(() => jest.restoreAllMocks());
+
+test.each([1, 123])('initial loading before %i comments is neutral, never an unavailable warning', (count) => {
+  mockInitial = true;
+  mockFetching = true;
+  const ui = render(<InlineCommentList {...props} />);
+  expect(ui.getByLabelText('Loading comments')).toBeTruthy();
+  expect(ui.queryByText(/unavailable|Could not|Couldn't|No comments/)).toBeNull();
+  expect(ui.queryByText('Try again')).toBeNull();
+  expect(mockAvailable).toHaveBeenLastCalledWith(false);
+  mockInitial = false;
+  mockFetching = false;
+  mockRoot = windowData(Array.from({ length: count }, (_, index) => `comment-${index}`));
+  ui.rerender(<InlineCommentList {...props} />);
+  expect(ui.queryByLabelText('Loading comments')).toBeNull();
+  expect(ui.getByText('Synthetic comment-0')).toBeTruthy();
+  expect(mockAvailable).toHaveBeenLastCalledWith(true);
+});
+
+test.each(['initial', 'denied'])('%s failure has a centered retry state, not a bottom warning', (mode) => {
+  mockInitial = mode === 'initial';
+  mockError = mode === 'initial' ? new TypeError('Network request failed') : { code: '42501' };
+  const ui = render(<InlineCommentList {...props} />);
+  expect(ui.getByText("Couldn't load comments.")).toBeTruthy();
+  expect(StyleSheet.flatten(ui.getByTestId('comment-read-status').props.style)).toMatchObject({
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+  });
+  expect(ui.queryByText('Synthetic newest')).toBeNull();
+  fireEvent.press(ui.getByText('Try again'));
+  expect(mockLoad).toHaveBeenCalledWith('refresh');
+});
+
+test('heart/background refresh preserves root and inline reply content without loading indicators', () => {
+  const ui = render(<InlineCommentList {...props} replyTargetId="newest" />);
+  const list = ui.UNSAFE_getByType(FlatList);
+  mockFetching = true;
+  ui.rerender(<InlineCommentList {...props} replyTargetId="newest" />);
+  expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+  expect(ui.getByText('Synthetic newest')).toBeTruthy();
+  expect(ui.getByText('Synthetic newest-reply')).toBeTruthy();
+  expect(ui.queryByLabelText(/Loading/)).toBeNull();
+  expect(mockAvailable).toHaveBeenLastCalledWith(true);
+  fireEvent.press(ui.getByLabelText('Hide replies'));
+  expect(ui.queryByText('Synthetic newest-reply')).toBeNull();
+});
+
+test('missing root pages and reply pages still show their local paging spinners', () => {
+  mockFetching = true;
+  mockPaging = true;
+  const ui = render(<InlineCommentList {...props} replyTargetId="newest" />);
+  expect(ui.getByLabelText('Loading more comments')).toBeTruthy();
+  expect(ui.getByLabelText('Loading replies')).toBeTruthy();
+  expect(ui.getByText('Synthetic newest')).toBeTruthy();
+  expect(ui.getByText('Synthetic newest-reply')).toBeTruthy();
+});
+
+test.each([1, 3, 100000])('collapsed reply label uses the authoritative %i total, not the loaded reply window', count => {
+  mockRoot.pages[0].items[0].reply_count = count;
+  const ui = render(<InlineCommentList {...props} />);
+  const label = `View ${count} ${count === 1 ? 'reply' : 'replies'}`;
+  fireEvent.press(ui.getByLabelText(label));
+  expect(ui.getByText('Synthetic newest-reply')).toBeTruthy();
+  fireEvent.press(ui.getByLabelText('Hide replies'));
+  expect(ui.getByLabelText(label)).toBeTruthy();
+  mockRoot = { ...mockRoot, pages: [{ ...mockRoot.pages[0], items: mockRoot.pages[0].items.map(
+    item => item.id === 'newest' ? { ...item, reply_count: count + 1 } : item,
+  ) }] };
+  ui.rerender(<InlineCommentList {...props} />);
+  expect(ui.getByLabelText(`View ${count + 1} replies`)).toBeTruthy();
+});
 
 test.each(['ios', 'android'] as const)(
   '%s keeps several reply threads inline in one stable list',
@@ -177,12 +251,16 @@ test.each(['hidden', 'offline', 'fetching', 'failure'])(
   (mode) => {
     mockOnline = mode !== 'offline';
     mockFetching = mode === 'fetching';
-    mockError = mode === 'failure' ? new TypeError('offline') : null;
+    mockError = mode === 'failure' ? new TypeError('Network request failed') : null;
     mockRoot.pages[0].next = { id: 'older', createdAt: row('older').created_at };
     const ui = render(<InlineCommentList {...props} enabled={mode !== 'hidden'} />);
     visible(ui, ['older']);
     fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
     expect(mockLoad).not.toHaveBeenCalled();
+    if (mode === 'failure') {
+      expect(ui.getByText('Synthetic newest')).toBeTruthy();
+      expect(ui.getByText('Could not refresh comments.')).toBeTruthy();
+    }
   },
 );
 

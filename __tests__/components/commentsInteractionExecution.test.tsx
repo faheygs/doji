@@ -22,7 +22,7 @@ jest.mock('../../components/comments/InlineCommentList', () => ({
     renderComment: (row: CommentWithMeta, reply: boolean) => React.ReactElement;
   }) => {
     const React = require('react');
-    require('react').useEffect(() => props.onAvailability(mockInlineReadable), [props.onAvailability]);
+    require('react').useEffect(() => props.onAvailability(mockInlineReadable), [props.onAvailability, mockInlineReadable]);
     return mockComments.data?.pages.flat().map(row =>
       <React.Fragment key={row.id}>{props.renderComment(row, !!row.parent_id)}</React.Fragment>) ?? null;
   },
@@ -187,12 +187,23 @@ describe('real comment composer and thread', () => {
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(ui.queryByText(/Show latest|Back to comments/)).toBeNull();
   });
-  it('locks the staging composer until the authorized window is readable', () => {
+  it('keeps the composer in place without a warning while waiting for the authorized read', () => {
     mockInlinePaging = true;
     mockInlineReadable = false;
     const ui = render(shell(<PostCommentsThread postId="post" />));
-    expect(ui.getByText('Comments are unavailable until this thread loads.')).toBeTruthy();
+    const input = ui.getByPlaceholderText('Add a comment…');
+    expect(input.props.editable).toBe(false);
+    expect(ui.queryByText(/Comments are unavailable|Comments are turned off/)).toBeNull();
+    fireEvent.changeText(input, 'Cannot send before authorization');
+    fireEvent.press(ui.getByLabelText('Send comment'));
     expect(mockAdd.mutate).not.toHaveBeenCalled();
+    mockInlineReadable = true;
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(ui.getByPlaceholderText('Add a comment…')).toBe(input);
+    expect(input.props.editable).toBe(true);
+    mockInlineReadable = false;
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(input.props.editable).toBe(false);
   });
   it.each(['ios', 'android'] as const)('keeps %s replies inline in one newest-first list without latest navigation', (platform) => {
     jest.replaceProperty(Platform, 'OS', platform);
@@ -365,8 +376,11 @@ describe('real comment composer and thread', () => {
     fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
     fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
     expect(mockLike.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(ui.queryByText('Couldn’t confirm the heart update.')).toBeNull();
     await act(async () => { finishFirst(); failSecond(); });
+    expect(ui.getByText('Couldn’t confirm the heart update.')).toBeTruthy();
     fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
+    expect(ui.queryByText('Couldn’t confirm the heart update.')).toBeNull();
     fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
     expect(mockLike.mutateAsync).toHaveBeenCalledTimes(4);
   });

@@ -51,6 +51,8 @@ the cache family participates in targeted realtime and native lifecycle recovery
 The additive
 `supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
 tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
+`member_comment_reply_counts_v1` separately upgrades the private projection with
+audience-safe exact reply totals; it has an exact retaining projection rollback.
 Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.
 `FriendRequestActions` shares row-owned response controls between requests and
 notifications. The response hook applies confirmed record updates, not list rollback.

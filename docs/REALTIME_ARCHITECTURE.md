@@ -190,7 +190,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   total-memory or physical-device 100K performance guarantee. Replies remain capped
   at 30 rows per expanded root. Offscreen reply observers pause reads, and closure/root removal removes
   their memory-only cache. Confirmed edits/deletes and heart rollback touch matching
-  records only. The UI remains one newest-first list with inline replies, no separate
+  records only. Root projections can include exact authorized `reply_count` for
+  collapsed labels; this is not the number of cached replies. Counts use the same
+  audience, block, own-report and moderation rules as the rows, with no new event
+  or polling channel. Existing comment hints and retained-ID reads reconcile them.
+  The UI remains one newest-first list with inline replies, no separate
   reply page or Show latest control. New head reads are accepted only while still
   at the head; reply-tail reads append after the retained cursor. Paging preserves
   visible IDs and native anchors rather than remounting the list. Production keeps

@@ -4,7 +4,7 @@ import type { FeedAudience } from './feedAudience';
 export const COMMENT_PAGE_SIZE = 50;
 export const COMMENT_WINDOW_PAGES = 5;
 export type CommentCursor = { createdAt: string; id: string };
-export type CommentPageRow = Comment & { has_replies: boolean };
+export type CommentPageRow = Comment & { has_replies: boolean; reply_count?: number };
 export type CommentPage = {
   needsRefresh?: boolean;
   items: CommentPageRow[];

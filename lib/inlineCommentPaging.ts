@@ -10,11 +10,12 @@ export type InlineWindowState = {
   isError: boolean;
   error: unknown;
   isFetching: boolean;
+  isPaging: boolean;
   isLoading: boolean;
 };
 export type InlineCommentRow =
   | { key: string; kind: 'comment'; rootId: string; comment: CommentPageRow; reply: boolean }
-  | { key: string; kind: 'toggle'; rootId: string; expanded: boolean }
+  | { key: string; kind: 'toggle'; rootId: string; expanded: boolean; replyCount?: number }
   | { key: string; kind: 'status'; rootId: string; state?: InlineWindowState };
 
 export function readableCommentRows(
@@ -40,6 +41,7 @@ export function inlineCommentRows(
         kind: 'toggle',
         rootId: root.id,
         expanded: expanded.has(root.id),
+        replyCount: root.reply_count,
       });
       if (expanded.has(root.id)) {
         rows.push(

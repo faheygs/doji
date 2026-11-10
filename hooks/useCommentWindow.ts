@@ -95,5 +95,6 @@ export function useCommentWindow(
     },
     [client, enabled, key, refetch, viewerId],
   );
-  return { ...query, load, lastIntent, visibleIds, headRefreshAllowed, available };
+  const isPaging = query.isFetching && ['next', 'previous', 'tail'].includes(lastIntent);
+  return { ...query, load, lastIntent, isPaging, visibleIds, headRefreshAllowed, available };
 }

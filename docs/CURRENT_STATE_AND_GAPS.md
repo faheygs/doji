@@ -6,6 +6,14 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The reply-count correction is prepared, not deployed: the v2 projection supplies
+an exact audience/visibility-filtered count for `View X replies`, independently of
+the replies loaded on the phone. The prior server/rollback retains its unnumbered
+label rather than inventing a total. Initial comments use a centered spinner;
+heart reconciliation keeps loaded content interactive without refresh spinners,
+and failed hearts surface feedback. Exact-head CI, staging SQL approval and hosted
+acceptance remain required; installed builds and production are unchanged.
+
 The comment paging SQL/index is installed and read-qualified in Staging only;
 existing reads/writes remain unchanged. Private installation/rollback evidence is
 retained outside Git under the November 9 comment-pages staging record. The owned
