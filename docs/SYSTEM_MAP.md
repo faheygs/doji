@@ -37,6 +37,11 @@ profile/relationship options shared by navigation warming and route observers;
 it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
+`lib/commentWindow.ts` prepares the separate bounded, bidirectional root/reply
+window model; it is not yet connected to the native list. The additive
+`supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
+tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
+Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.
 `FriendRequestActions` shares row-owned response controls between requests and
 notifications. The response hook applies confirmed record updates, not list rollback.
 `member_profile_search_v1` owns public-name/username search and its GIN index;

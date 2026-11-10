@@ -1,10 +1,20 @@
 # Current state and handoff gaps
 
-Updated November 6, 2026. This separates source, recorded deployments and owner
+Updated November 9, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+Comment scaling is source-only groundwork, not an active app path: additive
+root/reply keyset RPCs and a concurrent index preserve existing reads and writes.
+The owned offline database tests 100K comments, bidirectional cursors, permission
+boundaries and index plans. The client window model retains five 50-row pages,
+fences stale account/scope responses and defers eviction of visible rows. It is
+not yet wired to the native list, mutations or realtime reconciliation. Native
+anchor preservation, memory/frame measurements, exact-head CI and separately
+approved staging SQL/app qualification remain required. Existing installed apps,
+Dev behavior and production are unchanged by this groundwork.
 
 The Staging build 7 follow-up is source-only: comment roots now match descending
 keyset pagination, unchanged rows are memoized, and the loading footer retains its

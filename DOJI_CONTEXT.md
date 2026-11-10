@@ -176,6 +176,11 @@ the future poll. Community idea acceptance does not schedule a Doji.
   loaded roots; replies stay chronological. Visible threads prepare one cursor page
   ahead of the viewport, with a guarded edge fallback, and stop automatic reads on
   errors, closure or native read suspension. Variable-height text remains accessible.
+  The prepared scalable read contract separates root and reply cursors and reconciles
+  retained IDs without inserting new head rows into a scrolled viewport. Its client
+  window model caps retained pages and refuses to evict visible rows. This is not
+  active UI behavior yet: native anchor handling, mutation/realtime integration and
+  hosted qualification must precede activation. Partial pages are never totals.
   Friend-request controls own pending/error state per row on both request surfaces;
   acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

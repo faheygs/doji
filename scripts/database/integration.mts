@@ -85,6 +85,8 @@ export async function integration(room: TestRoom) {
   pass(participationDeadline(room));
   const { memberProfileSearch } = await import('./member-profile-search.mts');
   pass(memberProfileSearch(room));
+  const { memberCommentPages } = await import('./member-comment-pages.mts');
+  pass(memberCommentPages(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

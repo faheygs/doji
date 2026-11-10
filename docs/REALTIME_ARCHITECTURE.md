@@ -173,6 +173,14 @@ These lifecycle changes remain next-build source; check recorded release state.
 
 ### Read ownership
 
+- Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
+  first), each with bidirectional keyset cursors. Retained-ID refresh returns at
+  most 50 authorized rows per call, not a replay of all previously visited pages.
+  The memory-only window model is not connected yet. Activation must integrate
+  comment/heart, profile, block/friendship and moderation hints plus foreground/
+  reconnect reads; privacy failures must discard inaccessible cached content.
+  New head rows must not reorder a scrolled viewport. Native anchor preservation,
+  bounded active reply windows and per-record mutation fences remain release gates.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
   Photo and text feeds warm adjacent authorized metadata, not its image backlog.
