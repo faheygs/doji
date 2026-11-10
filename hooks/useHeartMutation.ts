@@ -3,6 +3,7 @@ import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
 import { executeCommand } from '../lib/commandGateway';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
+import { patchWindowHearts, restoreWindowHearts } from '../lib/commentWindowCache';
 import {
   heartMutationKey,
   heartQueryOwnedBy,
@@ -56,7 +57,8 @@ export function useHeartMutation<V extends Variables>(
       client.setQueriesData<InfiniteData<HeartRow[]>>({ predicate }, (old) =>
         patchHeart(old, kind, id, (row) => heartState(row, !vars.liked)),
       );
-      return { previous, account, settledAt: undefined as number | undefined };
+      const windowPrevious = kind === 'comment' ? patchWindowHearts(client, userId, vars.postId, id, row => heartState(row, !vars.liked)) : [];
+      return { previous, windowPrevious, account, settledAt: undefined as number | undefined };
     },
     onError: (_error, vars, context) => {
       if (
@@ -66,6 +68,7 @@ export function useHeartMutation<V extends Variables>(
       )
         return;
       context.settledAt = Date.now();
+      restoreWindowHearts(client, identify(vars), context.windowPrevious);
       for (const [key, data] of context.previous) {
         const prior = data?.pages.flat().find((row) => heartRowId(kind, row) === identify(vars));
         if (prior)
@@ -87,6 +90,7 @@ export function useHeartMutation<V extends Variables>(
       )
         return;
       context.settledAt = Date.now();
+      if (kind === 'comment') patchWindowHearts(client, userId, vars.postId, identify(vars), row => heartState(row, result.active, result.count));
       client.setQueriesData<InfiniteData<HeartRow[]>>(
         {
           predicate: (query) =>
@@ -103,7 +107,7 @@ export function useHeartMutation<V extends Variables>(
       if (!context?.account.isCurrent()) return;
       scheduleQueryInvalidation(
         client,
-        kind === 'comment' ? ['comments', 'commentLikes'] : ['pollVotersDetail'],
+        kind === 'comment' ? ['comments', 'commentWindow', 'commentLikes'] : ['pollVotersDetail'],
       );
     },
   });

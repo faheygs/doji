@@ -11,6 +11,18 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `member_comment_pages_v2.indexes.sql`, `member_comment_pages_v2.sql` and their
+  retaining inverse are source-only. The index installs concurrently outside a
+  transaction; the RPC installer refuses a missing, invalid or unexpected index.
+  Separate root/reply cursors and retained-ID refresh preserve existing installed
+  reads and all writes. Results cap at 50 and expose only safe fields; authorization
+  filtering can examine more index candidates than the returned count, so hosted
+  skew/concurrency and latency still need qualification. The offline harness
+  `node scripts/database/member-comment-pages.mts` uses 100K synthetic comments,
+  tied/deleted cursors, visibility denials and normal planner choices. It is also
+  included in the main database suite. Before release verify live compatibility,
+  index build capacity/locks and staging acceptance. Rollback removes only these
+  new read helpers/index; comments, command receipts and existing RPCs remain.
 - `member_profile_search_v1.sql` and its retaining inverse: source-only member
   discovery expansion. Indexed public display-name token prefixes join literal
   username prefixes; existing identity/block/demo/ban rules, grants and safe fields

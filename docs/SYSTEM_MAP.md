@@ -35,6 +35,23 @@ profile/relationship options shared by navigation warming and route observers;
 `ProfileFriendButton` and `useProfileActionReadiness` prevent guessed actions.
 `LockedPostBody` selects text-only locked previews from safe challenge metadata;
 it does not load protected answers or media.
+`commentThread` preserves cursor-compatible root order and chronological replies;
+`useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
+`lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
+window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
+account/lifecycle fencing, reconciliation and validated transport. The staging-gated
+`InlineCommentList` flattens roots and expanded replies into one virtualized list;
+`InlineReplyWindow` owns headless per-parent observers and `useInlineWindowPaging`
+owns viewport-adjacent reads. `inlineCommentPaging` bounds the combined retained
+tree. `PostCommentsThread` retains the shared rows/composer and production reader.
+`commentWindowCache` owns per-record write reconciliation;
+the cache family participates in targeted realtime and native lifecycle recovery.
+The additive
+`supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
+tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
+Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.
+`FriendRequestActions` shares row-owned response controls between requests and
+notifications. The response hook applies confirmed record updates, not list rollback.
 `member_profile_search_v1` owns public-name/username search and its GIN index;
 `scripts/database/member-profile-search.mts` verifies isolation, query plan and
 retaining rollback in an owned disposable database. Hosted installation is gated.

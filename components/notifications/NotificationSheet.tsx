@@ -18,7 +18,7 @@ import { NotificationListSkeleton } from './NotificationListSkeleton';
 import { SkeletonSwap } from '../ui/SkeletonSwap';
 import { CategoryBadgeIcon } from '../icons/BadgeIcons';
 import type { NotificationCenterItem } from '../../hooks/useNotificationCenter';
-import { useRespondToFriendRequest } from '../../hooks/useFriendRequests';
+import { FriendRequestActions } from '../friends/FriendRequestActions';
 import {
   friendRequestCopy,
   friendAcceptedCopy,
@@ -88,7 +88,6 @@ export function NotificationSheet({
   ).current;
   const attentionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
-  const respond = useRespondToFriendRequest();
   useDismissOnRouteBlur(visible, onClose);
   const dismissThen = useCallback(
     (action: () => void) => {
@@ -181,28 +180,8 @@ export function NotificationSheet({
                 body={copy.body}
                 sortAt={item.sortAt}
                 footer={
-                  <View style={styles.actions}>
-                    <Button
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        respond.mutate({ friendshipId: item.friendship.id, accept: true });
-                      }}
-                      size="sm"
-                      loading={respond.isPending}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      onPress={() =>
-                        respond.mutate({ friendshipId: item.friendship.id, accept: false })
-                      }
-                      size="sm"
-                      variant="ghost"
-                      loading={respond.isPending}
-                    >
-                      Decline
-                    </Button>
-                  </View>
+                  <FriendRequestActions key={item.friendship.id} friendshipId={item.friendship.id}
+                    name={requester?.display_name ?? requester?.username ?? 'this user'} />
                 }
               />
             </Card>
@@ -497,8 +476,6 @@ export function NotificationSheet({
       navigationOrigin,
       router,
       renderRightActions,
-      respond,
-      styles.actions,
       styles.card,
       styles.challengeLeading,
       styles.badgeLeading,

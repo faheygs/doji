@@ -8,7 +8,8 @@ import {
 import { newCommandId } from '../lib/idempotency';
 import { mapInfinitePosts } from '../lib/postCache';
 import { refreshPostEngagement } from '../lib/postEngagement';
-import { useAuthStore } from '../stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
+import { settleCommentWindow } from '../lib/commentWindowCache';
 import type { Comment, Post } from '../types/database';
 import type { FeedAudience } from '../lib/feedAudience';
 import { executeCommand } from '../lib/commandGateway';
@@ -105,7 +106,7 @@ export function useAddComment() {
         },
         (old) => (old ? { ...old, comment_count: old.comment_count + 1 } : old),
       );
-      return { comments, feeds, posts, optimistic };
+      return { comments, feeds, posts, optimistic, account: captureProfileAccount() };
     },
     onError: (_error, _variables, context) => {
       if (!isCurrentMember()) return;
@@ -115,6 +116,7 @@ export function useAddComment() {
     },
     onSuccess: (result, variables, context) => {
       if (!isCurrentMember()) return;
+      if (context?.account.isCurrent()) settleCommentWindow(queryClient, uid!, variables.postId, { kind: 'add', parentId: variables.parentId ?? null });
       if (!variables.commandId) return;
       const authoritative: Comment = {
         ...result,

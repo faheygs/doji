@@ -1,7 +1,7 @@
 import { AUTHENTICATED_COMMAND_NAMES } from '../contracts/authenticatedCommands';
 
 const queryRoots = new Set(['feed', 'lockedFeed', 'post', 'profilePost', 'profile', 'publicProfile',
-  'comments', 'commentLikes', 'postReactions', 'reactions', 'pollResults', 'pollVotersDetail', 'userEvent',
+  'comments', 'commentWindow', 'commentLikes', 'postReactions', 'reactions', 'pollResults', 'pollVotersDetail', 'userEvent',
   'friends', 'friendRequests', 'friendCount', 'blockedUsers', 'leaderboard', 'notifications',
   'notificationCenter', 'friendship', 'searchUsers', 'mentionSearch', 'badges', 'shop', 'shopItems', 'userShopItems', 'moderationStatus',
   'mobileReleasePolicy', 'upcomingDoji', 'appAnnouncement', 'userBadges', 'badgeCategories',
@@ -30,7 +30,7 @@ const reads = new Set(['get_locked_feed_previews', 'get_feed_page_snapshot_v2', 
   'get_upcoming_doji_state', 'get_pending_suggestions_snapshot', 'get_mobile_release_policy',
   'get_poll_results_summary', 'get_poll_option_voters_page', 'get_post_engagement_snapshot_v2',
   'get_post_reaction_summaries', 'get_comment_like_voters_page', 'list_blocked_users_page', 'blocked_user_count',
-  'get_current_profile_post', 'get_post_reaction_voters_page', 'get_comment_thread_snapshot',
+  'get_current_profile_post', 'get_post_reaction_voters_page', 'get_comment_thread_snapshot', 'get_comment_page_v2', 'get_comment_rows_v2',
   'search_mentionable_profiles', 'list_friend_requests_page', 'friend_request_count', 'get_public_profile_view']);
 const tables = new Set(['posts', 'blocks', 'badges', 'user_badges', 'badge_categories', 'badge_tiers',
   'user_badge_progress', 'friendships', 'poll_votes', 'shop_items', 'user_shop_items', 'challenge_suggestions']);

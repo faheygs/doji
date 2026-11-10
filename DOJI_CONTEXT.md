@@ -172,6 +172,25 @@ the future poll. Community idea acceptance does not schedule a Doji.
   not a persistent offline queue or proof of remote rollback.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
+  Replies expand inline under their root in the same comments list; opening or
+  composing a reply must not navigate to a separate thread page. Multiple threads
+  can stay expanded. Newest root comments appear first by default, without a
+  Show latest control. Performance changes must preserve this interaction.
+  Root comments follow the descending server cursor so older pages extend below
+  loaded roots; replies stay chronological. Visible threads prepare one cursor page
+  ahead of the viewport, with a guarded edge fallback, and stop automatic reads on
+  errors, closure or native read suspension. Variable-height text remains accessible.
+  The prepared scalable read contract separates root and reply cursors and reconciles
+  retained IDs without inserting new head rows into a scrolled viewport. Its client
+  window model caps retained pages and refuses to evict visible rows. The staging
+  adapter retains up to 60 roots and 30 replies per retained expanded root (1,860
+  list records plus at most 60 authorization parent snapshots). Visible replies pin
+  their root; closed/evicted threads discard cache, and offscreen threads pause reads.
+  New root rows enter automatically only at the head, with a completion-time scroll
+  fence; new reply tails append without replacing the inline thread. Native frame/
+  anchor acceptance remains separate from model tests. Partial pages are never totals.
+  Friend-request controls own pending/error state per row on both request surfaces;
+  acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.
   Search matches username prefixes and public display-name words (first/last/full
   name), never private identity fields. Search history includes settled queries,

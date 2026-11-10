@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useBlockedUsersPaged,
@@ -17,12 +17,24 @@ import { supabase } from '../../lib/supabase';
 import { executeCommand } from '../../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import { invalidateFriendCountQueries } from '../../hooks/useProfile';
+import { FriendRequestActions } from '../../components/friends/FriendRequestActions';
+
+jest.mock('../../contexts/ThemeContext', () => ({
+  useTheme: () => ({ colors: require('../../constants/theme').lightColors }),
+}));
+jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'light' } }));
 
 // Real hooks, QueryClient, cancellation, cursor mapping and optimistic caches.
 // Only auth state and the transport/invalidation boundaries are synthetic.
 let mockSession: { user: { id: string } } | null;
 jest.mock('../../stores/useAuthStore', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) => selector({ session: mockSession }),
+  useAuthStore: Object.assign((selector: (state: unknown) => unknown) => selector({ session: mockSession }), {
+    getState: () => ({ session: mockSession }),
+  }),
+  captureProfileAccount: () => {
+    const session = mockSession;
+    return { userId: session?.user.id, isCurrent: () => session === mockSession };
+  },
 }));
 jest.mock('../../lib/supabase');
 jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
@@ -375,14 +387,14 @@ describe.each(['block', 'unblock'] as const)('%s atomic commands', (kind) => {
 });
 
 describe.each([true, false])('friend response accept=%s', (accept) => {
-  test('optimistic request removal preserves other requests; success reconciles related reads', async () => {
+  test('pending response retains its row; only acknowledgement updates related reads', async () => {
     client.setQueryData(requestsKey, {
       pages: [[request, { ...request, id: 'unrelated' }]],
       pageParams: [null],
     });
     client.setQueryData(friendshipKey, request);
     client.setQueryData(
-      ['searchUsers', 'member'],
+      ['searchUsers', 'query', 'member'],
       [{ user_id: 'other', friendship_status: 'pending_in' }],
     );
     let finish!: () => void;
@@ -402,20 +414,27 @@ describe.each([true, false])('friend response accept=%s', (accept) => {
       });
     });
     expect(client.getQueryData(requestsKey)).toEqual({
-      pages: [[{ ...request, id: 'unrelated' }]],
+      pages: [[request, { ...request, id: 'unrelated' }]],
       pageParams: [null],
     });
     expect(client.getQueryData(friendshipKey)).toMatchObject({
-      status: accept ? 'accepted' : 'pending',
+      status: 'pending',
     });
-    expect(client.getQueryData(['searchUsers', 'member'])).toEqual([
-      { user_id: 'other', friendship_status: accept ? 'friends' : 'pending_in' },
+    expect(client.getQueryData(['searchUsers', 'query', 'member'])).toEqual([
+      { user_id: 'other', friendship_status: 'pending_in' },
     ]);
     expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
     await act(async () => {
       finish();
       await pending;
     });
+    expect(client.getQueryData(requestsKey)).toEqual({
+      pages: [[{ ...request, id: 'unrelated' }]], pageParams: [null],
+    });
+    expect(client.getQueryData(friendshipKey)).toMatchObject({ status: accept ? 'accepted' : 'pending' });
+    expect(client.getQueryData(['searchUsers', 'query', 'member'])).toEqual([
+      { user_id: 'other', friendship_status: accept ? 'friends' : 'pending_in' },
+    ]);
     expect(command).toHaveBeenCalledWith('respond_to_friendship', {
       p_friendship_id: request.id,
       p_accept: accept,
@@ -479,6 +498,52 @@ describe.each([true, false])('friend response accept=%s', (accept) => {
     expect(command).toHaveBeenCalledTimes(1);
     expect(client.getQueryCache().getAll()).toHaveLength(0);
   });
+});
+
+test('two request rows settle independently and failure cannot resurrect a successful response', async () => {
+  const second = { ...request, id: 'request-2', requester_id: 'person-2' };
+  client.setQueryData(requestsKey, { pages: [[request, second]], pageParams: [null] });
+  const completions = new Map<string, (result: unknown) => void>();
+  command.mockImplementation((_name, args) => new Promise(resolve => {
+    completions.set((args as { p_friendship_id: string }).p_friendship_id, resolve);
+  }) as never);
+  const ui = render(<QueryClientProvider client={client}>
+    <FriendRequestActions friendshipId={request.id} name="A" />
+    <FriendRequestActions friendshipId={second.id} name="B" />
+  </QueryClientProvider>);
+  fireEvent.press(ui.getByLabelText('Accept friend request from A'));
+  fireEvent.press(ui.getByLabelText('Decline friend request from A'));
+  await waitFor(() => expect(command).toHaveBeenCalledTimes(1));
+  expect(ui.getByLabelText('Accept friend request from A')).toBeDisabled();
+  expect(ui.getByLabelText('Decline friend request from A')).toBeDisabled();
+  expect(ui.getByLabelText('Accept friend request from B')).not.toBeDisabled();
+  fireEvent.press(ui.getByLabelText('Decline friend request from B'));
+  await waitFor(() => expect(command).toHaveBeenCalledTimes(2));
+  await act(async () => completions.get(second.id)!({ data: null, error: null }));
+  await act(async () => completions.get(request.id)!({ data: null, error: new Error('unknown') }));
+  expect(client.getQueryData(requestsKey)).toEqual({ pages: [[request]], pageParams: [null] });
+  expect(ui.queryByLabelText('Decline friend request from A')).toBeNull();
+  const original = command.mock.calls[0][1];
+  fireEvent.press(ui.getByLabelText('Retry friend response for A'));
+  await waitFor(() => expect(command).toHaveBeenCalledTimes(3));
+  expect(command.mock.calls[2][1]).toEqual(original);
+  await act(async () => completions.get(request.id)!({ data: null, error: null }));
+  expect(client.getQueryData(requestsKey)).toEqual({ pages: [[]], pageParams: [null] });
+});
+
+test('a late response cannot patch caches after an account lifetime ends', async () => {
+  client.setQueryData(requestsKey, { pages: [[request]], pageParams: [null] });
+  let finish!: () => void;
+  command.mockImplementation(() => new Promise(resolve => {
+    finish = () => resolve({ data: null, error: null } as never);
+  }));
+  const { result } = setup(() => useRespondToFriendRequest());
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.mutateAsync({ friendshipId: request.id, accept: true }); });
+  mockSession = { user: { id: 'another' } };
+  await act(async () => { finish(); await pending; });
+  expect(client.getQueryData(requestsKey)).toEqual({ pages: [[request]], pageParams: [null] });
+  expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
 });
 
 test('blocking does not fabricate data for an observed feed that has not loaded', async () => {

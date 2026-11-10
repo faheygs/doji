@@ -903,6 +903,16 @@ export type Database = {
         };
         Returns: Post[];
       };
+      get_comment_page_v2: {
+        Args: { p_post_id: string; p_audience?: 'friends' | 'everyone'; p_parent_id?: string | null;
+          p_cursor_created_at?: string | null; p_cursor_id?: string | null; p_direction?: 'next' | 'previous'; p_limit?: number };
+        Returns: { items: (Comment & { has_replies: boolean })[];
+          previous: { createdAt: string; id: string } | null; next: { createdAt: string; id: string } | null };
+      };
+      get_comment_rows_v2: {
+        Args: { p_post_id: string; p_ids: string[]; p_audience?: 'friends' | 'everyone' };
+        Returns: (Comment & { has_replies: boolean })[];
+      };
       get_comment_thread_snapshot: {
         Args: {
           p_post_id: string;

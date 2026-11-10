@@ -1,10 +1,36 @@
 # Current state and handoff gaps
 
-Updated November 6, 2026. This separates source, recorded deployments and owner
+Updated November 9, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+The comment paging SQL/index is installed and read-qualified in Staging only;
+existing reads/writes remain unchanged. Private installation/rollback evidence is
+retained outside Git under the November 9 comment-pages staging record. The owned
+offline database tests 100K comments, bidirectional cursors, permissions and index
+plans; this does not establish native or hosted 100K performance.
+The candidate native adapter preserves one newest-first list with multiple inline
+reply threads and no Show latest control. It retains three 20-root pages and three
+10-reply pages per retained expanded root, evicts only offscreen edges and reads
+backward when returning to discarded pages. Offscreen reply observers stop reads;
+closing/evicting a thread discards its cache. Head refresh is fenced against scroll
+movement; confirmed hearts/edits remain row-local. Activation requires the exact
+Staging backend and development/staging release channel; production keeps the old
+reader. Android Dev verified the 121-comment fixture opens newest-first, expands
+inline and pages down/back to the newest roots. This is functional acceptance, not
+a frame-rate benchmark. Installed Staging build 7 is unchanged. Exact-head CI,
+iPhone/Android frame qualification and owner acceptance remain required.
+
+The Staging build 7 follow-up is source-only: comment roots now match descending
+keyset pagination, unchanged rows are memoized, and the loading footer retains its
+height. Loading-time follow-up prepares one page ahead of the viewport and restores
+the native list's default render window; fast-scroll device acceptance is pending.
+Request-list and notification Accept/Decline controls are row-owned;
+confirmed responses update current caches without whole-list rollback. Synthetic
+pagination/concurrency tests do not qualify native scrolling. Exact-head CI and
+iOS/Android acceptance remain required; production builds and search SQL are held.
 
 Profile action-bar follow-up is source-only after the owner's Staging build 6 report:
 resolved labels/menu survive background read errors with commands disabled and

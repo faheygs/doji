@@ -1,7 +1,8 @@
 import React from 'react';
 import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { FlatList, Keyboard, Modal, Platform } from 'react-native';
+import { FlatList, Keyboard, Modal, Platform, StyleSheet } from 'react-native';
+import * as time from '../../utils/time';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PostCommentsThread } from '../../components/feed/PostCommentsThread';
@@ -12,10 +13,24 @@ import type { CommentWithMeta } from '../../hooks/useComments';
 import type { CommentLikeRow } from '../../hooks/useCommentLikes';
 
 const mockRouter = { push: jest.fn() };
+let mockInlinePaging = false;
+let mockInlineReadable = true;
+jest.mock('../../lib/inlineCommentFeature', () => ({ inlineCommentPagingEnabled: () => mockInlinePaging }));
+jest.mock('../../components/comments/InlineCommentList', () => ({
+  InlineCommentList: (props: {
+    onAvailability: (value: boolean) => void;
+    renderComment: (row: CommentWithMeta, reply: boolean) => React.ReactElement;
+  }) => {
+    const React = require('react');
+    require('react').useEffect(() => props.onAvailability(mockInlineReadable), [props.onAvailability]);
+    return mockComments.data?.pages.flat().map(row =>
+      <React.Fragment key={row.id}>{props.renderComment(row, !!row.parent_id)}</React.Fragment>) ?? null;
+  },
+}));
 const mockDialog = jest.fn();
 const mockReport = jest.fn();
 const mockAuth = { session: { user: { id: 'self' } } as { user: { id: string } } | null };
-const mutation = () => ({ mutate: jest.fn(), isPending: false });
+const mutation = () => ({ mutate: jest.fn(), mutateAsync: jest.fn().mockResolvedValue(undefined), isPending: false });
 const mockAdd = mutation(),
   mockEdit = mutation(),
   mockDelete = mutation(),
@@ -29,8 +44,10 @@ const mockComments = {
   error: null as unknown,
   hasNextPage: false,
   isFetchingNextPage: false,
+  isFetching: false,
+  isFetchNextPageError: false,
   isRefetching: false,
-  fetchNextPage: jest.fn(),
+  fetchNextPage: jest.fn().mockResolvedValue(undefined),
   refetch: jest.fn(),
 };
 const mockLikes = {
@@ -119,6 +136,8 @@ const flush = () =>
     jest.advanceTimersByTime(50);
   });
 beforeEach(() => {
+  mockInlinePaging = false;
+  mockInlineReadable = true;
   jest.clearAllMocks();
   jest.useFakeTimers();
   jest.replaceProperty(Platform, 'OS', 'android');
@@ -133,6 +152,8 @@ beforeEach(() => {
     error: null,
     hasNextPage: false,
     isFetchingNextPage: false,
+    isFetching: false,
+    isFetchNextPageError: false,
     isRefetching: false,
   });
   Object.assign(mockLikes, {
@@ -149,6 +170,61 @@ afterEach(() => {
 });
 
 describe('real comment composer and thread', () => {
+  it.each(['ios', 'android'] as const)('reuses the %s inline row actions and existing reply composer', async platform => {
+    mockInlinePaging = true;
+    jest.replaceProperty(Platform, 'OS', platform);
+    rows(comment({ id: 'root', body: 'Root comment' }),
+      comment({ id: 'child', parent_id: 'root', body: 'Inline child' }));
+    const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
+    expect(ui.getByText('Root comment')).toBeTruthy();
+    expect(ui.getByText('Inline child')).toBeTruthy();
+    fireEvent.press(ui.getAllByText('Reply')[1]);
+    fireEvent.changeText(ui.getByPlaceholderText(/Reply/), 'Reply through original composer');
+    await act(async () => { fireEvent.press(ui.getByText('Post')); });
+    expect(mockAdd.mutate.mock.calls[0][0]).toEqual(expect.objectContaining({
+      postId: 'post', parentId: 'root', replyToCommentId: 'child', body: 'Reply through original composer',
+    }));
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(ui.queryByText(/Show latest|Back to comments/)).toBeNull();
+  });
+  it('locks the staging composer until the authorized window is readable', () => {
+    mockInlinePaging = true;
+    mockInlineReadable = false;
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    expect(ui.getByText('Comments are unavailable until this thread loads.')).toBeTruthy();
+    expect(mockAdd.mutate).not.toHaveBeenCalled();
+  });
+  it.each(['ios', 'android'] as const)('keeps %s replies inline in one newest-first list without latest navigation', (platform) => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    const older = comment({ id: 'older', body: 'Older root' });
+    const newest = comment({ id: 'newest', body: 'Newest root', created_at: '2026-10-02T12:00:00Z' });
+    const olderReply = comment({ id: 'older-reply', parent_id: 'older', body: 'Older inline reply' });
+    const newestReply = comment({ id: 'newest-reply', parent_id: 'newest', body: 'Newest inline reply' });
+    rows(older, olderReply, newest, newestReply);
+    const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
+    const list = ui.UNSAFE_getByType(FlatList);
+    const ids = () => ui.UNSAFE_getByType(FlatList).props.data.map(
+      (item: { kind: string; comment?: CommentWithMeta; parentId?: string }) =>
+        item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment?.id,
+    );
+    expect(ids()).toEqual(['newest', 'toggle-newest', 'older', 'toggle-older']);
+    fireEvent.press(ui.getAllByLabelText('View 1 reply')[0]);
+    fireEvent.press(ui.getByLabelText('View 1 reply'));
+    expect(ui.UNSAFE_getAllByType(FlatList)).toHaveLength(1);
+    expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+    expect(ids()).toEqual(['newest', 'toggle-newest', 'newest-reply', 'older', 'toggle-older', 'older-reply']);
+    expect(ui.getByText('Newest inline reply')).toBeTruthy();
+    expect(ui.getByText('Older inline reply')).toBeTruthy();
+    fireEvent.press(ui.getAllByLabelText('Reply to other')[1]);
+    flush();
+    fireEvent.changeText(ui.getByPlaceholderText('Reply to other…'), 'inline reply');
+    fireEvent.press(ui.getByLabelText('Send comment'));
+    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'newest', replyToCommentId: 'newest-reply', feedAudience: 'friends' });
+    expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+    expect(ui.queryByText(/Show latest|Latest comments available/)).toBeNull();
+    expect(ui.queryByText('Back to comments')).toBeNull();
+    expect(ui.getByPlaceholderText('Add a comment…')).toBeTruthy();
+  });
   it('trims a new comment, uses its audience and restores a failed draft', () => {
     const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
     expect(ui.getByText('No comments yet. Say something nice.')).toBeTruthy();
@@ -243,6 +319,57 @@ describe('real comment composer and thread', () => {
     fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
     expect(mockComments.fetchNextPage).toHaveBeenCalledTimes(1);
   });
+  it('does not relayout unchanged comment bodies while typing or adding a later page', () => {
+    const format = jest.spyOn(time, 'formatCompactRelativeTime');
+    const first = comment();
+    rows(first);
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    const count = format.mock.calls.length;
+    fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'draft');
+    expect(format).toHaveBeenCalledTimes(count);
+    mockComments.data = { pages: [[first], [comment({ id: 'older', created_at: '2026-09-01T00:00:00Z' })]] };
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(format).toHaveBeenCalledTimes(count + 1);
+    format.mockRestore();
+  });
+  it('keeps the pagination footer height and requires explicit retry after a page failure', () => {
+    rows(comment());
+    mockComments.hasNextPage = true;
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    const footerHeight = () => StyleSheet.flatten(ui.UNSAFE_getByType(FlatList).props.ListFooterComponent.props.style).height;
+    expect(mockComments.fetchNextPage).toHaveBeenCalledTimes(1);
+    mockComments.fetchNextPage.mockClear();
+    const height = footerHeight();
+    mockComments.isFetching = true;
+    mockComments.isFetchingNextPage = true;
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(footerHeight()).toBe(height);
+    fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+    expect(mockComments.fetchNextPage).not.toHaveBeenCalled();
+    Object.assign(mockComments, { isFetching: false, isFetchingNextPage: false,
+      isError: true, isFetchNextPageError: true, error: { status: 503 } });
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(footerHeight()).toBe(height);
+    fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+    expect(mockComments.fetchNextPage).not.toHaveBeenCalled();
+    fireEvent.press(ui.getByText('Try again'));
+    expect(mockComments.fetchNextPage).toHaveBeenCalledWith({ cancelRefetch: false });
+    expect(mockComments.refetch).not.toHaveBeenCalled();
+  });
+  it('releases each overlapping heart guard independently, including failed writes', async () => {
+    rows(comment(), comment({ id: 'c2' }));
+    let finishFirst!: () => void, failSecond!: () => void;
+    mockLike.mutateAsync.mockImplementationOnce(() => new Promise<void>(resolve => { finishFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { failSecond = () => reject(new Error('failed')); }));
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
+    fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(2);
+    await act(async () => { finishFirst(); failSecond(); });
+    fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
+    fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(4);
+  });
   it('expands replies, targets the root and preserves a failed reply', () => {
     rows(comment(), comment({ id: 'reply', parent_id: 'c1', body: 'A reply' }));
     const ui = render(shell(<PostCommentsThread postId="post" />));
@@ -264,7 +391,7 @@ describe('real comment composer and thread', () => {
     fireEvent.press(ui.getByLabelText('Hide replies'));
     expect(ui.queryByText('A reply')).toBeNull();
   });
-  it('navigates a profile and mention, reports only the exact comment, and guards in-flight likes', () => {
+  it('navigates a profile and mention, reports only the exact comment, and guards in-flight likes', async () => {
     rows(comment());
     const ui = render(shell(<PostCommentsThread postId="post" />));
     fireEvent.press(ui.getByLabelText('other profile'));
@@ -274,15 +401,15 @@ describe('real comment composer and thread', () => {
     expect(mockReport).toHaveBeenCalledWith({ reportedUserId: 'other', commentId: 'c1' });
     fireEvent.press(ui.getByLabelText('Like comment'));
     fireEvent.press(ui.getByLabelText('Like comment'));
-    expect(mockLike.mutate).toHaveBeenCalledTimes(1);
-    expect(mockLike.mutate.mock.calls[0][0]).toEqual({
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockLike.mutateAsync.mock.calls[0][0]).toEqual({
       postId: 'post',
       commentId: 'c1',
       liked: false,
     });
-    act(() => mockLike.mutate.mock.calls[0][1].onSettled());
+    await act(async () => {});
     fireEvent.press(ui.getByLabelText('Like comment'));
-    expect(mockLike.mutate).toHaveBeenCalledTimes(2);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(2);
     fireEvent.press(ui.getByLabelText('2 likes, tap to see who liked'));
     expect(ui.getByText('Likes · 0')).toBeTruthy();
     fireEvent.press(ui.getByLabelText('Close'));

@@ -8,7 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { newCommandId } from '../lib/idempotency';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { useAuthStore } from '../stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
 import type { Friendship, FriendshipWithRequester, Profile } from '../types/database';
 import { invalidateFriendCountQueries } from './useProfile';
 import { patchCachedFriendshipStatus } from '../lib/friendshipCache';
@@ -78,11 +78,14 @@ export function useRespondToFriendRequest() {
   const userId = useAuthStore((state) => state.session?.user?.id);
   return useMutation({
     mutationKey: ['respondToFriendRequest'],
+    retry: false,
     mutationFn: async (variables: {
       friendshipId: string;
       accept: boolean;
       commandId?: string;
     }) => {
+      if (!userId || useAuthStore.getState().session?.user.id !== userId)
+        throw new Error('Not authenticated');
       variables.commandId ??= newCommandId('friend-response');
       const { error } = await executeCommand('respond_to_friendship', {
         p_friendship_id: variables.friendshipId,
@@ -93,39 +96,34 @@ export function useRespondToFriendRequest() {
     },
     onMutate: async (variables) => {
       variables.commandId ??= newCommandId('friend-response');
-      const friendshipQueries = queryClient.getQueriesData<Friendship | null>({
-        predicate: (query) => query.queryKey[0] === 'friendship',
-      });
+      const account = captureProfileAccount();
+      if (!userId || account.userId !== userId) throw new Error('Not authenticated');
+      await queryClient.cancelQueries({
+        predicate: (query) =>
+          ['friendship', 'friendRequests'].includes(String(query.queryKey[0])) &&
+          query.queryKey[1] === userId,
+      }, { silent: true });
+      if (!account.isCurrent()) throw new Error('Not authenticated');
+      return { account };
+    },
+    onSuccess: (_result, variables, context) => {
+      if (!context?.account.isCurrent()) return;
+      // Keep the responding row mounted until acknowledgement. Updating only
+      // confirmed records avoids whole-list rollback clobbering another response.
       const requestQueries = queryClient.getQueriesData<InfiniteData<FriendshipWithRequester[]>>({
         predicate: (query) =>
-          query.queryKey[0] === 'friendRequests' && query.queryKey[2] === 'paged',
+          query.queryKey[0] === 'friendRequests' && query.queryKey[1] === userId &&
+          query.queryKey[2] === 'paged',
       });
       const matchedRequest = requestQueries
         .flatMap(([, data]) => data?.pages.flat() ?? [])
         .find((request) => request.id === variables.friendshipId);
-      const relativeQueries = matchedRequest
-        ? queryClient.getQueriesData({
-            predicate: (query) => [
-              'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
-            ].includes(String(query.queryKey[0])),
-          })
-        : [];
       const matchedQueryKey = userId && matchedRequest
         ? ['friendship', userId, matchedRequest.requester_id] as const
         : null;
-      const previousMatchedFriendship = matchedQueryKey
-        ? queryClient.getQueryData<Friendship | null>(matchedQueryKey)
-        : undefined;
-      await queryClient.cancelQueries(
-        {
-          predicate: (query) =>
-            query.queryKey[0] === 'friendship' || query.queryKey[0] === 'friendRequests',
-        },
-        { silent: true },
-      );
       if (variables.accept) {
         queryClient.setQueriesData<Friendship | null>(
-          { predicate: (query) => query.queryKey[0] === 'friendship' },
+          { predicate: (query) => query.queryKey[0] === 'friendship' && query.queryKey[1] === userId },
           (current) => current?.id === variables.friendshipId
             ? { ...current, status: 'accepted', accepted_at: new Date().toISOString() }
             : current,
@@ -141,9 +139,10 @@ export function useRespondToFriendRequest() {
           );
           queryClient.setQueriesData(
             {
-              predicate: (query) => [
-                'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
-              ].includes(String(query.queryKey[0])),
+              predicate: ({ queryKey: key }) =>
+                ((key[0] === 'searchUsers' || key[0] === 'commentLikes') && key[2] === userId) ||
+                (key[0] === 'pollVotersDetail' && key[4] === userId) ||
+                (key[0] === 'reactions' && key[3] === userId),
             },
             (current) => patchCachedFriendshipStatus(
               current,
@@ -156,7 +155,8 @@ export function useRespondToFriendRequest() {
       queryClient.setQueriesData<InfiniteData<FriendshipWithRequester[]>>(
         {
           predicate: (query) =>
-            query.queryKey[0] === 'friendRequests' && query.queryKey[2] === 'paged',
+            query.queryKey[0] === 'friendRequests' && query.queryKey[1] === userId &&
+            query.queryKey[2] === 'paged',
         },
         (current) => current
           ? {
@@ -167,36 +167,6 @@ export function useRespondToFriendRequest() {
             }
           : current,
       );
-      return {
-        friendshipQueries,
-        requestQueries,
-        relativeQueries,
-        matchedQueryKey,
-        previousMatchedFriendship,
-      };
-    },
-    onError: (_error, _variables, context) => {
-      for (const [key, data] of context?.friendshipQueries ?? []) {
-        queryClient.setQueryData(key, data);
-      }
-      for (const [key, data] of context?.requestQueries ?? []) {
-        queryClient.setQueryData(key, data);
-      }
-      for (const [key, data] of context?.relativeQueries ?? []) {
-        queryClient.setQueryData(key, data);
-      }
-      if (context?.matchedQueryKey) {
-        if (context.previousMatchedFriendship === undefined) {
-          queryClient.removeQueries({ queryKey: context.matchedQueryKey, exact: true });
-        } else {
-          queryClient.setQueryData(
-            context.matchedQueryKey,
-            context.previousMatchedFriendship,
-          );
-        }
-      }
-    },
-    onSuccess: () => {
       scheduleQueryInvalidation(queryClient, [
         'friendRequests', 'friends', 'feed', 'friendship', 'notificationCenter',
         'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',

@@ -45,7 +45,8 @@ const mockRequests = {
   error: null as unknown,
 };
 const mockUnblock = { mutate: jest.fn(), isPending: false };
-const mockRespond = { mutate: jest.fn(), isPending: false, isError: false };
+const mockRespond = { mutateAsync: jest.fn().mockResolvedValue(undefined), isPending: false, isError: false,
+  variables: undefined as { friendshipId: string; accept: boolean; commandId?: string } | undefined };
 const mockBegin = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
@@ -108,6 +109,7 @@ beforeEach(() => {
   mockUnblock.isPending = false;
   mockRespond.isPending = false;
   mockRespond.isError = false;
+  mockRespond.variables = undefined;
 });
 
 describe.each(['blocked', 'requests'] as const)('%s read recovery', (kind) => {
@@ -196,7 +198,7 @@ test.each([
   ['dark', darkColors],
 ] as const)(
   'blocked screen renders exact paged identities using shared UI in %s',
-  (_name, colors) => {
+  async (_name, colors) => {
     mockColors = colors;
     mockBlocked.data = {
       pages: [[person], [{ ...person, id: 'b', display_name: ' ', username: 'person_b' }]],
@@ -304,15 +306,16 @@ test.each([
   ['dark', darkColors],
 ] as const)(
   'friend request %s UI dispatches the exact friendship ID and desired state',
-  (_name, colors) => {
+  async (_name, colors) => {
     mockColors = colors;
     mockRequests.data = {
       pages: [[{ id: 'friendship-1', requester: person, created_at: '2026-10-01T12:00:00Z' }]],
     };
     const view = render(<FriendRequestsScreen />);
     fireEvent.press(view.getByRole('button', { name: 'Accept friend request from Person A' }));
+    await act(async () => {});
     fireEvent.press(view.getByRole('button', { name: 'Decline friend request from Person A' }));
-    expect(mockRespond.mutate.mock.calls).toEqual([
+    expect(mockRespond.mutateAsync.mock.calls).toEqual([
       [{ friendshipId: 'friendship-1', accept: true }],
       [{ friendshipId: 'friendship-1', accept: false }],
     ]);
@@ -344,7 +347,7 @@ test('pending friendship response disables both actions, but keeps the profile a
     expect(button).toBeDisabled();
     fireEvent.press(button);
   }
-  expect(mockRespond.mutate).not.toHaveBeenCalled();
+  expect(mockRespond.mutateAsync).not.toHaveBeenCalled();
   expect(view.getByRole('button', { name: 'View Person A profile' })).not.toBeDisabled();
 });
 
@@ -354,12 +357,12 @@ test('failed friend response stays inline with the restored request and clears o
   };
   mockRespond.isError = true;
   const view = render(<FriendRequestsScreen />);
-  const message = 'Could not respond to this friend request. Please try again.';
+  const message = 'Could not confirm this response. Retry the same response to check it.';
   expect(view.getByText(message)).toBeTruthy();
   expect(view.getByText('Person A')).toBeTruthy();
   expect(Toast.show).not.toHaveBeenCalled();
-  fireEvent.press(view.getByLabelText('Accept friend request from Person A'));
-  expect(mockRespond.mutate).toHaveBeenCalledWith({ friendshipId: 'friendship-1', accept: true });
+  fireEvent.press(view.getByLabelText('Retry friend response for Person A'));
+  expect(mockRespond.mutateAsync).toHaveBeenCalledWith({ friendshipId: 'friendship-1', accept: true });
   mockRespond.isError = false;
   mockRespond.isPending = true;
   view.rerender(<FriendRequestsScreen />);
