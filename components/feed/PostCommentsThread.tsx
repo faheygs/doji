@@ -24,9 +24,6 @@ import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { CommentBody } from '../comments/CommentBody';
 import { CommentActionSheet } from '../comments/CommentActionSheet';
-import { CommentWindowList } from '../comments/CommentWindowList';
-import { COMMENT_PAGING_V2_ENABLED } from '../../lib/commentPagingFeature';
-import type { CommentPageRow } from '../../lib/commentWindow';
 import { useCommentPageLookahead } from '../../hooks/useCommentPageLookahead';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
@@ -291,10 +288,10 @@ function PostCommentsThreadBody({
     isFetchNextPageError,
     isRefetching,
     refetch,
-  } = useComments(postId, { fetchEnabled: fetchEnabled && !COMMENT_PAGING_V2_ENABLED, feedAudience });
+  } = useComments(postId, { fetchEnabled, feedAudience });
   const pagination = useCommentPageLookahead({
     scope: JSON.stringify([postId, me, feedAudience]),
-    enabled: fetchEnabled && !!me && !COMMENT_PAGING_V2_ENABLED,
+    enabled: fetchEnabled && !!me,
     pages: commentPages?.pages,
     hasNextPage: !!hasNextPage,
     isFetching: isFetching || isFetchingNextPage,
@@ -309,7 +306,6 @@ function PostCommentsThreadBody({
   const { mutateAsync: toggleLike } = useToggleCommentLike();
   const [draft, setDraft] = useState('');
   const [replyingTo, setReplyingTo] = useState<CommentWithMeta | null>(null);
-  const [threadParent, setThreadParent] = useState<CommentPageRow | null>(null);
   const [editingComment, setEditingComment] = useState<CommentWithMeta | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -317,12 +313,10 @@ function PostCommentsThreadBody({
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState('');
-  const [composerNotice, setComposerNotice] = useState('');
-  const [windowReadable, setWindowReadable] = useState(false);
   const pendingLikeIds = useRef(new Set<string>());
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
-  const composerLocked = (commentsDisabled && !isPostOwner) || (COMMENT_PAGING_V2_ENABLED && !windowReadable);
+  const composerLocked = commentsDisabled && !isPostOwner;
 
   useEffect(() => {
     if (!fetchEnabled && embedInSheet) {
@@ -345,10 +339,6 @@ function PostCommentsThreadBody({
   );
 
   const onReply = useCallback((c: CommentWithMeta) => {
-    if (COMMENT_PAGING_V2_ENABLED && !c.parent_id && threadParent?.id !== c.id) {
-      setThreadParent({ ...c, has_replies: true });
-      setWindowReadable(false);
-    }
     setComposerError('');
     setEditingComment(null);
     setReplyingTo(c);
@@ -356,7 +346,7 @@ function PostCommentsThreadBody({
     setDraft(username ? `@${username} ` : '');
     setMentionQuery(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [threadParent?.id]);
+  }, []);
 
   const onOpenMenu = useCallback((c: CommentWithMeta) => {
     setMenuComment(c);
@@ -410,7 +400,6 @@ function PostCommentsThreadBody({
   }, []);
 
   const onChangeDraft = useCallback((text: string) => {
-    setComposerNotice('');
     setDraft(text);
     setComposerError('');
     const mentionMatch = text.match(/@([a-zA-Z0-9_]*)$/);
@@ -449,7 +438,7 @@ function PostCommentsThreadBody({
       return;
     }
     const body = rawBody;
-    const replyTarget = replyingTo ?? threadParent;
+    const replyTarget = replyingTo;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addComment.mutate(
       {
@@ -460,7 +449,6 @@ function PostCommentsThreadBody({
         feedAudience,
       },
       {
-        onSuccess: () => { if (COMMENT_PAGING_V2_ENABLED) setComposerNotice('Comment posted. Select Show latest to view it.'); },
         onError: (err: Error) => {
           setDraft(rawBody);
           setReplyingTo(replyTarget);
@@ -477,7 +465,6 @@ function PostCommentsThreadBody({
     feedAudience,
     postId,
     replyingTo,
-    threadParent,
     editingComment,
     composerLocked,
     cancelComposerState,
@@ -598,22 +585,9 @@ function PostCommentsThreadBody({
     ],
   );
 
-  const renderWindowComment = useCallback((comment: CommentPageRow, reply: boolean) => (
-    <CommentRow comment={comment} isReply={reply} me={me} colors={colors}
-      onReply={onReply} onProfile={onProfile} onToggleLike={onToggleLike}
-      onViewLikes={onViewLikes} onOpenMenu={onOpenMenu} onOpenReport={onOpenReport} />
-  ), [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes]);
-  const changeThread = useCallback((parent: CommentPageRow | null) => {
-    cancelComposerState(); setComposerError(''); setComposerNotice(''); setThreadParent(parent); setWindowReadable(false);
-  }, [cancelComposerState]);
-
   return (
     <View style={styles.root}>
-      {COMMENT_PAGING_V2_ENABLED ? (
-        <CommentWindowList key={JSON.stringify([postId, me, feedAudience])} postId={postId} audience={feedAudience}
-          parent={threadParent}
-          enabled={fetchEnabled} renderComment={renderWindowComment} onThreadChange={changeThread} onAvailability={setWindowReadable} />
-      ) : isLoading ? (
+      {isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : blockingReadError ? (
         <View style={[styles.flex1, styles.centered]}>
@@ -676,7 +650,7 @@ function PostCommentsThreadBody({
         {composerLocked ? (
           <View style={styles.lockedNote}>
             <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-              {COMMENT_PAGING_V2_ENABLED && !windowReadable ? 'Comments are unavailable until this thread loads.' : 'Comments are turned off.'}
+              Comments are turned off.
             </Text>
           </View>
         ) : (
@@ -726,8 +700,8 @@ function PostCommentsThreadBody({
                 value={draft}
                 onChangeText={onChangeDraft}
                 placeholder={
-                  (replyingTo ?? threadParent)
-                    ? `Reply to ${(replyingTo ?? threadParent)?.profile?.username ?? 'user'}…`
+                  replyingTo
+                    ? `Reply to ${replyingTo.profile?.username ?? 'user'}…`
                     : 'Add a comment…'
                 }
                 placeholderTextColor={colors.textTertiary}
@@ -755,7 +729,6 @@ function PostCommentsThreadBody({
             {composerError ? (
               <InlineFeedback message={composerError} testID="comment-composer-error" />
             ) : null}
-            {composerNotice ? <InlineFeedback tone="info" message={composerNotice} /> : null}
             <Text
               variant="micro"
               color={draft.length >= MAX_LEN ? colors.error : colors.textTertiary}

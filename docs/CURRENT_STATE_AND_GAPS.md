@@ -6,21 +6,18 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-Comment scaling is prepared for Staging-bound Dev qualification only: additive
-root/reply keyset RPCs and a concurrent index preserve existing reads and writes.
-The owned offline database tests 100K comments, bidirectional cursors, permission
-boundaries and index plans. The client window model retains five 50-row pages,
-fences stale account/scope responses and defers eviction of visible rows. The native
-adapter keeps separate root and single-open-reply windows, retaining the root list
-on return. Hearts and confirmed edits/deletes update only matching records;
-realtime/foreground reconciliation refreshes retained authorized IDs, not all visited
-pages. Latest rows require an explicit action. The two windows retain at most 500
-rows plus one parent; closed reply caches are discarded. Native anchor preservation,
-memory/frame measurements and hosted qualification remain required. The
-`COMMENT_PAGING_V2_ENABLED` gate requires a development runtime, development release
-channel and exact Staging environment/URL; installed Staging and production builds
-remain off. Start this Dev source only after exact-head CI and the approved additive
-Staging SQL/index installation. Source presence is not deployment evidence.
+The comment paging SQL/index is installed and read-qualified in Staging only;
+existing reads/writes remain unchanged. Private installation/rollback evidence is
+retained outside Git under the November 9 comment-pages staging record. The owned
+offline database tests 100K comments, bidirectional cursors, permissions and index
+plans; this does not establish native or hosted 100K performance.
+The rejected separate-reply-page adapter and Show latest control have been removed.
+Dev uses the existing newest-first list with inline expandable replies, one-page
+lookahead and row-local heart updates. Installed Staging build 7 and production
+are unchanged. The bounded five-page model, retained-ID reconciliation and tests
+remain preparation; no active native screen consumes them. A scalable inline
+adapter, native anchor/memory/frame qualification and owner acceptance remain
+required before a new Staging build. Do not call the scaling work complete.
 
 The Staging build 7 follow-up is source-only: comment roots now match descending
 keyset pagination, unchanged rows are memoized, and the loading footer retains its

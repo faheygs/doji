@@ -172,18 +172,20 @@ the future poll. Community idea acceptance does not schedule a Doji.
   not a persistent offline queue or proof of remote rollback.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
+  Replies expand inline under their root in the same comments list; opening or
+  composing a reply must not navigate to a separate thread page. Multiple threads
+  can stay expanded. Newest root comments appear first by default, without a
+  Show latest control. Performance changes must preserve this interaction.
   Root comments follow the descending server cursor so older pages extend below
   loaded roots; replies stay chronological. Visible threads prepare one cursor page
   ahead of the viewport, with a guarded edge fallback, and stop automatic reads on
   errors, closure or native read suspension. Variable-height text remains accessible.
   The prepared scalable read contract separates root and reply cursors and reconciles
   retained IDs without inserting new head rows into a scrolled viewport. Its client
-  window model caps retained pages and refuses to evict visible rows. Its disabled
-  native adapter keeps the root list and one reply thread (250 rows each), with
-  explicit latest loading and per-record mutation reconciliation. Closed reply
-  caches are discarded; foreground/realtime refresh only retained authorized IDs.
-  Native anchor/frame qualification and separately approved hosted SQL must precede
-  activation. Partial pages are never totals.
+  window model caps retained pages and refuses to evict visible rows. The model and
+  per-record reconciliation are preparation, not the active native list. A bounded
+  inline adapter preserving the interaction above and native anchor/frame
+  qualification are required before activation. Partial pages are never totals.
   Friend-request controls own pending/error state per row on both request surfaces;
   acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

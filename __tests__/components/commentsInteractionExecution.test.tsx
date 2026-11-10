@@ -11,19 +11,6 @@ import { CommentLikesSheet } from '../../components/feed/CommentLikesSheet';
 import { KeyboardToolbarProvider } from '../../contexts/KeyboardToolbarContext';
 import type { CommentWithMeta } from '../../hooks/useComments';
 import type { CommentLikeRow } from '../../hooks/useCommentLikes';
-import { windowData } from '../fixtures/commentWindow';
-
-let mockWindowEnabled = false;
-const mockWindowLoad = jest.fn();
-const mockWindowVisible = { current: new Set<string>() };
-const mockWindowRoot = windowData(['root']);
-const mockWindowReply = { ...windowData(['reply'], { ...mockWindowRoot.scope, parentId: 'root' }), parentRow: mockWindowRoot.pages[0].items[0] };
-jest.mock('../../lib/commentPagingFeature', () => ({ get COMMENT_PAGING_V2_ENABLED() { return mockWindowEnabled; } }));
-jest.mock('../../hooks/useCommentWindow', () => ({ useCommentWindow: (scope: { parentId: string | null }) => ({
-  data: scope.parentId ? mockWindowReply : mockWindowRoot,
-  isError: false, isLoading: false, isFetching: false, available: true,
-  visibleIds: mockWindowVisible, load: mockWindowLoad,
-}) }));
 
 const mockRouter = { push: jest.fn() };
 const mockDialog = jest.fn();
@@ -136,7 +123,6 @@ const flush = () =>
   });
 beforeEach(() => {
   jest.clearAllMocks();
-  mockWindowEnabled = false;
   jest.useFakeTimers();
   jest.replaceProperty(Platform, 'OS', 'android');
   mockAuth.session = { user: { id: 'self' } };
@@ -168,20 +154,36 @@ afterEach(() => {
 });
 
 describe('real comment composer and thread', () => {
-  it('gated bounded UI targets the opened root when replying and keeps new rows behind latest', () => {
-    mockWindowEnabled = true;
+  it.each(['ios', 'android'] as const)('keeps %s replies inline in one newest-first list without latest navigation', (platform) => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    const older = comment({ id: 'older', body: 'Older root' });
+    const newest = comment({ id: 'newest', body: 'Newest root', created_at: '2026-10-02T12:00:00Z' });
+    const olderReply = comment({ id: 'older-reply', parent_id: 'older', body: 'Older inline reply' });
+    const newestReply = comment({ id: 'newest-reply', parent_id: 'newest', body: 'Newest inline reply' });
+    rows(older, olderReply, newest, newestReply);
     const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
-    expect(ui.getByText('Synthetic root')).toBeTruthy();
-    fireEvent.press(ui.getByLabelText('Reply to unknown'));
+    const list = ui.UNSAFE_getByType(FlatList);
+    const ids = () => ui.UNSAFE_getByType(FlatList).props.data.map(
+      (item: { kind: string; comment?: CommentWithMeta; parentId?: string }) =>
+        item.kind === 'toggle' ? `toggle-${item.parentId}` : item.comment?.id,
+    );
+    expect(ids()).toEqual(['newest', 'toggle-newest', 'older', 'toggle-older']);
+    fireEvent.press(ui.getAllByLabelText('View 1 reply')[0]);
+    fireEvent.press(ui.getByLabelText('View 1 reply'));
+    expect(ui.UNSAFE_getAllByType(FlatList)).toHaveLength(1);
+    expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+    expect(ids()).toEqual(['newest', 'toggle-newest', 'newest-reply', 'older', 'toggle-older', 'older-reply']);
+    expect(ui.getByText('Newest inline reply')).toBeTruthy();
+    expect(ui.getByText('Older inline reply')).toBeTruthy();
+    fireEvent.press(ui.getAllByLabelText('Reply to other')[1]);
     flush();
-    expect(ui.getByText('Back to comments')).toBeTruthy();
-    fireEvent.changeText(ui.getByPlaceholderText('Reply to user…'), 'reply to root');
+    fireEvent.changeText(ui.getByPlaceholderText('Reply to other…'), 'inline reply');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'root', replyToCommentId: 'root', feedAudience: 'friends' });
-    act(() => mockAdd.mutate.mock.calls[0][1].onSuccess());
-    expect(ui.getByText('Comment posted. Select Show latest to view it.')).toBeTruthy();
-    fireEvent.press(ui.getByText('Back to comments'));
+    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'newest', replyToCommentId: 'newest-reply', feedAudience: 'friends' });
+    expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+    expect(ui.queryByText(/Show latest|Latest comments available/)).toBeNull();
     expect(ui.queryByText('Back to comments')).toBeNull();
+    expect(ui.getByPlaceholderText('Add a comment…')).toBeTruthy();
   });
   it('trims a new comment, uses its audience and restores a failed draft', () => {
     const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
