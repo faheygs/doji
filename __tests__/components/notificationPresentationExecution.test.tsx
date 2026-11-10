@@ -12,7 +12,7 @@ import { ROUTES } from '../../lib/routes';
 
 let mockColors = lightColors;
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
-const mockRespond = { mutate: jest.fn(), isPending: false };
+const mockRespond = { mutateAsync: jest.fn().mockResolvedValue(undefined), isPending: false };
 const mockCommand = jest.fn();
 jest.mock('../../contexts/ThemeContext', () => ({ useTheme: () => ({ colors: mockColors }) }));
 jest.mock(
@@ -160,7 +160,7 @@ describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
         expect(mockRouter.replace).toHaveBeenCalledWith(ROUTES.profile);
     },
   );
-  it('accepts and declines exact friend requests without clearing actionable requests', () => {
+  it('accepts and declines exact friend requests without clearing actionable requests', async () => {
     const clear = jest.fn();
     const ui = render(
       <NotificationSheet
@@ -172,8 +172,9 @@ describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
       />,
     );
     fireEvent.press(ui.getByText('Accept'));
+    await act(async () => {});
     fireEvent.press(ui.getByText('Decline'));
-    expect(mockRespond.mutate.mock.calls).toEqual([
+    expect(mockRespond.mutateAsync.mock.calls).toEqual([
       [{ friendshipId: 'friendship', accept: true }],
       [{ friendshipId: 'friendship', accept: false }],
     ]);
@@ -183,7 +184,7 @@ describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
       <NotificationSheet visible onClose={jest.fn()} items={[request]} isLoading={false} />,
     );
     fireEvent.press(ui.getAllByRole('button', { disabled: true })[0]);
-    expect(mockRespond.mutate).toHaveBeenCalledTimes(2);
+    expect(mockRespond.mutateAsync).toHaveBeenCalledTimes(2);
   });
 });
 

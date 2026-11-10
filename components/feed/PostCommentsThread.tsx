@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { memo, useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,6 +24,7 @@ import { Avatar } from '../ui/Avatar';
 import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
+import { CommentBody } from '../comments/CommentBody';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
 import { prepareProfileHref } from '../../lib/profileNavigation';
@@ -50,7 +51,6 @@ import {
   type CommentThreadRow as Row,
 } from '../../lib/commentThread';
 const MAX_LEN = 2000;
-const MENTION_BODY_REGEX = /(@[a-zA-Z0-9_]+)/g;
 function CommentActionSheet({
   visible,
   onClose,
@@ -159,40 +159,9 @@ function CommentActionSheet({
     </Modal>
   );
 }
-function CommentBody({
-  body,
-  colors,
-  onMentionPress,
-}: {
-  body: string;
-  colors: ReturnType<typeof useTheme>['colors'];
-  onMentionPress: (username: string) => void;
-}) {
-  const parts = body.split(MENTION_BODY_REGEX);
-  return (
-    <Text variant="body" color={colors.text} style={{ lineHeight: 20 }}>
-      {parts.map((part, i) => {
-        if (part.startsWith('@')) {
-          const username = part.slice(1);
-          return (
-            <Text
-              key={`${i}-${part}`}
-              variant="body"
-              color={colors.primary}
-              style={{ fontWeight: '600' }}
-              onPress={() => onMentionPress(username)}
-            >
-              {part}
-            </Text>
-          );
-        }
-        return <Text key={`${i}-${part}`}>{part}</Text>;
-      })}
-    </Text>
-  );
-}
 type CommentRowProps = {
-  row: Row & { kind: 'root' | 'reply' };
+  comment: CommentWithMeta;
+  isReply: boolean;
   me: string | undefined;
   onReply: (c: CommentWithMeta) => void;
   onProfile: (username: string) => void;
@@ -202,8 +171,9 @@ type CommentRowProps = {
   onOpenReport: (c: CommentWithMeta) => void;
   colors: ReturnType<typeof useTheme>['colors'];
 };
-function CommentRow({
-  row,
+const CommentRow = memo(function CommentRow({
+  comment,
+  isReply,
   me,
   onReply,
   onProfile,
@@ -213,9 +183,7 @@ function CommentRow({
   onOpenReport,
   colors,
 }: CommentRowProps) {
-  const { comment } = row;
   const u = comment.profile?.username ?? 'unknown';
-  const isReply = row.kind === 'reply';
   const isOwn = Boolean(me && comment.user_id === me);
   const styles = useMemo(
     () =>
@@ -380,7 +348,7 @@ function CommentRow({
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 type Props = {
   postId: string;
@@ -419,6 +387,8 @@ export function PostCommentsThread({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetching,
+    isFetchNextPageError,
     isRefetching,
     refetch,
   } = useComments(postId, { fetchEnabled, feedAudience });
@@ -427,7 +397,7 @@ export function PostCommentsThread({
   const addComment = useAddComment();
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
-  const toggleLike = useToggleCommentLike();
+  const { mutateAsync: toggleLike } = useToggleCommentLike();
   const [draft, setDraft] = useState('');
   const [replyingTo, setReplyingTo] = useState<CommentWithMeta | null>(null);
   const [editingComment, setEditingComment] = useState<CommentWithMeta | null>(null);
@@ -500,10 +470,11 @@ export function PostCommentsThread({
     (commentId: string, liked: boolean) => {
       if (!me || pendingLikeIds.current.has(commentId)) return;
       pendingLikeIds.current.add(commentId);
-      toggleLike.mutate(
-        { postId, commentId, liked },
-        { onSettled: () => pendingLikeIds.current.delete(commentId) },
-      );
+      // Per-call promises settle independently; mutate callbacks on a shared
+      // observer only run for its latest call when different hearts overlap.
+      void toggleLike({ postId, commentId, liked })
+        .catch(() => undefined)
+        .finally(() => pendingLikeIds.current.delete(commentId));
     },
     [me, postId, toggleLike],
   );
@@ -682,7 +653,8 @@ export function PostCommentsThread({
       }
       return (
         <CommentRow
-          row={item}
+          comment={item.comment}
+          isReply={item.kind === 'reply'}
           me={me}
           onReply={onReply}
           onProfile={onProfile}
@@ -731,7 +703,7 @@ export function PostCommentsThread({
           {isError ? (
             <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
               <InlineFeedback tone="info" message="Couldn’t refresh comments. Showing previously loaded comments." />
-              <Button variant="secondary" size="sm" loading={isRefetching} onPress={() => void refetch()}>
+              <Button variant="secondary" size="sm" loading={isFetching} onPress={() => void (isFetchNextPageError ? fetchNextPage({ cancelRefetch: false }) : refetch({ cancelRefetch: false }))}>
                 Try again
               </Button>
             </View>
@@ -751,13 +723,14 @@ export function PostCommentsThread({
             removeClippedSubviews={false}
             contentContainerStyle={{ flexGrow: 1 }}
             onEndReached={() => {
-              if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+              if (hasNextPage && !isFetching && !isFetchingNextPage && !isError)
+                void fetchNextPage({ cancelRefetch: false });
             }}
             onEndReachedThreshold={0.35}
             ListFooterComponent={
-              isFetchingNextPage ? (
-                <ActivityIndicator color={colors.textSecondary} style={{ margin: Spacing.md }} />
-              ) : null
+              <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
+                {isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null}
+              </View>
             }
             ListEmptyComponent={
               <View style={styles.centered}>

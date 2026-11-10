@@ -1,7 +1,8 @@
 import React from 'react';
 import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { FlatList, Keyboard, Modal, Platform } from 'react-native';
+import { FlatList, Keyboard, Modal, Platform, StyleSheet } from 'react-native';
+import * as time from '../../utils/time';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PostCommentsThread } from '../../components/feed/PostCommentsThread';
@@ -15,7 +16,7 @@ const mockRouter = { push: jest.fn() };
 const mockDialog = jest.fn();
 const mockReport = jest.fn();
 const mockAuth = { session: { user: { id: 'self' } } as { user: { id: string } } | null };
-const mutation = () => ({ mutate: jest.fn(), isPending: false });
+const mutation = () => ({ mutate: jest.fn(), mutateAsync: jest.fn().mockResolvedValue(undefined), isPending: false });
 const mockAdd = mutation(),
   mockEdit = mutation(),
   mockDelete = mutation(),
@@ -29,6 +30,8 @@ const mockComments = {
   error: null as unknown,
   hasNextPage: false,
   isFetchingNextPage: false,
+  isFetching: false,
+  isFetchNextPageError: false,
   isRefetching: false,
   fetchNextPage: jest.fn(),
   refetch: jest.fn(),
@@ -133,6 +136,8 @@ beforeEach(() => {
     error: null,
     hasNextPage: false,
     isFetchingNextPage: false,
+    isFetching: false,
+    isFetchNextPageError: false,
     isRefetching: false,
   });
   Object.assign(mockLikes, {
@@ -243,6 +248,55 @@ describe('real comment composer and thread', () => {
     fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
     expect(mockComments.fetchNextPage).toHaveBeenCalledTimes(1);
   });
+  it('does not relayout unchanged comment bodies while typing or adding a later page', () => {
+    const format = jest.spyOn(time, 'formatCompactRelativeTime');
+    const first = comment();
+    rows(first);
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    const count = format.mock.calls.length;
+    fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'draft');
+    expect(format).toHaveBeenCalledTimes(count);
+    mockComments.data = { pages: [[first], [comment({ id: 'older', created_at: '2026-09-01T00:00:00Z' })]] };
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(format).toHaveBeenCalledTimes(count + 1);
+    format.mockRestore();
+  });
+  it('keeps the pagination footer height and requires explicit retry after a page failure', () => {
+    rows(comment());
+    mockComments.hasNextPage = true;
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    const footerHeight = () => StyleSheet.flatten(ui.UNSAFE_getByType(FlatList).props.ListFooterComponent.props.style).height;
+    const height = footerHeight();
+    mockComments.isFetching = true;
+    mockComments.isFetchingNextPage = true;
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(footerHeight()).toBe(height);
+    fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+    expect(mockComments.fetchNextPage).not.toHaveBeenCalled();
+    Object.assign(mockComments, { isFetching: false, isFetchingNextPage: false,
+      isError: true, isFetchNextPageError: true, error: { status: 503 } });
+    ui.rerender(shell(<PostCommentsThread postId="post" />));
+    expect(footerHeight()).toBe(height);
+    fireEvent(ui.UNSAFE_getByType(FlatList), 'endReached');
+    expect(mockComments.fetchNextPage).not.toHaveBeenCalled();
+    fireEvent.press(ui.getByText('Try again'));
+    expect(mockComments.fetchNextPage).toHaveBeenCalledWith({ cancelRefetch: false });
+    expect(mockComments.refetch).not.toHaveBeenCalled();
+  });
+  it('releases each overlapping heart guard independently, including failed writes', async () => {
+    rows(comment(), comment({ id: 'c2' }));
+    let finishFirst!: () => void, failSecond!: () => void;
+    mockLike.mutateAsync.mockImplementationOnce(() => new Promise<void>(resolve => { finishFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { failSecond = () => reject(new Error('failed')); }));
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
+    fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(2);
+    await act(async () => { finishFirst(); failSecond(); });
+    fireEvent.press(ui.getAllByLabelText('Like comment')[0]);
+    fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(4);
+  });
   it('expands replies, targets the root and preserves a failed reply', () => {
     rows(comment(), comment({ id: 'reply', parent_id: 'c1', body: 'A reply' }));
     const ui = render(shell(<PostCommentsThread postId="post" />));
@@ -264,7 +318,7 @@ describe('real comment composer and thread', () => {
     fireEvent.press(ui.getByLabelText('Hide replies'));
     expect(ui.queryByText('A reply')).toBeNull();
   });
-  it('navigates a profile and mention, reports only the exact comment, and guards in-flight likes', () => {
+  it('navigates a profile and mention, reports only the exact comment, and guards in-flight likes', async () => {
     rows(comment());
     const ui = render(shell(<PostCommentsThread postId="post" />));
     fireEvent.press(ui.getByLabelText('other profile'));
@@ -274,15 +328,15 @@ describe('real comment composer and thread', () => {
     expect(mockReport).toHaveBeenCalledWith({ reportedUserId: 'other', commentId: 'c1' });
     fireEvent.press(ui.getByLabelText('Like comment'));
     fireEvent.press(ui.getByLabelText('Like comment'));
-    expect(mockLike.mutate).toHaveBeenCalledTimes(1);
-    expect(mockLike.mutate.mock.calls[0][0]).toEqual({
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockLike.mutateAsync.mock.calls[0][0]).toEqual({
       postId: 'post',
       commentId: 'c1',
       liked: false,
     });
-    act(() => mockLike.mutate.mock.calls[0][1].onSettled());
+    await act(async () => {});
     fireEvent.press(ui.getByLabelText('Like comment'));
-    expect(mockLike.mutate).toHaveBeenCalledTimes(2);
+    expect(mockLike.mutateAsync).toHaveBeenCalledTimes(2);
     fireEvent.press(ui.getByLabelText('2 likes, tap to see who liked'));
     expect(ui.getByText('Likes · 0')).toBeTruthy();
     fireEvent.press(ui.getByLabelText('Close'));

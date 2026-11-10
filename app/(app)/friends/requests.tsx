@@ -8,15 +8,14 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../lib/safeAreaLayout';
 import { Text } from '../../../components/ui/Text';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
-import { Button } from '../../../components/ui/Button';
+import { FriendRequestActions } from '../../../components/friends/FriendRequestActions';
 import { Card } from '../../../components/ui/Card';
 import { IconChevronLeft, IconFriends } from '../../../components/icons/Icons';
-import { useFriendRequests, useRespondToFriendRequest } from '../../../hooks/useFriendRequests';
+import { useFriendRequests } from '../../../hooks/useFriendRequests';
 import { formatRelativeTime } from '../../../utils/time';
 import { goBackToExplicitReturn, hrefPreservingReturnTo } from '../../../lib/navigationReturn';
 import { prepareProfileHref } from '../../../lib/profileNavigation';
 import { ReadFailureFeedback } from '../../../components/ui/ReadFailureFeedback';
-import { InlineFeedback } from '../../../components/ui/InlineFeedback';
 import { canKeepQueryDataOnError } from '../../../lib/queryDisplayState';
 
 export default function FriendRequestsScreen() {
@@ -37,7 +36,6 @@ export default function FriendRequestsScreen() {
     [requestsQuery.data, requestsQuery.error],
   );
   const { isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = requestsQuery;
-  const respond = useRespondToFriendRequest();
 
   const styles = useMemo(
     () =>
@@ -140,12 +138,6 @@ export default function FriendRequestsScreen() {
                   }
                 />
               ) : null}
-              {respond.isError ? (
-                <InlineFeedback
-                  message="Could not respond to this friend request. Please try again."
-                  style={{ marginBottom: Spacing.sm }}
-                />
-              ) : null}
             </>
           }
           ListFooterComponent={
@@ -176,28 +168,8 @@ export default function FriendRequestsScreen() {
                     </Text>
                   </View>
                 </TouchableOpacity>
-                <View style={styles.actions}>
-                  <Button
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      respond.mutate({ friendshipId: item.id, accept: true });
-                    }}
-                    size="sm"
-                    loading={respond.isPending}
-                    accessibilityLabel={`Accept friend request from ${requester?.display_name ?? requester?.username ?? 'this user'}`}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    onPress={() => respond.mutate({ friendshipId: item.id, accept: false })}
-                    size="sm"
-                    variant="ghost"
-                    loading={respond.isPending}
-                    accessibilityLabel={`Decline friend request from ${requester?.display_name ?? requester?.username ?? 'this user'}`}
-                  >
-                    Decline
-                  </Button>
-                </View>
+                <FriendRequestActions key={item.id} friendshipId={item.id}
+                  name={requester?.display_name ?? requester?.username ?? 'this user'} />
               </Card>
             );
           }}

@@ -12,16 +12,19 @@ export function buildCommentRows(
 ): CommentThreadRow[] {
   const byId = new Map(comments.map((comment) => [comment.id, comment]));
   const byParent = new Map<string | null, CommentWithMeta[]>();
-  for (const comment of comments) {
+  for (const comment of byId.values()) {
     const parentId = comment.parent_id;
     const siblings = byParent.get(parentId) ?? [];
     siblings.push(comment);
     byParent.set(parentId, siblings);
   }
   const sortByTime = (a: CommentWithMeta, b: CommentWithMeta) =>
-    parseDate(a.created_at).getTime() - parseDate(b.created_at).getTime();
+    parseDate(a.created_at).getTime() - parseDate(b.created_at).getTime() ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const rows: CommentThreadRow[] = [];
-  for (const root of (byParent.get(null) ?? []).slice().sort(sortByTime)) {
+  // Match the descending keyset cursor: older pages extend the bottom instead
+  // of moving every visible root. Replies remain chronological within a thread.
+  for (const root of (byParent.get(null) ?? []).slice().sort((a, b) => sortByTime(b, a))) {
     const replies = (byParent.get(root.id) ?? []).slice().sort(sortByTime);
     rows.push({ kind: 'root', comment: root, replyCount: replies.length });
     if (replies.length === 0) continue;

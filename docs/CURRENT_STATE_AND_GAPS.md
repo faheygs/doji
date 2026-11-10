@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The Staging build 7 follow-up is source-only: comment roots now match descending
+keyset pagination, unchanged rows are memoized, and the loading footer retains its
+height. Request-list and notification Accept/Decline controls are row-owned;
+confirmed responses update current caches without whole-list rollback. Synthetic
+pagination/concurrency tests do not qualify native scrolling. Exact-head CI and
+iOS/Android acceptance remain required; production builds and search SQL are held.
+
 Profile action-bar follow-up is source-only after the owner's Staging build 6 report:
 resolved labels/menu survive background read errors with commands disabled and
 explicit retry; friendship/privacy prefetch also runs on cached-profile entry.

@@ -35,6 +35,9 @@ profile/relationship options shared by navigation warming and route observers;
 `ProfileFriendButton` and `useProfileActionReadiness` prevent guessed actions.
 `LockedPostBody` selects text-only locked previews from safe challenge metadata;
 it does not load protected answers or media.
+`commentThread` preserves cursor-compatible root order and chronological replies;
+`FriendRequestActions` shares row-owned response controls between requests and
+notifications. The response hook applies confirmed record updates, not list rollback.
 `member_profile_search_v1` owns public-name/username search and its GIN index;
 `scripts/database/member-profile-search.mts` verifies isolation, query plan and
 retaining rollback in an owned disposable database. Hosted installation is gated.

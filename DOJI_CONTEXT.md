@@ -172,6 +172,10 @@ the future poll. Community idea acceptance does not schedule a Doji.
   not a persistent offline queue or proof of remote rollback.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
+  Root comments follow the descending server cursor so older pages extend below
+  loaded roots; replies stay chronological. Variable-height text remains accessible.
+  Friend-request controls own pending/error state per row on both request surfaces;
+  acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.
   Search matches username prefixes and public display-name words (first/last/full
   name), never private identity fields. Search history includes settled queries,
