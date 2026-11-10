@@ -20,6 +20,10 @@ jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(mockState), {
     getState: () => mockState,
   }),
+  captureProfileAccount: () => {
+    const userId = mockState.session?.user.id;
+    return { userId, isCurrent: () => userId === mockState.session?.user.id };
+  },
 }));
 jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
 jest.mock('../../lib/postEngagement', () => ({ refreshPostEngagement: jest.fn() }));

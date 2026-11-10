@@ -23,6 +23,8 @@ export type CommentPageRequest = {
 export type CommentWindow = {
   scope: CommentScope;
   pages: CommentPage[];
+  headChanged?: boolean;
+  parentRow?: CommentPageRow;
   /** Memory-only mount/account generation; returning to the same viewer is not reuse. */
   generation: symbol;
   /** Changes after every accepted update, fencing a stale page/refetch response. */

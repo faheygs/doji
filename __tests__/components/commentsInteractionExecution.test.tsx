@@ -11,6 +11,19 @@ import { CommentLikesSheet } from '../../components/feed/CommentLikesSheet';
 import { KeyboardToolbarProvider } from '../../contexts/KeyboardToolbarContext';
 import type { CommentWithMeta } from '../../hooks/useComments';
 import type { CommentLikeRow } from '../../hooks/useCommentLikes';
+import { windowData } from '../fixtures/commentWindow';
+
+let mockWindowEnabled = false;
+const mockWindowLoad = jest.fn();
+const mockWindowVisible = { current: new Set<string>() };
+const mockWindowRoot = windowData(['root']);
+const mockWindowReply = { ...windowData(['reply'], { ...mockWindowRoot.scope, parentId: 'root' }), parentRow: mockWindowRoot.pages[0].items[0] };
+jest.mock('../../lib/commentPagingFeature', () => ({ get COMMENT_PAGING_V2_ENABLED() { return mockWindowEnabled; } }));
+jest.mock('../../hooks/useCommentWindow', () => ({ useCommentWindow: (scope: { parentId: string | null }) => ({
+  data: scope.parentId ? mockWindowReply : mockWindowRoot,
+  isError: false, isLoading: false, isFetching: false, available: true,
+  visibleIds: mockWindowVisible, load: mockWindowLoad,
+}) }));
 
 const mockRouter = { push: jest.fn() };
 const mockDialog = jest.fn();
@@ -123,6 +136,7 @@ const flush = () =>
   });
 beforeEach(() => {
   jest.clearAllMocks();
+  mockWindowEnabled = false;
   jest.useFakeTimers();
   jest.replaceProperty(Platform, 'OS', 'android');
   mockAuth.session = { user: { id: 'self' } };
@@ -154,6 +168,21 @@ afterEach(() => {
 });
 
 describe('real comment composer and thread', () => {
+  it('gated bounded UI targets the opened root when replying and keeps new rows behind latest', () => {
+    mockWindowEnabled = true;
+    const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
+    expect(ui.getByText('Synthetic root')).toBeTruthy();
+    fireEvent.press(ui.getByLabelText('Reply to unknown'));
+    flush();
+    expect(ui.getByText('Back to comments')).toBeTruthy();
+    fireEvent.changeText(ui.getByPlaceholderText('Reply to user…'), 'reply to root');
+    fireEvent.press(ui.getByLabelText('Send comment'));
+    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'root', replyToCommentId: 'root', feedAudience: 'friends' });
+    act(() => mockAdd.mutate.mock.calls[0][1].onSuccess());
+    expect(ui.getByText('Comment posted. Select Show latest to view it.')).toBeTruthy();
+    fireEvent.press(ui.getByText('Back to comments'));
+    expect(ui.queryByText('Back to comments')).toBeNull();
+  });
   it('trims a new comment, uses its audience and restores a failed draft', () => {
     const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
     expect(ui.getByText('No comments yet. Say something nice.')).toBeTruthy();

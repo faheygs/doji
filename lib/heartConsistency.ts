@@ -59,9 +59,11 @@ export function preserveHeartRead<T extends HeartRow>(
   startedAt: number,
   incoming: T[],
 ): T[] {
-  const current = client.getQueryData<InfiniteData<T[]>>(key);
+  const current = client.getQueryData<InfiniteData<T[]> | { pages: { items: T[] }[]; parentRow?: T }>(key);
   if (!current) return incoming;
-  const rows = new Map(current.pages.flat().map((row) => [heartRowId(kind, row), row]));
+  const loaded = current.pages.flatMap(page => Array.isArray(page) ? page : page.items);
+  if ('parentRow' in current && current.parentRow) loaded.push(current.parentRow);
+  const rows = new Map(loaded.map((row) => [heartRowId(kind, row), row]));
   const mutations = new Map(
     client
       .getMutationCache()

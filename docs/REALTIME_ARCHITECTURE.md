@@ -176,11 +176,14 @@ These lifecycle changes remain next-build source; check recorded release state.
 - Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
   first), each with bidirectional keyset cursors. Retained-ID refresh returns at
   most 50 authorized rows per call, not a replay of all previously visited pages.
-  The memory-only window model is not connected yet. Activation must integrate
-  comment/heart, profile, block/friendship and moderation hints plus foreground/
-  reconnect reads; privacy failures must discard inaccessible cached content.
-  New head rows must not reorder a scrolled viewport. Native anchor preservation,
-  bounded active reply windows and per-record mutation fences remain release gates.
+  The disabled native adapter uses memory-only `commentWindow` keys scoped by post,
+  viewer, audience and parent. Comment/heart, profile, block/friendship and moderation
+  hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
+  Privacy failures discard cached rows; transient failures retain authorized data
+  with explicit retry. Root and one reply window each retain at most 250 rows;
+  closed reply caches are discarded. Confirmed edits/deletes and heart rollback
+  touch matching records only. New head rows require explicit latest loading.
+  Native anchor/frame qualification and hosted SQL/index approval remain release gates.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
   Photo and text feeds warm adjacent authorized metadata, not its image backlog.

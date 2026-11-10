@@ -8,6 +8,9 @@ import { fetchPollVotersPage } from '../../lib/pollQueries';
 import { preserveHeartRead, type HeartKind, type HeartRow } from '../../lib/heartConsistency';
 import { executeCommand } from '../../lib/commandGateway';
 import { supabase } from '../../lib/supabase';
+import { commentScopeKey, type CommentWindow } from '../../lib/commentWindow';
+import { readCommentWindow } from '../../lib/commentWindowReads';
+import { row as commentRow, scope as commentScope, page as commentPage, windowData } from '../fixtures/commentWindow';
 
 let mockUser = 'me';
 let mockEpoch = 0;
@@ -55,6 +58,27 @@ afterEach(() => {
   client.clear();
   jest.clearAllTimers();
   jest.useRealTimers();
+});
+
+test('real bounded-window heart remains optimistic through a retained refresh and settles per identity', async () => {
+  const key = commentScopeKey(commentScope);
+  client.setQueryData(key, windowData(['target', 'other']));
+  const write = deferred<Awaited<ReturnType<typeof executeCommand>>>();
+  command.mockReturnValueOnce(write.promise);
+  const { result } = renderHook(() => useToggleCommentLike(), {
+    wrapper: ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+  });
+  let pending!: Promise<unknown>;
+  await act(async () => { pending = result.current.mutateAsync({ postId: 'post', commentId: 'target', liked: false }); });
+  expect(client.getQueryData<CommentWindow>(key)?.pages[0].items[0].my_like).toBe(true);
+  rpc.mockReturnValueOnce({ abortSignal: () => Promise.resolve({ data: [commentRow('target')], error: null }) })
+    .mockReturnValueOnce({ abortSignal: () => Promise.resolve({ data: commentPage(['target']), error: null }) });
+  const value = await readCommentWindow({ client, scope: commentScope, intent: 'refresh', signal: new AbortController().signal,
+    visibleIds: () => new Set(['target']), isCurrent: () => true });
+  expect(value.pages[0].items).toEqual([expect.objectContaining({ id: 'target', my_like: true, like_count: 1 })]);
+  client.setQueryData(key, value);
+  await act(async () => { write.resolve({ data: { comment_id: 'target', active: true, count: 3 }, error: null }); await pending; });
+  expect(client.getQueryData<CommentWindow>(key)?.pages[0].items[0].my_like).toBe(true);
 });
 
 describe.each<HeartKind>(['comment', 'pollVote'])('%s heart', (kind) => {

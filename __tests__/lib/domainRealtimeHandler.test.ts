@@ -45,12 +45,13 @@ test.each([
       'friendRequests',
       'friendship',
       'friendCount',
+      'commentWindow',
       'profileFriends',
       'feed',
       'notificationCenter',
     ],
   ],
-  ['social.block.created', ['blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed']],
+  ['social.block.created', ['blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed', 'commentWindow']],
   ['leaderboard.updated', ['leaderboard']],
   ['moderation.report.created', ['admin']],
   [
@@ -63,6 +64,7 @@ test.each([
       'profile',
       'profilePost',
       'comments',
+      'commentWindow',
       'pollResults',
       'pollVotersDetail',
     ],
@@ -70,8 +72,8 @@ test.each([
   ['post.created', ['feed', 'profilePost']],
   ['feed.post.updated', ['feed', 'post', 'profilePost']],
   ['feed.reaction.created', ['feed', 'reactions', 'post']],
-  ['feed.comment_like.created', ['comments', 'commentLikes']],
-  ['feed.comment.created', ['feed', 'comments', 'post']],
+  ['feed.comment_like.created', ['comments', 'commentWindow', 'commentLikes']],
+  ['feed.comment.created', ['feed', 'comments', 'commentWindow', 'post']],
 ] as [string, string[]][])('%s reconciles only its authorized query families', (type, roots) => {
   emit(type);
   expect(invalidateRoots.mock.calls).toEqual([roots]);
@@ -104,6 +106,7 @@ test.each([
             'pollVotersDetail',
             'leaderboard',
             'comments',
+            'commentWindow',
             'reactions',
             'notificationCenter',
             'feed',
@@ -116,6 +119,9 @@ test.each([
   ['notification.comment.created', 'comments', true],
   ['notification.comment_reply.created', 'comments', true],
   ['notification.comment_like.created', 'comments', false],
+  ['notification.comment.created', 'commentWindow', true],
+  ['notification.comment_reply.created', 'commentWindow', true],
+  ['notification.comment_like.created', 'commentWindow', false],
 ] as [string, string, boolean][])(
   '%s targets the specific post without cancelling in-flight reads',
   (type, root, refresh) => {

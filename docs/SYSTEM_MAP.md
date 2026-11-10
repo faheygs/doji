@@ -37,8 +37,12 @@ profile/relationship options shared by navigation warming and route observers;
 it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
-`lib/commentWindow.ts` prepares the separate bounded, bidirectional root/reply
-window model; it is not yet connected to the native list. The additive
+`lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
+window model; `useCommentWindow`, `commentWindowReads` and `CommentWindowList/Page`
+connect it to separate native root/reply lists behind the default-off
+`commentPagingFeature` gate. `commentWindowCache` owns per-record write reconciliation;
+the cache family participates in targeted realtime and native lifecycle recovery.
+The additive
 `supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
 tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
 Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.

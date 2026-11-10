@@ -26,6 +26,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'reactionsGiven',
   'reactions',
   'comments',
+  'commentWindow',
   'commentLikes',
   'post',
   'mySuggestions',

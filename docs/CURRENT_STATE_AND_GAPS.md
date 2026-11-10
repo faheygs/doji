@@ -6,15 +6,19 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-Comment scaling is source-only groundwork, not an active app path: additive
+Comment scaling is source-only and disabled by `COMMENT_PAGING_V2_ENABLED`: additive
 root/reply keyset RPCs and a concurrent index preserve existing reads and writes.
 The owned offline database tests 100K comments, bidirectional cursors, permission
 boundaries and index plans. The client window model retains five 50-row pages,
-fences stale account/scope responses and defers eviction of visible rows. It is
-not yet wired to the native list, mutations or realtime reconciliation. Native
-anchor preservation, memory/frame measurements, exact-head CI and separately
+fences stale account/scope responses and defers eviction of visible rows. The native
+adapter keeps separate root and single-open-reply windows, retaining the root list
+on return. Hearts and confirmed edits/deletes update only matching records;
+realtime/foreground reconciliation refreshes retained authorized IDs, not all visited
+pages. Latest rows require an explicit action. The two windows retain at most 500
+rows plus one parent; closed reply caches are discarded. Native anchor preservation,
+memory/frame measurements, exact-head CI and separately
 approved staging SQL/app qualification remain required. Existing installed apps,
-Dev behavior and production are unchanged by this groundwork.
+Dev paging behavior and production are unchanged while the feature remains off.
 
 The Staging build 7 follow-up is source-only: comment roots now match descending
 keyset pagination, unchanged rows are memoized, and the loading footer retains its

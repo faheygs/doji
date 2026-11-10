@@ -8,8 +8,6 @@ import {
   ActivityIndicator,
   Platform,
   Keyboard,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +23,10 @@ import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { CommentBody } from '../comments/CommentBody';
+import { CommentActionSheet } from '../comments/CommentActionSheet';
+import { CommentWindowList } from '../comments/CommentWindowList';
+import { COMMENT_PAGING_V2_ENABLED } from '../../lib/commentPagingFeature';
+import type { CommentPageRow } from '../../lib/commentWindow';
 import { useCommentPageLookahead } from '../../hooks/useCommentPageLookahead';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
@@ -52,114 +54,6 @@ import {
   type CommentThreadRow as Row,
 } from '../../lib/commentThread';
 const MAX_LEN = 2000;
-function CommentActionSheet({
-  visible,
-  onClose,
-  onEdit,
-  onDelete,
-  onReport,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
-  onReport?: () => void;
-}) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const pendingActionRef = useRef<null | (() => void)>(null);
-  const finishDismiss = useCallback(() => {
-    const pending = pendingActionRef.current;
-    pendingActionRef.current = null;
-    pending?.();
-  }, []);
-  const runAfterClose = useCallback((action: () => void) => {
-    pendingActionRef.current = action;
-    onClose();
-    // iOS must acknowledge dismissal before another native presentation starts.
-    if (Platform.OS !== 'ios') requestAnimationFrame(finishDismiss);
-  }, [finishDismiss, onClose]);
-  const sheetStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        backdrop: {
-          flex: 1,
-          justifyContent: 'flex-end',
-          backgroundColor: 'rgba(0,0,0,0.25)',
-        },
-        sheet: {
-          backgroundColor: colors.surfaceElevated,
-          borderTopLeftRadius: Radius.xl,
-          borderTopRightRadius: Radius.xl,
-          paddingBottom: Math.max(insets.bottom, Spacing.md),
-          paddingTop: Spacing.sm,
-        },
-        row: {
-          paddingVertical: Spacing.md,
-          paddingHorizontal: Spacing.lg,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.hairline,
-        },
-        cancel: {
-          marginTop: Spacing.sm,
-          paddingVertical: Spacing.md,
-          alignItems: 'center',
-        },
-      }),
-    [colors, insets.bottom],
-  );
-  if (!visible && !(Platform.OS === 'ios' && pendingActionRef.current)) return null;
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}
-      onDismiss={Platform.OS === 'ios' ? finishDismiss : undefined}>
-      <Pressable style={sheetStyles.backdrop} onPress={onClose}>
-        <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
-          {onEdit ? (
-            <TouchableOpacity
-              style={sheetStyles.row}
-              onPress={() => runAfterClose(onEdit)}
-              accessibilityRole="button"
-              accessibilityLabel="Edit comment"
-            >
-              <Text variant="body" style={{ fontWeight: '600' }}>
-                Edit comment
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          {onDelete ? (
-            <TouchableOpacity
-              style={sheetStyles.row}
-              onPress={() => runAfterClose(onDelete)}
-              accessibilityRole="button"
-              accessibilityLabel="Delete comment"
-            >
-              <Text variant="body" color={colors.error} style={{ fontWeight: '600' }}>
-                Delete comment
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          {onReport ? (
-            <TouchableOpacity
-              style={sheetStyles.row}
-              onPress={() => runAfterClose(onReport)}
-              accessibilityRole="button"
-              accessibilityLabel="Report comment"
-            >
-              <Text variant="body" color={colors.error} style={{ fontWeight: '600' }}>
-                Report comment
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={sheetStyles.cancel} onPress={onClose} accessibilityRole="button">
-            <Text variant="body" color={colors.textSecondary}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
 type CommentRowProps = {
   comment: CommentWithMeta;
   isReply: boolean;
@@ -364,7 +258,12 @@ type Props = {
   onReport?: (subject: ReportSubject) => void;
 };
 
-export function PostCommentsThread({
+export function PostCommentsThread(props: Props) {
+  const viewerId = useAuthStore(s => s.session?.user.id);
+  return <PostCommentsThreadBody key={JSON.stringify([props.postId, viewerId, props.feedAudience ?? 'everyone'])} {...props} />;
+}
+
+function PostCommentsThreadBody({
   postId,
   postOwnerId,
   commentsDisabled = false,
@@ -392,10 +291,10 @@ export function PostCommentsThread({
     isFetchNextPageError,
     isRefetching,
     refetch,
-  } = useComments(postId, { fetchEnabled, feedAudience });
+  } = useComments(postId, { fetchEnabled: fetchEnabled && !COMMENT_PAGING_V2_ENABLED, feedAudience });
   const pagination = useCommentPageLookahead({
     scope: JSON.stringify([postId, me, feedAudience]),
-    enabled: fetchEnabled && !!me,
+    enabled: fetchEnabled && !!me && !COMMENT_PAGING_V2_ENABLED,
     pages: commentPages?.pages,
     hasNextPage: !!hasNextPage,
     isFetching: isFetching || isFetchingNextPage,
@@ -410,6 +309,7 @@ export function PostCommentsThread({
   const { mutateAsync: toggleLike } = useToggleCommentLike();
   const [draft, setDraft] = useState('');
   const [replyingTo, setReplyingTo] = useState<CommentWithMeta | null>(null);
+  const [threadParent, setThreadParent] = useState<CommentPageRow | null>(null);
   const [editingComment, setEditingComment] = useState<CommentWithMeta | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -417,10 +317,12 @@ export function PostCommentsThread({
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState('');
+  const [composerNotice, setComposerNotice] = useState('');
+  const [windowReadable, setWindowReadable] = useState(false);
   const pendingLikeIds = useRef(new Set<string>());
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
-  const composerLocked = commentsDisabled && !isPostOwner;
+  const composerLocked = (commentsDisabled && !isPostOwner) || (COMMENT_PAGING_V2_ENABLED && !windowReadable);
 
   useEffect(() => {
     if (!fetchEnabled && embedInSheet) {
@@ -443,6 +345,10 @@ export function PostCommentsThread({
   );
 
   const onReply = useCallback((c: CommentWithMeta) => {
+    if (COMMENT_PAGING_V2_ENABLED && !c.parent_id && threadParent?.id !== c.id) {
+      setThreadParent({ ...c, has_replies: true });
+      setWindowReadable(false);
+    }
     setComposerError('');
     setEditingComment(null);
     setReplyingTo(c);
@@ -450,7 +356,7 @@ export function PostCommentsThread({
     setDraft(username ? `@${username} ` : '');
     setMentionQuery(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  }, [threadParent?.id]);
 
   const onOpenMenu = useCallback((c: CommentWithMeta) => {
     setMenuComment(c);
@@ -504,6 +410,7 @@ export function PostCommentsThread({
   }, []);
 
   const onChangeDraft = useCallback((text: string) => {
+    setComposerNotice('');
     setDraft(text);
     setComposerError('');
     const mentionMatch = text.match(/@([a-zA-Z0-9_]*)$/);
@@ -542,17 +449,18 @@ export function PostCommentsThread({
       return;
     }
     const body = rawBody;
-    const replyTarget = replyingTo;
+    const replyTarget = replyingTo ?? threadParent;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addComment.mutate(
       {
         postId,
         body,
-        parentId: replyingTo ? replyRootId(replyingTo) : null,
-        replyToCommentId: replyingTo?.id ?? null,
+        parentId: replyTarget ? replyRootId(replyTarget) : null,
+        replyToCommentId: replyTarget?.id ?? null,
         feedAudience,
       },
       {
+        onSuccess: () => { if (COMMENT_PAGING_V2_ENABLED) setComposerNotice('Comment posted. Select Show latest to view it.'); },
         onError: (err: Error) => {
           setDraft(rawBody);
           setReplyingTo(replyTarget);
@@ -569,6 +477,7 @@ export function PostCommentsThread({
     feedAudience,
     postId,
     replyingTo,
+    threadParent,
     editingComment,
     composerLocked,
     cancelComposerState,
@@ -689,9 +598,22 @@ export function PostCommentsThread({
     ],
   );
 
+  const renderWindowComment = useCallback((comment: CommentPageRow, reply: boolean) => (
+    <CommentRow comment={comment} isReply={reply} me={me} colors={colors}
+      onReply={onReply} onProfile={onProfile} onToggleLike={onToggleLike}
+      onViewLikes={onViewLikes} onOpenMenu={onOpenMenu} onOpenReport={onOpenReport} />
+  ), [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes]);
+  const changeThread = useCallback((parent: CommentPageRow | null) => {
+    cancelComposerState(); setComposerError(''); setComposerNotice(''); setThreadParent(parent); setWindowReadable(false);
+  }, [cancelComposerState]);
+
   return (
     <View style={styles.root}>
-      {isLoading ? (
+      {COMMENT_PAGING_V2_ENABLED ? (
+        <CommentWindowList key={JSON.stringify([postId, me, feedAudience])} postId={postId} audience={feedAudience}
+          parent={threadParent}
+          enabled={fetchEnabled} renderComment={renderWindowComment} onThreadChange={changeThread} onAvailability={setWindowReadable} />
+      ) : isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : blockingReadError ? (
         <View style={[styles.flex1, styles.centered]}>
@@ -754,7 +676,7 @@ export function PostCommentsThread({
         {composerLocked ? (
           <View style={styles.lockedNote}>
             <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-              Comments are turned off.
+              {COMMENT_PAGING_V2_ENABLED && !windowReadable ? 'Comments are unavailable until this thread loads.' : 'Comments are turned off.'}
             </Text>
           </View>
         ) : (
@@ -804,8 +726,8 @@ export function PostCommentsThread({
                 value={draft}
                 onChangeText={onChangeDraft}
                 placeholder={
-                  replyingTo
-                    ? `Reply to ${replyingTo.profile?.username ?? 'user'}…`
+                  (replyingTo ?? threadParent)
+                    ? `Reply to ${(replyingTo ?? threadParent)?.profile?.username ?? 'user'}…`
                     : 'Add a comment…'
                 }
                 placeholderTextColor={colors.textTertiary}
@@ -833,6 +755,7 @@ export function PostCommentsThread({
             {composerError ? (
               <InlineFeedback message={composerError} testID="comment-composer-error" />
             ) : null}
+            {composerNotice ? <InlineFeedback tone="info" message={composerNotice} /> : null}
             <Text
               variant="micro"
               color={draft.length >= MAX_LEN ? colors.error : colors.textTertiary}

@@ -178,9 +178,12 @@ the future poll. Community idea acceptance does not schedule a Doji.
   errors, closure or native read suspension. Variable-height text remains accessible.
   The prepared scalable read contract separates root and reply cursors and reconciles
   retained IDs without inserting new head rows into a scrolled viewport. Its client
-  window model caps retained pages and refuses to evict visible rows. This is not
-  active UI behavior yet: native anchor handling, mutation/realtime integration and
-  hosted qualification must precede activation. Partial pages are never totals.
+  window model caps retained pages and refuses to evict visible rows. Its disabled
+  native adapter keeps the root list and one reply thread (250 rows each), with
+  explicit latest loading and per-record mutation reconciliation. Closed reply
+  caches are discarded; foreground/realtime refresh only retained authorized IDs.
+  Native anchor/frame qualification and separately approved hosted SQL must precede
+  activation. Partial pages are never totals.
   Friend-request controls own pending/error state per row on both request surfaces;
   acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

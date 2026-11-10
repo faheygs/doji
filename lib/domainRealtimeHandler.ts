@@ -46,6 +46,7 @@ export function handleDomainRealtimeEvent({
       'friendRequests',
       'friendship',
       'friendCount',
+      'commentWindow',
       'profileFriends',
       'feed',
       'notificationCenter',
@@ -53,7 +54,7 @@ export function handleDomainRealtimeEvent({
     return;
   }
   if (event.type.startsWith('social.block.')) {
-    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed');
+    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed', 'commentWindow');
     return;
   }
   if (event.type.startsWith('notification.')) {
@@ -72,6 +73,7 @@ export function handleDomainRealtimeEvent({
       'pollVotersDetail',
       'leaderboard',
       'comments',
+      'commentWindow',
       'reactions',
       'notificationCenter',
       'feed',
@@ -109,6 +111,7 @@ export function handleDomainRealtimeEvent({
       'profile',
       'profilePost',
       'comments',
+      'commentWindow',
       'pollResults',
       'pollVotersDetail',
     );
@@ -140,7 +143,7 @@ function handleNotificationEvent(
     void queryClient.invalidateQueries(
       {
         predicate: (query) =>
-          query.queryKey[0] === 'comments' && query.queryKey[1] === postId,
+          ['comments', 'commentWindow'].includes(String(query.queryKey[0])) && query.queryKey[1] === postId,
         refetchType: 'active',
       },
       { cancelRefetch: false },
