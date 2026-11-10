@@ -24,6 +24,9 @@ import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { CommentBody } from '../comments/CommentBody';
 import { CommentActionSheet } from '../comments/CommentActionSheet';
+import { InlineCommentList } from '../comments/InlineCommentList';
+import { inlineCommentPagingEnabled } from '../../lib/inlineCommentFeature';
+import type { CommentPageRow } from '../../lib/commentWindow';
 import { useCommentPageLookahead } from '../../hooks/useCommentPageLookahead';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
@@ -269,6 +272,7 @@ function PostCommentsThreadBody({
   feedAudience = 'everyone',
   onReport,
 }: Props) {
+  const INLINE_COMMENT_PAGING_ENABLED = inlineCommentPagingEnabled();
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const insets = useSafeAreaInsets();
@@ -288,10 +292,10 @@ function PostCommentsThreadBody({
     isFetchNextPageError,
     isRefetching,
     refetch,
-  } = useComments(postId, { fetchEnabled, feedAudience });
+  } = useComments(postId, { fetchEnabled: fetchEnabled && !INLINE_COMMENT_PAGING_ENABLED, feedAudience });
   const pagination = useCommentPageLookahead({
     scope: JSON.stringify([postId, me, feedAudience]),
-    enabled: fetchEnabled && !!me,
+    enabled: fetchEnabled && !!me && !INLINE_COMMENT_PAGING_ENABLED,
     pages: commentPages?.pages,
     hasNextPage: !!hasNextPage,
     isFetching: isFetching || isFetchingNextPage,
@@ -313,10 +317,11 @@ function PostCommentsThreadBody({
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState('');
+  const [windowReadable, setWindowReadable] = useState(false);
   const pendingLikeIds = useRef(new Set<string>());
 
   const isPostOwner = Boolean(me && postOwnerId && me === postOwnerId);
-  const composerLocked = commentsDisabled && !isPostOwner;
+  const composerLocked = (commentsDisabled && !isPostOwner) || (INLINE_COMMENT_PAGING_ENABLED && !windowReadable);
 
   useEffect(() => {
     if (!fetchEnabled && embedInSheet) {
@@ -585,9 +590,19 @@ function PostCommentsThreadBody({
     ],
   );
 
+  const renderInlineComment = useCallback((comment: CommentPageRow, reply: boolean) => (
+    <CommentRow comment={comment} isReply={reply} me={me} colors={colors}
+      onReply={onReply} onProfile={onProfile} onToggleLike={onToggleLike}
+      onViewLikes={onViewLikes} onOpenMenu={onOpenMenu} onOpenReport={onOpenReport} />
+  ), [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes]);
+
   return (
     <View style={styles.root}>
-      {isLoading ? (
+      {INLINE_COMMENT_PAGING_ENABLED ? (
+        <InlineCommentList postId={postId} audience={feedAudience} enabled={fetchEnabled}
+          replyTargetId={replyingTo ? replyRootId(replyingTo) : undefined}
+          renderComment={renderInlineComment} onAvailability={setWindowReadable} />
+      ) : isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : blockingReadError ? (
         <View style={[styles.flex1, styles.centered]}>
@@ -650,7 +665,7 @@ function PostCommentsThreadBody({
         {composerLocked ? (
           <View style={styles.lockedNote}>
             <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-              Comments are turned off.
+              {INLINE_COMMENT_PAGING_ENABLED && !windowReadable ? 'Comments are unavailable until this thread loads.' : 'Comments are turned off.'}
             </Text>
           </View>
         ) : (

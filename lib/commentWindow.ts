@@ -85,6 +85,7 @@ export function acceptCommentPage(
   ticket: CommentPageTicket,
   page: CommentPage,
   visibleIds: ReadonlySet<string>,
+  maxPages = COMMENT_WINDOW_PAGES,
 ): { window: CommentWindow; status: 'accepted' | 'stale' | 'deferred'; removedIds: string[] } {
   const expected = commentPageTicket(window, ticket.direction);
   if (
@@ -100,7 +101,7 @@ export function acceptCommentPage(
   const unique = { ...page, items: page.items.filter((row) => !existing.has(row.id)) };
   const pages = ticket.direction === 'next' ? [...window.pages, unique] : [unique, ...window.pages];
   let removedIds: string[] = [];
-  if (pages.length > COMMENT_WINDOW_PAGES) {
+  if (pages.length > maxPages) {
     const edge = ticket.direction === 'next' ? pages[0] : pages.at(-1)!;
     if (visibleIds.size === 0 || edge.items.some((row) => visibleIds.has(row.id)))
       return { window, status: 'deferred', removedIds: [] };

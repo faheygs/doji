@@ -38,10 +38,12 @@ it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
 `lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
-window model; `useCommentWindow` and `commentWindowReads` retain the tested read
-foundation but have no active native consumer. The separate-page adapter and its
-activation gate were removed; `PostCommentsThread` keeps a single list with inline
-replies and newest roots first. A bounded inline integration remains unqualified.
+window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
+account/lifecycle fencing, reconciliation and validated transport. The staging-gated
+`InlineCommentList` flattens roots and expanded replies into one virtualized list;
+`InlineReplyWindow` owns headless per-parent observers and `useInlineWindowPaging`
+owns viewport-adjacent reads. `inlineCommentPaging` bounds the combined retained
+tree. `PostCommentsThread` retains the shared rows/composer and production reader.
 `commentWindowCache` owns per-record write reconciliation;
 the cache family participates in targeted realtime and native lifecycle recovery.
 The additive

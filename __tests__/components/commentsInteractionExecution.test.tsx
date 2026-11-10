@@ -13,6 +13,20 @@ import type { CommentWithMeta } from '../../hooks/useComments';
 import type { CommentLikeRow } from '../../hooks/useCommentLikes';
 
 const mockRouter = { push: jest.fn() };
+let mockInlinePaging = false;
+let mockInlineReadable = true;
+jest.mock('../../lib/inlineCommentFeature', () => ({ inlineCommentPagingEnabled: () => mockInlinePaging }));
+jest.mock('../../components/comments/InlineCommentList', () => ({
+  InlineCommentList: (props: {
+    onAvailability: (value: boolean) => void;
+    renderComment: (row: CommentWithMeta, reply: boolean) => React.ReactElement;
+  }) => {
+    const React = require('react');
+    require('react').useEffect(() => props.onAvailability(mockInlineReadable), [props.onAvailability]);
+    return mockComments.data?.pages.flat().map(row =>
+      <React.Fragment key={row.id}>{props.renderComment(row, !!row.parent_id)}</React.Fragment>) ?? null;
+  },
+}));
 const mockDialog = jest.fn();
 const mockReport = jest.fn();
 const mockAuth = { session: { user: { id: 'self' } } as { user: { id: string } } | null };
@@ -122,6 +136,8 @@ const flush = () =>
     jest.advanceTimersByTime(50);
   });
 beforeEach(() => {
+  mockInlinePaging = false;
+  mockInlineReadable = true;
   jest.clearAllMocks();
   jest.useFakeTimers();
   jest.replaceProperty(Platform, 'OS', 'android');
@@ -154,6 +170,30 @@ afterEach(() => {
 });
 
 describe('real comment composer and thread', () => {
+  it.each(['ios', 'android'] as const)('reuses the %s inline row actions and existing reply composer', async platform => {
+    mockInlinePaging = true;
+    jest.replaceProperty(Platform, 'OS', platform);
+    rows(comment({ id: 'root', body: 'Root comment' }),
+      comment({ id: 'child', parent_id: 'root', body: 'Inline child' }));
+    const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
+    expect(ui.getByText('Root comment')).toBeTruthy();
+    expect(ui.getByText('Inline child')).toBeTruthy();
+    fireEvent.press(ui.getAllByText('Reply')[1]);
+    fireEvent.changeText(ui.getByPlaceholderText(/Reply/), 'Reply through original composer');
+    await act(async () => { fireEvent.press(ui.getByText('Post')); });
+    expect(mockAdd.mutate.mock.calls[0][0]).toEqual(expect.objectContaining({
+      postId: 'post', parentId: 'root', replyToCommentId: 'child', body: 'Reply through original composer',
+    }));
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(ui.queryByText(/Show latest|Back to comments/)).toBeNull();
+  });
+  it('locks the staging composer until the authorized window is readable', () => {
+    mockInlinePaging = true;
+    mockInlineReadable = false;
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    expect(ui.getByText('Comments are unavailable until this thread loads.')).toBeTruthy();
+    expect(mockAdd.mutate).not.toHaveBeenCalled();
+  });
   it.each(['ios', 'android'] as const)('keeps %s replies inline in one newest-first list without latest navigation', (platform) => {
     jest.replaceProperty(Platform, 'OS', platform);
     const older = comment({ id: 'older', body: 'Older root' });

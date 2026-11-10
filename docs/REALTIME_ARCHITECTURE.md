@@ -180,11 +180,15 @@ These lifecycle changes remain next-build source; check recorded release state.
   viewer, audience and parent. Comment/heart, profile, block/friendship and moderation
   hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
   Privacy failures discard cached rows; transient failures retain authorized data
-  with explicit retry. Each window retains at most 250 rows. Confirmed edits/deletes
-  and heart rollback touch matching records only. This foundation has no active
-  native consumer. The UI contract is one newest-first list with inline replies,
-  no separate reply page or Show latest control. A bounded inline adapter must
-  preserve that contract and visible anchors before native qualification/activation.
+  with explicit retry. The general model caps a window at 250 rows; the staging
+  inline consumer tightens this to 60 roots and 30 replies per retained expanded
+  root. Offscreen reply observers pause reads, and closure/root eviction removes
+  their memory-only cache. Confirmed edits/deletes and heart rollback touch matching
+  records only. The UI remains one newest-first list with inline replies, no separate
+  reply page or Show latest control. New head reads are accepted only while still
+  at the head; reply-tail reads append after the retained cursor. Paging preserves
+  visible IDs and native anchors rather than remounting the list. Production keeps
+  its existing reader pending separate database/native qualification and release.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
   Photo and text feeds warm adjacent authorized metadata, not its image backlog.

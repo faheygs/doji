@@ -72,7 +72,8 @@ export function settleCommentWindow(
         const marked = change.parentId
           ? patchCommentWindow(old, change.parentId, (row) => ({ ...row, has_replies: true }))
           : old;
-        return { ...marked, headChanged: true, revision: marked.revision + 1 };
+        return { ...marked, headChanged: old.headChanged || old.scope.parentId === change.parentId,
+          revision: marked.revision + 1 };
       }
       if (change.kind === 'delete' && old.scope.parentId === change.id)
         return { ...old, pages: [], parentRow: undefined, revision: old.revision + 1 };

@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { readCommentPage, readCommentWindow } from '../../lib/commentWindowReads';
+import { readCommentWindow } from '../../lib/commentWindowReads';
+import { readCommentPage } from '../../lib/commentPageReads';
 import { commentScopeKey, patchCommentWindow, type CommentWindow } from '../../lib/commentWindow';
 import { deferred, page, row, scope, windowData } from '../fixtures/commentWindow';
 
@@ -123,12 +124,12 @@ test('latest explicitly replaces a window; previous loads only the requested edg
   expect(latest.generation).not.toBe(old.generation);
 });
 
-test('reply reads independently authorize their parent and latest uses the reply tail', async () => {
+test('initial reply reads independently authorize their parent and start chronologically', async () => {
   respond([row('root')]);
   respond(page(['reply'], 'root'));
   const value = await read('latest', { scope: { ...scope, parentId: 'root' } });
   expect(value.parentRow?.id).toBe('root');
-  expect(rpc.mock.calls[1][1]).toMatchObject({ p_parent_id: 'root', p_direction: 'previous' });
+  expect(rpc.mock.calls[1][1]).toMatchObject({ p_parent_id: 'root', p_direction: 'next' });
   respond([]);
   await expect(read('refresh', { scope: { ...scope, parentId: 'root' } })).rejects.toMatchObject({
     code: '42501',

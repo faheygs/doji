@@ -15,7 +15,11 @@ const subscribe = (notify: () => void) => {
   };
 };
 
-export function useCommentWindow(scopeInput: Omit<CommentScope, 'viewerId'>, enabled: boolean) {
+export function useCommentWindow(
+  scopeInput: Omit<CommentScope, 'viewerId'>,
+  enabled: boolean,
+  budget?: { pageSize: number; maxPages: number },
+) {
   const client = useQueryClient();
   const viewerId = useAuthStore((state) => state.session?.user.id) ?? '';
   const { postId, audience, parentId } = scopeInput;
@@ -27,6 +31,7 @@ export function useCommentWindow(scopeInput: Omit<CommentScope, 'viewerId'>, ena
   const available = useSyncExternalStore(subscribe, canRead, canRead);
   const intent = useRef<CommentReadIntent>('refresh');
   const visibleIds = useRef<ReadonlySet<string>>(new Set());
+  const headRefreshAllowed = useRef(false);
   const pending = useRef(false);
   const [lastIntent, setLastIntent] = useState<CommentReadIntent>('refresh');
   const query = useQuery({
@@ -45,6 +50,8 @@ export function useCommentWindow(scopeInput: Omit<CommentScope, 'viewerId'>, ena
           signal,
           visibleIds: () => visibleIds.current,
           isCurrent: account.isCurrent,
+          canReplaceHead: () => headRefreshAllowed.current,
+          ...budget,
         });
       } catch (error) {
         if (
@@ -88,5 +95,5 @@ export function useCommentWindow(scopeInput: Omit<CommentScope, 'viewerId'>, ena
     },
     [client, enabled, key, refetch, viewerId],
   );
-  return { ...query, load, lastIntent, visibleIds, available };
+  return { ...query, load, lastIntent, visibleIds, headRefreshAllowed, available };
 }

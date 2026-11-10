@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import { createRequestSignal, runAbortableQuery } from './requestSignal';
+import { createRequestSignal } from './requestSignal';
+import { readCommentPage, retainedCommentRows as retainedRows } from './commentPageReads';
 import { preserveHeartRead } from './heartConsistency';
 import { rpcQueryError } from './rpcQueryError';
 import type { QueryClient } from '@tanstack/react-query';
@@ -9,81 +9,14 @@ import {
   commentScopeKey,
   emptyCommentWindow,
   reconcileCommentWindow,
-  type CommentPage,
   type CommentPageRow,
   type CommentScope,
   type CommentWindow,
-  type CommentPageRequest,
 } from './commentWindow';
 
-export type CommentReadIntent = 'refresh' | 'latest' | 'next' | 'previous';
+export type CommentReadIntent = 'refresh' | 'latest' | 'next' | 'previous' | 'tail';
 const denied = () =>
   Object.assign(new Error('This comment thread is no longer available.'), { code: '42501' });
-
-export async function readCommentPage(
-  scope: CommentScope,
-  request: CommentPageRequest,
-  signal: AbortSignal,
-  limit = 50,
-): Promise<CommentPage> {
-  const { data } = await runAbortableQuery(
-    supabase.rpc('get_comment_page_v2', {
-      p_post_id: scope.postId,
-      p_audience: scope.audience,
-      p_parent_id: scope.parentId,
-      p_cursor_created_at: request.cursor?.createdAt ?? null,
-      p_cursor_id: request.cursor?.id ?? null,
-      p_direction: request.direction,
-      p_limit: limit,
-    }),
-    signal,
-  );
-  const page = data as CommentPage | null;
-  const validCursor = (cursor: unknown) =>
-    cursor === null ||
-    (!!cursor &&
-      typeof cursor === 'object' &&
-      typeof (cursor as { id?: unknown }).id === 'string' &&
-      typeof (cursor as { createdAt?: unknown }).createdAt === 'string');
-  if (
-    !page ||
-    !Array.isArray(page.items) ||
-    page.items.length > limit ||
-    !validCursor(page.next) ||
-    !validCursor(page.previous) ||
-    page.items.some(
-      (row) =>
-        !row ||
-        typeof row.id !== 'string' ||
-        row.post_id !== scope.postId ||
-        row.parent_id !== scope.parentId,
-    )
-  )
-    throw new Error('Invalid comment page response');
-  return page;
-}
-
-async function retainedRows(
-  scope: CommentScope,
-  ids: string[],
-  signal: AbortSignal,
-): Promise<CommentPageRow[]> {
-  const { data } = await runAbortableQuery(
-    supabase.rpc('get_comment_rows_v2', {
-      p_post_id: scope.postId,
-      p_ids: ids,
-      p_audience: scope.audience,
-    }),
-    signal,
-  );
-  if (
-    !Array.isArray(data) ||
-    data.length > 50 ||
-    data.some((row) => !row || !ids.includes(row.id) || row.post_id !== scope.postId)
-  )
-    throw new Error('Invalid comment refresh response');
-  return data as CommentPageRow[];
-}
 
 /** One shared deadline covers the entire bounded refresh, not eight seconds per page. */
 export async function readCommentWindow(options: {
@@ -93,8 +26,20 @@ export async function readCommentWindow(options: {
   signal: AbortSignal;
   visibleIds: () => ReadonlySet<string>;
   isCurrent: () => boolean;
+  pageSize?: number;
+  maxPages?: number;
+  canReplaceHead?: () => boolean;
 }): Promise<CommentWindow> {
-  const { client, scope, intent, visibleIds, isCurrent } = options;
+  const { client, scope, intent, visibleIds, isCurrent, pageSize = 50, maxPages = 5 } = options;
+  if (
+    !Number.isInteger(pageSize) ||
+    pageSize < 1 ||
+    pageSize > 50 ||
+    !Number.isInteger(maxPages) ||
+    maxPages < 1 ||
+    maxPages > 5
+  )
+    throw new Error('Invalid comment window budget');
   const key = commentScopeKey(scope);
   const prior = client.getQueryData<CommentWindow>(key);
   const initial = prior ?? emptyCommentWindow(scope);
@@ -116,10 +61,14 @@ export async function readCommentWindow(options: {
       const page = await readCommentPage(
         scope,
         {
-          direction: scope.parentId && intent === 'latest' ? 'previous' : 'next',
+          direction:
+            scope.parentId && intent === 'latest' && prior?.pages.some((page) => page.items.length)
+              ? 'previous'
+              : 'next',
           cursor: null,
         },
         request.signal,
+        pageSize,
       );
       const guarded = {
         ...page,
@@ -130,29 +79,51 @@ export async function readCommentWindow(options: {
         commentPageTicket(empty, 'next')!,
         guarded,
         new Set(),
+        maxPages,
       ).window;
-    } else if (intent === 'next' || intent === 'previous') {
-      const ticket = commentPageTicket(prior, intent);
+    } else if (intent === 'next' || intent === 'previous' || intent === 'tail') {
+      // A previously complete reply tail can grow after a confirmed write/hint.
+      // Read after its last retained ID, never replace the inline thread with a tail page.
+      const last = prior.pages.at(-1)?.items.at(-1);
+      const base =
+        intent === 'tail' && scope.parentId && last
+          ? {
+              ...prior,
+              pages: prior.pages.map((page, index) =>
+                index === prior.pages.length - 1
+                  ? {
+                      ...page,
+                      next: { id: last.id, createdAt: last.created_at },
+                    }
+                  : page,
+              ),
+            }
+          : prior;
+      const ticket = commentPageTicket(base, intent === 'previous' ? 'previous' : 'next');
       if (!ticket) {
         if (!isCurrent() || request.signal.aborted) throw new Error('Comment read cancelled');
         return prior;
       }
-      const page = await readCommentPage(scope, ticket, request.signal);
+      const page = await readCommentPage(scope, ticket, request.signal, pageSize);
       const guarded = {
         ...page,
         items: preserveHeartRead(client, 'comment', scope.viewerId, key, startedAt, page.items),
       };
-      result = acceptCommentPage(prior, ticket, guarded, visibleIds()).window;
+      if (intent === 'tail' && !guarded.items.length) {
+        result = { ...prior, headChanged: false, revision: prior.revision + 1 };
+      } else {
+        const accepted = acceptCommentPage(base, ticket, guarded, visibleIds(), maxPages);
+        result =
+          accepted.status === 'accepted'
+            ? { ...accepted.window, headChanged: intent === 'tail' ? false : prior.headChanged }
+            : prior;
+      }
     } else {
       const refreshed = new Map<string, CommentPageRow>();
       // At most five batches, sequential and cancellable; never refetch visited/evicted pages.
-      for (const page of prior.pages) {
-        if (!page.items.length) continue;
-        const rows = await retainedRows(
-          scope,
-          page.items.map((row) => row.id),
-          request.signal,
-        );
+      const ids = prior.pages.flatMap((page) => page.items.map((row) => row.id));
+      for (let offset = 0; offset < ids.length; offset += 50) {
+        const rows = await retainedRows(scope, ids.slice(offset, offset + 50), request.signal);
         for (const row of preserveHeartRead(
           client,
           'comment',
@@ -174,13 +145,13 @@ export async function readCommentWindow(options: {
       result = {
         ...result,
         headChanged:
-          prior.headChanged ||
-          (!!latestId &&
-            !result.pages.some((page) => page.items.some((row) => row.id === latestId))),
+          !!latestId && !result.pages.some((page) => page.items.some((row) => row.id === latestId)),
       };
     }
     if (!isCurrent() || request.signal.aborted) throw new Error('Comment read cancelled');
     const current = client.getQueryData<CommentWindow>(key);
+    if (intent === 'latest' && !scope.parentId && options.canReplaceHead?.() === false)
+      return current ?? initial;
     if (current && current.generation !== initial.generation) return current;
     if (current && current.revision !== initial.revision) {
       if (intent !== 'refresh') return current;
