@@ -1,13 +1,11 @@
 import type { Comment } from '../types/database';
 import type { FeedAudience } from './feedAudience';
-import { rememberCommentEdge, type CommentHistoryEntry } from './commentPageHistory';
 
 export const COMMENT_PAGE_SIZE = 50;
 export const COMMENT_WINDOW_PAGES = 5;
 export type CommentCursor = { createdAt: string; id: string };
 export type CommentPageRow = Comment & { has_replies: boolean };
 export type CommentPage = {
-  readAt?: number;
   items: CommentPageRow[];
   previous: CommentCursor | null;
   next: CommentCursor | null;
@@ -23,7 +21,6 @@ export type CommentPageRequest = {
   cursor: CommentCursor | null;
 };
 export type CommentWindow = {
-  history?: CommentHistoryEntry[];
   scope: CommentScope;
   pages: CommentPage[];
   headChanged?: boolean;
@@ -101,8 +98,7 @@ export function acceptCommentPage(
     return { window, status: 'stale', removedIds: [] };
   validatePage(window.scope, page);
   const existing = new Set(window.pages.flatMap((current) => current.items.map((row) => row.id)));
-  const items = page.items.filter((row) => !existing.has(row.id));
-  const unique = items.length === page.items.length ? page : { ...page, items };
+  const unique = { ...page, items: page.items.filter((row) => !existing.has(row.id)) };
   const pages = ticket.direction === 'next' ? [...window.pages, unique] : [unique, ...window.pages];
   let removedIds: string[] = [];
   if (pages.length > maxPages) {
@@ -114,12 +110,7 @@ export function acceptCommentPage(
     else pages.pop();
   }
   return {
-    window: {
-      ...window,
-      pages,
-      history: rememberCommentEdge(window, pages, ticket.direction),
-      revision: window.revision + 1,
-    },
+    window: { ...window, pages, revision: window.revision + 1 },
     status: 'accepted',
     removedIds,
   };
@@ -144,7 +135,7 @@ export function reconcileCommentWindow(
       return [row];
     }),
   }));
-  return { ...window, pages, history: undefined, revision: window.revision + 1 };
+  return { ...window, pages, revision: window.revision + 1 };
 }
 
 /** Target only the matching identity; unrelated row objects retain their identity. */
@@ -169,7 +160,5 @@ export function patchCommentWindow(
     changed ||= pageChanged;
     return pageChanged ? { ...page, items } : page;
   });
-  return changed || window.history
-    ? { ...window, pages, history: undefined, revision: window.revision + 1 }
-    : window;
+  return changed ? { ...window, pages, revision: window.revision + 1 } : window;
 }

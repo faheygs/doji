@@ -185,12 +185,7 @@ the future poll. Community idea acceptance does not schedule a Doji.
   window model caps retained pages and refuses to evict visible rows. The staging
   adapter retains up to 60 roots and 30 replies per retained expanded root (1,860
   list records plus at most 60 authorization parent snapshots). Visible replies pin
-  their root; closed/evicted reply threads discard cache, and offscreen threads pause reads.
-  Root backtracking has a separate memory-only recent-page cache: at most 20 pages,
-  400 rows and 2 MiB of serialized UTF-16 accounting, expiring two minutes after
-  the original read. Cache hits restore synchronously without fetching indicators
-  or renewing read freshness. Refresh/invalidation, writes and account/thread teardown
-  prevent old pages from being restored; the full thread is never retained.
+  their root; closed/evicted threads discard cache, and offscreen threads pause reads.
   New root rows enter automatically only at the head, with a completion-time scroll
   fence; new reply tails append without replacing the inline thread. Native frame/
   anchor acceptance remains separate from model tests. Partial pages are never totals.

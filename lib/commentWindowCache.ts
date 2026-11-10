@@ -1,31 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import {
-  acceptCommentPage,
-  commentPageTicket,
-  patchCommentWindow,
-  type CommentPageRow,
-  type CommentWindow,
-} from './commentWindow';
-import { cachedCommentPage } from './commentPageHistory';
-
-/** Restore synchronously, without a fetching spinner or a fake fresh-read timestamp. */
-export function restoreCommentPage(
-  client: QueryClient,
-  key: QueryKey,
-  direction: 'next' | 'previous',
-  visibleIds: ReadonlySet<string>,
-  maxPages: number,
-) {
-  const state = client.getQueryState<CommentWindow>(key);
-  if (!state?.data || state.isInvalidated || state.status !== 'success') return false;
-  const ticket = commentPageTicket(state.data, direction);
-  const page = ticket && cachedCommentPage(state.data, ticket);
-  if (!page) return false;
-  const result = acceptCommentPage(state.data, ticket!, page, visibleIds, maxPages);
-  if (result.status !== 'accepted') return false;
-  client.setQueryData(key, result.window, { updatedAt: state.dataUpdatedAt });
-  return true;
-}
+import { patchCommentWindow, type CommentPageRow, type CommentWindow } from './commentWindow';
 
 export const ownedCommentWindow = (key: QueryKey, userId: string, postId?: string) =>
   key[0] === 'commentWindow' && key[2] === userId && (!postId || key[1] === postId);
@@ -94,16 +68,12 @@ export function settleCommentWindow(
     { predicate: (query) => ownedCommentWindow(query.queryKey, userId, postId) },
     (old) => {
       if (!old) return old;
-      old = { ...old, history: undefined };
       if (change.kind === 'add') {
         const marked = change.parentId
           ? patchCommentWindow(old, change.parentId, (row) => ({ ...row, has_replies: true }))
           : old;
-        return {
-          ...marked,
-          headChanged: old.headChanged || old.scope.parentId === change.parentId,
-          revision: marked.revision + 1,
-        };
+        return { ...marked, headChanged: old.headChanged || old.scope.parentId === change.parentId,
+          revision: marked.revision + 1 };
       }
       if (change.kind === 'delete' && old.scope.parentId === change.id)
         return { ...old, pages: [], parentRow: undefined, revision: old.revision + 1 };

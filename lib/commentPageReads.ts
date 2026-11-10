@@ -14,7 +14,6 @@ export async function readCommentPage(
   signal: AbortSignal,
   limit = 50,
 ): Promise<CommentPage> {
-  const readAt = Date.now();
   const { data } = await runAbortableQuery(
     supabase.rpc('get_comment_page_v2', {
       p_post_id: scope.postId,
@@ -49,7 +48,7 @@ export async function readCommentPage(
     )
   )
     throw new Error('Invalid comment page response');
-  return { ...page, readAt };
+  return page;
 }
 
 export async function retainedCommentRows(

@@ -13,20 +13,14 @@ offline database tests 100K comments, bidirectional cursors, permissions and ind
 plans; this does not establish native or hosted 100K performance.
 The candidate native adapter preserves one newest-first list with multiple inline
 reply threads and no Show latest control. It retains three 20-root pages and three
-10-reply pages per retained expanded root and evicts only offscreen edges. The
-backtrack-cache follow-up is local source: it restores recent root pages synchronously
-without a loading spinner, with 20-page / 400-row / 2 MiB serialized-accounting caps
-and a two-minute original-read age limit. Refresh, writes and account/privacy changes
-invalidate reuse; only a cache miss reads the discarded cursor again.
-Offscreen reply observers stop reads;
+10-reply pages per retained expanded root, evicts only offscreen edges and reads
+backward when returning to discarded pages. Offscreen reply observers stop reads;
 closing/evicting a thread discards its cache. Head refresh is fenced against scroll
 movement; confirmed hearts/edits remain row-local. Activation requires the exact
 Staging backend and development/staging release channel; production keeps the old
 reader. Android Dev verified the 121-comment fixture opens newest-first, expands
 inline and pages down/back to the newest roots. This is functional acceptance, not
-a frame-rate benchmark. The owner accepted the inline iPhone Dev layout, then
-requested cached backtracking; this follow-up still needs device acceptance.
-Installed Staging build 7 is unchanged. Exact-head CI,
+a frame-rate benchmark. Installed Staging build 7 is unchanged. Exact-head CI,
 iPhone/Android frame qualification and owner acceptance remain required.
 
 The Staging build 7 follow-up is source-only: comment roots now match descending
