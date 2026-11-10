@@ -173,7 +173,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
   Root comments follow the descending server cursor so older pages extend below
-  loaded roots; replies stay chronological. Variable-height text remains accessible.
+  loaded roots; replies stay chronological. Visible threads prepare one cursor page
+  ahead of the viewport, with a guarded edge fallback, and stop automatic reads on
+  errors, closure or native read suspension. Variable-height text remains accessible.
   Friend-request controls own pending/error state per row on both request surfaces;
   acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.

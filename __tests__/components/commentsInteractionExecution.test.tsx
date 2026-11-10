@@ -33,7 +33,7 @@ const mockComments = {
   isFetching: false,
   isFetchNextPageError: false,
   isRefetching: false,
-  fetchNextPage: jest.fn(),
+  fetchNextPage: jest.fn().mockResolvedValue(undefined),
   refetch: jest.fn(),
 };
 const mockLikes = {
@@ -266,6 +266,8 @@ describe('real comment composer and thread', () => {
     mockComments.hasNextPage = true;
     const ui = render(shell(<PostCommentsThread postId="post" />));
     const footerHeight = () => StyleSheet.flatten(ui.UNSAFE_getByType(FlatList).props.ListFooterComponent.props.style).height;
+    expect(mockComments.fetchNextPage).toHaveBeenCalledTimes(1);
+    mockComments.fetchNextPage.mockClear();
     const height = footerHeight();
     mockComments.isFetching = true;
     mockComments.isFetchingNextPage = true;

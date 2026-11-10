@@ -25,6 +25,7 @@ import { IconHeartSmall, IconMoreVertical } from '../icons/Icons';
 import { InlineFeedback } from '../ui/InlineFeedback';
 import { MentionAutocomplete } from '../comments/MentionAutocomplete';
 import { CommentBody } from '../comments/CommentBody';
+import { useCommentPageLookahead } from '../../hooks/useCommentPageLookahead';
 import { formatCompactCount } from '../../utils/formatCount';
 import { formatCompactRelativeTime } from '../../utils/time';
 import { prepareProfileHref } from '../../lib/profileNavigation';
@@ -392,6 +393,15 @@ export function PostCommentsThread({
     isRefetching,
     refetch,
   } = useComments(postId, { fetchEnabled, feedAudience });
+  const pagination = useCommentPageLookahead({
+    scope: JSON.stringify([postId, me, feedAudience]),
+    enabled: fetchEnabled && !!me,
+    pages: commentPages?.pages,
+    hasNextPage: !!hasNextPage,
+    isFetching: isFetching || isFetchingNextPage,
+    isError,
+    fetchNextPage,
+  });
   const comments = useMemo(() => commentPages?.pages.flat() ?? [], [commentPages?.pages]);
   const blockingReadError = isError && !canKeepQueryDataOnError(commentPages, error);
   const addComment = useAddComment();
@@ -717,16 +727,11 @@ export function PostCommentsThread({
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            windowSize={5}
             initialNumToRender={12}
-            maxToRenderPerBatch={8}
             removeClippedSubviews={false}
             contentContainerStyle={{ flexGrow: 1 }}
-            onEndReached={() => {
-              if (hasNextPage && !isFetching && !isFetchingNextPage && !isError)
-                void fetchNextPage({ cancelRefetch: false });
-            }}
-            onEndReachedThreshold={0.35}
+            {...pagination}
+            onEndReachedThreshold={2}
             ListFooterComponent={
               <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
                 {isFetchingNextPage ? <ActivityIndicator color={colors.textSecondary} /> : null}

@@ -36,6 +36,7 @@ profile/relationship options shared by navigation warming and route observers;
 `LockedPostBody` selects text-only locked previews from safe challenge metadata;
 it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
+`useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
 `FriendRequestActions` shares row-owned response controls between requests and
 notifications. The response hook applies confirmed record updates, not list rollback.
 `member_profile_search_v1` owns public-name/username search and its GIN index;

@@ -8,7 +8,9 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 The Staging build 7 follow-up is source-only: comment roots now match descending
 keyset pagination, unchanged rows are memoized, and the loading footer retains its
-height. Request-list and notification Accept/Decline controls are row-owned;
+height. Loading-time follow-up prepares one page ahead of the viewport and restores
+the native list's default render window; fast-scroll device acceptance is pending.
+Request-list and notification Accept/Decline controls are row-owned;
 confirmed responses update current caches without whole-list rollback. Synthetic
 pagination/concurrency tests do not qualify native scrolling. Exact-head CI and
 iOS/Android acceptance remain required; production builds and search SQL are held.
