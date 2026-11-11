@@ -50,11 +50,11 @@ export async function sparksSocialRaces(room: TestRoom) {
     return { held, done, stdin: child.stdin };
   }
   try {
-    for (const actor of actors)
+    for (const [index, actor] of actors.entries())
       sql(`insert into auth.users(id,aud,role,email,email_confirmed_at,raw_user_meta_data)
       values('${actor}','authenticated','authenticated','${actor}@test.invalid',now(),
         jsonb_build_object('terms_version','2026-08-20','privacy_version','2026-08-20','terms_accepted_at',now(),'privacy_accepted_at',now()));
-      insert into public.profiles(id,username,display_name,created_at) values('${actor}','cap_${actor.slice(0, 8)}','Synthetic cap member',now()-interval '7 days');`);
+      insert into public.profiles(id,username,display_name,created_at) values('${actor}','economycap${index}','Synthetic cap member',now()-interval '7 days');`);
     sql(`insert into public.challenges(id,title,description,type,category,requires_text,requires_photo,requires_video)
       values('${challenge}','Synthetic cap race','Offline only','task','creative',true,false,false);`);
     for (const [index, event] of events.entries()) {

@@ -84,7 +84,7 @@ export async function firstDojiRaces(
       values('${id}','authenticated','authenticated','${id}@test.invalid',now(),
         jsonb_build_object('terms_version','2026-08-20','privacy_version','2026-08-20',
         'terms_accepted_at',now(),'privacy_accepted_at',now()));
-      insert into public.profiles(id,username,display_name,created_at) values('${id}','race_${id.slice(0, 8)}_${i}','Synthetic race member',now()-interval '7 days');`);
+      insert into public.profiles(id,username,display_name,created_at) values('${id}','firstdojirace${i}','Synthetic race member',now()-interval '7 days');`);
     sql(`insert into public.challenges(id,title,description,type,category,requires_text,requires_photo,requires_video)
       values('${challenge}','Synthetic race','Local only','task','creative',true,false,false);
       update first_doji_badges_private.settings set enabled_from=now()-interval '2 minutes';`);

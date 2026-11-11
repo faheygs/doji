@@ -24,7 +24,7 @@ begin
       jsonb_build_object('terms_version','2026-08-20','privacy_version','2026-08-20',
         'terms_accepted_at',now(),'privacy_accepted_at',now()));
     insert into public.profiles(id,username,display_name,created_at)
-      values(actors[i],'economy_'||left(actors[i]::text,8),'Synthetic economy member',now()-interval '7 days');
+      values(actors[i],'economymember'||i,'Synthetic economy member',now()-interval '7 days');
   end loop;
   -- First event exercises the unchanged disabled path; then all five challenge kinds.
   for n in 0..6 loop

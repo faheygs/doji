@@ -63,7 +63,7 @@ export async function sparksEconomy(room: TestRoom) {
     sql(`insert into auth.users(id,aud,role,email,email_confirmed_at,raw_user_meta_data)
       values('${retainedActor}','authenticated','authenticated','${retainedActor}@test.invalid',now(),
       jsonb_build_object('terms_version','2026-08-20','privacy_version','2026-08-20','terms_accepted_at',now(),'privacy_accepted_at',now()));
-      insert into public.profiles(id,username,display_name) values('${retainedActor}','keep_${retainedActor.slice(0, 8)}','Synthetic retained reward');
+      insert into public.profiles(id,username,display_name) values('${retainedActor}','economyretained','Synthetic retained reward');
       select sparks_economy_v2_private.claim('${retainedActor}','completion','${retainedSubject}',20,'challenge_complete');`);
     const retained = () =>
       sql(`select sparks from public.profiles where id='${retainedActor}';
