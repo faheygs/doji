@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react-native';
-import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { notifyManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { usePollVote } from '../../hooks/usePollVote';
 import { executeCommand } from '../../lib/commandGateway';
 import { filterContent } from '../../lib/contentFilter';
@@ -9,8 +9,10 @@ import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 const mockFetchProfile = jest.fn();
 let mockSession: { user: { id: string } } | null;
 jest.mock('../../stores/useAuthStore', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ session: mockSession, fetchProfile: mockFetchProfile }),
+  useAuthStore: Object.assign((selector: (state: unknown) => unknown) =>
+    selector({ session: mockSession, fetchProfile: mockFetchProfile }), {
+      getState: () => ({ session: mockSession }),
+    }),
 }));
 jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
 jest.mock('../../lib/contentFilter', () => ({ filterContent: jest.fn() }));
@@ -47,7 +49,7 @@ afterEach(() => {
 });
 
 test.each(['open', 'buy_in_open'])(
-  'optimistically completes %s, then reconciles authoritative reads',
+  'completes %s only after confirmation, then reconciles authoritative reads',
   async (status) => {
     client.setQueryData(key, { id: 'event', status, completed_at: null });
     const refetch = jest.spyOn(client, 'refetchQueries');
@@ -69,17 +71,67 @@ test.each(['open', 'buy_in_open'])(
       completed_at: expect.any(String),
     });
     expect(cancel).toHaveBeenCalledWith({ queryKey: key }, { revert: false, silent: true });
-    expect(refetch).toHaveBeenCalledWith({ queryKey: key }, { cancelRefetch: false });
+    expect(refetch).toHaveBeenCalledWith({ queryKey: key });
     expect(scheduleQueryInvalidation).toHaveBeenCalledWith(client, [
-      'pollResults',
-      'pollVotersDetail',
       'profile',
       'leaderboard',
-      'feed',
     ]);
     expect(mockFetchProfile).toHaveBeenCalledWith('member');
   },
 );
+
+test('a slow vote never unlocks early and replaces pre-commit reads without waiting for results', async () => {
+  const previous = { id: 'event', daily_event_id: 'daily', status: 'pending' };
+  client.setQueryData(key, previous);
+  let confirm!: (value: never) => void;
+  command.mockImplementation(() => new Promise(resolve => { confirm = resolve; }));
+  const feedKey = ['feed', 'daily', 'everyone', 'member', 'full'];
+  let oldRead!: (value: string[]) => void;
+  let newRead!: (value: string[]) => void;
+  const read = jest.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { oldRead = resolve; }))
+    .mockImplementationOnce(() => new Promise(resolve => { newRead = resolve; }));
+  const observer = new QueryObserver(client, { queryKey: feedKey, queryFn: read });
+  const unsubscribe = observer.subscribe(() => {});
+  const otherKey = ['feed', 'daily', 'everyone', 'another-member', 'full'];
+  const summaryKey = ['pollResults', 'daily', 'everyone', 'member'];
+  client.setQueryData(otherKey, ['unrelated']);
+  client.setQueryData(summaryKey, ['pre-commit']);
+  const { result } = setup();
+  await act(async () => {
+    const vote = result.current.mutateAsync(args);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(client.getQueryData(key)).toEqual(previous);
+    confirm({ data: null, error: null } as never);
+    await vote;
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(client.getQueryData(key)).toMatchObject({ status: 'completed' });
+    expect(client.getQueryState(summaryKey)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
+    oldRead([]);
+    await Promise.resolve();
+    expect(client.getQueryData(feedKey)).toBeUndefined();
+    newRead(['community-poll']);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(client.getQueryData(feedKey)).toEqual(['community-poll']);
+  });
+  unsubscribe();
+});
+
+test('a late vote receipt cannot unlock a different occurrence or a replacement account', async () => {
+  client.setQueryData(key, { id: 'next-event', status: 'pending' });
+  const { result } = setup();
+  await act(async () => { await result.current.mutateAsync(args); });
+  expect(client.getQueryData(key)).toEqual({ id: 'next-event', status: 'pending' });
+  mockFetchProfile.mockClear();
+  command.mockImplementation(async () => {
+    mockSession = { user: { id: 'different-member' } };
+    return { data: null, error: null } as never;
+  });
+  await act(async () => { await result.current.mutateAsync(args); });
+  expect(mockFetchProfile).not.toHaveBeenCalled();
+  expect(client.getQueryData(key)).toEqual({ id: 'next-event', status: 'pending' });
+});
 
 test.each(['an answer', '   ', ''])(
   'normalizes custom text %j and preserves explicit command IDs',

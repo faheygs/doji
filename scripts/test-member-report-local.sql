@@ -28,8 +28,10 @@ begin
     'terms_version', '2026-08-20', 'privacy_version', '2026-08-20',
     'terms_accepted_at', now(), 'privacy_accepted_at', now()) where id in (author, viewer);
   insert into public.profiles (id, username, display_name)
-  values (author, 'a' || left(replace(author::text, '-', ''), 16), 'Synthetic author'),
-         (viewer, 'v' || left(replace(viewer::text, '-', ''), 16), 'Synthetic viewer');
+  -- Random hex can normalize into prohibited text; this rollback-only fixture
+  -- needs deterministic safe handles, not probabilistic moderation failures.
+  values (author, 'localreportauthor', 'Synthetic author'),
+         (viewer, 'localreportviewer', 'Synthetic viewer');
   insert into public.challenges (id, title, description, category)
   values (challenge, 'Local report regression', 'Synthetic fixture only', 'creative');
   insert into public.daily_events (id, challenge_id, fires_at)

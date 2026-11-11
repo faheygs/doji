@@ -594,7 +594,7 @@ function PollResultCardImpl({
                           @{item.username}
                         </Text>
                         {modalIsOther && item.custom_text?.trim() ? (
-                          <Text variant="bodySmall" color={colors.textSecondary} numberOfLines={2} style={{ marginTop: 2 }}>
+                          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 2 }}>
                             "{item.custom_text.trim()}"
                           </Text>
                         ) : null}

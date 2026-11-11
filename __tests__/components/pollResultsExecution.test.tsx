@@ -298,6 +298,20 @@ it.each([false, true])(
     );
   },
 );
+it.each(['ios', 'android'] as const)('shows all 100 write-in characters on %s without a line clamp', async (platform) => {
+  Platform.OS = platform;
+  const answer = 'My ideal weekend is this super long text that I am entering into this field using all usable spaces.';
+  expect(answer).toHaveLength(100);
+  mockSummary.mockResolvedValue([summary('Other', 1, { option_is_other: true })]);
+  mockVoters.mockResolvedValue([voter('self', { custom_text: answer })]);
+  const ui = mount();
+  await waitFor(() => expect(ui.getByLabelText('1 voters for Other')).toBeTruthy());
+  fireEvent.press(ui.getByLabelText('1 voters for Other'));
+  const text = await ui.findByText(`"${answer}"`);
+  expect(text.props.numberOfLines).toBeUndefined();
+  expect(ui.UNSAFE_getByType(FlatList).props.getItemLayout).toBeUndefined();
+});
+
 it('blocks duplicate friend and like writes while pending', async () => {
   mockSummary.mockResolvedValue([summary('Other', 1, { option_is_other: true })]);
   mockVoters.mockResolvedValue([voter()]);

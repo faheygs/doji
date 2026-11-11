@@ -25,13 +25,13 @@ export function ProfileSaveRecovery({ onSaved }: { onSaved?: () => void }) {
       if (mounted.current && account.isCurrent()) setFailure('The previous save was not confirmed. Check your connection and profile fields.');
     }
   };
-  if (!state || (state === 'idle' && !failure)) return null;
+  // Routine settings persist silently; explicit Save controls own their progress UI.
+  if (!state || state === 'saving' || (state === 'idle' && !failure)) return null;
   return (
     <View style={{ gap: Spacing.sm }}>
       <InlineFeedback
-        tone={state === 'saving' ? 'info' : 'error'}
-        message={failure || (state === 'saving' ? 'Saving your profile change…'
-          : 'Doji could not confirm your last profile change. Retry the same save before making another change.')}
+        tone="error"
+        message={failure || 'Doji could not confirm your last profile change. Retry the same save before making another change.'}
       />
       {state === 'uncertain' ? (
         <Button onPress={() => { void retrySave(); }}>

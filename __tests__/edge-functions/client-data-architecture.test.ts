@@ -66,9 +66,9 @@ describe('mobile data architecture', () => {
 
   it('does not flash a feed empty state while cold cached data reconciles', () => {
     const feed = read('app/(app)/(tabs)/index.tsx');
-    expect(feed).toContain('isFetchedAfterMount: feedFetchedAfterMount');
-    expect(feed).toContain('feedFetching && !feedFetchedAfterMount');
-    expect(feed).toContain('if (feedError && posts.length === 0)');
+    expect(feed).toContain('isFetching: feedFetching');
+    expect(feed).toContain('feedFetching || latestPosts.length > 0');
+    expect(feed).toContain('if ((feedError || missingPoll) && posts.length === 0)');
     expect(feed).toContain('loading={showInitialFeedSkeleton}');
   });
 

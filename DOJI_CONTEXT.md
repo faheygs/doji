@@ -120,6 +120,23 @@ the future poll. Community idea acceptance does not schedule a Doji.
 
 ### Feed, social and media
 
+- The optional first-to-Doji card celebrates the earliest eligible confirmed
+  responder for the current unlocked event and audience without reordering posts.
+  Friends includes self; blocks, reports and moderation filter visibility. Failed
+  or empty reads hide the optional card, never the feed. The card is gated to exact
+  Staging bindings in Development/Staging builds; production remains off.
+- Poll completion unlocks only after confirmed vote commit. Pre-commit feed/result
+  reads are cancelled before reconciliation; loading never claims an empty feed.
+  Other write-ins display their full text. This changes no vote or reward rule.
+- New comments display immediately as actor-local rows outside server cursor pages.
+  Accepted send clears the composer, dismisses the keyboard and reveals a new root
+  once at the top. Replies remain inline; retries/incoming reads do not scroll.
+  Unconfirmed sends retain immutable text/parent/key for explicit identical retry,
+  fenced to the account lifetime. No automatic write retry or persistent offline
+  queue is added; failures surface without overwriting a newer draft.
+- Appearance applies immediately and saves silently; shared profile recovery shows
+  failed/unconfirmed saves only. Explicit Save actions retain progress feedback.
+
 - Feed identity is the authoritative daily-event ID, not the phone's calendar.
   Completing or paid late participation unlocks it.
 - Locked text-only task/format previews use fixed decorative text lines, not a
@@ -265,6 +282,22 @@ allowlisted diagnostic references. It is not a durable support-ticket system.
 The future tracked-report requirement belongs in the product backlog.
 
 ### Economy and moderation
+
+First to Doji uses a prospective canonical overall-winner ledger, not a viewer's
+personalized feed winner. The first valid completion transaction to claim and
+commit earns lifetime progress across photo, task, format, poll and WYR; thresholds
+are Bronze 1, Silver 10, Gold 25 and Diamond 100, with existing tier Sparks once.
+Blocks, friendships and content retention cannot transfer a recorded win. Account
+deletion anonymizes the occurrence fence and removes the private count. Only
+occurrences starting after enablement count; never backfill retained history.
+An authorized first-responder read can use a visible audience fallback, but that
+fallback grants no award. UI packaging and hosted enablement remain separate.
+
+The separately gated [economy v2 candidate](docs/SPARKS_ECONOMY.md) unifies timed
+completion awards, adds a small canonical first-place bonus, caps social earnings
+per occurrence and increases prospective level rewards to 10× the newly reached
+level. XP, deadlines, existing balances and shop prices are unchanged. Existing
+reward rules remain authoritative until qualification and approved activation.
 
 Sparks/XP/streaks/badges/shop ownership are server-owned. Purchases and rewards
 use atomic ledger-backed commands and uniqueness. Equipping public cosmetics

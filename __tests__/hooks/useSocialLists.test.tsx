@@ -330,6 +330,7 @@ describe.each(['block', 'unblock'] as const)('%s atomic commands', (kind) => {
       client,
       kind === 'block'
         ? [
+            'firstDoji',
             'feed',
             'friendship',
             'friends',
@@ -340,7 +341,7 @@ describe.each(['block', 'unblock'] as const)('%s atomic commands', (kind) => {
             'profile',
             'leaderboard',
           ]
-        : ['blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed'],
+        : ['blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed', 'firstDoji'],
     );
     expect(rpc).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();
@@ -361,7 +362,8 @@ describe.each(['block', 'unblock'] as const)('%s atomic commands', (kind) => {
         await expect(result.current.mutateAsync(variables)).rejects.toThrow('failed');
       });
       expect(client.getQueryData(feedKey)).toEqual(feed);
-      expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
+      if (kind === 'block') expect(scheduleQueryInvalidation).toHaveBeenCalledWith(client, ['firstDoji']);
+      else expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
       await act(async () => {
         await result.current.mutateAsync(variables);
       });
@@ -384,6 +386,29 @@ describe.each(['block', 'unblock'] as const)('%s atomic commands', (kind) => {
     expect(command).not.toHaveBeenCalled();
     expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
   });
+});
+
+test.each(['success', 'failure'] as const)('late block %s cannot touch another account cache', async (outcome) => {
+  client.setQueryData(feedKey, feed);
+  const winnerKey = ['firstDoji', 'event', 'everyone', 'member'];
+  client.setQueryData(winnerKey, { profile: { id: 'other' } });
+  let finish!: (value: { data: null; error: Error | null }) => void;
+  command.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }) as never);
+  const { result } = setup(() => useBlockUser());
+  let pending!: Promise<unknown>;
+  await act(async () => {
+    pending = result.current.mutateAsync({ blockedUserId: 'other' }).catch(error => error);
+  });
+  expect(client.getQueryData(winnerKey)).toBeNull();
+  mockSession = { user: { id: 'next-member' } };
+  const newerFeed = { pages: [[]], pageParams: [null] };
+  client.setQueryData(feedKey, newerFeed);
+  await act(async () => {
+    finish({ data: null, error: outcome === 'failure' ? new Error('lost response') : null });
+    await pending;
+  });
+  expect(client.getQueryData(feedKey)).toEqual(newerFeed);
+  expect(scheduleQueryInvalidation).not.toHaveBeenCalled();
 });
 
 describe.each([true, false])('friend response accept=%s', (accept) => {
@@ -446,6 +471,7 @@ describe.each([true, false])('friend response accept=%s', (accept) => {
       'feed',
       'friendship',
       'notificationCenter',
+      'firstDoji',
       'searchUsers',
       'pollVotersDetail',
       'commentLikes',

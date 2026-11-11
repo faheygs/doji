@@ -16,6 +16,8 @@ export type BadgeProgressStats = {
   reactionsReceived: number;
   reactionsGiven: number;
   pollVotes: number;
+  /** Undefined means the authorized lifetime count has not been read successfully. */
+  firstDojiWins?: number;
   friendsCount: number;
   /** Rows in `challenge_suggestions` for this user. */
   challengeIdeasSubmitted: number;
@@ -53,6 +55,15 @@ export function computeBadgeProgress(
   const target = Math.max(1, badge.criteria_value ?? 1);
 
   switch (badge.criteria_type) {
+    case 'first_doji_wins': {
+      const current = Math.min(Math.max(0, stats.firstDojiWins ?? 0), target);
+      return {
+        current,
+        target,
+        percent: clampPct((current / target) * 100),
+        label: `${current} / ${target} first-place finish${target === 1 ? '' : 'es'}`,
+      };
+    }
     case 'streak_days': {
       const current = Math.min(streakProgressValue(stats), target);
       return {

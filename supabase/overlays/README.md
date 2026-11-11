@@ -11,6 +11,28 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `sparks_economy_v2.sql` + `sparks_economy_v2.bindings.sql` compose one default-off
+  transaction, not a hosted release. Install in that order only after the qualified
+  canonical first-Doji dependency. Captured functions, private receipts/caps and
+  level high-water marks fence duplicate rewards. Its retaining rollback refuses
+  intervening function changes and restores originals without erasing balances.
+  See [reward policy](../../docs/SPARKS_ECONOMY.md) and the offline
+  `node scripts/database/sparks-economy.mts` harness. Never backdate activation.
+- `first_doji_badges_v1.sql` adds the canonical private winner/count ledger,
+  prospective 1/10/25/100 tiers, completion trigger and self-count read. Only the
+  new celebration read is replaced; existing commands/permissions remain intact.
+  It installs disabled after `member_first_doji_v1` and uses existing tier rewards.
+  Staging enablement is recorded in current state; production remains gated.
+  Its rollback disables awards but retains catalogue, winners, counts and rewards;
+  retain the underlying read dependency. `first-doji-badges.mts` tests all kinds,
+  real command races, grants, visibility, retention and rollback offline.
+- `member_first_doji_v1.indexes.sql` installs the completion-order index concurrently;
+  `member_first_doji_v1.sql` validates it and returns one authorized safe-profile
+  first responder across kinds, audiences, blocks and moderation. The rollback
+  removes only these new reads/index, never completions or awards. The standalone
+  `member-first-doji.mts` harness qualifies permissions, ties and index eligibility.
+  Recorded Staging read qualification does not establish large-scale latency or
+  native acceptance. No hosted action is authorized by merging these sources.
 - `member_comment_reply_counts_v1.sql` and its exact projection rollback are
   source-only. They add authorized `reply_count` to the existing v2 root/retained
   reads without changing public RPC signatures, writes, grants, jobs or indexes.

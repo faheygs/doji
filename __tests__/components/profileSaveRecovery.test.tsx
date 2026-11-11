@@ -27,7 +27,16 @@ test('idle has no retry and uncertain saves never replay on mount', () => {
   expect(retry).not.toHaveBeenCalled();
 });
 
-test('explicit retry reports saving then confirms once', async () => {
+test('normal background saves render no banner, spinner or retry control', () => {
+  useAuthStore.setState({ profileSaveState: 'saving' });
+  const view = render(<ProfileSaveRecovery />);
+  expect(view.toJSON()).toBeNull();
+  act(() => useAuthStore.setState({ profileSaveState: 'idle' }));
+  expect(view.toJSON()).toBeNull();
+  expect(retry).not.toHaveBeenCalled();
+});
+
+test('explicit retry clears recovery feedback while saving and confirms once', async () => {
   const saved = jest.fn();
   let resolve!: () => void;
   retry.mockImplementation(() => {
@@ -38,7 +47,7 @@ test('explicit retry reports saving then confirms once', async () => {
   const view = render(<ProfileSaveRecovery onSaved={saved} />);
   await act(async () => fireEvent.press(view.getByText('Retry previous save')));
   expect(view.queryByText('Retry previous save')).toBeNull();
-  expect(view.getByText('Saving your profile change…')).toBeTruthy();
+  expect(view.toJSON()).toBeNull();
   await act(async () => { useAuthStore.setState({ profileSaveState: 'idle' }); resolve(); });
   expect(saved).toHaveBeenCalledTimes(1);
   expect(view.queryByText('Saving your profile change…')).toBeNull();

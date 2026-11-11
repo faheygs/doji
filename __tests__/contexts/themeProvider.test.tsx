@@ -193,6 +193,19 @@ test('preference update uses the atomic profile boundary without re-equipping an
   expect(AsyncStorage.setItem).toHaveBeenCalledWith('@doit/app-theme/member-a', 'dark');
 });
 
+test('theme changes immediately while its background profile save is unresolved', async () => {
+  const save = deferred<void>();
+  jest.mocked(initial.updateProfile).mockReturnValueOnce(save.promise);
+  useAuthStore.setState({ session: session(), profile: profile() });
+  const { result } = renderHook(useTheme, { wrapper: ThemeProvider });
+  let pending!: Promise<void>;
+  act(() => { pending = result.current.setPreference('dark'); });
+  expect(result.current.isDark).toBe(true);
+  expect(initial.updateProfile).toHaveBeenCalledTimes(1);
+  await act(async () => { save.resolve(); await pending; });
+  expect(result.current.isDark).toBe(true);
+});
+
 test('accent update persists appearance and chosen accent together', async () => {
   useAuthStore.setState({ session: session(), profile: profile() });
   const { result } = renderHook(useTheme, { wrapper: ThemeProvider });

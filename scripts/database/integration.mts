@@ -87,6 +87,12 @@ export async function integration(room: TestRoom) {
   pass(memberProfileSearch(room));
   const { memberCommentPages } = await import('./member-comment-pages.mts');
   pass(memberCommentPages(room));
+  const { memberFirstDoji } = await import('./member-first-doji.mts');
+  pass(memberFirstDoji(room));
+  const { firstDojiBadges } = await import('./first-doji-badges.mts');
+  pass(await firstDojiBadges(room));
+  const { sparksEconomy } = await import('./sparks-economy.mts');
+  pass(await sparksEconomy(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

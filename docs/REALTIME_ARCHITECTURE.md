@@ -74,6 +74,15 @@ this does not enable direct fallback in production or bypass the configured gate
 
 ## Challenge and scale boundaries
 
+The separately gated economy v2 candidate computes awards inside existing server
+transactions using private unique receipts, member/occurrence social caps and
+level high-water marks. It reuses balance/profile hints; no client reward minting,
+extra channel or polling is added. Its first-place bonus uses the canonical
+first-Doji ledger, not a personalized read. Lifetime win progress emits the existing
+ID-only `badge.updated` hint; client progress integration is separately packaged.
+Rollback retains balances and duplicate fences. See [economy policy](SPARKS_ECONOMY.md)
+for qualification and activation gates.
+
 Pre-live occurs twenty minutes before activation and advances active-feed identity
 without revealing the challenge or deleting old participation/content. Activation
 stamps authoritative deadlines; occurrences materialize lazily per member.
@@ -172,6 +181,20 @@ Announcement claims and notification bootstrap are excluded from read cancellati
 These lifecycle changes remain next-build source; check recorded release state.
 
 ### Read ownership
+
+- `firstDoji` is keyed by event, viewer and audience, with account-lifetime fencing,
+  no persistence and no polling. Existing completion/post/vote/profile hints and
+  foreground/reconnect reconcile it. Block/friendship/moderation changes discard
+  the old winner before authorized rereads. Only exact Development/Staging bindings
+  enable the additive RPC; production stays off. Badge progress reuses the existing
+  account-scoped `userBadgeProgress` family after catalogue discovery.
+- `useCommentSubmission` keeps actor-local sends outside cursor pages. Unconfirmed
+  intent is memory-only and immutable for explicit retry; row acknowledgement
+  retains its native key. Composer generations fence late native text callbacks.
+  Closing a sheet does not authorize a new key or automatic replay.
+- Poll success cancels reads started before commit, marks matching member/event
+  results stale and then unlocks the feed. Background reconciliation never delays
+  direct-to-feed completion or substitutes an empty claim for loading.
 
 - Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
   first), each with bidirectional keyset cursors. Retained-ID refresh returns at

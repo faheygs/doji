@@ -6,6 +6,33 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The next mobile Staging candidate includes the tested Dev follow-ups: immediate
+actor-local comment rows, cleared composer/keyboard dismissal and one-time reveal
+of a newly posted root; confirmed poll unlock with loading instead of a false empty
+feed and full Other text; silent profile-setting saves with failure recovery; and
+the first-to-Doji card, medal and lifetime progress. The card permits only exact
+Staging bindings on development/staging channels and stays off in production.
+This is source preparation, not an installed artifact or hosted economy activation.
+Exact-head PR/main checks, backend readback, build approval/credit checks and new
+iPhone/Android Staging acceptance remain required. Existing installed builds stay.
+
+[Sparks economy v2](SPARKS_ECONOMY.md) is default-off source preparation only:
+20/17/13/10 timed completion rewards, +5 canonical first-place bonus, existing
+3/2 social rewards capped at 5 per occurrence, and 10× newly reached levels.
+It replaces overlapping post/vote and direct friendship payouts prospectively;
+private fences prevent duplicates, and rollback retains balances and history.
+The derived-level trigger also handles XP-driven level changes. Exact-head CI,
+aggregate balance review and separately approved Staging activation remain gates;
+this source preparation changes no hosted rewards, prices, XP, timing or builds.
+
+The first-Doji backend dependency is recorded as enabled in Staging for occurrences
+starting after 2026-11-11 05:41:42 UTC, with no historical backfill. Its canonical
+ledger and 1/10/25/100 lifetime tiers have isolated concurrency/permission/retaining
+rollback tests. Private hosted qualification evidence is retained outside Git under
+`2026-11-10-first-doji-badges`; this is recorded evidence, not a fresh live probe.
+Production remains gated. Mobile card/icon/progress is included in the next Staging
+source candidate above; it has not been packaged into an installed build yet.
+
 The reply-count correction is installed and read-qualified in Staging only: the v2 projection supplies
 an exact audience/visibility-filtered count for `View X replies`, independently of
 the replies loaded on the phone. The prior server/rollback retains its unnumbered

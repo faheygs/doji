@@ -12,6 +12,15 @@ allowance, account membership or availability is guaranteed by this inventory;
 dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
+First-to-Doji reads and lifetime awards reuse the existing Staging Supabase database,
+private winner ledger and standard tier Sparks path; no new service, credential,
+job or push path is added. Source owners are `member_first_doji_v1*` and
+`first_doji_badges_v1*` in `supabase/overlays`. Private Staging qualification and
+retaining rollback evidence are outside Git under `2026-11-10-first-doji-badges`.
+The mobile candidate permits these reads only with exact Staging bindings; native
+acceptance and capacity remain release gates. Economy v2 is separately default-off;
+no production enablement follows from the source or a Staging build.
+
 Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
 is an unscheduled one-shot probe for a separately approved external runner. Its
 environment-specific `MONITOR_CHECK_SECRET` belongs only in protected Edge

@@ -15,12 +15,14 @@ import type { CommentLikeRow } from '../../hooks/useCommentLikes';
 const mockRouter = { push: jest.fn() };
 let mockInlinePaging = false;
 let mockInlineReadable = true;
+const mockInlineProps = jest.fn();
 jest.mock('../../lib/inlineCommentFeature', () => ({ inlineCommentPagingEnabled: () => mockInlinePaging }));
 jest.mock('../../components/comments/InlineCommentList', () => ({
   InlineCommentList: (props: {
     onAvailability: (value: boolean) => void;
     renderComment: (row: CommentWithMeta, reply: boolean) => React.ReactElement;
   }) => {
+    mockInlineProps(props);
     const React = require('react');
     require('react').useEffect(() => props.onAvailability(mockInlineReadable), [props.onAvailability, mockInlineReadable]);
     return mockComments.data?.pages.flat().map(row =>
@@ -81,6 +83,10 @@ jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: Object.assign((selector: (s: typeof mockAuth) => unknown) => selector(mockAuth), {
     getState: () => mockAuth,
   }),
+  captureProfileAccount: () => {
+    const userId = mockAuth.session?.user.id;
+    return { userId, isCurrent: () => mockAuth.session?.user.id === userId };
+  },
 }));
 jest.mock('../../hooks/useComments', () => ({
   useComments: () => mockComments,
@@ -139,6 +145,7 @@ beforeEach(() => {
   mockInlinePaging = false;
   mockInlineReadable = true;
   jest.clearAllMocks();
+  mockAdd.mutateAsync.mockReset().mockImplementation(() => new Promise(() => {}));
   jest.useFakeTimers();
   jest.replaceProperty(Platform, 'OS', 'android');
   mockAuth.session = { user: { id: 'self' } };
@@ -170,6 +177,19 @@ afterEach(() => {
 });
 
 describe('real comment composer and thread', () => {
+  it('shows the new comment without a visible sending label while transport is pending', async () => {
+    mockInlinePaging = true;
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'Immediate comment');
+    await act(async () => { fireEvent.press(ui.getByLabelText('Send comment')); });
+    flush();
+    const props = mockInlineProps.mock.lastCall![0];
+    const pending = props.submissions[0];
+    expect(pending.state).toBe('sending');
+    const rendered = render(shell(props.renderComment(pending.row, false)));
+    expect(rendered.getByText('Immediate comment')).toBeTruthy();
+    expect(rendered.queryByText(/^Sending(?:…|\.\.\.)?$/)).toBeNull();
+  });
   it.each(['ios', 'android'] as const)('reuses the %s inline row actions and existing reply composer', async platform => {
     mockInlinePaging = true;
     jest.replaceProperty(Platform, 'OS', platform);
@@ -181,11 +201,26 @@ describe('real comment composer and thread', () => {
     fireEvent.press(ui.getAllByText('Reply')[1]);
     fireEvent.changeText(ui.getByPlaceholderText(/Reply/), 'Reply through original composer');
     await act(async () => { fireEvent.press(ui.getByText('Post')); });
-    expect(mockAdd.mutate.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(mockAdd.mutateAsync.mock.calls[0][0]).toEqual(expect.objectContaining({
       postId: 'post', parentId: 'root', replyToCommentId: 'child', body: 'Reply through original composer',
     }));
     expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(mockInlineProps.mock.lastCall?.[0].scrollToSubmission).toBeUndefined();
     expect(ui.queryByText(/Show latest|Back to comments/)).toBeNull();
+  });
+  it('requests the top only for an accepted new root Post, not an empty tap or retry', async () => {
+    mockInlinePaging = true;
+    mockAdd.mutateAsync.mockRejectedValueOnce(new Error('Lost response'));
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    fireEvent.press(ui.getByLabelText('Send comment'));
+    expect(mockInlineProps.mock.lastCall?.[0].scrollToSubmission).toBeUndefined();
+    fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'New root');
+    await act(async () => { fireEvent.press(ui.getByLabelText('Send comment')); });
+    flush();
+    const commandId = mockAdd.mutateAsync.mock.calls[0][0].commandId;
+    expect(mockInlineProps.mock.lastCall?.[0].scrollToSubmission).toBe(commandId);
+    fireEvent.press(ui.getByText('Retry comment'));
+    expect(mockInlineProps.mock.lastCall?.[0].scrollToSubmission).toBe(commandId);
   });
   it('keeps the composer in place without a warning while waiting for the authorized read', () => {
     mockInlinePaging = true;
@@ -196,7 +231,7 @@ describe('real comment composer and thread', () => {
     expect(ui.queryByText(/Comments are unavailable|Comments are turned off/)).toBeNull();
     fireEvent.changeText(input, 'Cannot send before authorization');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate).not.toHaveBeenCalled();
+    expect(mockAdd.mutateAsync).not.toHaveBeenCalled();
     mockInlineReadable = true;
     ui.rerender(shell(<PostCommentsThread postId="post" />));
     expect(ui.getByPlaceholderText('Add a comment…')).toBe(input);
@@ -230,33 +265,40 @@ describe('real comment composer and thread', () => {
     flush();
     fireEvent.changeText(ui.getByPlaceholderText('Reply to other…'), 'inline reply');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'newest', replyToCommentId: 'newest-reply', feedAudience: 'friends' });
+    expect(mockAdd.mutateAsync.mock.calls[0][0]).toMatchObject({ postId: 'post', parentId: 'newest', replyToCommentId: 'newest-reply', feedAudience: 'friends' });
     expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
     expect(ui.queryByText(/Show latest|Latest comments available/)).toBeNull();
     expect(ui.queryByText('Back to comments')).toBeNull();
     expect(ui.getByPlaceholderText('Add a comment…')).toBeTruthy();
   });
-  it('trims a new comment, uses its audience and restores a failed draft', () => {
+  it.each(['ios', 'android'] as const)('clears %s immediately without overwriting the next draft; retry preserves the command', async platform => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    let reject!: (error: Error) => void;
+    mockAdd.mutateAsync.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
     const ui = render(shell(<PostCommentsThread postId="post" feedAudience="friends" />));
     expect(ui.getByText('No comments yet. Say something nice.')).toBeTruthy();
     fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), '  useful comment  ');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate.mock.calls[0][0]).toEqual({
+    expect(mockAdd.mutateAsync.mock.calls[0][0]).toEqual({
       postId: 'post',
       body: 'useful comment',
       parentId: null,
       replyToCommentId: null,
       feedAudience: 'friends',
+      commandId: expect.any(String),
+      account: expect.objectContaining({ userId: 'self' }),
     });
     expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('');
-    act(() => mockAdd.mutate.mock.calls[0][1].onError(new Error('Connection failed')));
-    expect(ui.getByText('Connection failed')).toBeTruthy();
-    expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('useful comment');
     fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'new');
-    expect(ui.queryByText('Connection failed')).toBeNull();
+    await act(async () => { reject(new Error('Connection failed')); });
+    flush();
+    expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('new');
+    expect(ui.getByText(/Couldn’t confirm this comment/)).toBeTruthy();
     fireEvent.press(ui.getByLabelText('Send comment'));
-    act(() => mockAdd.mutate.mock.calls[1][1].onError(new Error('')));
-    expect(ui.getByText('Could not post your comment. Try again.')).toBeTruthy();
+    expect(mockAdd.mutateAsync).toHaveBeenCalledTimes(1);
+    fireEvent.press(ui.getByText('Retry comment'));
+    expect(mockAdd.mutateAsync.mock.calls[1][0]).toBe(mockAdd.mutateAsync.mock.calls[0][0]);
+    expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('new');
   });
   it('selects a mention, validates whitespace, and displays the length limit', () => {
     const ui = render(shell(<PostCommentsThread postId="post" />));
@@ -267,12 +309,12 @@ describe('real comment composer and thread', () => {
     fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), '   ');
     expect(ui.getByText('Comment cannot be empty')).toBeTruthy();
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate).not.toHaveBeenCalled();
+    expect(mockAdd.mutateAsync).not.toHaveBeenCalled();
     fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'x'.repeat(2000));
     expect(ui.getByText('2000/2000')).toBeTruthy();
     expect(ui.getByPlaceholderText('Add a comment…').props.maxLength).toBe(2000);
   });
-  it.each(['add', 'edit', 'anonymous'])('disables composition while %s', (mode) => {
+  it.each(['add', 'edit', 'anonymous'])('preserves the composition lock while %s', (mode) => {
     if (mode === 'add') mockAdd.isPending = true;
     if (mode === 'edit') mockEdit.isPending = true;
     if (mode === 'anonymous') mockAuth.session = null;
@@ -280,7 +322,35 @@ describe('real comment composer and thread', () => {
     expect(ui.getByPlaceholderText('Add a comment…').props.editable).toBe(false);
     fireEvent.changeText(ui.getByPlaceholderText('Add a comment…'), 'hello');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate).not.toHaveBeenCalled();
+    expect(mockAdd.mutateAsync).not.toHaveBeenCalled();
+  });
+  it.each(['ios', 'android'] as const)('dismisses the %s keyboard and retires stale reply input events on Post', async platform => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    rows(comment());
+    mockAdd.mutateAsync.mockResolvedValueOnce(comment({ id: 'saved-reply', parent_id: 'c1' }));
+    const ui = render(shell(<PostCommentsThread postId="post" />));
+    const list = ui.UNSAFE_getByType(FlatList);
+    fireEvent.press(ui.getByLabelText('Reply to other'));
+    const oldInput = ui.getByPlaceholderText('Reply to other…');
+    fireEvent.changeText(oldInput, '@other reply to send');
+    const lateChange = oldInput.props.onChangeText;
+    await act(async () => { fireEvent.press(ui.getByLabelText('Send comment')); });
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    const freshInput = ui.getByPlaceholderText('Add a comment…');
+    expect(freshInput).not.toBe(oldInput);
+    expect(freshInput.props.value).toBe('');
+    expect(ui.queryByText('Replying to other')).toBeNull();
+    act(() => lateChange('@other reply committed by the old keyboard'));
+    flush();
+    expect(freshInput.props.value).toBe('');
+    expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+    fireEvent.press(ui.getByLabelText('Send comment'));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    fireEvent.changeText(freshInput, 'A new comment');
+    await act(async () => { fireEvent.press(ui.getByLabelText('Send comment')); });
+    expect(dismiss).toHaveBeenCalledTimes(2);
+    expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('');
   });
   it('locks nonowners but permits the post owner and dismisses a hidden embedded composer', () => {
     const dismiss = jest.spyOn(Keyboard, 'dismiss');
@@ -384,7 +454,8 @@ describe('real comment composer and thread', () => {
     fireEvent.press(ui.getAllByLabelText('Like comment')[1]);
     expect(mockLike.mutateAsync).toHaveBeenCalledTimes(4);
   });
-  it('expands replies, targets the root and preserves a failed reply', () => {
+  it('expands replies, targets the root and preserves a failed reply without restoring its draft', async () => {
+    mockAdd.mutateAsync.mockRejectedValueOnce(new Error('Retry reply'));
     rows(comment(), comment({ id: 'reply', parent_id: 'c1', body: 'A reply' }));
     const ui = render(shell(<PostCommentsThread postId="post" />));
     fireEvent.press(ui.getByLabelText('View 1 reply'));
@@ -393,14 +464,14 @@ describe('real comment composer and thread', () => {
     flush();
     fireEvent.changeText(ui.getByPlaceholderText('Reply to other…'), ' @other answer ');
     fireEvent.press(ui.getByLabelText('Send comment'));
-    expect(mockAdd.mutate.mock.calls[0][0]).toMatchObject({
+    expect(mockAdd.mutateAsync.mock.calls[0][0]).toMatchObject({
       parentId: 'c1',
       replyToCommentId: 'reply',
       body: '@other answer',
     });
-    act(() => mockAdd.mutate.mock.calls[0][1].onError(new Error('Retry reply')));
-    expect(ui.getByText('Replying to other')).toBeTruthy();
-    fireEvent.press(ui.getByText('Cancel'));
+    await act(async () => {});
+    flush();
+    expect(ui.getByText(/Couldn’t confirm this comment/)).toBeTruthy();
     expect(ui.getByPlaceholderText('Add a comment…').props.value).toBe('');
     fireEvent.press(ui.getByLabelText('Hide replies'));
     expect(ui.queryByText('A reply')).toBeNull();
