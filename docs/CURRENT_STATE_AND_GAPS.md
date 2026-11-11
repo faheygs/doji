@@ -1,6 +1,6 @@
 # Current state and handoff gaps
 
-Updated November 9, 2026. This separates source, recorded deployments and owner
+Updated November 11, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
@@ -12,18 +12,27 @@ of a newly posted root; confirmed poll unlock with loading instead of a false em
 feed and full Other text; silent profile-setting saves with failure recovery; and
 the first-to-Doji card, medal and lifetime progress. The card permits only exact
 Staging bindings on development/staging channels and stays off in production.
-This is source preparation, not an installed artifact or hosted economy activation.
-Exact-head PR/main checks, backend readback, build approval/credit checks and new
-iPhone/Android Staging acceptance remain required. Existing installed builds stay.
+PR #85 merged this complete candidate as `62cc442`; exact-head checks and main run
+`43069333834` passed all four quality jobs. Automatic admin Staging correctly skipped
+packaging/deployment. The owner approved one internal iPhone/Android build 8 pair;
+both artifacts are complete, identity/signing/source-map verified, and Android 8
+is installed over 7 without clearing data. Owner iPhone installation and full
+device acceptance remain pending; $3 included credit was used ($15 remaining at
+readback). No production build or submission occurred. See the
+[Staging release record](releases/README.md#november-11-staging-sparks-and-mobile-polish).
 
-[Sparks economy v2](SPARKS_ECONOMY.md) is default-off source preparation only:
+[Sparks economy v2](SPARKS_ECONOMY.md) defaults off in source and is enabled only in Staging:
 20/17/13/10 timed completion rewards, +5 canonical first-place bonus, existing
 3/2 social rewards capped at 5 per occurrence, and 10× newly reached levels.
 It replaces overlapping post/vote and direct friendship payouts prospectively;
 private fences prevent duplicates, and rollback retains balances and history.
-The derived-level trigger also handles XP-driven level changes. Exact-head CI,
-aggregate balance review and separately approved Staging activation remain gates;
-this source preparation changes no hosted rewards, prices, XP, timing or builds.
+The derived-level trigger also handles XP-driven level changes. Approved Staging
+activation begins at 2026-11-11 19:21:01 UTC; prior occurrences keep their old rules.
+All eight prior reward bindings matched the isolated baseline, and hosted rollback
+fixtures passed without committed test data. Existing balances, ledger, permissions,
+unrelated function contracts, triggers and indexes were preserved. No production
+reward, price, XP, timing or delivery setting changed. Native reward feedback and
+cross-type timing/fairness acceptance remain required before production approval.
 
 The first-Doji backend dependency is recorded as enabled in Staging for occurrences
 starting after 2026-11-11 05:41:42 UTC, with no historical backfill. Its canonical

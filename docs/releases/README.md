@@ -5,6 +5,62 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 11 staging Sparks and mobile polish
+
+PR #85 merged the combined mobile polish and default-off economy preparation as
+`62cc4423cc373f09082b99a13b9ee176578b8c88`. Exact-head CI/security and main quality
+`43069333834` passed; the clean mobile-source preflight qualified that commit.
+Admin Staging run `43072272568` skipped package/deploy. No production release occurred.
+
+The owner separately approved Staging Sparks v2 installation/activation and one
+internal iPhone/Android build pair using included credit only. The live eight reward
+bindings matched the isolated migration baseline. Preflight found 43.8 MB database
+usage, 19/60 connections and zero lock waits/long transactions. The first-Doji
+dependency was already enabled and was not redeployed. Exact reviewed SQL installed
+disabled; the first helper attempt had a SQL quoting error and was rejected before
+application, with absence verified before the corrected attempt. Hosted transactional
+fixtures passed timing, all challenge kinds, prior/disabled paths, caps, level jumps,
+retention and real-command replay, rolling back their data. A multi-result readback
+decoder was corrected separately; no mutation was replayed for that read issue.
+
+The prospective gate is `2026-11-11 19:21:01.072854+00`. Existing 106 profiles and
+2,299 ledger entries, balance fingerprint and unrelated function/grant, policy,
+trigger/index fingerprints were unchanged after qualification. All eight installed
+bindings match their retained hashes; two private reward triggers were added.
+No history backfill, balance rewrite, price/XP/timing change or email/push occurred.
+Rollback disables the gate and restores captured reward functions, retaining all
+balances, receipts and high-water marks. Private evidence and exact inverse are
+under `%LOCALAPPDATA%/Doji/staging-backend/2026-11-11-sparks`.
+
+Staging build 8 uses existing Android signing and owner-only iPhone ad-hoc signing;
+the public native configuration matches build 7 apart from the build number and
+byte-identical local Firebase file path. Push, reporting and OTA remain disabled.
+Fresh allowance was $18 included credit; the completed pair used $3, leaving $15
+at final readback. No extra spending or build retry occurred. The archive contains
+416 reviewed
+mobile files, excluding backend, portal, credentials and unrelated owner edits.
+EAS jobs are Android `bbcd3818-d0f2-4f65-8910-eed36fba6686` and iPhone
+`72d19214-7986-4049-9fe9-411bfbbbd392`; both completed at exact source, version
+1.0.8 / build 8. APK SHA-256 is
+`efdd57f609a05dc878b676b0f5b5d6b2b1aadc35882f3aea520f3b2d2c81ded9`;
+IPA SHA-256 is `3e49a828f6775bb15022ffc52d9a5bbaa9a371e4fc2f35c1c9bbe53b23e8b352`.
+The APK signature matches the existing Staging certificate and is non-debuggable.
+The IPA identity/profile permits only the owner's device; Windows did not perform
+full macOS code-signature verification. Sentry uploads match `doji-staging`, release
+`com.doit.challengeapp.staging@1.0.8+8`, with Android Debug ID
+`f0796d29-ae9c-424e-a6e6-677d579a9e67` and iPhone Debug ID
+`135838cd-af8b-4d9e-a709-8342e019c2e0`. Upload is not captured-error symbolication.
+Android installation replaced build 7 in place on the approved emulator without
+clearing data; installed version 8 and successful Android activity launch were
+verified. Activity launch does not establish feed readiness or device speed.
+iPhone installation and full device acceptance remain pending.
+Private build/configuration evidence is under
+`%LOCALAPPDATA%/Doji/mobile-staging/2026-11-11-polish-sparks`.
+
+Natural device reward feedback, cross-type completion fairness and native comments/
+poll/profile/theme acceptance remain separate from SQL/model tests and cloud builds.
+Emulator checks cannot qualify physical Android speed. Production remains unchanged.
+
 ## November 6 mobile development and staging builds
 
 PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality

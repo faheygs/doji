@@ -18,8 +18,12 @@ job or push path is added. Source owners are `member_first_doji_v1*` and
 `first_doji_badges_v1*` in `supabase/overlays`. Private Staging qualification and
 retaining rollback evidence are outside Git under `2026-11-10-first-doji-badges`.
 The mobile candidate permits these reads only with exact Staging bindings; native
-acceptance and capacity remain release gates. Economy v2 is separately default-off;
-no production enablement follows from the source or a Staging build.
+acceptance and capacity remain release gates. Economy v2 defaults off in source;
+its separately approved Staging gate is enabled prospectively from November 11,
+19:21:01 UTC, using the existing database and no new service or credentials.
+Exact binding, capacity, synthetic rollback and unchanged-balance evidence is
+retained privately under `2026-11-11-sparks`. Production remains off. See the
+[Staging receipt](releases/README.md#november-11-staging-sparks-and-mobile-polish).
 
 Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
 is an unscheduled one-shot probe for a separately approved external runner. Its
