@@ -18,7 +18,7 @@ const subscribe = (notify: () => void) => {
 export function useCommentWindow(
   scopeInput: Omit<CommentScope, 'viewerId'>,
   enabled: boolean,
-  budget?: { pageSize: number; maxPages: number },
+  budget?: { pageSize: number; maxPages: number; retainLoadedRoots?: boolean },
 ) {
   const client = useQueryClient();
   const viewerId = useAuthStore((state) => state.session?.user.id) ?? '';
@@ -95,5 +95,6 @@ export function useCommentWindow(
     },
     [client, enabled, key, refetch, viewerId],
   );
-  return { ...query, load, lastIntent, visibleIds, headRefreshAllowed, available };
+  const isPaging = query.isFetching && ['next', 'previous', 'tail'].includes(lastIntent);
+  return { ...query, load, lastIntent, isPaging, visibleIds, headRefreshAllowed, available };
 }

@@ -2,6 +2,7 @@ import { createRequestSignal } from './requestSignal';
 import { readCommentPage, retainedCommentRows as retainedRows } from './commentPageReads';
 import { preserveHeartRead } from './heartConsistency';
 import { rpcQueryError } from './rpcQueryError';
+import { visibleRootPages, reconcileRetainedRoots } from './retainedCommentRoots';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   acceptCommentPage,
@@ -14,7 +15,7 @@ import {
   type CommentWindow,
 } from './commentWindow';
 
-export type CommentReadIntent = 'refresh' | 'latest' | 'next' | 'previous' | 'tail';
+export type CommentReadIntent = 'refresh' | 'visible' | 'latest' | 'next' | 'previous' | 'tail';
 const denied = () =>
   Object.assign(new Error('This comment thread is no longer available.'), { code: '42501' });
 
@@ -28,6 +29,7 @@ export async function readCommentWindow(options: {
   isCurrent: () => boolean;
   pageSize?: number;
   maxPages?: number;
+  retainLoadedRoots?: boolean;
   canReplaceHead?: () => boolean;
 }): Promise<CommentWindow> {
   const { client, scope, intent, visibleIds, isCurrent, pageSize = 50, maxPages = 5 } = options;
@@ -58,6 +60,7 @@ export async function readCommentWindow(options: {
     let result: CommentWindow;
     if (!prior || !prior.pages.length || intent === 'latest') {
       const empty = emptyCommentWindow(scope);
+      empty.retainLoadedRoots = !!options.retainLoadedRoots && !scope.parentId;
       const page = await readCommentPage(
         scope,
         {
@@ -120,8 +123,11 @@ export async function readCommentWindow(options: {
       }
     } else {
       const refreshed = new Map<string, CommentPageRow>();
-      // At most five batches, sequential and cancellable; never refetch visited/evicted pages.
-      const ids = prior.pages.flatMap((page) => page.items.map((row) => row.id));
+      const selected = prior.retainLoadedRoots
+        ? visibleRootPages(prior, visibleIds())
+        : prior.pages;
+      // Refresh visible root pages only, not the accumulated scrolling history.
+      const ids = selected.flatMap((page) => page.items.map((row) => row.id));
       for (let offset = 0; offset < ids.length; offset += 50) {
         const rows = await retainedRows(scope, ids.slice(offset, offset + 50), request.signal);
         for (const row of preserveHeartRead(
@@ -134,18 +140,26 @@ export async function readCommentWindow(options: {
         ))
           refreshed.set(row.id, row);
       }
-      result = reconcileCommentWindow(prior, prior, refreshed);
-      const latest = await readCommentPage(
-        scope,
-        { direction: scope.parentId ? 'previous' : 'next', cursor: null },
-        request.signal,
-        1,
-      );
-      const latestId = latest.items[0]?.id;
+      result = prior.retainLoadedRoots
+        ? reconcileRetainedRoots(prior, selected, refreshed, intent !== 'visible')
+        : reconcileCommentWindow(prior, prior, refreshed);
+      const latest =
+        intent === 'visible'
+          ? null
+          : await readCommentPage(
+              scope,
+              { direction: scope.parentId ? 'previous' : 'next', cursor: null },
+              request.signal,
+              1,
+            );
+      const latestId = latest?.items[0]?.id;
       result = {
         ...result,
         headChanged:
-          !!latestId && !result.pages.some((page) => page.items.some((row) => row.id === latestId)),
+          intent === 'visible'
+            ? prior.headChanged
+            : !!latestId &&
+              !result.pages.some((page) => page.items.some((row) => row.id === latestId)),
       };
     }
     if (!isCurrent() || request.signal.aborted) throw new Error('Comment read cancelled');

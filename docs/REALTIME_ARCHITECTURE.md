@@ -189,11 +189,21 @@ These lifecycle changes remain next-build source; check recorded release state.
   viewer, audience and parent. Comment/heart, profile, block/friendship and moderation
   hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
   Privacy failures discard cached rows; transient failures retain authorized data
-  with explicit retry. The general model caps a window at 250 rows; the staging
-  inline consumer tightens this to 60 roots and 30 replies per retained expanded
-  root. Offscreen reply observers pause reads, and closure/root eviction removes
+  with explicit retry. The generic bounded model caps a window at 250 rows. The
+  staging inline consumer instead retains every loaded root page, fetching older
+  pages downward only; there is no upward root pagination or offscreen root eviction.
+  Root data grows with visited pages while native views remain virtualized. Root
+  refresh is limited to three visible pages (60 rows); other loaded pages are marked
+  for in-place retained-ID reconciliation when visible, not cursor replay. Closing
+  the sheet/account teardown removes its memory-only cache. This is not a constant
+  total-memory or physical-device 100K performance guarantee. Replies remain capped
+  at 30 rows per expanded root. Offscreen reply observers pause reads, and closure/root removal removes
   their memory-only cache. Confirmed edits/deletes and heart rollback touch matching
-  records only. The UI remains one newest-first list with inline replies, no separate
+  records only. Root projections can include exact authorized `reply_count` for
+  collapsed labels; this is not the number of cached replies. Counts use the same
+  audience, block, own-report and moderation rules as the rows, with no new event
+  or polling channel. Existing comment hints and retained-ID reads reconcile them.
+  The UI remains one newest-first list with inline replies, no separate
   reply page or Show latest control. New head reads are accepted only while still
   at the head; reply-tail reads append after the retained cursor. Paging preserves
   visible IDs and native anchors rather than remounting the list. Production keeps

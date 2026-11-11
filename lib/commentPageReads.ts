@@ -7,6 +7,13 @@ import type {
   CommentPageRequest,
 } from './commentWindow';
 
+// Missing counts support the prior server/rollback. Never display a malformed count.
+function validReplyCount(row: CommentPageRow): boolean {
+  return row.reply_count === undefined ||
+    (Number.isSafeInteger(row.reply_count) && row.reply_count >= 0 &&
+      row.has_replies === (row.reply_count > 0));
+}
+
 /** Validate server identity/cursors before admitting a page to an account window. */
 export async function readCommentPage(
   scope: CommentScope,
@@ -44,7 +51,7 @@ export async function readCommentPage(
         !row ||
         typeof row.id !== 'string' ||
         row.post_id !== scope.postId ||
-        row.parent_id !== scope.parentId,
+        row.parent_id !== scope.parentId || !validReplyCount(row),
     )
   )
     throw new Error('Invalid comment page response');
@@ -67,7 +74,7 @@ export async function retainedCommentRows(
   if (
     !Array.isArray(data) ||
     data.length > 50 ||
-    data.some((row) => !row || !ids.includes(row.id) || row.post_id !== scope.postId)
+    data.some((row) => !row || !ids.includes(row.id) || row.post_id !== scope.postId || !validReplyCount(row))
   )
     throw new Error('Invalid comment refresh response');
   return data as CommentPageRow[];

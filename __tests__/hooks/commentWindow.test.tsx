@@ -96,6 +96,26 @@ test('authorization failure purges retained data and a later network failure can
   expect(read).toHaveBeenCalledTimes(3);
 });
 
+test('paging shows progress but a subsequent invalidation refresh stays in the background', async () => {
+  const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  const next = deferred<CommentWindow>();
+  read.mockReturnValueOnce(next.promise);
+  let paging!: Promise<void>;
+  act(() => { paging = result.current.load('next'); });
+  await waitFor(() => expect(result.current.isPaging).toBe(true));
+  await act(async () => { next.resolve(windowData()); await paging; });
+  const refresh = deferred<CommentWindow>();
+  read.mockReturnValueOnce(refresh.promise);
+  let refreshing!: Promise<void>;
+  act(() => { refreshing = client.invalidateQueries({ queryKey: commentScopeKey(scope) }); });
+  await waitFor(() => expect(result.current.isFetching).toBe(true));
+  expect(result.current.isPaging).toBe(false);
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.data?.pages[0].items).toHaveLength(2);
+  await act(async () => { refresh.resolve(windowData()); await refreshing; });
+});
+
 test('transport failures retain authorized rows and require explicit retry', async () => {
   const { result } = renderHook(() => useCommentWindow(scope, true), { wrapper });
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
