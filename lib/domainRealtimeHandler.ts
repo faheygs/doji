@@ -3,6 +3,7 @@ import type { DojiRealtimeEvent } from './realtimeClient';
 import { realtimeQueryRoots } from './realtimeQueryRoots';
 import { refreshActivePostEngagement } from './postEngagement';
 import { useAuthStore } from '../stores/useAuthStore';
+import { clearFirstDoji } from './firstDojiCache';
 
 type HandlerContext = {
   event: DojiRealtimeEvent;
@@ -18,8 +19,12 @@ export function handleDomainRealtimeEvent({
   queryClient,
   invalidateRoots,
 }: HandlerContext): void {
+  if (event.type.startsWith('social.block.') || event.type.startsWith('social.friendship.') ||
+    event.type.startsWith('moderation.status.')) {
+    clearFirstDoji(queryClient);
+  }
   if (event.type.startsWith('doji.')) {
-    invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter');
+    invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter', 'firstDoji');
     return;
   }
   if (event.type.startsWith('poll.vote.') || event.type.startsWith('poll.vote_like.')) {
@@ -27,7 +32,7 @@ export function handleDomainRealtimeEvent({
     return;
   }
   if (event.type.startsWith('user_event.')) {
-    invalidateRoots('userEvent', 'feed', 'profilePost');
+    invalidateRoots('userEvent', 'feed', 'profilePost', 'firstDoji');
     return;
   }
   if (event.type.startsWith('shop.ownership.')) {
@@ -49,12 +54,13 @@ export function handleDomainRealtimeEvent({
       'commentWindow',
       'profileFriends',
       'feed',
+      'firstDoji',
       'notificationCenter',
     );
     return;
   }
   if (event.type.startsWith('social.block.')) {
-    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed', 'commentWindow');
+    invalidateRoots('blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed', 'commentWindow', 'firstDoji');
     return;
   }
   if (event.type.startsWith('notification.')) {
@@ -77,6 +83,7 @@ export function handleDomainRealtimeEvent({
       'reactions',
       'notificationCenter',
       'feed',
+      'firstDoji',
     );
     return;
   }
@@ -114,6 +121,7 @@ export function handleDomainRealtimeEvent({
       'commentWindow',
       'pollResults',
       'pollVotersDetail',
+      'firstDoji',
     );
     return;
   }
@@ -160,7 +168,7 @@ function handleNotificationEvent(
     );
   }
   if (event.type.startsWith('notification.friend_activity.')) {
-    roots.push('pollResults', 'pollVotersDetail', 'feed');
+    roots.push('pollResults', 'pollVotersDetail', 'feed', 'firstDoji');
   }
   if (event.type.startsWith('notification.suggestion.')) {
     roots.push('mySuggestions', 'challengeSuggestionCounts');

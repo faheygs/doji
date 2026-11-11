@@ -11,6 +11,7 @@ import { friendshipOptions, memberProfileOptions } from '../lib/memberProfileQue
 import { runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
 import { preserveRecentReaction } from '../lib/reactionReadConsistency';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
@@ -173,8 +174,9 @@ export function useRemoveFriend() {
       if (error) throw error;
     },
     onSuccess: () => {
+      clearFirstDoji(queryClient);
       scheduleQueryInvalidation(queryClient, [
-        'friends', 'friendRequests', 'friendship', 'feed', 'notificationCenter',
+        'friends', 'friendRequests', 'friendship', 'feed', 'notificationCenter', 'firstDoji',
       ]);
       invalidateFriendCountQueries(queryClient);
     },

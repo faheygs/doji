@@ -211,6 +211,16 @@ test('appearance save rejection has visible feedback rather than an unhandled pr
   expect(ui.getByText('Could not confirm your appearance change.')).toBeTruthy();
 });
 
+test('appearance stays visible without saving feedback during background persistence', () => {
+  mockSaveState = 'saving';
+  mockDark = true;
+  const ui = render(<Appearance />);
+  expect(ui.UNSAFE_getByType(Switch).props.value).toBe(true);
+  expect(ui.queryByText('Saving your profile change…')).toBeNull();
+  expect(ui.queryByText('Retry previous save')).toBeNull();
+  expect(ui.getByText('Dark mode')).toBeTruthy();
+});
+
 describe.each([false, true])('profile settings dark=%s', (dark) => {
   beforeEach(() => {
     mockDark = dark;

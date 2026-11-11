@@ -7,6 +7,7 @@ import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 type BlockInput = {
   blockedUserId: string;
@@ -42,6 +43,7 @@ export function useBlockUser() {
       if (error) throw error;
     },
     onMutate: ({ blockedUserId }) => {
+      clearFirstDoji(queryClient);
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
       });
@@ -58,12 +60,15 @@ export function useBlockUser() {
       return { previousFeeds };
     },
     onError: (_error, _variables, context) => {
+      scheduleQueryInvalidation(queryClient, ['firstDoji']);
       for (const [queryKey, data] of context?.previousFeeds ?? []) {
         queryClient.setQueryData(queryKey, data);
       }
     },
     onSuccess: () => {
+      clearFirstDoji(queryClient);
       scheduleQueryInvalidation(queryClient, [
+        'firstDoji',
         'feed',
         'friendship',
         'friends',
@@ -96,7 +101,7 @@ export function useUnblockUser() {
     },
     onSuccess: () => {
       scheduleQueryInvalidation(queryClient, [
-        'blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed',
+        'blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed', 'firstDoji',
       ]);
     },
   });

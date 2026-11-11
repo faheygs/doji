@@ -300,6 +300,9 @@ it.each([true, false])(
     mockSuggestions.data = [{ status: 'approved' }, { status: 'pending' }];
     mockPhoto.error = 'Photo upload failed';
     const ui = render(shell(<MyProfile />));
+    const client = clients[clients.length - 1];
+    client.setQueryData(['badgeCategories'], []);
+    client.setQueryData(['badgeTiers'], []);
     expect(ui.getByText('Badges')).toBeTruthy();
     expect(ui.getByText('Could not update photo')).toBeTruthy();
     fireEvent(ui.getByLabelText('Settings'), 'pressIn');
@@ -311,6 +314,8 @@ it.each([true, false])(
     expect(String(mockRouter.push.mock.calls[1][0])).toContain('/profile/shop');
     await act(async () => ui.UNSAFE_getByType(RefreshControl).props.onRefresh());
     expect(mockAuth.fetchProfile).toHaveBeenCalledWith('self');
+    expect(client.getQueryState(['badgeCategories'])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(['badgeTiers'])?.isInvalidated).toBe(true);
     act(() => ui.UNSAFE_getByType(ProfileSubmissions).props.onRetry());
     expect(mockSuggestions.refetch).toHaveBeenCalledWith({ cancelRefetch: false });
     act(() => ui.UNSAFE_getByType(ProfileStatsStrip).props.onPressFriends());

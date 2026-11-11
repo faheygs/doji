@@ -91,6 +91,7 @@ jest.mock('../../hooks/useFeed', () => ({
   useFeed: () => mockFeed,
   prefetchFeedAudience: (...args: unknown[]) => mockPrefetch(...args),
 }));
+jest.mock('../../hooks/useFirstDoji', () => ({ useFirstDoji: () => ({ data: null }) }));
 jest.mock('../../hooks/useFeedAudiencePreference', () => ({
   useFeedAudiencePreference: () => ({ audience: mockAudience, selectAudience: mockSelect }),
 }));
@@ -247,6 +248,25 @@ describe.each([false, true])('lists dark=%s', (dark) => {
     act(() => ui.UNSAFE_getByType(NotificationSheet).props.onClose());
     expect(mockNotifications.markBellOpened).toHaveBeenCalled();
     expect(ui.UNSAFE_getByType(NotificationSheet).props.visible).toBe(false);
+  });
+  it('shows loading, not empty, while an already-mounted empty feed reconciles a vote', () => {
+    mockFeed.isFetching = true;
+    const ui = render(shell(<Feed />));
+    expect(ui.getByLabelText('Loading feed')).toBeTruthy();
+    expect(ui.queryByText('Nothing yet')).toBeNull();
+    expect(ui.queryByText('Be the first to respond.')).toBeNull();
+    mockFeed = paged([post('community-poll')]);
+    ui.rerender(shell(<Feed />));
+    expect(ui.UNSAFE_getByType(PostCard)).toBeTruthy();
+    expect(ui.queryByLabelText('Loading feed')).toBeNull();
+  });
+  it('offers a read retry if a completed poll returns no community card, never a no-responses claim', () => {
+    mockEvent.data!.challenge = { type: 'poll' } as Challenge;
+    const ui = render(shell(<Feed />));
+    expect(ui.queryByText('Nothing yet')).toBeNull();
+    expect(ui.getByText('Your vote was submitted. Reload the feed to load the poll results; you do not need to vote again.')).toBeTruthy();
+    act(() => ui.UNSAFE_getByType(ErrorState).props.onRetry());
+    expect(mockFeed.refetch).toHaveBeenCalledTimes(1);
   });
   it('feed only activates visible posts and avoids duplicate pagination', () => {
     mockFeed = paged([post()]);

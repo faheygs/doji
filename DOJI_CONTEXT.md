@@ -120,6 +120,23 @@ the future poll. Community idea acceptance does not schedule a Doji.
 
 ### Feed, social and media
 
+- The optional first-to-Doji card celebrates the earliest eligible confirmed
+  responder for the current unlocked event and audience without reordering posts.
+  Friends includes self; blocks, reports and moderation filter visibility. Failed
+  or empty reads hide the optional card, never the feed. The card is gated to exact
+  Staging bindings in Development/Staging builds; production remains off.
+- Poll completion unlocks only after confirmed vote commit. Pre-commit feed/result
+  reads are cancelled before reconciliation; loading never claims an empty feed.
+  Other write-ins display their full text. This changes no vote or reward rule.
+- New comments display immediately as actor-local rows outside server cursor pages.
+  Accepted send clears the composer, dismisses the keyboard and reveals a new root
+  once at the top. Replies remain inline; retries/incoming reads do not scroll.
+  Unconfirmed sends retain immutable text/parent/key for explicit identical retry,
+  fenced to the account lifetime. No automatic write retry or persistent offline
+  queue is added; failures surface without overwriting a newer draft.
+- Appearance applies immediately and saves silently; shared profile recovery shows
+  failed/unconfirmed saves only. Explicit Save actions retain progress feedback.
+
 - Feed identity is the authoritative daily-event ID, not the phone's calendar.
   Completing or paid late participation unlocks it.
 - Locked text-only task/format previews use fixed decorative text lines, not a

@@ -14,13 +14,14 @@ import type { Comment, Post } from '../types/database';
 import type { FeedAudience } from '../lib/feedAudience';
 import { executeCommand } from '../lib/commandGateway';
 
-type AddCommentVars = {
+export type AddCommentVars = {
   postId: string;
   body: string;
   parentId?: string | null;
   replyToCommentId?: string | null;
   commandId?: string;
   feedAudience: FeedAudience;
+  account?: ReturnType<typeof captureProfileAccount>;
 };
 
 export function useAddComment() {
@@ -33,23 +34,26 @@ export function useAddComment() {
     // Keep pending callbacks attached to the account that started the command.
     mutationKey: ['addComment', uid],
     mutationFn: async (variables: AddCommentVars) => {
-      if (!isCurrentMember()) throw new Error('Not authenticated');
+      if (!isCurrentMember() || (variables.account && !variables.account.isCurrent())) throw new Error('Not authenticated');
       const body = variables.body.trim();
       if (!body) throw new ContentValidationError('empty_comment');
       const check = filterContent(body);
       if (!check.ok) throw new ContentValidationError('prohibited_language');
       variables.commandId ??= newCommandId('comment');
-      const { data, error } = await executeCommand('submit_comment', {
+      const payload = {
         p_post_id: variables.postId,
         p_body: body,
         p_parent_id: variables.replyToCommentId ?? variables.parentId ?? null,
         p_idempotency_key: variables.commandId,
-      });
+      };
+      const { data, error } = variables.account
+        ? await executeCommand('submit_comment', payload, { expectedUserId: uid!, isCurrent: variables.account.isCurrent })
+        : await executeCommand('submit_comment', payload);
       if (error) throw error;
       return data as Comment;
     },
     onMutate: (variables) => {
-      if (!uid || !isCurrentMember()) return undefined;
+      if (!uid || !isCurrentMember() || (variables.account && !variables.account.isCurrent())) return undefined;
       const body = variables.body.trim();
       if (!body || !filterContent(body).ok) return undefined;
       variables.commandId ??= newCommandId('comment');
@@ -109,13 +113,21 @@ export function useAddComment() {
       return { comments, feeds, posts, optimistic, account: captureProfileAccount() };
     },
     onError: (_error, _variables, context) => {
-      if (!isCurrentMember()) return;
-      for (const [key, data] of context?.comments ?? []) queryClient.setQueryData(key, data);
-      for (const [key, data] of context?.feeds ?? []) queryClient.setQueryData(key, data);
-      for (const [key, data] of context?.posts ?? []) queryClient.setQueryData(key, data);
+      if (!isCurrentMember() || !context?.account.isCurrent()) return;
+      for (const [key] of context.comments) queryClient.setQueryData<InfiniteData<Comment[]>>(key, old => old ? ({
+        ...old, pages: old.pages.map(page => page.filter(row => row.id !== context.optimistic.id)),
+      }) : old);
+      // Undo only the increment this attempt installed, not newer hearts/reads.
+      for (const [key, before] of context.feeds) queryClient.setQueryData<InfiniteData<Post[]>>(key, old =>
+        mapInfinitePosts(old, _variables.postId, post => {
+          const prior = before?.pages.flat().find(row => row.id === post.id);
+          return prior && post.comment_count === prior.comment_count + 1 ? { ...post, comment_count: prior.comment_count } : post;
+        }));
+      for (const [key, before] of context.posts) queryClient.setQueryData<Post | null>(key, old =>
+        old && before && old.comment_count === before.comment_count + 1 ? { ...old, comment_count: before.comment_count } : old);
     },
     onSuccess: (result, variables, context) => {
-      if (!isCurrentMember()) return;
+      if (!isCurrentMember() || !context?.account.isCurrent()) return;
       if (context?.account.isCurrent()) settleCommentWindow(queryClient, uid!, variables.postId, { kind: 'add', parentId: variables.parentId ?? null });
       if (!variables.commandId) return;
       const authoritative: Comment = {

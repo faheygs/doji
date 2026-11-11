@@ -1,9 +1,7 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
   type ReactElement,
 } from 'react';
@@ -21,7 +19,6 @@ import { useCommentWindow } from '../../hooks/useCommentWindow';
 import { useInlineWindowPaging } from '../../hooks/useInlineWindowPaging';
 import {
   commentViewport,
-  inlineCommentRows,
   readableCommentRows,
   INLINE_ROOT_BUDGET,
   type InlineCommentRow,
@@ -33,6 +30,9 @@ import { Spacing } from '../../constants/theme';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
 import { InlineReplyWindow, type ReplyController } from './InlineReplyWindow';
+import type { CommentSubmission } from '../../hooks/useCommentSubmission';
+import { useSubmittedCommentRows } from '../../hooks/useSubmittedCommentRows';
+import { useCommentPostScroll } from '../../hooks/useCommentPostScroll';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const viewabilityConfig = { itemVisiblePercentThreshold: 1 };
@@ -43,6 +43,9 @@ export function InlineCommentList({
   replyTargetId,
   renderComment,
   onAvailability,
+  submissions = [],
+  onObserved,
+  scrollToSubmission,
 }: {
   postId: string;
   audience: FeedAudience;
@@ -50,6 +53,9 @@ export function InlineCommentList({
   replyTargetId?: string;
   renderComment: (comment: CommentPageRow, reply: boolean) => ReactElement;
   onAvailability: (available: boolean) => void;
+  submissions?: CommentSubmission[];
+  onObserved?: (ids: ReadonlySet<string>) => void;
+  scrollToSubmission?: string;
 }) {
   const { colors } = useTheme();
   const root = useCommentWindow({ postId, audience, parentId: null }, enabled, INLINE_ROOT_BUDGET);
@@ -57,20 +63,14 @@ export function InlineCommentList({
   const [replies, setReplies] = useState<ReadonlyMap<string, ReplyController>>(new Map());
   const [viewport, setViewport] = useState(() => commentViewport([]));
   const [atHead, setAtHead] = useState(true);
-  const listRef = useRef<FlatList<InlineCommentRow>>(null);
-  const generation = useRef(root.data?.generation);
-  useLayoutEffect(() => {
-    if (generation.current !== root.data?.generation && atHead)
-      listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    generation.current = root.data?.generation;
-  }, [root.data?.generation, atHead]);
   const roots = useMemo(
     () => readableCommentRows({ data: root.data, isError: root.isError, error: root.error }),
     [root.data, root.isError, root.error],
   );
   const retained = useMemo(() => new Set(roots.map((row) => row.id)), [roots]);
   const open = useMemo(() => [...expanded].filter((id) => retained.has(id)), [expanded, retained]);
-  const loadRoot = useInlineWindowPaging(root, enabled, viewport.roots, atHead);
+  const sendingRoot = submissions.some(entry => !entry.row.parent_id && (entry.state === 'sending' || entry.state === 'unconfirmed'));
+  const loadRoot = useInlineWindowPaging(root, enabled, viewport.roots, atHead && !sendingRoot);
   const denied = root.isError && !canKeepQueryDataOnError(root.data, root.error);
   useEffect(() => {
     onAvailability(!!root.data && !denied);
@@ -104,9 +104,9 @@ export function InlineCommentList({
       }),
     [],
   );
-  const rows = useMemo(
-    () => inlineCommentRows(roots, expanded, replies),
-    [roots, expanded, replies],
+  const rows = useSubmittedCommentRows(roots, expanded, replies, submissions, setExpanded, onObserved);
+  const { listRef, pending: revealingPost } = useCommentPostScroll<InlineCommentRow>(
+    scrollToSubmission, rows.some(row => row.key === `submitted-${scrollToSubmission}`), root.data?.generation, atHead,
   );
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken<InlineCommentRow>[] }) => {
@@ -154,13 +154,13 @@ export function InlineCommentList({
             <Button variant="secondary" size="sm" onPress={() => replies.get(item.rootId)?.retry()}>
               Retry replies
             </Button>
-          ) : !item.state?.data || item.state.isPaging ? (
+          ) : submissions.some(entry => entry.row.parent_id === item.rootId && (entry.state === 'sending' || entry.state === 'unconfirmed')) ? null : !item.state?.data || item.state.isPaging ? (
             <ActivityIndicator accessibilityLabel="Loading replies" color={colors.textSecondary} />
           ) : null}
         </View>
       );
     },
-    [renderComment, colors, replies, toggle],
+    [renderComment, colors, replies, toggle, submissions],
   );
   if (!root.data || denied) return (
     <View testID="comment-read-status" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md, gap: Spacing.sm }}>
@@ -184,7 +184,7 @@ export function InlineCommentList({
           postId={postId}
           audience={audience}
           parentId={parentId}
-          enabled={enabled && viewport.roots.has(parentId)}
+          enabled={enabled && viewport.roots.has(parentId) && !submissions.some(entry => entry.row.parent_id === parentId && (entry.state === 'sending' || entry.state === 'unconfirmed'))}
           visible={viewport.replies.get(parentId) ?? EMPTY_IDS}
           onChange={onChange}
         />
@@ -210,7 +210,7 @@ export function InlineCommentList({
         keyboardDismissMode="on-drag"
         initialNumToRender={12}
         removeClippedSubviews={false}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        maintainVisibleContentPosition={revealingPost ? undefined : { minIndexForVisible: 0 }}
         viewabilityConfig={viewabilityConfig}
         onViewableItemsChanged={onViewableItemsChanged}
         onScroll={onScroll}

@@ -1,9 +1,10 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { FlatList, Platform, StyleSheet, Text } from 'react-native';
 import { InlineCommentList } from '../../components/comments/InlineCommentList';
 import { page, row, scope, windowData } from '../fixtures/commentWindow';
 import type { CommentWindow } from '../../lib/commentWindow';
+import type { CommentSubmission } from '../../hooks/useCommentSubmission';
 
 const mockLoad = jest.fn(),
   mockAvailable = jest.fn(),
@@ -84,6 +85,62 @@ beforeEach(() => {
   mockInitial = false;
 });
 afterEach(() => jest.restoreAllMocks());
+
+test.each(['ios', 'android'] as const)('%s reveals an own root Post once without moving for receipts or other rows', platform => {
+  jest.replaceProperty(Platform, 'OS', platform);
+  let frame: FrameRequestCallback | undefined;
+  jest.spyOn(global, 'requestAnimationFrame').mockImplementation(callback => { frame = callback; return 1; });
+  jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => {});
+  const ui = render(<InlineCommentList {...props} />);
+  const list = ui.UNSAFE_getByType(FlatList);
+  const scroll = jest.spyOn(list.instance as FlatList, 'scrollToOffset').mockImplementation(() => {});
+  fireEvent.scroll(list, { nativeEvent: { contentOffset: { y: 1500 } } });
+  const pending: CommentSubmission = { key: 'own-root', state: 'sending', row: row('pending'),
+    account: { userId: 'self', isCurrent: () => true },
+    variables: { postId: 'post', body: 'pending', feedAudience: 'everyone', commandId: 'own-root' } };
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="own-root" />);
+  expect(scroll).not.toHaveBeenCalled();
+  expect(list.props.maintainVisibleContentPosition).toEqual({ minIndexForVisible: 0 });
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="own-root" submissions={[pending]} />);
+  expect(list.props.maintainVisibleContentPosition).toBeUndefined();
+  expect(list.props.data[0].key).toBe('submitted-own-root');
+  act(() => frame?.(0));
+  expect(scroll).toHaveBeenCalledTimes(1);
+  expect(scroll).toHaveBeenLastCalledWith({ offset: 0, animated: false });
+  expect(list.props.maintainVisibleContentPosition).toEqual({ minIndexForVisible: 0 });
+  fireEvent.scroll(list, { nativeEvent: { contentOffset: { y: 900 } } });
+  const saved = { ...pending, state: 'confirmed' as const, row: row('saved') };
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="own-root" submissions={[saved]} />);
+  mockRoot = { ...mockRoot, pages: [{ ...mockRoot.pages[0], items: [row('someone-else'), row('saved'), ...mockRoot.pages[0].items] }] };
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="own-root" submissions={[saved]} />);
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="own-root" submissions={[]} />);
+  expect(scroll).toHaveBeenCalledTimes(1);
+  expect(ui.UNSAFE_getByType(FlatList)).toBe(list);
+  const next = { ...pending, key: 'next-root', row: row('next-pending') };
+  ui.rerender(<InlineCommentList {...props} scrollToSubmission="next-root" submissions={[next]} />);
+  act(() => frame?.(0));
+  expect(scroll).toHaveBeenCalledTimes(2);
+});
+
+test('an own send is immediate, stays inline and keeps its native key through the receipt and read', () => {
+  const account = { userId: 'self', isCurrent: () => true };
+  const pending: CommentSubmission = { key: 'command', state: 'sending', row: row('pending'), account,
+    variables: { postId: 'post', body: 'pending', feedAudience: 'everyone', commandId: 'command' } };
+  const observed = jest.fn();
+  const ui = render(<InlineCommentList {...props} submissions={[pending]} onObserved={observed} />);
+  const key = () => ui.UNSAFE_getByType(FlatList).props.data[0].key;
+  expect(ui.getByText(pending.row.body)).toBeTruthy();
+  expect(key()).toBe('submitted-command');
+  const confirmed: CommentSubmission = { ...pending, state: 'confirmed', row: row('saved') };
+  ui.rerender(<InlineCommentList {...props} submissions={[confirmed]} onObserved={observed} />);
+  expect(key()).toBe('submitted-command');
+  mockRoot = { ...mockRoot, pages: [{ ...mockRoot.pages[0], items: [row('saved'), ...mockRoot.pages[0].items] }] };
+  ui.rerender(<InlineCommentList {...props} submissions={[confirmed]} onObserved={observed} />);
+  expect(ui.getAllByText(confirmed.row.body)).toHaveLength(1);
+  expect(observed).toHaveBeenLastCalledWith(expect.objectContaining({ size: 3 }));
+  ui.rerender(<InlineCommentList {...props} submissions={[]} onObserved={observed} />);
+  expect(key()).toBe('submitted-command');
+});
 
 test.each([1, 123])('initial loading before %i comments is neutral, never an unavailable warning', (count) => {
   mockInitial = true;

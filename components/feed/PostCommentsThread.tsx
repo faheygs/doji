@@ -48,6 +48,9 @@ import type { ReportSubject } from './ReportSheet';
 import { canKeepQueryDataOnError } from '../../lib/queryDisplayState';
 import { useAppDialog } from '../../contexts/DialogContext';
 import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
+import { useCommentSubmission } from '../../hooks/useCommentSubmission';
+import { useCommentPostScroll } from '../../hooks/useCommentPostScroll';
+import { filterContent } from '../../lib/contentFilter';
 import {
   buildCommentRows,
   replyRootId,
@@ -305,6 +308,14 @@ function PostCommentsThreadBody({
   const comments = useMemo(() => commentPages?.pages.flat() ?? [], [commentPages?.pages]);
   const blockingReadError = isError && !canKeepQueryDataOnError(commentPages, error);
   const addComment = useAddComment();
+  const submission = useCommentSubmission(postId, feedAudience, addComment);
+  const [scrollToSubmission, setScrollToSubmission] = useState<string>();
+  const { listRef: postedCommentList } = useCommentPostScroll<Row>(
+    scrollToSubmission, !INLINE_COMMENT_PAGING_ENABLED && comments.some(comment => comment.idempotency_key === scrollToSubmission),
+  );
+  useEffect(() => {
+    if (!INLINE_COMMENT_PAGING_ENABLED) submission.acknowledge(new Set(comments.map(comment => comment.id)));
+  }, [INLINE_COMMENT_PAGING_ENABLED, comments, submission]);
   const editComment = useEditComment();
   const deleteComment = useDeleteComment();
   const { mutateAsync: toggleLike } = useToggleCommentLike();
@@ -313,6 +324,14 @@ function PostCommentsThreadBody({
   const [editingComment, setEditingComment] = useState<CommentWithMeta | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const composerGeneration = useRef(0);
+  const [inputGeneration, setInputGeneration] = useState(0);
+  const focusComposer = useCallback(() => {
+    const generation = composerGeneration.current;
+    requestAnimationFrame(() => {
+      if (generation === composerGeneration.current) inputRef.current?.focus();
+    });
+  }, []);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [likesCommentId, setLikesCommentId] = useState<string | null>(null);
@@ -350,8 +369,8 @@ function PostCommentsThreadBody({
     const username = c.profile?.username?.trim();
     setDraft(username ? `@${username} ` : '');
     setMentionQuery(null);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+    focusComposer();
+  }, [focusComposer]);
 
   const onOpenMenu = useCallback((c: CommentWithMeta) => {
     setMenuComment(c);
@@ -367,8 +386,8 @@ function PostCommentsThreadBody({
     setEditingComment(c);
     setDraft(c.body);
     setMentionQuery(null);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+    focusComposer();
+  }, [focusComposer]);
 
   const onDelete = useCallback(
     (c: CommentWithMeta) => {
@@ -405,30 +424,43 @@ function PostCommentsThreadBody({
   }, []);
 
   const onChangeDraft = useCallback((text: string) => {
+    if (inputGeneration !== composerGeneration.current) return;
     setDraft(text);
     setComposerError('');
     const mentionMatch = text.match(/@([a-zA-Z0-9_]*)$/);
     setMentionQuery(mentionMatch ? mentionMatch[1] : null);
-  }, []);
+  }, [inputGeneration]);
 
   const onSelectMention = useCallback((username: string) => {
+    if (inputGeneration !== composerGeneration.current) return;
     setDraft((prev) => prev.replace(/@[a-zA-Z0-9_]*$/, `@${username} `));
     setMentionQuery(null);
     setComposerError('');
     inputRef.current?.focus();
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+    focusComposer();
+  }, [focusComposer, inputGeneration]);
 
   const cancelComposerState = useCallback(() => {
+    inputRef.current?.clear();
     setReplyingTo(null);
     setEditingComment(null);
     setDraft('');
     setMentionQuery(null);
   }, []);
 
+  const finishPostedComposer = useCallback(() => {
+    // Retire the submitted native input before blur can deliver a late IME change.
+    // Only the input resets; the comments list and its scroll/cache stay mounted.
+    composerGeneration.current += 1;
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    cancelComposerState();
+    setInputGeneration(composerGeneration.current);
+  }, [cancelComposerState]);
+
   const send = useCallback(() => {
     const rawBody = draft.trim();
-    if (!rawBody || addComment.isPending || editComment.isPending || composerLocked) return;
+    if (!rawBody || addComment.isPending || submission.busy || editComment.isPending || composerLocked) return;
     if (editingComment) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       editComment.mutate(
@@ -442,37 +474,26 @@ function PostCommentsThreadBody({
       );
       return;
     }
-    const body = rawBody;
-    const replyTarget = replyingTo;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addComment.mutate(
-      {
-        postId,
-        body,
-        parentId: replyTarget ? replyRootId(replyTarget) : null,
-        replyToCommentId: replyTarget?.id ?? null,
-        feedAudience,
-      },
-      {
-        onError: (err: Error) => {
-          setDraft(rawBody);
-          setReplyingTo(replyTarget);
-          if (__DEV__) console.warn('[useAddComment] failed:', err);
-          setComposerError(err.message || 'Could not post your comment. Try again.');
-        },
-      },
-    );
-    cancelComposerState();
+    const check = filterContent(rawBody);
+    if (!check.ok) { setComposerError(check.reason); return; }
+    const submitted = submission.submit(rawBody, replyingTo ? replyRootId(replyingTo) : null, replyingTo?.id ?? null);
+    if (submitted) {
+      if (!replyingTo) setScrollToSubmission(submitted);
+      Haptics.selectionAsync();
+      setComposerError('');
+      finishPostedComposer();
+    }
   }, [
     draft,
     addComment,
     editComment,
-    feedAudience,
     postId,
     replyingTo,
     editingComment,
     composerLocked,
     cancelComposerState,
+    finishPostedComposer,
+    submission,
   ]);
 
   const styles = useMemo(
@@ -538,7 +559,7 @@ function PostCommentsThreadBody({
   );
 
   const composerBottomPad = embedInSheet ? Spacing.sm : Math.max(insets.bottom, Spacing.sm);
-  const composerBusy = addComment.isPending || editComment.isPending;
+  const composerBusy = addComment.isPending || submission.busy || editComment.isPending;
   const inputBorderStyle =
     replyingTo || editingComment || mentionQuery !== null ? styles.inputActive : null;
 
@@ -590,18 +611,24 @@ function PostCommentsThreadBody({
     ],
   );
 
-  const renderInlineComment = useCallback((comment: CommentPageRow, reply: boolean) => (
-    <CommentRow comment={comment} isReply={reply} me={me} colors={colors}
+  const renderInlineComment = useCallback((comment: CommentPageRow, reply: boolean) => {
+    const local = submission.entries.find(entry => entry.row.id === comment.id);
+    return <View>
+      <View pointerEvents={local && local.state !== 'confirmed' ? 'none' : 'auto'} accessible={!!local && local.state !== 'confirmed'} accessibilityLabel={local && local.state !== 'confirmed' ? `${comment.body}. ${local.state === 'sending' ? 'Sending' : 'Not confirmed'}` : undefined}>
+      <CommentRow comment={comment} isReply={reply} me={me} colors={colors}
       onReply={onReply} onProfile={onProfile} onToggleLike={onToggleLike}
       onViewLikes={onViewLikes} onOpenMenu={onOpenMenu} onOpenReport={onOpenReport} />
-  ), [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes]);
+      </View>
+    </View>;
+  }, [colors, me, onOpenMenu, onOpenReport, onProfile, onReply, onToggleLike, onViewLikes, submission.entries]);
 
   return (
     <View style={styles.root}>
       {INLINE_COMMENT_PAGING_ENABLED ? (
         <InlineCommentList postId={postId} audience={feedAudience} enabled={fetchEnabled}
           replyTargetId={replyingTo ? replyRootId(replyingTo) : undefined}
-          renderComment={renderInlineComment} onAvailability={setWindowReadable} />
+          renderComment={renderInlineComment} onAvailability={setWindowReadable}
+          submissions={submission.entries} onObserved={submission.acknowledge} scrollToSubmission={scrollToSubmission} />
       ) : isLoading ? (
         <ListRowsSkeleton rows={4} label="Loading comments" />
       ) : blockingReadError ? (
@@ -630,6 +657,7 @@ function PostCommentsThreadBody({
             </View>
           ) : null}
           <FlatList
+            ref={postedCommentList}
             style={styles.list}
             data={rows}
             keyExtractor={(item) =>
@@ -711,6 +739,7 @@ function PostCommentsThreadBody({
             />
             <View style={styles.inputRow}>
               <AppTextInput
+                key={inputGeneration}
                 ref={inputRef}
                 value={draft}
                 onChangeText={onChangeDraft}
@@ -723,7 +752,7 @@ function PostCommentsThreadBody({
                 style={[styles.input, inputBorderStyle]}
                 multiline
                 maxLength={MAX_LEN}
-                editable={!composerLocked && !composerBusy && Boolean(me)}
+                editable={!composerLocked && !addComment.isPending && !editComment.isPending && Boolean(me)}
               />
               <TouchableOpacity
                 onPress={send}
@@ -732,7 +761,7 @@ function PostCommentsThreadBody({
                 accessibilityRole="button"
                 accessibilityLabel={editingComment ? 'Save comment' : 'Send comment'}
               >
-                {composerBusy ? (
+                {editComment.isPending ? (
                   <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text variant="label" style={{ color: colors.onPrimary }}>
@@ -744,6 +773,20 @@ function PostCommentsThreadBody({
             {composerError ? (
               <InlineFeedback message={composerError} testID="comment-composer-error" />
             ) : null}
+            {submission.entries.filter(entry => entry.state === 'unconfirmed').map(entry => (
+              <View key={entry.key} style={{ gap: Spacing.xs }}>
+                <InlineFeedback message="Couldn’t confirm this comment. Retry sends the same comment, without creating a duplicate." />
+                <Text variant="bodySmall" numberOfLines={3}>{entry.variables.body}</Text>
+                <Button size="sm" variant="secondary" onPress={() => submission.retry(entry.key)} disabled={composerLocked}>Retry comment</Button>
+              </View>
+            ))}
+            {submission.entries.filter(entry => entry.state === 'rejected').map(entry => (
+              <View key={entry.key} style={{ gap: Spacing.xs }}>
+                <InlineFeedback message="This comment wasn’t accepted. Check whether comments are available and review your text." />
+                <Text variant="bodySmall" numberOfLines={3}>{entry.variables.body}</Text>
+                <Button size="sm" variant="secondary" onPress={() => submission.dismiss(entry.key)}>Dismiss failed comment</Button>
+              </View>
+            ))}
             <Text
               variant="micro"
               color={draft.length >= MAX_LEN ? colors.error : colors.textTertiary}

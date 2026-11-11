@@ -1,7 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle, Line, Polyline, Rect } from 'react-native-svg';
 import { FIRE_PATH } from './iconPaths';
-
+import { IcnFirstPlace } from './FirstPlaceIcon';
 type P = { size?: number; color: string };
 
 export function IcnFlame({ size = 24, color }: P) {
@@ -413,16 +413,15 @@ export function BadgeIcon({
   badgeId,
   size = 24,
   color,
-}: {
+}: P & {
   badgeId: string;
-  size?: number;
-  color: string;
 }) {
   const Icon = BADGE_ICON_MAP[badgeId] ?? IcnStar;
   return <Icon size={size} color={color} />;
 }
 
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<P>> = {
+  first_doji: IcnFirstPlace,
   streak: IcnFlame,
   completions: IcnTarget,
   xp: IcnRocket,
@@ -438,10 +437,8 @@ export function CategoryBadgeIcon({
   categoryId,
   size = 24,
   color,
-}: {
+}: P & {
   categoryId: string;
-  size?: number;
-  color: string;
 }) {
   const Icon = CATEGORY_ICON_MAP[categoryId] ?? IcnStar;
   return <Icon size={size} color={color} />;

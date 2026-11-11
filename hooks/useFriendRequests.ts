@@ -14,6 +14,7 @@ import { invalidateFriendCountQueries } from './useProfile';
 import { patchCachedFriendshipStatus } from '../lib/friendshipCache';
 import { executeCommand } from '../lib/commandGateway';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 const PAGE_SIZE = 50;
 
@@ -108,6 +109,7 @@ export function useRespondToFriendRequest() {
     },
     onSuccess: (_result, variables, context) => {
       if (!context?.account.isCurrent()) return;
+      clearFirstDoji(queryClient);
       // Keep the responding row mounted until acknowledgement. Updating only
       // confirmed records avoids whole-list rollback clobbering another response.
       const requestQueries = queryClient.getQueriesData<InfiniteData<FriendshipWithRequester[]>>({
@@ -168,7 +170,7 @@ export function useRespondToFriendRequest() {
           : current,
       );
       scheduleQueryInvalidation(queryClient, [
-        'friendRequests', 'friends', 'feed', 'friendship', 'notificationCenter',
+        'friendRequests', 'friends', 'feed', 'friendship', 'notificationCenter', 'firstDoji',
         'searchUsers', 'pollVotersDetail', 'commentLikes', 'reactions',
       ]);
       invalidateFriendCountQueries(queryClient);

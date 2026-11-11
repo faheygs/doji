@@ -4,6 +4,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'upcomingDoji',
   'userEvent',
   'feed',
+  'firstDoji',
   'pollResults',
   'pollVotersDetail',
   'pollVotesCount',
