@@ -6,21 +6,43 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The reply-count correction is installed and read-qualified in Staging only: the v2 projection supplies
+an exact audience/visibility-filtered count for `View X replies`, independently of
+the replies loaded on the phone. The prior server/rollback retains its unnumbered
+label rather than inventing a total. Initial comments use a centered spinner;
+heart reconciliation keeps loaded content interactive without refresh spinners,
+and failed hearts surface feedback. All exact-head checks passed at `58c3ccd`.
+The approved SQL readback matched, with 680 unrelated function/grant contracts,
+policies, triggers and indexes unchanged; private preflight/rollback/read evidence
+is retained under the November 10 staging reply-count record outside Git.
+Hosted Everyone/Friends pages, retained-row refresh and inline reply reads matched
+visibility-filtered counts. Android hot-reload Dev displayed numbered reply labels
+and expanded replies inline. Owner iPhone interaction/smoothness acceptance remains
+pending; installed Staging build 7 and production are unchanged.
+
 The comment paging SQL/index is installed and read-qualified in Staging only;
 existing reads/writes remain unchanged. Private installation/rollback evidence is
 retained outside Git under the November 9 comment-pages staging record. The owned
 offline database tests 100K comments, bidirectional cursors, permissions and index
 plans; this does not establish native or hosted 100K performance.
 The candidate native adapter preserves one newest-first list with multiple inline
-reply threads and no Show latest control. It retains three 20-root pages and three
-10-reply pages per retained expanded root, evicts only offscreen edges and reads
-backward when returning to discarded pages. Offscreen reply observers stop reads;
-closing/evicting a thread discards its cache. Head refresh is fenced against scroll
+reply threads and no Show latest control. The owner requested retained loaded roots:
+the follow-up appends older 20-root pages without evicting earlier roots, removes
+upward root paging and keeps three 10-reply pages per expanded thread. Refresh reads
+at most three visible root pages; invalidated offscreen pages reconcile their IDs
+on return, without clearing the loaded list or replaying page cursors. Native views
+are virtualized, but retained data grows with visited roots until sheet closure;
+native large-thread memory/scroll acceptance remains unqualified.
+Offscreen reply observers stop reads; closing/removing a thread discards its cache.
+Head refresh is fenced against scroll
 movement; confirmed hearts/edits remain row-local. Activation requires the exact
 Staging backend and development/staging release channel; production keeps the old
 reader. Android Dev verified the 121-comment fixture opens newest-first, expands
 inline and pages down/back to the newest roots. This is functional acceptance, not
-a frame-rate benchmark. Installed Staging build 7 is unchanged. Exact-head CI,
+a frame-rate benchmark. The owner accepted the inline iPhone Dev layout, then
+clarified that upward scrolling must use all loaded root pages. The separate
+backtrack-cache prototype was withdrawn, not released. Installed Staging build 7
+is unchanged. Exact-head CI,
 iPhone/Android frame qualification and owner acceptance remain required.
 
 The Staging build 7 follow-up is source-only: comment roots now match descending

@@ -7,7 +7,7 @@ import type { CommentReadIntent } from '../../lib/commentWindowReads';
 
 export type ReplyController = Pick<
   WindowController,
-  'data' | 'isError' | 'error' | 'isFetching' | 'isLoading'
+  'data' | 'isError' | 'error' | 'isFetching' | 'isLoading' | 'isPaging'
 > & {
   retry: () => void;
 };
@@ -28,7 +28,7 @@ export function InlineReplyWindow({
 }) {
   const query = useCommentWindow({ postId, audience, parentId }, enabled, INLINE_REPLY_BUDGET);
   const load = useInlineWindowPaging(query, enabled, visible);
-  const { data, error, isError, isFetching, isLoading, lastIntent } = query;
+  const { data, error, isError, isFetching, isLoading, isPaging, lastIntent } = query;
   useEffect(() => {
     onChange(parentId, {
       data,
@@ -36,9 +36,10 @@ export function InlineReplyWindow({
       isError,
       isFetching,
       isLoading,
+      isPaging,
       retry: () => load((data ? lastIntent : 'refresh') as CommentReadIntent, true),
     });
-  }, [data, error, isError, isFetching, isLoading, lastIntent, load, onChange, parentId]);
+  }, [data, error, isError, isFetching, isLoading, isPaging, lastIntent, load, onChange, parentId]);
   useEffect(() => () => onChange(parentId, undefined), [onChange, parentId]);
   return null;
 }

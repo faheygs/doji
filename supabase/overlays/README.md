@@ -11,6 +11,14 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `member_comment_reply_counts_v1.sql` and its exact projection rollback are
+  source-only. They add authorized `reply_count` to the existing v2 root/retained
+  reads without changing public RPC signatures, writes, grants, jobs or indexes.
+  Counts exclude blocks in either direction, pending own reports, moderation and
+  nonfriends in Friends view. Exact counts scan matching replies, not a constant-time
+  counter. The comment-pages harness tests 100K replies and a 50-root response;
+  hosted latency/concurrency and staging acceptance are separate release gates.
+  Roll back this projection before removing the underlying v2 read boundary.
 - `member_comment_pages_v2.indexes.sql`, `member_comment_pages_v2.sql` and their
   retaining inverse are source-only. The index installs concurrently outside a
   transaction; the RPC installer refuses a missing, invalid or unexpected index.

@@ -35,6 +35,15 @@ export function memberCommentPages(room: TestRoom) {
     sql(source('tests/member_comment_pages.sql')),
     /PASS: 100K synthetic comment read fixture rolled back/,
   );
+  const projection = () => sql("select pg_get_functiondef('comment_read_private.project_row(public.comments,uuid,text)'::regprocedure);");
+  const originalProjection = projection();
+  sql(source('overlays/member_comment_reply_counts_v1.sql'));
+  sql(source('overlays/member_comment_reply_counts_v1.sql'));
+  const replyCounts = sql(source('tests/member_comment_reply_counts.sql'));
+  assert.match(replyCounts, /PASS: exact reply counts and privacy rolled back/);
+  console.log(replyCounts);
+  sql(source('overlays/member_comment_reply_counts_v1.rollback.sql'));
+  assert.equal(projection(), originalProjection, 'Reply-count rollback restores the exact v2 projection');
   const after = JSON.parse(
     sql(`select jsonb_object_agg(oid::text,pg_get_functiondef(oid)||coalesce(proacl::text,''))
     from pg_proc where prokind='f' and pronamespace='public'::regnamespace;`),

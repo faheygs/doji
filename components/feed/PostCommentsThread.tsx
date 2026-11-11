@@ -380,16 +380,16 @@ function PostCommentsThreadBody({
   const onToggleLike = useCallback(
     (commentId: string, liked: boolean) => {
       if (!me || pendingLikeIds.current.has(commentId)) return;
+      setComposerError('');
       pendingLikeIds.current.add(commentId);
       // Per-call promises settle independently; mutate callbacks on a shared
       // observer only run for its latest call when different hearts overlap.
       void toggleLike({ postId, commentId, liked })
-        .catch(() => undefined)
+        .catch(() => setComposerError('Couldn’t confirm the heart update.'))
         .finally(() => pendingLikeIds.current.delete(commentId));
     },
     [me, postId, toggleLike],
   );
-
   const onViewLikes = useCallback((commentId: string) => {
     setLikesCommentId(commentId);
   }, []);
@@ -662,10 +662,10 @@ function PostCommentsThreadBody({
       )}
 
       <View style={[styles.composerWrap, { paddingBottom: composerBottomPad }]}>
-        {composerLocked ? (
+        {commentsDisabled && !isPostOwner ? (
           <View style={styles.lockedNote}>
             <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-              {INLINE_COMMENT_PAGING_ENABLED && !windowReadable ? 'Comments are unavailable until this thread loads.' : 'Comments are turned off.'}
+              Comments are turned off.
             </Text>
           </View>
         ) : (
@@ -723,12 +723,12 @@ function PostCommentsThreadBody({
                 style={[styles.input, inputBorderStyle]}
                 multiline
                 maxLength={MAX_LEN}
-                editable={!composerBusy && Boolean(me)}
+                editable={!composerLocked && !composerBusy && Boolean(me)}
               />
               <TouchableOpacity
                 onPress={send}
-                disabled={!draft.trim() || composerBusy || !me}
-                style={[styles.send, (!draft.trim() || composerBusy || !me) && styles.sendDisabled]}
+                disabled={composerLocked || !draft.trim() || composerBusy || !me}
+                style={[styles.send, (composerLocked || !draft.trim() || composerBusy || !me) && styles.sendDisabled]}
                 accessibilityRole="button"
                 accessibilityLabel={editingComment ? 'Save comment' : 'Send comment'}
               >

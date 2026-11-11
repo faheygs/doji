@@ -32,7 +32,6 @@ import type { FeedAudience } from '../../lib/feedAudience';
 import { Spacing } from '../../constants/theme';
 import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
-import { ListRowsSkeleton } from '../ui/LoadingSkeletons';
 import { InlineReplyWindow, type ReplyController } from './InlineReplyWindow';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
@@ -130,7 +129,9 @@ export function InlineCommentList({
     ({ item }: { item: InlineCommentRow }) => {
       if (item.kind === 'comment') return renderComment(item.comment, item.reply);
       if (item.kind === 'toggle') {
-        const label = item.expanded ? 'Hide replies' : 'View replies';
+        const count = item.replyCount;
+        const label = item.expanded ? 'Hide replies' : count === undefined
+          ? 'View replies' : `View ${count} ${count === 1 ? 'reply' : 'replies'}`;
         return (
           <TouchableOpacity
             onPress={() => toggle(item.rootId)}
@@ -153,7 +154,7 @@ export function InlineCommentList({
             <Button variant="secondary" size="sm" onPress={() => replies.get(item.rootId)?.retry()}>
               Retry replies
             </Button>
-          ) : !item.state?.data || item.state.isFetching ? (
+          ) : !item.state?.data || item.state.isPaging ? (
             <ActivityIndicator accessibilityLabel="Loading replies" color={colors.textSecondary} />
           ) : null}
         </View>
@@ -161,7 +162,20 @@ export function InlineCommentList({
     },
     [renderComment, colors, replies, toggle],
   );
-  if (root.isLoading) return <ListRowsSkeleton rows={4} label="Loading comments" />;
+  if (!root.data || denied) return (
+    <View testID="comment-read-status" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md, gap: Spacing.sm }}>
+      {root.isError ? (
+        <>
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
+            Couldn't load comments.
+          </Text>
+          <Button variant="secondary" size="sm" loading={root.isFetching} onPress={() => loadRoot(root.lastIntent, true)}>
+            Try again
+          </Button>
+        </>
+      ) : <ActivityIndicator accessibilityLabel="Loading comments" color={colors.textSecondary} />}
+    </View>
+  );
   return (
     <View style={{ flex: 1 }}>
       {open.map((parentId) => (
@@ -178,7 +192,7 @@ export function InlineCommentList({
       {root.isError ? (
         <View style={{ padding: Spacing.md }}>
           <Text variant="bodySmall">
-            {denied ? 'Comments are unavailable.' : 'Could not refresh comments.'}
+            Could not refresh comments.
           </Text>
           <Button variant="secondary" size="sm" onPress={() => loadRoot(root.lastIntent, true)}>
             Try again
@@ -203,11 +217,9 @@ export function InlineCommentList({
         scrollEventThrottle={32}
         onEndReached={() => loadRoot('next')}
         onEndReachedThreshold={2}
-        onStartReached={() => loadRoot('previous')}
-        onStartReachedThreshold={1}
         ListFooterComponent={
           <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
-            {root.isFetching ? <ActivityIndicator color={colors.textSecondary} /> : null}
+            {root.isPaging ? <ActivityIndicator accessibilityLabel="Loading more comments" color={colors.textSecondary} /> : null}
           </View>
         }
         ListEmptyComponent={

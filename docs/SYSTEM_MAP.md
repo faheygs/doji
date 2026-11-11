@@ -37,18 +37,22 @@ profile/relationship options shared by navigation warming and route observers;
 it does not load protected answers or media.
 `commentThread` preserves cursor-compatible root order and chronological replies;
 `useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
+`lib/retainedCommentRoots.ts` bounds visible-ID refresh for accumulated root pages;
+the inline list retains loaded roots and only pages downward, while replies stay bounded.
 `lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
 window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
 account/lifecycle fencing, reconciliation and validated transport. The staging-gated
 `InlineCommentList` flattens roots and expanded replies into one virtualized list;
 `InlineReplyWindow` owns headless per-parent observers and `useInlineWindowPaging`
-owns viewport-adjacent reads. `inlineCommentPaging` bounds the combined retained
-tree. `PostCommentsThread` retains the shared rows/composer and production reader.
+owns viewport-adjacent reads. `inlineCommentPaging` composes loaded roots and
+bounded per-parent reply windows. `PostCommentsThread` retains the shared rows/composer and production reader.
 `commentWindowCache` owns per-record write reconciliation;
 the cache family participates in targeted realtime and native lifecycle recovery.
 The additive
 `supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
 tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
+`member_comment_reply_counts_v1` separately upgrades the private projection with
+audience-safe exact reply totals; it has an exact retaining projection rollback.
 Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.
 `FriendRequestActions` shares row-owned response controls between requests and
 notifications. The response hook applies confirmed record updates, not list rollback.
