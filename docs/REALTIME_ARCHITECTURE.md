@@ -74,6 +74,15 @@ this does not enable direct fallback in production or bypass the configured gate
 
 ## Challenge and scale boundaries
 
+The separately gated economy v2 candidate computes awards inside existing server
+transactions using private unique receipts, member/occurrence social caps and
+level high-water marks. It reuses balance/profile hints; no client reward minting,
+extra channel or polling is added. Its first-place bonus uses the canonical
+first-Doji ledger, not a personalized read. Lifetime win progress emits the existing
+ID-only `badge.updated` hint; client progress integration is separately packaged.
+Rollback retains balances and duplicate fences. See [economy policy](SPARKS_ECONOMY.md)
+for qualification and activation gates.
+
 Pre-live occurs twenty minutes before activation and advances active-feed identity
 without revealing the challenge or deleting old participation/content. Activation
 stamps authoritative deadlines; occurrences materialize lazily per member.

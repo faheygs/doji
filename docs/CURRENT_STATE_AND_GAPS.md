@@ -6,6 +6,23 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+[Sparks economy v2](SPARKS_ECONOMY.md) is default-off source preparation only:
+20/17/13/10 timed completion rewards, +5 canonical first-place bonus, existing
+3/2 social rewards capped at 5 per occurrence, and 10× newly reached levels.
+It replaces overlapping post/vote and direct friendship payouts prospectively;
+private fences prevent duplicates, and rollback retains balances and history.
+The derived-level trigger also handles XP-driven level changes. Exact-head CI,
+aggregate balance review and separately approved Staging activation remain gates;
+this source preparation changes no hosted rewards, prices, XP, timing or builds.
+
+The first-Doji backend dependency is recorded as enabled in Staging for occurrences
+starting after 2026-11-11 05:41:42 UTC, with no historical backfill. Its canonical
+ledger and 1/10/25/100 lifetime tiers have isolated concurrency/permission/retaining
+rollback tests. Private hosted qualification evidence is retained outside Git under
+`2026-11-10-first-doji-badges`; this is recorded evidence, not a fresh live probe.
+Production remains gated. The mobile card/icon/progress work remains separate
+local Dev source and is not included in this backend-only preparation.
+
 The comment paging SQL/index is installed and read-qualified in Staging only;
 existing reads/writes remain unchanged. Private installation/rollback evidence is
 retained outside Git under the November 9 comment-pages staging record. The owned

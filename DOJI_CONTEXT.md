@@ -258,6 +258,22 @@ The future tracked-report requirement belongs in the product backlog.
 
 ### Economy and moderation
 
+First to Doji uses a prospective canonical overall-winner ledger, not a viewer's
+personalized feed winner. The first valid completion transaction to claim and
+commit earns lifetime progress across photo, task, format, poll and WYR; thresholds
+are Bronze 1, Silver 10, Gold 25 and Diamond 100, with existing tier Sparks once.
+Blocks, friendships and content retention cannot transfer a recorded win. Account
+deletion anonymizes the occurrence fence and removes the private count. Only
+occurrences starting after enablement count; never backfill retained history.
+An authorized first-responder read can use a visible audience fallback, but that
+fallback grants no award. UI packaging and hosted enablement remain separate.
+
+The separately gated [economy v2 candidate](docs/SPARKS_ECONOMY.md) unifies timed
+completion awards, adds a small canonical first-place bonus, caps social earnings
+per occurrence and increases prospective level rewards to 10× the newly reached
+level. XP, deadlines, existing balances and shop prices are unchanged. Existing
+reward rules remain authoritative until qualification and approved activation.
+
 Sparks/XP/streaks/badges/shop ownership are server-owned. Purchases and rewards
 use atomic ledger-backed commands and uniqueness. Equipping public cosmetics
 invalidates every authorized avatar-bearing surface. Client celebrations award nothing.

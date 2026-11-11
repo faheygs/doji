@@ -21,6 +21,7 @@ Read [product context](../DOJI_CONTEXT.md) and
 
 - [Portal UI patterns](PORTAL_UI_PATTERNS.md)
 - [Product backlog](PRODUCT_BACKLOG.md)
+- [Sparks reward policy and balance qualification](SPARKS_ECONOMY.md)
 - [Sponsored business platform requirements](SPONSORED_DOJI_BUSINESS_PLATFORM.md)
 - [Trust, safety and legal requirements](TRUST_SAFETY_AND_LEGAL_REQUIREMENTS.md)
 - [Workforce identity](WORKFORCE_IDENTITY_PLAN.md)

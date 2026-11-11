@@ -25,6 +25,14 @@ terms/privacy are built separately with versioned URLs by
 
 ## Technology stack
 
+[Sparks economy](SPARKS_ECONOMY.md) maps the default-off v2 reward bindings,
+private receipt/cap ownership and offline balance/concurrency qualification.
+`supabase/overlays/member_first_doji_v1*` owns the authorized first-responder read
+and completion-order index; `first_doji_badges_v1*` adds the private canonical
+winner/count ledger and prospective lifetime tiers. Their standalone database
+harnesses and `sparks-economy.mts` also run in the main database suite. The backend
+source does not package the separately prepared mobile celebration UI.
+
 `lib/feedMediaWindow.ts` owns bounded feed image lookahead, separate from visible
 post-channel subscriptions. `lib/reactionReadConsistency.ts` coordinates local
 reaction writes with feed, detail and engagement reads; server authorization and
