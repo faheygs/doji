@@ -26,7 +26,7 @@ mkdirSync(target, { recursive: true });
 const inventory: { path: string; sha256: string }[] = [];
 const groups: [string, RegExp][] = [
   ['scripts', /\.(mjs|cjs|mts|cts|sql)$/],
-  ['scripts/database', /\.(mjs|mts|json)$/],
+  ['scripts/database', /\.(mjs|mts|json|sql)$/],
   ['supabase/migrations', /\.sql$/],
   ['supabase/tests', /\.sql$/],
   ['supabase/overlays', /\.sql$/],
