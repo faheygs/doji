@@ -17,9 +17,12 @@ private winner ledger and standard tier Sparks path; no new service, credential,
 job or push path is added. Source owners are `member_first_doji_v1*` and
 `first_doji_badges_v1*` in `supabase/overlays`. Private Staging qualification and
 retaining rollback evidence are outside Git under `2026-11-10-first-doji-badges`.
-The mobile candidate permits these reads only with exact Staging bindings; native
-acceptance and capacity remain release gates. Economy v2 is separately default-off;
-no production enablement follows from the source or a Staging build.
+The mobile candidate permits these reads only with matching environment, release
+channel and database bindings. The approved production candidate uses the existing
+production Supabase/EAS/Sentry services and protected credentials, with no new
+service or resource. Backend compatibility, retained rollback, native acceptance
+and included build capacity remain release gates. Economy v2 is separately
+default-off; no hosted production enablement follows from source or a Staging build.
 
 Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
 is an unscheduled one-shot probe for a separately approved external runner. Its

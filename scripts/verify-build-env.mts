@@ -83,6 +83,9 @@ const invalid: string[] = [];
 if (process.env.EXPO_PUBLIC_APP_ENV !== contract.appEnv) {
   invalid.push(`EXPO_PUBLIC_APP_ENV must be ${contract.appEnv}`);
 }
+if (process.env.EXPO_PUBLIC_RELEASE_CHANNEL !== 'production') {
+  invalid.push('EXPO_PUBLIC_RELEASE_CHANNEL must be production');
+}
 if (process.env.EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED !== 'true') {
   invalid.push('EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED must be true');
 }

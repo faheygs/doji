@@ -123,8 +123,10 @@ the future poll. Community idea acceptance does not schedule a Doji.
 - The optional first-to-Doji card celebrates the earliest eligible confirmed
   responder for the current unlocked event and audience without reordering posts.
   Friends includes self; blocks, reports and moderation filter visibility. Failed
-  or empty reads hide the optional card, never the feed. The card is gated to exact
-  Staging bindings in Development/Staging builds; production remains off.
+  or empty reads hide the optional card, never the feed. The card requires matching
+  environment, release channel and database: Development/Staging use Staging;
+  Production uses only its production binding. Backend qualification precedes
+  native distribution; source gates do not prove a hosted deployment.
 - All Doji completion paths unlock only after a confirmed command or authorized
   committed receipt. Pre-commit feed/result reads are cancelled before reconciliation;
   the immediate submission handoff shows loading or read recovery, never a false empty feed.

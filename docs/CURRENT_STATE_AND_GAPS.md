@@ -6,6 +6,16 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Production social-release preparation now permits comments v2 and first-Doji reads
+only with the complete production environment/channel/database binding; existing
+Development/Staging bindings remain unchanged. The production preinstall guard
+requires that explicit channel. This is source preparation, not a deployment:
+the approved database dependencies, exact-head CI, store-counter verification and
+included-credit checks must pass before either production build is launched.
+The owner approved one build per platform and submission only to the existing
+TestFlight/Play closed-testing audiences, with no extra spending or automatic retry.
+Rewards are prospective; auth, timing, push, Worker and monitoring are excluded.
+
 Staging build 9 is installed on the owner's iPhone and Android emulator from
 `a95ca7b`, after PR #87 and exact-main quality checks passed. Both retained their
 accounts and opened the feed. The owner confirmed the submission correction in

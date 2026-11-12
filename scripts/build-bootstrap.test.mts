@@ -62,6 +62,7 @@ test('only exact compiler output qualifies as the preinstall artifact', () => {
 const production: NodeJS.ProcessEnv = {
   EAS_BUILD_PROFILE: 'production',
   EXPO_PUBLIC_APP_ENV: 'production',
+  EXPO_PUBLIC_RELEASE_CHANNEL: 'production',
   EXPO_PUBLIC_SUPABASE_URL: 'https://tvixsmqxotuvyjqzmjla.supabase.co',
   EXPO_PUBLIC_SUPABASE_ANON_KEY: 'synthetic-public',
   EXPO_PUBLIC_SENTRY_DSN: 'synthetic-dsn',
@@ -88,6 +89,8 @@ test('emitted bootstrap executes without dependencies and preserves environment 
     ['EXPO_PUBLIC_SUPABASE_ANON_KEY', ''],
     ['EXPO_PUBLIC_API_URL', 'retired'],
     ['EXPO_PUBLIC_APP_ENV', 'development'],
+    ['EXPO_PUBLIC_RELEASE_CHANNEL', ''],
+    ['EXPO_PUBLIC_RELEASE_CHANNEL', 'staging'],
     ['EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED', 'false'],
     ['EXPO_PUBLIC_SUPABASE_URL', 'https://wrong.invalid'],
     ['EXPO_PUBLIC_SUPABASE_URL', 'not a url'],
