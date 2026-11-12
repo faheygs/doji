@@ -9,16 +9,21 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 Staging build 9 is installed on the owner's iPhone and Android emulator from
 `a95ca7b`, after PR #87 and exact-main quality checks passed. Both retained their
 accounts and opened the feed. The owner confirmed the submission correction in
-iPhone Dev: no false empty message after posting. A fresh submission in the installed
-Staging binaries and physical Android performance remain unqualified. Production
+iPhone Dev: no false empty message after posting. Android Staging build 9 subsequently
+submitted the approved synthetic answer once and returned to its visible post and
+unlocked feed; snapshots did not establish frame-by-frame latency. A fresh installed
+iPhone Staging submission and physical Android performance remain unqualified. Production
 builds/distribution remain held. See the [candidate and backend gates](releases/README.md#november-11-mobile-staging-build-9-and-production-gates),
 which supersede older source-preparation labels below for the packaged candidate.
 
-The feed cursor-order overlay is a separate, undeployed correction: final hydrated
-JSON must retain descending `(created_at, id)` order, not timestamp alone. Its
-synthetic tied-timestamp traversal, visibility and exact retaining rollback tests
-run in the isolated database suite. Hosted Staging qualification and production
-approval are separate gates; fixture timestamps are not a substitute for this fix.
+The feed cursor-order overlay is installed and qualified in Staging only, after
+PR #88 and exact-main checks passed at `f8694ef`. Final hydrated JSON retains
+descending `(created_at, id)` order, not timestamp alone. Twelve authenticated
+Everyone/Friends traversals passed with three existing synthetic posts temporarily
+tied inside a rolled-back transaction. Original post rows, permissions and unrelated
+contracts were unchanged; private exact-function rollback is retained. The isolated
+101-post regression also covers visibility and rollback, not production-scale load.
+Production installation remains gated; see the linked release record above.
 
 The next mobile Staging candidate includes the tested Dev follow-ups: immediate
 actor-local comment rows, cleared composer/keyboard dismissal and one-time reveal

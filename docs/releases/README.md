@@ -15,7 +15,7 @@ Main quality run `43132684982` passed all four jobs. Local qualification passed
 | Internal Staging artifact | EAS build | Acceptance |
 | --- | --- | --- |
 | iPhone 1.0.8 / 9 | `f4ed1b15-d9eb-4c7a-a057-e13d3cf6c9d2` | Owner installed over build 8; account and feed retained |
-| Android 1.0.8 / 9 | `1c118ed8-d2c7-44e7-80ac-2aec99281e81` | Emulator updated in place; retained account and locked text feed visually verified |
+| Android 1.0.8 / 9 | `1c118ed8-d2c7-44e7-80ac-2aec99281e81` | Retained account; approved text submission returned to visible own post and unlocked feed |
 
 Both use exact source above, isolated Staging bindings and unchanged signing;
 OTA, push and reporting remain off. Archive, artifact, configuration and completed
@@ -26,7 +26,12 @@ spending, production build, store submission or backend deployment.
 Private artifacts and receipts remain under
 `%LOCALAPPDATA%/Doji/mobile-staging/2026-11-11-confirmed-feed`; disposable archive
 copies/helpers were removed. The owner confirmed the no-false-empty regression
-in iPhone Dev on the same source, not a fresh submission on both installed binaries.
+in iPhone Dev on the same source. The installed Android build subsequently submitted
+the approved synthetic answer once at November 12, 02:41:47 UTC. Its post/completion
+were confirmed server-side; the observed return showed the post and unlocked feed,
+not a false empty screen. This was snapshot-based functional verification, not
+continuous frame/latency measurement. Fresh installed iPhone submission acceptance
+remains pending.
 
 Production release still requires these separately qualified boundaries:
 
@@ -40,7 +45,7 @@ installation, gate activation, a load test or a reserved future release window.
 
 | Boundary | Remaining release condition |
 | --- | --- |
-| Feed ordering | Tied-timestamp cursor correction passes exact-head CI and hosted Staging traversal before production SQL |
+| Feed ordering | PR #88/main and hosted Staging passed; separately approved production installation and fresh compatibility/rollback checks remain |
 | Public-name search | Fresh production compatibility/index-capacity/rollback checks for the previously approved narrow search update |
 | Comments | Qualify/install v2 page index/read and reply-count projection; then enable the production native reader through reviewed source |
 | First-to-Doji | Qualify/install first-responder index/read, canonical ledger and prospective badge gate; then enable production card |
@@ -54,6 +59,32 @@ Sparks activation is recorded from November 11 at 19:21:01 UTC, first-Doji from
 deadline, Worker, monitoring, telemetry or push changes into this release. Physical
 Android speed and native large-thread memory remain unqualified; emulator checks
 and synthetic SQL fixtures establish neither. No production readiness claim is made.
+
+### Staging feed cursor qualification
+
+PR #88 exact head `07f53b67a32c18e119120b244a04242bdb16a8fd` passed all required
+quality/security checks and merged as `f8694ef2ce7e7217e0b8b3f1f58db98bd0c5950b`.
+Main quality run `43145547152` passed all four jobs. The local full database run
+passed 291 migrations, 43 checks and five concurrency checks; focused regression
+and full typecheck/lint/size/hygiene also passed. Automatic admin-staging plan
+`43147684981` skipped packaging and deployment; no portal release was needed.
+
+After owner approval, only `member_feed_cursor_order_v1.sql` was installed in
+Staging on November 12 at 03:23 UTC (November 11 Mountain). The CLI first rejected
+a leading SQL comment as an argument flag before execution; readback confirmed
+the unchanged predecessor before the explicit file invocation. Installed body MD5
+is `878b16d7842424bcc421b63673286a0a`, from reviewed predecessor
+`d0194984794dd930ee2bf54bd40738f2`. Exact prior definition, retaining inverse,
+attempt/readback records and qualification remain privately retained under
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-11-feed-order`.
+
+Twelve authenticated traversals passed: Everyone/Friends, page sizes 1/2/3, default
+and merge-join plans. The fixture temporarily tied three existing synthetic post
+timestamps, then rolled back. Full original post-row hashes, target permissions,
+and unrelated function/grant, policy, trigger and index fingerprints matched;
+zero lock waits remained. No accounts, events, permanent fixture data, messages,
+builds, resources or production changes were introduced. This is bounded hosted
+correctness evidence, not a large-feed performance benchmark.
 
 ## November 6 mobile development and staging builds
 
