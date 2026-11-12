@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The confirmed-submission feed correction is local source preparation, not in installed
+Staging build 8: photo/task/format now wait for commit like polls, cancel pre-commit
+reads and invalidate only the matching account/event feeds before unlocking. The
+initial confirmed handoff cannot claim an empty feed; pending reads show a spinner
+and failed/empty reads offer reload without resubmission. New native qualification
+and normal exact-head release checks are still required; production is unchanged.
+
 The next mobile Staging candidate includes the tested Dev follow-ups: immediate
 actor-local comment rows, cleared composer/keyboard dismissal and one-time reveal
 of a newly posted root; confirmed poll unlock with loading instead of a false empty

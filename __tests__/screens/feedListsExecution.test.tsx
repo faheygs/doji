@@ -42,6 +42,12 @@ const mockNotifications = {
   markItemsSeen: jest.fn(),
   markScopesSeen: jest.fn(),
 };
+let mockAwaitingSubmission = false;
+jest.mock('../../lib/submissionJourney', () => ({
+  awaitingSubmissionFeed: () => mockAwaitingSubmission,
+  confirmedSubmission: () => mockAwaitingSubmission,
+  observeSubmissionFeed: jest.fn(),
+}));
 type Paged<T> = {
   data?: { pages: T[][] };
   isLoading: boolean;
@@ -183,6 +189,7 @@ beforeEach(() => {
   mockAuth.session = { user: { id: 'self' } };
   mockFocus = undefined;
   mockFeed = paged();
+  mockAwaitingSubmission = false;
   mockFriends = paged();
   mockEvent = {
     data: {
@@ -249,7 +256,9 @@ describe.each([false, true])('lists dark=%s', (dark) => {
     expect(mockNotifications.markBellOpened).toHaveBeenCalled();
     expect(ui.UNSAFE_getByType(NotificationSheet).props.visible).toBe(false);
   });
-  it('shows loading, not empty, while an already-mounted empty feed reconciles a vote', () => {
+  it.each(['photo', 'task', 'format', 'poll'])('shows loading, not empty, while an already-mounted empty feed reconciles %s', (type) => {
+    mockEvent.data!.challenge = { type } as Challenge;
+    mockAwaitingSubmission = true;
     mockFeed.isFetching = true;
     const ui = render(shell(<Feed />));
     expect(ui.getByLabelText('Loading feed')).toBeTruthy();
@@ -259,6 +268,25 @@ describe.each([false, true])('lists dark=%s', (dark) => {
     ui.rerender(shell(<Feed />));
     expect(ui.UNSAFE_getByType(PostCard)).toBeTruthy();
     expect(ui.queryByLabelText('Loading feed')).toBeNull();
+  });
+  it('does not call a confirmed submission empty if its feed read returns no content', () => {
+    mockAwaitingSubmission = true;
+    const ui = render(shell(<Feed />));
+    expect(ui.queryByText('Nothing yet')).toBeNull();
+    expect(ui.getByText('Your answer was submitted. We couldn’t load the feed yet. Reload the feed; you don’t need to submit again.')).toBeTruthy();
+    act(() => ui.UNSAFE_getByType(ErrorState).props.onRetry());
+    expect(mockFeed.refetch).toHaveBeenCalledTimes(1);
+    // Once the initial handoff has rendered, genuinely empty later reads remain valid.
+    mockAwaitingSubmission = false;
+    ui.rerender(shell(<Feed />));
+    expect(ui.getByText('Nothing yet')).toBeTruthy();
+  });
+  it('keeps the confirmed handoff loading when no feed snapshot has arrived', () => {
+    mockAwaitingSubmission = true;
+    mockFeed.data = undefined;
+    const ui = render(shell(<Feed />));
+    expect(ui.getByLabelText('Loading feed')).toBeTruthy();
+    expect(ui.queryByText('Nothing yet')).toBeNull();
   });
   it('offers a read retry if a completed poll returns no community card, never a no-responses claim', () => {
     mockEvent.data!.challenge = { type: 'poll' } as Challenge;

@@ -32,6 +32,7 @@ import { IconBell } from '../../../components/icons/Icons';
 import { useNotificationCenterContext } from '../../../contexts/NotificationCenterContext';
 import { useUserEvent } from '../../../hooks/useUserEvent';
 import { useSubmissionFeedFeedback } from '../../../hooks/useSubmissionFeedFeedback';
+import { awaitingSubmissionFeed } from '../../../lib/submissionJourney';
 import { useUpcomingDoji } from '../../../hooks/useUpcomingDoji';
 import { prefetchFeedAudience, useFeed, type FeedAudience } from '../../../hooks/useFeed';
 import { useAuthStore } from '../../../stores/useAuthStore';
@@ -121,6 +122,7 @@ export default function FeedScreen() {
   const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
   const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
   const hasFeed = feedPages !== undefined;
+  const awaitingSubmittedFeed = awaitingSubmissionFeed(userId, userEvent?.id);
   const ownPostId = latestPosts.find(post => post.user_id === userId)?.id;
   const presentationReadyPosts = usePreparedFeedPosts(
     latestPosts,
@@ -143,7 +145,7 @@ export default function FeedScreen() {
     !refreshing &&
     (userEventLoading ||
       feedLoading ||
-      feedFetching || latestPosts.length > 0);
+      feedFetching || latestPosts.length > 0 || (awaitingSubmittedFeed && !hasFeed));
   useEffect(() => {
     if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !hasFeed) return;
     // Warm authorized metadata only; this does not download the other tab's media.
@@ -382,7 +384,9 @@ export default function FeedScreen() {
 
   const missingPoll = feedUnlocked && userEvent?.challenge?.type === 'poll' &&
     hasFeed && !feedLoading && !feedFetching && latestPosts.length === 0;
-  if ((feedError || missingPoll) && posts.length === 0) {
+  const missingSubmittedFeed = awaitingSubmittedFeed && hasFeed &&
+    !feedLoading && !feedFetching && latestPosts.length === 0;
+  if ((feedError || missingPoll || missingSubmittedFeed) && posts.length === 0) {
     return (
       <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
         <FeedChrome />
