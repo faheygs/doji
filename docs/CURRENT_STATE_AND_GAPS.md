@@ -6,12 +6,19 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-The confirmed-submission feed correction is local source preparation, not in installed
-Staging build 8: photo/task/format now wait for commit like polls, cancel pre-commit
-reads and invalidate only the matching account/event feeds before unlocking. The
-initial confirmed handoff cannot claim an empty feed; pending reads show a spinner
-and failed/empty reads offer reload without resubmission. New native qualification
-and normal exact-head release checks are still required; production is unchanged.
+Staging build 9 is installed on the owner's iPhone and Android emulator from
+`a95ca7b`, after PR #87 and exact-main quality checks passed. Both retained their
+accounts and opened the feed. The owner confirmed the submission correction in
+iPhone Dev: no false empty message after posting. A fresh submission in the installed
+Staging binaries and physical Android performance remain unqualified. Production
+builds/distribution remain held. See the [candidate and backend gates](releases/README.md#november-11-mobile-staging-build-9-and-production-gates),
+which supersede older source-preparation labels below for the packaged candidate.
+
+The feed cursor-order overlay is a separate, undeployed correction: final hydrated
+JSON must retain descending `(created_at, id)` order, not timestamp alone. Its
+synthetic tied-timestamp traversal, visibility and exact retaining rollback tests
+run in the isolated database suite. Hosted Staging qualification and production
+approval are separate gates; fixture timestamps are not a substitute for this fix.
 
 The next mobile Staging candidate includes the tested Dev follow-ups: immediate
 actor-local comment rows, cleared composer/keyboard dismissal and one-time reveal

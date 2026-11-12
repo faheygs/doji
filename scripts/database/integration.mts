@@ -85,6 +85,8 @@ export async function integration(room: TestRoom) {
   pass(participationDeadline(room));
   const { memberProfileSearch } = await import('./member-profile-search.mts');
   pass(memberProfileSearch(room));
+  const { memberFeedCursorOrder } = await import('./member-feed-cursor-order.mts');
+  pass(memberFeedCursorOrder(room));
   const { memberCommentPages } = await import('./member-comment-pages.mts');
   pass(memberCommentPages(room));
   const { memberFirstDoji } = await import('./member-first-doji.mts');

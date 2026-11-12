@@ -11,6 +11,12 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `member_feed_cursor_order_v1.sql` preserves the existing descending timestamp/ID
+  cursor through feed hydration and JSON aggregation. Its retaining inverse restores
+  the exact prior body; both refuse unreviewed/intervening bodies. No index, payload,
+  permission, write or timing change. `node scripts/database/member-feed-cursor-order.mts`
+  checks tied/mixed timestamps, both audiences, visibility, replay and rollback in an
+  owned offline database. Hosted installation remains independently gated.
 - `sparks_economy_v2.sql` + `sparks_economy_v2.bindings.sql` compose one default-off
   transaction, not a hosted release. Install in that order only after the qualified
   canonical first-Doji dependency. Captured functions, private receipts/caps and
