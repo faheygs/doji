@@ -25,7 +25,22 @@ export async function firstDojiBadges(room: TestRoom) {
     from pg_proc where prokind='f' and pronamespace='public'::regnamespace;`),
     ) as Record<string, string>;
   const before = contracts();
+  sql(
+    'alter default privileges for role postgres in schema public grant execute on functions to service_role;',
+  );
   sql(source('overlays/first_doji_badges_v1.sql'));
+  sql(
+    'alter default privileges for role postgres in schema public revoke execute on functions from service_role;',
+  );
+  for (const signature of [
+    'public.get_first_doji_v1(uuid,text)',
+    'public.get_my_first_doji_wins_v1()',
+  ])
+    assert.equal(
+      sql(`select has_function_privilege('service_role','${signature}','execute');`),
+      'f',
+      'Badge reads must reject inherited service-role grants',
+    );
   const visibility = sql(source('tests/member_first_doji.sql'));
   assert.match(
     visibility,

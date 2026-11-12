@@ -29,13 +29,32 @@ export function memberCommentPages(room: TestRoom) {
     },
   );
   sql(source('overlays/member_comment_pages_v2.indexes.sql'));
+  // Hosted production grants service_role EXECUTE to new public functions by default.
+  sql(
+    'alter default privileges for role postgres in schema public grant execute on functions to service_role;',
+  );
   sql(overlay);
   sql(overlay);
+  sql(
+    'alter default privileges for role postgres in schema public revoke execute on functions from service_role;',
+  );
+  for (const signature of [
+    'public.get_comment_page_v2(uuid,text,uuid,timestamptz,uuid,text,integer)',
+    'public.get_comment_rows_v2(uuid,uuid[],text)',
+  ])
+    assert.equal(
+      sql(`select has_function_privilege('service_role','${signature}','execute');`),
+      'f',
+      'Member-only reads must reject inherited service-role grants',
+    );
   assert.match(
     sql(source('tests/member_comment_pages.sql')),
     /PASS: 100K synthetic comment read fixture rolled back/,
   );
-  const projection = () => sql("select pg_get_functiondef('comment_read_private.project_row(public.comments,uuid,text)'::regprocedure);");
+  const projection = () =>
+    sql(
+      "select pg_get_functiondef('comment_read_private.project_row(public.comments,uuid,text)'::regprocedure);",
+    );
   const originalProjection = projection();
   sql(source('overlays/member_comment_reply_counts_v1.sql'));
   sql(source('overlays/member_comment_reply_counts_v1.sql'));
@@ -43,7 +62,11 @@ export function memberCommentPages(room: TestRoom) {
   assert.match(replyCounts, /PASS: exact reply counts and privacy rolled back/);
   console.log(replyCounts);
   sql(source('overlays/member_comment_reply_counts_v1.rollback.sql'));
-  assert.equal(projection(), originalProjection, 'Reply-count rollback restores the exact v2 projection');
+  assert.equal(
+    projection(),
+    originalProjection,
+    'Reply-count rollback restores the exact v2 projection',
+  );
   const after = JSON.parse(
     sql(`select jsonb_object_agg(oid::text,pg_get_functiondef(oid)||coalesce(proacl::text,''))
     from pg_proc where prokind='f' and pronamespace='public'::regnamespace;`),
