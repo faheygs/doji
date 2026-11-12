@@ -11,8 +11,9 @@ Staging build 9 is installed on the owner's iPhone and Android emulator from
 accounts and opened the feed. The owner confirmed the submission correction in
 iPhone Dev: no false empty message after posting. Android Staging build 9 subsequently
 submitted the approved synthetic answer once and returned to its visible post and
-unlocked feed; snapshots did not establish frame-by-frame latency. A fresh installed
-iPhone Staging submission and physical Android performance remain unqualified. Production
+unlocked feed; snapshots did not establish frame-by-frame latency. The owner also
+confirmed an installed iPhone Staging build 9 submission showed the post without
+the false empty message. Physical Android performance remains unqualified. Production
 builds/distribution remain held. See the [candidate and backend gates](releases/README.md#november-11-mobile-staging-build-9-and-production-gates),
 which supersede older source-preparation labels below for the packaged candidate.
 

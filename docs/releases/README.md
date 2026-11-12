@@ -14,7 +14,7 @@ Main quality run `43132684982` passed all four jobs. Local qualification passed
 
 | Internal Staging artifact | EAS build | Acceptance |
 | --- | --- | --- |
-| iPhone 1.0.8 / 9 | `f4ed1b15-d9eb-4c7a-a057-e13d3cf6c9d2` | Owner installed over build 8; account and feed retained |
+| iPhone 1.0.8 / 9 | `f4ed1b15-d9eb-4c7a-a057-e13d3cf6c9d2` | Owner confirmed retained account/feed and submission without the false empty message |
 | Android 1.0.8 / 9 | `1c118ed8-d2c7-44e7-80ac-2aec99281e81` | Retained account; approved text submission returned to visible own post and unlocked feed |
 
 Both use exact source above, isolated Staging bindings and unchanged signing;
@@ -30,8 +30,10 @@ in iPhone Dev on the same source. The installed Android build subsequently submi
 the approved synthetic answer once at November 12, 02:41:47 UTC. Its post/completion
 were confirmed server-side; the observed return showed the post and unlocked feed,
 not a false empty screen. This was snapshot-based functional verification, not
-continuous frame/latency measurement. Fresh installed iPhone submission acceptance
-remains pending.
+continuous frame/latency measurement. The owner subsequently confirmed that a
+submission in installed iPhone Staging build 9 showed the post without the false
+empty message, closing that functional acceptance; this is an owner report, not
+instrumented timing.
 
 Production release still requires these separately qualified boundaries:
 
@@ -50,7 +52,7 @@ installation, gate activation, a load test or a reserved future release window.
 | Comments | Qualify/install v2 page index/read and reply-count projection; then enable the production native reader through reviewed source |
 | First-to-Doji | Qualify/install first-responder index/read, canonical ledger and prospective badge gate; then enable production card |
 | Sparks v2 | First-Doji dependency, aggregate balance/capacity review and separately approved prospective activation; no backfill or balance rewrite |
-| Native release | Installed Staging submission acceptance, exact production bindings/store versions/credit checks and renewed build/distribution approval |
+| Native release | Installed Staging submission acceptance passed; exact production bindings/store versions/credit checks and renewed build/distribution approval remain |
 
 The first-Doji and comment client gates still explicitly allow Staging only; a
 production build of this source cannot silently enable those features. Staging
