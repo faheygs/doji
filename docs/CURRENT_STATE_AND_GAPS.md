@@ -15,6 +15,8 @@ included-credit checks must pass before either production build is launched.
 The owner approved one build per platform and submission only to the existing
 TestFlight/Play closed-testing audiences, with no extra spending or automatic retry.
 Rewards are prospective; auth, timing, push, Worker and monitoring are excluded.
+The prepared native version is 1.0.14 / iOS 108 / Android 34, above verified store
+counters 1.0.13 / 107 / 33. These are source counters, not uploaded builds.
 
 Staging build 9 is installed on the owner's iPhone and Android emulator from
 `a95ca7b`, after PR #87 and exact-main quality checks passed. Both retained their
