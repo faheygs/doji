@@ -77,6 +77,7 @@ begin
   return result;
 end;
 $$;
-revoke all on function public.get_first_doji_v1(uuid,text) from public,anon,authenticated;
+-- Hosted public-schema defaults must not widen this member-only read boundary.
+revoke all on function public.get_first_doji_v1(uuid,text) from public,anon,authenticated,service_role;
 grant execute on function public.get_first_doji_v1(uuid,text) to authenticated;
 commit;

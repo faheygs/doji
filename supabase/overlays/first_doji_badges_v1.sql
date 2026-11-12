@@ -112,7 +112,7 @@ begin
   return coalesce(result,0);
 end;
 $$;
-revoke all on function public.get_my_first_doji_wins_v1() from public,anon,authenticated;
+revoke all on function public.get_my_first_doji_wins_v1() from public,anon,authenticated,service_role;
 grant execute on function public.get_my_first_doji_wins_v1() to authenticated;
 
 -- Keep the existing authorized response shape. A confirmed overall claim wins
@@ -163,6 +163,6 @@ begin
   return result;
 end;
 $$;
-revoke all on function public.get_first_doji_v1(uuid,text) from public,anon,authenticated;
+revoke all on function public.get_first_doji_v1(uuid,text) from public,anon,authenticated,service_role;
 grant execute on function public.get_first_doji_v1(uuid,text) to authenticated;
 commit;

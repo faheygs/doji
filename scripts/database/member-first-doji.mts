@@ -22,8 +22,22 @@ export function memberFirstDoji(room: TestRoom) {
   const policyBefore = policies();
   assert.throws(() => sql(source('overlays/member_first_doji_v1.sql')));
   sql(source('overlays/member_first_doji_v1.indexes.sql'));
+  // Match the hosted default grant rather than relying on a clean-room default.
+  sql(
+    'alter default privileges for role postgres in schema public grant execute on functions to service_role;',
+  );
   sql(source('overlays/member_first_doji_v1.sql'));
   sql(source('overlays/member_first_doji_v1.sql'));
+  sql(
+    'alter default privileges for role postgres in schema public revoke execute on functions from service_role;',
+  );
+  assert.equal(
+    sql(
+      "select has_function_privilege('service_role','public.get_first_doji_v1(uuid,text)','execute');",
+    ),
+    'f',
+    'First-Doji read must reject inherited service-role grants',
+  );
   const output = sql(source('tests/member_first_doji.sql'));
   assert.match(
     output,

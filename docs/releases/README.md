@@ -7,6 +7,31 @@ Private artifacts remain ignored; source history is recoverable through Git.
 
 ## November 11 mobile Staging build 9 and production gates
 
+### November 12 production read-phase hold
+
+The owner approved the narrow production SQL rollout and one included-credit
+production build per platform, for existing beta audiences only. PR #90 passed all
+four quality jobs and security at `3db2e267dd30316aa0ac3a2096bc0a8a06cdfbc5`, then
+merged as `b8783f9e6a81d504c1e066e8432e9d7f9f9d7e3f`. The prepared version is
+1.0.14 / iOS 108 / Android 34, above verified store counters 1.0.13 / 107 / 33.
+
+At 04:17 UTC the approved feed/search/comment/reply-count/first-responder SQL and
+three indexes had installed. Verification stopped because production's public-schema
+defaults also granted `service_role` EXECUTE to the three new public reads; Staging
+does not have that grant. Existing function/permission contracts outside the approved
+changes, balances, ledger and profiles were unchanged; all three indexes were valid,
+anonymous execution was denied and lock waits were zero. No badge/economy installation,
+activation, mobile build or store submission occurred. Exact originals, phase receipts
+and rollback remain privately under `Doji/production-backend/2026-11-12-mobile-social`.
+
+The correction makes the member-only grants explicit, including the future win-count
+read. Its synthetic regression first reproduced the inherited-grant failure. Passing
+exact-head checks and Staging permission/body readback are required before a narrow
+production REVOKE and complete read qualification. Do not rerun installed overlays or
+change database-wide default privileges. Reward and native release gates remain held.
+
+### Staging candidate and acceptance
+
 PR #87 exact head `e12ebbdec1971247e086a86b1584fbefa2bb157a` passed required
 quality/security checks and merged as `a95ca7b82062c910ead70af75074dc2ec4832b29`.
 Main quality run `43132684982` passed all four jobs. Local qualification passed

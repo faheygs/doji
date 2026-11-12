@@ -111,7 +111,7 @@ begin
 end;
 $$;
 revoke all on function public.get_comment_page_v2(uuid,text,uuid,timestamptz,uuid,text,integer)
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 grant execute on function public.get_comment_page_v2(uuid,text,uuid,timestamptz,uuid,text,integer) to authenticated;
 
 -- Reconcile only already retained identities. New head rows cannot move a scrolled viewport.
@@ -135,6 +135,6 @@ begin
           and comment_read_private.row_visible(parent,viewer,p_audience)));
 end;
 $$;
-revoke all on function public.get_comment_rows_v2(uuid,uuid[],text) from public, anon, authenticated;
+revoke all on function public.get_comment_rows_v2(uuid,uuid[],text) from public, anon, authenticated, service_role;
 grant execute on function public.get_comment_rows_v2(uuid,uuid[],text) to authenticated;
 commit;

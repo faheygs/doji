@@ -6,6 +6,17 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The approved production social rollout is paused at read qualification. Feed order,
+name search, comment pages/reply counts and the first-responder read/index installed;
+verification found an inherited `service_role` EXECUTE grant on the three new public
+reads, unlike Staging. Anonymous access remains denied; indexes are valid, existing
+balances/ledger and unrelated contracts are unchanged. Reward/badge activation and
+native builds have not run. The permission correction explicitly removes inherited
+service-role execution from these member-only reads (including the future win-count
+read); synthetic harnesses reproduce the hosted default. Exact-head checks and
+Staging qualification precede the narrow production grant correction and resumed
+readback. Do not replay the completed installation phase or alter global defaults.
+
 Production social-release preparation now permits comments v2 and first-Doji reads
 only with the complete production environment/channel/database binding; existing
 Development/Staging bindings remain unchanged. The production preinstall guard
