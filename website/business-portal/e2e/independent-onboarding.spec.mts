@@ -70,6 +70,7 @@ test('register uses shared controls, consent and security before hosted password
   await page.locator('#identityEmail').fill('owner+signup@example.test');
   await page.locator('#identityContinue').click();
   await expect.poll(() => calls.filter((x) => x.path === 'hosted-navigation').length).toBe(1);
+  await expect(page).toHaveURL(origin + '/business-portal/access/');
   expect(calls.find((x) => x.path === '/auth/start')?.body).toMatchObject({
     signup: true,
     country: 'US',
@@ -89,6 +90,7 @@ test('register uses shared controls, consent and security before hosted password
   expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(
     'owner+signup',
   );
+  await captureBrowserCoverage(page);
 });
 test('signin/reset requires no new legal acceptance and uses the same hosted route', async ({
   page,

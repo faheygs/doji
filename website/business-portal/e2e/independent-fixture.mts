@@ -169,10 +169,16 @@ export async function setup(
   });
   // This is a synthetic navigation target; no provider request leaves this fixture.
   await page.route('https://api.workos.com/**', async (route) => {
+    const request = route.request();
+    const stopped = page.waitForEvent('requestfailed', {
+      predicate: (candidate) => candidate === request,
+    });
+    await route.abort('aborted');
+    await stopped;
+    // Signal the handoff only after the browser has settled the intercepted
+    // navigation. A request being routed is not a completed navigation; reading
+    // storage then can race the renderer's provisional document transition.
     calls.push({ path: 'hosted-navigation', body: { url: route.request().url() } });
-    // A 204 lets the attempted top-level navigation complete without replacing
-    // the test document, so its post-auth coverage can be collected reliably.
-    return route.fulfill({ status: 204 });
   });
   return calls;
 }
