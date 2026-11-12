@@ -226,6 +226,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   its existing reader pending separate database/native qualification and release.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
+  Descending `(created_at, id)` keyset order must survive hydration and final JSON
+  aggregation; sorting tied timestamps alone can repeat or skip cursor rows. The
+  separately gated `member_feed_cursor_order_v1` overlay preserves that order
+  without changing audiences, authorization, payload fields or page limits.
   Photo and text feeds warm adjacent authorized metadata, not its image backlog.
   An observed own post missing from the adjacent cache makes that cache stale before
   warming; reaction/count updates alone do not restart the warm-up effect.

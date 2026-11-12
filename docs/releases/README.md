@@ -5,6 +5,48 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 11 mobile Staging build 9 and production gates
+
+PR #87 exact head `e12ebbdec1971247e086a86b1584fbefa2bb157a` passed required
+quality/security checks and merged as `a95ca7b82062c910ead70af75074dc2ec4832b29`.
+Main quality run `43132684982` passed all four jobs. Local qualification passed
+313 suites / 5,521 tests, full typecheck, lint, size and hygiene checks.
+
+| Internal Staging artifact | EAS build | Acceptance |
+| --- | --- | --- |
+| iPhone 1.0.8 / 9 | `f4ed1b15-d9eb-4c7a-a057-e13d3cf6c9d2` | Owner installed over build 8; account and feed retained |
+| Android 1.0.8 / 9 | `1c118ed8-d2c7-44e7-80ac-2aec99281e81` | Emulator updated in place; retained account and locked text feed visually verified |
+
+Both use exact source above, isolated Staging bindings and unchanged signing;
+OTA, push and reporting remain off. Archive, artifact, configuration and completed
+Sentry source-map upload checks passed. Source-map upload is not captured-device
+symbolication. The iPhone profile permits only the owner's confirmed device.
+The pair used $3 of included credit ($12 remained at readback), with no added
+spending, production build, store submission or backend deployment.
+Private artifacts and receipts remain under
+`%LOCALAPPDATA%/Doji/mobile-staging/2026-11-11-confirmed-feed`; disposable archive
+copies/helpers were removed. The owner confirmed the no-false-empty regression
+in iPhone Dev on the same source, not a fresh submission on both installed binaries.
+
+Production release still requires these separately qualified boundaries:
+
+| Boundary | Remaining release condition |
+| --- | --- |
+| Feed ordering | Tied-timestamp cursor correction passes exact-head CI and hosted Staging traversal before production SQL |
+| Public-name search | Fresh production compatibility/index-capacity/rollback checks for the previously approved narrow search update |
+| Comments | Qualify/install v2 page index/read and reply-count projection; then enable the production native reader through reviewed source |
+| First-to-Doji | Qualify/install first-responder index/read, canonical ledger and prospective badge gate; then enable production card |
+| Sparks v2 | First-Doji dependency, aggregate balance/capacity review and separately approved prospective activation; no backfill or balance rewrite |
+| Native release | Installed Staging submission acceptance, exact production bindings/store versions/credit checks and renewed build/distribution approval |
+
+The first-Doji and comment client gates still explicitly allow Staging only; a
+production build of this source cannot silently enable those features. Staging
+Sparks activation is recorded from November 11 at 19:21:01 UTC, first-Doji from
+05:41:42 UTC; those receipts are not production activation. Do not roll unrelated
+deadline, Worker, monitoring, telemetry or push changes into this release. Physical
+Android speed and native large-thread memory remain unqualified; emulator checks
+and synthetic SQL fixtures establish neither. No production readiness claim is made.
+
 ## November 6 mobile development and staging builds
 
 PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality
