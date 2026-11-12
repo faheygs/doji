@@ -192,9 +192,11 @@ These lifecycle changes remain next-build source; check recorded release state.
   intent is memory-only and immutable for explicit retry; row acknowledgement
   retains its native key. Composer generations fence late native text callbacks.
   Closing a sheet does not authorize a new key or automatic replay.
-- Poll success cancels reads started before commit, marks matching member/event
-  results stale and then unlocks the feed. Background reconciliation never delays
-  direct-to-feed completion or substitutes an empty claim for loading.
+- Post and poll success cancel reads started before commit, mark matching member/event
+  results stale and then unlock the feed. Background reconciliation never delays
+  direct-to-feed completion or substitutes an empty claim for loading. The bounded
+  submission journey distinguishes an unrendered confirmed handoff from a genuinely
+  empty later feed after content removal; an empty handoff read offers read-only retry.
 
 - Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
   first), each with bidirectional keyset cursors. Retained-ID refresh returns at

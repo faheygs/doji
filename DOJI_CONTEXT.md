@@ -125,8 +125,9 @@ the future poll. Community idea acceptance does not schedule a Doji.
   Friends includes self; blocks, reports and moderation filter visibility. Failed
   or empty reads hide the optional card, never the feed. The card is gated to exact
   Staging bindings in Development/Staging builds; production remains off.
-- Poll completion unlocks only after confirmed vote commit. Pre-commit feed/result
-  reads are cancelled before reconciliation; loading never claims an empty feed.
+- All Doji completion paths unlock only after a confirmed command or authorized
+  committed receipt. Pre-commit feed/result reads are cancelled before reconciliation;
+  the immediate submission handoff shows loading or read recovery, never a false empty feed.
   Other write-ins display their full text. This changes no vote or reward rule.
 - New comments display immediately as actor-local rows outside server cursor pages.
   Accepted send clears the composer, dismisses the keyboard and reveals a new root

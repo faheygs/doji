@@ -68,7 +68,8 @@ describe('mobile data architecture', () => {
     const feed = read('app/(app)/(tabs)/index.tsx');
     expect(feed).toContain('isFetching: feedFetching');
     expect(feed).toContain('feedFetching || latestPosts.length > 0');
-    expect(feed).toContain('if ((feedError || missingPoll) && posts.length === 0)');
+    expect(feed).toContain('if ((feedError || missingPoll || missingSubmittedFeed) && posts.length === 0)');
+    expect(feed).toContain('awaitingSubmissionFeed(userId, userEvent?.id)');
     expect(feed).toContain('loading={showInitialFeedSkeleton}');
   });
 

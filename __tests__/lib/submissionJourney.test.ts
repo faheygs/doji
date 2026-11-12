@@ -4,7 +4,7 @@ jest.mock('../../lib/mobileDiagnosticContext', () => ({
   diagnosticSessionIsCurrent: (session: unknown) => session === mockSession,
   recordSubmissionStep: jest.fn(),
 }));
-import { beginSubmissionJourney, confirmedSubmission, observeSubmissionFeed, submissionFailureContext, submissionStep } from '../../lib/submissionJourney';
+import { awaitingSubmissionFeed, beginSubmissionJourney, confirmedSubmission, observeSubmissionFeed, submissionFailureContext, submissionStep } from '../../lib/submissionJourney';
 import { recordSubmissionStep } from '../../lib/mobileDiagnosticContext';
 let mockSession = 'initial';
 beforeEach(() => { jest.useFakeTimers(); mockSession += 'x'; jest.clearAllMocks(); });
@@ -14,11 +14,14 @@ test('only server confirmation permits successful submission copy; retries retai
   const journey = beginSubmissionJourney('private-member', 'private-event');
   expect(beginSubmissionJourney('private-member', 'private-event')).toBe(journey);
   submissionStep(journey, 'upload', 'confirmed');
+  expect(awaitingSubmissionFeed('private-member', 'private-event')).toBe(false);
   expect(confirmedSubmission('private-member', 'private-event')).toBe(false);
   submissionStep(journey, 'submit', 'failed', { status: 504 });
   expect(confirmedSubmission('private-member', 'private-event')).toBe(false);
   submissionStep(journey, 'receipt', 'confirmed');
   expect(confirmedSubmission('private-member', 'private-event')).toBe(true);
+  expect(awaitingSubmissionFeed('private-member', 'private-event')).toBe(true);
+  expect(awaitingSubmissionFeed('another-member', 'private-event')).toBe(false);
   expect(confirmedSubmission('another-member', 'private-event')).toBe(false);
   expect(confirmedSubmission('private-member', 'another-event')).toBe(false);
   const error = { message: 'private body', status: 504 };
@@ -29,6 +32,7 @@ test('only server confirmation permits successful submission copy; retries retai
   copy.phase = 'upload';
   expect(submissionFailureContext(error)?.phase).toBe('feed');
   observeSubmissionFeed('private-member', 'private-event', 'rendered');
+  expect(awaitingSubmissionFeed('private-member', 'private-event')).toBe(false);
   const count = jest.mocked(recordSubmissionStep).mock.calls.length;
   observeSubmissionFeed('private-member', 'private-event', 'rendered');
   observeSubmissionFeed('private-member', 'private-event', 'failed', error);

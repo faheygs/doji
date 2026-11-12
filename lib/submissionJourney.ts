@@ -37,7 +37,12 @@ export function confirmedSubmission(actor: string | undefined, occurrence: strin
   return valid(current) && current.actor === actor && current.occurrence === occurrence && current.confirmed;
 }
 
-/** A rendered authorized feed (including an empty feed) is distinct from HTTP success. */
+/** Only the immediate confirmed-submit handoff expects content, not later empty feeds after removal. */
+export function awaitingSubmissionFeed(actor: string | undefined, occurrence: string | undefined): boolean {
+  return confirmedSubmission(actor, occurrence) && !current!.rendered;
+}
+
+/** A rendered authorized feed is distinct from HTTP success. */
 export function observeSubmissionFeed(actor: string | undefined, occurrence: string | undefined, outcome: 'failed' | 'rendered', error?: unknown): void {
   if (!confirmedSubmission(actor, occurrence) || !current || current.rendered) return;
   if (outcome === 'failed') submissionStep(current, 'feed', 'failed', error);
