@@ -30,6 +30,14 @@ in iPhone Dev on the same source, not a fresh submission on both installed binar
 
 Production release still requires these separately qualified boundaries:
 
+Bounded read-only catalog checks on November 12, 02:33 UTC (November 11 Mountain)
+confirmed the comment-page/reply-count and first-responder reads, first-badge/economy
+settings tables and valid search/comment indexes in Staging. Production lacked those
+new dependencies and retained the prior search body. Both environments retained feed
+body fingerprint `d0194984794dd930ee2bf54bd40738f2`, matching the cursor fix's reviewed
+predecessor, and reported zero lock waits. This was compatibility inspection, not
+installation, gate activation, a load test or a reserved future release window.
+
 | Boundary | Remaining release condition |
 | --- | --- |
 | Feed ordering | Tied-timestamp cursor correction passes exact-head CI and hosted Staging traversal before production SQL |
