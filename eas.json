@@ -62,6 +62,7 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_RELEASE_CHANNEL": "production",
         "EXPO_PUBLIC_COMMAND_GATEWAY_URL": "https://doji-orchestrator.faheygs.workers.dev",
         "EXPO_PUBLIC_SCALE_READ_URL": "https://doji-orchestrator.faheygs.workers.dev",
         "EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED": "true"

@@ -33,7 +33,7 @@ winner/count ledger and prospective lifetime tiers. Their standalone database
 harnesses and `sparks-economy.mts` also run in the main database suite. The backend
 source remains independently released from the mobile celebration UI.
 `FirstDojiCard`, `useFirstDoji`, `firstDojiCache` and `firstDoji` own the gated
-Staging card/read/privacy reconciliation. `useFirstDojiWins` and `FirstPlaceIcon`
+card/read/privacy reconciliation under matching release bindings. `useFirstDojiWins` and `FirstPlaceIcon`
 provide catalogue-aware lifetime progress and the shared medal. The
 `useCommentSubmission`, `submittedCommentRows`, `useSubmittedCommentRows` and
 `useCommentPostScroll` helpers own actor feedback, retry recovery and root reveal
@@ -55,11 +55,11 @@ it does not load protected answers or media.
 the inline list retains loaded roots and only pages downward, while replies stay bounded.
 `lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
 window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
-account/lifecycle fencing, reconciliation and validated transport. The staging-gated
+account/lifecycle fencing, reconciliation and validated transport. The release-gated
 `InlineCommentList` flattens roots and expanded replies into one virtualized list;
 `InlineReplyWindow` owns headless per-parent observers and `useInlineWindowPaging`
 owns viewport-adjacent reads. `inlineCommentPaging` composes loaded roots and
-bounded per-parent reply windows. `PostCommentsThread` retains the shared rows/composer and production reader.
+bounded per-parent reply windows. `PostCommentsThread` retains the shared rows/composer and fallback reader.
 `commentWindowCache` owns per-record write reconciliation;
 the cache family participates in targeted realtime and native lifecycle recovery.
 The additive

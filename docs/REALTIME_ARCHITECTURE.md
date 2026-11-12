@@ -185,8 +185,10 @@ These lifecycle changes remain next-build source; check recorded release state.
 - `firstDoji` is keyed by event, viewer and audience, with account-lifetime fencing,
   no persistence and no polling. Existing completion/post/vote/profile hints and
   foreground/reconnect reconcile it. Block/friendship/moderation changes discard
-  the old winner before authorized rereads. Only exact Development/Staging bindings
-  enable the additive RPC; production stays off. Badge progress reuses the existing
+  the old winner before authorized rereads. Matching environment/channel/database
+  bindings enable the additive RPC in Development/Staging or Production; mixed
+  bindings fail closed. Backend qualification must precede native distribution.
+  Badge progress reuses the existing
   account-scoped `userBadgeProgress` family after catalogue discovery.
 - `useCommentSubmission` keeps actor-local sends outside cursor pages. Unconfirmed
   intent is memory-only and immutable for explicit retry; row acknowledgement
@@ -206,7 +208,7 @@ These lifecycle changes remain next-build source; check recorded release state.
   hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
   Privacy failures discard cached rows; transient failures retain authorized data
   with explicit retry. The generic bounded model caps a window at 250 rows. The
-  staging inline consumer instead retains every loaded root page, fetching older
+  inline consumer instead retains every loaded root page, fetching older
   pages downward only; there is no upward root pagination or offscreen root eviction.
   Root data grows with visited pages while native views remain virtualized. Root
   refresh is limited to three visible pages (60 rows); other loaded pages are marked
@@ -222,8 +224,9 @@ These lifecycle changes remain next-build source; check recorded release state.
   The UI remains one newest-first list with inline replies, no separate
   reply page or Show latest control. New head reads are accepted only while still
   at the head; reply-tail reads append after the retained cursor. Paging preserves
-  visible IDs and native anchors rather than remounting the list. Production keeps
-  its existing reader pending separate database/native qualification and release.
+  visible IDs and native anchors rather than remounting the list. Exact release
+  bindings select the v2 reader; the production package is withheld until its
+  separately approved database dependencies pass qualification.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
   Descending `(created_at, id)` keyset order must survive hydration and final JSON

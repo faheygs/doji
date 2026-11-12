@@ -5,10 +5,18 @@ jest.mock('../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 jest.mock('../../lib/runMemberRead', () => ({ runMemberRead: jest.fn() }));
 const env = { ...process.env };
 afterEach(() => {
-  process.env = { ...env };
+  for (const key of [
+    'EXPO_PUBLIC_APP_ENV',
+    'EXPO_PUBLIC_RELEASE_CHANNEL',
+    'EXPO_PUBLIC_SUPABASE_URL',
+    'EXPO_PUBLIC_SCALE_READ_URL',
+  ]) {
+    if (env[key] === undefined) delete process.env[key];
+    else process.env[key] = env[key];
+  }
   jest.clearAllMocks();
 });
-test('only exact isolated Dev/Staging bindings are enabled; production stays off', () => {
+test('isolated Dev/Staging bindings reject mixed environments', () => {
   process.env.EXPO_PUBLIC_APP_ENV = 'staging';
   process.env.EXPO_PUBLIC_RELEASE_CHANNEL = 'development';
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://ohrcupagdoilkwhecict.supabase.co';
@@ -31,6 +39,31 @@ test('only exact isolated Dev/Staging bindings are enabled; production stays off
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://other.invalid';
   expect(firstDojiEnabled()).toBe(false);
 });
+test('production requires all three exact bindings and missing values fail closed', () => {
+  const stagingUrl = 'https://ohrcupagdoilkwhecict.supabase.co';
+  const productionUrl = 'https://tvixsmqxotuvyjqzmjla.supabase.co';
+  for (const environment of ['', 'staging', 'production', 'preview']) {
+    for (const channel of ['', 'development', 'staging', 'production', 'preview']) {
+      for (const url of ['', stagingUrl, productionUrl, 'https://other.invalid']) {
+        process.env.EXPO_PUBLIC_APP_ENV = environment;
+        process.env.EXPO_PUBLIC_RELEASE_CHANNEL = channel;
+        process.env.EXPO_PUBLIC_SUPABASE_URL = url;
+        const expected =
+          (environment === 'staging' &&
+            ['development', 'staging'].includes(channel) &&
+            url === stagingUrl) ||
+          (environment === 'production' && channel === 'production' && url === productionUrl);
+        expect({ environment, channel, url, enabled: firstDojiEnabled() }).toEqual({
+          environment,
+          channel,
+          url,
+          enabled: expected,
+        });
+      }
+    }
+  }
+});
+
 test('bounded RPC uses only event/audience and validates scope and safe row', async () => {
   const signal = new AbortController().signal;
   const row = {
