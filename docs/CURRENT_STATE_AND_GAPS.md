@@ -56,6 +56,12 @@ presentation work. Unreleased Worker/email notification changes are preserved, n
 deployed or silently included in this mobile release. Physical Android performance,
 large-thread native memory and complete workflow-health coverage remain unqualified.
 
+Dependency source is aligned to Expo 57.0.33 through PR #93 (`af6646a`), with
+the matching Constants, Linking and Router patches. The Android diagnostics guard
+retains its exact native-source hash and accepts only the reviewed SDK version.
+This source update does not rebuild the released 1.0.14 binaries or change production.
+See the [compatibility qualification](releases/README.md#november-14-expo-compatibility-qualification).
+
 ## Retained qualification history
 
 The dated preparation states below describe earlier boundaries, not instructions

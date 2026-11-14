@@ -69,6 +69,23 @@ match released main; unique Worker/email notification changes remain unreleased.
 work and is not superseded by this mobile release. This closeout changes documentation
 only; it authorizes no deployment, build, message or operational replay.
 
+### November 14 Expo compatibility qualification
+
+PR #93 merged as `af6646a` after exact-head `2041b51` passed all four quality jobs
+and security in run `43626393842`. It updates Expo/Constants/Linking/Router to
+57.0.33/57.0.24/57.0.14/57.0.31 and only their required locked dependencies.
+Expo Doctor passed 21/21; all 313 Jest suites / 5,523 tests and root static gates
+passed locally. The diagnostics pin was separately reviewed: ExpoFetchModule.kt
+is byte-identical across 57.0.32 and 57.0.33, retaining SHA-256
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`.
+Unknown versions, source edits and duplicate observers still fail closed.
+The scoped audit found no high/critical advisories; eight low and three moderate
+findings remain. Native/device qualification is not established by these checks.
+The owner approved the normal automatic admin-staging Pages pipeline because root
+lockfiles are existing packaging inputs. No production deployment, native build,
+backend change or extra spending accompanies this source patch. Reversion requires
+a normal reviewed source revert; retained production binaries remain unchanged.
+
 ## November 11 mobile Staging build 9 and production gates
 
 ### November 12 production backend qualification

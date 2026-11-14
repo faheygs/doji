@@ -106,7 +106,7 @@ iPhone Staging signup; recovery mail and complete workflows remain unqualified.
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.32 | Native toolchain and modules |
+| Expo | 57.0.33 | Native toolchain and modules; source patch, not a new store binary |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
 | Expo Router | 57.0.30 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
