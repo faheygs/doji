@@ -48,6 +48,27 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+test.each(['avatar', 'post'] as const)('stalled %s preparation cannot start an upload after its deadline', async (kind) => {
+  jest.useFakeTimers();
+  let finish!: (image: ImageManipulator.ImageResult) => void;
+  jest.mocked(ImageManipulator.manipulateAsync).mockReturnValueOnce(new Promise((done) => { finish = done; }));
+  try {
+    const result = (kind === 'avatar'
+      ? uploadAvatar('member', 'file:///source.jpg')
+      : uploadPostMedia('event', 'command', 'file:///source.jpg', 'photo')).catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(15_000);
+    await expect(result).resolves.toMatchObject({ code: 'DOJI_IMAGE_PREPARATION_TIMEOUT' });
+    expect(executeCommand).not.toHaveBeenCalled();
+    expect(resumableStorageUpload).not.toHaveBeenCalled();
+    finish({ uri: 'file:///late.jpg', width: 1200, height: 1600 });
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    expect(executeCommand).not.toHaveBeenCalled();
+    expect(resumableStorageUpload).not.toHaveBeenCalled();
+    expect(publicUrl).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  } finally { jest.useRealTimers(); }
+});
+
 test('explicit compression parameters are honored', async () => {
   await compressImage('file:///source.jpg', { width: 500, quality: 0.7 });
   expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(

@@ -1,5 +1,7 @@
 import {
   addRecentProfileSearch,
+  addRecentSearchQuery,
+  normalizeSearchQuery,
   normalizeRecentProfileSearches,
   type RecentProfileSearch,
 } from '../../lib/recentProfileSearches';
@@ -16,9 +18,33 @@ function profile(id: string): RecentProfileSearch {
 }
 
 describe('recentProfileSearches', () => {
+  it('normalizes, deduplicates and bounds query history alongside legacy profiles', () => {
+    const saved = addRecentSearchQuery([profile('a')], '  Alex   Johnson  ');
+    expect(saved).toEqual([
+      { id: 'query:alex johnson', kind: 'query', query: 'Alex Johnson' },
+      profile('a'),
+    ]);
+    expect(addRecentSearchQuery(saved, 'alex johnson')).toHaveLength(2);
+    expect(addRecentSearchQuery(saved, ' x ')).toEqual(saved);
+    expect(normalizeSearchQuery('a'.repeat(200))).toHaveLength(100);
+    const many = Array.from({ length: 10 }, (_, i) => profile(String(i)));
+    expect(addRecentSearchQuery(many, 'Smith')).toHaveLength(10);
+    expect(
+      normalizeRecentProfileSearches([
+        ...saved,
+        { kind: 'query', query: 'ALEX JOHNSON', id: 'untrusted' },
+        { kind: 'query', query: 'x' },
+        { kind: 'query', query: 12 },
+        null,
+      ]),
+    ).toEqual(saved);
+    expect(normalizeRecentProfileSearches(null)).toEqual([]);
+    expect(normalizeRecentProfileSearches(many.concat(profile('overflow')))).toHaveLength(10);
+  });
   it('moves a selected profile to the front without duplicates', () => {
-    expect(addRecentProfileSearch([profile('a'), profile('b')], profile('b')).map((p) => p.id))
-      .toEqual(['b', 'a']);
+    expect(
+      addRecentProfileSearch([profile('a'), profile('b')], profile('b')).map((p) => p.id),
+    ).toEqual(['b', 'a']);
   });
 
   it('keeps only ten recent profiles', () => {
@@ -30,7 +56,8 @@ describe('recentProfileSearches', () => {
   });
 
   it('drops malformed and duplicate persisted entries', () => {
-    expect(normalizeRecentProfileSearches([profile('a'), { id: 'bad' }, profile('a')]))
-      .toEqual([profile('a')]);
+    expect(normalizeRecentProfileSearches([profile('a'), { id: 'bad' }, profile('a')])).toEqual([
+      profile('a'),
+    ]);
   });
 });

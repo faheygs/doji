@@ -60,7 +60,7 @@ describe('native modal lifecycle', () => {
     expect(source).toContain("onDismiss={Platform.OS === 'ios' ? finishVoterDismiss : undefined}");
   });
 
-  it.each(['components/feed/PostCommentsThread.tsx', 'components/feed/PostCommentsSheet.tsx'])(
+  it.each(['components/comments/CommentActionSheet.tsx', 'components/feed/PostCommentsSheet.tsx'])(
     '%s waits for iOS native dismissal when handing off to reporting',
     (file) => {
       const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');

@@ -5,9 +5,10 @@ import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types/database';
 import { shouldAutoCompleteOnboarding } from '../lib/onboardingGate';
 import { newCommandId } from '../lib/idempotency';
-import { filterContent } from '../lib/contentFilter';
+import { createProfileUpdater, type ProfileSaveState } from '../lib/profileUpdate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '../lib/queryClient';
+import { cancelScheduledInvalidations } from '../lib/queryInvalidationBatcher';
 import { runMemberRead } from '../lib/runMemberRead';
 import { closeRealtimeConnection } from '../lib/realtimeClient';
 import { queryCacheStorageKey } from '../lib/queryPersistence';
@@ -18,15 +19,17 @@ import {
   PROFILE_FETCH_ATTEMPTS,
   PROFILE_REQUEST_TIMEOUT_MS,
   profileCacheKey,
+  readCachedProfile,
   waitForProfileRetry,
 } from '../lib/profileFetchPolicy';
 import { reportOperationalFailure } from '../lib/telemetry';
 import { isEmployeeSession } from '../lib/employeeIdentity';
 
-// Startup, foreground reconciliation, and both realtime transports can all ask
-// for the same profile at once. Share that request instead of repeatedly
-// aborting/restarting it (which previously kept the auth gate busy).
-let activeProfileFetch: { userId: string; requestId: symbol; promise: Promise<void> } | null = null;
+// Startup, foreground reconciliation and realtime share each account's profile
+// request instead of aborting/restarting it and keeping the auth gate busy.
+let activeProfileFetch: { userId: string; requestId: symbol; isCurrent: () => boolean; promise: Promise<void> } | null = null;
+// A confirmed/optimistic local profile supersedes reads begun before that change.
+let profileRevision = 0;
 type AuthState = {
   session: Session | null;
   profile: Profile | null;
@@ -38,6 +41,8 @@ type AuthState = {
   setLoading: (loading: boolean) => void;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  retryProfileUpdate: () => Promise<void>;
+  profileSaveState: ProfileSaveState;
   fetchProfile: (userId: string) => Promise<void>;
 };
 
@@ -51,6 +56,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session) => {
     const prevId = get().session?.user?.id;
     const nextId = session?.user?.id;
+    if (nextId !== prevId || !session) cancelScheduledInvalidations(queryClient);
     if (nextId !== prevId) closeRealtimeConnection();
     if (!session) {
       queryClient.clear();
@@ -79,6 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ session });
   },
   setProfile: (profile) => {
+    profileRevision += 1;
     set({
       profile,
       profileLoadState: profile ? 'ready' : get().session ? get().profileLoadState : 'idle',
@@ -99,10 +106,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Signing out must still succeed if token cleanup is temporarily offline.
       // A later registration atomically transfers ownership away from this user.
     }
-    // Sign out this installation only. Supabase defaults to global scope,
-    // which would also terminate the same person's admin-browser and other
-    // device sessions.
+    // Sign out this installation only, preserving the member's other devices.
     await supabase.auth.signOut({ scope: 'local' });
+    cancelScheduledInvalidations(queryClient);
     queryClient.clear();
     if (signedOutUserId) {
       await AsyncStorage.removeItem(queryCacheStorageKey(signedOutUserId));
@@ -121,40 +127,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ profile: null, isLoading: false, isProfileLoading: false, profileLoadState: 'idle' });
       return Promise.resolve();
     }
-    if (activeProfileFetch?.userId === userId) return activeProfileFetch.promise;
+    if (activeProfileFetch?.userId === userId && activeProfileFetch.isCurrent()) return activeProfileFetch.promise;
+    const account = profileUpdater.capture();
+    const revision = profileRevision;
+    const isCurrent = () => account.userId === userId && account.isCurrent() && revision === profileRevision;
 
     const requestId = Symbol(userId);
     const promise = Promise.resolve().then(async () => {
-      // Keep verified screens mounted on refresh, including signup when Android
-      // returns from a picker. Replacing signup here discards its native result.
-      const hadVerifiedProfile =
-        get().profile?.id === userId && get().profileLoadState === 'ready';
-      const hadVerifiedMissing = get().session?.user?.id === userId &&
-        get().profile === null && get().profileLoadState === 'missing';
-      if (!hadVerifiedMissing && get().profile?.id !== userId) {
-        try {
-          const raw = await AsyncStorage.getItem(profileCacheKey(userId));
-          const cached = raw ? JSON.parse(raw) as Profile : null;
-          if (cached?.id === userId && get().session?.user?.id === userId) {
-            set({
-              profile: normalizeProfile(cached),
-              // Persisted presentation never authorizes a new session.
-              isProfileLoading: true,
-              profileLoadState: 'loading',
-            });
-          }
-        } catch {
-          void AsyncStorage.removeItem(profileCacheKey(userId));
-        }
-      }
-      if (get().session?.user?.id !== userId) {
-        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
-        return;
-      }
-      if (!hadVerifiedMissing && get().profile?.id !== userId) {
-        set({ isProfileLoading: true, profileLoadState: 'loading' });
-      }
       try {
+        // Keep verified screens mounted: replacing signup discards native picker results.
+        const hadVerifiedProfile =
+          get().profile?.id === userId && get().profileLoadState === 'ready';
+        const hadVerifiedMissing = isCurrent() &&
+          get().profile === null && get().profileLoadState === 'missing';
+        if (!hadVerifiedMissing && get().profile?.id !== userId) {
+          try {
+            const raw = await readCachedProfile(userId);
+            const cached = raw ? JSON.parse(raw) as Profile : null;
+            if (cached?.id === userId && isCurrent()) {
+              set({
+                profile: normalizeProfile(cached),
+                // Persisted presentation never authorizes a new session.
+                isProfileLoading: true,
+                profileLoadState: 'loading',
+              });
+            }
+          } catch {
+            if (isCurrent()) void AsyncStorage.removeItem(profileCacheKey(userId));
+          }
+        }
+        if (!isCurrent()) return;
+        if (!hadVerifiedMissing && get().profile?.id !== userId) {
+          set({ isProfileLoading: true, profileLoadState: 'loading' });
+        }
         let data: unknown = null;
         let error: { message?: string; status?: number; code?: string } | null = null;
         for (let attempt = 0; attempt < PROFILE_FETCH_ATTEMPTS; attempt += 1) {
@@ -165,16 +170,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } catch (caught) {
             error = caught instanceof Error ? caught : { message: String(caught) };
           }
+          if (!isCurrent()) return;
           if (!error || isNonRetryableProfileError(error) || attempt === PROFILE_FETCH_ATTEMPTS - 1) {
             break;
           }
           await waitForProfileRetry(attempt);
-          if (get().session?.user?.id !== userId) return;
+          if (!isCurrent()) return;
         }
 
         if (error) {
           if (__DEV__) console.warn('[fetchProfile]', error.message);
-          if (get().session?.user?.id === userId) {
+          if (isCurrent()) {
             if (!hadVerifiedProfile) {
               try {
                 reportOperationalFailure('startup', 'profile_bootstrap_failed', error, {
@@ -190,7 +196,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
           return;
         }
-        if (get().session?.user?.id !== userId) return;
+        if (!isCurrent()) return;
         if (!data) {
           set({ profile: null, profileLoadState: 'missing' });
           void AsyncStorage.removeItem(profileCacheKey(userId));
@@ -204,50 +210,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { data: patched, error: patchErr } = await executeCommand('update_own_profile', {
             p_patch: { onboarding_completed_at: completedAt },
             p_idempotency_key: newCommandId('profile-onboarding'),
-          });
+          }, { expectedUserId: userId, isCurrent });
           profile = !patchErr && patched
             ? normalizeProfile(patched as Profile)
             : { ...profile, onboarding_completed_at: completedAt };
         }
 
-        if (get().session?.user?.id === userId) {
+        if (isCurrent()) {
           set({ profile, profileLoadState: 'ready' });
           persistProfile(profile);
         }
       } finally {
-        if (activeProfileFetch?.requestId === requestId) activeProfileFetch = null;
-        if (get().session?.user?.id === userId) {
-          set({ isProfileLoading: false, isLoading: false });
+        if (activeProfileFetch?.requestId === requestId) {
+          activeProfileFetch = null;
+          if (account.userId === userId && account.isCurrent()) set({ isProfileLoading: false, isLoading: false });
         }
       }
     });
 
-    activeProfileFetch = { userId, requestId, promise };
+    activeProfileFetch = { userId, requestId, promise, isCurrent };
     return promise;
   },
 
-  updateProfile: async (updates) => {
-    const { session } = get();
-    if (!session?.user?.id) throw new Error('Not authenticated');
-
-    for (const field of ['username', 'display_name', 'bio'] as const) {
-      const value = updates[field];
-      if (typeof value !== 'string') continue;
-      const result = filterContent(value);
-      if (!result.ok) throw new Error(result.reason);
-    }
-
-    const { data, error } = await executeCommand('update_own_profile', {
-      p_patch: updates,
-      p_idempotency_key: newCommandId('profile-update'),
-    });
-
-    if (error) throw error;
-    if (!data) throw new Error('Profile update returned no row');
-    if (get().session?.user?.id !== session.user.id) return;
-
-    const profile = normalizeProfile(data as Profile);
-    set({ profile, profileLoadState: 'ready' });
-    persistProfile(profile);
-  },
+  profileSaveState: 'idle',
+  updateProfile: (updates) => profileUpdater.update(updates),
+  retryProfileUpdate: () => profileUpdater.retry(),
 }));
+
+const profileUpdater = createProfileUpdater({
+  userId: () => useAuthStore.getState().session?.user?.id,
+  state: (profileSaveState) => useAuthStore.setState({ profileSaveState }),
+  confirmed: (data, replayed) => {
+    const profile = normalizeProfile(data);
+    useAuthStore.getState().setProfile(profile);
+    // A receipt proves this save, not that its returned snapshot is still newest.
+    if (replayed) void useAuthStore.getState().fetchProfile(profile.id);
+  },
+});
+useAuthStore.subscribe((state, previous) => {
+  if (state.session?.user?.id !== previous.session?.user?.id) profileUpdater.reset();
+});
+export const captureProfileAccount = () => profileUpdater.capture();

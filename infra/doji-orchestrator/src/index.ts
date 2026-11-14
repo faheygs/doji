@@ -7,11 +7,12 @@ import { expirePushFanout } from './push-fanout-lifecycle';
 import { OutboxRelayAlarm } from './outbox-relay';
 import { handlePortalRead } from './portal-read';
 import { handleScaleRead } from './scale-read';
+import type { MonitorHistoryEnvironment } from './monitor-history';
 
 export { HealthMonitor };
 export { OutboxRelayAlarm };
 
-export interface Env {
+export interface Env extends MonitorHistoryEnvironment {
   DOJI_EVENT_ALARM: DurableObjectNamespace<DojiEventAlarm>;
   OUTBOX_RELAY_ALARM: DurableObjectNamespace<OutboxRelayAlarm>;
   PUSH_FANOUT_ALARM: DurableObjectNamespace<PushFanoutAlarm>;

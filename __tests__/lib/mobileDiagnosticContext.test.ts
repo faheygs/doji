@@ -91,3 +91,29 @@ test('web has no installation storage, native context or timeline collection', a
   expect(context.mobileDiagnosticSnapshot()).toEqual({});
   expect(context.diagnosticTimeline()).toEqual([]);
 });
+
+test('submission counters are detached, native-only and cleared across account boundaries', () => {
+  context.setDiagnosticActor('private-user-A');
+  const id = 'diag:synthetic-submission-12345';
+  context.recordSubmissionStep(id, 'submit', 'started', 0);
+  context.recordSubmissionStep(id, 'submit', 'failed', 10);
+  context.recordSubmissionStep(id, 'receipt', 'confirmed', 20);
+  const snapshot = context.submissionOutcomeSnapshot();
+  expect(snapshot.rows.map(row => row.outcome)).toEqual(['started', 'request_failed', 'confirmed']);
+  expect(JSON.stringify(snapshot)).not.toMatch(/private|synthetic|journey_id|session_id/);
+  // Existing Sentry context remains unchanged; no aggregate sender is enabled.
+  expect(context.mobileDiagnosticSnapshot()).not.toHaveProperty('rows');
+  expect(storage.setItem).not.toHaveBeenCalled();
+  context.setDiagnosticActor('private-user-A');
+  expect(context.submissionOutcomeSnapshot().rows).toHaveLength(3);
+  context.setDiagnosticActor('private-user-B');
+  expect(context.submissionOutcomeSnapshot().rows).toEqual([]);
+  context.recordSubmissionStep(id, 'feed', 'rendered', 1);
+  context.setDiagnosticActor(null);
+  expect(context.submissionOutcomeSnapshot().rows).toEqual([]);
+  context.recordSubmissionStep('not-a-diagnostic-id', 'submit', 'started', 1);
+  context.recordSubmissionStep(id, 'submit', 'started', NaN);
+  require('react-native').Platform.OS = 'web';
+  context.recordSubmissionStep(id, 'submit', 'started', 1);
+  expect(context.submissionOutcomeSnapshot().rows).toEqual([]);
+});

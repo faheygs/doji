@@ -7,6 +7,8 @@ import {
   employeeHealthSql,
   employeeWorkflowHealthSql,
   employeeHealthSnapshotSql,
+  employeeMonitorHistorySql,
+  employeeMobileWorkflowsSql,
 } from './employee-health-contracts.mts';
 import {
   employeeAnnouncementContract,
@@ -29,6 +31,8 @@ export function createEmployeeApplicationAdapter(
   options: {
     announcementComposeEnabled?: boolean;
     historyReadsEnabled?: boolean;
+    monitorHistoryEnabled?: boolean;
+    mobileWorkflowReadsEnabled?: boolean;
     identity?: { clientId: string; issuerClientId?: string };
   } = {},
 ) {
@@ -43,7 +47,12 @@ export function createEmployeeApplicationAdapter(
     throw fail(503);
   const announcementComposeEnabled = options.announcementComposeEnabled === true;
   const historyReadsEnabled = options.historyReadsEnabled === true;
+  const monitorHistoryEnabled = options.monitorHistoryEnabled === true;
+  const mobileWorkflowReadsEnabled = options.mobileWorkflowReadsEnabled === true;
   async function command(actor: EmployeeActor, input: EmployeeCommand, signal: AbortSignal) {
+    if (input?.name === 'get_admin_monitor_history_v1' && !monitorHistoryEnabled) throw fail(403);
+    if (input?.name === 'get_admin_mobile_workflows_v1' && !mobileWorkflowReadsEnabled)
+      throw fail(403);
     if (
       actor?.realm !== 'employee' ||
       actor.mfaVerified !== true ||
@@ -131,11 +140,15 @@ export function createEmployeeApplicationAdapter(
           : compose
             ? employeeAnnouncementSql
             : Object.hasOwn(employeeHealthContracts, input.name)
-              ? input.name === 'get_admin_health_snapshot_v1'
-                ? employeeHealthSnapshotSql
-                : input.name === 'get_admin_workflow_health_v1'
-                  ? employeeWorkflowHealthSql
-                  : employeeHealthSql
+              ? input.name === 'get_admin_mobile_workflows_v1'
+                ? employeeMobileWorkflowsSql
+                : input.name === 'get_admin_health_snapshot_v1'
+                  ? employeeHealthSnapshotSql
+                  : input.name === 'get_admin_monitor_history_v1'
+                    ? employeeMonitorHistorySql
+                    : input.name === 'get_admin_workflow_health_v1'
+                      ? employeeWorkflowHealthSql
+                      : employeeHealthSql
               : Object.hasOwn(employeeWorkflowContracts, input.name)
                 ? employeeWorkflowSql
                 : 'select portal_identity_private.employee_rpc_v1($1,$2,$3,$4,$5,$6,$7::jsonb) as result',

@@ -6,6 +6,7 @@ import type { ReportReason, ReportReasonDetail, ReportTargetKind } from '../lib/
 import { newCommandId } from '../lib/idempotency';
 import type { Post } from '../types/database';
 import { useRef } from 'react';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 export type { ReportReason };
 
@@ -64,7 +65,8 @@ export function useReportContent() {
       if (error) throw error;
       if (pendingIntent.current?.commandId === variables.commandId) pendingIntent.current = null;
     },
-    onMutate: ({ postId }) => {
+    onMutate: ({ postId, pollVoteId }) => {
+      if (postId || pollVoteId) clearFirstDoji(queryClient);
       if (!postId) return { previousFeeds: [], userId };
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
@@ -94,11 +96,13 @@ export function useReportContent() {
         }
       }
       // A lost response may have committed: reconcile through authorized reads.
-      scheduleQueryInvalidation(queryClient, ['feed']);
+      scheduleQueryInvalidation(queryClient, ['feed', 'firstDoji']);
     },
     onSuccess: (_data, _variables, context) => {
       if (useAuthStore.getState().session?.user?.id !== context?.userId) return;
+      if (_variables.postId || _variables.pollVoteId) clearFirstDoji(queryClient);
       scheduleQueryInvalidation(queryClient, [
+        'firstDoji',
         'feed',
         'post',
         'profilePost',

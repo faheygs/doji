@@ -4,6 +4,14 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 **source lockfile**, not every installed store binary. See
 [Current state and gaps](CURRENT_STATE_AND_GAPS.md) for deployment qualifications.
 
+The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
+34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and
+`get_mobile_release_policy` own the minimum/latest versions;
+`hooks/useAppUpdatePolicy.ts`, `lib/appUpdate.ts` and `AppUpdatePrompt` own the
+cached read, version decision and required store-link dialog. Store approval,
+policy configuration and native installation are distinct states. See the
+[release closeout](releases/README.md#november-14-production-distribution-and-repository-closeout).
+
 ## Product surfaces
 
 | Surface | Address or entry | Source and packaging | Identity |
@@ -25,11 +33,82 @@ terms/privacy are built separately with versioned URLs by
 
 ## Technology stack
 
+[Sparks economy](SPARKS_ECONOMY.md) maps the default-off v2 reward bindings,
+private receipt/cap ownership and offline balance/concurrency qualification.
+`supabase/overlays/member_first_doji_v1*` owns the authorized first-responder read
+and completion-order index; `first_doji_badges_v1*` adds the private canonical
+winner/count ledger and prospective lifetime tiers. Their standalone database
+harnesses and `sparks-economy.mts` also run in the main database suite. The backend
+source remains independently released from the mobile celebration UI.
+`FirstDojiCard`, `useFirstDoji`, `firstDojiCache` and `firstDoji` own the gated
+card/read/privacy reconciliation under matching release bindings. `useFirstDojiWins` and `FirstPlaceIcon`
+provide catalogue-aware lifetime progress and the shared medal. The
+`useCommentSubmission`, `submittedCommentRows`, `useSubmittedCommentRows` and
+`useCommentPostScroll` helpers own actor feedback, retry recovery and root reveal
+without replacing the server's comment cursors or inline reply structure.
+
+`lib/feedMediaWindow.ts` owns bounded feed image lookahead, separate from visible
+post-channel subscriptions. `lib/reactionReadConsistency.ts` coordinates local
+reaction writes with feed, detail and engagement reads; server authorization and
+audience-specific aggregates remain owned by the existing RPC contracts.
+`lib/heartConsistency.ts` and `hooks/useHeartMutation.ts` provide shared ordering
+for comment/poll-answer hearts. `lib/memberProfileQueries.ts` owns viewer-keyed
+profile/relationship options shared by navigation warming and route observers;
+`ProfileFriendButton` and `useProfileActionReadiness` prevent guessed actions.
+`LockedPostBody` selects text-only locked previews from safe challenge metadata;
+it does not load protected answers or media.
+`commentThread` preserves cursor-compatible root order and chronological replies;
+`useCommentPageLookahead` bounds comment prefetch to one page beyond the viewport.
+`lib/retainedCommentRoots.ts` bounds visible-ID refresh for accumulated root pages;
+the inline list retains loaded roots and only pages downward, while replies stay bounded.
+`lib/commentWindow.ts` owns the separate bounded, bidirectional root/reply
+window model; `useCommentWindow`, `commentWindowReads` and `commentPageReads` own
+account/lifecycle fencing, reconciliation and validated transport. The release-gated
+`InlineCommentList` flattens roots and expanded replies into one virtualized list;
+`InlineReplyWindow` owns headless per-parent observers and `useInlineWindowPaging`
+owns viewport-adjacent reads. `inlineCommentPaging` composes loaded roots and
+bounded per-parent reply windows. `PostCommentsThread` retains the shared rows/composer and fallback reader.
+`commentWindowCache` owns per-record write reconciliation;
+the cache family participates in targeted realtime and native lifecycle recovery.
+The additive
+`supabase/overlays/member_comment_pages_v2*` reads/index and retaining inverse are
+tested by `scripts/database/member-comment-pages.mts` in an owned offline database.
+`member_comment_reply_counts_v1` separately upgrades the private projection with
+audience-safe exact reply totals; it has an exact retaining projection rollback.
+Neither their presence nor the synthetic 100K fixture proves hosted/native readiness.
+`FriendRequestActions` shares row-owned response controls between requests and
+notifications. The response hook applies confirmed record updates, not list rollback.
+`member_profile_search_v1` owns public-name/username search and its GIN index;
+`scripts/database/member-profile-search.mts` verifies isolation, query plan and
+retaining rollback in an owned disposable database. Hosted installation is gated.
+The superseded comment-only optimism helper was consolidated into the shared
+heart module; its regression cases remain, and the prior file is recoverable in Git.
+
+Mobile variants are resolved by `app.config.ts` and
+`plugins/mobileEnvironment.cts`; `app.json` remains the production base.
+Development/staging use separate app identities, schemes, staging service bindings
+and the generated STG icon. `lib/mobileStaging.ts` gates staging token registration
+and separates APNs signing from the data environment. `scripts/mobile-candidate-ci.mts`
+is a read-only source preflight, not a build dispatcher. Hosted/mobile activation
+is still gated; see [mobile staging ownership and acceptance](MOBILE_STAGING.md).
+`scripts/mobile-dev.mts` owns local Metro startup from the editing checkout,
+external public-client configuration validation and explicit trusted-LAN mode for
+Android/iPhone Dev clients. It never builds, submits or activates delivery gates.
+The `supabase/overlays/staging_mobile_signup_v1.sql` adds default-off,
+staging-only test-alias admission before the existing minimum-age hook. Its owned
+database fixture is `scripts/database/staging-mobile-signup.mts`; it does not
+configure SMTP, redirects or hosted signup and never creates fixture accounts.
+Its historical staging deployment is retained, but the alias wrapper is no longer
+bound. Before User Created calls the original minimum-age hook directly; staging
+accepts ordinary test emails and auto-confirms them, matching production signup.
+SMTP and exact Dev/Staging redirects are separate configuration. The owner confirmed
+iPhone Staging signup; recovery mail and complete workflows remain unqualified.
+
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.31 | Native toolchain and modules |
+| Expo | 57.0.33 | Native toolchain and modules; source patch, not a new store binary |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.29 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.31 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |
@@ -56,6 +135,48 @@ Do not upgrade packages merely to match a tutorial.
 Health presentation lives in `website/admin-portal/health-model.mts` and connected
 admin Operations components. `lib/submissionJourney.ts` links mobile submission
 steps in the existing diagnostic timeline; it is not an aggregate analytics service.
+`lib/submissionOutcomeCounts.ts` prepares bounded, memory-only submission and read
+observations. Default-off `MobileWorkflowReporting.tsx`/`mobileWorkflowReporter.ts`
+detach foreground batches; `contracts/mobileWorkflowTelemetry.ts` owns their fixed
+shared schema. The scoped contracts package declares ESM for strict Node/Edge and
+native tooling without adding dependencies. `mobile-workflow-report` verifies the
+member bearer; `mobile_workflow_counts_v1` owns private bounded device counts and
+admission, not authoritative completion/reward evidence. `mobile-workflow-read.mts`
+projects only fixed counts; the employee/development `mobile_workflows_v1` overlays
+and `employee-mobile-workflows.mts` enforce read authority. `OperationsMobile.tsx`
+shows device reports through existing health detail, not a new timer. The mobile
+reporter's standalone staging packager excludes other backend handlers. `apiQueryCache.ts` counts fixed read
+families with account fences. The `monitor_incident_history_v1` overlay,
+Worker `monitor-history.ts` and operational-health's same-named Edge adapter own
+ordered incident evidence. `employee_monitor_history_v1` and the employee runtime
+bridge own the restricted recent-history read. `admin_development_monitor_history_v1`
+adds its staging-persona equivalent. `OperationsIncidents.tsx` and portal-data's
+`monitor-history.ts` render/project bounded history in the existing health read;
+evidence/coverage views share the deferred backend bundle. The separately approved
+Worker/SQL/Edge reporting and employee/development read paths are enabled in staging;
+mobile capture and ingestion remain off. The standalone staging ingestion endpoint
+is deployed disabled after real-Auth synthetic qualification of both platforms,
+all 60 categories, replay/rate/authorization fences and the server projection.
+Temporary sign-in/capture were restored off and test accounts/counts removed;
+mobile binaries and the hosted enabled-count display remain unqualified.
+The staging UI uploaded, but its workflow's
+post-deployment verification failed; the newer `8249743` staging run passed exact
+artifact/receipt and hosted acceptance. The original failure cause remains unknown.
+`scripts/admin-release-verification.mts` owns the exact post-upload readback checks
+and safe step checkpoints; `deploy-admin-release.mts` retains upload/receipt ownership.
+See the [staging receipt](releases/README.md#november-4-staging-evidence-reads-and-monitor).
+`scripts/database/monitor-history.mts` and `test-employee-health-database.mts` test
+those contracts offline. `scripts/monitor-check.mts` is a one-shot external probe,
+not itself a configured runner or alert sender. Sentry monitor `10858429` supplies
+the staging independent check. Sentry confirmed queued failure emails were filtered
+after recovery, before provider handoff; the owner accepted this behavior and closed
+the investigation without more drills or threshold changes. Retained history records
+the second drill's failure and recovery. All new gates default off; production
+read/reporting gates are unchanged.
+`operational-health/sentry-monitor-history.ts` owns the staging-enabled, separately gated import
+of real Sentry checks into the existing watchdog observation RPC. Its shared
+`sentry-monitor-contract.ts` owns the fixed staging destination and strict projection;
+staging egress grants only its exact configuration/check GETs to the qualified collector package.
 Maintenance continuation is owned by `DataMaintenanceAlarm`,
 `supabase/functions/run-data-maintenance` and `_shared/maintenance-progress.ts`.
 Backend observations are in `_shared/workflow-health.ts`; bounded private
@@ -63,6 +184,10 @@ counts, cleanup receipts and scheduler-log holds/retention are defined in
 `supabase/overlays/workflow_health_v1.sql`. Its paired rollback disables without
 dropping evidence. `scripts/database/workflow-health.mts` runs the owned offline
 database checks and is also part of the main database harness.
+`supabase/overlays/doji_readiness_v1.sql` separately prepares a default-off,
+service-only exact-occurrence probe. `scripts/database/doji-readiness.mts` tests
+poll/card/window observations, permissions and rollback without changing member
+contracts. It is not yet connected to collector selection or portal presentation.
 The `employee_workflow_health_v1` SQL bridge and portal `employee-health.mts`
 serve the default-off authorized read; `OperationsWorkflows.tsx` and portal-data's
 `workflow-health.ts` own the deferred UI and bounded projection. Local staging
@@ -165,6 +290,11 @@ The standard window is ten minutes by Postgres time. Existing signup-day and pai
 buy-in exceptions are server-owned contracts, not permission to extend a phone
 timer. Completion returns directly to feed. See
 [realtime guarantees](REALTIME_ARCHITECTURE.md#guarantees).
+`participation_deadline_v1.sql` owns the narrow expiry-trigger correction and
+retaining inverse; `scripts/database/participation-deadline.mts` reproduces the
+pre-live grace loss and verifies recovery/close isolation offline. The correction
+is deployed and transactionally qualified in staging only; production remains gated.
+`ChallengeTimer`/`CountdownRing` own deadline text; only ring progress is capped.
 
 There is no recurring due-challenge poller. There **are** separate scheduled health
 and safety/media recovery checks; those must never become the challenge clock.
@@ -174,13 +304,19 @@ and safety/media recovery checks; those must never become the challenge clock.
 | Area | Ownership | Start reading |
 | --- | --- | --- |
 | Member identity/profile | Supabase Auth/Postgres | `lib/supabase.ts`, `stores/useAuthStore.ts`, `lib/initialSessionBootstrap.ts` |
+| Optional profile disk baseline | Bounded native wait before authoritative reconciliation | `lib/profileFetchPolicy.ts` |
 | Challenge timing | Database occurrence/eligibility | `hooks/useUserEvent.ts`, `lib/serverClock.ts`, `lib/participationGate.ts` |
 | Feed/social/profile reads | Authorized bounded snapshots | `lib/feedQueries.ts`, `lib/profileQueries.ts`, `hooks/useComments.ts`, `hooks/useFriendsPaged.ts` |
 | Public profile projection | Explicit safe fields, never `profiles(*)` | `lib/profileFields.ts`, `lib/publicProfileView.ts` |
 | Writes/replay | Atomic RPC and stable receipt | `contracts/authenticatedCommands.ts`, `lib/commandGateway.ts`, `lib/dojiWriteReceipt.ts` |
+| Profile-setting recovery | Account-lifetime immutable save and explicit retry | `lib/profileUpdate.ts`, `components/profile/ProfileSaveRecovery.tsx` |
 | Cache | TanStack Query; account-scoped persistence | `lib/queryClient.ts`, `lib/queryPersistence.ts`, `components/QueryCachePersistence.tsx` |
+| Dormant social cache retention | Whole-query eviction; mounted/read/write protection | `lib/inactiveQueryBudget.ts` |
 | Events and lifecycle | Targeted hints then authorized reconciliation | `hooks/useDomainRealtime.ts`, `lib/domainRealtimeHandler.ts`, `lib/reconcileQueries.ts`, `components/QueryLifecycle.tsx` |
-| Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
+| Media | Reserved private objects, bounded signing | `lib/postMedia.ts`, `lib/postMediaSigning.ts`, `hooks/usePostMedia.ts`, `_shared/moderation-media-storage.ts` |
+| New feed-media readiness | Per-feed bounded queue and stale-result fencing | `hooks/usePreparedFeedPosts.ts`, `lib/feedPreparationQueue.ts`, `lib/feedPostPreparation.ts` |
+| Resumable upload lifetime | Bounded preparation and forward-progress watchdog; retained resume identity | `utils/resumableUpload.ts`, `lib/resumableUploadLifetime.ts` |
+| Native image preparation | Two native operations, bounded waiting queue and arrival deadline | `lib/imagePreparation.ts`, `utils/upload.ts` |
 | Activity history | Durable account state | `contexts/NotificationCenterContext.tsx`, `lib/notificationHistoryQueue.ts` |
 | Phone alerts | Outbox policy and installation claims | `lib/pushNotifications.ts`, `hooks/useNativeNotifications.ts`, `_shared/notification-policy.ts` |
 | Sparks/shop/badges | Server ledger and atomic uniqueness | `hooks/useSparks.ts`, `hooks/useShop.ts`, `constants/sparks.ts`, corresponding SQL |

@@ -107,7 +107,9 @@ function BrandedFontsGate({ children }: { children: React.ReactNode }) {
 
 function RootLayoutInner() {
   const segments = useSegments();
-  const { setSession, setLoading, fetchProfile } = useAuthStore();
+  const setSession = useAuthStore((s) => s.setSession);
+  const setLoading = useAuthStore((s) => s.setLoading);
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
   const { colors, isDark } = useTheme();
   const gate = useAuthGate();
   const [sessionBootstrapError, setSessionBootstrapError] = useState(false);

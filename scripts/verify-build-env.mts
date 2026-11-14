@@ -1,4 +1,49 @@
+import { createRequire } from 'node:module';
+import type { MobileEnvironmentPolicy } from '../plugins/mobileEnvironment.cts';
+const require = createRequire(import.meta.url);
+const {
+  variantFor,
+  validateStagingEnvironment,
+}: MobileEnvironmentPolicy = require('../plugins/mobileEnvironment.cts');
 const profile = process.env.EAS_BUILD_PROFILE;
+const variant = variantFor(process.env);
+if (profile && variant !== 'production') {
+  validateStagingEnvironment(process.env, true);
+  // EAS secret values are available on the builder, not during local config resolution.
+  if (!process.env.SENTRY_AUTH_TOKEN?.trim())
+    throw Error('Unsafe staging build environment: SENTRY_AUTH_TOKEN');
+}
+
+// Optional reporting must not mix test observations with production app traffic.
+// Validate before the production-only guard: preview/development names are not isolation.
+if (process.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED === 'true') {
+  const environment = process.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT;
+  const bindings =
+    environment === 'staging'
+      ? {
+          database: 'https://ohrcupagdoilkwhecict.supabase.co',
+          worker: 'https://doji-orchestrator-staging.faheygs.workers.dev',
+        }
+      : environment === 'production'
+        ? {
+            database: 'https://tvixsmqxotuvyjqzmjla.supabase.co',
+            worker: 'https://doji-orchestrator.faheygs.workers.dev',
+          }
+        : null;
+  const invalid: string[] = [];
+  if (!bindings) invalid.push('EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT');
+  if (!bindings || process.env.EXPO_PUBLIC_APP_ENV !== environment)
+    invalid.push('EXPO_PUBLIC_APP_ENV');
+  if (bindings) {
+    for (const [name, expected] of [
+      ['EXPO_PUBLIC_SUPABASE_URL', bindings.database],
+      ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', bindings.worker],
+      ['EXPO_PUBLIC_SCALE_READ_URL', bindings.worker],
+    ])
+      if (process.env[name!] !== expected) invalid.push(name!);
+  }
+  if (invalid.length) throw Error(`Unsafe mobile reporting environment: ${invalid.join(', ')}`);
+}
 
 if (profile !== 'production') {
   console.log(`Production environment guard skipped for profile: ${profile ?? 'local'}`);
@@ -37,6 +82,9 @@ const invalid: string[] = [];
 
 if (process.env.EXPO_PUBLIC_APP_ENV !== contract.appEnv) {
   invalid.push(`EXPO_PUBLIC_APP_ENV must be ${contract.appEnv}`);
+}
+if (process.env.EXPO_PUBLIC_RELEASE_CHANNEL !== 'production') {
+  invalid.push('EXPO_PUBLIC_RELEASE_CHANNEL must be production');
 }
 if (process.env.EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED !== 'true') {
   invalid.push('EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED must be true');

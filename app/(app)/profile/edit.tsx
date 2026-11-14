@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, webScrollParentStyle } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '@/lib/safeAreaLayout';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '@/stores/useAuthStore';
 import { AppKeyboardAwareScrollView } from '@/components/ui/AppKeyboardAwareScrollView';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { Input } from '@/components/ui/Input';
@@ -19,6 +19,7 @@ import { useUsernameAvailability, normalizeUsernameInput } from '@/hooks/useUser
 import { maxLength, validationMessage } from '@/lib/formValidation';
 import { goBackWithOptionalReturn } from '@/lib/navigationReturn';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
 
 const BIO_MAX = 150;
 
@@ -28,12 +29,14 @@ export default function EditProfileScreen() {
   const { colors } = useTheme();
   const profile = useAuthStore((state) => state.profile);
   const updateProfile = useAuthStore((state) => state.updateProfile);
-  const { openChangePhotoDialog, uploading, error: photoError } = useChangeProfilePhoto();
+  const saveState = useAuthStore((state) => state.profileSaveState);
+  const { openChangePhotoDialog, uploading, error: photoError, clearError } = useChangeProfilePhoto();
   const [username, setUsername] = useState(profile?.username ?? '');
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const blocked = saving || Boolean(saveState && saveState !== 'idle');
 
   useEffect(() => {
     setUsername(profile?.username ?? '');
@@ -56,7 +59,8 @@ export default function EditProfileScreen() {
     goBackWithOptionalReturn(router, returnTo, '/(app)/profile/settings' as Href);
 
   const save = async () => {
-    if (!canSave) return;
+    if (!canSave || blocked) return;
+    const account = captureProfileAccount();
     setSaveError('');
     setSaving(true);
     try {
@@ -66,9 +70,11 @@ export default function EditProfileScreen() {
         display_name: displayName.trim() || handle,
         bio: bio.trim() || null,
       });
+      if (!account.isCurrent()) return;
       Toast.show({ type: 'success', text1: 'Profile updated' });
       goBack();
     } catch {
+      if (!account.isCurrent()) return;
       setSaveError('Could not save your changes. Check the fields above and try again.');
     } finally {
       setSaving(false);
@@ -104,7 +110,7 @@ export default function EditProfileScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Change profile photo"
-          disabled={uploading}
+          disabled={uploading || blocked}
           activeOpacity={0.8}
           onPress={openChangePhotoDialog}
           style={styles.photo}
@@ -138,6 +144,7 @@ export default function EditProfileScreen() {
         >
           <Input
             label="Username"
+            editable={!blocked}
             value={username}
             onChangeText={(value) => {
               // Preserve native composing text; normalize for checks/submission only.
@@ -154,6 +161,7 @@ export default function EditProfileScreen() {
           />
           <Input
             label="Display name (optional)"
+            editable={!blocked}
             value={displayName}
             onChangeText={(value) => {
               setDisplayName(value);
@@ -162,6 +170,7 @@ export default function EditProfileScreen() {
           />
           <Input
             label="Bio (optional)"
+            editable={!blocked}
             value={bio}
             onChangeText={(value) => {
               setBio(value.slice(0, BIO_MAX));
@@ -173,7 +182,8 @@ export default function EditProfileScreen() {
             error={validationMessage(bioValidation)}
           />
           {saveError ? <InlineFeedback message={saveError} testID="edit-profile-error" /> : null}
-          <Button onPress={() => void save()} loading={saving} disabled={!canSave}>
+          <ProfileSaveRecovery onSaved={() => { setSaveError(''); clearError(); }} />
+          <Button onPress={() => void save()} loading={saving} disabled={!canSave || blocked}>
             Save changes
           </Button>
         </View>

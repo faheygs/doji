@@ -9,8 +9,106 @@ deployment. Read current release state and the relevant release record before
 changing or executing an overlay. Never bulk-apply this directory or move files
 into `migrations/` merely to tidy it: that can replay already-installed changes.
 
+Recorded November 12 production qualification covers the feed-order, profile-search,
+comment-pages/reply-count, first-Doji read/badge and Sparks v2 overlays below.
+Their Staging versions qualified first; production awards are prospective, with
+retaining rollback and no historical backfill. See the
+[production receipt](../../docs/releases/README.md#november-12-production-backend-qualification).
+Do not replay these installations. This does not enable other overlays here.
+
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `member_feed_cursor_order_v1.sql` preserves the existing descending timestamp/ID
+  cursor through feed hydration and JSON aggregation. Its retaining inverse restores
+  the exact prior body; both refuse unreviewed/intervening bodies. No index, payload,
+  permission, write or timing change. `node scripts/database/member-feed-cursor-order.mts`
+  checks tied/mixed timestamps, both audiences, visibility, replay and rollback in an
+  owned offline database. Recorded Staging and production installation is complete.
+- `sparks_economy_v2.sql` + `sparks_economy_v2.bindings.sql` compose one default-off
+  transaction. Hosted enablement is recorded above. Install in that order only after the qualified
+  canonical first-Doji dependency. Captured functions, private receipts/caps and
+  level high-water marks fence duplicate rewards. Its retaining rollback refuses
+  intervening function changes and restores originals without erasing balances.
+  See [reward policy](../../docs/SPARKS_ECONOMY.md) and the offline
+  `node scripts/database/sparks-economy.mts` harness. Never backdate activation.
+- `first_doji_badges_v1.sql` adds the canonical private winner/count ledger,
+  prospective 1/10/25/100 tiers, completion trigger and self-count read. Only the
+  new celebration read is replaced; existing commands/permissions remain intact.
+  It installs disabled after `member_first_doji_v1` and uses existing tier rewards.
+  Staging and prospective production enablement are recorded in current state.
+  Its rollback disables awards but retains catalogue, winners, counts and rewards;
+  retain the underlying read dependency. `first-doji-badges.mts` tests all kinds,
+  real command races, grants, visibility, retention and rollback offline.
+- `member_first_doji_v1.indexes.sql` installs the completion-order index concurrently;
+  `member_first_doji_v1.sql` validates it and returns one authorized safe-profile
+  first responder across kinds, audiences, blocks and moderation. The rollback
+  removes only these new reads/index, never completions or awards. The standalone
+  `member-first-doji.mts` harness qualifies permissions, ties and index eligibility.
+  Recorded Staging read qualification does not establish large-scale latency or
+  native acceptance. No hosted action is authorized by merging these sources.
+- `member_comment_reply_counts_v1.sql` and its exact projection rollback are
+  deployed in Staging and production. They add authorized `reply_count` to the existing v2 root/retained
+  reads without changing public RPC signatures, writes, grants, jobs or indexes.
+  Counts exclude blocks in either direction, pending own reports, moderation and
+  nonfriends in Friends view. Exact counts scan matching replies, not a constant-time
+  counter. The comment-pages harness tests 100K replies and a 50-root response;
+  hosted latency/concurrency and staging acceptance are separate release gates.
+  Roll back this projection before removing the underlying v2 read boundary.
+- `member_comment_pages_v2.indexes.sql`, `member_comment_pages_v2.sql` and their
+  retaining inverse are qualified in Staging and production. The index installs concurrently outside a
+  transaction; the RPC installer refuses a missing, invalid or unexpected index.
+  Separate root/reply cursors and retained-ID refresh preserve existing installed
+  reads and all writes. Results cap at 50 and expose only safe fields; authorization
+  filtering can examine more index candidates than the returned count, so hosted
+  skew/concurrency and latency still need qualification. The offline harness
+  `node scripts/database/member-comment-pages.mts` uses 100K synthetic comments,
+  tied/deleted cursors, visibility denials and normal planner choices. It is also
+  included in the main database suite. Before release verify live compatibility,
+  index build capacity/locks and staging acceptance. Rollback removes only these
+  new read helpers/index; comments, command receipts and existing RPCs remain.
+- `member_profile_search_v1.sql` and its retaining inverse: Staging/production member
+  discovery expansion. Indexed public display-name token prefixes join literal
+  username prefixes; existing identity/block/demo/ban rules, grants and safe fields
+  remain. `node scripts/database/member-profile-search.mts` verifies matches,
+  permissions, bounds, index eligibility and exact rollback offline. Hosted release
+  requires a verified live function/index baseline, capacity/locking review and
+  staging qualification; rollback retains profiles and local app history.
+- `participation_deadline_v1.sql` and its retaining inverse: staging deployed and
+  qualified; production remains gated.
+  Activation/recovery updates only normal pending deadlines, preserving signup-day
+  grace, paid participation and terminal records. No historical backfill, grants,
+  reward rules or alarm changes. `node scripts/database/participation-deadline.mts`
+  reproduces the original bug and tests pre/post-activation reads, recovery, close,
+  unchanged contracts and rollback in an owned offline database. The hosted rollback
+  fixture passed without retained users/events or unrelated contract changes. Before
+  any further release, verify its live baseline and review affected occurrences.
+  Rollback restores the old function without rewriting evidence or deadlines.
+- `staging_mobile_signup_v1.sql`: prepared, disabled staging-only admission for
+  a configured Gmail test-alias family. Auth-admin-only execution delegates to the
+  existing minimum-age hook; normal confirmation and profile consent remain required.
+  Its retaining rollback closes admission without deleting accounts. Installation
+  does not configure Auth hooks, SMTP, redirects or public signup. The development
+  database harness verifies family/age/role boundaries and rollback offline.
+- `mobile_workflow_counts_v1.sql` and its retaining rollback: default-off,
+  service-only ingestion/read of fixed device-reported counts. Bounded receipt-hour
+  aggregates and salted admission slots; no authoritative member/reward writes.
+  Synthetic replay, rate, permission, payload and retaining rollback checks:
+  `node scripts/database/mobile-workflow.mts`. No live or mobile enablement implied.
+  `employee_mobile_workflows_v1.sql` adds an Operations/MFA-only read;
+  `admin_development_mobile_workflows_v1.sql` adds the isolated staging-persona
+  equivalent. Their inverses remove only read bridges, retaining counts/admission.
+  Both are exercised by the employee-health and development database harnesses.
+- `monitor_incident_history_v1.sql` and its retaining rollback: local preparation,
+  capture disabled. Service-only, ordered monitor observations and keyset incident
+  history; superseding a family is not recovery. Fixed heartbeat projection excludes
+  incident details. `employee_monitor_history_v1.sql` adds the independently gated
+  Operations/MFA read; its inverse removes only that bridge and retains evidence.
+  `admin_development_monitor_history_v1.sql` and its inverse provide the exact
+  staging-realm-only, permission-checked developer route, retaining history/audit.
+  No producer, independent runner, deletion or alert sending is enabled. Offline
+  tests: `node scripts/database/monitor-history.mts` and
+  `node scripts/test-employee-health-database.mts` and
+  `node scripts/test-admin-development-database.mts`.
 - `../tests/` and `../../scripts/database/`: synthetic regression and
   source-only reconstruction checks.
 - `admin_development_employees_v2.sql` and its paired rollback: deployed staging-only

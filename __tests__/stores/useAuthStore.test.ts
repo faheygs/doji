@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { mergeNotificationPreferences } from '../../lib/notificationPreferences';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { closeRealtimeConnection } from '../../lib/realtimeClient';
+import { queryClient } from '../../lib/queryClient';
+import { cancelScheduledInvalidations, scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 import { getAuthGate } from '../../lib/authRoute';
 import React, { useState } from 'react';
 import { Platform, Text } from 'react-native';
@@ -38,9 +40,12 @@ function makeChain(data: unknown, error: unknown = null) {
 }
 
 function makeRpcChain(data: unknown, error: unknown = null) {
-  return {
+  const chain = {
+    setHeader: jest.fn(),
     abortSignal: jest.fn().mockResolvedValue({ data, error }),
   };
+  chain.setHeader.mockReturnValue(chain);
+  return chain;
 }
 
 describe('useAuthStore', () => {
@@ -57,6 +62,26 @@ describe('useAuthStore', () => {
   });
 
   describe('setSession', () => {
+    it.each(['switch', 'logout', 'token-refresh'] as const)(
+      'fences scheduled query refreshes on identity transitions: %s',
+      (transition) => {
+        jest.useFakeTimers();
+        const invalidate = jest.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+        try {
+          useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
+          scheduleQueryInvalidation(queryClient, ['feed']);
+          useAuthStore.getState().setSession(transition === 'logout' ? null : {
+            user: { id: transition === 'switch' ? 'user-2' : 'user-1' },
+          } as any);
+          jest.advanceTimersByTime(1000);
+          expect(invalidate).toHaveBeenCalledTimes(transition === 'token-refresh' ? 1 : 0);
+        } finally {
+          cancelScheduledInvalidations(queryClient);
+          invalidate.mockRestore();
+          jest.useRealTimers();
+        }
+      },
+    );
     it('updates session state', () => {
       const mockSession = { user: { id: 'user-1' }, access_token: 'token' } as any;
       useAuthStore.getState().setSession(mockSession);
@@ -110,6 +135,23 @@ describe('useAuthStore', () => {
   });
 
   describe('signOut', () => {
+    it('discards pending refreshes even when no auth-state callback is delivered', async () => {
+      jest.useFakeTimers();
+      const invalidate = jest.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+      try {
+        (supabase.auth.signOut as jest.Mock).mockResolvedValue({});
+        useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
+        scheduleQueryInvalidation(queryClient, ['feed']);
+        await useAuthStore.getState().signOut();
+        jest.advanceTimersByTime(1000);
+        expect(invalidate).not.toHaveBeenCalled();
+      } finally {
+        cancelScheduledInvalidations(queryClient);
+        invalidate.mockRestore();
+        jest.useRealTimers();
+      }
+    });
+
     it('calls supabase signOut and clears state', async () => {
       (supabase.auth.signOut as jest.Mock).mockResolvedValue({});
       useAuthStore.setState({
@@ -240,8 +282,7 @@ describe('useAuthStore', () => {
       useAuthStore.setState({ session: { user: { id: 'user-1' } } as any });
 
       const pending = useAuthStore.getState().fetchProfile('user-1');
-      await Promise.resolve();
-      await Promise.resolve();
+      await waitFor(() => expect(finishRequest).toBeDefined());
       expect(useAuthStore.getState().profile).toMatchObject({ id: 'user-1', username: 'cached' });
       expect(useAuthStore.getState().profileLoadState).toBe('loading');
       expect(useAuthStore.getState().isProfileLoading).toBe(true);
@@ -332,9 +373,14 @@ describe('useAuthStore', () => {
   });
 
   describe('updateProfile', () => {
+    beforeEach(() => {
+      jest.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: {
+        user: { id: 'user-1' }, access_token: 'synthetic',
+      } as any }, error: null });
+    });
     it('updates profile on server and in state', async () => {
       const updated = { id: 'user-1', username: 'testuser', display_name: 'New Name' };
-      mockRpc.mockResolvedValue({ data: updated, error: null });
+      mockRpc.mockReturnValue(makeRpcChain(updated));
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,
@@ -360,7 +406,7 @@ describe('useAuthStore', () => {
     });
 
     it('throws on supabase error', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: new Error('RLS violation') });
+      mockRpc.mockReturnValue(makeRpcChain(null, new Error('RLS violation')));
 
       useAuthStore.setState({
         session: { user: { id: 'user-1' } } as any,

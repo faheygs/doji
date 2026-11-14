@@ -208,7 +208,7 @@ describe('countdown presentation and reconciliation', () => {
     ui.rerender(<ChallengeTimer expiresAt={null} />);
     expect(ui.toJSON()).toBeNull();
   });
-  it.each([-10, 0, 700])('clamps a ring at its valid bounds (%s)', (remainingSeconds) => {
+  it.each([-10, 0, 700])('bounds the ring without capping its deadline text (%s)', (remainingSeconds) => {
     const ui = render(
       <CountdownRing
         remainingSeconds={remainingSeconds}
@@ -218,7 +218,7 @@ describe('countdown presentation and reconciliation', () => {
       />,
     );
     expect(ui.getByRole('timer').props.accessibilityLabel).toContain(
-      remainingSeconds > 600 ? '10:00' : '0:00',
+      remainingSeconds > 600 ? '11:40' : '0:00',
     );
     ui.rerender(<CountdownRing remainingSeconds={remainingSeconds} totalSeconds={0} />);
     expect(ui.getByRole('timer')).toBeTruthy();

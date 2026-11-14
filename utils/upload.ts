@@ -2,6 +2,11 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../lib/supabase';
 import { executeCommand } from '../lib/commandGateway';
 import { resumableStorageUpload } from './resumableUpload';
+import { prepareNativeImage } from '../lib/imagePreparation';
+import {
+  mobileDiagnosticSnapshot,
+  recordAvatarUploadOutcome,
+} from '../lib/mobileDiagnosticContext';
 
 const POST_IMAGE_WIDTH = 1536;
 const POST_IMAGE_HEIGHT = 2048;
@@ -30,11 +35,11 @@ export async function compressImage(
   uri: string,
   options: { width?: number; quality?: number } = {},
 ): Promise<string> {
-  const result = await ImageManipulator.manipulateAsync(
+  const result = await prepareNativeImage(() => ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: options.width ?? 1200 } }],
     { compress: options.quality ?? 0.85, format: ImageManipulator.SaveFormat.JPEG },
-  );
+  ));
   return result.uri;
 }
 
@@ -80,10 +85,10 @@ export async function preparePostImage(image: PickedImage): Promise<PreparedPost
     }
   }
 
-  const result = await ImageManipulator.manipulateAsync(image.uri, actions, {
+  const result = await prepareNativeImage(() => ImageManipulator.manipulateAsync(image.uri, actions, {
     compress: POST_IMAGE_QUALITY,
     format: ImageManipulator.SaveFormat.JPEG,
-  });
+  }));
   return { uri: result.uri, width: result.width, height: result.height };
 }
 
@@ -148,17 +153,25 @@ export async function uploadPostVideo(
 }
 
 export async function uploadAvatar(userId: string, uri: string): Promise<string> {
-  const compressedUri = await compressImage(uri);
-  const filePath = `${userId}/avatar-${Date.now()}.jpg`;
-  await resumableStorageUpload({
-    bucketId: 'avatars',
-    objectPath: filePath,
-    uri: compressedUri,
-    contentType: 'image/jpeg',
-  });
+  const session = mobileDiagnosticSnapshot().session_id;
+  recordAvatarUploadOutcome('started', session);
+  try {
+    const compressedUri = await compressImage(uri);
+    const filePath = `${userId}/avatar-${Date.now()}.jpg`;
+    await resumableStorageUpload({
+      bucketId: 'avatars',
+      objectPath: filePath,
+      uri: compressedUri,
+      contentType: 'image/jpeg',
+    });
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-  return withAvatarCacheParam(data.publicUrl);
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    recordAvatarUploadOutcome('confirmed', session);
+    return withAvatarCacheParam(data.publicUrl);
+  } catch (error) {
+    recordAvatarUploadOutcome('request_failed', session);
+    throw error;
+  }
 }
 
 export async function removePublicStorageObject(

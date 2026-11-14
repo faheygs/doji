@@ -12,6 +12,103 @@ allowance, account membership or availability is guaranteed by this inventory;
 dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
+First-to-Doji reads and lifetime awards reuse the existing environment-specific Supabase database,
+private winner ledger and standard tier Sparks path; no new service, credential,
+job or push path is added. Source owners are `member_first_doji_v1*` and
+`first_doji_badges_v1*` in `supabase/overlays`. Private Staging qualification and
+retaining rollback evidence are outside Git under `2026-11-10-first-doji-badges`.
+The mobile candidate permits these reads only with matching environment, release
+channel and database bindings. The approved production candidate uses the existing
+production Supabase/EAS/Sentry services and protected credentials, with no new
+service or resource. First-Doji and economy v2 were separately qualified and enabled
+prospectively in production November 12 at 05:19 UTC; Staging economy activation
+was November 11 at 19:21 UTC. Source defaults remain off. Rollback retains balances,
+winners and receipts; no new job, provider or credential is involved. Production
+1.0.14 is available publicly on the US App Store and in the existing Google Play
+closed Alpha audience. Minimum-version policy is platform-specific in Supabase,
+not a store submission or silent install. See the
+[distribution and rollback record](releases/README.md#november-14-production-distribution-and-repository-closeout).
+
+Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
+is an unscheduled one-shot probe for a separately approved external runner. Its
+environment-specific `MONITOR_CHECK_SECRET` belongs only in protected Edge
+and runner secrets, never mobile, Pages or Git. The key can read only a fixed
+heartbeat projection, not incidents or member data. Worker/Edge
+`MONITOR_HISTORY_ENABLED`, private SQL capture and employee `monitorHistoryEnabled`
+all default off. Local parity additionally requires staging-only
+`ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED` in protected Edge configuration and
+the permission-checked development SQL route. No browser key is introduced.
+The staging-only key is provisioned in protected staging Edge configuration;
+its recovery copy is ACL-restricted outside Git. The narrow staging Worker/SQL/Edge
+reporting path is enabled and verified at `6632592`; staging employee/development
+history reads are enabled at PR #46's tested source. Production remains unchanged.
+See the [receipt and retaining rollback](releases/README.md#november-4-staging-evidence-reads-and-monitor).
+Sentry monitor `10858429` is enabled in `doji-staging` with a rotated scoped read
+key and natural authenticated checks. Support supplied a free seat for its
+entitlement bug; November 4 billing showed Developer plan, two seats (one gifted),
+$0 additional spend and no payment method. The gifted credit ends November 28;
+verify the included seat works before expiry, without authorizing paid capacity.
+Owner-only alert `6292687` recorded four triggers across two separately approved
+assertion-failure/recovery drills. Both recovery emails arrived; neither failure
+email was found in Gmail, including Spam and Trash. Sentry support confirmed both
+were queued but filtered after recovery before mail-provider handoff. The owner
+accepted this designed behavior on November 5; no threshold change or additional
+drill is required. Short incidents may not send failure emails; retained incident
+history remains distinct from inbox delivery. See the
+[support closeout](releases/README.md#november-5-sentry-notification-closeout).
+Production and extra spending remain excluded. The protected heartbeat
+endpoint returns non-success for stale/missing/unhealthy observations so an HTTP
+monitor cannot mistake a working Edge route for a working collector.
+
+The approved staging Sentry history importer is enabled at PR #48's tested source. It uses
+the existing one-minute collector and the same included monitor, not another service
+or timer. The separate **Doji Staging Monitor Read** integration has Alerts: Read
+only. Its token is installed in protected staging Edge `STAGING_SENTRY_MONITOR_READ_TOKEN`,
+with an ACL-restricted private recovery copy outside Git;
+the provider scope is organization-wide but runtime and staging egress pin
+`doji-i0` / `doji-staging` / monitor `10858429`. No token is sent to the browser.
+Sentry's [check-results endpoint](https://github.com/getsentry/sentry/blob/master/src/sentry/uptime/endpoints/project_uptime_alert_checks_index.py)
+is experimental: strict parsing must fail unavailable on drift. The two-second
+import verifies the exact monitor configuration before reading at most five checks.
+Those two fixed GETs preserve actual source times and never substitute request time.
+Empty per-check environment labels are accepted only with the verified staging
+binding; monitor configuration, including its private headers, is never persisted.
+Future deployment requires exact-source tests, scoped credential verification, capacity and retained
+rollback. Disable `SENTRY_MONITOR_HISTORY_ENABLED` to stop imports without erasing
+history; restore the prior collector package for runtime rollback. Production is excluded.
+See the [qualified source and capacity receipt](releases/README.md#november-4-staging-sentry-history).
+
+Prepared mobile workflow reporting uses existing Supabase only. Binary flags
+`EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED` and `_ENVIRONMENT` default off; they are
+not secrets. Edge `MOBILE_WORKFLOW_REPORTING_ENABLED`, exact `DOJI_ENVIRONMENT`
+and private SQL capture are independent gates. Project Auth verifies each member
+bearer; service credentials remain in protected Edge configuration. No raw user,
+answer, media, query or error payload enters counts. SQL retains at most 1,440 hourly
+aggregate rows and 65,536 salted admission slots; collisions/rate limits drop
+observations, never block member actions. Data is device-reported and incomplete.
+`buildMobileWorkflowStagingEdge` packages only this function with staging-only
+egress. Employee `mobileWorkflowReadsEnabled` and
+`ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED` independently gate the prepared
+Operations/MFA and staging-persona aggregate read/display integration; values remain
+in protected runtime configuration, never browser credentials. No new service or
+query timer is added. Staging read bridges and runtime flags are enabled; bounded
+synthetic SQL acceptance rolled back all fixtures. The newer `8249743` staging
+release passed package/receipt and hosted verification; the historical failed
+run's cause remains unknown. See the current staging receipt above.
+Mobile capture and binary release remain gated. The standalone staging ingestion
+endpoint is deployed at reviewed source `2872e18` and disabled after hosted qualification.
+The separately approved temporary Email provider allowed two synthetic real-Auth
+accounts to exercise both platform batches, replay/rate/authorization checks and the
+bounded server projection. Email sign-in and both capture gates were restored off;
+public signup/anonymous sign-in stayed off. The accounts and synthetic counts were
+removed; original contracts/identities and zero counters were verified.
+Existing secret digests and ten unrelated function code hashes are unchanged.
+The new non-secret `MOBILE_WORKFLOW_REPORTING_ENABLED=false` gate is in protected
+staging Edge configuration. Private artifact, baseline, hold and acceptance evidence are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`, outside Git. Rollback keeps Edge/SQL
+capture disabled and retains the installed endpoint/evidence; no prior endpoint existed.
+See the [capacity and qualification receipt](releases/README.md#november-5-staging-mobile-ingestion-qualification).
+
 The hosting/product rows describe established integrations, not a claim that every
 feature is enabled. Prepared/gated, legacy and development-only uses are explicitly
 called out below. Account administration belongs to the owner; engineering access
@@ -35,11 +132,58 @@ is granted per service and environment, never inherited from an admin-portal rol
 | Expo and EAS | Native development builds, cloud build/signing, store submission and legacy push fallback transport | [Project](https://expo.dev/accounts/faheybaby/projects/doit-challenge-app); project `064b68b6-f138-4962-8aeb-f00970ba39c8` | `app.json`, `eas.json`, `.easignore`, `scripts/verify-build-env.mjs` |
 | Apple Developer and App Store Connect | Bundle/signing, APNs credentials, TestFlight, review and iOS distribution | [Developer](https://developer.apple.com/account/), [App Store Connect](https://appstoreconnect.apple.com/); app `6768727326` | `docs/APP_STORE_RELEASE.md`, mobile release records |
 | Google Play Console | Android signing/distribution, closed testing and production-access review | [App console](https://play.google.com/console/u/0/developers/6661342012009308283/app/4972908027141050312); Alpha track `4699325792611215201` | `docs/GOOGLE_PLAY_RELEASE.md`, Android 23 record |
-| Firebase and Google Cloud | Android native FCM push; service identity/IAM | [Firebase](https://console.firebase.google.com/); project `doji-connect` | `google-services.json`, `_shared/fcm-push.ts` |
+| Firebase and Google Cloud | Android native FCM push; service identity/IAM | [Firebase](https://console.firebase.google.com/); production `doji-connect`; isolated `doji-staging` on Spark, no billing upgrade | Production `google-services.json`, `_shared/fcm-push.ts`; staging client file retained privately, delivery/signing not yet qualified |
 | APNs | Native iOS remote notification transport | Apple-managed provider; no separate app inbox | `_shared/apns-push.ts`, installation registration |
 | Sentry | App/Worker errors, bounded diagnostics and source maps; portal health read | [Sentry](https://sentry.io/); organization `doji-i0`, app project `react-native` | `app/_layout.tsx`, `lib/apiFailureTelemetry.ts`, Worker `sentry.ts`, employee health |
 
 The app's bundle identifier and Android package are both `com.doit.challengeapp`.
+Prepared development/staging variants append `.development`/`.staging`, reuse the
+existing EAS project with separate `development`/`preview` configuration, and select
+the existing staging Supabase, Worker, Ably and Sentry services. The separately
+approved Firebase staging project/Android clients, Apple development/staging App IDs under team
+`HUG35JPQGG`, and GitHub main-only owner-approval environment now exist. EAS
+development/preview client values are verified staging-only; each environment's
+Firebase file contains only its own app client. Production values are preserved and its upload credential is
+no longer shared with test environments. The approved `Doji staging mobile source maps`
+token has organization-wide `org:ci` upload/release/code-mapping rights and is stored
+only as secret `SENTRY_AUTH_TOKEN` in EAS development/preview. Builds target
+`doji-staging`; the approved Android staging build's source-map upload passed,
+but device-error symbolication remains unqualified. Rollback removes this staging
+binding and revokes only this token, never the production credential. EAS holds separate
+default Android development/staging signing keys, verified distinct from production;
+owner/SYSTEM-only backups and binding receipts are outside Git under
+`Doji/mobile-staging/2026-11-05/android-signing`. Production signing metadata is unchanged.
+Separate iOS Dev/Staging ad-hoc profiles reuse the existing team distribution
+certificate and permit only the owner's confirmed iPhone; the downloaded IPAs
+were checked against that exact device allowlist. No TestFlight group, certificate
+rotation or push-provider key was added. Protected EAS holds signing material;
+artifact/signing receipts stay under `Doji/mobile-staging/2026-11-06` outside Git.
+The owner-approved November 6 build batch passed exact-main CI and checked fresh
+included credits before each launch, with no retry or additional spend authorized.
+See the [build receipt](releases/README.md#november-6-mobile-development-and-staging-builds).
+Staging Supabase password access is enabled. Of the two Auth-only test fixtures,
+`mobile-one@test.invalid` was removed after missing consent blocked profile creation;
+`mobile-two@test.invalid` remains unchanged. Restricted receipts are in the adjacent
+`member-accounts` directory; removed-account credentials are not reusable logins.
+Anonymous access remains off; fixture creation sent no mail. Staging signup now
+accepts ordinary test emails without confirmation, matching production's verified
+setting. The original minimum-age hook is bound directly; the alias wrapper is
+retained but inactive. The owner confirmed iPhone Staging signup. Existing Resend
+SMTP and exact Dev/Staging redirects are unchanged; signup needs no email delivery.
+Recovery/email-change recipient safety remains unqualified. API sign-in/refresh/logout did not
+qualify native onboarding or workflow acceptance. Protected build-runner
+credentials remain pending. Staging public client values belong in
+approved local/EAS environments; build tokens and signing files stay protected in
+EAS/provider stores, never public variables or Git. The separately approved internal
+builds do not enable delivery or upgrade a plan. Capacity, hosted acceptance, retaining rollback
+and explicit build/delivery approvals are required; see [mobile staging](MOBILE_STAGING.md).
+The November 5 Resend check found Free transactional usage 0/3,000 monthly and
+0/100 daily, pay-as-you-go off, and `mail.dojipro.com` verified. A dedicated
+`Doji mobile staging auth` sending-only key for that domain was created and saved
+in protected staging Supabase Auth SMTP, never Expo/client config. Its transport is
+`smtp.resend.com:465`, with `Doji Staging <staging-auth@mail.dojipro.com>` as sender.
+Activation sent no mail. Rollback disables custom SMTP and revokes only this key.
+Existing admin/business/production credentials remain separate and unchanged.
 Store listing branding is Doji Connect; installed app branding is Doji. Refer to
 current consoles before deciding availability, review state or enforcement.
 
@@ -96,6 +240,7 @@ inconclusive verification. They do not deploy shared/member services.
 | Bitwarden Secrets Manager | Restricted admin staging developer configuration; Free `Doji` organization, `admin-staging` project contains Kedd's individual development token | [Vault](https://vault.bitwarden.com/); owner Gavin Fahey. Kedd invited as User after passing CI; acceptance/confirmation and read-only project assignment pending. Two included user seats allocated; no CLI/CI integration or machine accounts. Review capacity before expansion. See [vault handling](SECURITY_AND_ACCESS.md#shared-development-vault). |
 | GitGuardian | Repository secret-scanning check observed on reviewed pull requests | [Handoff audit](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); integration/settings live outside the app. Not runtime monitoring or proof that no secret exists. |
 | npm registry | Downloads locked JavaScript/TypeScript dependencies for local and CI builds; dependency audit metadata | Root and `web/` package/lockfiles. Not app hosting; preserve the separate lockfiles and do not upgrade automatically. |
+| Microsoft Artifact Registry | CI-only official Playwright images with browser binaries and OS libraries | `.github/workflows/quality.yml` pins versions and immutable digests; anonymous public downloads, no account/secret or member data. Existing GitHub runners only. Registry failure blocks setup; never add paid capacity or skip suites. Update or revert only with matching lockfile/browser qualification; see [test handoff](TEST_SUITE_HANDOFF.md). |
 | Docker Hub / Amazon ECR Public | Development/CI-only downloads of official Supabase test images; Docker Hub is selected, ECR is the previous source | `scripts/database/config.mts` pins identical verified manifests. Anonymous public reads need no stored secret or new account; registry limits fail preparation, never skip tests. No member data is sent. Reverting the registry requires the same digests; do not add paid capacity automatically. |
 | ngrok via `@expo/ngrok` | Installed optional development-tunnel integration for Expo | [Root manifest](../package.json); not a production API/socket service or evidence that a tunnel is currently running. Opening a tunnel is not part of offline tests. |
 | Gitleaks | Locally executed secret scanner used in the handoff audit | [Audit evidence](releases/REPOSITORY_HANDOFF_AUDIT_2026-10-12.md); a tool, not an additional hosted application backend. |
@@ -240,7 +385,8 @@ acceptance, owner confirmation and read-only project access remain pending. Neve
 secrets in browser environment variables. Supabase remains Free/Nano; Cloudflare uses the existing
 Workers Paid allowance (no new subscription or add-on). Capacity was checked before
 deployment; it is not unlimited/free hosting. Owner password/MFA login is verified.
-Member signup/email, business, real push and recurring jobs remain disabled.
+Member signup is separately enabled as described above; business and real push
+remain disabled. Current health-job enablement is recorded in current state.
 The separate staging Worker and seven core guarded Edge functions are enabled with
 isolated Ably. Actual timed activation/close and single-credit voting passed.
 `send-admin-email` is deployed/configured as an eighth guarded handler. One approved

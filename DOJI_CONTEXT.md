@@ -26,6 +26,11 @@ product UI. See [system map](docs/SYSTEM_MAP.md) for entry points and
 
 ## Non-negotiable boundaries
 
+Mobile Development/Staging are separate installed identities using staging data and
+credentials, not alternate member logic. Production remains the existing identity.
+Configuration checks reject mixed bindings; native builds, provider activation and
+physical-device parity have independent gates in [mobile staging](docs/MOBILE_STAGING.md).
+
 - Postgres owns state, authorization, receipts, rewards and the transactional outbox.
 - Poll activation atomically ensures its unique community card after feed retention;
   a card created when scheduling is not sufficient for later vote submission.
@@ -65,6 +70,9 @@ Signup requires independently unchecked Terms and Privacy consents and a
 server-enforced 13-plus age check. The asserted birth date belongs only in the
 private age-assurance record, never public profiles or events. Username is
 required; photo, display name and bio are optional.
+Profile setup presents known prerequisite failures without exposing arbitrary
+backend diagnostics, and distinguishes a confirmed save from failed follow-up
+loading. Neither error handling nor test fixtures may manufacture legal acceptance.
 
 The root layout owns session restoration and initial profile authorization.
 An unfinished profile read is not a new account. Bounded transient recovery may
@@ -97,6 +105,9 @@ an expired occurrence is `missed`. An atomic Sparks buy-in permits `buy_in_open`
 then `late`, without reapplying the original ten-minute cutoff. The existing
 server-owned signup-day exception remains separate. A newer occurrence supersedes
 an older paid opportunity.
+Display timers show the full authorized deadline, including signup-day grace;
+only a countdown ring's graphic is bounded by its normal-window scale. Activation
+and alarm recovery must not shorten signup-day or paid-participation exceptions.
 
 Photo/task/format submissions use `complete_doji_with_post`; poll/WYR submissions
 use `submit_poll_vote`. Uploads alone do not complete participation. Retries
@@ -109,29 +120,115 @@ the future poll. Community idea acceptance does not schedule a Doji.
 
 ### Feed, social and media
 
+- The optional first-to-Doji card celebrates the earliest eligible confirmed
+  responder for the current unlocked event and audience without reordering posts.
+  Friends includes self; blocks, reports and moderation filter visibility. Failed
+  or empty reads hide the optional card, never the feed. The card requires matching
+  environment, release channel and database: Development/Staging use Staging;
+  Production uses only its production binding. Backend qualification precedes
+  native distribution; source gates do not prove a hosted deployment.
+- All Doji completion paths unlock only after a confirmed command or authorized
+  committed receipt. Pre-commit feed/result reads are cancelled before reconciliation;
+  the immediate submission handoff shows loading or read recovery, never a false empty feed.
+  Other write-ins display their full text. This changes no vote or reward rule.
+- New comments display immediately as actor-local rows outside server cursor pages.
+  Accepted send clears the composer, dismisses the keyboard and reveals a new root
+  once at the top. Replies remain inline; retries/incoming reads do not scroll.
+  Unconfirmed sends retain immutable text/parent/key for explicit identical retry,
+  fenced to the account lifetime. No automatic write retry or persistent offline
+  queue is added; failures surface without overwriting a newer draft.
+- Appearance applies immediately and saves silently; shared profile recovery shows
+  failed/unconfirmed saves only. Explicit Save actions retain progress feedback.
+
 - Feed identity is the authoritative daily-event ID, not the phone's calendar.
   Completing or paid late participation unlocks it.
+- Locked text-only task/format previews use fixed decorative text lines, not a
+  photo frame. Choose the shape from challenge metadata, never hidden answers or
+  redacted media URLs; media-required tasks retain the media preview.
 - Friends includes accepted friends and self; Everyone is independently cached.
   Poll/WYR has one shared post, global totals and friend-scoped social alerts.
+  Adjacent feed metadata warms after the visible read, including photo feeds;
+  confirmed own posts refresh a pre-submission tab without copying scoped totals.
 - Bounded snapshots/keyset reads supply feed, comments, reactions, voters,
   friends, leaderboard, notifications and shop. Partial pages are not totals.
   Gateway recovery source keeps pending I/O request-owned and bounds the whole
   read, not only database fetch. See current state for deployment and rollback.
 - Optimistic actor feedback rolls back only its own cache version and account.
   Committed reads reconcile in the background without covering usable content.
+  Reaction reads started before/during the write retain newer local reaction fields
+  through the existing bounded cache-settle interval; other fields still reconcile.
+  Comment and poll-answer hearts use the same account/command ordering principle;
+  their direct SQL reads need no artificial cache-settle delay. Rollback restores
+  only the affected heart fields, not the entire thread or voter page.
 - When scrolled, new head posts wait behind New posts; unauthorized rows disappear
   immediately. Only new realtime media uses the bounded readiness queue.
+- Unobserved, idle social caches retain at most 80 queries / 120 pages, with no
+  abandoned query over five pages. Eviction is whole-query and waits for pending
+  mutations; mounted lists retain their exact pages/cursors and are not memory-capped.
+  Reopening an evicted list starts from its initial authorized page, not a saved tail.
 - Private media references may be cached; signed bearer URLs may not. Visible
   cards coalesce signing, use stable object/variant cache keys and retain a
   card-local skeleton until native display. Never re-encode a cached image into itself.
+  The next two mounted cards may prepare images without social subscriptions.
+  Scrolling away retains resolved images, not authorization; revocation clears them.
+  Native video players remain visible-only.
 - Camera/library proof is normalized once before approval; upload the approved
   bytes. Preserve the configured original/derivative contract and authorization.
+  Native photo preparation has bounded concurrency/queueing and a local deadline;
+  late results cannot start uploads or replace the preview after failure. This
+  deadline does not cancel native work or change the approved image representation.
 - A confirmed profile save owns its avatar; follow-up refresh failures must not
   delete that committed object as an orphan.
+  An unconfirmed save is not proof of an orphan either: retain its uploaded avatar
+  until authoritative state establishes non-use. Missing response rows are unknown,
+  not successful signup. Confirmed username conflicts can discard their unused upload.
+  Confirmed photo saves release UI feedback before optional preview/refresh/cleanup;
+  failures in that follow-up work are reported separately, never relabeled as failed saves.
+- Profile settings retain one immutable patch/command key per signed-in account
+  lifetime after an unknown outcome. Navigation and token renewal preserve it;
+  only an explicit retry replays it. New changes wait for confirmation or a definite
+  SQL rejection. Logout/account changes discard the local intent and fence late results,
+  including a switch back to the original account. This is in-memory recovery,
+  not a persistent offline queue or proof of remote rollback.
 - Thread replies are visually one level: root `parent_id`, exact
   `reply_to_comment_id`. Commands own mention/recipient resolution.
+  Replies expand inline under their root in the same comments list; opening or
+  composing a reply must not navigate to a separate thread page. Multiple threads
+  can stay expanded. Newest root comments appear first by default, without a
+  Show latest control. Performance changes must preserve this interaction.
+  Collapsed threads show `View X replies` using the server's authorized total,
+  never the number of reply rows currently cached. The reply-count projection is
+  separately gated; old-server compatibility must not invent a count.
+  Root comments follow the descending server cursor so older pages extend below
+  loaded roots; replies stay chronological. Visible threads prepare one cursor page
+  ahead of the viewport, with a guarded edge fallback, and stop automatic reads on
+  errors, closure or native read suspension. Variable-height text remains accessible.
+  The prepared scalable read contract separates root and reply cursors and reconciles
+  retained IDs without inserting new head rows into a scrolled viewport. Its client
+  window model supports bounded reply pages without evicting visible rows. The
+  staging adapter appends older root pages and keeps every loaded root in the same
+  list until closure or head replacement: scrolling back up never pages roots.
+  Native virtualization bounds rendered views, not accumulated root data; memory
+  grows with visited roots, and no native 100K-memory claim follows from model tests.
+  Refresh checks at most three visible root pages, marking other loaded pages for
+  in-place ID reconciliation on return rather than replaying their page cursors.
+  Replies retain up to 30 rows per expanded root and load on demand; closed/removed
+  threads discard cache, and offscreen threads pause reads.
+  New root rows enter automatically only at the head, with a completion-time scroll
+  fence; new reply tails append without replacing the inline thread. Native frame/
+  anchor acceptance remains separate from model tests. Partial pages are never totals.
+  Friend-request controls own pending/error state per row on both request surfaces;
+  acknowledgement updates the matching record, never restores a whole-list snapshot.
 - Accepted friendships are capped at 500 and outgoing requests at 100 in Postgres.
-  Search history is device-local, account-scoped and bounded.
+  Search matches username prefixes and public display-name words (first/last/full
+  name), never private identity fields. Search history includes settled queries,
+  not just opened profiles; it is device-local, account-scoped and bounded to ten.
+  Profile navigation warms the authorized viewer-keyed read and its relationship
+  dependencies, including when the profile itself is already cached. Unknown or
+  stale-on-entry actions use a fixed-size loading control, never another member's
+  action or a guessed Add/Accept. The overflow trigger retains its position while
+  disabled. Once resolved, background read errors retain labels but disable commands
+  and expose retry instead of replacing the action bar with placeholders.
 - Blocking is a separate privacy action, not a report. It removes friendship and
   hides content. Global competition excludes banned accounts, not ordinary blocks.
 
@@ -157,6 +254,15 @@ installation/session IDs, never names, credentials, raw bodies, full URLs or
 arbitrary private messages. Preserve grouping and event budgets. Android native
 hints/Test Lab markers are diagnostic, not identity or root-cause proof.
 Mutation fallback reports use allowlisted action names, never full keys or inputs.
+Next-build submission counters keep only a bounded, session-cleared 15-minute
+in-memory window of device-reported phase attempts and fixed workflow reads. Query
+retries produce one terminal read observation, fenced to the originating account.
+Optional reporting is separately default-off in the binary, Edge and private SQL.
+Foreground return can detach one batch per fifteen minutes; no handset polling,
+durable queue or automatic retry is added. Verified member authentication gates
+ingestion, but reported counts remain untrusted device evidence, not authoritative
+answers, rewards, sign-in measurements or a success rate. Missing reports remain
+unknown. Avatar upload acknowledgement does not mean profile save succeeded.
 Typed comment validation retains a fixed rejection reason in the bounded timeline,
 not an unexpected-error alert; unclassified errors must remain reportable.
 Recovery logs require a new confirmed registration acknowledgement, correlate the
@@ -179,6 +285,22 @@ allowlisted diagnostic references. It is not a durable support-ticket system.
 The future tracked-report requirement belongs in the product backlog.
 
 ### Economy and moderation
+
+First to Doji uses a prospective canonical overall-winner ledger, not a viewer's
+personalized feed winner. The first valid completion transaction to claim and
+commit earns lifetime progress across photo, task, format, poll and WYR; thresholds
+are Bronze 1, Silver 10, Gold 25 and Diamond 100, with existing tier Sparks once.
+Blocks, friendships and content retention cannot transfer a recorded win. Account
+deletion anonymizes the occurrence fence and removes the private count. Only
+occurrences starting after enablement count; never backfill retained history.
+An authorized first-responder read can use a visible audience fallback, but that
+fallback grants no award. UI packaging and hosted enablement remain separate.
+
+The separately gated [economy v2 candidate](docs/SPARKS_ECONOMY.md) unifies timed
+completion awards, adds a small canonical first-place bonus, caps social earnings
+per occurrence and increases prospective level rewards to 10× the newly reached
+level. XP, deadlines, existing balances and shop prices are unchanged. Existing
+reward rules remain authoritative until qualification and approved activation.
 
 Sparks/XP/streaks/badges/shop ownership are server-owned. Purchases and rewards
 use atomic ledger-backed commands and uniqueness. Equipping public cosmetics

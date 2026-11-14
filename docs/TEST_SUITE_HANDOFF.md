@@ -41,8 +41,17 @@ npm run check:size
 npm run test:coverage
 ```
 
-On Linux, Playwright may need OS libraries; CI uses
-`npx playwright install --with-deps chromium`. On Windows, an already installed
+On Linux hosts, Playwright may need `npx playwright install --with-deps chromium`.
+CI instead uses digest-pinned official Playwright Noble images with browsers and
+OS libraries already installed; it does not download Ubuntu fonts during tests.
+Root and web keep separate lockfiles. The image tag must match its primary locked
+client; coverage additionally rejects incompatible root/web Chromium revisions.
+Both clients launch locally before coverage starts. Update image tags/digests and
+qualify CI together when upgrading Playwright; never substitute a system browser.
+The web job bounds setup and each suite separately, with Playwright global timeouts
+below step limits and job headroom for retained failure traces. Registry/npm outages
+can still fail setup; missing browsers never skip tests or count as passing.
+On Windows, an already installed
 Chrome can be selected for the current PowerShell session before the coverage run:
 
 ```powershell
@@ -83,6 +92,14 @@ preconditions and applies explicit later-schema test overlays. Inspect
 The anonymous announcement EXECUTE revokes remain a separately gated local
 candidate in [SQL overlays](../supabase/overlays/announcement_member_execute_v1.sql). Testing that
 candidate and its rollback does not deploy it or authorize applying it live.
+
+`npm run test:health-events:database` also composes the real mobile-report HTTP
+handler, private PostgreSQL ingestion and employee data projection. It exercises
+all 60 fixed platform/category pairs, duplicate and rate admission, malformed and
+unverified callers, mixed-environment denial and evidence-preserving disable.
+Only the Auth boundary is synthetic; this does not replace hosted project-Auth,
+capacity or physical-device acceptance. The test uses the owned network-disabled
+database room and leaves no synthetic count rows for later cases.
 
 ## Required checks before merging
 
@@ -172,6 +189,58 @@ and sanitized evidence. Fix the cause and rerun; do not relabel skipped or parti
 results as passing or resolve a production incident from a green test alone.
 
 ## Independent release acceptance
+
+### Mobile performance qualification
+
+Use release-mode staging artifacts, exact source/build identities and synthetic
+data. Dev/Fast Refresh and emulator timings are functional evidence, not physical
+device performance qualification. Measure an agreed iPhone and representative
+physical Android separately; record OS, device, thermal state, network latency/
+bandwidth, cache state, sample count and p50/p95/p99. Do not infer a reliable tail
+percentile from a handful of actions. Keep sampled diagnostics bounded and free
+of identities, credentials, content and signed URLs; existing reporting gates stay
+off unless separately approved. No new telemetry service or paid runner is required.
+
+Initial acceptance targets on the defined reference network/device:
+
+| Journey | Target |
+| --- | --- |
+| Tap/submit feedback | p95 <=100 ms, independently of server confirmation |
+| Cached screen navigation | Useful content p95 <=250 ms |
+| Signed-in cold launch with cached content | Interactive primary screen p95 <=2 seconds |
+| Ordinary foreground reads/confirmed writes, excluding uploads | End-to-end p95 <=1 second and p99 <=2 seconds |
+| Scripted feed/navigation at 60 Hz | <1% missed frames; inspect individual long stalls |
+| Media upload | Immediate progress state, bounded progress-aware stall detection and safe recovery |
+| Slow/offline recovery | Usable navigation/cached content; no unexplained indefinite spinner |
+
+Feed smoothness qualification includes cold/warm scrolling through photo pages,
+background-return without image blanking, reaction taps during delayed reads, and
+posting in Everyone followed by switching to Friends. Verify both platforms,
+account/permission changes and slow/offline recovery; record frame stalls and media
+readiness rather than treating emulator impressions as physical-device timing.
+The two-card media lookahead is a bounded initial window, not a measured optimum.
+
+These are targets, not measured results or provider guarantees. Record unmet
+targets and their causes rather than silently relaxing them. Latency includes
+auth, scheduling, network, backend, parsing and UI update; upload transfer is
+measured separately by payload size. Faster requests cannot justify duplicate
+writes, weaker authorization or stale challenge eligibility.
+
+Maintain an exact-candidate acceptance record for all routes, grouped as:
+launch/auth/onboarding; feed/post/comments/reactions; challenge capture/upload/
+poll/receipt; profiles/friends/search; rank/shop/appearance/suggestions; settings/
+notifications/moderation. Include cold/warm caches, deep scrolling, background
+return, reconnect, account switching, expired sessions, stalled images/uploads
+and lost write acknowledgements. Compare request counts/bytes, memory growth and
+frame timing as well as elapsed time. Screen inventory alone is not acceptance.
+
+The offline `queryInvalidationBatcher` and `queryInvalidationRequests` suites
+reproduce stalled-family isolation, mixed-family completion, 100-hint coalescing,
+per-family cadence, teardown and real QueryObserver request counts. They never
+contact providers and do not establish hosted/device latency. Add equivalent
+fault regressions before changing each subsequent request/media path. Preserve
+all ordinary quality/coverage gates. Backend changes, staging capacity tests,
+native builds and production promotion retain their separate release gates.
 
 These gates remain separate from the completed automated coverage milestone.
 Record each as passed, failed, blocked or not run against the exact candidate,

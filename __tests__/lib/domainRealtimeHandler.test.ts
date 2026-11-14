@@ -28,14 +28,24 @@ beforeEach(() => {
 });
 afterEach(() => client.clear());
 
+test.each(['social.block.created', 'social.friendship.removed', 'moderation.status.changed'])(
+  '%s removes a previously celebrated member before the authorized refresh', type => {
+    client.setQueryData(['firstDoji', 'event', 'everyone', 'member'], { profile: { id: 'other' } });
+    client.setQueryData(['firstDoji', 'event', 'friends', 'member'], { profile: { id: 'other' } });
+    emit(type);
+    expect(client.getQueryData(['firstDoji', 'event', 'everyone', 'member'])).toBeNull();
+    expect(client.getQueryData(['firstDoji', 'event', 'friends', 'member'])).toBeNull();
+  },
+);
+
 test.each([
   [
     'doji.activated',
-    ['upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter'],
+    ['upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter', 'firstDoji'],
   ],
-  ['poll.vote.created', ['pollResults', 'pollVotersDetail']],
+  ['poll.vote.created', ['pollResults', 'pollVotersDetail', 'firstDoji']],
   ['poll.vote_like.created', ['pollVoteLikes', 'pollVotersDetail']],
-  ['user_event.updated', ['userEvent', 'feed', 'profilePost']],
+  ['user_event.updated', ['userEvent', 'feed', 'profilePost', 'firstDoji']],
   ['shop.ownership.created', ['ownedShopItems']],
   ['account.profile.updated', ['profile']],
   [
@@ -45,12 +55,14 @@ test.each([
       'friendRequests',
       'friendship',
       'friendCount',
+      'commentWindow',
       'profileFriends',
       'feed',
+      'firstDoji',
       'notificationCenter',
     ],
   ],
-  ['social.block.created', ['blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed']],
+  ['social.block.created', ['blockedUsers', 'isBlocked', 'profile', 'profilePost', 'post', 'feed', 'commentWindow', 'firstDoji']],
   ['leaderboard.updated', ['leaderboard']],
   ['moderation.report.created', ['admin']],
   [
@@ -63,15 +75,17 @@ test.each([
       'profile',
       'profilePost',
       'comments',
+      'commentWindow',
       'pollResults',
       'pollVotersDetail',
+      'firstDoji',
     ],
   ],
-  ['post.created', ['feed', 'profilePost']],
-  ['feed.post.updated', ['feed', 'post', 'profilePost']],
+  ['post.created', ['feed', 'profilePost', 'firstDoji']],
+  ['feed.post.updated', ['feed', 'post', 'profilePost', 'firstDoji']],
   ['feed.reaction.created', ['feed', 'reactions', 'post']],
-  ['feed.comment_like.created', ['comments', 'commentLikes']],
-  ['feed.comment.created', ['feed', 'comments', 'post']],
+  ['feed.comment_like.created', ['comments', 'commentWindow', 'commentLikes']],
+  ['feed.comment.created', ['feed', 'comments', 'commentWindow', 'post']],
 ] as [string, string[]][])('%s reconciles only its authorized query families', (type, roots) => {
   emit(type);
   expect(invalidateRoots.mock.calls).toEqual([roots]);
@@ -104,9 +118,11 @@ test.each([
             'pollVotersDetail',
             'leaderboard',
             'comments',
+            'commentWindow',
             'reactions',
             'notificationCenter',
             'feed',
+            'firstDoji',
           ]),
   );
 });
@@ -116,6 +132,9 @@ test.each([
   ['notification.comment.created', 'comments', true],
   ['notification.comment_reply.created', 'comments', true],
   ['notification.comment_like.created', 'comments', false],
+  ['notification.comment.created', 'commentWindow', true],
+  ['notification.comment_reply.created', 'commentWindow', true],
+  ['notification.comment_like.created', 'commentWindow', false],
 ] as [string, string, boolean][])(
   '%s targets the specific post without cancelling in-flight reads',
   (type, root, refresh) => {
@@ -153,7 +172,7 @@ test.each([undefined, null, 123, ''])(
 test.each([
   [
     'notification.friend_activity.created',
-    ['notificationCenter', 'pollResults', 'pollVotersDetail', 'feed'],
+    ['notificationCenter', 'pollResults', 'pollVotersDetail', 'feed', 'firstDoji'],
   ],
   [
     'notification.suggestion.updated',

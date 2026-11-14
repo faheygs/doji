@@ -39,6 +39,7 @@ export async function gatewayCommand<Name extends FunctionName>(
 ): Promise<{ response: Response; payload: unknown }> {
   const release = mobileReleaseIdentity();
   const controller = new AbortController();
+  const deadlineAt = Date.now() + COMMAND_TIMEOUT_MS;
   checkRegistrationSignal(parent);
   let abortSource: 'none' | 'parent' | 'deadline' = 'none';
   const abort = (source: 'parent' | 'deadline', reason: unknown) => {
@@ -51,6 +52,10 @@ export async function gatewayCommand<Name extends FunctionName>(
   const diagnose = Platform.OS === 'android' || Platform.OS === 'ios';
   if (diagnose) beginReadDiagnostics(controller.signal, 'command_gateway');
   const timeout = setTimeout(() => abort('deadline', new Error('Command timed out')), COMMAND_TIMEOUT_MS);
+  const checkDeadline = () => {
+    if (Date.now() >= deadlineAt) abort('deadline', new Error('Command timed out'));
+    checkRegistrationSignal(controller.signal);
+  };
   let received: Response | undefined;
   try {
     const work = (diagnose ? observedMemberFetch : fetch)(`${baseUrl}/commands/rpc/${name}`, {
@@ -68,11 +73,13 @@ export async function gatewayCommand<Name extends FunctionName>(
       body: JSON.stringify(args ?? {}),
       signal: controller.signal,
     });
-    // Only registration opts in. Other commands retain their existing transport behavior.
-    const response = received = await (parent ? awaitRegistration(work, controller.signal) : work);
+    // Native fetch/body promises may ignore abort. Bound the local wait without
+    // treating a deadline as proof that the server rolled the command back.
+    const response = received = await awaitRegistration(work, controller.signal);
+    checkDeadline();
     const body = response.text();
-    const text = await (parent ? awaitRegistration(body, controller.signal) : body);
-    if (parent) checkRegistrationSignal(controller.signal);
+    const text = await awaitRegistration(body, controller.signal);
+    checkDeadline();
     let payload: unknown = null;
     if (text) {
       try {
@@ -87,7 +94,7 @@ export async function gatewayCommand<Name extends FunctionName>(
   } catch (error) {
     // Native fetch may reject with a generic AbortError instead of the deadline reason.
     // A received HTTP rejection remains a real failure even if body reading is interrupted.
-    const failure = parent && received && !received.ok
+    const failure = received && !received.ok
       ? commandError(null, `Command failed (${received.status})`, received.status)
       : controller.signal.aborted ? registrationAbortReason(controller.signal) : error;
     if (diagnose) finishReadDiagnostics(controller.signal,

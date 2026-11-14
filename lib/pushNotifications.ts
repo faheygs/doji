@@ -6,6 +6,7 @@ import { executeCommand, type CommandError } from './commandGateway';
 import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from './telemetry';
 import { mobileReleaseIdentity } from './releaseIdentity';
+import { stagingPushDisabled, nativePushEnvironment } from './mobileStaging';
 import {
   canReusePushRegistration,
   pushRegistrationFingerprint,
@@ -25,10 +26,6 @@ const activeRegistrations = new Map<
 >();
 
 export type PushPermissionResult = 'granted' | 'denied' | 'undetermined' | 'unsupported' | 'error' | 'deferred';
-
-function pushEnvironment(): 'sandbox' | 'production' {
-  return process.env.EXPO_PUBLIC_APP_ENV === 'production' ? 'production' : 'sandbox';
-}
 
 function enqueueEndpointMutation<T>(operation: () => Promise<T>): Promise<T> {
   const result = endpointMutationTail.catch(() => undefined).then(operation);
@@ -85,7 +82,7 @@ export async function ensureAndroidNotificationChannel(): Promise<void> {
  */
 export async function syncPushRegistration(userId?: string, options: { signal?: AbortSignal; allowDisabled?: boolean } = {}): Promise<boolean> {
   const platform = Platform.OS;
-  if (platform !== 'ios' && platform !== 'android') return false;
+  if (stagingPushDisabled() || (platform !== 'ios' && platform !== 'android')) return false;
   const uid = userId ?? useAuthStore.getState().session?.user?.id;
   if (!uid) return false;
 
@@ -134,7 +131,7 @@ export async function syncPushRegistration(userId?: string, options: { signal?: 
     // Storage is serialized through the endpoint queue; never leave an installation-ID write racing the next run.
     const id = await installationId();
     check();
-    const environment = pushEnvironment();
+    const environment = nativePushEnvironment();
     const registration = {
       p_installation_id: id,
       p_token: nativeToken,
@@ -242,7 +239,7 @@ export async function unregisterCurrentPushInstallation(): Promise<void> {
 export async function requestPushPermissionAndRegisterToken(
   userId?: string,
 ): Promise<PushPermissionResult> {
-  if (Platform.OS === 'web') return 'unsupported';
+  if (Platform.OS === 'web' || stagingPushDisabled()) return 'unsupported';
   const uid = userId ?? useAuthStore.getState().session?.user?.id;
   if (!uid) return 'deferred';
 

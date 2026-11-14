@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react-native';
-import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { notifyManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { useCreatePost } from '../../hooks/useUserEvent';
 import { executeCommand } from '../../lib/commandGateway';
 import { filterContent } from '../../lib/contentFilter';
@@ -11,8 +11,10 @@ import { scheduleQueryInvalidation } from '../../lib/queryInvalidationBatcher';
 let mockSession: { user: { id: string } } | null;
 const mockFetchProfile = jest.fn();
 jest.mock('../../stores/useAuthStore', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ session: mockSession, fetchProfile: mockFetchProfile }),
+  useAuthStore: Object.assign((selector: (state: unknown) => unknown) =>
+    selector({ session: mockSession, fetchProfile: mockFetchProfile }), {
+      getState: () => ({ session: mockSession }),
+    }),
 }));
 jest.mock('../../lib/supabase');
 jest.mock('../../utils/upload', () => ({ uploadPostMedia: jest.fn(), uploadPostVideo: jest.fn() }));
@@ -64,8 +66,8 @@ afterEach(() => {
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
 
-test.each(['open', 'buy_in_open'])(
-  'submits one atomic command and reconciles %s without cancelling active reads',
+test.each(['pending', 'buy_in_open'])(
+  'submits one atomic command and reconciles %s after cancelling pre-commit reads',
   async (status) => {
     client.setQueryData(key, { id: 'event', status, completed_at: null });
     const refetch = jest.spyOn(client, 'refetchQueries');
@@ -95,17 +97,77 @@ test.each(['open', 'buy_in_open'])(
       completed_at: expect.any(String),
     });
     expect(cancel).toHaveBeenCalledWith({ queryKey: key }, { revert: false, silent: true });
-    expect(refetch).toHaveBeenCalledWith({ queryKey: key }, { cancelRefetch: false });
+    expect(refetch).toHaveBeenCalledWith({ queryKey: key });
     expect(scheduleQueryInvalidation).toHaveBeenCalledWith(client, [
       'profile',
       'leaderboard',
-      'feed',
     ]);
     expect(mockFetchProfile).toHaveBeenCalledWith('member');
     expect(uploadPostMedia).not.toHaveBeenCalled();
     expect(uploadPostVideo).not.toHaveBeenCalled();
   },
 );
+
+test.each(['photo', 'task', 'format'])(
+  '%s stays locked during submission and replaces stale feed reads after confirmation',
+  async (kind) => {
+    const previous = { id: 'event', daily_event_id: 'daily', status: 'pending', challenge: { type: kind } };
+    client.setQueryData(key, previous);
+    let confirm!: (value: never) => void;
+    command.mockImplementation(() => new Promise(resolve => { confirm = resolve; }));
+    const feedKey = ['feed', 'daily', 'everyone', 'member', 'full'];
+    let oldRead!: (value: string[]) => void;
+    let newRead!: (value: string[]) => void;
+    const read = jest.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { oldRead = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { newRead = resolve; }));
+    const observer = new QueryObserver(client, { queryKey: feedKey, queryFn: read });
+    const unsubscribe = observer.subscribe(() => {});
+    const adjacent = ['feed', 'daily', 'friends', 'member', 'full'];
+    const otherAccount = ['feed', 'daily', 'everyone', 'other', 'full'];
+    const otherEvent = ['feed', 'other-daily', 'everyone', 'member', 'full'];
+    client.setQueryData(adjacent, []);
+    client.setQueryData(otherAccount, ['unrelated']);
+    client.setQueryData(otherEvent, ['unrelated']);
+    const { result } = setup();
+    await act(async () => {
+      const submission = result.current.mutateAsync({ ...payload, postType: kind === 'photo' ? 'photo' : 'task_complete' });
+      for (let i = 0; i < 15; i++) await Promise.resolve();
+      expect(client.getQueryData(key)).toEqual(previous);
+      confirm({ data: post, error: null } as never);
+      await submission;
+      expect(read).toHaveBeenCalledTimes(2);
+      expect(client.getQueryData(key)).toMatchObject({ status: 'completed' });
+      expect(client.getQueryState(adjacent)?.isInvalidated).toBe(true);
+      expect(client.getQueryState(otherAccount)?.isInvalidated).toBe(false);
+      expect(client.getQueryState(otherEvent)?.isInvalidated).toBe(false);
+      oldRead([]);
+      await Promise.resolve();
+      expect(client.getQueryData(feedKey)).toBeUndefined();
+      newRead(['confirmed-post']);
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(client.getQueryData(feedKey)).toEqual(['confirmed-post']);
+    });
+    unsubscribe();
+  },
+);
+
+test('a late post receipt cannot unlock a newer occurrence or a replacement account', async () => {
+  const newer = { id: 'next-event', status: 'pending' };
+  client.setQueryData(key, newer);
+  const { result } = setup();
+  await act(async () => { await result.current.mutateAsync(payload); });
+  expect(client.getQueryData(key)).toEqual(newer);
+  expect(mockFetchProfile).not.toHaveBeenCalled();
+  client.setQueryData(key, { id: 'event', status: 'pending' });
+  command.mockImplementation(async () => {
+    mockSession = { user: { id: 'another-member' } };
+    return { data: post, error: null } as never;
+  });
+  await act(async () => { await result.current.mutateAsync(payload); });
+  expect(mockFetchProfile).not.toHaveBeenCalled();
+  expect(client.getQueryData(key)).toMatchObject({ status: 'pending' });
+});
 test('uploads all supplied media under the same idempotency key before completing', async () => {
   const { result } = setup();
   await act(async () => {

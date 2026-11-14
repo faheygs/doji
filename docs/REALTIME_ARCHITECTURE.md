@@ -53,11 +53,43 @@ reuse the exact actor/payload/key and durable receipt. Validation/authorization/
 errors are not transient. A successful receipt followed by failed refresh is still
 a confirmed command. Query cancellation is not server rollback.
 
+Mobile profile-setting writes share `lib/profileUpdate.ts`: one frozen patch/key,
+explicit uncertain retry, and an account-lifetime fence before transport and
+after acknowledgement. Photo retries reuse the uploaded URL. Profile, appearance,
+notification and onboarding screens expose the same recovery control; failed
+ownership reads cannot silently erase an accent. No automatic retry is added.
+
+Mobile gateway attempts enforce their existing 12-second deadline across fetch
+and body waits even if native cancellation is ignored. Late completions cannot
+turn a timed-out attempt into UI success. Received HTTP rejections remain failures;
+the existing keyed/idempotent retry allowance is unchanged. Command session lookup
+and 401 refresh each have an eight-second caller deadline. Auth failures settle as
+command errors without replaying the write; late credentials cannot resume it.
+This does not cancel Supabase's shared session lifecycle or establish device latency.
+The local-development direct RPC fallback also bounds response observation to twelve
+seconds and requests native cancellation, without retrying or claiming rollback.
+Foreground return checks elapsed deadlines before accepting late results even if
+native timers have not resumed. Account-bound command success is fenced after identity changes on both transports;
+this does not enable direct fallback in production or bypass the configured gateway.
+
 ## Challenge and scale boundaries
+
+The separately gated economy v2 candidate computes awards inside existing server
+transactions using private unique receipts, member/occurrence social caps and
+level high-water marks. It reuses balance/profile hints; no client reward minting,
+extra channel or polling is added. Its first-place bonus uses the canonical
+first-Doji ledger, not a personalized read. Lifetime win progress emits the existing
+ID-only `badge.updated` hint; client progress integration is separately packaged.
+Rollback retains balances and duplicate fences. See [economy policy](SPARKS_ECONOMY.md)
+for qualification and activation gates.
 
 Pre-live occurs twenty minutes before activation and advances active-feed identity
 without revealing the challenge or deleting old participation/content. Activation
 stamps authoritative deadlines; occurrences materialize lazily per member.
+Pending normal occurrences follow the shared close; signup-day and paid exceptions
+retain their own deadlines regardless of whether the read preceded activation.
+Countdown text must not clamp those longer deadlines to ten minutes. Release state
+and remaining physical-device acceptance are tracked in the current-state guide.
 Poll activation ensures its unique system-owned feed card after retention and
 before the activation outbox event, in the same transaction. Scheduling-time cards
 are not durable across intervening activations; voting must never depend on them.
@@ -128,8 +160,17 @@ reportable; reconnect and foreground reads still reconcile from Postgres.
 
 `domainRealtimeHandler`, `queryInvalidationBatcher`, `reconcileQueries` and
 `QueryLifecycle` own targeted invalidation and catch-up. Hints batch for 80 ms;
-reads are single-flight with bounded trailing reconciliation and
-`cancelRefetch: false` for realtime. Unknown events do not refresh everything.
+each query family has an independent in-flight wait and 350 ms minimum refresh
+gap, with one coalesced trailing pass. A slow comments/feed refresh cannot hold
+challenge-state reads. TanStack retains per-query single-flight behavior and
+`cancelRefetch: false` for realtime. Teardown discards pending work and fences old
+completions. Unknown events do not refresh everything.
+
+Persisted mobile queries warm only the accepted account. The 1.2-second startup
+handoff stays bounded; late disk reads remain usable only within the same account
+lifetime. Logout/account changes discard pending restoration and deferred writes,
+even when returning to the original account; same-account token renewal preserves
+them. Hydration cannot overwrite or invalidate a newer network result.
 
 Native lifecycle suspension is separate from realtime invalidation: background or
 explicit offline state pauses reads and cancels only the server-read allowlist.
@@ -141,18 +182,140 @@ These lifecycle changes remain next-build source; check recorded release state.
 
 ### Read ownership
 
+- `firstDoji` is keyed by event, viewer and audience, with account-lifetime fencing,
+  no persistence and no polling. Existing completion/post/vote/profile hints and
+  foreground/reconnect reconcile it. Block/friendship/moderation changes discard
+  the old winner before authorized rereads. Matching environment/channel/database
+  bindings enable the additive RPC in Development/Staging or Production; mixed
+  bindings fail closed. Backend qualification must precede native distribution.
+  Badge progress reuses the existing
+  account-scoped `userBadgeProgress` family after catalogue discovery.
+- `useCommentSubmission` keeps actor-local sends outside cursor pages. Unconfirmed
+  intent is memory-only and immutable for explicit retry; row acknowledgement
+  retains its native key. Composer generations fence late native text callbacks.
+  Closing a sheet does not authorize a new key or automatic replay.
+- Post and poll success cancel reads started before commit, mark matching member/event
+  results stale and then unlock the feed. Background reconciliation never delays
+  direct-to-feed completion or substitutes an empty claim for loading. The bounded
+  submission journey distinguishes an unrendered confirmed handoff from a genuinely
+  empty later feed after content removal; an empty handoff read offers read-only retry.
+
+- Prepared comment-page v2 reads separate roots (newest first) from replies (oldest
+  first), each with bidirectional keyset cursors. Retained-ID refresh returns at
+  most 50 authorized rows per call, not a replay of all previously visited pages.
+  The prepared model uses memory-only `commentWindow` keys scoped by post,
+  viewer, audience and parent. Comment/heart, profile, block/friendship and moderation
+  hints plus foreground/reconnect reconcile retained IDs under one shared deadline.
+  Privacy failures discard cached rows; transient failures retain authorized data
+  with explicit retry. The generic bounded model caps a window at 250 rows. The
+  inline consumer instead retains every loaded root page, fetching older
+  pages downward only; there is no upward root pagination or offscreen root eviction.
+  Root data grows with visited pages while native views remain virtualized. Root
+  refresh is limited to three visible pages (60 rows); other loaded pages are marked
+  for in-place retained-ID reconciliation when visible, not cursor replay. Closing
+  the sheet/account teardown removes its memory-only cache. This is not a constant
+  total-memory or physical-device 100K performance guarantee. Replies remain capped
+  at 30 rows per expanded root. Offscreen reply observers pause reads, and closure/root removal removes
+  their memory-only cache. Confirmed edits/deletes and heart rollback touch matching
+  records only. Root projections can include exact authorized `reply_count` for
+  collapsed labels; this is not the number of cached replies. Counts use the same
+  audience, block, own-report and moderation rules as the rows, with no new event
+  or polling channel. Existing comment hints and retained-ID reads reconcile them.
+  The UI remains one newest-first list with inline replies, no separate
+  reply page or Show latest control. New head reads are accepted only while still
+  at the head; reply-tail reads append after the retained cursor. Paging preserves
+  visible IDs and native anchors rather than remounting the list. Exact release
+  bindings select the v2 reader; the production package is withheld until its
+  separately approved database dependencies pass qualification.
 - Feed keys use the authorized current daily-event ID and separate Friends/Everyone
   audiences. Returning to an audience revalidates without blanking permitted cache.
+  Descending `(created_at, id)` keyset order must survive hydration and final JSON
+  aggregation; sorting tied timestamps alone can repeat or skip cursor rows. The
+  separately gated `member_feed_cursor_order_v1` overlay preserves that order
+  without changing audiences, authorization, payload fields or page limits.
+  Photo and text feeds warm adjacent authorized metadata, not its image backlog.
+  An observed own post missing from the adjacent cache makes that cache stale before
+  warming; reaction/count updates alone do not restart the warm-up effect.
 - Mounted engagement reads use `get_post_engagement_snapshot_v2` and exact thread
   reads. Partial pages are not totals; one audience never overwrites another.
+  Poll summary/loading failures never impersonate zero votes. Retained same-scope
+  results identify failed refreshes; audience changes cannot borrow the previous
+  snapshot. Voter-page failures retain loaded rows and expose explicit read retry.
+  Ambiguous Doji writes use an eight-second receipt-read observer even when native
+  abort is ignored; failed or late receipts remain unknown, never a second write.
 - A private notification carrying a post ID also reconciles that mounted post,
   covering event-order races. Counter updates do not emit a second feed-wide hint.
 - Optimistic callbacks and delayed reconciliation remain bound to the initiating
   member. Stale account results cannot patch, roll back or refresh another cache.
+  `reactionReadConsistency` fences feed/detail/engagement reaction fields against
+  pending writes and reads started before the receipt's existing 1.5-second settle
+  interval ends. Coalesced reads retain their original start time. Fresh reads still
+  reconcile; failed commands restore only their reaction fields, not whole pages.
 - Persisted snapshots are account-scoped and bounded: first pages, recent-query and
   byte caps; no mutations, search drafts, secrets or signed URLs.
+- Root route guards subscribe to derived authorization decisions, not the entire
+  profile/session. Theme consumers observe only the current member's appearance
+  fields; stable colors/context avoid app-wide updates on unrelated profile changes.
+  Ban, onboarding, profile-read failure, sign-out and appearance transitions still
+  reconcile immediately; this does not change authorization or introduce polling.
+- Optional profile-disk presentation waits at most 1.2 seconds before authorized
+  server reconciliation. At most one native cache read remains outstanding;
+  another account/request skips it rather than joining an older lifetime. A late
+  native result cannot replace the reconciled profile. Disk failure is not account
+  failure, authorization or proof of a missing profile.
+- Profile reads also capture the local profile revision. A later setting save or
+  optimistic profile update fences older disk/network results and retries. Only
+  the owning request clears loading; receipt replay reconciles with a new read
+  rather than joining a pre-save request. This is not a server revision protocol.
+- Unobserved idle social reads have separate in-memory limits: 80 queries, 120
+  total pages and five pages per query. Least-recently-used queries are evicted
+  whole, never spliced into invalid cursor sequences. Mounted/disabled observers,
+  fetching/paused reads and pending mutation rollback are protected. A cache miss
+  reopens at the initial authorized page. Sweeps coalesce after cache events, not
+  on a timer; these limits do not bound active-list memory or payload bytes.
+- Binary comment/poll-answer hearts preserve newer actor fields against reads
+  overlapping a pending/settled command. They reconcile only returned authorized
+  rows; removals and non-heart fields still update. Late receipts and targeted
+  rollback are fenced by command and account lifetime. Direct SQL reads need no
+  gateway cache-settle delay; existing realtime/foreground reconciliation remains.
+- Member profile reads include the viewer in their key. Navigation-intent warming
+  shares the route's query and starts friendship/privacy reads together, including
+  when a fresh profile cache skips its query function.
+  Route state resets per viewer/username; action readiness waits for authoritative
+  target-specific relationship/privacy data without hiding resolved controls as
+  data ages or a background refresh fails. Failed reads disable commands and expose
+  retry; they never manufacture a new friendship state. Initial loading reserves
+  button space and keeps the overflow trigger mounted through revalidation/failure.
 - Protected media signing is bounded and demand-driven. Cache stable references and
   immutable object/variant keys, not bearer URLs. Authorization loss removes content.
+  Each caller waits only for its own object/variant needs, with an eight-second
+  queue/auth/provider deadline. Six provider operations are shared across batches;
+  timed-out uncancellable operations retain their slots and cannot seed the cache
+  or launch a late fallback. Original requests coalesce; in-flight keys deduplicate.
+  Hidden private cards never expose unsigned references to native loaders. Visible
+  media reconciles on native foreground/reconnect without polling; disk and signing
+  failures are contained. Decode stalls show local retry feedback after fifteen
+  seconds without blocking social controls. Scrolling/count updates do not prefetch
+  unopened comment/reaction lists; thumbnails are requested only for dual photos.
+  `feedMediaWindow` permits visible rows plus two forward rows to resolve images.
+  Videos remain visible-only; image lookahead never mounts an offscreen player.
+  Visibility does not discard a mounted row's resolved image. Valid native disk
+  sources stay stable after signing; explicit image retry bypasses a failed disk
+  entry. Authorization and row identity still clear old content immediately.
+- New head-post preparation shares two native slots per mounted feed across realtime
+  batches. Every queued row has an eight-second arrival-to-fallback limit; a timeout
+  cannot launch more native work while earlier non-cancellable work remains pending.
+  Identity/enablement changes and row removal fence queued and late results. Baseline
+  and pagination rows render immediately without a page-wide preload.
+- Native image preparation shares two execution slots and at most four queued
+  requests across preview/post/avatar callers. Its fifteen-second deadline starts
+  on arrival, including queue time; expired queued work never starts. Non-cancellable
+  work retains its slot until native settlement, and late results cannot begin an
+  upload. Existing crop, orientation, dimensions, quality and one-encode proof remain.
+- Resumable uploads bound session lookup and file preparation, then stop the local
+  attempt after sixty seconds without advancing bytes. The remote upload and resume
+  fingerprint are retained; a timeout is not rollback or permission to replay the
+  submission. Late lookup/progress/completion cannot restart or confirm that attempt.
 - Store-release policy uses bounded authorized reads, not push or polling.
   Verify the installed binary's discovery behavior before claiming immediate enforcement.
 
@@ -190,6 +353,10 @@ registration stays compatible with installed clients.
   App correctness always comes from authorized reads.
 
 Native registration is foreground/account-bound and serialized with unregistration.
+Staging registration is separately default-off and cannot acquire provider tokens
+before its delivery setup is approved. APNs sandbox/production describes signing,
+not the database environment; staging internal distribution requires its explicit
+signing value and isolated provider credentials. Production registration is unchanged.
 Preserve the existing four-attempt bounded policy, six-hour confirmed receipt,
 rotation/release/identity changes and lifecycle cancellation. Interrupted or cached
 registration is not newly confirmed recovery. Recovery logging is privacy-filtered,
@@ -267,6 +434,49 @@ only the typed receipts describe provider outcomes.
 The monitor retains only its latest issue/check receipts, not an incident history.
 See current state for qualification and deployment status.
 
+The separately gated history preparation records fixed Worker state observations
+through a two-second, no-retry sidecar after the existing check. SQL serializes each
+monitor and rejects older/conflicting observations; a changed incident family is
+superseded, not declared recovered. History survives disable/rollback. Its protected
+employee read requires Operations/MFA and reauthorizes after I/O; it does not repair
+anything or renew timestamps. No UI or independent watchdog is enabled by the SQL.
+The prepared incident view uses that same health-detail read and existing summary
+reconciliation, not a new query timer or channel. Source observations expire
+locally even if no further response arrives. The localhost equivalent retains
+developer/persona permission and revocation checks; it does not weaken hosted MFA.
+The independent one-shot probe reads only source/receipt timestamps and state with
+a separate read-only key. A successful HTTP read cannot make a stale monitor healthy.
+Running that probe beside the Worker is not independent uptime monitoring; an
+approved separate failure domain, missing-probe detection and alert delivery still
+need qualification. Neither provider acceptance nor probe health proves phone delivery.
+
+The separately gated staging Sentry-history importer reads actual external check
+results from the existing collector, not from browser activity or the heartbeat GET.
+Two fixed GETs (monitor binding, then checks) and at most five ordered watchdog RPC writes share a two-second
+deadline, with no retries. Original check IDs/timestamps fence replay and expiry;
+provider errors, empty/stale results and schema drift cannot renew health. The
+read-only heartbeat credential never gains write authority. The importer is not
+an independent runner: Sentry owns external checks/alerts, while loss of the Doji
+collector also stops imports and must age the portal evidence out. No new job,
+member workflow or alert-routing change is implied; production remains gated.
+
+Optional mobile workflow reporting is foreground-triggered, not polling. It detaches
+bounded device counts at most once per fifteen minutes and has a two-second
+best-effort deadline, no durable queue and no retry after an uncertain acknowledgement.
+Account/session changes fence unsent batches; a request already sent may still commit
+under its original verified actor. Member commands never wait for telemetry. Ingestion
+requires an exact environment/project and verified non-anonymous member bearer.
+Private SQL accepts fixed categories only and atomically fences duplicate/rate-limited
+batches. Receipt-hour slots describe when reports arrived, not reconstructed action
+times. Counts can be missing, capped or client-forged and must never grant rewards,
+establish a success rate, or substitute for authoritative receipts. The independent
+reporting package and SQL/binary gates default off; retention rollback preserves data.
+The separately gated employee read uses Operations permission and MFA; local parity
+uses the revocable staging persona route. At most 1,440 private hourly count rows
+are projected into 60 fixed category/platform/outcome totals. Health detail reuses
+existing reconciliation; receipt times remain distinct from read-check time.
+Disabled, unavailable, empty and outdated reads never establish healthy member flows.
+
 The cached-health replacement uses the existing server check, not a new
 job. `EMPLOYEE_HEALTH_SNAPSHOT_ENABLED` defaults off and requires the exact
 `EMPLOYEE_HEALTH_SNAPSHOT_ENVIRONMENT`/Supabase project pair plus an independently
@@ -298,6 +508,12 @@ Monitoring and portal display are different contracts. Missing/stale/failed read
 are unavailable, not healthy or zero. No traffic is not measured zero latency.
 Sentry's bounded unresolved production issue groups are not per-Doji attribution,
 crash-free sessions or feature success rates.
+
+The optional exact-occurrence readiness probe is read-only and service-only.
+Scheduling-time poll cards are not required: activation creates them atomically.
+Only a live poll requires an available shared card. Option inspection is capped;
+oversized sets stay unqualified. Inspection never restores moderated content,
+activates/closes a Doji or proves alarm delivery. Collector integration remains gated.
 
 Submission diagnostics reuse the existing 24-step, session-scoped mobile timeline.
 An in-memory journey distinguishes upload, command, receipt lookup and feed display;

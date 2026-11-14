@@ -35,7 +35,7 @@ export function usePostRealtimeInvalidation(
             client.invalidateQueries(
               {
                 predicate: (query) =>
-                  query.queryKey[0] === 'comments' && query.queryKey[1] === postId,
+                  ['comments', 'commentWindow'].includes(String(query.queryKey[0])) && query.queryKey[1] === postId,
                 refetchType: 'active',
               },
               { cancelRefetch: false },
@@ -92,7 +92,7 @@ export function usePostRealtimeInvalidation(
           rewind: '10s',
           scope: 'post',
           onAccessUnavailable: () => {
-            scheduleQueryInvalidation(client, ['feed', 'post', 'comments', 'reactions']);
+            scheduleQueryInvalidation(client, ['feed', 'post', 'comments', 'commentWindow', 'reactions']);
           },
         },
       );

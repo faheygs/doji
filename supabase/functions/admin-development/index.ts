@@ -51,6 +51,10 @@ Deno.serve(async (request: Request) => {
             healthEventsEnabled,
             healthSnapshotEnabled:
               Deno.env.get('ADMIN_DEVELOPMENT_HEALTH_SNAPSHOT_ENABLED') === 'true',
+            monitorHistoryEnabled:
+              Deno.env.get('ADMIN_DEVELOPMENT_MONITOR_HISTORY_ENABLED') === 'true',
+            mobileWorkflowReadsEnabled:
+              Deno.env.get('ADMIN_DEVELOPMENT_MOBILE_WORKFLOW_READS_ENABLED') === 'true',
           },
         );
       }

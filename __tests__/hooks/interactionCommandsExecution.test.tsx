@@ -45,6 +45,10 @@ jest.mock('../../lib/supabase', () => ({
   },
 }));
 jest.mock('../../stores/useAuthStore', () => ({
+  captureProfileAccount: () => {
+    const userId = mockUser;
+    return { userId, isCurrent: () => userId === mockUser };
+  },
   useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(mockState()), {
     getState: () => mockState(),
   }),
@@ -102,7 +106,7 @@ afterEach(() => {
 });
 type LikeRow = { id?: string; vote_id?: string; my_like?: boolean; like_count?: number };
 const commentKey = ['comments', 'post', 'member'];
-const voterKey = ['pollVotersDetail', 'poll', 'member'];
+const voterKey = ['pollVotersDetail', 'poll', 'option', 'everyone', 'member'];
 const initial = (vote = false, count: number | undefined = 2) => ({
   pages: [
     [

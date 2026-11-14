@@ -201,6 +201,23 @@ describe.each(['light', 'dark'])('%s profile content', (mode) => {
 });
 
 describe('profile connection menu', () => {
+  it('keeps its trigger mounted, disallows unknown actions and closes on read failure', () => {
+    const action = jest.fn();
+    const content = (ready: boolean) => <ProfileManageMenu isBlocked={false} ready={ready}
+      onBlock={action} onUnblock={action} onReport={action} />;
+    const ui = render(content(false));
+    const trigger = ui.getByLabelText('Manage profile connection');
+    fireEvent.press(trigger);
+    expect(ui.UNSAFE_queryByType(Modal)).toBeNull();
+    ui.rerender(content(true));
+    expect(ui.getByLabelText('Manage profile connection')).toBe(trigger);
+    fireEvent.press(trigger);
+    expect(ui.UNSAFE_getByType(Modal)).toBeTruthy();
+    ui.rerender(content(false));
+    expect(ui.UNSAFE_queryByType(Modal)).toBeNull();
+    expect(ui.getByLabelText('Manage profile connection')).toBe(trigger);
+    expect(action).not.toHaveBeenCalled();
+  });
   it.each(['Block user', 'Report user', 'Unblock user'])(
     'dismisses before invoking %s',
     (label) => {

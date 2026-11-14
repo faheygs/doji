@@ -14,6 +14,35 @@ const PROFILE_RETRY_DELAYS_MS = [250, 750] as const;
 const PROFILE_CACHE_PREFIX = '@doji/profile-cache:';
 
 export const profileCacheKey = (userId: string) => `${PROFILE_CACHE_PREFIX}${userId}`;
+export const PROFILE_CACHE_WAIT_MS = 1_200;
+
+/** Disk presentation is optional; a stalled native read must not block authority. */
+export function createProfileCacheReader(load: (userId: string) => Promise<string | null>) {
+  let busy = false;
+  return (userId: string): Promise<string | null> => {
+    // Do not join an older account lifetime or multiply uncancellable native work.
+    // The owning store request alone may consume its snapshot.
+    if (busy) return Promise.resolve(null);
+    busy = true;
+    const deadline = Date.now() + PROFILE_CACHE_WAIT_MS;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => resolve(null), PROFILE_CACHE_WAIT_MS);
+      const settled = (value: string | null) => {
+        clearTimeout(timer);
+        busy = false;
+        resolve(Date.now() < deadline ? value : null);
+      };
+      try {
+        void load(userId).then(settled, () => settled(null));
+      } catch {
+        settled(null);
+      }
+    });
+  };
+}
+
+export const readCachedProfile = createProfileCacheReader(userId =>
+  AsyncStorage.getItem(profileCacheKey(userId)));
 
 export function persistProfile(profile: Profile): void {
   void AsyncStorage.setItem(profileCacheKey(profile.id), JSON.stringify(profile)).catch(() => {});

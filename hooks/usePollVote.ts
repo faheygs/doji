@@ -45,39 +45,38 @@ export function usePollVote() {
         submissionStep(journey, 'submit', 'confirmed');
       });
     },
-    onMutate: () => {
-      if (!userId) return;
+    onSuccess: (_data, variables) => {
+      if (!userId || useAuthStore.getState().session?.user.id !== userId) return;
       const key = ['userEvent', 'today', userId] as const;
       const prev = qc.getQueryData<UserEvent | null>(key);
+      if (prev && prev.id !== variables.userEventId) return;
+      // Unlock only after commit. A speculative unlock can cache an empty feed
+      // from a read that started before the vote existed on the server.
+      const reads = {
+        predicate: (query: { queryKey: readonly unknown[] }) =>
+          ['feed', 'pollResults', 'pollVotersDetail'].includes(String(query.queryKey[0])) &&
+          query.queryKey.includes(userId) &&
+          !!prev?.daily_event_id && query.queryKey.includes(prev.daily_event_id),
+      };
+      void qc.cancelQueries(reads);
+      void qc.invalidateQueries({ ...reads, refetchType: 'none' });
       void qc.cancelQueries({ queryKey: key }, { revert: false, silent: true });
-      if (prev) {
+      if (prev?.id === variables.userEventId) {
         qc.setQueryData<UserEvent>(key, {
           ...prev,
           status: prev.status === 'buy_in_open' ? 'late' : 'completed',
           completed_at: new Date().toISOString(),
         });
       }
-      return { prev, key };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (!ctx?.prev || !ctx?.key) return;
-      qc.setQueryData(ctx.key, ctx.prev);
-    },
-    onSuccess: () => {
-      if (userId) {
-        void qc.refetchQueries(
-          { queryKey: ['userEvent', 'today', userId] },
-          { cancelRefetch: false },
-        );
-      }
+      // Do not wait for background reads before returning to the feed. Cancel
+      // pre-commit reads rather than joining them through the realtime batcher.
+      void qc.refetchQueries({ ...reads, type: 'active' });
+      void qc.refetchQueries({ queryKey: key });
       scheduleQueryInvalidation(qc, [
-        'pollResults',
-        'pollVotersDetail',
         'profile',
         'leaderboard',
-        'feed',
       ]);
-      if (userId) fetchProfile(userId);
+      void fetchProfile(userId);
     },
   });
 }

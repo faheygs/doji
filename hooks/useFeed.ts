@@ -1,4 +1,9 @@
-import { type InfiniteData, type QueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  type QueryClient,
+  useInfiniteQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { type FeedAudience } from '../lib/feedAudience';
 import { fetchFeedPostsPage, nextFeedPage, type FeedPageParam } from '../lib/feedQueries';
@@ -27,11 +32,26 @@ const feedKey = ({
 }): FeedKey => ['feed', dailyEventId, audience, userId, unlocked ? 'full' : 'locked'];
 
 /** Warms the adjacent audience after the visible feed settles. */
-export function prefetchFeedAudience(client: QueryClient, args: FeedQueryArgs) {
+export async function prefetchFeedAudience(
+  client: QueryClient,
+  args: FeedQueryArgs,
+  ownPostId?: string,
+) {
+  const key = feedKey(args);
+  const cached = client.getQueryData<InfiniteData<Post[]>>(key);
+  // A fresh-but-pre-submission tab must not hide the member's confirmed post.
+  // Fetch its authorized audience instead of copying global social totals.
+  if (
+    ownPostId &&
+    cached &&
+    !cached.pages.some((page) => page.some((post) => post.id === ownPostId))
+  ) {
+    await client.invalidateQueries({ queryKey: key, exact: true, refetchType: 'none' });
+  }
   return client.prefetchInfiniteQuery({
-    queryKey: feedKey(args),
+    queryKey: key,
     queryFn: ({ pageParam, signal }) =>
-      fetchFeedPostsPage(args, pageParam ?? { offset: 0 }, signal),
+      fetchFeedPostsPage({ ...args, client }, pageParam ?? { offset: 0 }, signal),
     getNextPageParam: nextFeedPage,
     initialPageParam: { offset: 0 },
     staleTime: 60_000,
@@ -48,6 +68,7 @@ export function useFeed(
   unlocked: boolean | undefined = undefined,
   dailyEventId: string | undefined = undefined,
 ) {
+  const client = useQueryClient();
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
 
@@ -67,7 +88,7 @@ export function useFeed(
     queryFn: async ({ pageParam, signal }): Promise<Post[]> => {
       if (!userId || !dailyEventId) return [];
       return fetchFeedPostsPage(
-        { userId, dailyEventId, audience, unlocked: unlocked === true },
+        { userId, dailyEventId, audience, unlocked: unlocked === true, client },
         pageParam ?? { offset: 0 },
         signal,
       );

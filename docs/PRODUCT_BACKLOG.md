@@ -129,6 +129,10 @@ succeeds.
 Priority: Product exploration — back burner until the economy and progression design
 is approved
 
+The owner-approved reward-weighting subset now has a default-off
+[economy v2 candidate](SPARKS_ECONOMY.md). Broader shop, avatar, streak and ranking
+ideas below remain exploration, not part of that implementation or release scope.
+
 Explore a cohesive participation economy that makes completing Dojis, maintaining a
 streak, leveling up, and spending Sparks feel rewarding over time. Cosmetics are useful
 one-time sinks, but the shop also needs ethical repeatable value that does not become

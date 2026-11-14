@@ -44,7 +44,7 @@ jest.mock('../../stores/useAuthStore', () => ({
 jest.mock('expo-constants', () => ({
   expoConfig: { extra: { eas: { projectId: 'project-1' } } },
 }));
-import { syncPushRegistration } from '../../lib/pushNotifications';
+import { syncPushRegistration, requestPushPermissionAndRegisterToken } from '../../lib/pushNotifications';
 import { retryPushRegistration } from '../../lib/retryPushRegistration';
 
 describe('native push registration', () => {
@@ -69,6 +69,16 @@ describe('native push registration', () => {
 
     await expect(syncPushRegistration('user-1')).resolves.toBe(true);
     expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not acquire provider tokens or register endpoints while staging push is gated', async () => {
+    process.env.EXPO_PUBLIC_APP_ENV = 'staging';
+    delete process.env.EXPO_PUBLIC_STAGING_PUSH_ENABLED;
+    await expect(syncPushRegistration('user-1')).resolves.toBe(false);
+    await expect(requestPushPermissionAndRegisterToken('user-1')).resolves.toBe('unsupported');
+    expect(mockGetDevicePushTokenAsync).not.toHaveBeenCalled();
+    expect(mockGetExpoPushTokenAsync).not.toHaveBeenCalled();
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
   it('registers again when the native provider rotates its token', async () => {

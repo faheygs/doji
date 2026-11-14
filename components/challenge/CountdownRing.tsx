@@ -30,7 +30,9 @@ export function CountdownRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const safeTotal = Math.max(1, totalSeconds);
-  const clampedRemaining = Math.max(0, Math.min(remainingSeconds, safeTotal));
+  const displayRemaining = Math.max(0, remainingSeconds);
+  // Bound the graphic, not a server-authorized signup-day deadline's clock text.
+  const clampedRemaining = Math.min(displayRemaining, safeTotal);
   const progress = useSharedValue(clampedRemaining / safeTotal);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function CountdownRing({
     strokeDashoffset: circumference * (1 - progress.value),
   }));
 
-  const isUrgent = clampedRemaining <= 60;
+  const isUrgent = displayRemaining <= 60;
   const strokeColor = isUrgent ? colors.error : colors.text;
 
   return (
@@ -53,7 +55,7 @@ export function CountdownRing({
       style={[styles.container, { width: size, height: size }]}
       accessible
       accessibilityRole="timer"
-      accessibilityLabel={`${formatCountdown(clampedRemaining)} remaining`}
+      accessibilityLabel={`${formatCountdown(displayRemaining)} remaining`}
       accessibilityLiveRegion={isUrgent ? 'polite' : 'none'}
     >
       <Svg width={size} height={size}>
@@ -79,8 +81,11 @@ export function CountdownRing({
         />
       </Svg>
       <View style={styles.labelContainer}>
-        <Text variant="displayMedium" color={isUrgent ? colors.error : colors.text}>
-          {formatCountdown(clampedRemaining)}
+        <Text
+          variant={displayRemaining >= 3600 ? 'headingLarge' : 'displayMedium'}
+          color={isUrgent ? colors.error : colors.text}
+        >
+          {formatCountdown(displayRemaining)}
         </Text>
         <Text variant="label" color={colors.textSecondary}>
           remaining

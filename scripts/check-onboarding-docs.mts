@@ -20,6 +20,7 @@ const handbook = [
   'docs/SYSTEM_MAP.md',
   'docs/SERVICE_CATALOG.md',
   'docs/LOCAL_DEVELOPMENT.md',
+  'docs/MOBILE_STAGING.md',
   'docs/TESTING_AND_RELEASES.md',
   'docs/SECURITY_AND_ACCESS.md',
   'docs/CURRENT_STATE_AND_GAPS.md',
@@ -122,14 +123,17 @@ for (const path of documents) {
 }
 
 const expected = new Map([
-  ['EXPO_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321'],
-  ['EXPO_PUBLIC_SUPABASE_ANON_KEY', 'REPLACE_WITH_LOCAL_PUBLIC_ANON_KEY'],
-  ['EXPO_PUBLIC_APP_ENV', 'development'],
-  ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', ''],
-  ['EXPO_PUBLIC_SCALE_READ_URL', ''],
+  ['DOJI_APP_VARIANT', 'development'],
+  ['EXPO_PUBLIC_SUPABASE_URL', 'https://ohrcupagdoilkwhecict.supabase.co'],
+  ['EXPO_PUBLIC_SUPABASE_ANON_KEY', 'REPLACE_WITH_STAGING_PUBLIC_ANON_KEY'],
+  ['EXPO_PUBLIC_APP_ENV', 'staging'],
+  ['EXPO_PUBLIC_COMMAND_GATEWAY_URL', 'https://doji-orchestrator-staging.faheygs.workers.dev'],
+  ['EXPO_PUBLIC_SCALE_READ_URL', 'https://doji-orchestrator-staging.faheygs.workers.dev'],
   ['EXPO_PUBLIC_MEDIA_TRANSFORMS_ENABLED', 'false'],
   ['EXPO_PUBLIC_SENTRY_DSN', ''],
   ['EXPO_PUBLIC_RELEASE_CHANNEL', 'development'],
+  ['EXPO_PUBLIC_STAGING_PUSH_ENABLED', 'false'],
+  ['EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED', 'false'],
 ]);
 const seen = new Set();
 for (const line of (await read(resolve(root, '.env.example'))).split(/\r?\n/)) {

@@ -5,6 +5,710 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 14 production distribution and repository closeout
+
+Runtime source is reviewed main `b2c57a46b590aebe9ea7474608fa2aff1a22ef30`;
+quality run `43158852439` passed and admin-staging `43160984674` skipped packaging
+and deployment. The backend qualification below is complete and must not be replayed.
+The original production artifacts remain iOS `2827c7d9-8e0f-489d-8ee9-3821ab71de67`
+and Android `4d3b570e-3ae9-4f76-8b9f-5b4e3d70484a`, version 1.0.14 / builds 108 and 34.
+
+After the owner uploaded the verified Android bundle, closed Alpha release 24
+was submitted and subsequently verified available to selected testers on Google Play,
+at 100% rollout, one country/region, with the unchanged six-person closed-test list.
+Device requirements matched build 33. This is not a public production-track launch.
+The owner separately authorized public Apple review, accepted the required agreement,
+and submitted version 1.0.14 with build 108. Review submission
+`64d41382-cbfa-4ec2-afab-d2a825d7ddd9` initially showed Waiting for Review;
+the public US App Store listing subsequently showed version 1.0.14 on November 13
+Mountain time. No new binary, extra tester audience or paid resource was created.
+
+The owner authorized mandatory updates only after store availability was verified:
+
+| Platform | Prior minimum/latest | New minimum/latest | Applied UTC |
+| --- | --- | --- | --- |
+| Android | 1.0.13 / 33 | 1.0.14 / 34 | November 13, 03:09:40 |
+| iOS | 1.0.10 / 105 | 1.0.14 / 108 | November 14, 00:10:03 |
+
+Each bounded transaction required an exact prior-policy snapshot, changed only
+its platform, preserved the other row and store URL/message, and retained a guarded
+rollback. Anonymous and authenticated `get_mobile_release_policy` reads returned
+the intended values. Local version/build decisions passed. The installed prompt
+was not exercised on an old physical device during these configuration changes.
+Policy fetching is cached and refetches on mount; this is an update requirement on
+the next successful fetch, not silent installation or universal immediate enforcement.
+Private baseline, rollback, verification and screenshots are retained outside Git in
+the owner's temporary evidence directories `doji-android34-required-update-20261112`
+and `doji-ios108-required-update-20261113`. Their rollback SQL has not been executed.
+
+Four earlier documentation PRs are consolidated here instead of merging stale
+current-state paragraphs over the released source. Their original diffs retain the
+full artifact/signing/acceptance records and dated limitations:
+
+| Receipt | Source / build | Recorded qualification |
+| --- | --- | --- |
+| [PR #76](https://github.com/faheygs/doji/pull/76) | `c45e27c`, Staging 4 | iPhone owner navigation/theme acceptance; emulator restart restored 499–681 ms activity launches, not feed-ready or physical-device latency |
+| [PR #78](https://github.com/faheygs/doji/pull/78) | `d0f36be`, Staging 5 | Feed/reaction improvements reported by owner; exact staged artifacts and included-credit checks |
+| [PR #80](https://github.com/faheygs/doji/pull/80) | `3c35e56`, Staging 6 | Hosted search SQL qualification, artifact/source-map checks and retained account on Android update |
+| [PR #86](https://github.com/faheygs/doji/pull/86) | `62cc442`, Staging 8 | Prospective Staging Sparks activation November 11, 19:21 UTC, retaining rollback and both native artifacts; owner subsequently confirmed installation and targeted checks |
+
+Staging 9 submission acceptance and the later production qualification supersede
+those release holds, not their performance limitations. Physical Android speed,
+native large-thread memory and complete health coverage are not certified.
+Private paths in older receipts describe their recorded retention locations, not
+a fresh filesystem inventory; locate and verify exact rollback evidence before reuse.
+
+The owner folder moved from `a5be328` to reviewed main without overwriting newer
+source. All 39 modified and nine untracked files were preserved by
+`owner-preservation-before-release-closeout-20261114`, stash object
+`4d14340fdd8c8a25a8228dfcf61e5a8c20a65a77`. Older stashes, worktrees and rollback
+evidence remain intact. Recovery should use a separate branch based on the stash's
+original parent; do not blindly apply it over current main. Some mobile files already
+match released main; unique Worker/email notification changes remain unreleased.
+[PR #45](https://github.com/faheygs/doji/pull/45) remains separate admin presentation
+work and is not superseded by this mobile release. This closeout changes documentation
+only; it authorizes no deployment, build, message or operational replay.
+
+### November 14 Expo compatibility qualification
+
+PR #93 merged as `af6646a` after exact-head `2041b51` passed all four quality jobs
+and security in run `43626393842`. It updates Expo/Constants/Linking/Router to
+57.0.33/57.0.24/57.0.14/57.0.31 and only their required locked dependencies.
+Expo Doctor passed 21/21; all 313 Jest suites / 5,523 tests and root static gates
+passed locally. The diagnostics pin was separately reviewed: ExpoFetchModule.kt
+is byte-identical across 57.0.32 and 57.0.33, retaining SHA-256
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`.
+Unknown versions, source edits and duplicate observers still fail closed.
+The scoped audit found no high/critical advisories; eight low and three moderate
+findings remain. Native/device qualification is not established by these checks.
+The owner approved the normal automatic admin-staging Pages pipeline because root
+lockfiles are existing packaging inputs. No production deployment, native build,
+backend change or extra spending accompanies this source patch. Reversion requires
+a normal reviewed source revert; retained production binaries remain unchanged.
+
+Main quality run `43627952981` passed all four jobs. Automatic admin-staging run
+`43629652640` passed plan, packaging and deployment for exact source `af6646a`.
+Its verified receipt records Pages `8ed172c2-4a78-40d8-a317-62e6c3af4776` and
+rollback `96e107ab-c5e2-4441-bb1f-711157b10751`; configuration remained unchanged.
+Public staging release identity matched after deployment. Production admin remained
+at `9bf78fe`, with no production promotion. The private receipt is retained outside
+Git in `doji-expo57-staging-receipt-20261114`. Pipeline verification covers exact
+source/configuration, security headers and session-origin denial; it is not new
+signed-in workflow or mobile-device acceptance.
+
+## November 11 mobile Staging build 9 and production gates
+
+### November 12 production backend qualification
+
+The following records the original qualification and intermediate distribution
+state. The November 14 closeout above supersedes its pending upload/review labels.
+
+PR #91 passed all four jobs and security at `550d59f735f94b6d7fffc7b41873f6a938febeaa`
+and merged as `b2c57a46b590aebe9ea7474608fa2aff1a22ef30`. Main quality run
+`43158852439` passed all four jobs. Admin-staging run `43160984674` passed its plan
+and skipped packaging/deployment. Its browser-fixture correction waits for the
+mock hosted-auth navigation to abort before asserting storage; no production auth,
+test retries, timeouts or coverage budgets changed. Local full qualification passed
+5,523 app tests and 845 browser tests (one pre-existing skip), with all 17 coverage
+budgets passing.
+
+The narrow three-function REVOKE corrected the inherited grants without rewriting
+their bodies or changing global defaults. Production read qualification passed at
+05:04 UTC: exact Staging functions/permissions/indexes, denied unauthenticated reads,
+unchanged existing contracts, balances and ledger, with zero lock waits.
+Badge preparation installed disabled. The release helper then collapsed PostgreSQL
+dollar quoting in a replacement string; the economy query failed SQL parsing before
+creating its schema. Readback proved no economy installation, no awards and unchanged
+balances. Callback-based literal insertion was qualified against 291 isolated
+migrations, predecessor rejection, all-kind reward/replay tests and exact rollback
+of all eight original functions. The explicitly resumed economy-only phase did not
+replay badge or read installation.
+
+Disabled economy qualification passed at 05:18:50 UTC. First-Doji and Sparks v2
+were enabled together prospectively at 05:19 UTC, with no backfill, balance rewrite
+or historical receipts. All 489 inspected functions remained within the approved
+contract set; unrelated policies/triggers/indexes and existing function permissions
+were unchanged. Auth, timing, push, Worker and monitoring were excluded. Private
+evidence under `Doji/production-backend/2026-11-12-mobile-social` retains originals,
+overlay hashes, attempts, readbacks, failed-attempt evidence and qualified receipts.
+Rollback disables the gates and restores the captured reward functions while retaining
+earned balances, ledger, winners and duplicate fences. Do not replay phase attempts.
+
+Native source is 1.0.14 / iOS 108 / Android 34. The first launch stopped locally:
+EAS evaluated production URLs before supplying its cloud profile, and the app's
+default Dev selector rejected the mixture. Expo readback confirmed no cloud job or
+credit use. Explicit local production selection passed read-only configuration
+checks for both platforms. After explicit owner approval, one corrected launch
+queued Android `4d3b570e-3ae9-4f76-8b9f-5b4e3d70484a` and iOS
+`2827c7d9-8e0f-489d-8ee9-3821ab71de67` from exact main `b2c57a4`. Existing store
+versions remain 1.0.13 / 107 / 33. iOS 108 finished and its identity, store provisioning,
+production environment guard and source-map upload passed at 05:39 UTC; full macOS
+code-signature verification was not available on Windows. Android 34 finished and
+passed bundletool validation, existing upload-certificate/signature matching,
+production environment guard and source-map upload at 05:56 UTC. Its artifact SHA256
+is `0d141bb456b1140c0508318bf0452e71858782d6e43bd1e0a8c08e6840fb3790`.
+Android EAS submission failed locally because no Google Play submission credential
+is configured; readback confirmed zero submission jobs. No key was created.
+The signed-in Console created closed Alpha draft release 24. The browser upload was
+rejected as not a well-formed ZIP, although the unchanged local bundle again passed
+bundletool validation and signature checks. The rejected entry was removed; the
+original artifact is retained. Native-picker fallback exposed no dialog, so the
+draft is awaiting owner upload of that same file. Do not rebuild or submit a duplicate;
+Android 33 remains the available closed-track version until further verification.
+Expo rejected the iOS submission's optional What to Test upload as Enterprise-only.
+Readback matched all 20 pre-attempt submission IDs: no submission job was created.
+The owner approved one corrected submission without that optional field. Submission
+`435836e6-4616-4738-a46b-08b38fe3fa60` finished using the same iOS artifact, with
+no plan upgrade or rebuild. Signed-in App Store Connect verified 1.0.14 (108) as
+Testing in the existing six-person internal Doji Testers group at 05:53 UTC.
+No external group or public App Store release was created. Installed production
+binary acceptance remains pending; Staging acceptance is not a production-device test.
+The approved pair remains limited to included credits and existing TestFlight/Play
+closed Alpha audiences, not public distribution. The earlier preparation labels
+below are superseded only for the qualified backend; physical Android performance
+and native large-thread memory remain unqualified.
+
+### November 12 production read-phase hold
+
+The owner approved the narrow production SQL rollout and one included-credit
+production build per platform, for existing beta audiences only. PR #90 passed all
+four quality jobs and security at `3db2e267dd30316aa0ac3a2096bc0a8a06cdfbc5`, then
+merged as `b8783f9e6a81d504c1e066e8432e9d7f9f9d7e3f`. The prepared version is
+1.0.14 / iOS 108 / Android 34, above verified store counters 1.0.13 / 107 / 33.
+
+At 04:17 UTC the approved feed/search/comment/reply-count/first-responder SQL and
+three indexes had installed. Verification stopped because production's public-schema
+defaults also granted `service_role` EXECUTE to the three new public reads; Staging
+does not have that grant. Existing function/permission contracts outside the approved
+changes, balances, ledger and profiles were unchanged; all three indexes were valid,
+anonymous execution was denied and lock waits were zero. No badge/economy installation,
+activation, mobile build or store submission occurred. Exact originals, phase receipts
+and rollback remain privately under `Doji/production-backend/2026-11-12-mobile-social`.
+
+The correction makes the member-only grants explicit, including the future win-count
+read. Its synthetic regression first reproduced the inherited-grant failure. Passing
+exact-head checks and Staging permission/body readback are required before a narrow
+production REVOKE and complete read qualification. Do not rerun installed overlays or
+change database-wide default privileges. Reward and native release gates remain held.
+
+### Staging candidate and acceptance
+
+PR #87 exact head `e12ebbdec1971247e086a86b1584fbefa2bb157a` passed required
+quality/security checks and merged as `a95ca7b82062c910ead70af75074dc2ec4832b29`.
+Main quality run `43132684982` passed all four jobs. Local qualification passed
+313 suites / 5,521 tests, full typecheck, lint, size and hygiene checks.
+
+| Internal Staging artifact | EAS build | Acceptance |
+| --- | --- | --- |
+| iPhone 1.0.8 / 9 | `f4ed1b15-d9eb-4c7a-a057-e13d3cf6c9d2` | Owner confirmed retained account/feed and submission without the false empty message |
+| Android 1.0.8 / 9 | `1c118ed8-d2c7-44e7-80ac-2aec99281e81` | Retained account; approved text submission returned to visible own post and unlocked feed |
+
+Both use exact source above, isolated Staging bindings and unchanged signing;
+OTA, push and reporting remain off. Archive, artifact, configuration and completed
+Sentry source-map upload checks passed. Source-map upload is not captured-device
+symbolication. The iPhone profile permits only the owner's confirmed device.
+The pair used $3 of included credit ($12 remained at readback), with no added
+spending, production build, store submission or backend deployment.
+Private artifacts and receipts remain under
+`%LOCALAPPDATA%/Doji/mobile-staging/2026-11-11-confirmed-feed`; disposable archive
+copies/helpers were removed. The owner confirmed the no-false-empty regression
+in iPhone Dev on the same source. The installed Android build subsequently submitted
+the approved synthetic answer once at November 12, 02:41:47 UTC. Its post/completion
+were confirmed server-side; the observed return showed the post and unlocked feed,
+not a false empty screen. This was snapshot-based functional verification, not
+continuous frame/latency measurement. The owner subsequently confirmed that a
+submission in installed iPhone Staging build 9 showed the post without the false
+empty message, closing that functional acceptance; this is an owner report, not
+instrumented timing.
+
+Production release still requires these separately qualified boundaries:
+
+Bounded read-only catalog checks on November 12, 02:33 UTC (November 11 Mountain)
+confirmed the comment-page/reply-count and first-responder reads, first-badge/economy
+settings tables and valid search/comment indexes in Staging. Production lacked those
+new dependencies and retained the prior search body. Both environments retained feed
+body fingerprint `d0194984794dd930ee2bf54bd40738f2`, matching the cursor fix's reviewed
+predecessor, and reported zero lock waits. This was compatibility inspection, not
+installation, gate activation, a load test or a reserved future release window.
+
+| Boundary | Remaining release condition |
+| --- | --- |
+| Feed ordering | PR #88/main and hosted Staging passed; separately approved production installation and fresh compatibility/rollback checks remain |
+| Public-name search | Fresh production compatibility/index-capacity/rollback checks for the previously approved narrow search update |
+| Comments | Qualify/install v2 page index/read and reply-count projection; then enable the production native reader through reviewed source |
+| First-to-Doji | Qualify/install first-responder index/read, canonical ledger and prospective badge gate; then enable production card |
+| Sparks v2 | First-Doji dependency, aggregate balance/capacity review and separately approved prospective activation; no backfill or balance rewrite |
+| Native release | Installed Staging submission acceptance passed; exact production bindings/store versions/credit checks and renewed build/distribution approval remain |
+
+The first-Doji and comment client gates still explicitly allow Staging only; a
+production build of this source cannot silently enable those features. Staging
+Sparks activation is recorded from November 11 at 19:21:01 UTC, first-Doji from
+05:41:42 UTC; those receipts are not production activation. Do not roll unrelated
+deadline, Worker, monitoring, telemetry or push changes into this release. Physical
+Android speed and native large-thread memory remain unqualified; emulator checks
+and synthetic SQL fixtures establish neither. No production readiness claim is made.
+
+### Staging feed cursor qualification
+
+PR #88 exact head `07f53b67a32c18e119120b244a04242bdb16a8fd` passed all required
+quality/security checks and merged as `f8694ef2ce7e7217e0b8b3f1f58db98bd0c5950b`.
+Main quality run `43145547152` passed all four jobs. The local full database run
+passed 291 migrations, 43 checks and five concurrency checks; focused regression
+and full typecheck/lint/size/hygiene also passed. Automatic admin-staging plan
+`43147684981` skipped packaging and deployment; no portal release was needed.
+
+After owner approval, only `member_feed_cursor_order_v1.sql` was installed in
+Staging on November 12 at 03:23 UTC (November 11 Mountain). The CLI first rejected
+a leading SQL comment as an argument flag before execution; readback confirmed
+the unchanged predecessor before the explicit file invocation. Installed body MD5
+is `878b16d7842424bcc421b63673286a0a`, from reviewed predecessor
+`d0194984794dd930ee2bf54bd40738f2`. Exact prior definition, retaining inverse,
+attempt/readback records and qualification remain privately retained under
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-11-feed-order`.
+
+Twelve authenticated traversals passed: Everyone/Friends, page sizes 1/2/3, default
+and merge-join plans. The fixture temporarily tied three existing synthetic post
+timestamps, then rolled back. Full original post-row hashes, target permissions,
+and unrelated function/grant, policy, trigger and index fingerprints matched;
+zero lock waits remained. No accounts, events, permanent fixture data, messages,
+builds, resources or production changes were introduced. This is bounded hosted
+correctness evidence, not a large-feed performance benchmark.
+
+## November 6 mobile development and staging builds
+
+PR #56 merged as `7513c6d3914cad4c8a2c84a1810330bd7ee8c02c`; main quality
+`42169655623` passed application, coverage, database and web-migration after
+exact-head PR/security checks. The clean-source candidate preflight passed.
+The owner separately approved three internal builds using existing credits only:
+
+| Artifact | EAS build | Version/build | Status |
+| --- | --- | --- | --- |
+| iPhone Dev | `278d19fa-e723-45b5-8baa-b32a49a7effd` | 1.0.8 / 1 | Complete; owner-installed, Fast Refresh verified |
+| iPhone Staging | `2f78a1f2-8baa-48f9-b89c-e3890fb9a9ac` | 1.0.8 / 2 | Complete; owner-installed, startup verified with Metro stopped |
+| Android Staging | `331b969b-430d-406e-85ea-81216ef28980` | 1.0.8 / 2 | Complete; emulator-installed, cold startup verified with Metro stopped |
+
+All use exact source `7513c6d`, staging service bindings and disabled push/reporting.
+The separate clean build checkout excludes unrelated owner Worker/email changes.
+Fresh EAS usage before launch was $7 of $45 included credits; a conservative $10
+batch reserve covered the approved builds and delayed prior usage. Final usage
+was $12 of $45 ($5 for this batch, $33 remaining at that read). No store
+submission, production release, plan change or added spending was authorized.
+
+The iPhone IPA identities are `com.doit.challengeapp.development` and `.staging`.
+Both embedded profiles contain exactly the confirmed owner's device (suffix 801C)
+under team `HUG35JPQGG`, expiring May 12, 2027. They reuse the existing distribution
+certificate; no production certificate was replaced or revoked and no TestFlight
+tester group was used. Dev IPA SHA-256 is
+`13cd054e5d28aadd6b5eb71a1bfb44a318589e630519afb58940abf03b69de48`;
+Staging IPA SHA-256 is
+`d6724e5fcd76e7c11b27f5fa31d90b98301f8381acbe0f9d82fffcde2a2a950e`.
+The Staging IPA contains its own JavaScript bundle. Its Sentry upload report
+matches `doji-staging`, release `com.doit.challengeapp.staging@1.0.8+2`, and Debug ID
+`3cb3f734-4a3c-426a-bbde-973a39edb45d`; this is upload evidence, not device-error
+symbolication. Dev JavaScript comes from Metro, not that standalone source map.
+Android APK SHA-256 is
+`4f372121eb5d0162956f7bd2e6c091951e5cb2e4c29e23dec2d601988262c0b3`;
+its staging identity/build 2 and valid signature matched the prior staging
+certificate `37f7fb05679c6ab870c5e05b9f6c8d005eb9afde18bc74eb6a9bf381fdc85d56`.
+Its completed Sentry upload matches the same staging project/release and Debug ID
+`2a5b65c8-7eb8-4076-a769-d171f7aa5fdd`. APK update installation preserved app data.
+
+Metro serves the owner's editing checkout with external staging-only client
+configuration. Android Fast Refresh/change restoration was visually verified;
+the owner confirmed the same on the iPhone without reload. The temporary headline
+edit was restored with no file diff. With Metro stopped and its HTTP endpoint
+unavailable, the owner repeatedly closed/reopened iPhone Staging successfully.
+Android build 2 also cold-started to the welcome screen with Metro unavailable.
+A stalled local ADB server was restarted once; no emulator reset or app-data clear
+was used. The staging activity and installed build were verified afterward.
+Metro and Android port forwarding were then restored in trusted-LAN mode. This does not qualify signup,
+confirmation/profile creation, authenticated workflows, push, telemetry or physical
+Android behavior; the protected GitHub build runner also remains unfinished.
+
+Exact artifacts, hashes, launch/signing/configuration receipts are retained outside
+Git in `%LOCALAPPDATA%/Doji/mobile-staging/2026-11-06`. Older Android build 1 is retained
+for comparison/recovery. There is no instant native rollback: stop distribution
+and qualify a corrective build rather than replace signing or enable OTA. Production
+data/settings, backend runtimes and delivery gates were unchanged by this batch.
+
+## November 6 staging signup parity correction
+
+The owner rejected the staging-only alias and email-verification requirements.
+Readback confirmed production auto-confirmed email while staging did not. With
+explicit approval, only staging `ohrcupagdoilkwhecict` Auth configuration changed:
+`mailer_autoconfirm=true` and Before User Created's URI restored to
+`pg-functions://postgres/public/hook_enforce_minimum_signup_age`.
+The hook stayed enabled. All other Auth settings and the age/legal
+function/grant fingerprint were unchanged; no SQL, runtime or app build changed.
+The public Auth endpoint independently confirmed enabled email signup with
+auto-confirmation. The owner then confirmed successful normal signup in the
+installed iPhone Staging app, without the special address format or verification.
+Full profile/workflow acceptance and Android signup remain separate checks.
+
+The original age hook's definition hash remained
+`98ae11ef08c78fd4a1fc1f37ac30e3df`, with Auth execute permission retained.
+Direct hook invocation was correctly denied to the Management API read-only role;
+no permission was widened to run that diagnostic. The historical alias wrapper
+remains installed but unbound. No account was created by the configuration tool,
+no email was sent, and production was not changed. Recovery/email-change routing
+remains unqualified and must not be tested against arbitrary destinations.
+Owner/SYSTEM-restricted before/after receipts and the exact two-field rollback
+are retained at `%LOCALAPPDATA%/Doji/staging-backend/2026-11-06-signup-parity`.
+Rollback changes only those settings; it does not delete accounts or reset data.
+
+## November 6 mobile Doji acceptance and deadline preparation
+
+On the existing `7513c6d` Staging build 2 artifacts, the owner confirmed normal
+signup/profile, restored sessions and sign-out/sign-in on iPhone and Android
+emulator. The staging-wide photo occurrence `8d815b61-ae62-4e81-a89a-5ac649256ae8`
+used the existing prepare RPC and durable pre-live/activate/close implementation,
+with a manually chosen test time and next-day chaining disabled for this single
+test. The active dummy template is retained; no new daily schedule was enabled.
+Server activation was November 6 at 09:51:02.580 Mountain, deadline 10:01:02.580,
+and natural close 10:01:03.329. Both accounts submitted once before the deadline;
+each has one photo, one completion, 50 XP and streak 1. The owner confirmed the feed
+on both devices. Phase hints published on first attempt. Push/reporting stayed off;
+production was untouched. This does not qualify notification delivery or all Doji types.
+
+The iPhone owner reported 10:00 stuck before and during the challenge. The live
+ring capped its displayed text at 600 seconds despite that occurrence's signup-day
+deadline being midnight. Android's pre-live occurrence had its grace deadline
+overwritten at activation; both flags remained true. The existing expiry trigger
+reproduces that join-order difference in a fresh offline database.
+
+PR #58 merged full deadline text in compact/ring timers (ring progress stays
+bounded) and `participation_deadline_v1.sql` as `906006d76b3e9517a381fecfd0645333826904a4`.
+Exact-head application/coverage/database/web-migration/security passed; main quality
+`42284145134` passed all four jobs. Admin staging `42286014580` skipped package/deploy.
+The owner separately approved staging SQL and one internal build per platform,
+using included credits only. The trigger-only staging deployment preserved owner,
+grants, security-definer/search-path, trigger binding and unrelated contracts;
+13 hosted assertions passed in a rolled-back transaction with no users/events left.
+Staging's default function ACL required an explicit grant on the temporary invoker
+assertion helper only; no application permission changed. The first fixture attempt
+rolled back, and a subsequent harness quoting error executed no fixture changes.
+Exact baseline/function/inverse and hosted evidence are retained under
+`C:/Users/gfahe/AppData/Local/Doji/staging-backend/2026-11-06-deadline`.
+
+Staging build 3 jobs: Android `0739172e-705c-4008-8788-ee56650d4b7e`,
+iPhone `112407f2-a650-4607-a2fb-bbfc20975c3e`, both from `906006d`.
+Both completed with verified staging identities/signatures and Sentry source-map
+uploads. iPhone provisioning remains limited to the owner's device ending 801C.
+The owner confirmed its update retained the session and opened normally; Android
+build 3 was installed over build 2 without clearing data, and its signed-in account
+and feed were visually verified. The pair consumed $3 of included credits; readback
+was $15 of $45, with $30 remaining and no additional spending. Device acceptance
+is bounded by the results below. Receipts are retained under
+`C:/Users/gfahe/AppData/Local/Doji/mobile-staging/2026-11-06-countdown`.
+The retained inverse restores the original trigger without deletion or backfill.
+No production, Edge/Worker, Auth, reward, scheduler, push or reporting change occurred.
+The pre-live banner uses a separate uncapped clock: real-hook tests cover skew,
+missed ticks and expiry reconciliation but did not reproduce the earlier freeze.
+For the approved build 3 regression, existing staging occurrence
+`67918478-67a6-4e1e-be65-6554d8364236` was moved from November 7 at 17:27 Mountain
+to November 6 at 15:11, preserving its ten-minute window and existing alarm chain.
+No new event, scheduler or provider gate was created. The owner confirmed iPhone
+pre-live countdown progression and background-return catch-up without reload.
+Android pre-live progressed from 4:53 to 4:43; the owner subsequently tested it
+and reported normal behavior. Natural activation at 15:11:00.562 Mountain set close
+to 15:21:00.562, with actual close at 15:21:01.072. Both accounts retained their
+midnight signup-day deadline before activation, after activation and after close.
+The first-day banner correctly has no timer. In response to the remaining
+in-challenge countdown/background-return check, the owner confirmed everything
+looked good; this is owner-reported device acceptance, not a captured timer trace.
+Both participation rows were pending at the server close read; this run does
+not add completion/reward evidence to the earlier successful photo test.
+
+Local validation passed: 72 focused mobile tests, full typecheck/lint/size/hygiene
+gates, and the complete isolated database suite after replaying 291 migrations.
+The new database regression reproduces the old defect, verifies exception and
+ordinary-window behavior, and proves exact function/grant restoration on rollback.
+The temporary assertion grant also passed the isolated regression after hosted
+qualification. None of these checks substitutes for physical-device acceptance.
+
+## November 5 Expo compatibility alignment
+
+PR #52's application job stopped at Expo Doctor: nine direct packages were one
+patch behind the SDK's expected versions. The source update aligns Expo 57.0.32,
+Metro runtime 57.0.18, Constants 57.0.23, Dev Client 57.0.21, Image Manipulator
+57.0.22, Image Picker 57.0.21, Notifications 57.0.25, Router 57.0.30 and Splash
+Screen 57.0.11, with their npm-resolved supporting dependencies. React/React Native,
+web and infrastructure manifests/lockfiles are unchanged; no doctor exclusion,
+coverage reduction, forced override or blanket audit fix was added.
+
+The Android passive diagnostics guard now pins 57.0.32 after reviewing its fetch
+module: normalized SHA-256 remains
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`, identical
+to 57.0.31. The exact hash, single-observer and unknown-version rejection remain.
+The owner-approved existing calendar-test correction checks local midnight/civil
+days plus timezone-offset elapsed time, with spring/fall DST fixtures. It changes
+no application timing code; a local day need not be exactly 24 elapsed hours.
+
+Reviewed upstream notes include [Expo](https://github.com/expo/expo/blob/sdk-57/packages/expo/CHANGELOG.md),
+[Router](https://github.com/expo/expo/blob/sdk-57/packages/expo-router/CHANGELOG.md),
+[Notifications](https://github.com/expo/expo/blob/sdk-57/packages/expo-notifications/CHANGELOG.md)
+and [CLI](https://github.com/expo/expo/blob/sdk-57/packages/%40expo/cli/CHANGELOG.md).
+CLI 57.0.33 removes its Zod production dependency. Fresh root audit: zero high or
+critical findings; nine moderate and ten low findings remain. Expo Doctor passes
+21/21 checks and `expo install --check` reports aligned dependencies.
+Isolated local validation passed full root typechecking/lint/size/hygiene, 268 Jest
+suites / 5,023 tests, 335 web tests, web builds/artifact budgets and ten release
+policy tests. Calendar fixtures passed in Denver and UTC. Windows initially denied
+a generated Next.js directory; the unchanged build passed with filesystem permission.
+Reverting the paired manifest/lockfile and diagnostics version pin restores the
+previous source dependency graph. There is no native artifact to roll back: no
+mobile build, OTA update, store submission or production promotion accompanies this change.
+Root dependency changes qualify for the existing automatic admin-staging workflow;
+exact-head CI and release receipts remain separate from local checks.
+
+## November 5 Sentry notification closeout
+
+Sentry support (Igor) confirmed both November 4 failure notifications entered its
+queue, then were intentionally filtered because the issue had resolved before
+queue processing. Neither reached the mail provider; this was not recipient-side
+suppression. Recovery emails use a separate path and both arrived.
+
+Support timestamps below are November 4 PST (Mountain is one hour later):
+
+| Drill | Issue created/regressed | Failure queued | Resolved | Delivery skipped |
+| --- | --- | --- | --- | --- |
+| First | 17:50:48 | 17:51:40 | 17:51:48 | 17:55:07 |
+| Second | 20:09:49 | 20:10:17 | 20:11:49 | 20:15:22 |
+
+The owner accepted detection/recovery as working as designed and closed the
+investigation. No recovery-tolerance change or additional drill is required.
+This closes the previously unexplained missing-email result, not a claim that
+failure emails arrived or that every short incident generates one. Retained
+incident history remains evidence. No production rollout, mobile enablement,
+paid capacity or further sends are authorized by this closeout.
+
+## November 5 staging mobile ingestion qualification
+
+PR #50 merged as `2872e185c2a3ddb2431d8f42c67f88c0843c69f9`; main quality
+`41978375875` passed all four jobs. Staging workflow `41980395506` correctly skipped
+Pages packaging/deployment. The separately approved single-function upload installed
+`mobile-workflow-report` disabled at 06:32 UTC November 5 (November 4 Mountain).
+Both downloaded files matched the isolated package byte-for-byte; handler SHA-256
+is `3e7e16e8f9f440f5bd0beb25b94393e9b71b3ae7a7b05ef0aa960c2bbac480c9`.
+The existing ingestion SQL function bodies/grants matched reviewed source.
+The endpoint rejects disabled requests with HTTP 404. No SQL definitions, Worker,
+Pages, production or mobile artifact were deployed.
+
+Hosted qualification stopped at password sign-in for its first temporary synthetic
+Auth account, before any report submission. The Supabase UI confirmed Email sign-in
+disabled, public signup disabled and anonymous sign-in disabled. No auth setting was
+changed or bypassed. The temporary account was removed; baseline identity/profile,
+function/grant/policy fingerprints and empty counters were restored and verified.
+Both Edge and SQL capture gates remain off. Ten unrelated function code hashes and
+all prior secret digests are unchanged; secret updates refresh configuration metadata,
+not unrelated code. This first attempt did not qualify hosted ingestion.
+
+The owner separately approved temporary staging Email sign-in for two synthetic
+accounts. On November 5 at 15:44 UTC (08:44 Mountain), genuine Supabase password
+sessions submitted iOS and Android batches: HTTP 204 for both, all 60 fixed
+platform/category pairs counted once in the bounded server projection. Identical
+replay returned 204 without incrementing counts; a new batch inside the admission
+window returned 429. Missing/unverified bearers returned 401, wrong method 405,
+injected actor fields 400 and disabled SQL capture 503. Every response was empty
+and no-store. No email, member command or mobile build was used.
+
+Both Edge/SQL capture gates were restored false. The two exact synthetic accounts
+were removed; their 60 count rows and two admission slots were exported privately,
+matched under a bounded lock and removed. Baseline identities/profiles, existing
+function/grant/policy hashes, prior secret digests and ten unrelated code hashes
+matched again. Supabase UI confirmed Email provider disabled after restoration;
+public signup and anonymous sign-in stayed off, email confirmation stayed on.
+The endpoint is qualified, not continuously enabled. Physical-device capture,
+the hosted enabled-count display and production release remain separate gates.
+
+Fresh staging Free capacity: 7,927/500,000 Edge invocations, 0.044/0.5 GB database,
+0.08/5 GB egress, 0.406/1 GB logs, no overage, CPU 3%, 11/60 connections.
+Private artifact, baseline, readback, hold and qualification receipts are under
+`Doji/staging-backend/2026-11-05-mobile-ingestion`. Rollback keeps the Edge reporting
+flag and private SQL capture false, retaining evidence; there was no prior endpoint.
+No persistent staging member sign-in, public signup, real email, production or
+mobile-build authorization is implied by this completed test.
+
+## November 4 staging Sentry history
+
+PR #47 merged as `824974368816f55ef58111ad0bc60fbdae6de3ab`; main quality run
+`41962094517` and automatic staging `41963922156` passed. Pages
+`60da6cd3-0478-41ff-afc0-4f3113945786` has rollback `bda0d5c5-cde9-4651-b613-eed0818fe6fe`.
+The retained artifact, public release and verified receipt match, with unchanged
+configuration fingerprint. Signed-in delivery/platform timestamps advanced
+20:51:46, 20:53:45, 20:54:45 Mountain without refresh; app-error timestamps also
+advanced and the session persisted. The earlier failed run below remains historical,
+not relabelled success; its original failure cause is not established.
+
+PR #48 exact head `a185c3d0c63b8d2e45af22ca451f828856064be6` passed all four jobs
+in `41964106791` and GitGuardian, then merged as `ac19f50c5aca6782a00ebf57477f82a7c6009439`.
+Main quality `41965407496` and staging workflow `41966685707` passed; the latter
+correctly skipped Pages packaging/deployment for the backend-only change.
+The separately approved collector-only staging rollout installed disabled, verified
+all 11 downloaded files against the tested candidate, then enabled the importer.
+Nine unrelated Edge code hashes and all 37 existing secret digests were unchanged.
+Two secret updates advanced configuration revisions, not unrelated code. Collector
+version 28 is active. No SQL, Worker, jobs, mobile or production deployment occurred.
+Natural watchdog source times advanced 04:04:44 to 04:05:44 UTC November 5, distinct
+from receipt times 04:05:45.978625 and 04:06:46.339037. The hosted staging independent
+monitor changed from no observation to measured checks passed without refresh.
+
+Capacity before activation: staging Free plan, 7,137/500,000 Edge invocations,
+0.044/0.5 GB database, 0.068/5 GB egress, 0.4/1 GB log ingestion, zero overages;
+database CPU 3% and 13/60 connections. The existing included Sentry monitor remains
+the only runner. Its separate approved Alerts: Read integration is organization-wide,
+but runtime/egress pin only staging monitor 10858429 and its exact target binding.
+No new resources or spending were added. The gifted monitor credit still expires November 28.
+
+Private code/configuration rollback, digests, artifact and acceptance material are
+under `Doji/staging-backend/2026-11-04-monitor/sentry-history`, outside Git.
+Rollback sets `SENTRY_MONITOR_HISTORY_ENABLED=false` and restores only the retained
+collector package; it retains observations and leaves the monitor's rotated read key
+and existing Worker/SQL gates unchanged. Never replay completed installation helpers.
+The second approved assertion-only drill failed checks at 21:07:44 and 21:08:44
+Mountain November 4, entered downtime at 21:09:44, and recovered at 21:11:44 after
+the original 199/300 status bounds were restored. The endpoint continued returning
+HTTP 200; no application outage was induced. Hosted history recorded the failure
+and recovery, retaining the incident alongside fresh healthy independent/platform
+observations at 21:35:44/21:36:45. The old label incorrectly inferred that reporting
+stopped; the focused display correction says independent health check failed.
+
+Alert `6292687` recorded four total triggers across both drills. Direct Gmail
+verification found only two resolved notices, at 18:51 and 21:11 Mountain—one per
+drill, not a failure/recovery pair. Issue Alerts/email are enabled, the exact owner
+recipient and project routing are correct, and the rule has no event filter or
+throttling. The owner-approved support reply sent at 21:33 requests failure-send,
+suppression or receiving-server rejection evidence. At that point the cause was
+unknown; the [November 5 support closeout](#november-5-sentry-notification-closeout)
+records the explanation and owner acceptance. This staging record is not a
+production release or authorization for further test sends.
+
+## November 4 staging evidence reads and monitor
+
+PR #46 exact head `e1662b0ba08423234121cfe10862241c38ccd85e` passed all four
+quality jobs and GitGuardian, then merged as `68711826e5858a73a0acaf8ab254cb5781929ae9`.
+Main CI `41951848836` passed all four jobs. Automatic staging run `41953768497`
+packaged successfully and uploaded Pages `bda0d5c5-cde9-4651-b613-eed0818fe6fe`,
+with rollback `3d205cc2-699d-4b18-967a-95fbac8ea4c0`, but failed during post-upload
+verification. Its original receipt remains `needs-inspection`; it was not rewritten
+as success. Independent read-only checks found the exact public release/config,
+78 manifest assets, security headers and session denials correct; Cloudflare showed
+success at the expected source and an unchanged configuration fingerprint. The
+generic catch hid the original failed assertion, so a propagation race is not proven.
+Do not rerun or promote this failed workflow; release qualification needs diagnosis.
+Signed-in hosted reads restored the existing session. Platform-monitor timestamps
+advanced November 4 Mountain time `19:18:45`, `19:19:44`, `19:20:44` without refresh;
+Device reports showed disabled capture. No retained incidents were returned.
+The separate independent-monitor history has no observation: Sentry's external
+checks are not connected to that history. Populated/denied states were tested with
+synthetic SQL/browser fixtures, not claimed as populated hosted acceptance.
+No production or mobile release is authorized by this receipt.
+
+The separately approved staging SQL installed the private mobile-counter dependency
+disabled, plus employee/development history and device-read bridges. All 484 prior
+function/ACL fingerprints and 89 policies were unchanged. Only employee-portal-v2
+and admin-development code was deployed; readback matched the candidate packages.
+Read flags are enabled, with versions 36/32 after configuration updates. Eight
+unrelated Edge code hashes and 34 other secret digests were unchanged. Mobile
+capture remains false and the ingestion endpoint is absent. Synthetic permission,
+MFA, revocation, claim-restoration and retaining-rollback checks passed in a rolled
+back transaction; final reads found zero fixture identities, count/admission rows
+and lock waits. Supabase usage was 6,733/500,000 Edge calls, 0.044/0.5 GB database
+and 0.064/5 GB egress, within existing free capacity.
+
+Private artifacts, five SQL overlays/inverses, prior runtime/configuration and
+`backend-qualified.json` are under `Doji/staging-backend/2026-11-04-evidence-reads`.
+Rollback disables only the new read flags, restores retained runtimes/configuration
+and applies the reviewed retaining inverses; it does not erase observations.
+Completed deployment helpers are not replay instructions.
+
+Sentry support supplied a free monitor seat while fixing its entitlement bug.
+Monitor `10858429` is enabled and natural checks returned HTTP 200. The temporary
+gifted credit ends November 28; no paid continuation is approved. The staging
+read key was rotated, with old-key 401/new-key 200 and 34 other secret digests
+unchanged; the former key's evidence file is not current configuration. Protected
+replacement/rotation evidence is under `2026-11-04-monitor/key-rotation-20261104`.
+
+The approved test changed only Sentry's assertion to reject the healthy HTTP 200,
+then restored its original 200–299 acceptance. Test issue `DOJI-STAGING-2`
+(`7830048458`) recovered automatically; natural healthy checks resumed. Alert
+`6292687` recorded two triggers. The owner received the recovery email only:
+initial failure email was not found in the conversation or Spam. Read-only checks
+showed personal Issue Alerts on with Email delivery and no project override; the
+rule targets Gavin on every trigger with new/resolved conditions and no event
+exclusion. Delivery/suppression evidence was pending at that point; the
+[November 5 support closeout](#november-5-sentry-notification-closeout) resolves the
+investigation. Trigger history is not an inbox receipt. No second drill was then
+approved; the later separate approval and results are recorded above.
+This did not interrupt Doji or establish complete platform-health coverage.
+
+## November 4 staging monitor reporting
+
+The narrow retry at draft PR #46 head `6632592694baa55ac47343c4432b99319973a54e`
+passed application, coverage, database and web-migration in run `41908348564`, plus
+GitGuardian. The corrected redirect assertion and real-workerd test cover success,
+redirect rejection and failure isolation; no coverage threshold was lowered.
+
+Staging Worker `3a10f5f7-06ea-47d2-90c6-cd4f7e340af6` is active at 100% in
+deployment `c1620776-672c-402c-9416-a24a8a778400`. Uploaded module SHA-256
+`acb996a9c0185e31088e4a36242bb2d3873d68d4b7098bb78890dfcde6b8c604` matched
+the tested bundle assembled from committed inputs, excluding owner worktree changes.
+All five Durable Object namespaces, prior bindings and minute cron were preserved;
+only the monitor reporting flag was added. Existing SQL capture and Edge monitor
+gates were enabled; no Edge code was redeployed. Ten Edge code hashes and 33 existing
+secret digests remained unchanged. All 564 installed function/grant/policy contracts
+retained fingerprint `267ce47d75bfce6793dc660e27d21391`, with zero lock waits.
+
+Natural healthy source times advanced from `20:54:45` to `20:55:45.37` UTC November 4.
+The scoped endpoint returned 200 for fresh evidence, 401 for an invalid key and 405
+for the wrong method. Member/anonymous RPC access and private-schema access stayed
+denied. Initially missing evidence correctly returned 503 rather than false health.
+Sentry monitor `10858429` was created for `doji-staging` with the scoped key and
+owner-only email alert `6292687`; its authenticated test returned “Uptime check
+passed successfully.” Activation failed with “You don't have enough budget available
+to create a new seat.” A fresh billing read still showed Developer plan, 0/1 included
+Uptime Monitors, $0 additional spend and no payment method. The monitor remains
+disabled with no check-ins; no budget/plan change or failure injection was attempted.
+Account entitlement resolution and the approved failure/recovery test remain gates.
+No alert was sent; production, mobile, employee history UI and other sending remain unchanged.
+
+Capacity checks showed Sentry 0/1 included monitors, Supabase 6,112/500,000 Edge
+calls and 0.044/0.5 GB database, and Cloudflare $0 billable usage. Rollback disables
+SQL/Edge monitor gates and restores immutable Worker `541f3b8b-5a70-4526-987c-a37f011c95ba`,
+retaining evidence. Private `retry-6632592/backend-qualified.json`, source, artifacts
+and readbacks remain under `Doji/staging-backend/2026-11-04-monitor` outside Git.
+The preceding failed attempt below is historical evidence, not the active state.
+
+## November 4 staging monitor history hold
+
+Draft PR #46 at `e1069cbfcb2b8244c4bebd05e961299e17c8c4b1` passed all four
+quality jobs in run `41851836770` and GitGuardian. The owner separately approved
+only monitor-history SQL, the guarded staging `operational-health` endpoint and
+the bounded staging Worker reporting hook, not the PR's employee/mobile/UI changes.
+Existing Supabase/Cloudflare/Sentry capacity was checked; no extra spend or alert.
+The SQL preserved all 561 existing function/grant/policy contracts (fingerprint
+`36aecb5defaa724aa2342b7db3a8c8eb`); nine reachable Edge files matched readback,
+nine unrelated function hashes and 33 existing secret digests were unchanged.
+Only the staging monitor flag and scoped heartbeat-read key were added.
+
+Worker version `5584668e-3905-4f54-9dc2-faafc26be7bf` preserved all five Durable
+Object namespace IDs and the existing minute cron. Natural Worker checks returned
+success but no observation reached history. Real local workerd reproduced the
+cause: `redirect: 'error'` throws before sending. Node fetch mocks missed this.
+The correction uses `manual`, still accepts only 204 and never follows redirects
+or retries. A synthetic real-workerd regression is now a required application check.
+Corrected exact-head CI and repeated hosted acceptance are required before re-enabling.
+
+Retaining rollback verified November 4 at 16:13 UTC: prior immutable Worker
+`541f3b8b-5a70-4526-987c-a37f011c95ba` is active at 100% in deployment
+`519f45ed-675a-4576-b794-984e165ff1f4`, with its original bindings. SQL capture and
+Edge monitor routes are disabled (404); the installed schema/runtime and scoped
+key are retained. The ledger has zero observations/incidents; the synthetic SQL
+write was rolled back. Sentry monitor creation and the approved email test did not
+occur. Production, mobile ingestion, existing email/push and member behavior were
+not changed. Private rollback/artifacts and `acceptance-held.json` are retained in
+`Doji/staging-backend/2026-11-04-monitor` outside Git; do not replay deployment helpers.
+
 ## November 3 production cached health
 
 Protected promotion [41750188315](https://github.com/faheygs/doji/actions/runs/41750188315)

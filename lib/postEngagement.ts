@@ -6,19 +6,24 @@ import { readThroughScaleGateway } from './scaleReadGateway';
 import type { FeedAudience } from './feedAudience';
 import { runAbortableQuery } from './requestSignal';
 import { useAuthStore } from '../stores/useAuthStore';
+import { preserveRecentReaction } from './reactionReadConsistency';
 
 type EngagementSnapshot = Pick<
   Post,
   'reaction_count' | 'comment_count' | 'reaction_breakdown' | 'my_reactions'
 > & { post_id: string };
 
-const pendingSnapshots = new Map<string, Promise<EngagementSnapshot | null>>();
+const pendingSnapshots = new Map<
+  string,
+  { startedAt: number; request: Promise<EngagementSnapshot | null> }
+>();
 
 function readSnapshot(postId: string, audience: FeedAudience, userId: string) {
   // Viewer-specific aggregates and selections must not share work across accounts.
   const key = `${userId}:${postId}:${audience}`;
   const existing = pendingSnapshots.get(key);
   if (existing) return existing;
+  const startedAt = Date.now();
   const request = readThroughScaleGateway<unknown>(
     `/v1/posts/${encodeURIComponent(postId)}/engagement?audience=${audience}`,
     async () => {
@@ -32,9 +37,10 @@ function readSnapshot(postId: string, audience: FeedAudience, userId: string) {
       return directData;
     },
   ).then((data) => (data ? (data as EngagementSnapshot) : null));
-  pendingSnapshots.set(key, request);
+  const pending = { startedAt, request };
+  pendingSnapshots.set(key, pending);
   void request.finally(() => pendingSnapshots.delete(key)).catch(() => undefined);
-  return request;
+  return pending;
 }
 
 function containsPost(data: unknown, postId: string): boolean {
@@ -49,15 +55,23 @@ export async function refreshPostEngagement(
 ) {
   const userId = useAuthStore.getState().session?.user.id;
   if (!userId) return;
-  const snapshot = await readSnapshot(postId, audience, userId);
+  const pending = readSnapshot(postId, audience, userId);
+  const snapshot = await pending.request;
   if (!snapshot || useAuthStore.getState().session?.user.id !== userId) return;
-  const patch = (post: Post): Post => ({
-    ...post,
-    reaction_count: snapshot.reaction_count,
-    comment_count: snapshot.comment_count,
-    reaction_breakdown: snapshot.reaction_breakdown,
-    my_reactions: snapshot.my_reactions,
-  });
+  const patch = (post: Post): Post =>
+    preserveRecentReaction(
+      client,
+      userId,
+      pending.startedAt,
+      {
+        ...post,
+        reaction_count: snapshot.reaction_count,
+        comment_count: snapshot.comment_count,
+        reaction_breakdown: snapshot.reaction_breakdown,
+        my_reactions: snapshot.my_reactions,
+      },
+      post,
+    );
   client.setQueriesData<InfiniteData<Post[]>>(
     { predicate: (query) => query.queryKey[0] === 'feed' && query.queryKey[2] === audience },
     (old) => mapInfinitePosts(old, postId, patch),

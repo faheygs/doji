@@ -35,6 +35,31 @@ npm run test:admin-health
 deployment. Do not replace it with an upgrade or blanket `npm audit fix`.
 For mobile unit tests and static checks, see [Testing and releases](TESTING_AND_RELEASES.md).
 
+## Android staging emulator
+
+The owner's Windows setup has Android Studio under `C:/Program Files/Android/Android Studio`,
+SDK at `D:/Android/Sdk` (`ANDROID_HOME`), and AVD `Doji_Staging_API_36`
+under `D:/Android/Avd`. Its Pixel 8 profile uses Android 16/API 36 Google Play
+x86_64, 4 GB RAM and four cores. Windows Hypervisor Platform and a complete boot
+were verified. Check it is not already running before launching that named AVD.
+The latest recorded renderer is `-gpu auto`, using the NVIDIA host GPU with WHPX;
+`swiftshader` was an earlier setup fallback, not a device-speed baseline. For
+emulator-wide slowdown, compare the Android launcher with Doji, check host pressure,
+and cold-start the same AVD without wiping data or starting a duplicate instance.
+`-no-snapshot` avoids restoring VM state while retaining installed apps and disk
+data; never substitute `-wipe-data`. Let boot work settle before measuring activity
+startup. These timings do not establish authenticated feed-ready or physical-device
+performance. See the [retained staging receipts](releases/README.md#november-14-production-distribution-and-repository-closeout).
+
+The local native build passed with the existing Temurin JDK 17.0.20.1, SDK 36,
+Build Tools 35.0.0 and NDK 27.1.12297006. Android Studio's bundled JDK 25 failed
+native configuration; set task-local `JAVA_HOME` to JDK 17, not the system default.
+This does not qualify physical Android camera/push/background behavior.
+Do not launch EAS builds, sign in to a personal Google account or install a production
+binary as a setup check. Use the isolated bindings/signing and remaining gates in
+[mobile staging](MOBILE_STAGING.md). macOS/Xcode or a separately approved cloud build
+is still required to produce the iOS artifact.
+
 ## Current React previews
 
 Install the root packages above, then `npm ci --prefix web`. From the repository
@@ -139,10 +164,50 @@ artifact expecting it to be an offline demo; use the prototype above instead.
 
 ## Mobile configuration and running locally
 
-Review [.env.example](../.env.example). Copy it to an absent `.env.local` using
-your editor, then obtain the public URL/anon key for the approved local/test stack.
-The placeholder key intentionally does not authenticate. Never obtain production
-server secrets just to start Metro.
+### Everyday Android and iPhone Fast Refresh
+
+Use the same working checkout for editing and Metro. On the owner's machine that
+is `D:/ChallengeApp/DoIt`, not a temporary qualification worktree. The maintained
+launcher resolves its repository root, prints it, validates staging-only client
+settings, and ignores repository `.env` files and inherited provider credentials.
+Save the approved public development configuration outside Git at
+`%LOCALAPPDATA%/Doji/mobile-development.env` (Windows) or
+`~/.config/doji/mobile-development.env` (macOS/Linux). An explicit absolute
+`DOJI_MOBILE_DEV_ENV_FILE` or `--env-file` can select another external file.
+
+```powershell
+npm run dev:mobile -- --check
+# Android emulator only, using adb reverse for port 8081:
+npm run dev:mobile
+# Alternatively, Android and your iPhone on the same trusted Wi-Fi:
+npm run dev:mobile -- --lan
+```
+
+Run only one Metro server on port 8081. Open **Doji Dev**, not Doji Staging or
+production. JavaScript/TypeScript and UI changes use Fast Refresh after saving;
+native dependencies/plugins require a new development-client build. A physical
+iPhone needs its separately signed Dev client, Developer Mode/local-network access
+where requested, and a route to the PC. Windows serves its JavaScript but does not
+compile iOS native binaries. Use only trusted LAN access; do not expose Metro with
+a public tunnel or broad firewall rule. Firewall/security prompts require the owner.
+
+**Doji Staging** is a separate standalone internal build on the Android emulator
+and the owner's iPhone, with no Metro dependency. iOS provisioning must include
+only the approved owner's device, not the existing TestFlight tester group.
+Production retains its separate app identity, data, signing and release approval.
+The launcher does not build, submit, enable push/reporting or change a backend.
+See [mobile staging gates](MOBILE_STAGING.md#cicd-and-release-gates) before builds.
+The local-only Metro watcher excludes retained agent worktrees and generated
+evidence/output, without deleting them or changing production bundling. Old generated
+native directories can override Expo's app identity: inspect before use and preserve
+them outside the repo before regenerating from reviewed variant configuration.
+
+Review [mobile staging](MOBILE_STAGING.md) and [.env.example](../.env.example).
+Copy the example only to an absent `.env.local`, then obtain the staging public
+anon key and staging DSN through approved access. The placeholder key intentionally
+fails validation. Never replace an owner's existing env file or obtain production
+server secrets just to start Metro. Local config defaults to the separate Doji Dev
+identity; production values in that mode are rejected.
 
 ```powershell
 npm start
@@ -153,15 +218,46 @@ client using the installed local toolchain; `npm run ios` requires macOS. A web 
 Expo Go preview is not acceptance evidence for native push, camera, background
 behavior, signing or release-only failures.
 
+For Windows emulator development, use the reviewed staging public configuration
+and variant-specific Firebase file, with `DOJI_APP_VARIANT=development`, task-local
+`JAVA_HOME`/`ANDROID_HOME`, and push/reporting off. Keep the file outside Git;
+Node 24 can load it with `--env-file=<absolute-path>`. Do not pull upload tokens or
+provider secrets for local development. With the named emulator already running:
+
+```powershell
+node --env-file=<absolute-path> node_modules/expo/bin/cli start --dev-client --localhost --port 8081
+# In another terminal, compile/install once or after native configuration changes:
+node --env-file=<absolute-path> node_modules/expo/bin/cli run:android --device Doji_Staging_API_36 --no-bundler
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
+```
+
+Verify the AVD/serial before using that example. Open `http://127.0.0.1:8081` in
+the installed Doji Dev launcher's development-server field; do not use the LAN URL
+if Metro is bound to loopback. The first bundle can be slow; check Metro progress
+before treating the splash/blank screen as a crash. Subsequent source edits use
+Fast Refresh, without an EAS build. The local debug key is distinct from remote
+EAS signing; local execution is not a release-signature acceptance test. Android
+Studio may open the generated `android/` project for native debugging; Expo config
+and plugins remain its source of truth, and generated native output stays untracked.
+
 `127.0.0.1` means the machine running the client. A physical phone or emulator
 needs deliberately configured access to the test backend; changing the address
 does not create that backend. Keep storage, realtime, callbacks and mail isolated
 as well, rather than pointing missing dependencies at production.
 
-**EAS profile names are not isolation.** The checked-in development, preview and
-production profiles currently include the production orchestrator gateway URL.
-Do not run an EAS development/preview build assuming it uses a staging backend.
-Cloud builds also require separate approval and allowance checks.
+**Configuration isolation is not hosted parity.** Development and staging/preview
+profiles now pin staging database/gateways, distinct identities and disabled push/
+reporting. Production config remains unchanged. Required public keys, native signing,
+controlled member access and device acceptance are not provisioned by these files.
+Cloud builds require the separate approval, capacity and prerequisite checklist in
+[mobile staging](MOBILE_STAGING.md#cicd-and-release-gates).
+
+Optional workflow reporting requires matching `EXPO_PUBLIC_WORKFLOW_REPORTING_ENVIRONMENT`,
+`EXPO_PUBLIC_APP_ENV`, Supabase URL and command/read gateways. The preinstall guard
+checks these when `EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED=true`, even for development
+and preview profiles. Reporting remains off by default. Passing this binding guard
+is not hosted parity or device acceptance; do not enable a build against an
+unqualified ingestion endpoint.
 
 ## Hosted staging database
 
@@ -187,7 +283,10 @@ approved paid plan; see [Supabase's pause policy](https://supabase.com/docs/guid
   against the actual staging schema and their own forward migration.
   The separately reviewed poll-activation fix adds entry 291; its staging voting,
   retry and timing regression passed. The baseline must still not be replayed.
-- Member signup and email provider remain disabled. The staging employee runtime
+- Member signup is enabled with ordinary test emails, auto-confirmation and the
+  original minimum-age hook, matching production signup. Do not fabricate profile
+  consent or create Auth-only accounts. Staging SMTP is separately configured;
+  recovery/email-change recipient safety remains unqualified. The staging employee runtime
   and separate local-development gateway use their own restricted SQL logins;
   employee realm/session settings are enabled;
   other runtime roles remain NOLOGIN. No production credentials, cron jobs, media

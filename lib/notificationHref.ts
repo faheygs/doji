@@ -17,7 +17,7 @@ export function notificationHrefFromData(data: unknown): Href | null {
     return '/(app)/friends/requests';
   }
   if (type === 'FRIEND_ACCEPTED') {
-    return '/(app)/friends';
+    return '/(app)/(tabs)/friends';
   }
   if (type === 'FRIEND_POST') {
     return typeof postId === 'string' && postId.length > 0

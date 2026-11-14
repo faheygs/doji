@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useServerCountdown } from '../../hooks/useServerCountdown';
-import { formatMinutesSecondsCountdown } from '../../utils/time';
+import { formatCountdown } from '../../utils/time';
 import { Text } from '../ui/Text';
 import { CountdownRing } from './CountdownRing';
 
@@ -15,7 +15,7 @@ export function ChallengeTimer({ expiresAt, onExpire, variant = 'compact' }: Pro
   const { colors } = useTheme();
   const remaining = useServerCountdown(expiresAt, { enabled: Boolean(expiresAt), onExpire });
   const urgent = remaining <= 60;
-  const label = `${formatMinutesSecondsCountdown(remaining)} remaining`;
+  const label = `${formatCountdown(remaining)} remaining`;
 
   if (!expiresAt) return null;
   if (variant === 'ring') {
@@ -30,8 +30,12 @@ export function ChallengeTimer({ expiresAt, onExpire, variant = 'compact' }: Pro
       accessibilityLabel={label}
       accessibilityLiveRegion={urgent ? 'polite' : 'none'}
     >
-      <Text variant="label" color={urgent ? colors.error : colors.textSecondary} style={styles.time}>
-        {formatMinutesSecondsCountdown(remaining)}
+      <Text
+        variant="label"
+        color={urgent ? colors.error : colors.textSecondary}
+        style={styles.time}
+      >
+        {formatCountdown(remaining)}
       </Text>
     </View>
   );

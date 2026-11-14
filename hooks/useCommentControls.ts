@@ -1,58 +1,19 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
-import { patchInfiniteCommentLike } from '../lib/commentLikeOptimism';
+import { useHeartMutation } from './useHeartMutation';
 import { executeCommand } from '../lib/commandGateway';
 import { newCommandId } from '../lib/idempotency';
 import { mapInfinitePosts } from '../lib/postCache';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
 import { useAuthStore } from '../stores/useAuthStore';
-import type { Comment, Post } from '../types/database';
+import type { Post } from '../types/database';
 
 export function useToggleCommentLike() {
-  const client = useQueryClient();
-  const uid = useAuthStore((state) => state.session?.user?.id);
-  return useMutation({
-    mutationKey: ['toggleCommentLike'],
-    mutationFn: async (vars: {
+  return useHeartMutation('comment', (vars: {
       postId: string;
       commentId: string;
       liked: boolean;
       commandId?: string;
-    }) => {
-      if (!uid) throw new Error('Not authenticated');
-      vars.commandId ??= newCommandId('comment-like');
-      const { data, error } = await executeCommand('set_comment_like', {
-        p_comment_id: vars.commentId,
-        p_active: !vars.liked,
-        p_idempotency_key: vars.commandId,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onMutate: (vars) => {
-      const predicate = (query: { queryKey: readonly unknown[] }) =>
-        query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId;
-      const previous = client.getQueriesData<InfiniteData<Comment[]>>({ predicate });
-      void client.cancelQueries({ predicate }, { revert: false, silent: true });
-      client.setQueriesData<InfiniteData<Comment[]>>({ predicate }, (old) =>
-        patchInfiniteCommentLike(old, vars.commentId, !vars.liked),
-      );
-      return { previous };
-    },
-    onError: (_error, _vars, context) => {
-      for (const [key, data] of context?.previous ?? []) client.setQueryData(key, data);
-    },
-    onSuccess: (result, vars) => {
-      if (!result) return;
-      client.setQueriesData<InfiniteData<Comment[]>>(
-        {
-          predicate: (query) =>
-            query.queryKey[0] === 'comments' && query.queryKey[1] === vars.postId,
-        },
-        (old) => patchInfiniteCommentLike(old, vars.commentId, result.active, result.count),
-      );
-    },
-    onSettled: () => scheduleQueryInvalidation(client, ['commentLikes']),
-  });
+    }) => vars.commentId);
 }
 
 export function useToggleCommentsDisabled() {

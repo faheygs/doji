@@ -32,10 +32,10 @@ function setupStorageMock() {
     })),
   };
   mockStorageFrom.mockReturnValue(storageBucket);
-  (supabase.rpc as jest.Mock).mockResolvedValue({
+  (supabase.rpc as jest.Mock).mockReturnValue({ abortSignal: jest.fn().mockResolvedValue({
     data: { object_path: 'user-123/events/event-1/upload-photo.jpg' },
     error: null,
-  });
+  }) });
   (resumableStorageUpload as jest.Mock).mockResolvedValue(undefined);
   return storageBucket;
 }

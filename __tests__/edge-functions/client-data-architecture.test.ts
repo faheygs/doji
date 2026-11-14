@@ -20,6 +20,7 @@ describe('mobile data architecture', () => {
   it('prepares only incoming realtime media before stable feed presentation', () => {
     const feed = read('app/(app)/(tabs)/index.tsx');
     const card = read('components/feed/PostCard.tsx');
+    const frame = read('components/feed/PostMediaFrame.tsx');
     expect(feed).toContain('usePreparedFeedPosts');
     expect(feed).toContain('useStableFeedPresentation(presentationReadyPosts');
     const readiness = read('hooks/usePreparedFeedPosts.ts');
@@ -28,8 +29,9 @@ describe('mobile data architecture', () => {
     const preparation = read('lib/feedPostPreparation.ts');
     expect(preparation).toContain('ExpoImage.writeToCacheAsync(downloadedFile.uri, cacheKey)');
     expect(preparation).toContain('ExpoImage.getCachePathAsync(cacheKey)');
-    expect(card).toContain("cacheKey: postMediaCacheKey(displayReference, 'feed')");
-    expect(card).toContain("postMediaCacheKey(thumbReference, 'thumbnail')");
+    expect(card).toContain('<PostMediaFrame');
+    expect(frame).toContain("cacheKey: postMediaCacheKey(reference, 'feed')");
+    expect(frame).toContain("postMediaCacheKey(thumbRef, 'thumbnail')");
     expect(preparation).toContain("const resolvedPosts = await signPostMedia(posts, 'feed')");
     expect(preparation).toContain('prepareImage(post.photo_url, resolved.photo_url)');
   });
@@ -40,7 +42,9 @@ describe('mobile data architecture', () => {
     expect(persistence).toContain("AppState.addEventListener('change'");
     expect(persistence).toContain('persistNow();');
     expect(persistence).toContain('void cacheRead');
-    expect(persistence).toContain('.then(restoreCache)');
+    expect(persistence).toContain('useAuthStore.subscribe(');
+    expect(persistence).toContain('pendingRestore = { userId, raw };');
+    expect(persistence).toContain('restoreCache();');
     expect(persistence).toContain('MAX_PERSISTED_QUERIES');
     expect(policy).toContain("'commentLikes'");
     expect(policy).toContain("'comments'");
@@ -62,9 +66,10 @@ describe('mobile data architecture', () => {
 
   it('does not flash a feed empty state while cold cached data reconciles', () => {
     const feed = read('app/(app)/(tabs)/index.tsx');
-    expect(feed).toContain('isFetchedAfterMount: feedFetchedAfterMount');
-    expect(feed).toContain('feedFetching && !feedFetchedAfterMount');
-    expect(feed).toContain('if (feedError && posts.length === 0)');
+    expect(feed).toContain('isFetching: feedFetching');
+    expect(feed).toContain('feedFetching || latestPosts.length > 0');
+    expect(feed).toContain('if ((feedError || missingPoll || missingSubmittedFeed) && posts.length === 0)');
+    expect(feed).toContain('awaitingSubmissionFeed(userId, userEvent?.id)');
     expect(feed).toContain('loading={showInitialFeedSkeleton}');
   });
 

@@ -1,6 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './index';
 import { captureWorkerException } from './sentry';
+import { reportMonitorObservation } from './monitor-history';
+import type { MonitorObservation } from '../../../supabase/functions/_shared/monitor-observation.ts';
 import {
   actionableOperationalIssue,
   checkOperationalHealth,
@@ -98,6 +100,7 @@ export class HealthMonitor extends DurableObject<Env> {
         }
       }
       await this.ctx.storage.put('health', state);
+      this.report(!issue ? 'healthy' : 'degraded', issue?.family ?? null);
       return Response.json({ healthy: !issue, issue: issue?.family ?? null });
     } catch (error) {
       state.consecutiveCheckFailures += 1;
@@ -119,10 +122,21 @@ export class HealthMonitor extends DurableObject<Env> {
         state.checkFailureAlerted = true;
       }
       await this.ctx.storage.put('health', state);
+      this.report('unavailable', 'operational-health-check-failed');
       return Response.json(
         { healthy: false, monitorUnavailable: true, failures: state.consecutiveCheckFailures },
         { status: 503 },
       );
     }
+  }
+
+  private report(state: MonitorObservation['state'], family: string | null): void {
+    // Reporting failure cannot enter the monitor's alert/recovery catch path.
+    try {
+      this.ctx.waitUntil(reportMonitorObservation(this.env, {
+        id: crypto.randomUUID(), observedAt: new Date().toISOString(), state,
+        family: family as MonitorObservation['family'],
+      }));
+    } catch { /* Disabled/missing runtime cannot affect member recovery. */ }
   }
 }

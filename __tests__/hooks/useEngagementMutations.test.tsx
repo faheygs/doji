@@ -20,6 +20,10 @@ jest.mock('../../stores/useAuthStore', () => ({
   useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(mockState), {
     getState: () => mockState,
   }),
+  captureProfileAccount: () => {
+    const userId = mockState.session?.user.id;
+    return { userId, isCurrent: () => userId === mockState.session?.user.id };
+  },
 }));
 jest.mock('../../lib/commandGateway', () => ({ executeCommand: jest.fn() }));
 jest.mock('../../lib/postEngagement', () => ({ refreshPostEngagement: jest.fn() }));
@@ -135,6 +139,20 @@ afterEach(async () => {
   jest.useRealTimers();
   jest.restoreAllMocks();
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
+
+test('failed add removes only its local row and increment, preserving newer hearts and feed fields', async () => {
+  seed();
+  const finish = defer();
+  const { result } = setup();
+  let pending!: Promise<unknown>;
+  await act(async () => { pending = result.current.add.mutateAsync(variables()).catch(() => undefined); });
+  client.setQueryData<InfiniteData<Comment[]>>(commentsKey, old => ({ ...old!, pages: old!.pages.map(page => page.map(row => row.id === 'comment-a' ? { ...row, like_count: 17, my_like: true } : row)) }));
+  client.setQueryData<Post>(postKey, old => ({ ...old!, reaction_count: 99 }));
+  await act(async () => { finish({ data: null, error: new Error('offline') } as never); await pending; });
+  expect(client.getQueryData<InfiniteData<Comment[]>>(commentsKey)!.pages[0]).toHaveLength(2);
+  expect(client.getQueryData<InfiniteData<Comment[]>>(commentsKey)!.pages[0][0]).toMatchObject({ like_count: 17, my_like: true });
+  expect(client.getQueryData<Post>(postKey)).toMatchObject({ comment_count: 2, reaction_count: 99 });
 });
 
 describe.each(['add', 'edit', 'delete', 'reaction'] as const)('%s command', (operation) => {

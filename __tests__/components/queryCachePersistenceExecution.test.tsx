@@ -9,6 +9,7 @@ import { queryCacheStorageKey } from '../../lib/queryPersistence';
 
 const mockBootstrap = jest.fn();
 let mockUser: string | undefined = 'member';
+const mockAuthListeners = new Set<() => void>();
 jest.mock('../../lib/initialSessionBootstrap', () => ({
   initialSessionBootstrap: { get: () => mockBootstrap() },
 }));
@@ -18,8 +19,18 @@ jest.mock('../../lib/queryClient', () => ({
   }),
 }));
 jest.mock('../../stores/useAuthStore', () => ({
-  useAuthStore: { getState: () => ({ session: mockUser ? { user: { id: mockUser } } : null }) },
+  useAuthStore: {
+    getState: () => ({ session: mockUser ? { user: { id: mockUser } } : null }),
+    subscribe: (listener: () => void) => {
+      mockAuthListeners.add(listener);
+      return () => mockAuthListeners.delete(listener);
+    },
+  },
 }));
+const changeUser = (user: string | undefined) => {
+  mockUser = user;
+  mockAuthListeners.forEach((listener) => listener());
+};
 let appState: (state: AppStateStatus) => void;
 const remove = jest.fn(),
   cancel = jest.fn();
@@ -47,6 +58,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   queryClient.clear();
   mockUser = 'member';
+  mockAuthListeners.clear();
   interaction = undefined;
   mockBootstrap.mockResolvedValue({ user: { id: 'member' } });
   storage.getItem.mockResolvedValue(null);
@@ -130,6 +142,133 @@ it('bounds startup delay while still hydrating late disk reads', async () => {
   await act(async () => resolve(snapshot()));
   expect(queryClient.getQueryData(['profile', 'member'])).toBe('disk');
 });
+it.each([['other'], [undefined], ['other', 'member'], [undefined, 'member']])(
+  'discards a late snapshot after identity transitions %j',
+  async (...users) => {
+    let resolve!: (s: string) => void;
+    storage.getItem.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    render(tree);
+    await flush();
+    act(() => {
+      jest.advanceTimersByTime(1200);
+      users.forEach(changeUser);
+    });
+    await flush();
+    await act(async () => resolve(snapshot()));
+    expect(queryClient.getQueryData(['profile', 'member'])).toBeUndefined();
+    await act(async () => appState('background'));
+    for (const [, raw] of storage.setItem.mock.calls) {
+      expect(JSON.parse(raw).state.queries).toEqual([]);
+    }
+  },
+);
+it('releases cold-start UI but waits for the accepted identity before warming queries', async () => {
+  mockUser = undefined;
+  storage.getItem.mockResolvedValue(snapshot());
+  const ui = render(tree);
+  await flush();
+  expect(ui.getByText('Ready')).toBeTruthy();
+  expect(queryClient.getQueryData(['profile', 'member'])).toBeUndefined();
+  act(() => changeUser('member'));
+  expect(queryClient.getQueryData(['profile', 'member'])).toBe('disk');
+  expect(queryClient.getQueryState(['profile', 'member'])?.isInvalidated).toBe(true);
+});
+it('rejects bootstrap disk data for an identity different from the accepted session', async () => {
+  mockUser = undefined;
+  let resolve!: (s: { user: { id: string } }) => void;
+  mockBootstrap.mockReturnValue(
+    new Promise((r) => {
+      resolve = r;
+    }),
+  );
+  storage.getItem.mockResolvedValue(snapshot());
+  render(tree);
+  act(() => changeUser('other'));
+  await act(async () => resolve({ user: { id: 'member' } }));
+  expect(queryClient.getQueryData(['profile', 'member'])).toBeUndefined();
+});
+it('allows a late cache read across same-account token refresh', async () => {
+  let resolve!: (s: string) => void;
+  storage.getItem.mockReturnValue(
+    new Promise((r) => {
+      resolve = r;
+    }),
+  );
+  const ui = render(tree);
+  await flush();
+  act(() => changeUser('member'));
+  await act(async () => resolve(snapshot()));
+  expect(queryClient.getQueryData(['profile', 'member'])).toBe('disk');
+  ui.unmount();
+  expect(mockAuthListeners.size).toBe(0);
+});
+it('discards a deferred cold snapshot if another account is accepted first', async () => {
+  mockUser = undefined;
+  storage.getItem.mockResolvedValue(snapshot());
+  render(tree);
+  await flush();
+  act(() => {
+    changeUser('other');
+    changeUser('member');
+  });
+  expect(queryClient.getQueryData(['profile', 'member'])).toBeUndefined();
+});
+it('cancels queued persistence across an account round trip', async () => {
+  render(tree);
+  await flush();
+  act(() => {
+    queryClient.setQueryData(['profile', 'member'], 'before');
+    jest.advanceTimersByTime(2000);
+  });
+  const oldInteraction = interaction;
+  act(() => {
+    changeUser('other');
+    queryClient.clear();
+    changeUser('member');
+  });
+  expect(cancel).toHaveBeenCalled();
+  await act(async () => oldInteraction?.());
+  expect(storage.setItem).not.toHaveBeenCalled();
+  act(() => {
+    queryClient.setQueryData(['profile', 'member'], 'after');
+    jest.advanceTimersByTime(2000);
+  });
+  await act(async () => interaction?.());
+  expect(storage.setItem).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(storage.setItem.mock.calls[0][1]).state.queries[0].state.data).toBe('after');
+});
+it('does not delete a new account lifetime cache after an old read fails', async () => {
+  let reject!: (error: Error) => void;
+  storage.getItem.mockReturnValue(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    }),
+  );
+  render(tree);
+  await flush();
+  act(() => {
+    changeUser('other');
+    changeUser('member');
+  });
+  await act(async () => reject(new Error('old disk read failed')));
+  expect(storage.removeItem).not.toHaveBeenCalled();
+});
+it.each(['invalid json', 'read failure'])(
+  'tolerates failed cleanup after %s without blocking startup',
+  async (kind) => {
+    storage.removeItem.mockRejectedValue(new Error('disk unavailable'));
+    if (kind === 'invalid json') storage.getItem.mockResolvedValue('{broken');
+    else storage.getItem.mockRejectedValue(new Error('disk'));
+    const ui = render(tree);
+    await flush();
+    expect(ui.getByText('Ready')).toBeTruthy();
+    expect(storage.removeItem).toHaveBeenCalledWith(queryCacheStorageKey('member'));
+  },
+);
 it.each([false, true])(
   'ignores late bootstrap or disk completion after unmount disk=%s',
   (disk) => {

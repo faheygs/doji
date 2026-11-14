@@ -9,6 +9,7 @@ source and its deployment boundaries; merging source does not deploy it.
 - [System and repository map](SYSTEM_MAP.md)
 - [Services and what each one does](SERVICE_CATALOG.md)
 - [Local development](LOCAL_DEVELOPMENT.md)
+- [Mobile staging and release gates](MOBILE_STAGING.md)
 - [Security, configuration and access](SECURITY_AND_ACCESS.md)
 - [Testing and releases](TESTING_AND_RELEASES.md)
 - [Test suite handoff](TEST_SUITE_HANDOFF.md)
@@ -20,6 +21,7 @@ Read [product context](../DOJI_CONTEXT.md) and
 
 - [Portal UI patterns](PORTAL_UI_PATTERNS.md)
 - [Product backlog](PRODUCT_BACKLOG.md)
+- [Sparks reward policy and balance qualification](SPARKS_ECONOMY.md)
 - [Sponsored business platform requirements](SPONSORED_DOJI_BUSINESS_PLATFORM.md)
 - [Trust, safety and legal requirements](TRUST_SAFETY_AND_LEGAL_REQUIREMENTS.md)
 - [Workforce identity](WORKFORCE_IDENTITY_PLAN.md)

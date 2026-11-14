@@ -1,43 +1,55 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addRecentProfileSearch,
+  addRecentSearchQuery,
   loadRecentProfileSearches,
+  normalizeSearchQuery,
   saveRecentProfileSearches,
   type RecentProfileSearch,
+  type RecentSearch,
 } from '../lib/recentProfileSearches';
 
 export function useRecentProfileSearches(userId?: string) {
-  const [recents, setRecents] = useState<RecentProfileSearch[]>([]);
-  const versionRef = useRef(0);
+  // Each account visit has its own fence, including A -> B -> A transitions.
+  const scope = useMemo(
+    () => ({ userId, active: false, version: 0, items: [] as RecentSearch[] }),
+    [userId],
+  );
+  const [state, setState] = useState({ scope, items: scope.items });
   const writeRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    let active = true;
-    const loadVersion = ++versionRef.current;
-    setRecents([]);
+    scope.active = true;
+    const loadVersion = ++scope.version;
     if (userId) {
-      void loadRecentProfileSearches(userId).then((loaded) => {
-        if (active && versionRef.current === loadVersion) setRecents(loaded);
-      });
+      void writeRef.current
+        .then(() => loadRecentProfileSearches(userId))
+        .then((loaded) => {
+          if (scope.active && scope.version === loadVersion) {
+            scope.items = loaded;
+            setState({ scope, items: loaded });
+          }
+        })
+        .catch(() => {});
     }
     return () => {
-      active = false;
+      scope.active = false;
     };
-  }, [userId]);
+  }, [scope, userId]);
 
   const commit = useCallback(
-    (update: (current: RecentProfileSearch[]) => RecentProfileSearch[]) => {
-      if (!userId) return;
-      versionRef.current += 1;
-      setRecents((current) => {
-        const next = update(current);
-        writeRef.current = writeRef.current
-          .then(() => saveRecentProfileSearches(userId, next))
-          .catch(() => {});
-        return next;
-      });
+    (update: (current: RecentSearch[]) => RecentSearch[]) => {
+      if (!userId || !scope.active) return;
+      scope.version += 1;
+      const next = update(scope.items);
+      scope.items = next;
+      setState({ scope, items: next });
+      // Keep persistence outside React state updaters, which may be replayed.
+      writeRef.current = writeRef.current
+        .then(() => saveRecentProfileSearches(userId, next))
+        .catch(() => {});
     },
-    [userId],
+    [scope, userId],
   );
 
   const record = useCallback(
@@ -49,6 +61,13 @@ export function useRecentProfileSearches(userId?: string) {
     [commit],
   );
   const clear = useCallback(() => commit(() => []), [commit]);
+  const recordQuery = useCallback(
+    (query: string) => {
+      if (normalizeSearchQuery(query).length >= 2)
+        commit((current) => addRecentSearchQuery(current, query));
+    },
+    [commit],
+  );
 
-  return { recents, record, remove, clear };
+  return { recents: state.scope === scope ? state.items : [], record, recordQuery, remove, clear };
 }

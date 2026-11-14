@@ -1,11 +1,13 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { useAuthStore } from '../stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
+import { blockStatusOptions } from '../lib/memberProfileQueries';
 import type { Post } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { runAbortableQuery } from '../lib/requestSignal';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 type BlockInput = {
   blockedUserId: string;
@@ -41,6 +43,9 @@ export function useBlockUser() {
       if (error) throw error;
     },
     onMutate: ({ blockedUserId }) => {
+      const account = captureProfileAccount();
+      if (!userId || account.userId !== userId || !account.isCurrent()) throw new Error('Not authenticated');
+      clearFirstDoji(queryClient);
       const previousFeeds = queryClient.getQueriesData<InfiniteData<Post[]>>({
         predicate: (query) => query.queryKey[0] === 'feed',
       });
@@ -54,15 +59,20 @@ export function useBlockUser() {
           ? { ...old, pages: old.pages.map((page) => page.filter((post) => post.user_id !== blockedUserId)) }
           : old,
       );
-      return { previousFeeds };
+      return { previousFeeds, account };
     },
     onError: (_error, _variables, context) => {
+      if (!context?.account.isCurrent()) return;
+      scheduleQueryInvalidation(queryClient, ['firstDoji']);
       for (const [queryKey, data] of context?.previousFeeds ?? []) {
         queryClient.setQueryData(queryKey, data);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, _variables, context) => {
+      if (!context?.account.isCurrent()) return;
+      clearFirstDoji(queryClient);
       scheduleQueryInvalidation(queryClient, [
+        'firstDoji',
         'feed',
         'friendship',
         'friends',
@@ -95,7 +105,7 @@ export function useUnblockUser() {
     },
     onSuccess: () => {
       scheduleQueryInvalidation(queryClient, [
-        'blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed',
+        'blockedUsers', 'isBlocked', 'profile', 'leaderboard', 'feed', 'firstDoji',
       ]);
     },
   });
@@ -144,19 +154,5 @@ export function useBlockedUserCount() {
 
 export function useIsBlockedByMe(targetUserId?: string) {
   const userId = useAuthStore((s) => s.session?.user?.id);
-  return useQuery<boolean>({
-    queryKey: ['isBlocked', userId, targetUserId],
-    queryFn: async ({ signal }): Promise<boolean> => {
-      if (!userId || !targetUserId) return false;
-      const { count, error } = await runAbortableQuery(supabase
-        .from('blocks')
-        .select('id', { count: 'exact', head: true })
-        .eq('blocker_id', userId)
-        .eq('blocked_id', targetUserId), signal);
-      if (error) throw error;
-      return (count ?? 0) > 0;
-    },
-    enabled: !!userId && !!targetUserId,
-    staleTime: 30_000,
-  });
+  return useQuery(blockStatusOptions(userId, targetUserId));
 }

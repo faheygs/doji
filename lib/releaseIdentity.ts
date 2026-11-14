@@ -33,9 +33,11 @@ export function mobileReleaseIdentity(): MobileReleaseIdentity {
       configuredChannel ||
       (appEnvironment === 'production'
         ? 'production'
-        : appEnvironment === 'preview'
-          ? 'preview'
-          : 'development'),
+        : appEnvironment === 'staging'
+          ? 'staging'
+          : appEnvironment === 'preview'
+            ? 'preview'
+            : 'development'),
   };
 }
 

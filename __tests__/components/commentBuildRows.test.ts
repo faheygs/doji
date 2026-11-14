@@ -18,6 +18,33 @@ function makeComment(overrides: Partial<CommentWithMeta> & { id: string }): Comm
 }
 
 describe('buildRows — collapsible replies', () => {
+  it('keeps 120 variable-length roots in descending cursor order across 50-row pages', () => {
+    const comments = Array.from({ length: 120 }, (_, i) => makeComment({
+      id: `comment-${String(120 - i).padStart(3, '0')}`,
+      created_at: new Date(Date.UTC(2026, 10, 9, 0, 120 - i)).toISOString(),
+      body: 'Long comment '.repeat((i % 10) + 1),
+    }));
+    const keys = (limit: number) => buildCommentRows(comments.slice(0, limit), new Set())
+      .map(row => row.kind !== 'toggle' && row.comment.id);
+    expect(keys(100).slice(0, 50)).toEqual(keys(50));
+    expect(keys(120).slice(0, 100)).toEqual(keys(100));
+    expect(keys(120)).toEqual(comments.map(c => c.id));
+  });
+
+  it('uses ID tie-breaking and deduplicates overlapping pages without duplicate row keys', () => {
+    const a = makeComment({ id: 'a' }), b = makeComment({ id: 'b' });
+    const rows = buildCommentRows([a, b, a], new Set());
+    expect(rows.map(row => row.kind !== 'toggle' && row.comment.id)).toEqual(['b', 'a']);
+  });
+
+  it('keeps replies chronological under their root while older roots append', () => {
+    const root = makeComment({ id: 'root', created_at: '2026-06-04T10:01:00Z' });
+    const reply = makeComment({ id: 'r1', parent_id: 'root', created_at: '2026-06-04T10:02:00Z' });
+    const reply2 = makeComment({ id: 'r2', parent_id: 'root', created_at: '2026-06-04T10:03:00Z' });
+    const rows = buildCommentRows([reply2, reply, root, makeComment({ id: 'old' })], new Set(['root']));
+    expect(rows.map(row => row.kind === 'toggle' ? 'toggle' : row.comment.id))
+      .toEqual(['root', 'toggle', 'r1', 'r2', 'old']);
+  });
   it('root comment with no replies produces only a root row', () => {
     const comments = [makeComment({ id: 'c1' })];
     const rows = buildCommentRows(comments, new Set());

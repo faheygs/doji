@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
+  ActivityIndicator,
   FlatList,
   RefreshControl,
   TouchableOpacity,
@@ -18,6 +19,8 @@ import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../../lib/safeAreaLayout';
 import { Text } from '../../../components/ui/Text';
 import { ProfileAvatar } from '../../../components/ui/ProfileAvatar';
 import { PostCard } from '../../../components/feed/PostCard';
+import { FirstDojiCard } from '../../../components/feed/FirstDojiCard';
+import { useFirstDoji } from '../../../hooks/useFirstDoji';
 import { FeedSkeleton } from '../../../components/feed/FeedSkeleton';
 import { SkeletonSwap } from '../../../components/ui/SkeletonSwap';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -29,6 +32,7 @@ import { IconBell } from '../../../components/icons/Icons';
 import { useNotificationCenterContext } from '../../../contexts/NotificationCenterContext';
 import { useUserEvent } from '../../../hooks/useUserEvent';
 import { useSubmissionFeedFeedback } from '../../../hooks/useSubmissionFeedFeedback';
+import { awaitingSubmissionFeed } from '../../../lib/submissionJourney';
 import { useUpcomingDoji } from '../../../hooks/useUpcomingDoji';
 import { prefetchFeedAudience, useFeed, type FeedAudience } from '../../../hooks/useFeed';
 import { useAuthStore } from '../../../stores/useAuthStore';
@@ -41,6 +45,7 @@ import { useFeedScreenStyles } from '../../../components/feed/useFeedScreenStyle
 import { useFeedAudiencePreference } from '../../../hooks/useFeedAudiencePreference';
 import { useStableFeedPresentation } from '../../../hooks/useStableFeedPresentation';
 import { usePreparedFeedPosts } from '../../../hooks/usePreparedFeedPosts';
+import { feedMediaWindow } from '../../../lib/feedMediaWindow';
 import { FeedAudienceMenu } from '../../../components/feed/FeedAudienceMenu';
 export default function FeedScreen() {
   const router = useRouter();
@@ -72,11 +77,11 @@ export default function FeedScreen() {
   const { data: userEvent, isLoading: userEventLoading } = useUserEvent();
   const { data: upcomingDoji } = useUpcomingDoji();
   const feedUnlocked = userEventLoading ? undefined : hasUnlockedFeed(userEvent);
+  const { data: firstDoji } = useFirstDoji(userEvent?.daily_event_id, audience, feedUnlocked === true && !upcomingDoji);
   const {
     data: feedPages,
     isLoading: feedLoading,
     isFetching: feedFetching,
-    isFetchedAfterMount: feedFetchedAfterMount,
     isError: feedError,
     error: feedFailure,
     fetchNextPage,
@@ -84,7 +89,7 @@ export default function FeedScreen() {
     isFetchingNextPage,
     refetch,
   } = useFeed(audience, feedUnlocked, userEvent?.daily_event_id);
-  const feedFailureMessage = useSubmissionFeedFeedback(userId, userEvent?.id, feedFailure, feedUnlocked === true && feedPages !== undefined && !feedLoading && !feedFetching);
+  const feedFailureMessage = useSubmissionFeedFeedback(userId, userEvent?.id, feedFailure, feedUnlocked === true && !!feedPages?.pages.some(page => page.length > 0) && !feedLoading && !feedFetching);
   const queryClient = useQueryClient();
   const profile = useAuthStore((s) => s.profile);
   const {
@@ -116,6 +121,9 @@ export default function FeedScreen() {
   );
   const feedIdentity = `${userId ?? ''}:${userEvent?.daily_event_id ?? ''}:${audience}`;
   const latestPosts = useMemo(() => feedPages?.pages.flat() ?? [], [feedPages]);
+  const hasFeed = feedPages !== undefined;
+  const awaitingSubmittedFeed = awaitingSubmissionFeed(userId, userEvent?.id);
+  const ownPostId = latestPosts.find(post => post.user_id === userId)?.id;
   const presentationReadyPosts = usePreparedFeedPosts(
     latestPosts,
     feedIdentity,
@@ -137,13 +145,10 @@ export default function FeedScreen() {
     !refreshing &&
     (userEventLoading ||
       feedLoading ||
-      (feedFetching && !feedFetchedAfterMount));
+      feedFetching || latestPosts.length > 0 || (awaitingSubmittedFeed && !hasFeed));
   useEffect(() => {
-    if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !feedPages) return;
-    // Media cards resolve private URLs after their social records render. Do
-    // not compete with those visible-image requests by warming an invisible
-    // audience. Text-only feeds retain the inexpensive adjacent-tab prefetch.
-    if (posts.some((post) => post.photo_url || post.front_photo_url || post.video_url)) return;
+    if (!userId || !userEvent?.daily_event_id || feedUnlocked === undefined || !hasFeed) return;
+    // Warm authorized metadata only; this does not download the other tab's media.
     const nextAudience: FeedAudience = audience === 'friends' ? 'everyone' : 'friends';
     const task = InteractionManager.runAfterInteractions(() => {
       void prefetchFeedAudience(queryClient, {
@@ -151,10 +156,10 @@ export default function FeedScreen() {
         dailyEventId: userEvent.daily_event_id,
         audience: nextAudience,
         unlocked: feedUnlocked,
-      });
+      }, ownPostId);
     });
     return () => task.cancel();
-  }, [audience, feedPages, feedUnlocked, posts, queryClient, userEvent?.daily_event_id, userId]);
+  }, [audience, hasFeed, ownPostId, feedUnlocked, queryClient, userEvent?.daily_event_id, userId]);
   useEffect(() => {
     if (!pendingPostId || feedLoading) return;
     if (deepLinkHandledRef.current === pendingPostId) return;
@@ -181,7 +186,7 @@ export default function FeedScreen() {
           queryClient.refetchQueries({
             predicate: (query) => {
               const root = query.queryKey[0];
-              return root === 'userEvent' || root === 'pollResults';
+              return root === 'userEvent' || root === 'pollResults' || root === 'firstDoji';
             },
             type: 'active',
           }),
@@ -224,17 +229,19 @@ export default function FeedScreen() {
     setNotificationsOpen(true);
   }, []);
 
+  const mediaPostIds = useMemo(() => feedMediaWindow(posts, visiblePostIds), [posts, visiblePostIds]);
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <PostCard
         post={item}
         blurred={shouldBlur}
         realtimeActive={visiblePostIds.has(item.id)}
+        mediaActive={mediaPostIds.has(item.id)}
         feedAudience={audience}
         initialCommentsOpen={focusPostId === item.id && focusOpenComments}
       />
     ),
-    [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds],
+    [shouldBlur, audience, focusPostId, focusOpenComments, visiblePostIds, mediaPostIds],
   );
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<Post>[] }) => {
@@ -328,9 +335,10 @@ export default function FeedScreen() {
         ) : (
           <ChallengeBanner userEvent={userEvent ?? null} />
         )}
+        {firstDoji ? <FirstDojiCard winner={firstDoji} /> : null}
       </View>
     ),
-    [styles, colors, userEvent, userEventLoading, upcomingDoji],
+    [styles, colors, userEvent, userEventLoading, upcomingDoji, firstDoji],
   );
 
   const emptyCopy = useMemo(() => {
@@ -374,13 +382,17 @@ export default function FeedScreen() {
     [styles.empty, styles.emptyText, colors.textSecondary, emptyHeading, emptyBody],
   );
 
-  if (feedError && posts.length === 0) {
+  const missingPoll = feedUnlocked && userEvent?.challenge?.type === 'poll' &&
+    hasFeed && !feedLoading && !feedFetching && latestPosts.length === 0;
+  const missingSubmittedFeed = awaitingSubmittedFeed && hasFeed &&
+    !feedLoading && !feedFetching && latestPosts.length === 0;
+  if ((feedError || missingPoll || missingSubmittedFeed) && posts.length === 0) {
     return (
       <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={outerStyle}>
         <FeedChrome />
         <ErrorState
           title="Couldn't load your feed"
-          message={feedFailureMessage}
+          message={missingPoll ? 'Your vote was submitted. Reload the feed to load the poll results; you do not need to vote again.' : feedFailureMessage}
           actionLabel="Reload feed"
           onRetry={() => void refetch()}
         />
@@ -396,7 +408,11 @@ export default function FeedScreen() {
         skeleton={
           <>
             <ListHeader />
-            <FeedSkeleton challenge={userEvent?.challenge} />
+            {feedUnlocked ? (
+              <View style={styles.empty}>
+                <ActivityIndicator color={colors.text} accessibilityLabel="Loading feed" />
+              </View>
+            ) : <FeedSkeleton challenge={userEvent?.challenge} />}
           </>
         }
       >

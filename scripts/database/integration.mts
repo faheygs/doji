@@ -75,6 +75,26 @@ export async function integration(room: TestRoom) {
   room.sql('create extension if not exists pgtap with schema extensions;');
   const { workflowHealth } = await import('./workflow-health.mts');
   pass(workflowHealth(room));
+  const { monitorHistory } = await import('./monitor-history.mts');
+  pass(monitorHistory(room));
+  const { mobileWorkflow } = await import('./mobile-workflow.mts');
+  pass(mobileWorkflow(room));
+  const { dojiReadiness } = await import('./doji-readiness.mts');
+  pass(dojiReadiness(room));
+  const { participationDeadline } = await import('./participation-deadline.mts');
+  pass(participationDeadline(room));
+  const { memberProfileSearch } = await import('./member-profile-search.mts');
+  pass(memberProfileSearch(room));
+  const { memberFeedCursorOrder } = await import('./member-feed-cursor-order.mts');
+  pass(memberFeedCursorOrder(room));
+  const { memberCommentPages } = await import('./member-comment-pages.mts');
+  pass(memberCommentPages(room));
+  const { memberFirstDoji } = await import('./member-first-doji.mts');
+  pass(memberFirstDoji(room));
+  const { firstDojiBadges } = await import('./first-doji-badges.mts');
+  pass(await firstDojiBadges(room));
+  const { sparksEconomy } = await import('./sparks-economy.mts');
+  pass(await sparksEconomy(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

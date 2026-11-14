@@ -1,7 +1,8 @@
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ContentValidationError, filterContent } from '../lib/contentFilter';
 import { newCommandId } from '../lib/idempotency';
-import { useAuthStore } from '../stores/useAuthStore';
+import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
+import { settleCommentWindow } from '../lib/commentWindowCache';
 import type { Comment, Post } from '../types/database';
 import { mapInfinitePosts } from '../lib/postCache';
 import { refreshPostEngagement } from '../lib/postEngagement';
@@ -64,14 +65,15 @@ export function useEditComment() {
               }
             : old,
       );
-      return { previous };
+      return { previous, account: captureProfileAccount() };
     },
     onError: (_error, _vars, context) => {
       if (!isCurrentMember()) return;
       for (const [key, data] of context?.previous ?? []) client.setQueryData(key, data);
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (_data, vars, context) => {
       if (!isCurrentMember()) return;
+      if (context?.account.isCurrent()) settleCommentWindow(client, uid!, vars.postId, { kind: 'edit', id: vars.commentId, body: vars.body.trim() });
       void client.invalidateQueries(
         {
           predicate: (query) =>
@@ -151,7 +153,7 @@ export function useDeleteComment() {
         { predicate: (query) => query.queryKey[0] === 'post' && query.queryKey[1] === vars.postId },
         (old) => (old ? { ...old, comment_count: Math.max(0, old.comment_count - 1) } : old),
       );
-      return { comments, feeds, posts };
+      return { comments, feeds, posts, account: captureProfileAccount() };
     },
     onError: (_error, _vars, context) => {
       if (!isCurrentMember()) return;
@@ -159,8 +161,9 @@ export function useDeleteComment() {
       for (const [key, data] of context?.feeds ?? []) client.setQueryData(key, data);
       for (const [key, data] of context?.posts ?? []) client.setQueryData(key, data);
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (_data, vars, context) => {
       if (!isCurrentMember()) return;
+      if (context?.account.isCurrent()) settleCommentWindow(client, uid!, vars.postId, { kind: 'delete', id: vars.commentId });
       void refreshPostEngagement(client, vars.postId, vars.feedAudience).catch((error) => {
         if (__DEV__) console.warn('[comments] delete reconciliation failed', error);
       });

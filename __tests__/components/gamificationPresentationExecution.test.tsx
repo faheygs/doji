@@ -143,6 +143,8 @@ describe.each(['light', 'dark'])('%s badge progress', (mode) => {
 });
 
 it.each([
+  ['first_doji_wins', 1, 'Be first overall to Doji 1 time'],
+  ['first_doji_wins', 10, 'Be first overall to Doji 10 times'],
   ['streak_days', 5, 'Reach a 5-day streak'],
   ['completions', 1, 'Complete 1 challenge'],
   ['completions', 2, 'Complete 2 challenges'],
@@ -171,6 +173,17 @@ it.each([
   );
   fireEvent.press(ui.getByText('Finisher'));
   expect(ui.getByText(String(label))).toBeTruthy();
+});
+
+it('keeps first-place progress unknown until an authorized count is available', () => {
+  const first = { ...category, id: 'first_doji', name: 'First to Doji' };
+  const firstTier = { ...tier('bronze', 1, 'first_doji_wins'), category_id: first.id };
+  const ui = render(<BadgesGrid categories={[first]} tiers={[firstTier]} progress={[]} progressStats={stats} />);
+  fireEvent.press(ui.getByText('First to Doji'));
+  expect(ui.queryByText('0 / 1 first-place finish')).toBeNull();
+  expect(ui.getByText('Be first overall to Doji 1 time')).toBeTruthy();
+  ui.rerender(<BadgesGrid categories={[first]} tiers={[firstTier]} progress={[]} progressStats={{ ...stats, firstDojiWins: 0 }} />);
+  expect(ui.getByText('0 / 1 first-place finish')).toBeTruthy();
 });
 
 describe('earned celebration interaction', () => {

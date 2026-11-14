@@ -77,7 +77,6 @@ export function usePostCardStyles() {
           borderColor: colors.background,
         },
         frontThumbnail: { width: 72, height: 72 },
-        lockMessage: { textAlign: 'center', lineHeight: 20 },
         lateBadge: {
           position: 'absolute',
           top: Spacing.sm,
@@ -93,15 +92,6 @@ export function usePostCardStyles() {
           marginHorizontal: Spacing.md,
           marginTop: Spacing.sm,
           marginBottom: Spacing.xs,
-        },
-        lockedBody: {
-          width: '100%',
-          alignSelf: 'stretch',
-          aspectRatio: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.background,
-          gap: Spacing.xs,
         },
         pollBodyWrap: { position: 'relative' },
       }),

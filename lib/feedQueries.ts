@@ -3,6 +3,8 @@ import { type FeedAudience } from './feedAudience';
 import { runMemberRead } from './runMemberRead';
 import { readThroughScaleGateway } from './scaleReadGateway';
 import type { Post } from '../types/database';
+import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+import { preserveRecentReaction } from './reactionReadConsistency';
 
 export const FEED_PAGE_SIZE = 20;
 export type FeedPageParam = {
@@ -31,6 +33,7 @@ type FeedPageContext = {
   audience: FeedAudience;
   friendIds?: string[];
   unlocked: boolean;
+  client?: QueryClient;
 };
 
 /** Fetch one page for the single server-authoritative Doji occurrence. */
@@ -39,20 +42,23 @@ export async function fetchFeedPostsPage(
   page: FeedPageParam,
   signal?: AbortSignal,
 ): Promise<Post[]> {
-  const { dailyEventId, audience, unlocked } = context;
+  const { dailyEventId, audience, unlocked, client, userId } = context;
+  const startedAt = Date.now();
   const eventIds = [dailyEventId];
   if (!unlocked) {
     const path = `/v1/feed/${encodeURIComponent(dailyEventId)}?audience=${audience}&unlocked=false&limit=${FEED_PAGE_SIZE}&offset=${page.offset}`;
     const posts = await readThroughScaleGateway<Post[]>(
       path,
       async () => {
-        const { data } = await runMemberRead(supabase
-          .rpc('get_locked_feed_previews', {
+        const { data } = await runMemberRead(
+          supabase.rpc('get_locked_feed_previews', {
             p_daily_event_ids: eventIds,
             p_audience: audience,
             p_limit: FEED_PAGE_SIZE,
             p_offset: page.offset,
-          }), signal);
+          }),
+          signal,
+        );
         return (Array.isArray(data) ? data : []) as Post[];
       },
       signal,
@@ -71,14 +77,16 @@ export async function fetchFeedPostsPage(
   const posts = await readThroughScaleGateway<Post[]>(
     path,
     async () => {
-      const { data } = await runMemberRead(supabase
-        .rpc('get_feed_page_snapshot_v2', {
+      const { data } = await runMemberRead(
+        supabase.rpc('get_feed_page_snapshot_v2', {
           p_daily_event_id: dailyEventId,
           p_audience: audience,
           p_limit: FEED_PAGE_SIZE,
           p_before_created_at: page.beforeCreatedAt ?? null,
           p_before_id: page.beforeId ?? null,
-        }), signal);
+        }),
+        signal,
+      );
       // Return the authorized social records immediately. Private media object
       // references are signed lazily by visible cards so Storage latency cannot
       // hold the entire feed behind a loading skeleton.
@@ -86,5 +94,16 @@ export async function fetchFeedPostsPage(
     },
     signal,
   );
-  return posts;
+  if (!client) return posts;
+  const current = client.getQueryData<InfiniteData<Post[]>>([
+    'feed',
+    dailyEventId,
+    audience,
+    userId,
+    'full',
+  ]);
+  const byId = new Map(current?.pages.flat().map((post) => [post.id, post]));
+  return posts.map((post) =>
+    preserveRecentReaction(client, userId, startedAt, post, byId.get(post.id)),
+  );
 }

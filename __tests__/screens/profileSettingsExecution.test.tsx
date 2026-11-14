@@ -18,10 +18,12 @@ const mockRouter = {
   back: jest.fn(),
   canGoBack: jest.fn(() => true),
 };
-const mockSetPreference = jest.fn(),
-  mockSetAccent = jest.fn(),
+const mockSetPreference = jest.fn().mockResolvedValue(undefined),
+  mockSetAccent = jest.fn().mockResolvedValue(undefined),
   mockUpdate = jest.fn(),
   mockPhoto = jest.fn();
+const mockRetry = jest.fn().mockResolvedValue(undefined);
+let mockSaveState = 'idle';
 const mockEquip = { mutateAsync: jest.fn(), isPending: false },
   mockPurchase = { mutateAsync: jest.fn(), isPending: false };
 let mockProfile: Profile | null;
@@ -49,11 +51,14 @@ jest.mock('../../contexts/ThemeContext', () => ({
   }),
 }));
 jest.mock('../../stores/useAuthStore', () => ({
+  captureProfileAccount: () => ({ isCurrent: () => true }),
   useAuthStore: (selector: (s: unknown) => unknown) =>
     selector({
       profile: mockProfile,
       session: { user: { id: 'member' } },
       updateProfile: mockUpdate,
+      profileSaveState: mockSaveState,
+      retryProfileUpdate: mockRetry,
     }),
 }));
 jest.mock('../../hooks/useShop', () => ({
@@ -73,6 +78,7 @@ jest.mock('../../hooks/useChangeProfilePhoto', () => ({
     openChangePhotoDialog: mockPhoto,
     uploading: mockUploading,
     error: mockPhotoError,
+    clearError: jest.fn(),
   }),
 }));
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -162,6 +168,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
   mockDark = false;
+  mockSaveState = 'idle';
   mockAccent = DEFAULT_ACCENT_THEME;
   mockReturn = undefined;
   mockProfile = {
@@ -187,6 +194,32 @@ beforeEach(() => {
   mockPurchase.mutateAsync.mockResolvedValue(undefined);
 });
 afterEach(() => jest.useRealTimers());
+
+test.each([Appearance, EditProfile])('profile settings expose retained-save retry without a replacement command', async (Screen) => {
+  mockSaveState = 'uncertain';
+  const ui = render(<KeyboardToolbarProvider><Screen /></KeyboardToolbarProvider>);
+  await act(async () => fireEvent.press(ui.getByText('Retry previous save')));
+  expect(mockRetry).toHaveBeenCalledTimes(1);
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockSetPreference).not.toHaveBeenCalled();
+});
+
+test('appearance save rejection has visible feedback rather than an unhandled promise', async () => {
+  mockSetPreference.mockRejectedValueOnce(Error('offline'));
+  const ui = render(<Appearance />);
+  await act(async () => fireEvent(ui.UNSAFE_getByType(Switch), 'valueChange', true));
+  expect(ui.getByText('Could not confirm your appearance change.')).toBeTruthy();
+});
+
+test('appearance stays visible without saving feedback during background persistence', () => {
+  mockSaveState = 'saving';
+  mockDark = true;
+  const ui = render(<Appearance />);
+  expect(ui.UNSAFE_getByType(Switch).props.value).toBe(true);
+  expect(ui.queryByText('Saving your profile change…')).toBeNull();
+  expect(ui.queryByText('Retry previous save')).toBeNull();
+  expect(ui.getByText('Dark mode')).toBeTruthy();
+});
 
 describe.each([false, true])('profile settings dark=%s', (dark) => {
   beforeEach(() => {
@@ -318,11 +351,11 @@ it('handles missing profile and optional profile fields, caps bio length and rea
   ui.rerender(shell(<EditProfile />));
   expect(ui.getByDisplayValue('changed')).toBeTruthy();
 });
-it('uses cold-route fallback rather than requiring navigation history', () => {
+it.each([Appearance, Shop])('uses the typed profile tab when navigation history is absent: %p', (Screen) => {
   mockRouter.canGoBack.mockReturnValue(false);
-  const ui = render(<Appearance />);
+  const ui = render(shell(<Screen />));
   fireEvent.press(ui.getByLabelText('Back'));
-  expect(String(mockRouter.replace.mock.calls[0][0])).toContain('/profile');
+  expect(mockRouter.replace).toHaveBeenCalledWith('/(app)/(tabs)/profile');
 });
 it.each(['catalog', 'owned', 'both'])('retries only failed %s shop reads', (source) => {
   const err = Object.assign(new Error('denied'), { status: 403 });

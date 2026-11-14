@@ -103,11 +103,21 @@ export function useCreatePost() {
         return post;
       });
     },
-    onMutate: () => {
+    onSuccess: (_post, payload) => {
       const userId = session?.user?.id;
-      if (!userId) return;
+      if (!userId || useAuthStore.getState().session?.user.id !== userId) return;
       const key = ['userEvent', 'today', userId] as const;
       const prev = queryClient.getQueryData<UserEvent | null>(key);
+      if (prev && prev.id !== payload.userEventId) return;
+      // Unlock only after the command or its receipt confirms the post. Reads
+      // begun before commit can otherwise cache an empty unlocked feed.
+      const reads = {
+        predicate: (query: { queryKey: readonly unknown[] }) =>
+          query.queryKey[0] === 'feed' && query.queryKey[3] === userId &&
+          !!prev?.daily_event_id && query.queryKey[1] === prev.daily_event_id,
+      };
+      void queryClient.cancelQueries(reads);
+      void queryClient.invalidateQueries({ ...reads, refetchType: 'none' });
       void queryClient.cancelQueries({ queryKey: key }, { revert: false, silent: true });
       if (prev) {
         queryClient.setQueryData<UserEvent>(key, {
@@ -116,22 +126,11 @@ export function useCreatePost() {
           completed_at: new Date().toISOString(),
         });
       }
-      return { prev, key };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (!ctx?.prev || !ctx?.key) return;
-      queryClient.setQueryData(ctx.key, ctx.prev);
-    },
-    onSuccess: () => {
-      const uid = session?.user?.id;
-      if (uid) {
-        void queryClient.refetchQueries(
-          { queryKey: ['userEvent', 'today', uid] },
-          { cancelRefetch: false },
-        );
-      }
-      scheduleQueryInvalidation(queryClient, ['profile', 'leaderboard', 'feed']);
-      if (uid) fetchProfile(uid);
+      // Replace pre-commit reads immediately without delaying return-to-feed.
+      void queryClient.refetchQueries({ ...reads, type: 'active' });
+      void queryClient.refetchQueries({ queryKey: key });
+      scheduleQueryInvalidation(queryClient, ['profile', 'leaderboard']);
+      void fetchProfile(userId);
     },
   });
 }

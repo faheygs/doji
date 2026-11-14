@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { executeCommand } from '../../lib/commandGateway';
+import { profileSetupError } from '../../lib/profileSetupError';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { ROUTES } from '../../lib/routes';
 import { DEFAULT_APP_THEME } from '../../constants/theme';
@@ -89,6 +90,7 @@ export default function UsernameScreen() {
 
     setLoading(true);
     let uploadedAvatarUrl: string | null = null;
+    let profileConfirmed = false;
     try {
       if (avatarUri) uploadedAvatarUrl = await uploadAvatar(userId, avatarUri);
 
@@ -104,11 +106,9 @@ export default function UsernameScreen() {
       });
 
       if (error) {
-        if (uploadedAvatarUrl) {
-          void removePublicStorageObject('avatars', uploadedAvatarUrl);
-          uploadedAvatarUrl = null;
-        }
         if (error.code === '23505') {
+          if (uploadedAvatarUrl) void removePublicStorageObject('avatars', uploadedAvatarUrl);
+          uploadedAvatarUrl = null;
           // Race: hook may have missed a concurrent signup
           setUsernameSubmitError('That username was just taken. Pick another.');
         } else {
@@ -116,6 +116,7 @@ export default function UsernameScreen() {
         }
         return;
       }
+      if (!createdProfile) throw new Error('Profile creation returned no authoritative row');
 
       // If an already-created profile won an auth/navigation race, the command
       // returns that authoritative row. Do not leave a newly uploaded orphan.
@@ -124,15 +125,15 @@ export default function UsernameScreen() {
       }
       // A confirmed profile owns its avatar even if subsequent refreshes fail.
       uploadedAvatarUrl = null;
+      profileConfirmed = true;
 
       await supabase.auth.refreshSession();
       await fetchProfile(userId);
       await queryClient.invalidateQueries({ queryKey: ['userEvent'] });
       router.replace(ROUTES.onboardingHowItWorks);
     } catch (err: unknown) {
-      if (uploadedAvatarUrl) void removePublicStorageObject('avatars', uploadedAvatarUrl);
-      const msg = err instanceof Error ? err.message : 'Failed to create profile';
-      setSubmitError(msg);
+      // Unknown transport outcomes may already own this avatar; retain it.
+      setSubmitError(profileSetupError(err, profileConfirmed));
     } finally {
       setLoading(false);
     }

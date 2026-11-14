@@ -7,6 +7,7 @@ import type { Post, ReactionEmoji } from '../types/database';
 import { refreshPostEngagement } from '../lib/postEngagement';
 import type { FeedAudience } from '../lib/feedAudience';
 import { executeCommand } from '../lib/commandGateway';
+import { REACTION_CACHE_SETTLE_MS, isLatestReaction, reactionFields } from '../lib/reactionReadConsistency';
 
 type ToggleReactionVars = {
   postId: string;
@@ -25,7 +26,6 @@ type ToggleReactionResult = {
   current_emoji?: ReactionEmoji | null;
 };
 
-const ENGAGEMENT_CACHE_SETTLE_MS = 1_500;
 const engagementRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function scheduleAuthoritativeEngagementRefresh(
@@ -45,7 +45,7 @@ function scheduleAuthoritativeEngagementRefresh(
       void refreshPostEngagement(queryClient, postId, audience).catch((error) => {
         if (__DEV__) console.warn('[reactions] engagement refresh failed', error);
       });
-    }, ENGAGEMENT_CACHE_SETTLE_MS),
+    }, REACTION_CACHE_SETTLE_MS),
   );
 }
 
@@ -124,15 +124,22 @@ export function useToggleReaction() {
         },
         (old) => (old ? patch(old) : old),
       );
-      return { previousFeeds, previousPosts };
+      return { previousFeeds, previousPosts, reactionSettledAt: undefined as number | undefined };
     },
-    onError: (_error, _variables, context) => {
-      if (!isCurrentMember()) return;
-      for (const [key, data] of context?.previousFeeds ?? []) queryClient.setQueryData(key, data);
-      for (const [key, data] of context?.previousPosts ?? []) queryClient.setQueryData(key, data);
+    onError: (_error, variables, context) => {
+      if (!userId || !isCurrentMember() || !isLatestReaction(queryClient, userId, variables.postId, context)) return;
+      for (const [key, data] of context?.previousFeeds ?? []) {
+        const prior = data?.pages.flat().find(post => post.id === variables.postId);
+        if (prior) queryClient.setQueryData<InfiniteData<Post[]>>(key, old =>
+          mapInfinitePosts(old, variables.postId, post => ({ ...post, ...reactionFields(prior) })));
+      }
+      for (const [key, prior] of context?.previousPosts ?? []) {
+        if (prior) queryClient.setQueryData<Post | null>(key, old => old ? { ...old, ...reactionFields(prior) } : old);
+      }
     },
-    onSuccess: (result, variables) => {
-      if (!result || !userId || !isCurrentMember()) return;
+    onSuccess: (result, variables, context) => {
+      if (!result || !userId || !isCurrentMember() || !isLatestReaction(queryClient, userId, variables.postId, context)) return;
+      if (context) context.reactionSettledAt = Date.now();
       const patchGlobal = (post: Post): Post => ({
         ...post,
         reaction_count: result.count,

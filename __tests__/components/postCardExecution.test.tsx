@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Image } from 'expo-image';
@@ -16,6 +17,7 @@ import { PostCommentsSheet } from '../../components/feed/PostCommentsSheet';
 import { PostOptionsSheet } from '../../components/feed/PostOptionsSheet';
 import { PollResultCard } from '../../components/feed/PollResultCard';
 import { AppVideo } from '../../components/ui/AppVideo';
+import { usePostMedia } from '../../hooks/usePostMedia';
 import type { Post, Challenge, UserEvent } from '../../types/database';
 
 const mockRouter = { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: () => true },
@@ -33,7 +35,13 @@ let mockMedia = {
   front_photo_url: null as string | null,
   video_url: null as string | null,
 };
-let mockPostRead: { data?: Post; isLoading: boolean; error: unknown; refetch?: jest.Mock; isFetching?: boolean },
+let mockPostRead: {
+    data?: Post;
+    isLoading: boolean;
+    error: unknown;
+    refetch?: jest.Mock;
+    isFetching?: boolean;
+  },
   mockEventRead: { data?: UserEvent; isLoading: boolean };
 let mockParams: Record<string, string | string[] | undefined>;
 let mockDark = false;
@@ -48,7 +56,7 @@ jest.mock('../../stores/useAuthStore', () => ({
   }),
 }));
 jest.mock('../../contexts/ReportFlowContext', () => ({ useReportFlow: () => mockReport }));
-jest.mock('../../hooks/usePostMedia', () => ({ usePostMedia: () => mockMedia }));
+jest.mock('../../hooks/usePostMedia', () => ({ usePostMedia: jest.fn(() => mockMedia) }));
 jest.mock('../../hooks/usePostRealtimeInvalidation', () => ({
   usePostRealtimeInvalidation: (...args: unknown[]) => mockRealtime(...args),
 }));
@@ -74,7 +82,11 @@ jest.mock(
   'react-native-safe-area-context',
   () => jest.requireActual('react-native-safe-area-context/jest/mock').default,
 );
-jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(), impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'light' } }));
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(),
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
 jest.mock('expo-video', () => ({
   VideoView: require('react-native').View,
   useVideoPlayer: (_source: unknown, callback: (p: unknown) => void) => {
@@ -129,15 +141,11 @@ describe.each([false, true])('post card dark=%s', (dark) => {
   beforeEach(() => {
     mockDark = dark;
   });
-  it('prefetches authorized visible interactions and routes profile/report to exact record', () => {
+  it('keeps unopened interactions idle and routes profile/report to the exact record', () => {
     const ui = render(shell(<PostCard post={post()} blurred={false} feedAudience="friends" />));
     expect(mockRealtime).toHaveBeenCalledWith('post', true, 'friends');
-    expect(mockCommentsPrefetch).toHaveBeenCalledWith(expect.any(QueryClient), {
-      postId: 'post',
-      userId: 'self',
-      audience: 'friends',
-    });
-    expect(mockReactionsPrefetch).toHaveBeenCalled();
+    expect(mockCommentsPrefetch).not.toHaveBeenCalled();
+    expect(mockReactionsPrefetch).not.toHaveBeenCalled();
     fireEvent.press(ui.getByLabelText(/^@other,/));
     expect(String(mockRouter.push.mock.calls[0][0])).toContain('other');
     fireEvent.press(ui.getByLabelText('More options'));
@@ -151,6 +159,11 @@ describe.each([false, true])('post card dark=%s', (dark) => {
     const p = post();
     const ui = render(shell(<PostCard post={p} blurred={false} />));
     act(() => ui.UNSAFE_getByType(ReactionBar).props.onOpenComments());
+    expect(mockCommentsPrefetch).toHaveBeenCalledWith(expect.any(QueryClient), {
+      postId: 'post',
+      userId: 'self',
+      audience: 'everyone',
+    });
     expect(ui.UNSAFE_getByType(PostCommentsSheet).props.visible).toBe(true);
     act(() => ui.UNSAFE_getByType(PostCommentsSheet).props.onClose());
     expect(ui.UNSAFE_getByType(PostCommentsSheet).props.visible).toBe(false);
@@ -165,6 +178,35 @@ describe.each([false, true])('post card dark=%s', (dark) => {
     expect(mockCommentsPrefetch).not.toHaveBeenCalled();
     expect(mockRealtime).toHaveBeenCalledWith('post', false, 'everyone');
   });
+  it.each(['task', 'format', 'task-photo', 'format-video', 'photo', 'poll', 'wyr', 'unknown'])(
+    'locked %s preview reflects metadata without revealing or loading the answer', (kind) => {
+      const type = kind === 'wyr' ? 'poll' : kind.split('-')[0];
+      const textOnly = kind === 'task' || kind === 'format';
+      const p = post({
+        type: type === 'poll' ? 'poll_vote' : type === 'photo' ? 'photo' : 'task_complete',
+        caption: 'PRIVATE ANSWER MUST STAY HIDDEN',
+        photo_url: null, front_photo_url: null, video_url: null,
+        challenge: kind === 'unknown' ? undefined : {
+          id: 'challenge', type, title: 'PRIVATE PROMPT', poll_kind: kind === 'wyr' ? 'wyr' : 'poll',
+          requires_photo: kind === 'photo' || kind === 'task-photo',
+          requires_video: kind === 'format-video',
+        } as Challenge,
+      });
+      const ui = render(shell(<PostCard post={p} blurred />));
+      const body = ui.getByLabelText(textOnly
+        ? "Text response hidden. Complete today's challenge to read it."
+        : "Complete today's challenge to see this post");
+      expect(StyleSheet.flatten(body.props.style).aspectRatio).toBe(textOnly ? undefined : 1);
+      expect(Boolean(ui.queryByText('Text response hidden'))).toBe(textOnly);
+      expect(ui.queryByText('PRIVATE ANSWER MUST STAY HIDDEN')).toBeNull();
+      expect(ui.queryByText('PRIVATE PROMPT')).toBeNull();
+      expect(ui.UNSAFE_queryByType(PollResultCard)).toBeNull();
+      expect(ui.UNSAFE_queryByType(ReactionBar)).toBeNull();
+      expect(ui.UNSAFE_queryByType(AppVideo)).toBeNull();
+      expect(jest.mocked(usePostMedia).mock.calls.every(call => call[1] === false)).toBe(true);
+      expect(mockRealtime).toHaveBeenCalledWith('post', false, 'everyone');
+    },
+  );
   it('renders and swaps dual-camera images without exposing blank placeholders', () => {
     mockMedia = {
       photo_url: 'https://example.test/back',
@@ -254,14 +296,45 @@ it.each(['own', 'anonymous', 'inactive', 'empty'])(
     } else expect(mockCommentsPrefetch).not.toHaveBeenCalled();
   },
 );
-it('prefetches comments and reactions independently', () => {
+it('count updates do not prefetch unopened lists; comment intent starts the authorized read', () => {
   const ui = render(shell(<PostCard post={post({ comment_count: 0 })} blurred={false} />));
   expect(mockCommentsPrefetch).not.toHaveBeenCalled();
-  expect(mockReactionsPrefetch).toHaveBeenCalledTimes(1);
+  expect(mockReactionsPrefetch).not.toHaveBeenCalled();
   ui.rerender(shell(<PostCard post={post({ reaction_count: 0 })} blurred={false} />));
+  expect(mockCommentsPrefetch).not.toHaveBeenCalled();
+  expect(mockReactionsPrefetch).not.toHaveBeenCalled();
+  act(() => ui.UNSAFE_getByType(ReactionBar).props.onOpenComments());
   expect(mockCommentsPrefetch).toHaveBeenCalledTimes(1);
-  expect(mockReactionsPrefetch).toHaveBeenCalledTimes(1);
+  expect(ui.UNSAFE_getByType(PostCommentsSheet).props.visible).toBe(true);
 });
+it('only a visible dual-camera photo requests the thumbnail variant', () => {
+  const p = post({ photo_url: 'back' });
+  const ui = render(shell(<PostCard post={p} blurred={false} />));
+  const thumbnail = () =>
+    jest
+      .mocked(usePostMedia)
+      .mock.calls.filter((call) => call[2] === 'thumbnail')
+      .at(-1);
+  expect(thumbnail()?.[1]).toBe(false);
+  ui.rerender(shell(<PostCard post={{ ...p, front_photo_url: 'front' }} blurred={false} />));
+  expect(thumbnail()?.[1]).toBe(true);
+  ui.rerender(
+    shell(
+      <PostCard post={{ ...p, front_photo_url: 'front', video_url: 'video' }} blurred={false} />,
+    ),
+  );
+  expect(thumbnail()?.[1]).toBe(false);
+});
+it('image lookahead does not start or retain offscreen native video playback', () => {
+  const p = post({video_url:'private-video'});
+  mockMedia = {photo_url:null,front_photo_url:null,video_url:'https://example.test/video'};
+  const ui = render(shell(<PostCard post={p} blurred={false} realtimeActive mediaActive />));
+  expect(ui.UNSAFE_queryAllByType(AppVideo)).toHaveLength(1);
+  ui.rerender(shell(<PostCard post={p} blurred={false} realtimeActive={false} mediaActive />));
+  expect(usePostMedia).toHaveBeenCalledWith(p,true,'feed',false);
+  expect(ui.UNSAFE_queryAllByType(AppVideo)).toHaveLength(0);
+});
+
 it('uses paused uncached video defaults', () => {
   render(<AppVideo uri="https://example.test/video" />);
   expect(mockPause).toHaveBeenCalled();
@@ -290,6 +363,9 @@ it('compares every visually meaningful post field without relying on object iden
     ),
     ...['id', 'title', 'category', 'type'].map(
       (k) => ({ challenge: { ...a.challenge, [k]: 'new' } }) as Partial<Post>,
+    ),
+    ...['requires_photo', 'requires_video'].map(
+      (k) => ({ challenge: { ...a.challenge, [k]: true } }) as Partial<Post>,
     ),
   ];
   for (const change of changes) expect(postsVisuallyEqual(a, { ...a, ...change })).toBe(false);
@@ -335,19 +411,27 @@ it('a failed cold post read offers retry rather than claiming the post was remov
   const refetch = jest.fn();
   mockPostRead = { isLoading: false, error: { status: 504 }, refetch, isFetching: false };
   const ui = render(shell(<PostDetail />));
-  expect(ui.getByText('Could not load this post. Check your connection and try again.')).toBeTruthy();
+  expect(
+    ui.getByText('Could not load this post. Check your connection and try again.'),
+  ).toBeTruthy();
   expect(ui.queryByText('This post is no longer available.')).toBeNull();
   fireEvent.press(ui.getByText('Try again'));
   expect(refetch).toHaveBeenCalledWith({ cancelRefetch: false });
-  mockPostRead.isFetching = true; ui.rerender(shell(<PostDetail />));
-  fireEvent.press(ui.getByText('Try again')); expect(refetch).toHaveBeenCalledTimes(1);
+  mockPostRead.isFetching = true;
+  ui.rerender(shell(<PostDetail />));
+  fireEvent.press(ui.getByText('Try again'));
+  expect(refetch).toHaveBeenCalledTimes(1);
 });
 it('a transient post refresh preserves authorized cached content, but access loss hides it', () => {
-  mockPostRead.error = { status: 503 }; mockPostRead.refetch = jest.fn();
+  mockPostRead.error = { status: 503 };
+  mockPostRead.refetch = jest.fn();
   const ui = render(shell(<PostDetail />));
   expect(ui.UNSAFE_queryByType(PostCard)).not.toBeNull();
-  expect(ui.getByText('Could not refresh this post. Showing the last loaded version.')).toBeTruthy();
-  mockPostRead.error = { code: '42501' }; ui.rerender(shell(<PostDetail />));
+  expect(
+    ui.getByText('Could not refresh this post. Showing the last loaded version.'),
+  ).toBeTruthy();
+  mockPostRead.error = { code: '42501' };
+  ui.rerender(shell(<PostDetail />));
   expect(ui.UNSAFE_queryByType(PostCard)).toBeNull();
   expect(ui.getByText('This post is no longer available.')).toBeTruthy();
 });

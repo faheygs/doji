@@ -52,7 +52,7 @@ describe('notificationHrefFromData', () => {
   });
 
   it('returns friends for FRIEND_ACCEPTED', () => {
-    expect(notificationHrefFromData({ type: 'FRIEND_ACCEPTED' })).toBe('/(app)/friends');
+    expect(notificationHrefFromData({ type: 'FRIEND_ACCEPTED' })).toBe('/(app)/(tabs)/friends');
   });
 
   it('returns the exact post for REACTION with postId', () => {

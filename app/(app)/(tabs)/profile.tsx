@@ -35,6 +35,8 @@ import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import type { Profile } from '@/types/database';
 import { InlineFeedback } from '@/components/ui/InlineFeedback';
 import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
+import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
+import { useFirstDojiWins } from '@/hooks/useFirstDojiWins';
 export default function MyProfileScreen() {
   const router = useRouter();
   const navigationOrigin = useNavigationOrigin();
@@ -43,8 +45,9 @@ export default function MyProfileScreen() {
   const profile = useAuthStore((s) => s.profile) as Profile | null;
   const sparks = useSparksBalance();
   const fetchProfile = useAuthStore((s) => s.fetchProfile);
-  const { openChangePhotoDialog, uploading, error: photoError } = useChangeProfilePhoto();
+  const { openChangePhotoDialog, uploading, error: photoError, clearError } = useChangeProfilePhoto();
   const { data: categories = [] } = useBadgeCategories();
+  const { data: firstDojiWins } = useFirstDojiWins(categories.some((category) => category.id === 'first_doji'));
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
   const { data: friendCount = 0 } = useFriendCount(profile?.id);
@@ -70,11 +73,12 @@ export default function MyProfileScreen() {
       reactionsReceived: profile.reactions_received ?? 0,
       reactionsGiven,
       pollVotes,
+      firstDojiWins,
       friendsCount: friendCount,
       challengeIdeasSubmitted: mySuggestions.length,
       challengeIdeasPicked: mySuggestions.filter((s) => s.status === 'approved').length,
     };
-  }, [profile, friendCount, reactionsGiven, pollVotes, mySuggestions]);
+  }, [profile, friendCount, reactionsGiven, pollVotes, mySuggestions, firstDojiWins]);
 
   const badgeEarnedSummary = useMemo(
     () => countEarnedBadgeTiers(tiers, badgeProgress, badgeProgressStats),
@@ -87,6 +91,8 @@ export default function MyProfileScreen() {
     try {
       await Promise.all([
         invalidateQueryRoots(queryClient, [
+          'badgeCategories',
+          'badgeTiers',
           'userBadgeProgress',
           'friendCount',
           'friends',
@@ -162,6 +168,7 @@ export default function MyProfileScreen() {
           onChangePhoto={openChangePhotoDialog}
           photoUploading={uploading}
         />
+        <ProfileSaveRecovery onSaved={clearError} />
         {photoError ? (
           <InlineFeedback
             title="Could not update photo"

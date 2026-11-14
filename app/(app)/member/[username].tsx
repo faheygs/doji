@@ -19,12 +19,12 @@ import {
   ProfileStatsStrip,
   ProfileStreakPair,
 } from '@/components/profile/ProfileSections';
-import { IconChevronLeft, IconPlus } from '@/components/icons/Icons';
+import { IconChevronLeft } from '@/components/icons/Icons';
 import { ProfileFriendsSheet } from '@/components/profile/ProfileFriendsSheet';
 import {
   useProfile,
   useFriendship,
-  useFriendshipStatus,
+  deriveFriendshipStatus,
   useSendFriendRequest,
   useRemoveFriend,
   useFriendCount,
@@ -42,9 +42,12 @@ import { invalidateQueryRoots } from '@/lib/queryInvalidationBatcher';
 import { countEarnedBadgeTiers } from '@/lib/badgeProgress';
 import { ProfileManageMenu } from '@/components/profile/ProfileManageMenu';
 import { useAppDialog } from '@/contexts/DialogContext';
+import { ProfileFriendButton } from '@/components/profile/ProfileFriendButton';
 import { ProfileCurrentPost } from '@/components/profile/ProfileCurrentPost';
 import { useProfileNavigationStore } from '@/stores/useProfileNavigationStore';
 import { NavigationOriginProvider } from '@/contexts/NavigationOriginContext';
+import { friendshipMatchesTarget } from '@/lib/memberProfileQueries';
+import { useProfileActionReadiness } from '@/hooks/useProfileActionReadiness';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams<{ username: string | string[]; returnTo?: string }>();
@@ -54,6 +57,11 @@ export default function UserProfileScreen() {
     return value ? normalizeUsernameInput(value) : undefined;
   }, [params.username]);
   const { returnTo } = params;
+  const viewerId = useAuthStore(state => state.session?.user.id);
+  return <MemberProfile key={`${viewerId}:${username}`} username={username} returnTo={returnTo} />;
+}
+
+function MemberProfile({ username, returnTo }: { username?: string; returnTo?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const navigationOrigin = useMemo(
@@ -64,6 +72,7 @@ export default function UserProfileScreen() {
   const { colors } = useTheme();
   const { showDialog } = useAppDialog();
   const currentProfile = useAuthStore((s) => s.profile);
+  const viewerId = useAuthStore(state => state.session?.user.id);
   const pendingUsername = useProfileNavigationStore((s) => s.pendingUsername);
   const clearPendingProfile = useProfileNavigationStore((s) => s.clear);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,8 +90,10 @@ export default function UserProfileScreen() {
   const profile = routeReady && profileQuery.data?.username === username ? profileQuery.data : null;
   const blockedByUser = routeReady && profileQuery.blockedByUser;
   const isLoading = profileQuery.isLoading || !routeReady;
-  const { data: friendship } = useFriendship(profile?.id);
-  const { data: friendshipStatus = 'none' } = useFriendshipStatus(profile?.id);
+  const friendshipQuery = useFriendship(profile?.id);
+  const friendship = friendshipQuery.data;
+  const relationshipKnown = friendshipMatchesTarget(friendship, viewerId, profile?.id);
+  const friendshipStatus = relationshipKnown ? deriveFriendshipStatus(friendship, viewerId) : undefined;
   const { data: friendCount = 0 } = useFriendCount(profile?.id);
   const { data: currentPost, isLoading: currentPostLoading } = useCurrentProfilePost(profile?.id);
   const sendRequest = useSendFriendRequest();
@@ -90,7 +101,12 @@ export default function UserProfileScreen() {
   const removeFriend = useRemoveFriend();
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
-  const { data: isBlockedByMe = false } = useIsBlockedByMe(profile?.id);
+  const blockQuery = useIsBlockedByMe(profile?.id);
+  const isBlockedByMe = blockQuery.data;
+  const entryReady = useProfileActionReadiness(profile?.id, friendshipQuery, blockQuery);
+  const actionsReady = relationshipKnown && isBlockedByMe !== undefined && entryReady;
+  const actionReadError = friendshipQuery.isError || blockQuery.isError;
+  const actionsEnabled = actionsReady && !actionReadError;
   const { data: categories = [] } = useBadgeCategories();
   const { data: tiers = [] } = useBadgeTiers();
   const { data: badgeProgress = [] } = useUserBadgeProgress(profile?.id);
@@ -176,10 +192,6 @@ export default function UserProfileScreen() {
           alignItems: 'center',
           gap: Spacing.sm,
         },
-        headerFriendButton: {
-          minHeight: 44,
-          paddingHorizontal: Spacing.md,
-        },
         centered: {
           flex: 1,
           alignItems: 'center',
@@ -227,6 +239,14 @@ export default function UserProfileScreen() {
     );
   }
 
+  if (profileQuery.isError && !profile) {
+    return <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={styles.container}>
+      <View style={styles.topBar}>{headerBack}</View>
+      <InlineFeedback title="Could not load profile" message="Check your connection and try again." />
+      <Button onPress={() => { void profileQuery.refetch(); }}>Retry</Button>
+    </SafeAreaView>;
+  }
+
   if (blockedByUser || !profile) {
     return (
       <SafeAreaView
@@ -248,9 +268,9 @@ export default function UserProfileScreen() {
 
   const isFriend = friendshipStatus === 'friends';
   const pendingIncoming = friendshipStatus === 'pending_in';
-  const pendingOutgoing = friendshipStatus === 'pending_out';
 
   const handleFriendAction = () => {
+    if (!actionsEnabled) return;
     setFriendActionError(null);
     if (isFriend) return;
     if (pendingIncoming && friendship?.id) {
@@ -278,14 +298,8 @@ export default function UserProfileScreen() {
     }
   };
 
-  const friendDisabled =
-    pendingOutgoing ||
-    sendRequest.isPending ||
-    respondRequest.isPending ||
-    friendshipStatus === 'blocked';
-
   const handleRemoveFriend = () => {
-    if (!profile || !friendship?.id) return;
+    if (!actionsEnabled || !profile || !friendship?.id) return;
     showDialog({
       title: 'Unfriend?',
       message: `Remove ${profile.display_name} from your friends?`,
@@ -301,7 +315,7 @@ export default function UserProfileScreen() {
   };
 
   const handleBlockUser = () => {
-    if (!profile) return;
+    if (!actionsEnabled || !profile) return;
     showDialog({
       title: 'Block user?',
       message: `Block ${profile.display_name}? Their content will leave your feed immediately. Use Report separately if you also want our moderation team to review the account.`,
@@ -321,7 +335,7 @@ export default function UserProfileScreen() {
   };
 
   const handleUnblockUser = () => {
-    if (!profile) return;
+    if (!actionsEnabled || !profile) return;
     showDialog({
       title: 'Unblock user?',
       message: `Unblock ${profile.display_name}? They'll be able to see your posts and interact with you again.`,
@@ -362,33 +376,13 @@ export default function UserProfileScreen() {
           {headerBack}
           <View style={styles.topBarSpacer} />
           <View style={styles.topActions}>
-            {!isBlockedByMe ? (
-              <Button
-                onPress={isFriend ? handleRemoveFriend : handleFriendAction}
-                variant={isFriend || pendingOutgoing ? 'secondary' : 'primary'}
-                size="sm"
-                loading={
-                  sendRequest.isPending || respondRequest.isPending || removeFriend.isPending
-                }
-                disabled={removeFriend.isPending || (!isFriend && friendDisabled)}
-                leftIcon={
-                  !isFriend && !pendingOutgoing ? (
-                    <IconPlus size={15} color={colors.onPrimary} />
-                  ) : undefined
-                }
-                style={styles.headerFriendButton}
-              >
-                {isFriend
-                  ? 'Unfriend'
-                  : pendingOutgoing
-                    ? 'Requested'
-                    : pendingIncoming
-                      ? 'Accept'
-                      : 'Add friend'}
-              </Button>
-            ) : null}
+            <ProfileFriendButton ready={actionsReady} blocked={!!isBlockedByMe} status={friendshipStatus}
+              error={actionReadError}
+              busy={sendRequest.isPending || respondRequest.isPending || removeFriend.isPending}
+              onPress={isFriend ? handleRemoveFriend : handleFriendAction} />
             <ProfileManageMenu
-              isBlocked={isBlockedByMe}
+              ready={actionsEnabled}
+              isBlocked={!!isBlockedByMe}
               busy={removeFriend.isPending || blockUser.isPending || unblockUser.isPending}
               onBlock={handleBlockUser}
               onUnblock={handleUnblockUser}
@@ -396,6 +390,13 @@ export default function UserProfileScreen() {
             />
           </View>
         </View>
+
+        {actionReadError ? (
+          <View style={{ marginHorizontal: Spacing.lg }}>
+            <InlineFeedback title="Could not load friendship status" message="Your profile is available. Retry to load its actions." />
+            <Button onPress={() => { void friendshipQuery.refetch(); void blockQuery.refetch(); }}>Retry actions</Button>
+          </View>
+        ) : null}
 
         {friendActionError ? (
           <InlineFeedback

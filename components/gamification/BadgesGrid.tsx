@@ -24,6 +24,7 @@ import {
   type BadgeProgressStats,
 } from '../../lib/badgeProgress';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { criteriaLabel } from '../../lib/badgeCriteriaLabel';
 
 const COLUMN_GAP = Spacing.md;
 const ROW_GAP = Spacing.md;
@@ -31,33 +32,6 @@ const TIER_ORDER: BadgeTierName[] = ['bronze', 'silver', 'gold', 'diamond'];
 
 function tierRank(t: BadgeTierName): number {
   return TIER_ORDER.indexOf(t);
-}
-
-function criteriaLabel(type: string, value: number): string {
-  switch (type) {
-    case 'streak_days':
-      return `Reach a ${value}-day streak`;
-    case 'completions':
-      return `Complete ${value} challenge${value === 1 ? '' : 's'}`;
-    case 'total_xp':
-      return `Earn ${value.toLocaleString()} total XP`;
-    case 'reactions_given':
-      return `Give ${value} reaction${value === 1 ? '' : 's'}`;
-    case 'reactions_received':
-      return `Receive ${value} reaction${value === 1 ? '' : 's'}`;
-    case 'poll_votes':
-      return `Vote in ${value} poll${value === 1 ? '' : 's'}`;
-    case 'friends_count':
-      return `Have ${value} friend${value === 1 ? '' : 's'}`;
-    case 'level_reached':
-      return `Reach level ${value}`;
-    case 'ideas_submitted':
-      return `Submit ${value} challenge idea${value === 1 ? '' : 's'}`;
-    case 'ideas_picked':
-      return `Have ${value} idea${value === 1 ? '' : 's'} picked for a daily challenge`;
-    default:
-      return `Reach ${value}`;
-  }
 }
 
 type Props = {
@@ -111,7 +85,8 @@ export function BadgesGrid({ categories, tiers, progress, progressStats, readOnl
     ? BADGE_TIER_COLORS[selectedDisplayTier]
     : colors.border;
   const selectedProgressDetail =
-    selected && nextTier && progressStats
+    selected && nextTier && progressStats &&
+      (nextTier.criteria_type !== 'first_doji_wins' || progressStats.firstDojiWins !== undefined)
       ? computeBadgeProgress(
           { criteria_type: nextTier.criteria_type, criteria_value: nextTier.criteria_value },
           progressStats,

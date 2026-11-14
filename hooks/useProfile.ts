@@ -7,24 +7,17 @@ import type { Profile, Post, Friendship } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
 import { executeCommand } from '../lib/commandGateway';
 import { scheduleQueryInvalidation } from '../lib/queryInvalidationBatcher';
-import { normalizePublicProfile, parsePublicProfileView } from '../lib/publicProfileView';
+import { friendshipOptions, memberProfileOptions } from '../lib/memberProfileQueries';
 import { runAbortableQuery } from '../lib/requestSignal';
 import { optimisticallyRequestFriendship, rollbackOptimisticFriendRequest } from '../lib/friendshipCache';
-import { fetchPublicProfileView } from '../lib/profileQueries';
+import { preserveRecentReaction } from '../lib/reactionReadConsistency';
+import { clearFirstDoji } from '../lib/firstDojiCache';
 
 export function useProfile(username?: string) {
   const normalized = username ? normalizeUsernameInput(username) : '';
-  const query = useQuery({
-    queryKey: ['profile', normalized],
-    queryFn: async ({ signal }) => {
-      if (!normalized) return { status: 'not_found' as const, profile: null };
-      const data = await fetchPublicProfileView(normalized, signal);
-      const view = parsePublicProfileView(data);
-      return { ...view, profile: normalizePublicProfile(view.profile) };
-    },
-    enabled: !!normalized,
-    staleTime: 30_000,
-  });
+  const client = useQueryClient();
+  const userId = useAuthStore(state => state.session?.user.id);
+  const query = useQuery(memberProfileOptions(normalized, userId, client));
   return {
     ...query,
     data: query.data?.profile ?? null,
@@ -34,11 +27,13 @@ export function useProfile(username?: string) {
 
 /** Single post — same shape as feed (for profile grid → detail). */
 export function usePost(postId?: string) {
+  const client = useQueryClient();
   const session = useAuthStore((s) => s.session);
   const me = session?.user?.id;
   return useQuery({
     queryKey: ['post', postId, me],
     queryFn: async ({ signal }): Promise<Post | null> => {
+      const startedAt = Date.now();
       if (!postId) return null;
       const { data, error } = await runAbortableQuery(
         supabase.rpc('get_post_detail', { p_post_id: postId }),
@@ -52,7 +47,8 @@ export function usePost(postId?: string) {
       // PostCard resolves a current signed URL only while the authorized card
       // is mounted, so a bearer capability is never persisted.
       const [withReaction] = await attachReactionFields([data as Post], me, signal);
-      return withReaction as Post;
+      return me ? preserveRecentReaction(client, me, startedAt, withReaction as Post,
+        client.getQueryData<Post | null>(['post', postId, me])) : withReaction as Post;
     },
     enabled: !!postId,
     staleTime: 15_000,
@@ -62,25 +58,7 @@ export function usePost(postId?: string) {
 export function useFriendship(targetUserId?: string) {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
-  return useQuery({
-    queryKey: ['friendship', userId, targetUserId],
-    queryFn: async ({ signal }): Promise<Friendship | null> => {
-      if (!userId || !targetUserId) return null;
-      const query = supabase
-          .from('friendships')
-          .select('id, requester_id, addressee_id, status, created_at, accepted_at')
-          .or(
-            `and(requester_id.eq.${userId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${userId})`,
-          );
-      const { data } = await runAbortableQuery({
-        retry: enabled => query.retry(enabled),
-        abortSignal: requestSignal => query.abortSignal(requestSignal).maybeSingle(),
-      }, signal);
-      return data as Friendship | null;
-    },
-    enabled: !!userId && !!targetUserId,
-    staleTime: 30_000,
-  });
+  return useQuery(friendshipOptions(userId, targetUserId));
 }
 
 /** Viewer-relative friendship state between the signed-in user and a target profile. */
@@ -196,8 +174,9 @@ export function useRemoveFriend() {
       if (error) throw error;
     },
     onSuccess: () => {
+      clearFirstDoji(queryClient);
       scheduleQueryInvalidation(queryClient, [
-        'friends', 'friendRequests', 'friendship', 'feed', 'notificationCenter',
+        'friends', 'friendRequests', 'friendship', 'feed', 'notificationCenter', 'firstDoji',
       ]);
       invalidateFriendCountQueries(queryClient);
     },
@@ -212,8 +191,9 @@ export type SearchProfile = Pick<
 };
 
 export function useSearchUsers(query: string) {
+  const userId = useAuthStore(state => state.session?.user.id);
   return useQuery({
-    queryKey: ['searchUsers', query || '__browse__'],
+    queryKey: ['searchUsers', query || '__browse__', userId],
     queryFn: async ({ signal }): Promise<SearchProfile[]> => {
       const { data, error } = await runAbortableQuery(supabase.rpc('search_profiles', {
         p_query: query,
@@ -222,7 +202,7 @@ export function useSearchUsers(query: string) {
       if (error) throw error;
       return (data ?? []) as SearchProfile[];
     },
-    enabled: query.length >= 2,
+    enabled: !!userId && query.length >= 2,
     staleTime: 30_000,
   });
 }

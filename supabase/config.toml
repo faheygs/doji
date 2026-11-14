@@ -54,3 +54,8 @@ verify_jwt = false
 # itself. Exact project/environment guards deny production before any database I/O.
 [functions.admin-development]
 verify_jwt = false
+
+# Optional native counters. Handler verifies the member bearer with this project's Auth.
+# Runtime and private SQL gates remain off until separately qualified.
+[functions.mobile-workflow-report]
+verify_jwt = false
