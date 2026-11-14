@@ -4,6 +4,14 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 **source lockfile**, not every installed store binary. See
 [Current state and gaps](CURRENT_STATE_AND_GAPS.md) for deployment qualifications.
 
+The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
+34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and
+`get_mobile_release_policy` own the minimum/latest versions;
+`hooks/useAppUpdatePolicy.ts`, `lib/appUpdate.ts` and `AppUpdatePrompt` own the
+cached read, version decision and required store-link dialog. Store approval,
+policy configuration and native installation are distinct states. See the
+[release closeout](releases/README.md#november-14-production-distribution-and-repository-closeout).
+
 ## Product surfaces
 
 | Surface | Address or entry | Source and packaging | Identity |
@@ -98,9 +106,9 @@ iPhone Staging signup; recovery mail and complete workflows remain unqualified.
 
 | Layer | Audited source version or family | Role |
 | --- | --- | --- |
-| Expo | 57.0.32 | Native toolchain and modules |
+| Expo | 57.0.33 | Native toolchain and modules; source patch, not a new store binary |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.30 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.31 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |

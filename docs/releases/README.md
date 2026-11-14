@@ -5,7 +5,168 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 14 production distribution and repository closeout
+
+Runtime source is reviewed main `b2c57a46b590aebe9ea7474608fa2aff1a22ef30`;
+quality run `43158852439` passed and admin-staging `43160984674` skipped packaging
+and deployment. The backend qualification below is complete and must not be replayed.
+The original production artifacts remain iOS `2827c7d9-8e0f-489d-8ee9-3821ab71de67`
+and Android `4d3b570e-3ae9-4f76-8b9f-5b4e3d70484a`, version 1.0.14 / builds 108 and 34.
+
+After the owner uploaded the verified Android bundle, closed Alpha release 24
+was submitted and subsequently verified available to selected testers on Google Play,
+at 100% rollout, one country/region, with the unchanged six-person closed-test list.
+Device requirements matched build 33. This is not a public production-track launch.
+The owner separately authorized public Apple review, accepted the required agreement,
+and submitted version 1.0.14 with build 108. Review submission
+`64d41382-cbfa-4ec2-afab-d2a825d7ddd9` initially showed Waiting for Review;
+the public US App Store listing subsequently showed version 1.0.14 on November 13
+Mountain time. No new binary, extra tester audience or paid resource was created.
+
+The owner authorized mandatory updates only after store availability was verified:
+
+| Platform | Prior minimum/latest | New minimum/latest | Applied UTC |
+| --- | --- | --- | --- |
+| Android | 1.0.13 / 33 | 1.0.14 / 34 | November 13, 03:09:40 |
+| iOS | 1.0.10 / 105 | 1.0.14 / 108 | November 14, 00:10:03 |
+
+Each bounded transaction required an exact prior-policy snapshot, changed only
+its platform, preserved the other row and store URL/message, and retained a guarded
+rollback. Anonymous and authenticated `get_mobile_release_policy` reads returned
+the intended values. Local version/build decisions passed. The installed prompt
+was not exercised on an old physical device during these configuration changes.
+Policy fetching is cached and refetches on mount; this is an update requirement on
+the next successful fetch, not silent installation or universal immediate enforcement.
+Private baseline, rollback, verification and screenshots are retained outside Git in
+the owner's temporary evidence directories `doji-android34-required-update-20261112`
+and `doji-ios108-required-update-20261113`. Their rollback SQL has not been executed.
+
+Four earlier documentation PRs are consolidated here instead of merging stale
+current-state paragraphs over the released source. Their original diffs retain the
+full artifact/signing/acceptance records and dated limitations:
+
+| Receipt | Source / build | Recorded qualification |
+| --- | --- | --- |
+| [PR #76](https://github.com/faheygs/doji/pull/76) | `c45e27c`, Staging 4 | iPhone owner navigation/theme acceptance; emulator restart restored 499–681 ms activity launches, not feed-ready or physical-device latency |
+| [PR #78](https://github.com/faheygs/doji/pull/78) | `d0f36be`, Staging 5 | Feed/reaction improvements reported by owner; exact staged artifacts and included-credit checks |
+| [PR #80](https://github.com/faheygs/doji/pull/80) | `3c35e56`, Staging 6 | Hosted search SQL qualification, artifact/source-map checks and retained account on Android update |
+| [PR #86](https://github.com/faheygs/doji/pull/86) | `62cc442`, Staging 8 | Prospective Staging Sparks activation November 11, 19:21 UTC, retaining rollback and both native artifacts; owner subsequently confirmed installation and targeted checks |
+
+Staging 9 submission acceptance and the later production qualification supersede
+those release holds, not their performance limitations. Physical Android speed,
+native large-thread memory and complete health coverage are not certified.
+Private paths in older receipts describe their recorded retention locations, not
+a fresh filesystem inventory; locate and verify exact rollback evidence before reuse.
+
+The owner folder moved from `a5be328` to reviewed main without overwriting newer
+source. All 39 modified and nine untracked files were preserved by
+`owner-preservation-before-release-closeout-20261114`, stash object
+`4d14340fdd8c8a25a8228dfcf61e5a8c20a65a77`. Older stashes, worktrees and rollback
+evidence remain intact. Recovery should use a separate branch based on the stash's
+original parent; do not blindly apply it over current main. Some mobile files already
+match released main; unique Worker/email notification changes remain unreleased.
+[PR #45](https://github.com/faheygs/doji/pull/45) remains separate admin presentation
+work and is not superseded by this mobile release. This closeout changes documentation
+only; it authorizes no deployment, build, message or operational replay.
+
+### November 14 Expo compatibility qualification
+
+PR #93 merged as `af6646a` after exact-head `2041b51` passed all four quality jobs
+and security in run `43626393842`. It updates Expo/Constants/Linking/Router to
+57.0.33/57.0.24/57.0.14/57.0.31 and only their required locked dependencies.
+Expo Doctor passed 21/21; all 313 Jest suites / 5,523 tests and root static gates
+passed locally. The diagnostics pin was separately reviewed: ExpoFetchModule.kt
+is byte-identical across 57.0.32 and 57.0.33, retaining SHA-256
+`3c766cf8a30f00a91f3a6116aa9e7f6a44f26d7fe2179cd7c114cbbfb56b08ea`.
+Unknown versions, source edits and duplicate observers still fail closed.
+The scoped audit found no high/critical advisories; eight low and three moderate
+findings remain. Native/device qualification is not established by these checks.
+The owner approved the normal automatic admin-staging Pages pipeline because root
+lockfiles are existing packaging inputs. No production deployment, native build,
+backend change or extra spending accompanies this source patch. Reversion requires
+a normal reviewed source revert; retained production binaries remain unchanged.
+
+Main quality run `43627952981` passed all four jobs. Automatic admin-staging run
+`43629652640` passed plan, packaging and deployment for exact source `af6646a`.
+Its verified receipt records Pages `8ed172c2-4a78-40d8-a317-62e6c3af4776` and
+rollback `96e107ab-c5e2-4441-bb1f-711157b10751`; configuration remained unchanged.
+Public staging release identity matched after deployment. Production admin remained
+at `9bf78fe`, with no production promotion. The private receipt is retained outside
+Git in `doji-expo57-staging-receipt-20261114`. Pipeline verification covers exact
+source/configuration, security headers and session-origin denial; it is not new
+signed-in workflow or mobile-device acceptance.
+
 ## November 11 mobile Staging build 9 and production gates
+
+### November 12 production backend qualification
+
+The following records the original qualification and intermediate distribution
+state. The November 14 closeout above supersedes its pending upload/review labels.
+
+PR #91 passed all four jobs and security at `550d59f735f94b6d7fffc7b41873f6a938febeaa`
+and merged as `b2c57a46b590aebe9ea7474608fa2aff1a22ef30`. Main quality run
+`43158852439` passed all four jobs. Admin-staging run `43160984674` passed its plan
+and skipped packaging/deployment. Its browser-fixture correction waits for the
+mock hosted-auth navigation to abort before asserting storage; no production auth,
+test retries, timeouts or coverage budgets changed. Local full qualification passed
+5,523 app tests and 845 browser tests (one pre-existing skip), with all 17 coverage
+budgets passing.
+
+The narrow three-function REVOKE corrected the inherited grants without rewriting
+their bodies or changing global defaults. Production read qualification passed at
+05:04 UTC: exact Staging functions/permissions/indexes, denied unauthenticated reads,
+unchanged existing contracts, balances and ledger, with zero lock waits.
+Badge preparation installed disabled. The release helper then collapsed PostgreSQL
+dollar quoting in a replacement string; the economy query failed SQL parsing before
+creating its schema. Readback proved no economy installation, no awards and unchanged
+balances. Callback-based literal insertion was qualified against 291 isolated
+migrations, predecessor rejection, all-kind reward/replay tests and exact rollback
+of all eight original functions. The explicitly resumed economy-only phase did not
+replay badge or read installation.
+
+Disabled economy qualification passed at 05:18:50 UTC. First-Doji and Sparks v2
+were enabled together prospectively at 05:19 UTC, with no backfill, balance rewrite
+or historical receipts. All 489 inspected functions remained within the approved
+contract set; unrelated policies/triggers/indexes and existing function permissions
+were unchanged. Auth, timing, push, Worker and monitoring were excluded. Private
+evidence under `Doji/production-backend/2026-11-12-mobile-social` retains originals,
+overlay hashes, attempts, readbacks, failed-attempt evidence and qualified receipts.
+Rollback disables the gates and restores the captured reward functions while retaining
+earned balances, ledger, winners and duplicate fences. Do not replay phase attempts.
+
+Native source is 1.0.14 / iOS 108 / Android 34. The first launch stopped locally:
+EAS evaluated production URLs before supplying its cloud profile, and the app's
+default Dev selector rejected the mixture. Expo readback confirmed no cloud job or
+credit use. Explicit local production selection passed read-only configuration
+checks for both platforms. After explicit owner approval, one corrected launch
+queued Android `4d3b570e-3ae9-4f76-8b9f-5b4e3d70484a` and iOS
+`2827c7d9-8e0f-489d-8ee9-3821ab71de67` from exact main `b2c57a4`. Existing store
+versions remain 1.0.13 / 107 / 33. iOS 108 finished and its identity, store provisioning,
+production environment guard and source-map upload passed at 05:39 UTC; full macOS
+code-signature verification was not available on Windows. Android 34 finished and
+passed bundletool validation, existing upload-certificate/signature matching,
+production environment guard and source-map upload at 05:56 UTC. Its artifact SHA256
+is `0d141bb456b1140c0508318bf0452e71858782d6e43bd1e0a8c08e6840fb3790`.
+Android EAS submission failed locally because no Google Play submission credential
+is configured; readback confirmed zero submission jobs. No key was created.
+The signed-in Console created closed Alpha draft release 24. The browser upload was
+rejected as not a well-formed ZIP, although the unchanged local bundle again passed
+bundletool validation and signature checks. The rejected entry was removed; the
+original artifact is retained. Native-picker fallback exposed no dialog, so the
+draft is awaiting owner upload of that same file. Do not rebuild or submit a duplicate;
+Android 33 remains the available closed-track version until further verification.
+Expo rejected the iOS submission's optional What to Test upload as Enterprise-only.
+Readback matched all 20 pre-attempt submission IDs: no submission job was created.
+The owner approved one corrected submission without that optional field. Submission
+`435836e6-4616-4738-a46b-08b38fe3fa60` finished using the same iOS artifact, with
+no plan upgrade or rebuild. Signed-in App Store Connect verified 1.0.14 (108) as
+Testing in the existing six-person internal Doji Testers group at 05:53 UTC.
+No external group or public App Store release was created. Installed production
+binary acceptance remains pending; Staging acceptance is not a production-device test.
+The approved pair remains limited to included credits and existing TestFlight/Play
+closed Alpha audiences, not public distribution. The earlier preparation labels
+below are superseded only for the qualified backend; physical Android performance
+and native large-thread memory remain unqualified.
 
 ### November 12 production read-phase hold
 

@@ -9,6 +9,13 @@ deployment. Read current release state and the relevant release record before
 changing or executing an overlay. Never bulk-apply this directory or move files
 into `migrations/` merely to tidy it: that can replay already-installed changes.
 
+Recorded November 12 production qualification covers the feed-order, profile-search,
+comment-pages/reply-count, first-Doji read/badge and Sparks v2 overlays below.
+Their Staging versions qualified first; production awards are prospective, with
+retaining rollback and no historical backfill. See the
+[production receipt](../../docs/releases/README.md#november-12-production-backend-qualification).
+Do not replay these installations. This does not enable other overlays here.
+
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
 - `member_feed_cursor_order_v1.sql` preserves the existing descending timestamp/ID
@@ -16,9 +23,9 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   the exact prior body; both refuse unreviewed/intervening bodies. No index, payload,
   permission, write or timing change. `node scripts/database/member-feed-cursor-order.mts`
   checks tied/mixed timestamps, both audiences, visibility, replay and rollback in an
-  owned offline database. Hosted installation remains independently gated.
+  owned offline database. Recorded Staging and production installation is complete.
 - `sparks_economy_v2.sql` + `sparks_economy_v2.bindings.sql` compose one default-off
-  transaction, not a hosted release. Install in that order only after the qualified
+  transaction. Hosted enablement is recorded above. Install in that order only after the qualified
   canonical first-Doji dependency. Captured functions, private receipts/caps and
   level high-water marks fence duplicate rewards. Its retaining rollback refuses
   intervening function changes and restores originals without erasing balances.
@@ -28,7 +35,7 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   prospective 1/10/25/100 tiers, completion trigger and self-count read. Only the
   new celebration read is replaced; existing commands/permissions remain intact.
   It installs disabled after `member_first_doji_v1` and uses existing tier rewards.
-  Staging enablement is recorded in current state; production remains gated.
+  Staging and prospective production enablement are recorded in current state.
   Its rollback disables awards but retains catalogue, winners, counts and rewards;
   retain the underlying read dependency. `first-doji-badges.mts` tests all kinds,
   real command races, grants, visibility, retention and rollback offline.
@@ -40,7 +47,7 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   Recorded Staging read qualification does not establish large-scale latency or
   native acceptance. No hosted action is authorized by merging these sources.
 - `member_comment_reply_counts_v1.sql` and its exact projection rollback are
-  source-only. They add authorized `reply_count` to the existing v2 root/retained
+  deployed in Staging and production. They add authorized `reply_count` to the existing v2 root/retained
   reads without changing public RPC signatures, writes, grants, jobs or indexes.
   Counts exclude blocks in either direction, pending own reports, moderation and
   nonfriends in Friends view. Exact counts scan matching replies, not a constant-time
@@ -48,7 +55,7 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   hosted latency/concurrency and staging acceptance are separate release gates.
   Roll back this projection before removing the underlying v2 read boundary.
 - `member_comment_pages_v2.indexes.sql`, `member_comment_pages_v2.sql` and their
-  retaining inverse are source-only. The index installs concurrently outside a
+  retaining inverse are qualified in Staging and production. The index installs concurrently outside a
   transaction; the RPC installer refuses a missing, invalid or unexpected index.
   Separate root/reply cursors and retained-ID refresh preserve existing installed
   reads and all writes. Results cap at 50 and expose only safe fields; authorization
@@ -59,7 +66,7 @@ into `migrations/` merely to tidy it: that can replay already-installed changes.
   included in the main database suite. Before release verify live compatibility,
   index build capacity/locks and staging acceptance. Rollback removes only these
   new read helpers/index; comments, command receipts and existing RPCs remain.
-- `member_profile_search_v1.sql` and its retaining inverse: source-only member
+- `member_profile_search_v1.sql` and its retaining inverse: Staging/production member
   discovery expansion. Indexed public display-name token prefixes join literal
   username prefixes; existing identity/block/demo/ban rules, grants and safe fields
   remain. `node scripts/database/member-profile-search.mts` verifies matches,
