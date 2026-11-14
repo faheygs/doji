@@ -51,8 +51,11 @@ above was verified separately from build completion.
 The primary development folder is aligned to reviewed main. Its previous mixed
 48-file working state is retained in a named local Git stash, not merged over newer
 source. Four older staging receipt PRs are consolidated in the release index;
-their original diffs remain evidence. PR #45 remains separate unfinished admin
-presentation work. Unreleased Worker/email notification changes are preserved, not
+their original diffs remain evidence. PR #45's admin-only presentation update
+distinguishes server publication target misses from confirmed phone outcomes and
+shows the existing timing targets beside history measurements. It changes no
+thresholds, reads or delivery behavior; hosted releases remain separately gated.
+Unreleased Worker/email notification changes are preserved, not
 deployed or silently included in this mobile release. Physical Android performance,
 large-thread native memory and complete workflow-health coverage remain unqualified.
 

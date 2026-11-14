@@ -30,6 +30,17 @@ export const healthColor = (state: HealthState) =>
 export const observation = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleString() : 'Unavailable';
 type LoadState = { loading: boolean; failed: boolean };
+function useHealthRows<T>(data: T[]) {
+  const [size, setSize] = useState(10), [page, setPage] = useState(1);
+  const current = Math.min(page, Math.max(1, Math.ceil(data.length / size)));
+  const rows = data.slice((current - 1) * size, current * size);
+  return { rows, pagination: {
+    page: current, count: rows.length, totalCount: data.length, rowsPerPage: size,
+    onRowsPerPageChange: (value: number) => { setSize(value); setPage(1); },
+    hasPrevious: current > 1, hasNext: current * size < data.length,
+    previous: () => setPage(current - 1), next: () => setPage(current + 1),
+  } };
+}
 export function OperationsIssues({
   data,
   loading,
@@ -43,10 +54,7 @@ export function OperationsIssues({
   problem: string | null;
   retry(): void;
 }) {
-  const [size, setSize] = useState(10),
-    [page, setPage] = useState(1);
-  const current = Math.min(page, Math.max(1, Math.ceil(data.length / size)));
-  const rows = data.slice((current - 1) * size, current * size);
+  const { rows, pagination } = useHealthRows(data);
   const status = loading
     ? 'loading'
     : failed || !available || problem
@@ -61,23 +69,7 @@ export function OperationsIssues({
       emptyMessage="No unresolved issues returned by this query."
       errorMessage={problem ?? 'App-error monitoring is unavailable.'}
       errorAction={<Button onClick={retry}>Retry monitoring read</Button>}
-      footer={
-        <QueuePagination
-          page={current}
-          count={rows.length}
-          totalCount={data.length}
-          rowsPerPage={size}
-          state={status}
-          onRowsPerPageChange={(value) => {
-            setSize(value);
-            setPage(1);
-          }}
-          hasPrevious={current > 1}
-          hasNext={current * size < data.length}
-          previous={() => setPage(current - 1)}
-          next={() => setPage(current + 1)}
-        />
-      }
+      footer={<QueuePagination {...pagination} state={status} />}
     >
       <Table stickyHeader aria-label="App issue groups" sx={{ minWidth: 720 }}>
         <TableHead>
@@ -123,10 +115,7 @@ export function OperationsHistory({
   failed,
   retry,
 }: LoadState & { data: EmployeeHealthHistory; retry(): void }) {
-  const [size, setSize] = useState(10),
-    [page, setPage] = useState(1);
-  const current = Math.min(page, Math.max(1, Math.ceil(data.length / size)));
-  const rows = data.slice((current - 1) * size, current * size);
+  const { rows, pagination } = useHealthRows(data);
   const status = loading ? 'loading' : failed ? 'error' : data.length ? 'ready' : 'empty';
   return (
     <TableFrame
@@ -136,30 +125,14 @@ export function OperationsHistory({
       errorMessage="Doji history could not be loaded."
       errorAction={<Button onClick={retry}>Retry Doji history</Button>}
       toolbar={<Typography variant="subtitle2">Latest 12 Doji summaries</Typography>}
-      footer={
-        <QueuePagination
-          page={current}
-          count={rows.length}
-          totalCount={data.length}
-          rowsPerPage={size}
-          state={status}
-          onRowsPerPageChange={(value) => {
-            setSize(value);
-            setPage(1);
-          }}
-          hasPrevious={current > 1}
-          hasNext={current * size < data.length}
-          previous={() => setPage(current - 1)}
-          next={() => setPage(current + 1)}
-        />
-      }
+      footer={<QueuePagination {...pagination} state={status} />}
     >
       <Table stickyHeader aria-label="Doji delivery history" sx={{ minWidth: 850 }}>
         <TableHead>
           <TableRow>
             {[
               'Doji',
-              'Update publication time',
+              '95% target: under 1 second',
               'Updates measured',
               'Updates not published',
               'Notification-processing problems',
@@ -183,7 +156,7 @@ export function OperationsHistory({
               </TableCell>
               <TableCell>
                 {row.realtime_sample_count === 0 ? 'No updates measured' : `95% within ${duration(row.realtime_p95_ms)}`}
-                <Typography variant="caption" component="p">Slowest: {row.realtime_sample_count === 0 ? 'Not measured' : duration(row.realtime_max_ms)}</Typography>
+                <Typography variant="caption" component="p">Slowest (5-second target): {row.realtime_sample_count === 0 ? 'Not measured' : duration(row.realtime_max_ms)}</Typography>
               </TableCell>
               <TableCell>
                 {row.realtime_sample_count ?? 'Not measured'} measured

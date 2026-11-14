@@ -35,6 +35,23 @@ const base = {
   sentry: { available: true, configured: true, issues: [] },
   history: [event],
 };
+test('a historical speed warning does not assert missed phone delivery or participation', () => {
+  const slow = { ...event, realtime_p95_ms: 1070, realtime_max_ms: 2255 };
+  assert.equal(eventState(slow), 'watch');
+  const signal = evaluate({ ...base, history: [slow] }).signals.find(s => s.name.startsWith('Recent Doji'))!;
+  assert.match(signal.detail, /missed targets/);
+  assert.match(signal.detail, /does not prove failed phone delivery or participation/);
+  assert.doesNotMatch(signal.detail, /have delivery problems/);
+});
+test('history counter validation preserves critical, degraded and unknown states', () => {
+  for (const key of ['outbox_exhausted', 'push_shards_exhausted', 'push_shards_expired'])
+    assert.equal(eventState({ ...event, [key]: 1 }), 'critical');
+  assert.equal(eventState({ ...event, outbox_unpublished: 1 }), 'degraded');
+  assert.equal(eventState({ ...event, healthy: false }), 'degraded');
+  for (const key of ['outbox_unpublished', 'outbox_exhausted', 'push_shards_exhausted', 'push_shards_expired'])
+    for (const value of [undefined, null, -1, NaN, Infinity, '0'])
+      assert.equal(eventState({ ...event, [key]: value }), 'unknown');
+});
 test('plain-language measurements do not invent device delivery or quiet-window speed', () => {
   assert.equal(duration(null), 'Not measured');
   assert.equal(duration(-1), 'Not measured');
