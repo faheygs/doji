@@ -108,7 +108,7 @@ iPhone Staging signup; recovery mail and complete workflows remain unqualified.
 | --- | --- | --- |
 | Expo | 57.0.33 | Native toolchain and modules; source patch, not a new store binary |
 | React Native / React | 0.86.3 / 19.2.3 | Native rendering and UI |
-| Expo Router | 57.0.30 | Route groups, protected stack, five main tabs and deep links |
+| Expo Router | 57.0.31 | Route groups, protected stack, five main tabs and deep links |
 | TypeScript | Root 6.0.3; Worker package separate | Strict app, portal, tooling, fixture and contract checks |
 | TanStack Query | 5.100.9 | Server cache, paging, invalidation, bounded recovery |
 | Zustand | Root lockfile | Limited auth/navigation/challenge/celebration state, not database truth |

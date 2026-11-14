@@ -86,6 +86,16 @@ lockfiles are existing packaging inputs. No production deployment, native build,
 backend change or extra spending accompanies this source patch. Reversion requires
 a normal reviewed source revert; retained production binaries remain unchanged.
 
+Main quality run `43627952981` passed all four jobs. Automatic admin-staging run
+`43629652640` passed plan, packaging and deployment for exact source `af6646a`.
+Its verified receipt records Pages `8ed172c2-4a78-40d8-a317-62e6c3af4776` and
+rollback `96e107ab-c5e2-4441-bb1f-711157b10751`; configuration remained unchanged.
+Public staging release identity matched after deployment. Production admin remained
+at `9bf78fe`, with no production promotion. The private receipt is retained outside
+Git in `doji-expo57-staging-receipt-20261114`. Pipeline verification covers exact
+source/configuration, security headers and session-origin denial; it is not new
+signed-in workflow or mobile-device acceptance.
+
 ## November 11 mobile Staging build 9 and production gates
 
 ### November 12 production backend qualification
