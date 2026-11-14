@@ -4,6 +4,14 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 **source lockfile**, not every installed store binary. See
 [Current state and gaps](CURRENT_STATE_AND_GAPS.md) for deployment qualifications.
 
+The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
+34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and
+`get_mobile_release_policy` own the minimum/latest versions;
+`hooks/useAppUpdatePolicy.ts`, `lib/appUpdate.ts` and `AppUpdatePrompt` own the
+cached read, version decision and required store-link dialog. Store approval,
+policy configuration and native installation are distinct states. See the
+[release closeout](releases/README.md#november-14-production-distribution-and-repository-closeout).
+
 ## Product surfaces
 
 | Surface | Address or entry | Source and packaging | Identity |

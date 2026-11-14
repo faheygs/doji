@@ -12,7 +12,7 @@ allowance, account membership or availability is guaranteed by this inventory;
 dated capacity checks below qualify only their specified release.
 Existing plans are not permission to incur new costs.
 
-First-to-Doji reads and lifetime awards reuse the existing Staging Supabase database,
+First-to-Doji reads and lifetime awards reuse the existing environment-specific Supabase database,
 private winner ledger and standard tier Sparks path; no new service, credential,
 job or push path is added. Source owners are `member_first_doji_v1*` and
 `first_doji_badges_v1*` in `supabase/overlays`. Private Staging qualification and
@@ -20,9 +20,14 @@ retaining rollback evidence are outside Git under `2026-11-10-first-doji-badges`
 The mobile candidate permits these reads only with matching environment, release
 channel and database bindings. The approved production candidate uses the existing
 production Supabase/EAS/Sentry services and protected credentials, with no new
-service or resource. Backend compatibility, retained rollback, native acceptance
-and included build capacity remain release gates. Economy v2 is separately
-default-off; no hosted production enablement follows from source or a Staging build.
+service or resource. First-Doji and economy v2 were separately qualified and enabled
+prospectively in production November 12 at 05:19 UTC; Staging economy activation
+was November 11 at 19:21 UTC. Source defaults remain off. Rollback retains balances,
+winners and receipts; no new job, provider or credential is involved. Production
+1.0.14 is available publicly on the US App Store and in the existing Google Play
+closed Alpha audience. Minimum-version policy is platform-specific in Supabase,
+not a store submission or silent install. See the
+[distribution and rollback record](releases/README.md#november-14-production-distribution-and-repository-closeout).
 
 Independent monitoring preparation adds no service: `scripts/monitor-check.mts`
 is an unscheduled one-shot probe for a separately approved external runner. Its

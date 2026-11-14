@@ -1,33 +1,66 @@
 # Current state and handoff gaps
 
-Updated November 9, 2026. This separates source, recorded deployments and owner
+Updated November 14, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-The approved production social rollout is paused at read qualification. Feed order,
-name search, comment pages/reply counts and the first-responder read/index installed;
-verification found an inherited `service_role` EXECUTE grant on the three new public
-reads, unlike Staging. Anonymous access remains denied; indexes are valid, existing
-balances/ledger and unrelated contracts are unchanged. Reward/badge activation and
-native builds have not run. The permission correction explicitly removes inherited
-service-role execution from these member-only reads (including the future win-count
-read); synthetic harnesses reproduce the hosted default. Exact-head checks and
-Staging qualification precede the narrow production grant correction and resumed
-readback. Do not replay the completed installation phase or alter global defaults.
+The approved production social backend is installed and qualified. Feed ordering,
+public-name search, comment pages/reply counts and first-responder reads match the
+Staging contracts; all three lookup indexes are valid. The explicit member-only
+grants remove inherited service-role execution without changing global defaults.
+First-Doji badges and Sparks v2 were enabled prospectively on November 12 at
+05:19 UTC. Existing balances, ledger, profiles, policies and unrelated contracts
+were unchanged; no historical backfill ran. Auth, timing, push, Worker and monitoring
+were not deployed. Exact receipts and retaining rollback are private; see the
+[production receipt](releases/README.md#november-12-production-backend-qualification).
+Do not replay completed installation or activation phases.
+
+PR #91 merged as `b2c57a4`; main run `43158852439` passed all four quality jobs.
+Automatic admin-staging `43160984674` passed its plan and skipped package/deploy.
+The first production native launch stopped during local Expo configuration before
+any cloud job or credit use. Explicit local production selection subsequently passed
+both platform configuration checks. The owner approved one corrected launch;
+production builds 1.0.14 / iOS 108 / Android 34 use exact main `b2c57a4`.
+iOS 108 passed artifact/configuration/source-map checks and TestFlight distribution,
+then the separately approved public review. The US App Store listing showed version
+1.0.14 on November 13 Mountain time. Android 34 passed bundle/signature/binding and
+source-map checks; after owner upload, Google Play closed Alpha release 24 was
+verified available at 100% rollout to the existing six-person tester list. Android
+is not a public Play production-track release. Earlier upload/submission blockers
+are resolved; no replacement build or submission credential was created.
+Production minimum/latest policy now requires iOS 1.0.14/108 and Android 1.0.14/34.
+Each platform-only update preserved the other row and passed anonymous/authenticated
+RPC readback. The required prompt appears on the next successful policy fetch,
+not as a silent install or an immediate push to already-open/offline apps. See the
+[distribution and policy receipt](releases/README.md#november-14-production-distribution-and-repository-closeout).
 
 Production social-release preparation now permits comments v2 and first-Doji reads
 only with the complete production environment/channel/database binding; existing
 Development/Staging bindings remain unchanged. The production preinstall guard
-requires that explicit channel. This is source preparation, not a deployment:
-the approved database dependencies, exact-head CI, store-counter verification and
-included-credit checks must pass before either production build is launched.
-The owner approved one build per platform and submission only to the existing
-TestFlight/Play closed-testing audiences, with no extra spending or automatic retry.
+requires that explicit channel. The database dependencies and exact-head/main CI
+are qualified; native distribution remains separate from backend deployment.
+Store counters and included credit were checked before the approved pair launched.
+The initial approval covered one build per platform and the existing beta audiences;
+the owner subsequently approved public Apple review and each minimum-version change.
 Rewards are prospective; auth, timing, push, Worker and monitoring are excluded.
-The prepared native version is 1.0.14 / iOS 108 / Android 34, above verified store
-counters 1.0.13 / 107 / 33. These are source counters, not uploaded builds.
+The released native version is 1.0.14 / iOS 108 / Android 34. Store availability
+above was verified separately from build completion.
+
+The primary development folder is aligned to reviewed main. Its previous mixed
+48-file working state is retained in a named local Git stash, not merged over newer
+source. Four older staging receipt PRs are consolidated in the release index;
+their original diffs remain evidence. PR #45 remains separate unfinished admin
+presentation work. Unreleased Worker/email notification changes are preserved, not
+deployed or silently included in this mobile release. Physical Android performance,
+large-thread native memory and complete workflow-health coverage remain unqualified.
+
+## Retained qualification history
+
+The dated preparation states below describe earlier boundaries, not instructions
+to repeat work. The current production status above and linked release receipts
+supersede earlier holds for this release.
 
 Staging build 9 is installed on the owner's iPhone and Android emulator from
 `a95ca7b`, after PR #87 and exact-main quality checks passed. Both retained their

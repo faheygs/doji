@@ -2,10 +2,14 @@
 
 ## Status and ownership
 
-Economy v2 is a default-off source candidate, not a hosted release. Existing
-Staging/production rewards, balances, shop prices, buy-in cost, XP, streaks and
-participation deadlines remain unchanged. `constants/sparks.ts` still describes
-the existing economy; do not advertise candidate amounts in an installed client.
+Economy v2 is enabled prospectively in Staging (November 11, 19:21 UTC) and
+production (November 12, 05:19 UTC), after separately approved qualification.
+Existing balances, shop prices, buy-in cost, XP, streaks and participation deadlines
+were not rewritten. Earlier occurrences retain their prior reward rules. See the
+[production receipt](releases/README.md#november-12-production-backend-qualification)
+for exact evidence and rollback. Backend activation is not native distribution;
+`constants/sparks.ts` still describes legacy amounts, not an authoritative new-policy
+reward calculator.
 
 `supabase/overlays/sparks_economy_v2.sql` and `.bindings.sql` compose one atomic
 installation. The retaining `.rollback.sql` restores captured reward functions.
@@ -13,7 +17,7 @@ installation. The retaining `.rollback.sql` restores captured reward functions.
 own offline qualification. No provider, native build, polling or handset reward
 calculation is added. The existing ledger/profile hints reconcile balances.
 
-## Candidate rules
+## Prospectively enabled rules
 
 | Source | Reward and fence |
 | --- | --- |
