@@ -47,6 +47,10 @@
       "extends": "preview",
       "node": "24.18.0",
       "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_STAGING_PUSH_ENABLED": "true",
+        "EXPO_PUBLIC_APNS_ENVIRONMENT": "production"
+      },
       "android": { "resourceClass": "medium", "buildType": "apk" },
       "ios": { "resourceClass": "m-medium", "simulator": false }
     },

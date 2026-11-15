@@ -382,6 +382,13 @@ Staging registration is separately default-off and cannot acquire provider token
 before its delivery setup is approved. APNs sandbox/production describes signing,
 not the database environment; staging internal distribution requires its explicit
 signing value and isolated provider credentials. Production registration is unchanged.
+The Staging relay packager can install an additional default-off provider grant:
+exact Staging project, bundle/team/service identity and approved device-token hashes,
+bounded body/TTL and redirect rejection. It leaves handler claims, grouping and
+outcome rules unchanged; other handlers and Expo fallback receive no provider grant.
+This is a qualification boundary, not evidence that Doji launch pushes or physical
+delivery are enabled. Binary registration, hosted egress and SQL delivery gates are
+independent; see current state before release.
 Preserve the existing four-attempt bounded policy, six-hour confirmed receipt,
 rotation/release/identity changes and lifecycle cancellation. Interrupted or cached
 registration is not newly confirmed recovery. Recovery logging is privacy-filtered,

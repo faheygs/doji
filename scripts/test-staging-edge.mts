@@ -54,7 +54,10 @@ test('staging packages unchanged named handlers behind fail-closed egress, with 
     const config = await readFile(join(output, 'supabase/config.toml'), 'utf8');
     const manifest = JSON.parse(await readFile(join(output, 'manifest.json'), 'utf8'));
     assert.equal(manifest.projectRef, 'ohrcupagdoilkwhecict');
-    assert.equal(manifest.realDelivery, 'denied-unless-approved-admin-test-email');
+    assert.equal(manifest.realDelivery, 'denied-unless-approved-test-email-or-relay-push-device');
+    assert.equal(manifest.pushEgressSha256, createHash('sha256').update(
+      await readFile(resolve('supabase/functions/_shared/staging-push-egress.ts')),
+    ).digest('hex'));
     for (const name of stagingFunctions) {
       assert.ok(config.includes(`[functions.${name}]\nverify_jwt = false`));
       const source = await readFile(resolve('supabase/functions', name, 'index.ts'), 'utf8');
@@ -71,6 +74,8 @@ test('staging packages unchanged named handlers behind fail-closed egress, with 
         );
       }
       const entry = await readFile(join(output, 'supabase/functions', name, 'index.ts'), 'utf8');
+      assert.equal(entry.includes('push: stagingPushPolicy('), name === 'relay-domain-events');
+      assert.equal(entry.includes('import { stagingPushPolicy }'), name === 'relay-domain-events');
       assert.equal(entry.includes("Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN')"), name === 'operational-health');
       if (name === 'operational-health') assert.ok(entry.includes("Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true'"));
       assert.ok(

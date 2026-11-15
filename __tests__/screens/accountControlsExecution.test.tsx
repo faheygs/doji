@@ -442,7 +442,7 @@ describe.each(['ios', 'android', 'web'] as const)('%s notification preferences',
         DEFAULT_NOTIFICATION_PREFERENCES.doji_live,
       );
     });
-    it.each(['granted', 'denied', 'error', 'throw', 'deferred'])('handles enable result %s', async (result) => {
+    it.each(['granted', 'denied', 'error', 'throw', 'deferred', 'unsupported'])('handles enable result %s', async (result) => {
       if (result === 'throw') mockRegister.mockRejectedValue(new Error('native'));
       else mockRegister.mockResolvedValue(result);
       const ui = render(<NotificationSettings />);
@@ -458,10 +458,14 @@ describe.each(['ios', 'android', 'web'] as const)('%s notification preferences',
         );
         await act(async () => mockDialog.mock.calls[0][0].actions[1].onPress());
         expect(Linking.openSettings).toHaveBeenCalled();
-      } else if (result === 'deferred') {
-        expect(ui.getByText('Alert setup was interrupted. Try again to finish connecting this phone.')).toBeTruthy();
+      } else if (result === 'deferred' || result === 'unsupported') {
+        expect(ui.getByText(result === 'unsupported'
+          ? 'Phone alerts are not available in this build. A push-enabled build is required.'
+          : 'Alert setup was interrupted. Try again to finish connecting this phone.')).toBeTruthy();
         expect(mockUpdate).not.toHaveBeenCalled();
         expect(mockDialog).not.toHaveBeenCalled();
+        expect(Linking.openSettings).not.toHaveBeenCalled();
+        expect(ui.UNSAFE_getAllByType(Switch)[0].props.value).toBe(false);
       } else
         expect(
           ui.getByText(

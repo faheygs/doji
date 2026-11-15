@@ -190,7 +190,8 @@ current consoles before deciding availability, review state or enforcement.
 ## Responsibility boundaries and usage status
 
 The gated social phone-alert expansion reuses the existing Supabase outbox, Ably
-and APNs/FCM relay; it adds no service, credential, subscription or timer.
+and APNs/FCM relay; it adds no subscription or timer. Its separately approved
+Staging qualification has dedicated provider credentials, described below.
 `social_phone_alerts_v1`, its additive defaults overlay and matching relay version
 29 are installed disabled in Staging; production is unchanged. Settings availability
 is independent of delivery, and saved opt-outs remain authoritative. The relay's stricter outbound wrapper
@@ -200,6 +201,23 @@ Before activation, qualify Staging-only provider/device bindings and actual
 delivery/privacy behavior; see the [qualification record](releases/README.md#november-14-disabled-staging-social-notifications).
 Existing server-only secret storage and production/staging account isolation remain
 unchanged; backend source completion does not authorize phone sends.
+
+Staging push credential preparation is complete: Apple team `HUG35JPQGG` has
+`Doji Staging APNs` / `23TW3P7LRW`, restricted to the single topic
+`com.doit.challengeapp.staging` using Production transport for ad-hoc signing.
+Google project `doji-staging` has `doji-staging-push@doji-staging.iam.gserviceaccount.com`
+with only Firebase Cloud Messaging API Admin and one private key. Spark remains
+$0/month; no billing upgrade, existing-key replacement or production grant occurred.
+Owner/SYSTEM-only recovery files are under the private
+`Doji/staging-backend/2026-11-14-social-notifications/push-credentials` directory.
+They are not yet installed in hosted Edge secrets and never belong in EAS public
+configuration. The source owner is `_shared/staging-push-egress.ts`, installed only
+by the Staging relay packager. `STAGING_PUSH_ENABLED` defaults off; approved-device
+SHA-256 hashes, exact Staging bindings, bounded payloads/TTLs and no redirects fence
+provider requests. Other handlers and Expo push remain denied. Deployment, device
+registration and actual receipt/navigation/opt-out tests remain gated. Recheck
+capacity before activation. Rollback disables this gate and social delivery,
+restores the retained relay, and retains claims; revoke only these keys if needed.
 
 | Need | Service responsible | Status / what it does not own |
 | --- | --- | --- |

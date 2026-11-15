@@ -1,5 +1,6 @@
 import { readJsonBody } from './json-body.ts';
 import { stagingSentryChecksUrl, stagingSentryMonitorUrl } from './sentry-monitor-contract.ts';
+import type { StagingPushAuthorization } from './staging-push-egress.ts';
 
 type StagingEmail = { key: string; from: string; recipients: string[] };
 type StagingConnections = {
@@ -8,6 +9,7 @@ type StagingConnections = {
   ablyKey?: string;
   email?: StagingEmail;
   sentryMonitorToken?: string;
+  push?: StagingPushAuthorization;
 };
 
 /** Explicit server configuration only; never accept destinations from a caller. */
@@ -60,6 +62,8 @@ export function stagingFetch(config: StagingConnections, upstream: typeof fetch)
   return async (input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
+    if (config.push && await config.push(request.clone()))
+      return upstream(new Request(request, { redirect: 'error' }));
     const ably = url.protocol === 'https:' && !url.port && ablyHosts.has(url.hostname);
     if (config.sentryMonitorToken && [stagingSentryChecksUrl, stagingSentryMonitorUrl].includes(url.href)
       && request.method === 'GET' && !request.body

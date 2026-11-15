@@ -179,7 +179,8 @@ test('committed EAS profiles resolve staging bindings while public config omits 
     assert.equal(effective.node, '24.18.0');
     assert.equal(effective.distribution, 'internal');
     assert.equal(effective.environment, name === 'development' ? 'development' : 'preview');
-    assert.equal(effective.env.EXPO_PUBLIC_STAGING_PUSH_ENABLED, 'false');
+    assert.equal(effective.env.EXPO_PUBLIC_STAGING_PUSH_ENABLED, name === 'staging' ? 'true' : 'false');
+    if (name === 'staging') assert.equal(effective.env.EXPO_PUBLIC_APNS_ENVIRONMENT, 'production');
     assert.equal(effective.env.EXPO_PUBLIC_WORKFLOW_REPORTING_ENABLED, 'false');
     policy.validateStagingEnvironment(env, true);
     const result = resolved({ ...env, SENTRY_AUTH_TOKEN: undefined });
