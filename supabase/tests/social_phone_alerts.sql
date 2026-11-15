@@ -70,8 +70,9 @@ rollback to distinct_actors;
 savepoint bounded_burst;
 insert into public.comments(id,post_id,user_id,body)
 select pg_temp.social_id(8,n),pg_temp.social_id(5,11),pg_temp.social_id(1,2),'Busy fixture' from generate_series(100,250)n;
-select pg_temp.check_social((select count(*)=100 from social_notification_private.items),'very busy threads cap preparation at 100 IDs');
-select pg_temp.check_social((select count(*)=1 from social_notification_private.batches),'busy thread never creates more concurrent batches');
+select pg_temp.check_social((select count(*)=case when current_setting('doji.test.comment_trailing',true)='on' then 161 else 100 end from social_notification_private.items),'busy threads retain overflow when trailing policy is installed');
+select pg_temp.check_social((select max(n)<=100 from(select count(*) n from social_notification_private.items group by batch_id)s),'each preparation stays capped at 100 IDs');
+select pg_temp.check_social((select count(*)=case when current_setting('doji.test.comment_trailing',true)='on' then 2 else 1 end from social_notification_private.batches),'overflow uses bounded trailing batches');
 rollback to bounded_burst;
 
 -- Advance the bounded synthetic deadline, never wait or call a provider.
@@ -129,7 +130,30 @@ do $$ begin
   exception when others then if sqlerrm<>'Social notification lease lost' then raise; end if; end;
 end $$;
 insert into public.comments(id,post_id,user_id,body) values(pg_temp.social_id(8,12),pg_temp.social_id(5,11),pg_temp.social_id(1,2),'Cooldown fixture');
-select pg_temp.check_social((select count(*)=1 from social_notification_private.batches),'cooldown does not create another push');
+select pg_temp.check_social((select count(*)=case when current_setting('doji.test.comment_trailing',true)='on' then 2 else 1 end from social_notification_private.batches),'trailing policy retains the follow-up instead of dropping it');
+
+-- Exercise actual comment-trigger capture and recipient acknowledgement together.
+do $$ declare queued social_notification_private.batches; prepared jsonb;
+begin
+ if current_setting('doji.test.comment_trailing',true)='on' then
+  select * into queued from social_notification_private.batches where sealed_at is null;
+  perform pg_temp.check_social(queued.due_at>clock_timestamp()+interval '50 seconds','follow-up waits for stream spacing');
+  insert into public.comments(id,post_id,user_id,body,created_at) values
+   (pg_temp.social_id(8,13),pg_temp.social_id(5,11),pg_temp.social_id(1,3),'New follow-up actor',clock_timestamp());
+  perform pg_temp.check_social((select count(*)=2 from social_notification_private.items where batch_id=queued.id),'second short burst groups only new comments');
+  -- Acknowledge one new comment before dispatch; the other must still arrive.
+  insert into public.notification_attention_state(user_id,scope_kind,scope_id,seen_at)
+   values(pg_temp.social_id(1,1),'comment',pg_temp.social_id(8,12)::text,clock_timestamp());
+  update social_notification_private.batches set sealed_at=clock_timestamp()-interval '61 seconds'
+   where sealed_at is not null;
+  update social_notification_private.batches set due_at=clock_timestamp()-interval '1 second' where id=queued.id;
+  update public.domain_event_outbox set lease_id=pg_temp.social_id(9,1),leased_at=clock_timestamp() where id=queued.outbox_id;
+  prepared:=public.prepare_social_phone_alert_v1(queued.outbox_id,pg_temp.social_id(9,1));
+  perform pg_temp.check_social(prepared->>'eventCount'='1' and prepared->>'actorCount'='1'
+   and prepared->>'commentId'=pg_temp.social_id(8,13)::text,'only unacknowledged new comment is prepared');
+  perform pg_temp.check_social(prepared->>'body'='Synthetic member 3 commented on your post','no old actors or accumulated count in follow-up copy');
+ end if;
+end $$;
 
 insert into public.comments(id,post_id,user_id,body) values(pg_temp.social_id(8,20),pg_temp.social_id(5,21),pg_temp.social_id(1,2),'@social_phone_1');
 select public.sync_comment_mentions(pg_temp.social_id(8,20),'@social_phone_1',pg_temp.social_id(1,2));

@@ -41,8 +41,9 @@ describe('durable social phone alert preparation', () => {
     await expect(prepareSocialPhoneAlert(database(null, { message: 'private diagnostic' }), event))
       .rejects.toThrow('Social notification preparation failed');
   });
-  it('leaves a deferred late batch to its durable wake without completing or sending it', async () => {
-    const late = { ...event, event_type: 'notification.late_friend_activity.grouped_v1' };
+  it.each(['notification.late_friend_activity.grouped_v1', 'notification.post_comments.grouped_v1'])
+  ('leaves deferred %s to its durable wake without completing or sending it', async (eventType) => {
+    const late = { ...event, event_type: eventType };
     const deferred = { deferred: true, eventId: event.id, leaseId: event.lease_id,
       availableAt: '2026-11-14T12:01:00Z' };
     expect(await prepareSocialPhoneAlert(database(deferred), late)).toBeNull();
@@ -50,7 +51,6 @@ describe('durable social phone alert preparation', () => {
       { ...deferred, availableAt: 'invalid' }]) {
       await expect(prepareSocialPhoneAlert(database(invalid), late)).rejects.toThrow('Invalid social notification deferral');
     }
-    await expect(prepareSocialPhoneAlert(database(deferred), event)).rejects.toThrow('Invalid social notification deferral');
   });
   it.each([undefined, [], 'invalid', {}, { ...prepared, targetUserId: 'other' },
     { ...prepared, batchId: 'other' }, { ...prepared, sendPush: false },

@@ -11,7 +11,7 @@ select pg_temp.trailing_id(n),'trailing-'||n||'@test.invalid',jsonb_build_object
 insert into public.profiles(id,username,display_name) select pg_temp.trailing_id(n),'trailing_'||n,'Trailing fixture '||n from generate_series(1,3)n;
 update social_notification_private.configuration set enabled=true;
 create function pg_temp.enqueue_trailing(n integer) returns void language sql as $$
- select social_notification_private.enqueue('late_friend_participation',pg_temp.trailing_id(1),pg_temp.trailing_id(10),pg_temp.trailing_id(n),pg_temp.trailing_id(2),clock_timestamp());
+ select social_notification_private.enqueue(coalesce(nullif(current_setting('doji.test.social_kind',true),''),'late_friend_participation'),pg_temp.trailing_id(1),pg_temp.trailing_id(10),pg_temp.trailing_id(n),pg_temp.trailing_id(2),clock_timestamp());
 $$;
 select pg_temp.enqueue_trailing(20);
 select pg_temp.enqueue_trailing(21);
@@ -57,4 +57,4 @@ select public.mark_notification_attention_seen(jsonb_build_array(jsonb_build_obj
 reset role;
 select pg_temp.assert_trailing((select seen_at=now()-interval '2 minutes' from public.notification_attention_state where user_id=pg_temp.trailing_id(1)),'out-of-order receipts cannot regress seen watermark');
 rollback;
-select 'PASS: trailing late-friend queue';
+select 'PASS: trailing social queue';

@@ -6,6 +6,14 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The comment-alert follow-up correction is in source preparation, not deployed.
+`comment_trailing_alerts_v1` extends the existing late-friend queue/deferral policy
+to comments, replacing the five-minute discarding cooldown with 30-second grouping
+and one-minute spacing. Existing seen/dismissal, privacy, opt-out and original TTL
+checks remain; the matching relay admits deferred comment batches. Exact-head CI,
+Staging rollback/readback and single/follow-up/burst
+phone acceptance are required; no production change or new native build is implied.
+
 Staging iPhone build 10 registered successfully after the narrow release-channel
 correction. The owner confirmed the first late-friend alert arrived and its post
 was visible. A second late completion was deliberately suppressed by the existing
