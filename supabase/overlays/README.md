@@ -18,6 +18,13 @@ Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `push_registration_staging_channel_v1.sql` adds the explicit `staging` release
+  channel to native endpoint registration v3 without changing APNs environment,
+  authentication, grants or delivery gates. Its hash-guarded retaining inverse
+  restores validation without deleting devices. The offline
+  `scripts/database/push-registration-channel.mts` suite reproduces the rejection,
+  tests the configured EAS channels on both platforms and verifies exact rollback.
+  Hosted installation is Staging-only and separately qualified; production is unchanged.
 - `social_phone_alerts_v1.sql`, `.delivery.sql`, `.bindings.sql`: default-off
   preparation for grouped owner-comment and after-close friend phone alerts. Uses
   existing outbox scheduling/retention and installation claims; no provider or new
