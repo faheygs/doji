@@ -335,8 +335,8 @@ The prepared `social_phone_alerts_v1` overlays add `comments_on_posts` and
 bindings and defaults in that order before the matching relay/client; enabling
 the private gate and hosted sends require separate qualification. The existing
 friend fanout handles after-close completions; comment writes append only bounded
-database work. A fixed first-event 30-second window, 100-source batch cap and
-five-minute per-recipient/subject cooldown prevent phone bursts. Existing in-app
+database work. A fixed first-event 30-second window and 100-source batch cap bound
+each alert. The trailing overlays replace the original discarding cooldown. Existing in-app
 events are not delayed. No polling, additional cron, provider or handset timer.
 The settings-only capability read participates in the existing read suspension
 and foreground/reconnect reconciliation; it is never a startup dependency.
@@ -365,6 +365,16 @@ The optional `observed_through` attention watermark is capped at server time and
 merged monotonically; new clients use the notification/visible-group snapshot,
 not navigation time. Legacy receipt behavior remains compatible, so the native
 update is a qualification dependency rather than an optional UI change.
+
+`comment_trailing_alerts_v1` extends that same queue and preparation lock to
+recipient/post comment streams: one-minute spacing delays follow-ups instead of
+consuming source fences and dropping them. A full batch retains overflow in another
+bounded batch. Seen/dismissal eligibility is rechecked at preparation and claim;
+old actors/counts cannot be copied into a new batch. It changes only enqueue and
+preparation definitions plus the relay's category admission for deferred comments.
+Release that matching relay before SQL; the installed snapshot-aware client needs
+no rebuild. Roll back SQL before relay and before the late-friend
+dependency; the guarded inverse pauses delivery and retains all source/claim history.
 
 `device_push_endpoints` privately stores installation-bound native APNs/FCM tokens.
 Transfer is atomic on account change. At most five recent active installations are

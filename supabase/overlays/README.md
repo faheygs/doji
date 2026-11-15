@@ -17,6 +17,13 @@ retaining rollback and no historical backfill. See the
 Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
+- `comment_trailing_alerts_v1.sql` and its retaining inverse extend the qualified
+  late-friend queue to comments: 30-second grouping, one-minute spacing, bounded
+  overflow and delayed-worker deferral without discarding new comments. Requires
+  the late-friend and dismissal overlays, matching relay and snapshot-aware client.
+  No gates or grants change. Roll this layer back first; rollback pauses delivery
+  and retains queued sources, claims and acknowledgement history. Hosted tests and
+  deployment remain separately gated.
 - `late_friend_trailing_alerts_v1.sql` prepares durable trailing late-friend batches
   with 30-second grouping, one-minute spacing and snapshot-bounded attention receipts.
   Its guarded inverse disables delivery and retains queue/claim history. Release with

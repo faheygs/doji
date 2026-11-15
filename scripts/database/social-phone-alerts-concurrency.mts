@@ -5,7 +5,7 @@ import { engine } from './config.mts';
 import type { TestRoom } from './contracts.mts';
 
 /** Two real transactions contend on the first recipient/subject batch. No remote sockets. */
-export async function socialPhoneConcurrency(room: TestRoom, category = 'comments_on_posts') {
+export async function socialPhoneConcurrency(room: TestRoom, category = 'comments_on_posts', trailing = false) {
   room.inspect();
   const viewer = '99790000-0000-4000-8000-000000000001';
   const subject = '99790000-0000-4000-8000-000000000002';
@@ -21,6 +21,8 @@ export async function socialPhoneConcurrency(room: TestRoom, category = 'comment
   assert.ok(['comments_on_posts', 'late_friend_participation'].includes(category));
   const command = (id: number) => `select social_notification_private.enqueue('${category}','${viewer}',
     '${subject}','99790000-0000-4000-8000-${String(id).padStart(12, '0')}','${actor}',clock_timestamp());`;
+  if (trailing) sql(`${command(9)}update social_notification_private.batches
+    set sealed_at=clock_timestamp(),due_at=clock_timestamp() where recipient='${viewer}';`);
   const start = (query: string, hold: boolean) => {
     let ready!: () => void;
     const pending = new Promise<void>(resolve => { ready = resolve; });
@@ -52,9 +54,12 @@ export async function socialPhoneConcurrency(room: TestRoom, category = 'comment
     first.child.stdin?.end('commit;');
     await Promise.all([first.completed, second.completed]);
     assert.equal(first.error(), ''); assert.equal(second.error(), '');
-    assert.equal(sql(`select count(*) from social_notification_private.batches where recipient='${viewer}';`), '1');
+    assert.equal(sql(`select count(*) from social_notification_private.batches where recipient='${viewer}';`), trailing ? '2' : '1');
     assert.equal(sql(`select count(*) from social_notification_private.items i join social_notification_private.batches b
-      on b.id=i.batch_id where b.recipient='${viewer}';`), '2', 'Concurrent retry does not inflate counts');
+      on b.id=i.batch_id where b.recipient='${viewer}';`), trailing ? '3' : '2', 'Concurrent retry does not inflate counts');
+    if (trailing) assert.equal(sql(`select count(*) from social_notification_private.items i
+      join social_notification_private.batches b on b.id=i.batch_id
+      where b.recipient='${viewer}' and b.sealed_at is null;`), '2', 'Concurrent follow-ups survive spacing exactly once');
   } finally {
     for (const child of children) if (child.exitCode === null) { child.stdin?.end('rollback;'); child.kill(); }
     sql(`delete from public.domain_event_outbox where id in(select outbox_id from social_notification_private.batches where recipient='${viewer}');

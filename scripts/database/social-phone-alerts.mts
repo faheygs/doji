@@ -35,7 +35,7 @@ export async function socialPhoneAlerts(room: TestRoom) {
   const trailingBefore = trailingSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
   sql(source('overlays/late_friend_trailing_alerts_v1.sql'));
   sql(source('overlays/late_friend_trailing_alerts_v1.sql'));
-  assert.match(sql(source('tests/late_friend_trailing_alerts.sql')), /PASS: trailing late-friend queue/);
+  assert.match(sql(source('tests/late_friend_trailing_alerts.sql')), /PASS: trailing social queue/);
   await socialPhoneConcurrency(room, 'late_friend_participation');
   const historySignatures = ['public.get_notification_center_snapshot_without_post_context(timestamp with time zone,integer)',
     'public.get_notification_center_snapshot(timestamp with time zone,integer)',
@@ -46,6 +46,19 @@ export async function socialPhoneAlerts(room: TestRoom) {
   assert.match(sql(source('tests/notification_group_dismissals.sql')), /PASS: notification group dismissal boundaries/);
   // Existing all-kind privacy/default/mention tests still apply to the new queue.
   assert.match(sql(source('tests/social_phone_alerts.sql')), /PASS: social phone alerts rolled back/);
+  const commentSignatures = trailingSignatures.slice(0, 2);
+  const commentBefore = commentSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
+  sql(source('overlays/comment_trailing_alerts_v1.sql'));
+  sql(source('overlays/comment_trailing_alerts_v1.sql'));
+  assert.match(sql("set doji.test.social_kind='comments_on_posts';" + source('tests/late_friend_trailing_alerts.sql')),
+    /PASS: trailing social queue/);
+  assert.match(sql("set doji.test.comment_trailing='on';" + source('tests/social_phone_alerts.sql')),
+    /PASS: social phone alerts rolled back/);
+  assert.match(sql(source('tests/notification_group_dismissals.sql')), /PASS: notification group dismissal boundaries/);
+  await socialPhoneConcurrency(room, 'comments_on_posts', true);
+  sql(source('overlays/comment_trailing_alerts_v1.rollback.sql'));
+  commentSignatures.forEach((signature, index) => assert.equal(
+    sql(`select pg_get_functiondef('${signature}'::regprocedure);`), commentBefore[index]));
   sql(source('overlays/notification_group_dismissals_v1.rollback.sql'));
   historySignatures.forEach((signature, index) => assert.equal(
     sql(`select pg_get_functiondef('${signature}'::regprocedure);`), historyBefore[index]));

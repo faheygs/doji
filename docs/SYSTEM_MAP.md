@@ -12,6 +12,9 @@ source ownership does not imply hosted activation.
 `late_friend_trailing_alerts_v1*` prepares the additive late-friend queue correction
 and retaining inverse. The existing relay handles deferred leases; native/Activity
 Center attention helpers supply bounded snapshot watermarks. No new job is added.
+`comment_trailing_alerts_v1*` extends the same bounded queue/deferral policy to
+comments, with a separate exact-definition guard and retaining rollback. The
+social-phone harness covers both categories, including concurrent follow-ups.
 `notification_group_dismissals_v1*` owns source-filtered history reads and additive
 snapshot dismissal commands; `notificationGrouping`, `notificationVisibility`,
 `notificationHistoryQueue` and `useNotificationCenter` own optimistic visibility,

@@ -253,8 +253,8 @@ Prepared, delivery not enabled: `social_phone_alerts_v1` adds separate controls 
 comments on one's own posts and friend participation after the server's shared
 closing time (including grace-day completions). Mentions/direct replies retain
 priority and are not duplicated as owner-comment alerts. Phone bursts collect
-for 30 seconds from the first event, then apply a five-minute recipient/subject
-cooldown; in-app activity remains immediate. These are Doji policy values, not
+for 30 seconds from the first event. The trailing overlays replace the original
+discarding cooldown with queued follow-ups; in-app activity remains immediate. These are Doji policy values, not
 claims about Instagram's private algorithm. Both categories default on for existing
 and new accounts, preserving explicit category, legacy and master push opt-outs.
 Settings appear when the authenticated backend reports settings availability,
@@ -269,7 +269,12 @@ existing five-minute source expiry; expiry and provider uncertainty still preven
 delivery guarantees. Previously covered sources are not repeated. Snapshot-bounded
 attention receipts must not mark newer unseen activity when an older alert opens.
 This correction requires coordinated SQL/relay/native qualification; it does not
-change comment-alert policy or authorize another hosted send.
+authorize another hosted send. `comment_trailing_alerts_v1` extends the same
+queue, overflow and delayed-worker spacing rules to comments per recipient/post.
+Seen or dismissed comments are excluded before preparing each batch; new comments
+remain eligible. It requires the matching relay admitting deferred comment batches
+and the installed snapshot-aware client, without another mobile build or a new delivery service. Hosted qualification
+is separate; original TTL, privacy, preference and uncertain-delivery fences remain.
 
 Push registration is foreground/account-bound, single-flight and serialized with
 unregistration. Preserve bounded retries, token/release changes, six-hour receipt

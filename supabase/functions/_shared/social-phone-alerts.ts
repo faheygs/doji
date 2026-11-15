@@ -27,8 +27,7 @@ export async function prepareSocialPhoneAlert<T extends DeliveryEvent & { lease_
   }
   const payload = data as Record<string, unknown>;
   if (payload.deferred === true) {
-    if (event.event_type !== 'notification.late_friend_activity.grouped_v1' ||
-        payload.eventId !== event.id || payload.leaseId !== event.lease_id ||
+    if (payload.eventId !== event.id || payload.leaseId !== event.lease_id ||
         !Number.isFinite(Date.parse(String(payload.availableAt)))) {
       throw new Error('Invalid social notification deferral');
     }
