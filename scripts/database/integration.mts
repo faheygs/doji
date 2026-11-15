@@ -97,6 +97,8 @@ export async function integration(room: TestRoom) {
   pass(await sparksEconomy(room));
   const { socialPhoneAlerts } = await import('./social-phone-alerts.mts');
   pass(await socialPhoneAlerts(room));
+  const { pushRegistrationChannel } = await import('./push-registration-channel.mts');
+  pass(pushRegistrationChannel(room));
   for (const file of [
     'authoritative_realtime.sql',
     'moderation_policy_workflow.sql',

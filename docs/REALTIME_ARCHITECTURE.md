@@ -359,6 +359,10 @@ receipts and additive preference-key acceptance for installed-client compatibili
 Transfer is atomic on account change. At most five recent active installations are
 delivered independently. Expo tokens remain compatibility fallback; v3/v2/v1
 registration stays compatible with installed clients.
+Release-channel metadata admits the explicit `staging` build identity; it is not
+the APNs sandbox/production signing environment or permission to send. The narrow
+registration overlay preserves all existing channel values and authorization.
+See current state for hosted qualification.
 
 - Create Android category channels before permission/token requests. Registration's
   notification-contract version preserves old-client channel compatibility.

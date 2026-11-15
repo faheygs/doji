@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Staging native build 10 exposed a registration-contract mismatch: the client sends
+`staging`, but endpoint registration v3 rejects that release channel. The narrow
+`push_registration_staging_channel_v1` correction and retaining rollback are prepared
+with offline channel/platform/authorization coverage. Hosted correction and renewed
+device registration acceptance are pending; do not rebuild or enable delivery to
+work around this validation failure. Production is unchanged.
+
 Two gated social phone-alert categories (comments on own posts and after-close
 friend participation) passed exact-head CI at `f11c435`; PR #94 merged as `fbd8dd1`.
 Their SQL/defaults and matching relay version 29 are installed in Staging only,
