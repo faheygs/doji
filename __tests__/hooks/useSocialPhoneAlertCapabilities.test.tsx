@@ -51,6 +51,16 @@ test('treats only the missing additive RPC as disabled, not arbitrary read failu
   await waitFor(() => expect(hook.result.current.isError).toBe(true));
   expect(mockRead).toHaveBeenCalledTimes(2); hook.unmount();
 });
+test.each([true, false])('uses settings availability %s independently of delivery activation', async (settingsAvailable) => {
+  mockAbort.mockResolvedValue({ data: { enabled: !settingsAvailable, settingsAvailable }, error: null });
+  const hook = renderHook(() => useSocialPhoneAlertCapabilities(), { wrapper });
+  await waitFor(() => expect(hook.result.current.data).toBe(settingsAvailable)); hook.unmount();
+});
+test('rejects a malformed settings capability rather than treating it as enabled', async () => {
+  mockAbort.mockResolvedValue({ data: { enabled: true, settingsAvailable: 'true' }, error: null });
+  const hook = renderHook(() => useSocialPhoneAlertCapabilities(), { wrapper });
+  await waitFor(() => expect(hook.result.current.isError).toBe(true)); hook.unmount();
+});
 test('rejects malformed responses', async () => {
   mockAbort.mockResolvedValue({ data: { enabled: 'true' }, error: null });
   const hook = renderHook(() => useSocialPhoneAlertCapabilities(), { wrapper });

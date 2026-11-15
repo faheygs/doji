@@ -16,7 +16,9 @@ export function useSocialPhoneAlertCapabilities() {
         const { data } = await runMemberRead(supabase.rpc('get_social_phone_alert_capabilities_v1'), signal);
         if (!account.isCurrent()) throw new Error('Account changed');
         if (typeof data?.enabled !== 'boolean') throw new Error('Invalid notification capabilities');
-        return data.enabled;
+        if (data.settingsAvailable !== undefined && typeof data.settingsAvailable !== 'boolean')
+          throw new Error('Invalid notification settings capability');
+        return data.settingsAvailable ?? data.enabled;
       } catch (error) {
         if (!account.isCurrent()) throw new Error('Account changed');
         // An absent additive contract is different from a failed authorized read.

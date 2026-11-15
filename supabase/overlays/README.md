@@ -30,7 +30,11 @@ Do not replay these installations. This does not enable other overlays here.
   `node scripts/database/social-phone-alerts.mts` for offline synthetic, concurrency
   and rollback checks. Hosted release needs exact baseline review, existing relay
   capacity, current privacy/permission contracts, staging isolation and explicit
-  approved-device delivery tests. Settings remain hidden until backend enablement.
+  approved-device delivery tests. The subsequent `.defaults.sql` overlay defaults
+  missing category choices on without rewriting profiles or overriding saved
+  opt-outs. It also exposes settings availability independently of delivery; apply
+  only while delivery is disabled. It captures both prior function bodies for the
+  same retaining rollback. This follow-up is prepared, not yet installed in Staging.
   Staging's existing egress wrapper denies APNs/FCM and its mobile registration
   gate remains off. SQL/relay installation alone cannot qualify phone delivery;
   separately approve isolated provider credentials, exact app/device destinations,

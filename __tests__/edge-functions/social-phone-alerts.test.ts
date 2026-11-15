@@ -47,10 +47,12 @@ describe('durable social phone alert preparation', () => {
   });
 });
 
-describe('separate opt-in social categories', () => {
-  it.each(['comments_on_posts', 'late_friend_participation'])('%s is not a legacy implicit opt-in', (key) => {
-    expect(pushPreferenceEnabled(null, key)).toBe(false);
-    expect(pushPreferenceEnabled({}, key)).toBe(false);
+describe('separate default-on social categories', () => {
+  it.each(['comments_on_posts', 'late_friend_participation'])('%s defaults on without overriding choices', (key) => {
+    expect(pushPreferenceEnabled(null, key)).toBe(true);
+    expect(pushPreferenceEnabled({}, key)).toBe(true);
+    expect(pushPreferenceEnabled({ [key]: false }, key)).toBe(false);
+    expect(pushPreferenceEnabled({ [key]: null }, key)).toBe(false);
     expect(pushPreferenceEnabled({ [key]: 'true' }, key)).toBe(false);
     expect(pushPreferenceEnabled({ [key]: true }, key)).toBe(true);
     expect(pushPreferenceEnabled({ [key]: true, push_enabled: false }, key)).toBe(false);

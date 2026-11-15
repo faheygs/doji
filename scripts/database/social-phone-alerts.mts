@@ -19,11 +19,22 @@ export async function socialPhoneAlerts(room: TestRoom) {
   assert.notEqual(installed, before);
   sql(source('overlays/social_phone_alerts_v1.bindings.sql'));
   assert.equal(fingerprint(), installed, 'Bindings replay is idempotent');
+  const preferenceBefore = sql("select pg_get_functiondef('social_notification_private.preference(uuid,text)'::regprocedure);");
+  const capabilityBefore = sql("select pg_get_functiondef('public.get_social_phone_alert_capabilities_v1()'::regprocedure);");
+  const profilesBefore = sql("select md5(coalesce(string_agg(id::text||notification_preferences::text,'|' order by id),'')) from public.profiles;");
+  sql(source('overlays/social_phone_alerts_v1.defaults.sql'));
+  sql(source('overlays/social_phone_alerts_v1.defaults.sql'));
+  assert.equal(sql("select md5(coalesce(string_agg(id::text||notification_preferences::text,'|' order by id),'')) from public.profiles;"),
+    profilesBefore, 'Default policy never rewrites stored member preferences');
   const output = sql(source('tests/social_phone_alerts.sql'));
   assert.match(output, /PASS: social phone alerts rolled back/);
   const { socialPhoneConcurrency } = await import('./social-phone-alerts-concurrency.mts');
   await socialPhoneConcurrency(room);
   sql(source('overlays/social_phone_alerts_v1.rollback.sql'));
+  assert.equal(sql("select pg_get_functiondef('social_notification_private.preference(uuid,text)'::regprocedure);"),
+    preferenceBefore, 'Retaining rollback restores the exact prior default policy');
+  assert.equal(sql("select pg_get_functiondef('public.get_social_phone_alert_capabilities_v1()'::regprocedure);"),
+    capabilityBefore, 'Retaining rollback restores the prior capability');
   assert.equal(fingerprint(), before, 'Rollback restores exact delivery definitions and ACLs');
   assert.equal(sql("select pg_get_functiondef('public.update_own_profile(jsonb,text)'::regprocedure) like '%comments_on_posts%';"),
     't', 'Preference compatibility survives rollback');

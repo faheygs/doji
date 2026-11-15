@@ -19,8 +19,8 @@ const existingRows: NotificationSettingsRow[] = [
   },
 ];
 
-export function notificationSettingsRows(socialAlertsEnabled: boolean): NotificationSettingsRow[] {
-  if (!socialAlertsEnabled) return existingRows;
+export function notificationSettingsRows(socialSettingsAvailable: boolean): NotificationSettingsRow[] {
+  if (!socialSettingsAvailable) return existingRows;
   return [
     ...existingRows.slice(0, 3),
     {

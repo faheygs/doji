@@ -662,7 +662,7 @@ export type Database = {
     Functions: {
       get_social_phone_alert_capabilities_v1: {
         Args: Record<string, never>;
-        Returns: { enabled: boolean };
+        Returns: { enabled: boolean; settingsAvailable?: boolean };
       };
       get_mobile_release_policy: {
         Args: { p_platform: 'ios' | 'android' };

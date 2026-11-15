@@ -28,6 +28,7 @@ import {
   mergeNotificationPreferences,
   DEFAULT_NOTIFICATION_PREFERENCES,
   phoneAlertPreferencePatch,
+  wantsCategoryEnabled,
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
@@ -366,10 +367,10 @@ export default function NotificationSettingsScreen() {
                 </View>
                 <Switch
                   accessibilityLabel={row.title}
-                  value={prefs[row.key] === true}
+                  value={wantsCategoryEnabled(prefs, row.key)}
                   onValueChange={(v) => onCategoryToggle(row.key, v)}
                   disabled={categoriesDisabled}
-                  {...themedSwitchProps(prefs[row.key] === true, { disabled: categoriesDisabled })}
+                  {...themedSwitchProps(wantsCategoryEnabled(prefs, row.key), { disabled: categoriesDisabled })}
                 />
               </View>
             ))}

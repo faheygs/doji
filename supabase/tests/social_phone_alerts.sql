@@ -102,6 +102,11 @@ update public.profiles set notification_preferences='{"push_enabled":false}' whe
 select pg_temp.check_social((select not social_notification_private.claimable(outbox_id,recipient)
  from social_notification_private.batches),'opt-out after preparation stops final claim');
 rollback to dispatch_opt_out;
+savepoint dispatch_category_opt_out;
+update public.profiles set notification_preferences='{"comments_on_posts":false}' where id=pg_temp.social_id(1,1);
+select pg_temp.check_social((select not social_notification_private.claimable(outbox_id,recipient)
+ from social_notification_private.batches),'category opt-out after preparation stops final claim');
+rollback to dispatch_category_opt_out;
 savepoint retained_cleanup;
 delete from public.domain_event_outbox where event_type='notification.post_comments.grouped_v1';
 select pg_temp.check_social(not exists(select 1 from social_notification_private.batches)
@@ -145,6 +150,16 @@ select pg_temp.check_social((select count(*)=5 from social_notification_private.
 select pg_temp.check_social(not exists(select 1 from social_notification_private.batches where recipient=pg_temp.social_id(1,3)),'nonfriends excluded');
 select pg_temp.check_social((select bool_and(social_notification_private.eligible(b,i)) from social_notification_private.batches b
  join social_notification_private.items i on i.batch_id=b.id where b.kind='late_friend_participation'),'all kinds retain visible eligible participation');
+savepoint dispatch_late_opt_out;
+update social_notification_private.batches set due_at=clock_timestamp()-interval '1 second' where kind='late_friend_participation';
+update public.domain_event_outbox set lease_id=pg_temp.social_id(9,1),leased_at=clock_timestamp(),available_at=clock_timestamp()
+ where event_type='notification.late_friend_activity.grouped_v1';
+select pg_temp.check_social((select bool_and(public.prepare_social_phone_alert_v1(outbox_id,pg_temp.social_id(9,1)) is not null)
+ from social_notification_private.batches where kind='late_friend_participation'),'late batches prepare for each Doji kind');
+update public.profiles set notification_preferences='{"late_friend_participation":false}' where id=pg_temp.social_id(1,1);
+select pg_temp.check_social((select bool_and(not social_notification_private.claimable(outbox_id,recipient))
+ from social_notification_private.batches where kind='late_friend_participation'),'late category opt-out after preparation stops all final claims');
+rollback to dispatch_late_opt_out;
 savepoint not_late;
 alter table public.user_events disable trigger user;
 update public.user_events set completed_at=now()-interval '3 seconds' where user_id=pg_temp.social_id(1,2);
@@ -161,12 +176,39 @@ select pg_temp.check_social(not social_notification_private.preference(pg_temp.s
 update public.profiles set notification_preferences='{"comments_on_posts":true,"comment":false}' where id=pg_temp.social_id(1,1);
 select pg_temp.check_social(not social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts'),'legacy opt-out honored');
 update public.profiles set notification_preferences='{}' where id=pg_temp.social_id(1,1);
-select pg_temp.check_social(not social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts'),'existing users are not silently opted in');
+select pg_temp.check_social(social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts')
+ and social_notification_private.preference(pg_temp.social_id(1,1),'late_friend_participation'),'missing keys default on for existing members');
+do $$ declare category text; legacy text; candidate jsonb;
+begin
+  foreach category in array array['comments_on_posts','late_friend_participation'] loop
+    legacy:=case category when 'comments_on_posts' then 'comment' else 'friend_post' end;
+    foreach candidate in array array[
+      jsonb_build_object(category,false),jsonb_build_object(category,'true'::text),jsonb_build_object(category,null),
+      jsonb_build_object('push_enabled',false),jsonb_build_object(legacy,false),
+      jsonb_build_object(category,true,legacy,false)
+    ] loop
+      update public.profiles set notification_preferences=candidate where id=pg_temp.social_id(1,1);
+      perform pg_temp.check_social(not social_notification_private.preference(pg_temp.social_id(1,1),category),
+        'saved opt-out or malformed preference cannot enable delivery');
+    end loop;
+  end loop;
+end $$;
+update public.profiles set notification_preferences='{}' where id=pg_temp.social_id(1,1);
 set local request.jwt.claims='{"sub":"99710000-0000-4000-8000-000000000001","role":"authenticated"}';
 set local role authenticated;
 select pg_temp.check_social(public.get_social_phone_alert_capabilities_v1()->>'enabled'='true','member can read the enabled capability');
 select public.update_own_profile('{"notification_preferences":{"comments_on_posts":true,"late_friend_participation":true}}','social-phone-fixture-preferences');
 reset role;
-select pg_temp.check_social(social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts'),'normal atomic profile command stores opt-in');
+select pg_temp.check_social(social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts'),'normal atomic profile command stores category choice');
+set local role authenticated;
+select public.update_own_profile('{"notification_preferences":{"comments_on_posts":false,"late_friend_participation":false}}','social-phone-fixture-opt-out');
+reset role;
+select pg_temp.check_social(not social_notification_private.preference(pg_temp.social_id(1,1),'comments_on_posts')
+ and not social_notification_private.preference(pg_temp.social_id(1,1),'late_friend_participation'),'atomic settings opt-out stops both default-on categories');
+update social_notification_private.configuration set enabled=false;
+set local role authenticated;
+select pg_temp.check_social(public.get_social_phone_alert_capabilities_v1()=
+ '{"settingsAvailable":true,"enabled":false}'::jsonb,'settings remain available while delivery is disabled');
+reset role;
 rollback;
 select 'PASS: social phone alerts rolled back';

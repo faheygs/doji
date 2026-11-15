@@ -35,10 +35,10 @@ export function mergeNotificationPreferences(
     o.mention !== false && o.comment_reply !== false;
   return {
     // Do not send unsupported keys to older backends during unrelated profile saves.
-    ...(typeof o.comments_on_posts === 'boolean'
-      ? { comments_on_posts: o.comments_on_posts && o.comment !== false } : {}),
-    ...(typeof o.late_friend_participation === 'boolean'
-      ? { late_friend_participation: o.late_friend_participation && o.friend_post !== false } : {}),
+    ...(o.comments_on_posts !== undefined
+      ? { comments_on_posts: o.comments_on_posts === true && o.comment !== false } : {}),
+    ...(o.late_friend_participation !== undefined
+      ? { late_friend_participation: o.late_friend_participation === true && o.friend_post !== false } : {}),
     push_enabled: o.push_enabled !== false,
     show_bell_badge: o.show_bell_badge !== false,
     doji_live: o.doji_live !== false && o.doji_start !== false,
@@ -80,7 +80,8 @@ export function wantsCategoryEnabled(
   kind: NotificationPreferenceKind,
 ): boolean {
   const p = mergeNotificationPreferences(prefs);
-  if (kind === 'comments_on_posts' || kind === 'late_friend_participation') return p[kind] === true;
+  if (kind === 'comments_on_posts') return p[kind] !== false && p.comment !== false;
+  if (kind === 'late_friend_participation') return p[kind] !== false && p.friend_post !== false;
   return p[kind] !== false;
 }
 
