@@ -1367,11 +1367,11 @@ export type Database = {
         Returns: NotificationCenterState;
       };
       dismiss_notification: {
-        Args: { p_notification_key: string; p_dismissed_at: string };
+        Args: { p_notification_key: string; p_dismissed_at: string; p_observed_through?: string };
         Returns: { notification_key: string; dismissed_at: string };
       };
       clear_notification_history: {
-        Args: { p_cleared_at: string };
+        Args: { p_cleared_at: string; p_observed_through?: string };
         Returns: NotificationCenterState;
       };
       create_own_profile: {

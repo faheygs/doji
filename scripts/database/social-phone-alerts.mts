@@ -37,8 +37,18 @@ export async function socialPhoneAlerts(room: TestRoom) {
   sql(source('overlays/late_friend_trailing_alerts_v1.sql'));
   assert.match(sql(source('tests/late_friend_trailing_alerts.sql')), /PASS: trailing late-friend queue/);
   await socialPhoneConcurrency(room, 'late_friend_participation');
+  const historySignatures = ['public.get_notification_center_snapshot_without_post_context(timestamp with time zone,integer)',
+    'public.get_notification_center_snapshot(timestamp with time zone,integer)',
+    'social_notification_private.eligible(social_notification_private.batches,social_notification_private.items)'];
+  const historyBefore = historySignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
+  sql(source('overlays/notification_group_dismissals_v1.sql'));
+  sql(source('overlays/notification_group_dismissals_v1.sql'));
+  assert.match(sql(source('tests/notification_group_dismissals.sql')), /PASS: notification group dismissal boundaries/);
   // Existing all-kind privacy/default/mention tests still apply to the new queue.
   assert.match(sql(source('tests/social_phone_alerts.sql')), /PASS: social phone alerts rolled back/);
+  sql(source('overlays/notification_group_dismissals_v1.rollback.sql'));
+  historySignatures.forEach((signature, index) => assert.equal(
+    sql(`select pg_get_functiondef('${signature}'::regprocedure);`), historyBefore[index]));
   sql(source('overlays/late_friend_trailing_alerts_v1.rollback.sql'));
   trailingSignatures.forEach((signature, index) => assert.equal(
     sql(`select pg_get_functiondef('${signature}'::regprocedure);`), trailingBefore[index]));

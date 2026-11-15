@@ -238,6 +238,11 @@ The Activity Center is durable account history, not an OS-notification mirror.
 Clear/dismiss state survives reinstall; pending friend requests remain actionable.
 Phase timestamps distinguish pre-live from later live activity. Grouped items
 reappear only for genuinely new activity. In-app preferences do not erase history.
+Prepared dismissal correction filters acknowledged source activity before grouping
+names/counts. Dismiss and Clear acknowledge the displayed source snapshot, not the
+device/action time, so concurrent newer activity survives. Merely viewing marks
+read/attention without deleting history. Pending friend requests survive Clear;
+explicit dismissal still applies. SQL must qualify before the updated native client.
 
 OS pushes are allowlisted: Doji live, friend requests, direct mentions/replies and
 review/account actions. Ambient social activity remains in-app. Foreground OS

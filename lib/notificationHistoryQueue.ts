@@ -1,4 +1,4 @@
-import { parseDate } from '../utils/time';
+import { compareNotificationTimes } from './notificationVisibility';
 
 export type NotificationHistory = {
   clearedAt: string | null;
@@ -6,16 +6,17 @@ export type NotificationHistory = {
   dismissed: Map<string, string>;
 };
 export type NotificationHistoryAction =
-  | { kind: 'dismiss'; key: string; at: string }
-  | { kind: 'clear'; at: string }
+  | { kind: 'dismiss'; key: string; at: string; observedThrough?: string }
+  | { kind: 'clear'; at: string; observedThrough?: string }
   | { kind: 'open'; at: string };
 
 const latest = (a: string | null, b: string) =>
-  a && parseDate(a).getTime() > parseDate(b).getTime() ? a : b;
+  a && compareNotificationTimes(a, b) > 0 ? a : b;
 
 function apply(state: NotificationHistory, action: NotificationHistoryAction): NotificationHistory {
   if (action.kind === 'open') return { ...state, lastOpenedAt: latest(state.lastOpenedAt, action.at) };
-  if (action.kind === 'clear') return { ...state, clearedAt: latest(state.clearedAt, action.at), dismissed: new Map() };
+  if (action.kind === 'clear') return { ...state, clearedAt: latest(state.clearedAt, action.at),
+    dismissed: new Map([...state.dismissed].filter(([, at]) => compareNotificationTimes(at, action.at) > 0)) };
   return { ...state, dismissed: new Map(state.dismissed).set(action.key,
     latest(state.dismissed.get(action.key) ?? null, action.at)) };
 }
@@ -49,7 +50,9 @@ export function createNotificationHistoryQueue(options: {
         : action.kind === 'dismiss' ? `dismiss:${action.key}` : null;
       // Only adjacent duplicate intents coalesce: Dismiss A / Clear / Dismiss A
       // must retain the final dismissal, especially for actionable requests.
-      if (flightKey && latestFlight?.key === flightKey && pending.includes(latestFlight.action)) {
+      if (flightKey && latestFlight?.key === flightKey && pending.includes(latestFlight.action) &&
+          (!('observedThrough' in action) || action.observedThrough ===
+            ('observedThrough' in latestFlight.action ? latestFlight.action.observedThrough : undefined))) {
         return latestFlight.promise;
       }
       pending.push(action);

@@ -24,6 +24,7 @@ jest.mock('../../lib/supabase', () => ({ supabase: {
 jest.mock('../../lib/notificationAttention', () => ({
   attentionReceiptsForItems: () => [], dismissPresentedNotificationsForReceipts: jest.fn(),
 }));
+jest.mock('expo-notifications', () => ({ setBadgeCountAsync: jest.fn(async () => true) }));
 
 const comment = (key: string) => ({ key, kind: 'comment', post_id: key, comment_id: key,
   actor: null, sortAt: '2026-09-26T18:00:00Z' });
@@ -79,7 +80,9 @@ test('stalled bootstrap auth cannot block notification history forever or dispat
     await act(async () => { await jest.advanceTimersByTimeAsync(8000); });
     expect(t.result.current.prefsHydrated).toBe(true);
     await act(async () => { await t.result.current.clearNotificationHistory(); });
-    expect(mockCommand).toHaveBeenCalledWith('clear_notification_history', expect.any(Object), expect.objectContaining({ expectedUserId: 'a' }));
+    expect(mockCommand).not.toHaveBeenCalled(); // No loaded snapshot may be acknowledged.
+    await act(async () => { await t.result.current.markBellOpened(); });
+    expect(mockCommand).toHaveBeenCalledWith('mark_notification_center_opened', expect.any(Object), expect.objectContaining({ expectedUserId: 'a' }));
     await act(async () => {
       release({ data: { session: { user: { id: 'a' }, access_token: 'late-token' } }, error: null });
       await jest.advanceTimersByTimeAsync(0);
@@ -97,8 +100,46 @@ test('rapid dismissals are both hidden and persisted through the mounted hook', 
   const saved = JSON.parse((await AsyncStorage.getItem('@doit/dismissed-notif-keys:a'))!);
   expect(Object.keys(saved)).toEqual(['a-1', 'a-2']);
   expect(mockCommand.mock.calls[0][2]).toMatchObject({ expectedUserId: 'a' });
+  expect(mockCommand.mock.calls[0][1]).toMatchObject({ p_observed_through: '2026-09-26T18:00:00Z' });
   expect(mockHeaders).toHaveBeenCalledWith('Authorization', 'Bearer token-a');
   t.unmount(); t.client.clear();
+});
+
+test('a group arriving during dismissal stays new without reviving acknowledged participants', async () => {
+  const old = '2026-11-15T12:00:00Z', recent = '2026-11-15T12:01:00Z';
+  const group = { key: 'friend_activity:day', kind: 'friend_activity_group', daily_event_id: 'day',
+    actors: [], count: 6, sortAt: old };
+  mockRead.mockImplementation(async name => ({ error: null, data: name === 'get_notification_center_bootstrap'
+    ? { state: null, dismissals: [], items: [group] } : [group] }));
+  const t = setup();
+  try {
+    await waitFor(() => expect(t.result.current.items).toHaveLength(1));
+    let finish!: (value: unknown) => void;
+    mockCommand.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    let pending!: Promise<void>;
+    await act(async () => { pending = t.result.current.dismissItem(group.key); });
+    expect(t.result.current.items).toHaveLength(0);
+    mockRead.mockResolvedValue({ error: null, data: [{ ...group, count: 7, sortAt: recent }] });
+    await act(async () => { await t.result.current.retryRead(); });
+    expect(t.result.current.items).toHaveLength(0); // An old aggregate cannot revive six acknowledged people.
+    mockRead.mockResolvedValue({ error: null, data: [{ ...group, count: 1, sortAt: recent, historyThrough: old }] });
+    await act(async () => { finish({ error: null, data: { dismissed_at: old } }); await pending; });
+    await waitFor(() => expect(t.result.current.items).toEqual([expect.objectContaining({ count: 1, sortAt: recent })]));
+    expect(mockCommand).toHaveBeenCalledWith('dismiss_notification', expect.objectContaining({
+      p_observed_through: old,
+    }), expect.anything());
+  } finally { t.unmount(); t.client.clear(); }
+});
+
+test('clear acknowledges displayed source time, not the device clock', async () => {
+  const t = setup();
+  try {
+    await waitFor(() => expect(t.result.current.items).toHaveLength(2));
+    await act(async () => { await t.result.current.clearNotificationHistory(); });
+    expect(mockCommand).toHaveBeenCalledWith('clear_notification_history', {
+      p_cleared_at: '2026-09-26T18:00:00Z', p_observed_through: '2026-09-26T18:00:00Z',
+    }, expect.objectContaining({ expectedUserId: 'a' }));
+  } finally { t.unmount(); t.client.clear(); }
 });
 
 test('switching accounts drops old placeholders and ignores in-flight history completion', async () => {

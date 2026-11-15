@@ -14,6 +14,12 @@ is source preparation only: retain trailing late activity, collect for 30 second
 space batches by one minute, and acknowledge only the displayed snapshot watermark.
 SQL/relay qualification and an updated native build remain required before calling
 the replacement live. Production is unchanged; comments retain their existing policy.
+The same source-only correction includes snapshot-bounded Dismiss/Clear: old
+sources are excluded before grouped names/counts, while concurrent new activity
+survives. It also excludes acknowledged sources from pending social phone batches.
+Offline synthetic SQL covers six acknowledged participants plus a seventh, account
+isolation, reinstall, old/new commands and retaining rollback; this is not hosted
+acceptance. The database overlay must qualify before an updated native artifact.
 
 The narrow `push_registration_staging_channel_v1` correction is installed in
 Staging, with retaining rollback and offline channel/platform/authorization coverage.
