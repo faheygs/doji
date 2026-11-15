@@ -8,18 +8,24 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 Staging iPhone build 10 registered successfully after the narrow release-channel
 correction. The owner confirmed the first late-friend alert arrived and its post
-was visible. A second late completion was deliberately suppressed by the existing
-five-minute cooldown; the owner rejected that product behavior. The replacement
-is source preparation only: retain trailing late activity, collect for 30 seconds,
-space batches by one minute, and acknowledge only the displayed snapshot watermark.
-SQL/relay qualification and an updated native build remain required before calling
-the replacement live. Production is unchanged; comments retain their existing policy.
-The same source-only correction includes snapshot-bounded Dismiss/Clear: old
-sources are excluded before grouped names/counts, while concurrent new activity
-survives. It also excludes acknowledged sources from pending social phone batches.
-Offline synthetic SQL covers six acknowledged participants plus a seventh, account
-isolation, reinstall, old/new commands and retaining rollback; this is not hosted
-acceptance. The database overlay must qualify before an updated native artifact.
+was visible. The replacement for the rejected five-minute suppression is deployed
+to Staging from PR #99 (`4f00dfb9`): retain trailing late activity, collect for 30
+seconds, space batches by one minute, and acknowledge only the displayed snapshot
+watermark. Snapshot-bounded Dismiss/Clear excludes old sources before grouped
+names/counts and pending phone batches, while concurrent new activity survives.
+Both SQL overlays and relay version 34 passed hosted compatibility, permission and
+retaining-rollback checks; all 20 runtime files matched, all ten unrelated functions
+and 497 existing function contracts were checked. Delivery was restored only to
+the existing approved iPhone; no additional test alerts were sent during release.
+Staging 1.0.14 build 11 artifacts for iPhone and Android passed native identity,
+signing, environment and source-map checks from the passing exact main. Android was
+updated in place on the emulator and retained its account, feed and Activity Center;
+iPhone installation and the two-friend follow-up/dismissal test passed: the owner
+received both alerts and confirmed the second in-app group contained only the new
+friend. This does not qualify an overlapping cooldown/trailing-batch device test,
+Android delivery, comment bursts or opt-outs. Production is unchanged; comments
+retain their existing policy.
+See the [Staging correction receipt](releases/README.md#november-15-staging-notification-trailing-and-acknowledgement-correction).
 
 The narrow `push_registration_staging_channel_v1` correction is installed in
 Staging, with retaining rollback and offline channel/platform/authorization coverage.
@@ -34,8 +40,9 @@ compatibility, retaining rollback and all 18 runtime files passed verification;
 the other ten Edge Functions are unchanged. Default-on applies to existing and new
 users while preserving saved opt-outs without rewriting profiles. Main CI remains
 a separate build gate. Production is unchanged. The subsequent Staging test is
-restricted to the owner's registered iPhone; first-alert delivery passed, while
-the trailing correction and remaining delivery/opt-out checks are not qualified.
+restricted to the owner's registered iPhone; sequential late-friend delivery and
+dismissal grouping passed. Overlapping trailing-batch and remaining category,
+Android delivery and opt-out device checks are not qualified.
 See the
 [disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
 

@@ -5,6 +5,58 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 15 Staging notification trailing and acknowledgement correction
+
+PR #99 exact head `269a4f391e006ebb82b942f369a4e8fedab9ac24` passed all four
+quality jobs and security, then merged normally as
+`4f00dfb9a257b44bc7a2275b2eafbd8f6f2c18b2`. Main quality `43745694334` passed;
+automatic admin-staging `43746921064` passed its plan and skipped package/deploy.
+
+The reviewed `late_friend_trailing_alerts_v1` and `notification_group_dismissals_v1`
+overlays were installed only in Staging with social delivery paused, after an exact
+installation/retaining-rollback rehearsal ended in ROLLBACK. All six replaced
+definitions matched their expected predecessors; 497 existing function contracts,
+target grants and existing policies were checked. Hosted new/legacy dismissal,
+clear, observed-cutoff and attention commands passed in a rolled-back transaction.
+No test activity was committed. Preflight found zero lock waits, near/active Dojis
+or overdue outbox work; the database was approximately 51 MB with 17 connections.
+
+Only `relay-domain-events` changed, to version 34. All 20 downloaded runtime files
+matched the candidate byte-for-byte, and the other ten function inventory records
+were unchanged. After SQL, runtime and secret-digest verification, delivery was
+restored at November 15 18:46:26 UTC to the same single approved Staging APNs device;
+FCM still has no allowed device. Pending push work was zero at restoration. No new
+provider test, Worker deployment, production change or spending was performed.
+
+One approved internal Staging 1.0.14/build 11 pair was submitted from exact main:
+iOS `d3a52f47-3960-495f-8d45-da123f696c7b` and Android
+`6a1c08d7-2c2a-4ce8-818d-fbdd8f6ffcdd`. Configuration checks retained Staging-only
+bindings, disabled OTA/reporting and owner-only iPhone signing. Included credit was
+$6 before launch; after both completed, usage was $42/$45, leaving $3 included
+credit with no extra spending. Both native artifacts passed identity, signing,
+Staging database/Worker, disabled OTA and matching Sentry runtime/upload debug-ID
+checks. The Android certificate matched the prior qualified Staging signer; the
+iPhone provisioning profile remains limited to the owner's device ending 801C.
+Android was installed in place as version 1.0.14/build 11, retaining its original
+installation timestamp, signed-in account, feed and populated Activity Center.
+The owner installed iPhone build 11 and confirmed account/feed continuity. On
+November 15, two synthetic friends participated through the existing atomic buy-in
+and completion commands. APNs accepted their alerts on the first attempt at
+20:11:13 and 20:27:20 UTC. After the owner opened and dismissed the first group,
+the second prepared batch contained only the new friend's source. The owner
+confirmed both phone alerts and that the second in-app group named only the new
+friend. A subsequent read verified the second dismissal cutoff and no remaining
+friend-activity group. Private `retest-birch022.json` and `retest-canyon003.json`
+retain the receipts; synthetic activity was committed only for this approved test.
+
+Private source, installation/rollback SQL, readback manifests and receipts are at
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications/late-friends-20261115/release-4f00dfb`.
+Rollback must pause social delivery before restoring the retained relay and SQL;
+retain observations and do not replay completed installation/build launch modes.
+This sequential two-friend test qualifies follow-up delivery and dismissal grouping,
+not an overlapping cooldown/trailing-batch device test, comment bursts, Android
+delivery, opt-out coverage or production readiness.
+
 ## November 14 disabled Staging social notifications
 
 The owner approved only CI-gated Staging SQL/relay qualification, with delivery
