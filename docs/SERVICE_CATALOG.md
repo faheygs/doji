@@ -215,7 +215,10 @@ configuration. The source owner is `_shared/staging-push-egress.ts`, installed o
 by the Staging relay packager. `STAGING_PUSH_ENABLED` defaults off; approved-device
 SHA-256 hashes, exact Staging bindings, bounded payloads/TTLs and no redirects fence
 provider requests. Other handlers and Expo push remain denied. Deployment, device
-registration and actual receipt/navigation/opt-out tests remain gated. Recheck
+registration and actual receipt/navigation/opt-out tests remain gated. The relay
+package omits the shared test-email grant even if project-wide email settings are
+enabled; only the separately approved push grant can expand its outbound access.
+Recheck
 capacity before activation. Rollback disables this gate and social delivery,
 restores the retained relay, and retains claims; revoke only these keys if needed.
 
