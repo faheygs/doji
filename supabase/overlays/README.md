@@ -34,7 +34,8 @@ Do not replay these installations. This does not enable other overlays here.
   missing category choices on without rewriting profiles or overriding saved
   opt-outs. It also exposes settings availability independently of delivery; apply
   only while delivery is disabled. It captures both prior function bodies for the
-  same retaining rollback. This follow-up is prepared, not yet installed in Staging.
+  same retaining rollback. This follow-up is installed in Staging at tested source
+  `f11c435`, with matching relay version 29; delivery remains disabled. Do not replay it.
   Staging's existing egress wrapper denies APNs/FCM and its mobile registration
   gate remains off. SQL/relay installation alone cannot qualify phone delivery;
   separately approve isolated provider credentials, exact app/device destinations,

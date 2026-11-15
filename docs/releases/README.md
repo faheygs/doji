@@ -10,7 +10,8 @@ Private artifacts remain ignored; source history is recoverable through Git.
 The owner approved only CI-gated Staging SQL/relay qualification, with delivery
 disabled. PR #94 source `3e4ff2ee54c3d4989d0950854a065d231a2ab5f9` passed
 application, coverage, database, web-migration and security; quality run
-`43670996053` passed. This receipt does not claim the PR is merged or mobile deployed.
+`43670996053` passed. The subsequent defaults qualification and merge are below;
+neither backend receipt establishes mobile deployment or phone delivery.
 
 Staging `ohrcupagdoilkwhecict` received the foundation, delivery and binding overlays
 in one guarded transaction, after a separate installation/permission/retaining-
@@ -36,9 +37,25 @@ Fresh private source/SQL snapshots, exact-head checks, candidate/readback hashes
 receipts and retaining rollback are outside Git at
 `%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications`.
 Older documented private rollback directories were not present; this release
-captured live originals instead of assuming their availability. Delivery remains
-disabled. Activation/default choice, isolated provider/device bindings and actual
-device grouping, opt-out and deep-link acceptance are separate outstanding gates.
+captured live originals instead of assuming their availability.
+
+The owner subsequently chose default-on for both categories, preserving saved
+category/legacy/master opt-outs. Exact head `f11c4355980b91205c8b7acfd11df487450d9f5a`
+passed all four jobs in `43674670637` and security; PR #94 merged through normal
+protections as `fbd8dd12ee4a75b152887fef882cf4d593fbfe36`. The additive `.defaults.sql`
+and matching relay version 29 were installed in Staging at November 15 04:12 UTC.
+Both prior function definitions restored exactly in a transaction-ending rollback
+rehearsal; unrelated definitions, policies and target grants remained unchanged.
+All 18 relay files matched readback, and the other ten Edge Functions were unchanged.
+Bounded reads checked 212 category decisions against existing Staging profiles,
+including defaults and opt-outs; no profile values were rewritten. Authenticated
+capability returned `settingsAvailable:true, enabled:false`, with anonymous execution
+denied. Zero overdue work, batches or lock waits were observed. Private follow-up
+evidence and rollback are in the same directory under `defaults-f11c435`.
+No credential, provider, mobile binary, Worker or production change occurred.
+Delivery remains disabled. Isolated provider/device bindings and actual device
+grouping, opt-out and deep-link acceptance are outstanding; main CI and native
+build/distribution gates remain separate from this disabled-backend qualification.
 
 ## November 14 production distribution and repository closeout
 

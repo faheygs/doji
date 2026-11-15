@@ -7,13 +7,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 ## Current surfaces
 
 Two gated social phone-alert categories (comments on own posts and after-close
-friend participation) passed exact-head CI at `3e4ff2e`. Their SQL and matching
-relay are installed in Staging only, with delivery disabled and settings hidden.
-Hosted compatibility, retaining rollback and exact runtime readback passed;
-production is unchanged. The owner selected default-on for existing and new users;
-the additive defaults/settings-availability update is prepared in source, not yet
-installed. It preserves saved opt-outs without rewriting profiles and separates
-Settings visibility from delivery enablement. Activation, isolated provider/device
+friend participation) passed exact-head CI at `f11c435`; PR #94 merged as `fbd8dd1`.
+Their SQL/defaults and matching relay version 29 are installed in Staging only,
+with delivery disabled and Settings available to the updated client. Hosted
+compatibility, retaining rollback and all 18 runtime files passed verification;
+the other ten Edge Functions are unchanged. Default-on applies to existing and new
+users while preserving saved opt-outs without rewriting profiles. Main CI remains
+a separate build gate. Production is unchanged. Activation, isolated provider/device
 bindings and device delivery/opt-out/deep-link verification remain outstanding.
 No provider sends or new mobile builds have run. See the
 [disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
