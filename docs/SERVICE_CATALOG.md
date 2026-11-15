@@ -189,11 +189,14 @@ current consoles before deciding availability, review state or enforcement.
 
 ## Responsibility boundaries and usage status
 
-Prepared social phone-alert expansion reuses the existing Supabase outbox, Ably
+The gated social phone-alert expansion reuses the existing Supabase outbox, Ably
 and APNs/FCM relay; it adds no service, credential, subscription or timer.
-`social_phone_alerts_v1` and `_shared/social-phone-alerts.ts` remain locally prepared
-and disabled in hosted environments. Before activation, qualify relay capacity,
-Staging-only provider/device bindings and delivery/privacy/rollback behavior.
+`social_phone_alerts_v1` and `_shared/social-phone-alerts.ts` are installed disabled
+in Staging; production is unchanged. The existing relay's stricter outbound wrapper
+is retained byte-for-byte and still denies phone/email providers. Capacity,
+compatibility, permissions and retaining rollback passed for this disabled release.
+Before activation, qualify Staging-only provider/device bindings and actual
+delivery/privacy behavior; see the [qualification record](releases/README.md#november-14-disabled-staging-social-notifications).
 Existing server-only secret storage and production/staging account isolation remain
 unchanged; backend source completion does not authorize phone sends.
 

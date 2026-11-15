@@ -18,10 +18,14 @@ Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
-- `social_phone_alerts_v1.sql`, `.delivery.sql`, `.bindings.sql`: local, default-off
+- `social_phone_alerts_v1.sql`, `.delivery.sql`, `.bindings.sql`: default-off
   preparation for grouped owner-comment and after-close friend phone alerts. Uses
   existing outbox scheduling/retention and installation claims; no provider or new
-  job. The retaining inverse disables delivery and restores exact captured delivery
+  job. Installed disabled in Staging at tested source `3e4ff2e`; production is
+  unchanged. [Hosted qualification](../../docs/releases/README.md#november-14-disabled-staging-social-notifications)
+  covers exact relay readback, compatibility and transactional retaining rollback,
+  not provider or device delivery. Do not replay the completed installation.
+  The retaining inverse disables delivery and restores exact captured delivery
   functions while preserving preference-key compatibility. Run
   `node scripts/database/social-phone-alerts.mts` for offline synthetic, concurrency
   and rollback checks. Hosted release needs exact baseline review, existing relay
