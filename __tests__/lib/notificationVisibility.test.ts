@@ -1,4 +1,4 @@
-import { isNotificationVisible, isNotificationUnread } from '../../lib/notificationVisibility';
+import { compareNotificationTimes, isNotificationVisible, isNotificationUnread, newestNotificationTimestamp } from '../../lib/notificationVisibility';
 import type { NotificationCenterItem } from '../../lib/notificationCenterTypes';
 
 const comment = (sortAt: string): NotificationCenterItem => ({
@@ -11,6 +11,17 @@ const comment = (sortAt: string): NotificationCenterItem => ({
 });
 
 describe('notification visibility', () => {
+  it('keeps newer microsecond source events and preserves their exact acknowledgement timestamp', () => {
+    const old = '2026-11-15T12:00:00.123456+00:00', recent = '2026-11-15T12:00:00.123457Z';
+    expect(isNotificationVisible(comment(recent), old, new Map())).toBe(true);
+    expect(isNotificationVisible(comment(recent), null, new Map([['comment:1', old]]))).toBe(true);
+    expect(isNotificationUnread(comment(recent), old)).toBe(true);
+    expect(compareNotificationTimes(old, '2026-11-15T05:00:00.123456-07:00')).toBe(0);
+    expect(compareNotificationTimes('2026-11-15T12:00:00Z', '2026-11-15T12:00:00.000000Z')).toBe(0);
+    expect(newestNotificationTimestamp([comment(recent), comment('invalid'), comment(old)])).toBe(recent);
+    expect(newestNotificationTimestamp([])).toBeNull();
+    expect(newestNotificationTimestamp([comment('invalid')])).toBeNull();
+  });
   const prelive: NotificationCenterItem = {
     key: 'challenge:event-1',
     kind: 'challenge',

@@ -12,7 +12,7 @@ import { createRequestSignal, runAbortableQuery } from '../lib/requestSignal';
 import { awaitReadSignal } from '../lib/awaitReadSignal';
 import { rpcQueryError } from '../lib/rpcQueryError';
 import { canKeepQueryDataOnError } from '../lib/queryDisplayState';
-import { isNotificationVisible, isNotificationUnread } from '../lib/notificationVisibility';
+import { compareNotificationTimes, isNotificationUnread, notificationActivityTimestamp, newestNotificationTimestamp } from '../lib/notificationVisibility';
 import { createNotificationHistoryQueue, type NotificationHistory } from '../lib/notificationHistoryQueue';
 import { groupNotificationItems } from '../lib/notificationGrouping';
 import {
@@ -41,7 +41,7 @@ const storageKey = (key: string, uid?: string) => (uid ? `${key}:${uid}` : key);
 function latestIso(a: string | null, b: string | null) {
   if (!a) return b;
   if (!b) return a;
-  return parseDate(a).getTime() >= parseDate(b).getTime() ? a : b;
+  return compareNotificationTimes(a, b) >= 0 ? a : b;
 }
 
 function commandTimestamp(value: unknown, key: string, fallback: string): string {
@@ -140,11 +140,12 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
         if (!isCurrent()) throw new Error('Notification account changed');
         const guard = { expectedUserId: userId, isCurrent };
         const result = action.kind === 'dismiss'
-          ? await executeCommand('dismiss_notification', { p_notification_key: action.key, p_dismissed_at: action.at }, guard)
+          ? await executeCommand('dismiss_notification', { p_notification_key: action.key, p_dismissed_at: action.at, p_observed_through: action.observedThrough }, guard)
           : action.kind === 'clear'
-            ? await executeCommand('clear_notification_history', { p_cleared_at: action.at }, guard)
+            ? await executeCommand('clear_notification_history', { p_cleared_at: action.at, p_observed_through: action.observedThrough }, guard)
             : await executeCommand('mark_notification_center_opened', { p_opened_at: action.at }, guard);
         if (result.error) throw result.error;
+        if (isCurrent() && action.kind !== 'open') void queryClient.invalidateQueries({ queryKey: [NOTIFICATION_CENTER_PREFIX, 'snapshot', userId] });
         return commandTimestamp(result.data, action.kind === 'dismiss' ? 'dismissed_at'
           : action.kind === 'clear' ? 'cleared_at' : 'last_opened_at', action.at);
       },
@@ -243,8 +244,7 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
 
   const items = useMemo(
     () =>
-      groupNotificationItems(prefsHydrated && (!snapshot.error || canKeepQueryDataOnError(snapshot.data, snapshot.error)) ? snapshot.data ?? [] : [])
-        .filter((item) => isNotificationVisible(item, clearedAt, dismissedKeys)),
+      groupNotificationItems(prefsHydrated && (!snapshot.error || canKeepQueryDataOnError(snapshot.data, snapshot.error)) ? snapshot.data ?? [] : [], clearedAt, dismissedKeys),
     [clearedAt, dismissedKeys, prefsHydrated, snapshot.data, snapshot.error],
   );
   const unreadCount = useMemo(() => {
@@ -341,16 +341,20 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
     async (key: string) => {
       const account = historyRef.current;
       if (!userId || account?.userId !== userId || !account.isCurrent()) return;
-      await account.queue.enqueue({ kind: 'dismiss', key, at: new Date().toISOString() });
+      const item = items.find(item => item.key === key);
+      if (!item) return;
+      const at = notificationActivityTimestamp(item);
+      await account.queue.enqueue({ kind: 'dismiss', key, at, observedThrough: at });
     },
-    [userId],
+    [items, userId],
   );
 
   const clearNotificationHistory = useCallback(async () => {
     const account = historyRef.current;
     if (!userId || account?.userId !== userId || !account.isCurrent()) return;
-    await account.queue.enqueue({ kind: 'clear', at: new Date().toISOString() });
-  }, [userId]);
+    const at = newestNotificationTimestamp(items);
+    if (at) await account.queue.enqueue({ kind: 'clear', at, observedThrough: at });
+  }, [items, userId]);
 
   return {
     items,

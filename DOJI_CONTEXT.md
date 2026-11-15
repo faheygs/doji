@@ -238,6 +238,11 @@ The Activity Center is durable account history, not an OS-notification mirror.
 Clear/dismiss state survives reinstall; pending friend requests remain actionable.
 Phase timestamps distinguish pre-live from later live activity. Grouped items
 reappear only for genuinely new activity. In-app preferences do not erase history.
+Prepared dismissal correction filters acknowledged source activity before grouping
+names/counts. Dismiss and Clear acknowledge the displayed source snapshot, not the
+device/action time, so concurrent newer activity survives. Merely viewing marks
+read/attention without deleting history. Pending friend requests survive Clear;
+explicit dismissal still applies. SQL must qualify before the updated native client.
 
 OS pushes are allowlisted: Doji live, friend requests, direct mentions/replies and
 review/account actions. Ambient social activity remains in-app. Foreground OS
@@ -256,6 +261,15 @@ Settings appear when the authenticated backend reports settings availability,
 independently of delivery enablement. The additive defaults overlay changes no
 stored profile values. Hosted delivery remains separately gated; no change to
 participation, rewards, authentication or system notification permissions.
+
+The prepared late-friend correction replaces discarded cooldown activity with a
+durable trailing batch: collect for 30 seconds and space batches by one minute per
+recipient/Doji. New source IDs remain queued, with 100 IDs per preparation and the
+existing five-minute source expiry; expiry and provider uncertainty still prevent
+delivery guarantees. Previously covered sources are not repeated. Snapshot-bounded
+attention receipts must not mark newer unseen activity when an older alert opens.
+This correction requires coordinated SQL/relay/native qualification; it does not
+change comment-alert policy or authorize another hosted send.
 
 Push registration is foreground/account-bound, single-flight and serialized with
 unregistration. Preserve bounded retries, token/release changes, six-hour receipt

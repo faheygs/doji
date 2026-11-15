@@ -5,7 +5,7 @@ import { engine } from './config.mts';
 import type { TestRoom } from './contracts.mts';
 
 /** Two real transactions contend on the first recipient/subject batch. No remote sockets. */
-export async function socialPhoneConcurrency(room: TestRoom) {
+export async function socialPhoneConcurrency(room: TestRoom, category = 'comments_on_posts') {
   room.inspect();
   const viewer = '99790000-0000-4000-8000-000000000001';
   const subject = '99790000-0000-4000-8000-000000000002';
@@ -18,7 +18,8 @@ export async function socialPhoneConcurrency(room: TestRoom) {
       values('${viewer}','social_race','Synthetic race','{"comments_on_posts":true}');
     update social_notification_private.configuration set enabled=true;`);
   const children: ReturnType<typeof execFile>[] = [];
-  const command = (id: number) => `select social_notification_private.enqueue('comments_on_posts','${viewer}',
+  assert.ok(['comments_on_posts', 'late_friend_participation'].includes(category));
+  const command = (id: number) => `select social_notification_private.enqueue('${category}','${viewer}',
     '${subject}','99790000-0000-4000-8000-${String(id).padStart(12, '0')}','${actor}',clock_timestamp());`;
   const start = (query: string, hold: boolean) => {
     let ready!: () => void;
@@ -57,7 +58,7 @@ export async function socialPhoneConcurrency(room: TestRoom) {
   } finally {
     for (const child of children) if (child.exitCode === null) { child.stdin?.end('rollback;'); child.kill(); }
     sql(`delete from public.domain_event_outbox where id in(select outbox_id from social_notification_private.batches where recipient='${viewer}');
-      delete from public.notification_once_keys where delivery_key like 'social-phone-v1:comments_on_posts:${viewer}:%';
+      delete from public.notification_once_keys where delivery_key like 'social-phone-v1:${category}:${viewer}:%';
       delete from auth.users where id='${viewer}';
       update social_notification_private.configuration set enabled=false;`);
   }

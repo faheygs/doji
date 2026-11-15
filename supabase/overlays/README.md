@@ -17,7 +17,21 @@ retaining rollback and no historical backfill. See the
 Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
+- `late_friend_trailing_alerts_v1.sql` prepares durable trailing late-friend batches
+  with 30-second grouping, one-minute spacing and snapshot-bounded attention receipts.
+  Its guarded inverse disables delivery and retains queue/claim history. Release with
+  the deferral-aware relay and updated native attention helper; source is not deployment.
+  The social-phone database harness covers queuing, overflow, concurrency and rollback.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `notification_group_dismissals_v1.sql` and its retaining inverse prepare
+  snapshot-bounded Dismiss/Clear, filtering acknowledged source rows before group
+  counts/names and pending social phone eligibility. Requires the reviewed social
+  alert foundation/defaults; qualify with the trailing overlay and updated native
+  reader. Existing command arities remain intact. The social-phone harness tests
+  new activity during acknowledgement, reinstall/isolation, grants and exact
+  read/eligibility rollback. The inverse disables social delivery, retains receipts
+  and additive commands, and requires a coordinated prior native reader when reads
+  are reverted. No deployment, provider send, new job or history deletion is implied.
 - `push_registration_staging_channel_v1.sql` adds the explicit `staging` release
   channel to native endpoint registration v3 without changing APNs environment,
   authentication, grants or delivery gates. Its hash-guarded retaining inverse

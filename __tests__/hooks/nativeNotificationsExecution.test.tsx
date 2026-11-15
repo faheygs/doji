@@ -335,6 +335,7 @@ test('notification tap waits for app access and navigator readiness, then marks 
     eventId: 'event',
     notificationScopeKind: 'daily_event',
     notificationScopeId: 'day',
+    notificationObservedThrough: '2026-11-15T12:00:00Z',
   };
   jest.mocked(Notifications.getLastNotificationResponseAsync).mockResolvedValue(response(data));
   const { rerender } = renderHook(
@@ -356,7 +357,7 @@ test('notification tap waits for app access and navigator readiness, then marks 
   await act(async () => afterNavigation.forEach((callback) => callback()));
   expect(mockCommand).toHaveBeenCalledWith('mark_notification_attention_seen', {
     p_receipts: [
-      { scope_kind: 'daily_event', scope_id: 'day', seen_at: '2026-10-02T00:00:00.000Z' },
+      { scope_kind: 'daily_event', scope_id: 'day', seen_at: '2026-10-02T00:00:00.000Z', observed_through: '2026-11-15T12:00:00Z' },
     ],
   }, { expectedUserId: 'member', isCurrent: expect.any(Function) });
   act(() => onResponse(response(data, 'different-native-id')));
@@ -415,7 +416,7 @@ test('unmount cancels a queued navigation task without acknowledging the push', 
 
 test.each(['account', 'background', 'unmount'])('delayed attention acknowledgement stops after %s', async reason => {
   const { unmount } = renderHook(() => useNativeNotifications(true)); await settle();
-  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day' })));
+  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day', notificationObservedThrough: '2026-11-15T12:00:00Z' })));
   await navigate();
   if (reason === 'account') mockUser = 'other';
   else if (reason === 'background') act(() => onState('background'));
@@ -428,7 +429,7 @@ test('native cleanup and attention transport rejections are observed without raw
   jest.mocked(Notifications.clearLastNotificationResponseAsync).mockRejectedValue(new Error('private native details'));
   mockCommand.mockRejectedValue(new Error('private transport details'));
   renderHook(() => useNativeNotifications(true)); await settle();
-  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day' })));
+  act(() => onResponse(response({ type: 'CHALLENGE', notificationScopeKind: 'daily_event', notificationScopeId: 'day', notificationObservedThrough: '2026-11-15T12:00:00Z' })));
   await navigate();
   await act(async () => afterNavigation.forEach(callback => callback()));
   expect(mockRecord).toHaveBeenCalledWith('push', 'response-clear-deferred', expect.any(Error));

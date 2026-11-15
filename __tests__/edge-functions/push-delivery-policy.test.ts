@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { notificationDataForEvent, resolvePushPolicy } from '../../supabase/functions/_shared/notification-policy';
+import type { DeliveryEvent } from '../../supabase/functions/_shared/domain-event-delivery';
 
 const root = path.resolve(__dirname, '../..');
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -43,8 +45,14 @@ describe('terminal push delivery policy', () => {
   });
 
   it('preserves the target comment in relayed native notification data', () => {
-    expect(relay).toContain(
-      "commentId: event.payload.commentId ? String(event.payload.commentId) : ''",
-    );
+    const event: DeliveryEvent = { id: 'event', event_type: 'notification.comment_reply.created',
+      aggregate_id: 'comment', created_at: '2026-11-15T12:00:00Z', available_at: '2026-11-15T12:00:00Z',
+      payload: { sendPush: true, targetUserId: 'recipient', commentId: 'comment', postId: 'post' } };
+    const policy = resolvePushPolicy(event);
+    if (!policy) throw new Error('Expected direct reply policy');
+    expect(notificationDataForEvent(event, policy)).toMatchObject({
+      commentId: 'comment', postId: 'post', notificationScopeKind: 'comment', notificationScopeId: 'comment',
+    });
+    expect(relay).toContain('notificationDataForEvent(event, pushPolicy)');
   });
 });

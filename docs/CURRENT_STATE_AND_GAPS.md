@@ -1,38 +1,50 @@
 # Current state and handoff gaps
 
-Updated November 14, 2026. This separates source, recorded deployments and owner
+Updated November 15, 2026. This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
 
-Staging native build 10 exposed a registration-contract mismatch: the client sends
-`staging`, but endpoint registration v3 rejects that release channel. The narrow
-`push_registration_staging_channel_v1` correction and retaining rollback are prepared
-with offline channel/platform/authorization coverage. Hosted correction and renewed
-device registration acceptance are pending; do not rebuild or enable delivery to
-work around this validation failure. Production is unchanged.
+Staging iPhone build 10 registered successfully after the narrow release-channel
+correction. The owner confirmed the first late-friend alert arrived and its post
+was visible. A second late completion was deliberately suppressed by the existing
+five-minute cooldown; the owner rejected that product behavior. The replacement
+is source preparation only: retain trailing late activity, collect for 30 seconds,
+space batches by one minute, and acknowledge only the displayed snapshot watermark.
+SQL/relay qualification and an updated native build remain required before calling
+the replacement live. Production is unchanged; comments retain their existing policy.
+The same source-only correction includes snapshot-bounded Dismiss/Clear: old
+sources are excluded before grouped names/counts, while concurrent new activity
+survives. It also excludes acknowledged sources from pending social phone batches.
+Offline synthetic SQL covers six acknowledged participants plus a seventh, account
+isolation, reinstall, old/new commands and retaining rollback; this is not hosted
+acceptance. The database overlay must qualify before an updated native artifact.
+
+The narrow `push_registration_staging_channel_v1` correction is installed in
+Staging, with retaining rollback and offline channel/platform/authorization coverage.
+The owner's installed build 10 registered after that correction. Production is
+unchanged; this does not establish Android delivery acceptance.
 
 Two gated social phone-alert categories (comments on own posts and after-close
 friend participation) passed exact-head CI at `f11c435`; PR #94 merged as `fbd8dd1`.
-Their SQL/defaults and matching relay version 29 are installed in Staging only,
+Their SQL/defaults and matching relay were initially installed in Staging only,
 with delivery disabled and Settings available to the updated client. Hosted
 compatibility, retaining rollback and all 18 runtime files passed verification;
 the other ten Edge Functions are unchanged. Default-on applies to existing and new
 users while preserving saved opt-outs without rewriting profiles. Main CI remains
-a separate build gate. Production is unchanged. Activation, isolated provider/device
-bindings and device delivery/opt-out/deep-link verification remain outstanding.
-No provider sends or new mobile builds have run. See the
+a separate build gate. Production is unchanged. The subsequent Staging test is
+restricted to the owner's registered iPhone; first-alert delivery passed, while
+the trailing correction and remaining delivery/opt-out checks are not qualified.
+See the
 [disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
 
-Isolated Staging APNs and FCM credentials are now created and privately retained,
-not yet installed in hosted runtime secrets. The next source candidate permits
-Staging registration in the `staging` EAS profile and adds relay-only, default-off
-egress restricted to the Staging app/project and approved device-token hashes.
-Development/preview and production settings remain unchanged. Notification Settings
-now distinguish an unsupported binary from denied OS permission. Exact-head/main
-CI, relay deployment, approved builds and device delivery acceptance remain pending;
-these prepared changes do not establish push parity. See
+Isolated Staging provider credentials and the matching gated relay are installed.
+Egress remains restricted to the Staging app/project and approved device-token
+hashes: the owner's APNs device is allowed for the approved test; FCM has no allowed
+device. Development/preview and production settings remain unchanged. Notification
+Settings distinguish an unsupported binary from denied OS permission. This bounded
+iPhone test does not establish complete push parity. See
 [provider ownership and rollback](SERVICE_CATALOG.md#responsibility-boundaries-and-usage-status).
 
 The approved production social backend is installed and qualified. Feed ordering,

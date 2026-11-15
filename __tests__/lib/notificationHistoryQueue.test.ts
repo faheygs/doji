@@ -137,3 +137,16 @@ test('duplicate detection never skips an intent across an intervening Clear', as
   expect(t.execute).toHaveBeenCalledTimes(3);
   expect(t.state().dismissed.get('request')).toBe(at(22));
 });
+
+test('newer snapshots of the same group are not coalesced into an older dismissal', async () => {
+  const t = setup(), first = deferred<string>();
+  t.execute.mockImplementationOnce(() => first.promise);
+  const a = t.queue.enqueue({ kind: 'dismiss', key: 'group', at: at(20), observedThrough: at(20) });
+  const b = t.queue.enqueue({ kind: 'dismiss', key: 'group', at: at(21), observedThrough: at(21) });
+  await Promise.resolve(); first.resolve(at(20));
+  await a; await b;
+  expect(t.execute).toHaveBeenCalledTimes(2);
+  expect(t.state().dismissed.get('group')).toBe(at(21));
+  await t.queue.enqueue({ kind: 'clear', at: at(20), observedThrough: at(20) });
+  expect(t.state().dismissed.get('group')).toBe(at(21));
+});

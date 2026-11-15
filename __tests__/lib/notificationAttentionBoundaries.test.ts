@@ -111,3 +111,22 @@ test('tray read failure propagates without attempting a broad dismissal', async 
   await expect(dismissPresentedNotificationsForReceipts([receipt])).rejects.toBe(error);
   expect(Notifications.dismissNotificationAsync).not.toHaveBeenCalled();
 });
+
+test('viewing an older daily alert leaves newer or unproven tray activity intact', async () => {
+  const scope = { notificationScopeKind: 'daily_event', notificationScopeId: 'day' };
+  const presented = [
+    ['older', '2026-11-15T12:00:00Z'],
+    ['equal', '2026-11-15T12:01:00Z'],
+    ['newer', '2026-11-15T12:02:00Z'],
+    ['legacy', undefined],
+    ['invalid', 'invalid'],
+  ].map(([identifier, through]) => ({ request: { identifier, content: {
+    data: { ...scope, notificationObservedThrough: through },
+  } } }));
+  (Notifications.getPresentedNotificationsAsync as jest.Mock).mockResolvedValue(presented);
+  const daily = { ...receipt, scope_kind: 'daily_event' as const, scope_id: 'day' };
+  await dismissPresentedNotificationsForReceipts([daily]);
+  expect(Notifications.dismissNotificationAsync).not.toHaveBeenCalled();
+  await dismissPresentedNotificationsForReceipts([{ ...daily, observed_through: '2026-11-15T12:01:00Z' }]);
+  expect(jest.mocked(Notifications.dismissNotificationAsync).mock.calls).toEqual([['older'], ['equal']]);
+});

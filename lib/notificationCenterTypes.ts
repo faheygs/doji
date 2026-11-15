@@ -13,6 +13,7 @@ export type NotificationCenterItem =
   | {
       key: string;
       kind: 'reactions_group';
+      historyThrough?: string;
       post_id: string;
       is_shared_post?: boolean;
       count: number;
@@ -23,6 +24,7 @@ export type NotificationCenterItem =
   | {
       key: string;
       kind: 'friend_activity_group';
+      historyThrough?: string;
       daily_event_id: string;
       count: number;
       actors: Actor[];

@@ -8,18 +8,18 @@ import { syncPushRegistration, unregisterCurrentPushInstallation } from '../lib/
 import { safePush } from '../lib/routes';
 import { useAuthStore } from '../stores/useAuthStore';
 import { recordOperationalFailure, reportOperationalFailure } from '../lib/telemetry';
-import { attentionScopeFromPushData } from '../lib/notificationAttention';
+import { attentionReceiptFromPushData } from '../lib/notificationAttention';
 import { executeCommand } from '../lib/commandGateway';
 import { retryPushRegistration } from '../lib/retryPushRegistration';
 import { createPushRegistrationScope } from '../lib/pushRegistrationScope';
 import { awaitRegistration, isPushRegistrationInterrupted } from '../lib/pushRegistrationCancellation';
 
 async function markNotificationResponseSeen(data: unknown, expectedUserId: string, isCurrent: () => boolean): Promise<void> {
-  const scope = attentionScopeFromPushData(data);
-  if (!scope) return;
+  const receipt = attentionReceiptFromPushData(data);
+  if (!receipt) return;
   if (!isCurrent()) return;
   const { error } = await executeCommand('mark_notification_attention_seen', {
-    p_receipts: [{ ...scope, seen_at: new Date().toISOString() }],
+    p_receipts: [receipt],
   }, { expectedUserId, isCurrent });
   if (error) recordOperationalFailure('push', 'attention-seen-deferred', new Error('Attention acknowledgement not confirmed'));
 }

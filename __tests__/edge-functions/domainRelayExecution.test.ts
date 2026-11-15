@@ -417,6 +417,22 @@ describe('targeted OS delivery independent of realtime publication', () => {
   beforeEach(() => {
     events = [targeted()];
   });
+  test('deferred late activity returns to the durable queue without sending or completing', async () => {
+    events = [event('notification.late_friend_activity.grouped_v1', { batchId: id, targetUserId: userId, sendPush: true, dailyEventId: id })];
+    rpc.mockImplementation(async (name, args) => name === 'prepare_social_phone_alert_v1'
+      ? { data: { deferred: true, eventId: id, leaseId: events[0].lease_id, availableAt: '2026-11-15T12:01:00Z' } }
+      : database(name, args));
+    const response = await handler(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ continued: 1, hasMore: false, failed: 0 });
+    expect(calls('prepare_social_phone_alert_v1')).toHaveLength(1);
+    expect(calls('complete_domain_event')).toHaveLength(0);
+    expect(calls('complete_domain_events_batch')).toHaveLength(0);
+    expect(calls('claim_push_delivery_targets_batch_v2')).toHaveLength(0);
+    expect(mockApns).not.toHaveBeenCalled();
+    expect(mockFcm).not.toHaveBeenCalled();
+    expect(mockExpo).not.toHaveBeenCalled();
+  });
   test('publishes realtime before using push profiles, with minimal notification data', async () => {
     events[0].payload = {
       ...events[0].payload,
