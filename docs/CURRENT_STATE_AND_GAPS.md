@@ -6,7 +6,12 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-The comment-alert follow-up correction is in source preparation, not deployed.
+The comment-alert follow-up correction passed PR #101/main CI, but is not deployed.
+Staging preflight found the retained mixed-line-ending predecessor lacks two
+intended replacements (overflow and stream lock ordering). The follow-up source
+repair admits only those two exact bodies and requires the canonical reviewed
+definitions before applying comment scheduling. Offline Windows-predecessor
+regression and exact rollback, fresh CI and hosted qualification remain required.
 `comment_trailing_alerts_v1` extends the existing late-friend queue/deferral policy
 to comments, replacing the five-minute discarding cooldown with 30-second grouping
 and one-minute spacing. Existing seen/dismissal, privacy, opt-out and original TTL

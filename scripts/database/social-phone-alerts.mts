@@ -50,6 +50,7 @@ export async function socialPhoneAlerts(room: TestRoom) {
   const commentBefore = commentSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
   sql(source('overlays/comment_trailing_alerts_v1.sql'));
   sql(source('overlays/comment_trailing_alerts_v1.sql'));
+  const commentInstalled = commentSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
   assert.match(sql("set doji.test.social_kind='comments_on_posts';" + source('tests/late_friend_trailing_alerts.sql')),
     /PASS: trailing social queue/);
   assert.match(sql("set doji.test.comment_trailing='on';" + source('tests/social_phone_alerts.sql')),
@@ -59,6 +60,36 @@ export async function socialPhoneAlerts(room: TestRoom) {
   sql(source('overlays/comment_trailing_alerts_v1.rollback.sql'));
   commentSignatures.forEach((signature, index) => assert.equal(
     sql(`select pg_get_functiondef('${signature}'::regprocedure);`), commentBefore[index]));
+  // Reproduce the exact deployed mixed-LF/CRLF predecessor, not a relaxed hash.
+  // This is the owned network-disabled fixture, never a hosted repair/replay.
+  sql('delete from social_notification_private.comment_trailing_originals;');
+  commentSignatures.forEach((signature, index) => {
+    sql(trailingBefore[index]!);
+    sql(`delete from social_notification_private.trailing_originals where signature='${signature}';`);
+  });
+  sql(source('overlays/late_friend_trailing_alerts_v1.sql').replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'));
+  const windowsBefore = commentSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
+  const windowsHashes = ['5acc2719966ce4d972e240bcda3a5319', '05b516e06c1f9bf0e39e2bc25ed33252'];
+  commentSignatures.forEach((signature, index) => assert.equal(sql(
+    `select md5(replace(prosrc,E'\\r\\n',E'\\n')) from pg_proc where oid='${signature}'::regprocedure;`), windowsHashes[index]));
+  sql(windowsBefore[0]!.replace('declare batch', '-- Unreviewed fixture change\ndeclare batch'));
+  assert.throws(() => sql(source('overlays/comment_trailing_alerts_v1.sql')), /Unreviewed comment queue dependency/);
+  sql(windowsBefore[0]!);
+  sql(source('overlays/comment_trailing_alerts_v1.sql').replaceAll('\r\n', '\n').replaceAll('\n', '\r\n'));
+  sql(source('overlays/comment_trailing_alerts_v1.sql'));
+  commentSignatures.forEach((signature, index) => assert.equal(
+    sql(`select pg_get_functiondef('${signature}'::regprocedure);`), commentInstalled[index], 'Both predecessors converge exactly'));
+  assert.match(sql("set doji.test.social_kind='late_friend_participation';" + source('tests/late_friend_trailing_alerts.sql')),
+    /PASS: trailing social queue/);
+  assert.match(sql("set doji.test.social_kind='comments_on_posts';" + source('tests/late_friend_trailing_alerts.sql')),
+    /PASS: trailing social queue/);
+  assert.match(sql("set doji.test.comment_trailing='on';" + source('tests/social_phone_alerts.sql')),
+    /PASS: social phone alerts rolled back/);
+  assert.match(sql(source('tests/notification_group_dismissals.sql')), /PASS: notification group dismissal boundaries/);
+  await socialPhoneConcurrency(room, 'comments_on_posts', true);
+  sql(source('overlays/comment_trailing_alerts_v1.rollback.sql'));
+  commentSignatures.forEach((signature, index) => assert.equal(
+    sql(`select pg_get_functiondef('${signature}'::regprocedure);`), windowsBefore[index], 'Exact Windows predecessor rollback'));
   sql(source('overlays/notification_group_dismissals_v1.rollback.sql'));
   historySignatures.forEach((signature, index) => assert.equal(
     sql(`select pg_get_functiondef('${signature}'::regprocedure);`), historyBefore[index]));

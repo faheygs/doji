@@ -21,6 +21,9 @@ Do not replay these installations. This does not enable other overlays here.
   late-friend queue to comments: 30-second grouping, one-minute spacing, bounded
   overflow and delayed-worker deferral without discarding new comments. Requires
   the late-friend and dismissal overlays, matching relay and snapshot-aware client.
+  Its guarded predecessor repair handles the recorded mixed-line-ending Staging
+  bodies; all other unknown definitions fail closed. LF/CRLF input and exact
+  predecessor rollback are covered by the offline social-phone harness.
   No gates or grants change. Roll this layer back first; rollback pauses delivery
   and retains queued sources, claims and acknowledgement history. Hosted tests and
   deployment remain separately gated.
