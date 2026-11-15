@@ -39,15 +39,23 @@ checks. The Android certificate matched the prior qualified Staging signer; the
 iPhone provisioning profile remains limited to the owner's device ending 801C.
 Android was installed in place as version 1.0.14/build 11, retaining its original
 installation timestamp, signed-in account, feed and populated Activity Center.
-iPhone installation and corrected notification delivery/
-acknowledgement device acceptance remain pending; artifacts are not device acceptance.
+The owner installed iPhone build 11 and confirmed account/feed continuity. On
+November 15, two synthetic friends participated through the existing atomic buy-in
+and completion commands. APNs accepted their alerts on the first attempt at
+20:11:13 and 20:27:20 UTC. After the owner opened and dismissed the first group,
+the second prepared batch contained only the new friend's source. The owner
+confirmed both phone alerts and that the second in-app group named only the new
+friend. A subsequent read verified the second dismissal cutoff and no remaining
+friend-activity group. Private `retest-birch022.json` and `retest-canyon003.json`
+retain the receipts; synthetic activity was committed only for this approved test.
 
 Private source, installation/rollback SQL, readback manifests and receipts are at
 `%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications/late-friends-20261115/release-4f00dfb`.
 Rollback must pause social delivery before restoring the retained relay and SQL;
 retain observations and do not replay completed installation/build launch modes.
-The existing first-alert test is not proof of the corrected trailing/acknowledgement
-behavior, Android delivery, opt-out coverage or production readiness.
+This sequential two-friend test qualifies follow-up delivery and dismissal grouping,
+not an overlapping cooldown/trailing-batch device test, comment bursts, Android
+delivery, opt-out coverage or production readiness.
 
 ## November 14 disabled Staging social notifications
 

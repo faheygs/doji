@@ -20,9 +20,11 @@ the existing approved iPhone; no additional test alerts were sent during release
 Staging 1.0.14 build 11 artifacts for iPhone and Android passed native identity,
 signing, environment and source-map checks from the passing exact main. Android was
 updated in place on the emulator and retained its account, feed and Activity Center;
-iPhone installation and end-to-end acceptance of
-trailing alerts and acknowledged groups remain pending. Production is unchanged;
-comments retain their existing policy.
+iPhone installation and the two-friend follow-up/dismissal test passed: the owner
+received both alerts and confirmed the second in-app group contained only the new
+friend. This does not qualify an overlapping cooldown/trailing-batch device test,
+Android delivery, comment bursts or opt-outs. Production is unchanged; comments
+retain their existing policy.
 See the [Staging correction receipt](releases/README.md#november-15-staging-notification-trailing-and-acknowledgement-correction).
 
 The narrow `push_registration_staging_channel_v1` correction is installed in
@@ -38,8 +40,9 @@ compatibility, retaining rollback and all 18 runtime files passed verification;
 the other ten Edge Functions are unchanged. Default-on applies to existing and new
 users while preserving saved opt-outs without rewriting profiles. Main CI remains
 a separate build gate. Production is unchanged. The subsequent Staging test is
-restricted to the owner's registered iPhone; first-alert delivery passed, while
-the trailing correction and remaining delivery/opt-out checks are not qualified.
+restricted to the owner's registered iPhone; sequential late-friend delivery and
+dismissal grouping passed. Overlapping trailing-batch and remaining category,
+Android delivery and opt-out device checks are not qualified.
 See the
 [disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
 
