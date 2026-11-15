@@ -117,7 +117,7 @@ export async function buildStagingEdge(output: string) {
     await writeFile(join(functions, name, 'handler.ts'), handler, { flag: 'wx' });
     await writeFile(
       join(functions, name, 'index.ts'),
-      `import { stagingFetch, stagingEmailPolicy } from '../_shared/staging-egress.ts';
+      `import { stagingFetch${name === 'relay-domain-events' ? '' : ', stagingEmailPolicy'} } from '../_shared/staging-egress.ts';
 ${name === 'relay-domain-events' ? "import { stagingPushPolicy } from '../_shared/staging-push-egress.ts';" : ''}
 globalThis.fetch = stagingFetch({
   projectUrl: Deno.env.get('SUPABASE_URL'),
@@ -125,10 +125,10 @@ globalThis.fetch = stagingFetch({
   ablyKey: Deno.env.get('ABLY_API_KEY'),
   push: ${name === 'relay-domain-events' ? 'stagingPushPolicy((name) => Deno.env.get(name))' : 'undefined'},
   sentryMonitorToken: ${name === 'operational-health' ? "Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true' ? Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN') : undefined" : 'undefined'},
-  email: Deno.env.get('STAGING_EMAIL_ENABLED') === 'true'
+  email: ${name === 'relay-domain-events' ? 'undefined' : `Deno.env.get('STAGING_EMAIL_ENABLED') === 'true'
     ? stagingEmailPolicy(Deno.env.get('STAGING_RESEND_API_KEY'),
         Deno.env.get('ADMIN_FROM_EMAIL'), Deno.env.get('STAGING_EMAIL_RECIPIENTS'))
-    : undefined,
+    : undefined`},
 }, globalThis.fetch);
 await import('./handler.ts');
 `,

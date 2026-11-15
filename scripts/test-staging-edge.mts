@@ -76,6 +76,23 @@ test('staging packages unchanged named handlers behind fail-closed egress, with 
       const entry = await readFile(join(output, 'supabase/functions', name, 'index.ts'), 'utf8');
       assert.equal(entry.includes('push: stagingPushPolicy('), name === 'relay-domain-events');
       assert.equal(entry.includes('import { stagingPushPolicy }'), name === 'relay-domain-events');
+      if (name === 'relay-domain-events') {
+        // A later project-wide test-mail setting cannot widen this relay's grant.
+        assert.ok(!entry.includes('STAGING_EMAIL_ENABLED'));
+        assert.ok(!entry.includes('stagingEmailPolicy'));
+        let connections: { email?: unknown; sentryMonitorToken?: unknown; push?: unknown } | undefined;
+        const providerGrant = () => Promise.resolve(false);
+        const install = new Function('Deno', 'stagingFetch', 'stagingPushPolicy', 'globalThis',
+          entry.replace(/^import .*;\r?\n/gm, '').replace("await import('./handler.ts');", ''));
+        install({ env: { get: () => 'true' } }, (config: typeof connections) => {
+          connections = config;
+          return () => { throw Error('Unexpected provider request'); };
+        }, () => providerGrant, { fetch: globalThis.fetch });
+        assert.ok(connections);
+        assert.equal(connections.email, undefined);
+        assert.equal(connections.sentryMonitorToken, undefined);
+        assert.equal(connections.push, providerGrant);
+      }
       assert.equal(entry.includes("Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN')"), name === 'operational-health');
       if (name === 'operational-health') assert.ok(entry.includes("Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true'"));
       assert.ok(
