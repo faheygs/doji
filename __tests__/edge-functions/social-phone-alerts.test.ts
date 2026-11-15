@@ -29,15 +29,28 @@ describe('durable social phone alert preparation', () => {
     expect(db.rpc).toHaveBeenCalledWith('prepare_social_phone_alert_v1', { p_event_id: 'event', p_lease_id: 'lease' });
     expect(result).toEqual({ ...event, payload: prepared });
     expect(event.payload).not.toHaveProperty('body');
+    if (!result) throw Error('Unexpected deferral');
     expect(getPushExpiresAtMs(result)).toBe(getPushExpiresAtMs(event));
   });
   it('suppresses an ineligible batch without fabricating an empty message', async () => {
     const result = await prepareSocialPhoneAlert(database(null), event);
+    if (!result) throw Error('Unexpected deferral');
     expect(resolvePushPolicy(result)).toBeNull();
   });
   it('fails closed on read errors instead of sending stale material', async () => {
     await expect(prepareSocialPhoneAlert(database(null, { message: 'private diagnostic' }), event))
       .rejects.toThrow('Social notification preparation failed');
+  });
+  it('leaves a deferred late batch to its durable wake without completing or sending it', async () => {
+    const late = { ...event, event_type: 'notification.late_friend_activity.grouped_v1' };
+    const deferred = { deferred: true, eventId: event.id, leaseId: event.lease_id,
+      availableAt: '2026-11-14T12:01:00Z' };
+    expect(await prepareSocialPhoneAlert(database(deferred), late)).toBeNull();
+    for (const invalid of [{ ...deferred, leaseId: 'wrong' }, { ...deferred, eventId: 'wrong' },
+      { ...deferred, availableAt: 'invalid' }]) {
+      await expect(prepareSocialPhoneAlert(database(invalid), late)).rejects.toThrow('Invalid social notification deferral');
+    }
+    await expect(prepareSocialPhoneAlert(database(deferred), event)).rejects.toThrow('Invalid social notification deferral');
   });
   it.each([undefined, [], 'invalid', {}, { ...prepared, targetUserId: 'other' },
     { ...prepared, batchId: 'other' }, { ...prepared, sendPush: false },

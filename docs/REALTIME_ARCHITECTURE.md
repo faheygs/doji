@@ -355,6 +355,17 @@ than sending its old copy. Batch rows expire with existing outbox retention.
 Rollback disables delivery and restores captured delivery functions, retaining
 receipts and additive preference-key acceptance for installed-client compatibility.
 
+Prepared late-friend trailing delivery keeps new sources during the rate-limit
+interval instead of consuming their duplicate fence and dropping them. Overflow
+creates another bounded batch. Preparation and enqueue share a stream advisory
+lock; a late worker defers an unprepared lease to the existing next-available wake
+when the prior batch was prepared less than one minute ago. Deferral is neither a
+completed outbox event nor a provider retry. Original source TTL remains fixed.
+The optional `observed_through` attention watermark is capped at server time and
+merged monotonically; new clients use the notification/visible-group snapshot,
+not navigation time. Legacy receipt behavior remains compatible, so the native
+update is a qualification dependency rather than an optional UI change.
+
 `device_push_endpoints` privately stores installation-bound native APNs/FCM tokens.
 Transfer is atomic on account change. At most five recent active installations are
 delivered independently. Expo tokens remain compatibility fallback; v3/v2/v1

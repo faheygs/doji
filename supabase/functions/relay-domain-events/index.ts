@@ -14,7 +14,7 @@ import {
 } from '../_shared/domain-event-delivery.ts';
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
 import { assertBusinessEvent, isBusinessEvent } from '../_shared/business-realtime.ts';
-import { resolvePushPolicy } from '../_shared/notification-policy.ts';
+import { resolvePushPolicy, notificationDataForEvent } from '../_shared/notification-policy.ts';
 import { prepareSocialPhoneAlert } from '../_shared/social-phone-alerts.ts';
 import { logRealtimeLatency } from '../_shared/realtime-latency.ts';
 import {
@@ -487,6 +487,7 @@ Deno.serve(async (request) => {
   let published = 0;
   let failed = 0;
   let continued = 0;
+  let deferred = 0;
   let broadcastSent = 0;
   const bulkCompletions: EventLease[] = [];
   const queueBulkCompletion = (event: RelayEvent) => {
@@ -494,7 +495,9 @@ Deno.serve(async (request) => {
   };
   const processEventSideEffects = async (event: RelayEvent) => {
     try {
-      event = await prepareSocialPhoneAlert(database, event);
+      const prepared = await prepareSocialPhoneAlert(database, event);
+      if (prepared === null) { continued += 1; deferred += 1; return; }
+      event = prepared;
       const pushPolicy = resolvePushPolicy(event);
       const hasPush = pushPolicy !== null;
       const moderationCopy = await loadModerationDeliveryCopy(database, event);
@@ -583,20 +586,7 @@ Deno.serve(async (request) => {
           const title = moderationCopy?.title ?? String(event.payload.title ?? 'Doji');
           const body = moderationCopy?.body.slice(0, 220) ?? String(event.payload.body ?? '');
           const collapseKey = pushPolicy.collapseKey;
-          const notificationData = {
-            type: String(
-              event.payload.type ??
-                (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY'),
-            ),
-            eventId: event.id,
-            daily_event_id: event.payload.dailyEventId ? String(event.payload.dailyEventId) : '',
-            postId: event.payload.postId ? String(event.payload.postId) : '',
-            commentId: event.payload.commentId ? String(event.payload.commentId) : '',
-            voteId: event.payload.voteId ? String(event.payload.voteId) : '',
-            url: event.payload.url ? String(event.payload.url) : '',
-            notificationScopeKind: pushPolicy.scopeKind,
-            notificationScopeId: pushPolicy.scopeId,
-          };
+          const notificationData = notificationDataForEvent(event, pushPolicy);
           const expoChannelId = (profile?.native_endpoints ?? []).some(
             (endpoint) => (endpoint.notificationContractVersion ?? 1) >= 2,
           )
@@ -870,7 +860,7 @@ Deno.serve(async (request) => {
       failed,
       continued,
       broadcastSent,
-      hasMore: continued > 0 || claimedEvents.length >= 100,
+      hasMore: continued > deferred || claimedEvents.length >= 100,
       nextWakeAt,
     },
     { status: failed > 0 ? 503 : 200 },

@@ -9,6 +9,9 @@ existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
 `useSocialPhoneAlertCapabilities` gates the additional settings; existing Activity
 Center reads and foreground/reconnect reconciliation remain authoritative. This
 source ownership does not imply hosted activation.
+`late_friend_trailing_alerts_v1*` prepares the additive late-friend queue correction
+and retaining inverse. The existing relay handles deferred leases; native/Activity
+Center attention helpers supply bounded snapshot watermarks. No new job is added.
 `_shared/staging-push-egress.ts` owns the separately gated Staging-only relay
 provider/device allowlist; `build-staging-edge.mts` installs it without changing
 the shared handler. `lib/notificationSetupFeedback.ts` separates binary availability

@@ -30,6 +30,18 @@ export async function socialPhoneAlerts(room: TestRoom) {
   assert.match(output, /PASS: social phone alerts rolled back/);
   const { socialPhoneConcurrency } = await import('./social-phone-alerts-concurrency.mts');
   await socialPhoneConcurrency(room);
+  const trailingSignatures = ['social_notification_private.enqueue(text,uuid,uuid,uuid,uuid,timestamp with time zone)',
+    'public.prepare_social_phone_alert_v1(uuid,uuid)', 'public.mark_notification_attention_seen(jsonb)'];
+  const trailingBefore = trailingSignatures.map(signature => sql(`select pg_get_functiondef('${signature}'::regprocedure);`));
+  sql(source('overlays/late_friend_trailing_alerts_v1.sql'));
+  sql(source('overlays/late_friend_trailing_alerts_v1.sql'));
+  assert.match(sql(source('tests/late_friend_trailing_alerts.sql')), /PASS: trailing late-friend queue/);
+  await socialPhoneConcurrency(room, 'late_friend_participation');
+  // Existing all-kind privacy/default/mention tests still apply to the new queue.
+  assert.match(sql(source('tests/social_phone_alerts.sql')), /PASS: social phone alerts rolled back/);
+  sql(source('overlays/late_friend_trailing_alerts_v1.rollback.sql'));
+  trailingSignatures.forEach((signature, index) => assert.equal(
+    sql(`select pg_get_functiondef('${signature}'::regprocedure);`), trailingBefore[index]));
   sql(source('overlays/social_phone_alerts_v1.rollback.sql'));
   assert.equal(sql("select pg_get_functiondef('social_notification_private.preference(uuid,text)'::regprocedure);"),
     preferenceBefore, 'Retaining rollback restores the exact prior default policy');

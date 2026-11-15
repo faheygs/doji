@@ -6,6 +6,17 @@ export type NotificationAttentionScope = Pick<
   NotificationAttentionReceipt,
   'scope_kind' | 'scope_id'
 >;
+type ObservedReceipt = NotificationAttentionReceipt & { observed_through?: string };
+
+/** A notification tap acknowledges its snapshot, never later unseen activity. */
+export function attentionReceiptFromPushData(data: unknown, seenAt = new Date().toISOString()): ObservedReceipt | null {
+  const scope = attentionScopeFromPushData(data);
+  if (!scope) return null;
+  if (scope.scope_kind !== 'daily_event') return { ...scope, seen_at: seenAt };
+  const through = (data as Record<string, unknown>).notificationObservedThrough;
+  if (typeof through !== 'string' || !Number.isFinite(Date.parse(through))) return null;
+  return { ...scope, seen_at: seenAt, observed_through: through };
+}
 
 export function attentionScopeForItem(
   item: NotificationCenterItem,
@@ -34,12 +45,18 @@ export function attentionScopeForItem(
 export function attentionReceiptsForItems(
   items: readonly NotificationCenterItem[],
   seenAt = new Date().toISOString(),
-): NotificationAttentionReceipt[] {
-  const unique = new Map<string, NotificationAttentionReceipt>();
+): ObservedReceipt[] {
+  const unique = new Map<string, ObservedReceipt>();
   for (const item of items) {
     const scope = attentionScopeForItem(item);
     if (!scope?.scope_id) continue;
-    unique.set(`${scope.scope_kind}:${scope.scope_id}`, { ...scope, seen_at: seenAt });
+    const key = `${scope.scope_kind}:${scope.scope_id}`;
+    if (scope.scope_kind === 'daily_event') {
+      if (!Number.isFinite(Date.parse(item.sortAt))) continue;
+      const previous = unique.get(key)?.observed_through;
+      if (previous && Date.parse(previous) >= Date.parse(item.sortAt)) continue;
+      unique.set(key, { ...scope, seen_at: seenAt, observed_through: item.sortAt });
+    } else unique.set(key, { ...scope, seen_at: seenAt });
   }
   return [...unique.values()];
 }
@@ -61,11 +78,11 @@ export function attentionScopeFromPushData(data: unknown): NotificationAttention
 
 /** Remove only OS notifications whose exact subject is now visible in Doji. */
 export async function dismissPresentedNotificationsForReceipts(
-  receipts: readonly NotificationAttentionReceipt[],
+  receipts: readonly ObservedReceipt[],
 ): Promise<void> {
   if (Platform.OS === 'web' || receipts.length === 0) return;
-  const receiptKeys = new Set(
-    receipts.map((receipt) => `${receipt.scope_kind}:${receipt.scope_id}`),
+  const receiptKeys = new Map(
+    receipts.map((receipt) => [`${receipt.scope_kind}:${receipt.scope_id}`, receipt]),
   );
   const Notifications = await import('expo-notifications');
   const presented = await Notifications.getPresentedNotificationsAsync();
@@ -74,8 +91,13 @@ export async function dismissPresentedNotificationsForReceipts(
     if (!data || typeof data !== 'object') return false;
     const kind = (data as Record<string, unknown>).notificationScopeKind;
     const id = (data as Record<string, unknown>).notificationScopeId;
-    return typeof kind === 'string' && typeof id === 'string' &&
-      receiptKeys.has(`${kind}:${id}`);
+    if (typeof kind !== 'string' || typeof id !== 'string') return false;
+    const receipt = receiptKeys.get(`${kind}:${id}`);
+    if (!receipt) return false;
+    if (kind !== 'daily_event') return true;
+    const through = (data as Record<string, unknown>).notificationObservedThrough;
+    return typeof through === 'string' && !!receipt.observed_through &&
+      Date.parse(through) <= Date.parse(receipt.observed_through);
   });
   await Promise.allSettled(
     matching.map((notification) =>

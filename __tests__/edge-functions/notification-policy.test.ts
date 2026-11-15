@@ -1,4 +1,4 @@
-import { resolvePushPolicy } from '../../supabase/functions/_shared/notification-policy';
+import { resolvePushPolicy, notificationDataForEvent } from '../../supabase/functions/_shared/notification-policy';
 import type { DeliveryEvent } from '../../supabase/functions/_shared/domain-event-delivery';
 
 const event = (
@@ -15,6 +15,21 @@ const event = (
 });
 
 describe('OS notification allowlist', () => {
+  it.each([
+    [{ attentionOccurredAt: '2026-09-09T12:02:00Z', occurredAt: '2026-09-09T12:01:00Z' }, '2026-09-09T12:02:00Z'],
+    [{ occurredAt: '2026-09-09T12:01:00Z' }, '2026-09-09T12:01:00Z'],
+    [{}, '2026-09-09T12:00:00.000Z'],
+  ])('includes the server-owned daily snapshot, not relay wall-clock time', (timestamps, expected) => {
+    const input = event('notification.late_friend_activity.grouped_v1', {
+      sendPush: true, targetUserId: 'user-1', batchId: 'batch-1', dailyEventId: 'day-1', ...timestamps,
+    });
+    const policy = resolvePushPolicy(input);
+    expect(policy).not.toBeNull();
+    if (!policy) throw new Error('Expected grouped daily policy');
+    expect(notificationDataForEvent(input, policy)).toMatchObject({
+      notificationScopeKind: 'daily_event', notificationScopeId: 'day-1', notificationObservedThrough: expected,
+    });
+  });
   it.each([
     'notification.friend_activity.grouped',
     'notification.reactions.grouped',

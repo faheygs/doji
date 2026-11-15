@@ -17,6 +17,11 @@ retaining rollback and no historical backfill. See the
 Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
+- `late_friend_trailing_alerts_v1.sql` prepares durable trailing late-friend batches
+  with 30-second grouping, one-minute spacing and snapshot-bounded attention receipts.
+  Its guarded inverse disables delivery and retains queue/claim history. Release with
+  the deferral-aware relay and updated native attention helper; source is not deployment.
+  The social-phone database harness covers queuing, overflow, concurrency and rollback.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
 - `push_registration_staging_channel_v1.sql` adds the explicit `staging` release
   channel to native endpoint registration v3 without changing APNs environment,

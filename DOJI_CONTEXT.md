@@ -257,6 +257,15 @@ independently of delivery enablement. The additive defaults overlay changes no
 stored profile values. Hosted delivery remains separately gated; no change to
 participation, rewards, authentication or system notification permissions.
 
+The prepared late-friend correction replaces discarded cooldown activity with a
+durable trailing batch: collect for 30 seconds and space batches by one minute per
+recipient/Doji. New source IDs remain queued, with 100 IDs per preparation and the
+existing five-minute source expiry; expiry and provider uncertainty still prevent
+delivery guarantees. Previously covered sources are not repeated. Snapshot-bounded
+attention receipts must not mark newer unseen activity when an older alert opens.
+This correction requires coordinated SQL/relay/native qualification; it does not
+change comment-alert policy or authorize another hosted send.
+
 Push registration is foreground/account-bound, single-flight and serialized with
 unregistration. Preserve bounded retries, token/release changes, six-hour receipt
 reconciliation and v3/v2/v1 compatibility. Cancellation does not roll back a remote

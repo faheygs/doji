@@ -18,6 +18,24 @@ export type PushPolicy = {
   collapseKey: string;
 };
 
+/** Preserve exact navigation identity and the snapshot covered by daily alerts. */
+export function notificationDataForEvent(event: DeliveryEvent, policy: PushPolicy): Record<string, string> {
+  return {
+    type: String(event.payload.type ?? (event.event_type === 'doji.activated' ? 'CHALLENGE' : 'ACTIVITY')),
+    eventId: event.id,
+    daily_event_id: event.payload.dailyEventId ? String(event.payload.dailyEventId) : '',
+    postId: event.payload.postId ? String(event.payload.postId) : '',
+    commentId: event.payload.commentId ? String(event.payload.commentId) : '',
+    voteId: event.payload.voteId ? String(event.payload.voteId) : '',
+    url: event.payload.url ? String(event.payload.url) : '',
+    notificationScopeKind: policy.scopeKind,
+    notificationScopeId: policy.scopeId,
+    ...(policy.scopeKind === 'daily_event' ? {
+      notificationObservedThrough: String(event.payload.attentionOccurredAt ?? event.payload.occurredAt ?? event.created_at),
+    } : {}),
+  };
+}
+
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
