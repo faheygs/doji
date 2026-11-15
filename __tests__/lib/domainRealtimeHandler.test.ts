@@ -39,6 +39,7 @@ test.each(['social.block.created', 'social.friendship.removed', 'moderation.stat
 );
 
 test.each([
+  ['notification.late_friend_activity.grouped_v1', ['notificationCenter', 'pollResults', 'pollVotersDetail', 'feed', 'firstDoji']],
   [
     'doji.activated',
     ['upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter', 'firstDoji'],
@@ -130,6 +131,7 @@ test.each([
 test.each([
   ['notification.reaction.created', 'reactions', true],
   ['notification.comment.created', 'comments', true],
+  ['notification.post_comments.grouped_v1', 'comments', true],
   ['notification.comment_reply.created', 'comments', true],
   ['notification.comment_like.created', 'comments', false],
   ['notification.comment.created', 'commentWindow', true],

@@ -44,8 +44,8 @@ function observe(root: string, read: (signal: AbortSignal) => Promise<unknown>) 
   return observer;
 }
 
-test('seven obsolete reads abort, survive 31 minutes offline without errors, then refresh once', async () => {
-  const roots = ['feed', 'pollResults', 'pollVotersDetail', 'ownedShopItems', 'upcomingDoji', 'userEvent', 'notificationCenter'];
+test('server reads abort, survive 31 minutes offline without errors, then refresh once', async () => {
+  const roots = ['feed', 'pollResults', 'pollVotersDetail', 'ownedShopItems', 'upcomingDoji', 'userEvent', 'notificationCenter', 'socialPhoneAlertCapabilities'];
   const signals: AbortSignal[] = [];
   const late: ((value: { error: null; data: string }) => void)[] = [];
   const reads = roots.map(root => {
@@ -60,7 +60,7 @@ test('seven obsolete reads abort, survive 31 minutes offline without errors, the
     observe(root, read);
     return read;
   });
-  expect(signals).toHaveLength(7);
+  expect(signals).toHaveLength(roots.length);
   lifecycle.network({ isConnected: false });
   lifecycle.appState('background');
   await flush();

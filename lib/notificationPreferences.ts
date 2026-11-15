@@ -34,6 +34,11 @@ export function mergeNotificationPreferences(
   const mentionsReplies = o.mentions_replies !== false &&
     o.mention !== false && o.comment_reply !== false;
   return {
+    // Do not send unsupported keys to older backends during unrelated profile saves.
+    ...(typeof o.comments_on_posts === 'boolean'
+      ? { comments_on_posts: o.comments_on_posts && o.comment !== false } : {}),
+    ...(typeof o.late_friend_participation === 'boolean'
+      ? { late_friend_participation: o.late_friend_participation && o.friend_post !== false } : {}),
     push_enabled: o.push_enabled !== false,
     show_bell_badge: o.show_bell_badge !== false,
     doji_live: o.doji_live !== false && o.doji_start !== false,
@@ -55,11 +60,14 @@ export function mergeNotificationPreferences(
 
 /** Dual-write aliases until every pre-policy mobile build has aged out. */
 export function phoneAlertPreferencePatch(
-  kind: 'doji_live' | 'friend_requests' | 'mentions_replies' | 'reviews_account',
+  kind: 'doji_live' | 'friend_requests' | 'mentions_replies' | 'reviews_account' |
+    'comments_on_posts' | 'late_friend_participation',
   value: boolean,
 ): Partial<NotificationPreferences> {
   if (kind === 'doji_live') return { doji_live: value, doji_start: value };
   if (kind === 'friend_requests') return { friend_requests: value, friend_request: value };
+  if (kind === 'comments_on_posts') return { comments_on_posts: value, comment: value };
+  if (kind === 'late_friend_participation') return { late_friend_participation: value, friend_post: value };
   if (kind === 'mentions_replies') {
     return { mentions_replies: value, mention: value, comment_reply: value };
   }
@@ -72,6 +80,7 @@ export function wantsCategoryEnabled(
   kind: NotificationPreferenceKind,
 ): boolean {
   const p = mergeNotificationPreferences(prefs);
+  if (kind === 'comments_on_posts' || kind === 'late_friend_participation') return p[kind] === true;
   return p[kind] !== false;
 }
 
@@ -80,6 +89,5 @@ export function wantsPushForKind(
   prefs: NotificationPreferences | Record<string, unknown> | null | undefined,
   kind: NotificationPreferenceKind,
 ): boolean {
-  const p = mergeNotificationPreferences(prefs);
-  return p.push_enabled && p[kind] !== false;
+  return mergeNotificationPreferences(prefs).push_enabled && wantsCategoryEnabled(prefs, kind);
 }

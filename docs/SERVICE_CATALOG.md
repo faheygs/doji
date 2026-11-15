@@ -189,6 +189,14 @@ current consoles before deciding availability, review state or enforcement.
 
 ## Responsibility boundaries and usage status
 
+Prepared social phone-alert expansion reuses the existing Supabase outbox, Ably
+and APNs/FCM relay; it adds no service, credential, subscription or timer.
+`social_phone_alerts_v1` and `_shared/social-phone-alerts.ts` remain locally prepared
+and disabled in hosted environments. Before activation, qualify relay capacity,
+Staging-only provider/device bindings and delivery/privacy/rollback behavior.
+Existing server-only secret storage and production/staging account isolation remain
+unchanged; backend source completion does not authorize phone sends.
+
 | Need | Service responsible | Status / what it does not own |
 | --- | --- | --- |
 | Member login, recovery, authoritative data and private media | Supabase Auth, Postgres and Storage | Current member boundary; WorkOS must not replace it. RLS/RPCs, not browser roles, authorize data. |

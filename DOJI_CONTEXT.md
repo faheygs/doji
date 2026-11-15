@@ -244,6 +244,16 @@ review/account actions. Ambient social activity remains in-app. Foreground OS
 banners are suppressed. Native APNs/FCM is primary; Expo is migration fallback.
 Provider acceptance is not notification-display proof.
 
+Prepared, not enabled: `social_phone_alerts_v1` adds separate opt-in controls for
+comments on one's own posts and friend participation after the server's shared
+closing time (including grace-day completions). Mentions/direct replies retain
+priority and are not duplicated as owner-comment alerts. Phone bursts collect
+for 30 seconds from the first event, then apply a five-minute recipient/subject
+cooldown; in-app activity remains immediate. These are Doji policy values, not
+claims about Instagram's private algorithm. Settings appear only when the
+authenticated backend capability is enabled. Hosted delivery remains separately
+gated; no change to participation, rewards, authentication or existing opt-outs.
+
 Push registration is foreground/account-bound, single-flight and serialized with
 unregistration. Preserve bounded retries, token/release changes, six-hour receipt
 reconciliation and v3/v2/v1 compatibility. Cancellation does not roll back a remote

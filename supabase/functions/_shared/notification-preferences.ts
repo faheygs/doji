@@ -2,6 +2,11 @@ export function pushPreferenceEnabled(
   preferences: Record<string, unknown> | null | undefined,
   preferenceKey: string | null,
 ): boolean {
+  if (preferenceKey === 'comments_on_posts' || preferenceKey === 'late_friend_participation') {
+    const legacy = preferenceKey === 'comments_on_posts' ? 'comment' : 'friend_post';
+    return preferences?.push_enabled !== false && preferences?.[preferenceKey] === true &&
+      preferences?.[legacy] !== false;
+  }
   if (!preferences || typeof preferences !== 'object') return true;
   if (preferences.push_enabled === false) return false;
   if (!preferenceKey) return true;

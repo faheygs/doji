@@ -33,6 +33,7 @@ const SERVER_QUERY_ROOTS = new Set([
   'mySuggestions',
   'challengeSuggestionCounts',
   'notificationCenter',
+  'socialPhoneAlertCapabilities',
   'moderationStatus',
 ]);
 

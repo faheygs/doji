@@ -6,6 +6,13 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Local preparation only: two gated social phone-alert categories (comments on own
+posts and after-close friend participation), bounded server batching, settings and
+relay integration. `social_phone_alerts_v1` is not installed or enabled in hosted
+Staging/production. Exact-head CI, rollout/default approval, Staging capacity and
+compatibility checks, device delivery/opt-out/deep-link verification and rollback
+qualification are outstanding. No provider sends or new mobile builds have run.
+
 The approved production social backend is installed and qualified. Feed ordering,
 public-name search, comment pages/reply counts and first-responder reads match the
 Staging contracts; all three lookup indexes are valid. The explicit member-only

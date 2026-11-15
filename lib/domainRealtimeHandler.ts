@@ -138,6 +138,7 @@ function handleNotificationEvent(
   const postId = stringPayload(event, 'postId');
   const isReaction = event.type.startsWith('notification.reaction');
   const isComment =
+    event.type === 'notification.post_comments.grouped_v1' ||
     event.type.startsWith('notification.comment.') ||
     event.type.startsWith('notification.comment_reply.');
   const isCommentLike = event.type.startsWith('notification.comment_like');
@@ -167,7 +168,8 @@ function handleNotificationEvent(
       { cancelRefetch: false },
     );
   }
-  if (event.type.startsWith('notification.friend_activity.')) {
+  if (event.type.startsWith('notification.friend_activity.') ||
+    event.type === 'notification.late_friend_activity.grouped_v1') {
     roots.push('pollResults', 'pollVotersDetail', 'feed', 'firstDoji');
   }
   if (event.type.startsWith('notification.suggestion.')) {

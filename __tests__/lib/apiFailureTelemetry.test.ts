@@ -139,7 +139,7 @@ test('beforeSend removes ambient sensitive fields on handled API events', () => 
   expect(apiFailureDetails({ code: 'sensitive-not-a-code' }).code).toBeUndefined();
 });
 
-test.each(['upcomingDoji', 'appAnnouncement', 'userBadges', 'badgeCategories', 'badgeTiers',
+test.each(['socialPhoneAlertCapabilities', 'upcomingDoji', 'appAnnouncement', 'userBadges', 'badgeCategories', 'badgeTiers',
   'userBadgeProgress', 'challengeSuggestionCounts', 'pollVotesCount', 'reactionsGiven', 'profileFriends',
   'mySuggestions', 'pendingSuggestions', 'shopCatalog', 'ownedShopItems', 'isBlocked', 'admin'])
 ('known query root is actionable without private key segments: %s', root => {

@@ -18,6 +18,24 @@ Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `social_phone_alerts_v1.sql`, `.delivery.sql`, `.bindings.sql`: local, default-off
+  preparation for grouped owner-comment and after-close friend phone alerts. Uses
+  existing outbox scheduling/retention and installation claims; no provider or new
+  job. The retaining inverse disables delivery and restores exact captured delivery
+  functions while preserving preference-key compatibility. Run
+  `node scripts/database/social-phone-alerts.mts` for offline synthetic, concurrency
+  and rollback checks. Hosted release needs exact baseline review, existing relay
+  capacity, current privacy/permission contracts, staging isolation and explicit
+  approved-device delivery tests. Settings remain hidden until backend enablement.
+  Staging's existing egress wrapper denies APNs/FCM and its mobile registration
+  gate remains off. SQL/relay installation alone cannot qualify phone delivery;
+  separately approve isolated provider credentials, exact app/device destinations,
+  guarded egress and a push-enabled native artifact before real-device tests.
+  Design references: [Apple notification guidance](https://developer.apple.com/design/human-interface-guidelines/notifications),
+  [Android grouping](https://developer.android.com/develop/ui/views/notifications/group)
+  and [FCM collapse semantics](https://firebase.google.com/docs/cloud-messaging/customize-messages/collapsible-message-types).
+  Provider collapsing is not server-side rate control; the 30-second collection
+  window and five-minute cooldown are explicit Doji policy, not Instagram internals.
 - `member_feed_cursor_order_v1.sql` preserves the existing descending timestamp/ID
   cursor through feed hydration and JSON aggregation. Its retaining inverse restores
   the exact prior body; both refuse unreviewed/intervening bodies. No index, payload,

@@ -3,7 +3,7 @@ import { AUTHENTICATED_COMMAND_NAMES } from '../contracts/authenticatedCommands'
 const queryRoots = new Set(['feed', 'firstDoji', 'lockedFeed', 'post', 'profilePost', 'profile', 'publicProfile',
   'comments', 'commentWindow', 'commentLikes', 'postReactions', 'reactions', 'pollResults', 'pollVotersDetail', 'userEvent',
   'friends', 'friendRequests', 'friendCount', 'blockedUsers', 'leaderboard', 'notifications',
-  'notificationCenter', 'friendship', 'searchUsers', 'mentionSearch', 'badges', 'shop', 'shopItems', 'userShopItems', 'moderationStatus',
+  'notificationCenter', 'socialPhoneAlertCapabilities', 'friendship', 'searchUsers', 'mentionSearch', 'badges', 'shop', 'shopItems', 'userShopItems', 'moderationStatus',
   'mobileReleasePolicy', 'upcomingDoji', 'appAnnouncement', 'userBadges', 'badgeCategories',
   'badgeTiers', 'userBadgeProgress', 'challengeSuggestionCounts', 'pollVotesCount', 'reactionsGiven',
   'profileFriends', 'mySuggestions', 'pendingSuggestions', 'shopCatalog', 'ownedShopItems', 'isBlocked', 'admin']);
@@ -24,7 +24,7 @@ export function safeDiagnosticOperation(value: string): string {
 }
 
 const reads = new Set(['get_locked_feed_previews', 'get_feed_page_snapshot_v2', 'get_first_doji_v1', 'get_leaderboard_snapshot',
-  'get_my_moderation_status', 'get_notification_center_bootstrap', 'get_notification_center_snapshot',
+  'get_my_moderation_status', 'get_notification_center_bootstrap', 'get_notification_center_snapshot', 'get_social_phone_alert_capabilities_v1',
   'get_pending_reports_snapshot', 'list_my_friends_page', 'get_post_detail', 'friend_count', 'search_profiles',
   'is_username_available', 'list_profile_friends_page', 'get_reactions_given_count', 'get_current_doji_state',
   'get_upcoming_doji_state', 'get_pending_suggestions_snapshot', 'get_mobile_release_policy',
