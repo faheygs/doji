@@ -33,6 +33,10 @@ let mockProfile: Profile | null,
   mockDark = false,
   mockBlocked: number | undefined = 0;
 let mockFocus: (() => void) | undefined;
+let mockSocialCapabilities = { data: false, isError: false };
+jest.mock('../../hooks/useSocialPhoneAlertCapabilities', () => ({
+  useSocialPhoneAlertCapabilities: () => mockSocialCapabilities,
+}));
 const mockConstants = {
   expoConfig: { version: '1.0.8' } as { version: string } | null,
   nativeBuildVersion: '101' as string | null,
@@ -112,6 +116,7 @@ const decision = (overrides: Partial<Decision> = {}): Decision =>
     ...overrides,
   }) as Decision;
 beforeEach(() => {
+  mockSocialCapabilities = { data: false, isError: false };
   jest.clearAllMocks();
   jest.useFakeTimers();
   mockProfile = {
@@ -351,6 +356,64 @@ describe.each(['ios', 'android', 'web'] as const)('%s notification preferences',
     expect(mockRouter.back).toHaveBeenCalled();
   });
   if (platform !== 'web') {
+    it('shows default-on social controls and saves one opt-out without changing direct replies', async () => {
+      mockSocialCapabilities.data = true;
+      const ui = render(<NotificationSettings />);
+      await act(async () => mockFocus?.());
+      const control = (title: string) => ui.UNSAFE_getAllByType(Switch).find(s => s.props.accessibilityLabel === title)!;
+      expect(control('Comments on your posts').props.value).toBe(true);
+      await act(async () => fireEvent(ui.getByLabelText('Comments on your posts'), 'valueChange', false));
+      expect(mockUpdate).toHaveBeenCalledWith({ notification_preferences: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES, comments_on_posts: false, comment: false,
+      } });
+      expect(control('Mentions & replies').props.value).toBe(true);
+      expect(control('Friends participating late').props.value).toBe(true);
+    });
+    it.each([
+      ['comments_on_posts', 'Comments on your posts'],
+      ['late_friend_participation', 'Friends participating late'],
+    ] as const)('updates %s immediately, persists in the background and restores the saved choice', async (key, label) => {
+      mockSocialCapabilities.data = true;
+      let finish!: () => void;
+      mockUpdate.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+      const ui = render(<NotificationSettings />);
+      await act(async () => mockFocus?.());
+      act(() => fireEvent(ui.getByLabelText(label), 'valueChange', false));
+      expect(ui.UNSAFE_getAllByType(Switch).find(s => s.props.accessibilityLabel === label)!.props.value).toBe(false);
+      expect(ui.queryByText(/saving your profile/i)).toBeNull();
+      expect(mockUpdate).toHaveBeenCalledWith({ notification_preferences: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES, ...phoneAlertPreferencePatch(key, false),
+      } });
+      await act(async () => finish());
+      mockProfile = { ...mockProfile!, notification_preferences: mockUpdate.mock.calls[0][0].notification_preferences };
+      ui.unmount();
+      const reopened = render(<NotificationSettings />);
+      await act(async () => mockFocus?.());
+      expect(reopened.UNSAFE_getAllByType(Switch).find(s => s.props.accessibilityLabel === label)!.props.value).toBe(false);
+      await act(async () => fireEvent(reopened.getByLabelText(label), 'valueChange', true));
+      expect(mockUpdate.mock.calls.at(-1)[0].notification_preferences).toMatchObject(phoneAlertPreferencePatch(key, true));
+    });
+    it('keeps saved social opt-outs and system permission denial authoritative', async () => {
+      mockSocialCapabilities.data = true;
+      mockPermission.mockResolvedValue({ status: 'denied' });
+      mockProfile!.notification_preferences = { ...DEFAULT_NOTIFICATION_PREFERENCES, comment: false, friend_post: false };
+      const ui = render(<NotificationSettings />);
+      await act(async () => mockFocus?.());
+      for (const label of ['Comments on your posts', 'Friends participating late']) {
+        const control = ui.UNSAFE_getAllByType(Switch).find(s => s.props.accessibilityLabel === label)!;
+        expect(control.props.value).toBe(false);
+        expect(control.props.disabled).toBe(true);
+      }
+      expect(mockRegister).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+    it('does not present unverified new settings after a capability-read failure', async () => {
+      mockSocialCapabilities = { data: true, isError: true };
+      const ui = render(<NotificationSettings />);
+      await act(async () => mockFocus?.());
+      expect(ui.queryByLabelText('Comments on your posts')).toBeNull();
+      expect(ui.getByText(/Additional notification settings could not be loaded/)).toBeTruthy();
+    });
     it.each(['doji_live', 'friend_requests', 'mentions_replies', 'reviews_account'] as const)(
       'persists canonical %s preference patch',
       async (key) => {

@@ -6,6 +6,18 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Two gated social phone-alert categories (comments on own posts and after-close
+friend participation) passed exact-head CI at `3e4ff2e`. Their SQL and matching
+relay are installed in Staging only, with delivery disabled and settings hidden.
+Hosted compatibility, retaining rollback and exact runtime readback passed;
+production is unchanged. The owner selected default-on for existing and new users;
+the additive defaults/settings-availability update is prepared in source, not yet
+installed. It preserves saved opt-outs without rewriting profiles and separates
+Settings visibility from delivery enablement. Activation, isolated provider/device
+bindings and device delivery/opt-out/deep-link verification remain outstanding.
+No provider sends or new mobile builds have run. See the
+[disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
+
 The approved production social backend is installed and qualified. Feed ordering,
 public-name search, comment pages/reply counts and first-responder reads match the
 Staging contracts; all three lookup indexes are valid. The explicit member-only

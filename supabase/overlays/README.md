@@ -18,6 +18,32 @@ Do not replay these installations. This does not enable other overlays here.
 
 - `../migrations/`: immutable ordered migrations.
 - This directory: exact SQL overlays, rollback sources and composition fragments.
+- `social_phone_alerts_v1.sql`, `.delivery.sql`, `.bindings.sql`: default-off
+  preparation for grouped owner-comment and after-close friend phone alerts. Uses
+  existing outbox scheduling/retention and installation claims; no provider or new
+  job. Installed disabled in Staging at tested source `3e4ff2e`; production is
+  unchanged. [Hosted qualification](../../docs/releases/README.md#november-14-disabled-staging-social-notifications)
+  covers exact relay readback, compatibility and transactional retaining rollback,
+  not provider or device delivery. Do not replay the completed installation.
+  The retaining inverse disables delivery and restores exact captured delivery
+  functions while preserving preference-key compatibility. Run
+  `node scripts/database/social-phone-alerts.mts` for offline synthetic, concurrency
+  and rollback checks. Hosted release needs exact baseline review, existing relay
+  capacity, current privacy/permission contracts, staging isolation and explicit
+  approved-device delivery tests. The subsequent `.defaults.sql` overlay defaults
+  missing category choices on without rewriting profiles or overriding saved
+  opt-outs. It also exposes settings availability independently of delivery; apply
+  only while delivery is disabled. It captures both prior function bodies for the
+  same retaining rollback. This follow-up is prepared, not yet installed in Staging.
+  Staging's existing egress wrapper denies APNs/FCM and its mobile registration
+  gate remains off. SQL/relay installation alone cannot qualify phone delivery;
+  separately approve isolated provider credentials, exact app/device destinations,
+  guarded egress and a push-enabled native artifact before real-device tests.
+  Design references: [Apple notification guidance](https://developer.apple.com/design/human-interface-guidelines/notifications),
+  [Android grouping](https://developer.android.com/develop/ui/views/notifications/group)
+  and [FCM collapse semantics](https://firebase.google.com/docs/cloud-messaging/customize-messages/collapsible-message-types).
+  Provider collapsing is not server-side rate control; the 30-second collection
+  window and five-minute cooldown are explicit Doji policy, not Instagram internals.
 - `member_feed_cursor_order_v1.sql` preserves the existing descending timestamp/ID
   cursor through feed hydration and JSON aggregation. Its retaining inverse restores
   the exact prior body; both refuse unreviewed/intervening bodies. No index, payload,

@@ -31,6 +31,7 @@ const roots = [
   'mySuggestions',
   'challengeSuggestionCounts',
   'notificationCenter',
+  'socialPhoneAlertCapabilities',
   'moderationStatus',
 ];
 let reconcile: typeof import('../../lib/reconcileQueries').reconcileAppQueries;

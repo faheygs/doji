@@ -4,6 +4,12 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 **source lockfile**, not every installed store binary. See
 [Current state and gaps](CURRENT_STATE_AND_GAPS.md) for deployment qualifications.
 
+Prepared social phone alerts use `supabase/overlays/social_phone_alerts_v1*`, the
+existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
+`useSocialPhoneAlertCapabilities` gates the additional settings; existing Activity
+Center reads and foreground/reconnect reconciliation remain authoritative. This
+source ownership does not imply hosted activation.
+
 The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
 34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and
 `get_mobile_release_policy` own the minimum/latest versions;

@@ -10,11 +10,14 @@ export type NotificationPreferences = {
   push_enabled: boolean;
   /** Legacy compatibility field; unread badges now follow unread activity. */
   show_bell_badge: boolean;
-  /** The four server-authorized phone-alert categories. */
+  /** Existing server-authorized phone-alert categories. */
   doji_live: boolean;
   friend_requests: boolean;
   mentions_replies: boolean;
   reviews_account: boolean;
+  /** Optional until the independently deployed social-alert contract is enabled. */
+  comments_on_posts?: boolean;
+  late_friend_participation?: boolean;
   /** Legacy fields retained while older installed builds remain active. */
   doji_start: boolean;
   friend_post: boolean;
@@ -657,6 +660,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_social_phone_alert_capabilities_v1: {
+        Args: Record<string, never>;
+        Returns: { enabled: boolean; settingsAvailable?: boolean };
+      };
       get_mobile_release_policy: {
         Args: { p_platform: 'ios' | 'android' };
         Returns: {

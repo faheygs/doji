@@ -15,6 +15,7 @@ import {
 import { fetchWithTimeout } from '../_shared/fetch-timeout.ts';
 import { assertBusinessEvent, isBusinessEvent } from '../_shared/business-realtime.ts';
 import { resolvePushPolicy } from '../_shared/notification-policy.ts';
+import { prepareSocialPhoneAlert } from '../_shared/social-phone-alerts.ts';
 import { logRealtimeLatency } from '../_shared/realtime-latency.ts';
 import {
   formatEmailTimestamp,
@@ -447,8 +448,7 @@ Deno.serve(async (request) => {
         .map((event) => String(event.payload.targetUserId)),
     ),
   ];
-  // Resolve push recipients concurrently with Ably publication. Push profile
-  // reads must never sit in front of a live feed/comment/reaction invalidation.
+  // Recipient reads run concurrently; never delay realtime for push preparation.
   const profilesByIdPromise = (async () => {
     const profilesById = new Map<string, PushProfile>();
     if (targetUserIds.length === 0) return { profilesById, error: null };
@@ -494,6 +494,7 @@ Deno.serve(async (request) => {
   };
   const processEventSideEffects = async (event: RelayEvent) => {
     try {
+      event = await prepareSocialPhoneAlert(database, event);
       const pushPolicy = resolvePushPolicy(event);
       const hasPush = pushPolicy !== null;
       const moderationCopy = await loadModerationDeliveryCopy(database, event);
@@ -558,7 +559,7 @@ Deno.serve(async (request) => {
               p_aggregate_id: String(event.aggregate_id ?? event.id),
               p_scope_kind: pushPolicy.scopeKind,
               p_scope_id: pushPolicy.scopeId,
-              p_occurred_at: String(event.payload.occurredAt ?? event.created_at),
+              p_occurred_at: String(event.payload.attentionOccurredAt ?? event.payload.occurredAt ?? event.created_at),
             },
           );
           if (claimError) throw claimError;
@@ -826,9 +827,7 @@ Deno.serve(async (request) => {
       return;
     }
 
-    // Realtime for the entire channel is now live. No-push events are completed
-    // in one database operation after all topic workers finish. Push-bearing
-    // events retain their durable, per-event delivery state machine.
+    // Realtime is live before the durable push side effects begin.
     for (const event of group) {
       if (resolvePushPolicy(event) === null) queueBulkCompletion(event);
       else await processEventSideEffects(event);

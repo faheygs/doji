@@ -13,8 +13,11 @@ export function attentionScopeForItem(
   if (item.kind === 'friend_request') {
     return { scope_kind: 'friendship', scope_id: item.friendship.id };
   }
-  if (item.kind === 'mention' || item.kind === 'comment_reply') {
+  if (item.kind === 'mention' || item.kind === 'comment_reply' || item.kind === 'comment') {
     return { scope_kind: 'comment', scope_id: item.comment_id };
+  }
+  if (item.kind === 'friend_activity_group') {
+    return { scope_kind: 'daily_event', scope_id: item.daily_event_id };
   }
   if (item.kind === 'suggestion_result') {
     return { scope_kind: 'suggestion', scope_id: item.suggestionId };

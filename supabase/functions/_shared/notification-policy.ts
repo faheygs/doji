@@ -4,6 +4,8 @@ export type PushPreferenceKey =
   | 'doji_live'
   | 'friend_requests'
   | 'mentions_replies'
+  | 'comments_on_posts'
+  | 'late_friend_participation'
   | 'reviews_account';
 
 export type PushPolicy = {
@@ -43,6 +45,19 @@ export function resolvePushPolicy(event: DeliveryEvent): PushPolicy | null {
   }
 
   if (event.payload.sendPush !== true || !text(event.payload.targetUserId)) return null;
+
+  if (text(event.payload.batchId)) {
+    const comments = event.event_type === 'notification.post_comments.grouped_v1';
+    const late = event.event_type === 'notification.late_friend_activity.grouped_v1';
+    const subject = text(comments ? event.payload.postId : event.payload.dailyEventId);
+    const scopeId = comments ? text(event.payload.commentId) : subject;
+    if ((comments || late) && subject && scopeId) return {
+      mode: 'targeted', preferenceKey: comments ? 'comments_on_posts' : 'late_friend_participation',
+      channelId: 'direct-activity', interruptionLevel: 'active',
+      scopeKind: comments ? 'comment' : 'daily_event', scopeId,
+      collapseKey: `${comments ? 'post-comments' : 'late-friends'}:${subject}`,
+    };
+  }
 
   if (event.event_type === 'notification.friend_request.created') {
     const scopeId = text(event.payload.friendshipId) ?? aggregateId;

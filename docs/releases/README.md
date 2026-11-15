@@ -5,6 +5,41 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 14 disabled Staging social notifications
+
+The owner approved only CI-gated Staging SQL/relay qualification, with delivery
+disabled. PR #94 source `3e4ff2ee54c3d4989d0950854a065d231a2ab5f9` passed
+application, coverage, database, web-migration and security; quality run
+`43670996053` passed. This receipt does not claim the PR is merged or mobile deployed.
+
+Staging `ohrcupagdoilkwhecict` received the foundation, delivery and binding overlays
+in one guarded transaction, after a separate installation/permission/retaining-
+rollback rehearsal ended in ROLLBACK. Four exact prior definitions are retained;
+their existing grants, 484 unrelated function contracts and existing policy
+fingerprint remained unchanged. Installation refused intervening definitions and
+used a two-second lock timeout. No member fixtures or delivery events were committed.
+
+Only `relay-domain-events` was deployed, from version 27 to 28. All 18 downloaded
+files matched the candidate byte-for-byte; the other ten Edge Functions were
+unchanged. Existing staging wrapper/egress files were retained unchanged, rather
+than adding newer unrelated email allowances. Offline artifact checks denied
+APNs, FCM, Expo, email and production destinations without network calls.
+
+At November 15 03:31 UTC (November 14 Mountain), authenticated capability returned
+`enabled:false`; batches, source items, new alert outbox events, overdue delivery
+work and lock waits were all zero. The queue was idle, so this is not proof of a
+natural new-alert delivery cycle. Preflight showed healthy Nano capacity, 5% CPU,
+14/60 connections and a roughly 53 MB database. No resource, secret, provider,
+Worker, mobile binary or production configuration changed; no alert was sent.
+
+Fresh private source/SQL snapshots, exact-head checks, candidate/readback hashes,
+receipts and retaining rollback are outside Git at
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications`.
+Older documented private rollback directories were not present; this release
+captured live originals instead of assuming their availability. Delivery remains
+disabled. Activation/default choice, isolated provider/device bindings and actual
+device grouping, opt-out and deep-link acceptance are separate outstanding gates.
+
 ## November 14 production distribution and repository closeout
 
 Runtime source is reviewed main `b2c57a46b590aebe9ea7474608fa2aff1a22ef30`;

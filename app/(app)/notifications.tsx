@@ -19,6 +19,8 @@ import { Text } from '@/components/ui/Text';
 import { InlineFeedback, type InlineFeedbackTone } from '@/components/ui/InlineFeedback';
 import { Card } from '@/components/ui/Card';
 import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
+import { useSocialPhoneAlertCapabilities } from '@/hooks/useSocialPhoneAlertCapabilities';
+import { notificationSettingsRows } from '@/lib/notificationSettingsRows';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { NotificationPreferences } from '@/types/database';
@@ -26,6 +28,7 @@ import {
   mergeNotificationPreferences,
   DEFAULT_NOTIFICATION_PREFERENCES,
   phoneAlertPreferencePatch,
+  wantsCategoryEnabled,
   type NotificationPreferenceKind,
 } from '@/lib/notificationPreferences';
 import { goBackToExplicitReturn } from '@/lib/navigationReturn';
@@ -34,36 +37,9 @@ import {
   unregisterCurrentPushInstallation,
 } from '@/lib/pushNotifications';
 
-type RowDef = {
-  key: NotificationPreferenceKind;
-  title: string;
-  description: string;
-};
-
-const CATEGORY_ROWS: RowDef[] = [
-  {
-    key: 'doji_live',
-    title: 'Doji goes live',
-    description: "When today's Doji goes live.",
-  },
-  {
-    key: 'friend_requests',
-    title: 'Friend Requests',
-    description: 'When someone sends you a friend request.',
-  },
-  {
-    key: 'mentions_replies',
-    title: 'Mentions & replies',
-    description: 'When someone @mentions you or replies directly to your comment.',
-  },
-  {
-    key: 'reviews_account',
-    title: 'Reviews & account',
-    description: 'Challenge review, moderation, and important account updates.',
-  },
-];
-
 export default function NotificationSettingsScreen() {
+  const socialCapabilities = useSocialPhoneAlertCapabilities();
+  const CATEGORY_ROWS = notificationSettingsRows(socialCapabilities.data === true && !socialCapabilities.isError);
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { colors } = useTheme();
@@ -201,7 +177,9 @@ export default function NotificationSettingsScreen() {
         key === 'doji_live' ||
         key === 'friend_requests' ||
         key === 'mentions_replies' ||
-        key === 'reviews_account'
+        key === 'reviews_account' ||
+        key === 'comments_on_posts' ||
+        key === 'late_friend_participation'
           ? phoneAlertPreferencePatch(key, value)
           : { [key]: value };
       void persistCategories(patch, key);
@@ -324,6 +302,8 @@ export default function NotificationSettingsScreen() {
         </View>
 
         <ProfileSaveRecovery onSaved={() => setPageFeedback(null)} />
+        {socialCapabilities.isError ? <InlineFeedback tone="error"
+          message="Additional notification settings could not be loaded. Reopen this screen to try again." /> : null}
         {pageFeedback ? <InlineFeedback tone={pageFeedback.tone} message={pageFeedback.message}
           style={{ marginHorizontal: Spacing.md, marginBottom: Spacing.md }} /> : null}
 
@@ -386,10 +366,11 @@ export default function NotificationSettingsScreen() {
                   </Text>
                 </View>
                 <Switch
-                  value={prefs[row.key]}
+                  accessibilityLabel={row.title}
+                  value={wantsCategoryEnabled(prefs, row.key)}
                   onValueChange={(v) => onCategoryToggle(row.key, v)}
                   disabled={categoriesDisabled}
-                  {...themedSwitchProps(prefs[row.key], { disabled: categoriesDisabled })}
+                  {...themedSwitchProps(wantsCategoryEnabled(prefs, row.key), { disabled: categoriesDisabled })}
                 />
               </View>
             ))}

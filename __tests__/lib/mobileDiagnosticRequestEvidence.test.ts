@@ -105,6 +105,7 @@ test('successful query retry records a local recovery, not a new Sentry event', 
 });
 
 test.each([
+  ['https://private.invalid/rest/v1/rpc/get_social_phone_alert_capabilities_v1?token=private', 'rpc:get_social_phone_alert_capabilities_v1'],
   ['https://private.invalid/rest/v1/rpc/get_current_doji_state?token=private', 'rpc:get_current_doji_state'],
   ['https://private.invalid/commands/rpc/complete_doji_with_post', 'rpc:complete_doji_with_post'],
   ['https://private.invalid/rest/v1/user_shop_items?user_id=eq.private', 'table:user_shop_items'],

@@ -330,6 +330,31 @@ badges remain in-app. Shared poll totals are global; social recipients are frien
 Final moderation removal and quarantine have different notice rules; quarantine is
 not a finalized violation.
 
+The prepared `social_phone_alerts_v1` overlays add `comments_on_posts` and
+`late_friend_participation` with delivery disabled. Install foundation, delivery,
+bindings and defaults in that order before the matching relay/client; enabling
+the private gate and hosted sends require separate qualification. The existing
+friend fanout handles after-close completions; comment writes append only bounded
+database work. A fixed first-event 30-second window, 100-source batch cap and
+five-minute per-recipient/subject cooldown prevent phone bursts. Existing in-app
+events are not delayed. No polling, additional cron, provider or handset timer.
+The settings-only capability read participates in the existing read suspension
+and foreground/reconnect reconciliation; it is never a startup dependency.
+Its `settingsAvailable` flag is independent of the delivery gate so choices can
+be saved while sending is paused. Missing category keys default on for existing
+and new accounts; explicit false, legacy opt-outs and master push opt-outs remain
+authoritative. Malformed category values do not opt in. No profile backfill runs.
+
+The relay prepares each leased batch from current authorized rows, with distinct
+actor counts and no comment bodies. It rechecks deleted/moderated/reported content,
+blocks, friendships, seen receipts and master/category opt-outs before existing
+installation claims. Mentions/direct replies own their one alert, even if edited
+later. Original source TTL cannot extend during batching or retries. Prepared
+IDs are frozen before claims; a privacy change suppresses the stale batch rather
+than sending its old copy. Batch rows expire with existing outbox retention.
+Rollback disables delivery and restores captured delivery functions, retaining
+receipts and additive preference-key acceptance for installed-client compatibility.
+
 `device_push_endpoints` privately stores installation-bound native APNs/FCM tokens.
 Transfer is atomic on account change. At most five recent active installations are
 delivered independently. Expo tokens remain compatibility fallback; v3/v2/v1
