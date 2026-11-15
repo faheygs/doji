@@ -1,6 +1,6 @@
 const DEFAULT_MAX_BYTES = 16 * 1024;
 
-async function readBodyText(
+export async function readBodyText(
   request: Request,
   maxBytes: number,
 ): Promise<string> {

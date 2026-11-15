@@ -118,10 +118,12 @@ export async function buildStagingEdge(output: string) {
     await writeFile(
       join(functions, name, 'index.ts'),
       `import { stagingFetch, stagingEmailPolicy } from '../_shared/staging-egress.ts';
+${name === 'relay-domain-events' ? "import { stagingPushPolicy } from '../_shared/staging-push-egress.ts';" : ''}
 globalThis.fetch = stagingFetch({
   projectUrl: Deno.env.get('SUPABASE_URL'),
   orchestratorUrl: Deno.env.get('DOJI_ORCHESTRATOR_URL'),
   ablyKey: Deno.env.get('ABLY_API_KEY'),
+  push: ${name === 'relay-domain-events' ? 'stagingPushPolicy((name) => Deno.env.get(name))' : 'undefined'},
   sentryMonitorToken: ${name === 'operational-health' ? "Deno.env.get('SENTRY_MONITOR_HISTORY_ENABLED') === 'true' ? Deno.env.get('STAGING_SENTRY_MONITOR_READ_TOKEN') : undefined" : 'undefined'},
   email: Deno.env.get('STAGING_EMAIL_ENABLED') === 'true'
     ? stagingEmailPolicy(Deno.env.get('STAGING_RESEND_API_KEY'),
@@ -148,7 +150,10 @@ await import('./handler.ts');
         egressSha256: createHash('sha256')
           .update(await readFile(join(source, '_shared/staging-egress.ts')))
           .digest('hex'),
-        realDelivery: 'denied-unless-approved-admin-test-email',
+        pushEgressSha256: createHash('sha256')
+          .update(await readFile(join(source, '_shared/staging-push-egress.ts')))
+          .digest('hex'),
+        realDelivery: 'denied-unless-approved-test-email-or-relay-push-device',
       },
       null,
       2,

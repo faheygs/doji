@@ -48,7 +48,7 @@ packages exist. Android diagnostics use the selected environment's exact hosts.
 | Storage / `lib/postMedia.ts` | Same staging project's private buckets and reservations | Upload/resume/signing/denial/cleanup. Transform flag is off for Free staging: this is a documented production difference, not transform parity |
 | Realtime / `realtime-token` | Existing isolated Ably app `eVKl2g`, server-only scoped key | Member capabilities, invalidation, reconnect, account fencing and current usage authorization; existing admin acceptance is insufficient |
 | Lifecycle / Worker + SQL | Existing staging five Durable Objects and one-shot alarms | Photo completion/single reward/natural 600-second close passed on both clients. Build 3 countdown/return accepted by owner; activation/close preserved grace. Poll/format and interrupted identical retry remain unqualified |
-| Native push / Firebase + APNs | Separate Firebase project/client and app-specific Apple signing/provider destination | Provision and verify isolated credentials; approved device allowlist; physical receipt/navigation. Sending and client token registration remain off |
+| Native push / Firebase + APNs | Separate Firebase project and topic-restricted Apple key; credentials retained privately | Provider credentials prepared, not installed; gated relay/device allowlist and new binary still required. Physical receipt/navigation and opt-out tests pending |
 | Sentry / app config | Existing `doji-staging` project `4512328707342336`; environment `staging` | Exact native source-map Debug IDs, error privacy and capacity; build-only upload token never enters public config |
 | Device reports / existing ingestion | Staging member-authenticated endpoint/private SQL; binary, Edge and SQL gates independent | Endpoint synthetic qualification exists; enable only after approval, verify real Android/iOS reports and admin display, replay/rate/account/disable behavior |
 | Economy / existing RPCs | Staging ledger and synthetic balances, same atomic rules | Purchases/buy-in/reward uniqueness and rollback behavior; no external payment SDK identified in current mobile source |
@@ -66,7 +66,9 @@ registered `com.doit.challengeapp.staging` and `com.doit.challengeapp.developmen
 with Push Notifications capability. Separate ad-hoc Dev/Staging profiles now use
 the existing team distribution certificate and contain only the owner's confirmed
 iPhone. Their embedded IPA profiles were verified; no certificate was rotated or
-push-provider key created. No existing TestFlight group receives these builds.
+push-provider key created by that signing step. The separately approved Staging
+provider keys are recorded in the [service catalog](SERVICE_CATALOG.md#responsibility-boundaries-and-usage-status).
+No existing TestFlight group receives these builds.
 Push delivery qualification remains pending.
 Android development and staging now have separate default signing keys in EAS,
 with distinct certificate fingerprints from each other and production. Exact
@@ -180,9 +182,16 @@ client/project. Local native builds need the equivalent reviewed file, not a cop
 of production `google-services.json`. The build-only Sentry upload token goes in
 protected EAS configuration with the minimum applicable upload rights.
 
-`EXPO_PUBLIC_STAGING_PUSH_ENABLED` and workflow reporting remain `false` in both
-staging profiles. Enabling push requires verified provider configuration, approved
-test devices, server delivery gates and explicit `EXPO_PUBLIC_APNS_ENVIRONMENT`.
+The `staging` profile now explicitly sets `EXPO_PUBLIC_STAGING_PUSH_ENABLED=true`
+and `EXPO_PUBLIC_APNS_ENVIRONMENT=production` for the approved next internal build.
+Development and compatibility `preview` retain registration disabled; workflow
+reporting remains off in every non-production profile. Installed older binaries
+are unchanged. Registration alone cannot enable sending: hosted provider configuration,
+approved device hashes and server delivery gates are separate qualification steps.
+The Staging relay's default-off grant permits only isolated APNs/FCM destinations;
+global Doji launch fanout and Expo fallback remain blocked, not qualified by social
+alert acceptance. An unsupported binary shows build-availability feedback, not a
+misleading OS permission-denied dialog.
 An internal/ad-hoc signed build uses APNs **production** transport even when its
 database is staging; locally development-signed builds may use sandbox. Never infer
 APNs signing from a database label. Existing production push behavior is unchanged.

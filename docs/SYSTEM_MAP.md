@@ -9,6 +9,10 @@ existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
 `useSocialPhoneAlertCapabilities` gates the additional settings; existing Activity
 Center reads and foreground/reconnect reconciliation remain authoritative. This
 source ownership does not imply hosted activation.
+`_shared/staging-push-egress.ts` owns the separately gated Staging-only relay
+provider/device allowlist; `build-staging-edge.mts` installs it without changing
+the shared handler. `lib/notificationSetupFeedback.ts` separates binary availability
+from OS permission denial in Notification Settings.
 
 The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
 34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and

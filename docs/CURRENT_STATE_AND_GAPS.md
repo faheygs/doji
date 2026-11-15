@@ -18,6 +18,16 @@ bindings and device delivery/opt-out/deep-link verification remain outstanding.
 No provider sends or new mobile builds have run. See the
 [disabled Staging qualification](releases/README.md#november-14-disabled-staging-social-notifications).
 
+Isolated Staging APNs and FCM credentials are now created and privately retained,
+not yet installed in hosted runtime secrets. The next source candidate permits
+Staging registration in the `staging` EAS profile and adds relay-only, default-off
+egress restricted to the Staging app/project and approved device-token hashes.
+Development/preview and production settings remain unchanged. Notification Settings
+now distinguish an unsupported binary from denied OS permission. Exact-head/main
+CI, relay deployment, approved builds and device delivery acceptance remain pending;
+these prepared changes do not establish push parity. See
+[provider ownership and rollback](SERVICE_CATALOG.md#responsibility-boundaries-and-usage-status).
+
 The approved production social backend is installed and qualified. Feed ordering,
 public-name search, comment pages/reply counts and first-responder reads match the
 Staging contracts; all three lookup indexes are valid. The explicit member-only

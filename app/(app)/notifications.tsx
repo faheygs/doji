@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/Card';
 import { ProfileSaveRecovery } from '@/components/profile/ProfileSaveRecovery';
 import { useSocialPhoneAlertCapabilities } from '@/hooks/useSocialPhoneAlertCapabilities';
 import { notificationSettingsRows } from '@/lib/notificationSettingsRows';
+import { notificationSetupFeedback } from '@/lib/notificationSetupFeedback';
 import { IconChevronLeft } from '@/components/icons/Icons';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { NotificationPreferences } from '@/types/database';
@@ -197,23 +198,18 @@ export default function NotificationSettingsScreen() {
     }
     try {
       const result = await requestPushPermissionAndRegisterToken(profile?.id);
+      const feedback = notificationSetupFeedback(result);
       if (result === 'granted' || result === 'denied') setPermStatus(result);
       else if (result === 'undetermined') setPermStatus('unknown');
       if (result === 'granted') {
         const saved = await persistCategories({ push_enabled: true }, 'push_enabled');
         if (!saved) return;
         setPageFeedback({ tone: 'success', message: 'Alerts are enabled on this phone.' });
-      } else if (result === 'deferred') {
-        setPrefs(mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences));
-        setPageFeedback({ tone: 'info', message: 'Alert setup was interrupted. Try again to finish connecting this phone.' });
-      } else if (result === 'error') {
+      } else if (feedback) {
         setPrefs(
           mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),
         );
-        setPageFeedback({
-          tone: 'error',
-          message: 'Could not connect this phone to alerts. Try again.',
-        });
+        setPageFeedback(feedback);
       } else {
         setPrefs(
           mergeNotificationPreferences(useAuthStore.getState().profile?.notification_preferences),
