@@ -19,7 +19,8 @@ spending or store-submission approval.
 | Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification; iPhone single/follow-up/burst alerts; Android comment delivery, opt-out and deep links below | Android late-friend delivery and production SQL/relay compatibility/rollback |
 | Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping; Android three-person grouping below | Final production-configured binary checks |
 | Android multiline comment composer | PR #105/main gates and Android Staging 13 emulator acceptance below | Final production Android artifact/device check; physical Samsung keyboard remains unverified |
-| Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted local Dev presentation; PR #107 integrates authorized attribution and all-type synthetic tests on main `7f11c06`; not in Staging 12/13 | Main CI, hosted additive-read qualification and combined iOS/Android Staging acceptance |
+| Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted local Dev presentation; PR #107/main `7f11c06` passed CI and hosted additive-read qualification below; not in Staging 12/13 | Combined iOS/Android Staging acceptance and production read installation |
+| Authoritative comment count on post detail | PR #108 exact-head checks passed; merged as `98c1b6b`; uses the existing engagement snapshot without another request | Main CI and combined mobile acceptance; no database update required |
 | Expo 57 compatible dependency patches | PR #93 source gates; included in subsequent Staging binaries | Carry the reviewed lockfile into the combined candidate and verify production-configured artifacts |
 
 The design is included in the queue, not silently excluded because it is local.
@@ -43,6 +44,33 @@ comments and private receipts remain under the Staging release evidence's
 No production change, iPhone send or paid build occurred. This is not physical
 Android performance or late-friend delivery acceptance. A separate detail-counter
 defect (legacy zero versus authoritative five) remains a next-build correction gate.
+
+### Staging contributor read qualification
+
+PR #107 merged as `7f11c06fb2452040c091e1bf61ca48bb36551037`; main quality run
+`43909038892` passed all four jobs. Admin-staging `43912323740` passed its plan and
+skipped package/deploy. On November 16 at 17:17 UTC, the separately approved
+`get_doji_contributor_v1` read and concurrent editorial lookup index were verified
+in Staging only. The first installer invocation was rejected locally because its
+opening SQL comment was parsed as a CLI flag; readback showed no installed object.
+The owner approved one corrected file-based invocation, which succeeded. Do not
+replay either attempt or the completed installation.
+
+The installed body exactly matches reviewed source, with stable/security-definer
+behavior, empty search path and authenticated-only execution; anonymous and service
+roles are denied. The valid index is used by the bounded lookup. Rollback-only
+hosted fixtures passed all five Doji kinds, safe profile fields, bidirectional
+blocks, ambiguous/unapproved/missing attribution, audience and activation rules,
+and the retaining inverse. No fixture rows remained; unrelated function/grant,
+policy, trigger and index fingerprints and the three synthetic profiles matched
+their baseline. Final waiting-lock count was zero and database usage was about
+54 MB. No runtime, provider configuration, notifications or production changed.
+
+Exact source, before/after hashes, attempt receipts and retaining rollback remain
+under `%LOCALAPPDATA%/Doji/staging-backend/2026-11-16-contributor`. The disposable
+installer was removed after verification. No native build or spending occurred;
+installed Staging 12/13 do not contain the contributor integration or PR #108's
+detail-counter correction. Combined mobile acceptance remains outstanding.
 
 ### Separately qualified production workstreams
 

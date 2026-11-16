@@ -8,10 +8,11 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 The contributor release integration merged in PR #107 as `7f11c06`: the approved
 Dev spotlight/timer design uses an additive, viewer-authorized author read
-instead of its exact-event fixture. Exact-head checks passed; main CI is separate.
-SQL/index/retaining rollback, all-type privacy fixtures and native regression tests
-remain source qualification only. No hosted
-installation, combined Staging acceptance or production build is implied. The owner
+instead of its exact-event fixture. Exact-head and main CI passed. Its narrow
+read/index is installed and qualified in Staging: all five Doji kinds, privacy,
+audience rules, exact grants and retaining rollback passed; no synthetic fixture
+data remained. Unrelated contracts and test profiles are unchanged. Combined
+Staging app acceptance and production installation/builds remain separate gates. The owner
 approved at most $3 additional EAS usage for one production iPhone/Android pair;
 new Staging cloud builds or retries are not included. That budget remains unspent.
 
@@ -21,14 +22,16 @@ qualification. Its temporary device allowlist and preference change were restore
 exactly; five synthetic comments remain as evidence. Late-friend Android delivery
 and the combined contributor integration remain unqualified. The test exposed a
 legacy zero comment count on post detail while the feed and engagement snapshot
-both returned five. A client-only correction is in preparation, using that existing
-authorized snapshot without another request or database change. It is not deployed.
+both returned five. The client-only correction passed exact-head checks and merged
+in PR #108 as `98c1b6b`, using that existing authorized snapshot without another
+request or database change. Main CI and next-binary acceptance are separate gates;
+the installed Staging apps do not yet contain it.
 
 All net-new work is queued for production preparation, including the Doji
 participation-screen redesign, not just the reviewed notification and Android
 keyboard changes at `1453f432`. The combined mobile source is not yet frozen:
-the integrated contributor design still needs main CI, hosted read qualification
-and combined Staging acceptance. iPhone Staging 12 has owner
+the integrated contributor design still needs combined Staging acceptance,
+despite its passing main CI and hosted read qualification. iPhone Staging 12 has owner
 acceptance for notification grouping; Android Staging 13 passed emulator keyboard
 checks, not the new design. Android late-friend delivery and exact
 production backend/artifact qualification remain gates. Preserved Worker/email,
