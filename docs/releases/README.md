@@ -31,11 +31,11 @@ spending or store-submission approval.
 
 | Candidate item | Recorded Staging qualification | Remaining boundary |
 | --- | --- | --- |
-| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification; iPhone single/follow-up/burst alerts; Android comment delivery, opt-out and deep links below | Android late-friend delivery and production SQL/relay compatibility/rollback |
+| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification; iPhone single/follow-up/burst alerts; Android comment delivery, opt-out and deep links; Staging 14 late-friend native navigation below | Production SQL/relay compatibility/rollback |
 | Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping; Android three-person grouping below | Final production-configured binary checks |
 | Android multiline comment composer | PR #105/main gates and Android Staging 13 emulator acceptance below | Final production Android artifact/device check; physical Samsung keyboard remains unverified |
 | Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted local Dev presentation; PR #107/main `7f11c06` passed CI and hosted additive-read qualification below; not in Staging 12/13 | Combined iOS/Android Staging acceptance and production read installation |
-| Authoritative comment count on post detail | PR #108 exact-head checks passed; merged as `98c1b6b`; uses the existing engagement snapshot without another request | Main CI and combined mobile acceptance; no database update required |
+| Authoritative comment count on post detail | PR #108/main passed; Staging 14 detail and sheet both show five comments after the grouped alert's exact-post navigation | Final production-configured binary checks; no database update required |
 | Expo 57 compatible dependency patches | PR #93 source gates; included in subsequent Staging binaries | Carry the reviewed lockfile into the combined candidate and verify production-configured artifacts |
 
 The design is included in the queue, not silently excluded because it is local.
@@ -59,9 +59,38 @@ The correction closes the inbox before native-response navigation, including
 same-feed links, using platform dismissal lifecycle rather than a delay. It keeps
 unacknowledged responses on failure and fences account/access changes. The owner
 approved up to $1 for one Android Staging build after exact-head checks, separate
-from the $3 production pair; neither build budget has been used. Production
+from the $3 production pair. The Android verification build completed below;
+the production pair has not started. Production
 preflight also found unrelated email/business code in main's relay closure;
 that unfiltered closure is not qualified for this mobile release.
+
+### Android Staging 14 navigation acceptance
+
+PR #111 merged as `00c0f5f899eb1e51c6a0fa9932ba3a45d7340ad9`;
+main `43941148255` passed application, coverage, database and web-migration.
+Admin-staging `43943390228` passed plan and skipped package/deploy. The single
+approved $1 Android build `f4e9704a-ab98-4114-8579-71c120e7e0ec` completed as
+1.0.15 / Staging 14. Exact source/archive, signing certificate, package identity,
+non-debuggable APK and source-map upload were verified. Build-number reservation
+committed once; a stale SDK read was corrected with a fresh network read before
+local archive preparation continued. No reservation or cloud build was replayed.
+
+The update preserved `androidtest1` on the API 36 emulator. With its native inbox
+open before backgrounding, one synthetic friend's normal late participation
+produced one FCM-accepted/displayed alert. Tapping the OS alert closed the inbox
+and revealed that exact new post in the feed. The existing three-person comment
+group also opened the correct post; detail and the sheet both showed five comments.
+The test used an emulator-only allowlist, no iPhone/production destination, and
+restored all original configuration digests. No push work remained queued.
+
+Private artifacts, rollback/configuration receipts and acceptance are retained in
+the November 14 Staging evidence root's `android-navigation-build14` directory.
+One synthetic post and its normal buy-in/reward receipts remain as test evidence.
+This is not physical Android/Samsung performance or combined contributor-screen
+acceptance. The optional multiline-draft recheck entered the emulator's floating
+stylus keyboard; its draft was cleared without posting, and no new full docked-keyboard
+claim is made. Production SQL/relay isolation, final artifacts and store distribution
+remain pending; the $3 production-build allowance is unused.
 
 ### Android Staging 13 comment delivery
 

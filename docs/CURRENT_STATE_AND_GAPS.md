@@ -24,21 +24,27 @@ audience rules, exact grants and retaining rollback passed; no synthetic fixture
 data remained. Unrelated contracts and test profiles are unchanged. Combined
 Staging app acceptance and production installation/builds remain separate gates. The owner
 approved at most $3 additional EAS usage for one production iPhone/Android pair.
-The owner separately approved up to $1 for one Android Staging verification build
-after the navigation correction passes CI; neither budget has been spent.
+The separately approved $1 Android Staging verification build completed as build
+14; the production pair has not started and its $3 allowance remains unused.
 
 Android Staging 13 passed emulator single/burst comment-alert display, exact-post
 deep links, seen-source exclusion, in-app three-person grouping and backend opt-out
 qualification. Its temporary device allowlist and preference change were restored
 exactly; five synthetic comments remain as evidence. A subsequent emulator-only
 late-friend alert was accepted and displayed, but its OS tap left the existing
-inbox over the feed. The native dismissal correction and combined contributor
-integration still require a new Android Staging binary. The test also exposed a
+inbox over the feed. PR #111 merged as `00c0f5f`; all four main CI jobs passed,
+and admin-staging skipped package/deploy. Android Staging 14 at that source retained
+the account and passed the same native-alert scenario: the inbox closed and the
+new friend's post appeared in the feed. One emulator-only synthetic alert was
+accepted/displayed; original configuration digests were restored exactly. The test also exposed a
 legacy zero comment count on post detail while the feed and engagement snapshot
 both returned five. The client-only correction passed exact-head checks and merged
 in PR #108 as `98c1b6b`, using that existing authorized snapshot without another
-request or database change. Main CI and next-binary acceptance are separate gates;
-the installed Staging apps do not yet contain it.
+request or database change. Main CI passed; Staging 14's grouped alert opened the
+correct post and both detail and its sheet showed five comments. Installed iPhone
+Staging 12 does not contain these latest client changes. The combined contributor
+screen's Android acceptance and isolated production SQL/relay qualification remain
+separate gates; main's relay also contains unrelated email/business changes.
 
 All net-new work is queued for production preparation, including the Doji
 participation-screen redesign, not just the reviewed notification and Android
@@ -46,8 +52,8 @@ keyboard changes at `1453f432`. The combined mobile source is not yet frozen:
 the integrated contributor design still needs combined Staging acceptance,
 despite its passing main CI and hosted read qualification. iPhone Staging 12 has owner
 acceptance for notification grouping; Android Staging 13 passed emulator keyboard
-checks, not the new design. Corrected Android late-friend navigation and exact
-production backend/artifact qualification remain gates. Preserved Worker/email,
+checks, not the new design. Corrected Android late-friend navigation passed in
+Staging 14; exact production backend/artifact qualification remains gated. Preserved Worker/email,
 portal and monitoring follow-ups are tracked separately with their own readiness
 and deployment boundaries; queued does not mean tested, enabled or deployed.
 Queueing starts no build, spending, delivery or deployment. See the
