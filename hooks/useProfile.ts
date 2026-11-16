@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { attachReactionFields } from '../lib/postReactions';
-import { useAuthStore } from '../stores/useAuthStore';
+import { attachPostDetailEngagement } from '../lib/postDetailEngagement';
+import { captureProfileAccount, useAuthStore } from '../stores/useAuthStore';
 import { normalizeUsernameInput } from './useUsernameAvailability';
 import type { Profile, Post, Friendship } from '../types/database';
 import { newCommandId } from '../lib/idempotency';
@@ -35,22 +35,27 @@ export function usePost(postId?: string) {
     queryFn: async ({ signal }): Promise<Post | null> => {
       const startedAt = Date.now();
       if (!postId) return null;
+      const account = captureProfileAccount();
+      if (!me || account.userId !== me || !account.isCurrent()) throw new Error('Not authenticated');
       const { data, error } = await runAbortableQuery(
         supabase.rpc('get_post_detail', { p_post_id: postId }),
         signal,
       );
 
       if (error) throw error;
+      if (!account.isCurrent()) throw new Error('Account changed');
       if (!data) return null;
+      if ((data as Post).id !== postId) throw new Error('Invalid post detail');
 
       // Keep the stable private object references in server-state cache.
       // PostCard resolves a current signed URL only while the authorized card
       // is mounted, so a bearer capability is never persisted.
-      const [withReaction] = await attachReactionFields([data as Post], me, signal);
-      return me ? preserveRecentReaction(client, me, startedAt, withReaction as Post,
-        client.getQueryData<Post | null>(['post', postId, me])) : withReaction as Post;
+      const hydrated = await attachPostDetailEngagement(data as Post, signal);
+      if (!account.isCurrent()) throw new Error('Account changed');
+      return hydrated ? preserveRecentReaction(client, me, startedAt, hydrated,
+        client.getQueryData<Post | null>(['post', postId, me])) : null;
     },
-    enabled: !!postId,
+    enabled: !!postId && !!me,
     staleTime: 15_000,
   });
 }

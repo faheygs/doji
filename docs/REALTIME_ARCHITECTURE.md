@@ -245,6 +245,10 @@ These lifecycle changes remain next-build source; check recorded release state.
   warming; reaction/count updates alone do not restart the warm-up effect.
 - Mounted engagement reads use `get_post_engagement_snapshot_v2` and exact thread
   reads. Partial pages are not totals; one audience never overwrites another.
+  Post detail hydrates that same Everyone snapshot instead of legacy stored post
+  counters, replacing its reaction-only read without adding a request. Both reads
+  retain cancellation/account-lifetime fences; missing authorization or failed
+  aggregates cannot fall back to a fabricated zero or another audience's cache.
   Poll summary/loading failures never impersonate zero votes. Retained same-scope
   results identify failed refreshes; audience changes cannot borrow the previous
   snapshot. Voter-page failures retain loaded rows and expose explicit read retry.

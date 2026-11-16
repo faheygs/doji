@@ -48,7 +48,10 @@ jest.mock('@tanstack/react-query', () => ({ ...jest.requireActual('@tanstack/rea
   useQuery: jest.fn(options => options), useInfiniteQuery: jest.fn(options => options),
   useQueryClient: () => mockQueryClient(),
 }));
-jest.mock('../../stores/useAuthStore', () => ({ useAuthStore: (select: any) => select({ session: { user: { id: 'member' } } }) }));
+jest.mock('../../stores/useAuthStore', () => ({
+  useAuthStore: (select: any) => select({ session: { user: { id: 'member' } } }),
+  captureProfileAccount: () => ({ userId: 'member', isCurrent: () => true }),
+}));
 jest.mock('../../utils/upload', () => ({}));
 jest.mock('../../lib/contentFilter', () => ({}));
 jest.mock('../../lib/dojiWriteReceipt', () => ({}));
@@ -144,11 +147,14 @@ test.each(cases)('%s fails closed on permissions without retrying', async (_name
   expect(mockRead).toHaveBeenCalledTimes(1);
 });
 
-test.each([usePost, useCurrentProfilePost])('nested post reaction summaries use the same failure policy', async hook => {
+test.each([usePost, useCurrentProfilePost])('nested post engagement uses the same failure policy', async hook => {
   mockRead.mockResolvedValueOnce({ data: { id: 'post' }, error: null, status: 200 })
     .mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'denied' }, status: 403 });
   await expect(client.fetchQuery(optionsFor(() => hook('post')))).rejects.toMatchObject({ status: 403 });
-  expect(mockRpc).toHaveBeenLastCalledWith('get_post_reaction_summaries', { p_post_ids: ['post'] });
+  if (hook === usePost) expect(mockRpc).toHaveBeenLastCalledWith('get_post_engagement_snapshot_v2', {
+    p_post_id: 'post', p_audience: 'everyone',
+  });
+  else expect(mockRpc).toHaveBeenLastCalledWith('get_post_reaction_summaries', { p_post_ids: ['post'] });
   expect(mockRead).toHaveBeenCalledTimes(2);
 });
 

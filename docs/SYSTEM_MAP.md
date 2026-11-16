@@ -78,6 +78,8 @@ without replacing the server's comment cursors or inline reply structure.
 post-channel subscriptions. `lib/reactionReadConsistency.ts` coordinates local
 reaction writes with feed, detail and engagement reads; server authorization and
 audience-specific aggregates remain owned by the existing RPC contracts.
+`lib/postDetailEngagement.ts` hydrates authorized post detail from the existing
+Everyone engagement snapshot, not legacy stored counters or loaded comment pages.
 `lib/heartConsistency.ts` and `hooks/useHeartMutation.ts` provide shared ordering
 for comment/poll-answer hearts. `lib/memberProfileQueries.ts` owns viewer-keyed
 profile/relationship options shared by navigation warming and route observers;

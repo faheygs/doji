@@ -6,21 +6,31 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-The contributor release integration is being prepared on reviewed main: the approved
-Dev spotlight/timer design now uses an additive, viewer-authorized author read
-instead of its exact-event fixture. SQL/index/retaining rollback, all-type privacy
-fixtures and native regression tests are source preparation only. No hosted
+The contributor release integration merged in PR #107 as `7f11c06`: the approved
+Dev spotlight/timer design uses an additive, viewer-authorized author read
+instead of its exact-event fixture. Exact-head checks passed; main CI is separate.
+SQL/index/retaining rollback, all-type privacy fixtures and native regression tests
+remain source qualification only. No hosted
 installation, combined Staging acceptance or production build is implied. The owner
 approved at most $3 additional EAS usage for one production iPhone/Android pair;
 new Staging cloud builds or retries are not included. That budget remains unspent.
 
+Android Staging 13 passed emulator single/burst comment-alert display, exact-post
+deep links, seen-source exclusion, in-app three-person grouping and backend opt-out
+qualification. Its temporary device allowlist and preference change were restored
+exactly; five synthetic comments remain as evidence. Late-friend Android delivery
+and the combined contributor integration remain unqualified. The test exposed a
+legacy zero comment count on post detail while the feed and engagement snapshot
+both returned five. A client-only correction is in preparation, using that existing
+authorized snapshot without another request or database change. It is not deployed.
+
 All net-new work is queued for production preparation, including the Doji
 participation-screen redesign, not just the reviewed notification and Android
 keyboard changes at `1453f432`. The combined mobile source is not yet frozen:
-the owner-approved Dev design still needs authorized contributor attribution,
-reviewed integration and combined Staging acceptance. iPhone Staging 12 has owner
+the integrated contributor design still needs main CI, hosted read qualification
+and combined Staging acceptance. iPhone Staging 12 has owner
 acceptance for notification grouping; Android Staging 13 passed emulator keyboard
-checks, not the new design. Android delivery, opt-out/deep-link checks and exact
+checks, not the new design. Android late-friend delivery and exact
 production backend/artifact qualification remain gates. Preserved Worker/email,
 portal and monitoring follow-ups are tracked separately with their own readiness
 and deployment boundaries; queued does not mean tested, enabled or deployed.
@@ -32,8 +42,9 @@ The trailing comment-alert correction is deployed in Staging at reviewed source
 The owner confirmed single, follow-up and three-person burst phone alerts on iPhone
 Staging build 11. Earlier acknowledged comments were excluded from later batches.
 The burst exposed separate in-app comment rows; Staging build 12 corrects that
-grouping, with owner iPhone acceptance. Production and Android delivery remain unqualified
-for these new alert categories. See the [Staging receipt](releases/README.md#november-15-staging-comment-alert-acceptance).
+grouping, with owner iPhone acceptance. Production delivery remains unqualified;
+Android comment acceptance is recorded above, separately from late-friend delivery.
+See the [Staging receipt](releases/README.md#november-15-staging-comment-alert-acceptance).
 
 Staging build 12 at reviewed source `fee12f93` groups ordinary comments by post and distinct
 current username, preserving mentions/direct replies. Seen and dismissal actions
