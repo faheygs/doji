@@ -6,33 +6,20 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
-The comment-alert follow-up correction passed PR #101/main CI, but is not deployed.
-Staging preflight found the retained mixed-line-ending predecessor lacks two
-intended replacements (overflow and stream lock ordering). The follow-up source
-repair admits only those two exact bodies and requires the canonical reviewed
-definitions before applying comment scheduling. Offline Windows-predecessor
-regression and exact rollback, fresh CI and hosted qualification remain required.
-`comment_trailing_alerts_v1` extends the existing late-friend queue/deferral policy
-to comments, replacing the five-minute discarding cooldown with 30-second grouping
-and one-minute spacing. Existing seen/dismissal, privacy, opt-out and original TTL
-checks remain; the matching relay admits deferred comment batches. Exact-head CI,
-Staging rollback/readback and single/follow-up/burst
-phone acceptance are required; no production change or new native build is implied.
+The trailing comment-alert correction is deployed in Staging at reviewed source
+`f8189185`, with relay version 35 and exact SQL/artifact/retaining-rollback checks.
+The owner confirmed single, follow-up and three-person burst phone alerts on iPhone
+Staging build 11. Earlier acknowledged comments were excluded from later batches.
+The burst exposed one remaining client gap: three individual in-app comment rows
+instead of one grouped row. Production and Android delivery remain unqualified
+for these new alert categories. See the [Staging receipt](releases/README.md#november-15-staging-comment-alert-acceptance).
 
-Staging iPhone build 10 registered successfully after the narrow release-channel
-correction. The owner confirmed the first late-friend alert arrived and its post
-was visible. A second late completion was deliberately suppressed by the existing
-five-minute cooldown; the owner rejected that product behavior. The replacement
-is source preparation only: retain trailing late activity, collect for 30 seconds,
-space batches by one minute, and acknowledge only the displayed snapshot watermark.
-SQL/relay qualification and an updated native build remain required before calling
-the replacement live. Production is unchanged; comments retain their existing policy.
-The same source-only correction includes snapshot-bounded Dismiss/Clear: old
-sources are excluded before grouped names/counts, while concurrent new activity
-survives. It also excludes acknowledged sources from pending social phone batches.
-Offline synthetic SQL covers six acknowledged participants plus a seventh, account
-isolation, reinstall, old/new commands and retaining rollback; this is not hosted
-acceptance. The database overlay must qualify before an updated native artifact.
+The in-app correction is source-only: ordinary comments group by post and distinct
+current username, preserving mentions/direct replies. Seen and dismissal actions
+retain exact displayed source IDs/timestamps and use existing atomic commands;
+concurrent comments survive. No SQL, relay or provider change is needed. Exact-head
+checks, an updated Staging native artifact and owner display acceptance remain
+required; installed build 11 does not contain this client correction.
 
 The narrow `push_registration_staging_channel_v1` correction is installed in
 Staging, with retaining rollback and offline channel/platform/authorization coverage.

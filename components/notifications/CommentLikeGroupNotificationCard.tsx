@@ -2,10 +2,10 @@ import { Card } from '../ui/Card';
 import { AvatarStack } from '../ui/AvatarStack';
 import { NotificationActorRow } from './NotificationActorRow';
 import { useTheme } from '../../contexts/ThemeContext';
-import { commentLikeActorsLine } from '../../lib/notificationCopy';
+import { commentActorsLine, commentLikeActorsLine } from '../../lib/notificationCopy';
 import type { NotificationCenterItem } from '../../lib/notificationCenterTypes';
 
-type Item = Extract<NotificationCenterItem, { kind: 'comment_likes_group' }>;
+type Item = Extract<NotificationCenterItem, { kind: 'comment_likes_group' | 'comments_group' }>;
 
 export function CommentLikeGroupNotificationCard({
   item,
@@ -17,7 +17,9 @@ export function CommentLikeGroupNotificationCard({
   style: object;
 }) {
   const { colors } = useTheme();
-  const copy = commentLikeActorsLine(item.actors, item.count);
+  const copy = item.kind === 'comments_group'
+    ? commentActorsLine(item.actors, item.count, item.is_shared_post)
+    : commentLikeActorsLine(item.actors, item.count);
   return (
     <Card style={style} elevated padded={false}>
       <NotificationActorRow

@@ -32,6 +32,30 @@ test('two rapid dismissals stay hidden and persist in command order', async () =
   expect(t.persist.mock.calls.map(([state]) => [...state.dismissed.keys()])).toEqual([['a'], ['a', 'b']]);
 });
 
+test('group dismissal is one immutable intent and failure restores only its source keys', async () => {
+  const t = setup(), first = deferred<string>();
+  const sources = Object.freeze({ 'comment:a': at(19), 'comment:b': at(20) });
+  t.execute.mockImplementationOnce(() => first.promise);
+  const action: NotificationHistoryAction = { kind: 'dismiss', key: 'comments_post:p', at: at(20), observedThrough: at(20), sources };
+  const pending = t.queue.enqueue(action);
+  expect(t.queue.enqueue({ ...action })).toBe(pending);
+  expect([...t.state().dismissed]).toEqual(Object.entries(sources));
+  const failed = expect(pending).rejects.toThrow('offline');
+  const later = t.queue.enqueue(dismiss('comment:c', 21));
+  await Promise.resolve(); first.reject(new Error('offline'));
+  await failed; await later;
+  expect([...t.state().dismissed]).toEqual([['comment:c', at(21)]]);
+});
+
+test('two displayed comment batches with tied timestamps retain distinct source intents', async () => {
+  const t = setup();
+  const action: NotificationHistoryAction = { kind: 'dismiss', key: 'comments_post:p', at: at(20),
+    observedThrough: at(20), sources: { 'comment:a': at(20) } };
+  await Promise.all([t.queue.enqueue(action), t.queue.enqueue({ ...action, sources: { 'comment:b': at(20) } })]);
+  expect(t.execute).toHaveBeenCalledTimes(2);
+  expect([...t.state().dismissed.keys()]).toEqual(['comment:a', 'comment:b']);
+});
+
 test('a failed dismissal rolls back only itself, preserving later intent', async () => {
   const t = setup(), first = deferred<string>();
   t.execute.mockImplementationOnce(() => first.promise);

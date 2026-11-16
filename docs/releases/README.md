@@ -5,6 +5,26 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 15 Staging comment-alert acceptance
+
+PR #102 merged as `f8189185d85f7738e6c1fc7dd7099c2fe5cb44b0`; main quality run
+`43772009897` passed all four jobs, and admin-staging `43773217715` skipped
+package/deploy. The exact mixed-line-ending predecessor repair passed offline
+qualification and retaining rollback before Staging-only installation.
+Relay version 35 matched all 20 candidate files; ten unrelated functions, all
+secret digests and 501 existing contracts were unchanged. Only the previously
+approved owner's APNs device was allowed; FCM's device allowlist remained empty.
+Private qualification and rollback are retained under
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications/comment-release-05d1b28`.
+
+On November 16 UTC (November 15 Mountain), the normal synthetic comment commands
+produced one accepted delivery each at 01:37:57, 01:41:45 and 01:44:51. The owner
+confirmed the single, follow-up and three-person burst phone alerts. Later batches
+contained only new source IDs, not previously acknowledged comments. No additional
+test send is authorized by this receipt. The owner's burst screenshot exposed
+three separate in-app comment rows; grouped client presentation remains pending
+an updated native artifact and acceptance. Production was not changed.
+
 ## November 14 disabled Staging social notifications
 
 The owner approved only CI-gated Staging SQL/relay qualification, with delivery

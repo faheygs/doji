@@ -142,6 +142,55 @@ test('clear acknowledges displayed source time, not the device clock', async () 
   } finally { t.unmount(); t.client.clear(); }
 });
 
+test('dismisses grouped comments atomically and preserves concurrent new comments across restoration', async () => {
+  const at = '2026-11-16T01:44:20.298844Z';
+  const make = (id: string) => ({ ...comment(`comment:${id}`), post_id: 'p', comment_id: id, sortAt: at,
+    actor: { username: id, display_name: id, avatar_url: null, equipped_border_key: null } });
+  let rows = [make('a'), make('b'), make('c')];
+  mockRead.mockImplementation(async name => ({ error: null, data: name === 'get_notification_center_bootstrap'
+    ? { state: null, dismissals: [], items: rows } : rows }));
+  const t = setup();
+  try {
+    await waitFor(() => expect(t.result.current.items).toEqual([expect.objectContaining({ kind: 'comments_group', count: 3 })]));
+    let finish!: (value: unknown) => void;
+    mockCommand.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    let pending!: Promise<void>;
+    await act(async () => { pending = t.result.current.dismissItem('comments_post:p'); });
+    expect(t.result.current.items).toEqual([]);
+    rows = [...rows, make('d')]; // Same timestamp, but not part of the displayed source snapshot.
+    await act(async () => { await t.result.current.retryRead(); });
+    await waitFor(() => expect(t.result.current.items).toEqual([rows[3]]));
+    await act(async () => { finish({ data: {}, error: null }); await pending; });
+    expect(mockCommand).toHaveBeenCalledTimes(1);
+    expect(mockCommand).toHaveBeenCalledWith('sync_notification_center_state', {
+      p_cleared_at: null, p_last_opened_at: null,
+      p_dismissals: { 'comment:a': at, 'comment:b': at, 'comment:c': at },
+    }, expect.objectContaining({ expectedUserId: 'a' }));
+    expect(JSON.parse((await AsyncStorage.getItem('@doit/dismissed-notif-keys:a'))!))
+      .toEqual({ 'comment:a': at, 'comment:b': at, 'comment:c': at });
+    t.unmount(); t.client.clear();
+    const restored = setup();
+    try {
+      await waitFor(() => expect(restored.result.current.items).toEqual([rows[3]]));
+    } finally { restored.unmount(); restored.client.clear(); }
+  } finally { t.unmount(); t.client.clear(); }
+});
+
+test('failed grouped dismissal restores the row and exposes the failure without retrying the write', async () => {
+  const rows = ['a', 'b'].map(id => ({ ...comment(`comment:${id}`), post_id: 'p', comment_id: id,
+    actor: { username: id, display_name: id, avatar_url: null, equipped_border_key: null } }));
+  mockRead.mockImplementation(async name => ({ error: null, data: name === 'get_notification_center_bootstrap'
+    ? { state: null, dismissals: [], items: rows } : rows }));
+  const t = setup();
+  try {
+    await waitFor(() => expect(t.result.current.items).toHaveLength(1));
+    mockCommand.mockResolvedValueOnce({ data: null, error: new Error('failed') });
+    await act(async () => { await expect(t.result.current.dismissItem('comments_post:p')).rejects.toThrow('failed'); });
+    expect(t.result.current.items).toEqual([expect.objectContaining({ count: 2 })]);
+    expect(mockCommand).toHaveBeenCalledTimes(1);
+  } finally { t.unmount(); t.client.clear(); }
+});
+
 test('switching accounts drops old placeholders and ignores in-flight history completion', async () => {
   const t = setup();
   await waitFor(() => expect(t.result.current.items).toHaveLength(2));

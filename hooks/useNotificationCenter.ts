@@ -139,7 +139,11 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
         await bootstrapped;
         if (!isCurrent()) throw new Error('Notification account changed');
         const guard = { expectedUserId: userId, isCurrent };
-        const result = action.kind === 'dismiss'
+        const result = action.kind === 'dismiss' && action.sources
+          ? await executeCommand('sync_notification_center_state', {
+            p_cleared_at: null, p_last_opened_at: null, p_dismissals: { ...action.sources },
+          }, guard)
+          : action.kind === 'dismiss'
           ? await executeCommand('dismiss_notification', { p_notification_key: action.key, p_dismissed_at: action.at, p_observed_through: action.observedThrough }, guard)
           : action.kind === 'clear'
             ? await executeCommand('clear_notification_history', { p_cleared_at: action.at, p_observed_through: action.observedThrough }, guard)
@@ -344,7 +348,9 @@ export function useNotificationCenter(_options: { deferInitialLoad?: boolean } =
       const item = items.find(item => item.key === key);
       if (!item) return;
       const at = notificationActivityTimestamp(item);
-      await account.queue.enqueue({ kind: 'dismiss', key, at, observedThrough: at });
+      const sources = item.kind === 'comments_group'
+        ? Object.freeze(Object.fromEntries(item.sources.map(source => [source.key, source.sortAt]))) : undefined;
+      await account.queue.enqueue({ kind: 'dismiss', key, at, observedThrough: at, sources });
     },
     [items, userId],
   );
