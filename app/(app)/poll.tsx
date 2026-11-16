@@ -20,6 +20,7 @@ import { maxLength, required } from '../../lib/formValidation';
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { occurrenceCommandId } from '../../lib/idempotency';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { ConnectedDojiContributorCredit } from '../../components/challenge/DojiContributorCredit';
 import { isWouldYouRatherChallenge } from '../../lib/challengeDisplay';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 
@@ -253,6 +254,7 @@ export default function PollScreen() {
             </Text>
           ) : null}
 
+          <ConnectedDojiContributorCredit eventId={userEvent?.daily_event_id} />
           <View style={styles.optionsList}>
             {visibleOptions.map((opt) => {
               const isSelected = selected === opt.id;

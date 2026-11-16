@@ -38,6 +38,7 @@ jest.mock('../../hooks/useUserEvent', () => ({
 jest.mock('expo-camera', () => ({
   Camera: { requestMicrophonePermissionsAsync: (...args: unknown[]) => mockMicrophone(...args) },
 }));
+jest.mock('../../hooks/useDojiContributor', () => ({ useDojiContributor: () => ({ data: null }) }));
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: (...args: unknown[]) => mockCameraPermission(...args),
   requestMediaLibraryPermissionsAsync: (...args: unknown[]) => mockLibraryPermission(...args),

@@ -9,9 +9,15 @@ type Props = {
   expiresAt: string | null | undefined;
   onExpire?: () => void;
   variant?: 'compact' | 'ring';
+  ringAppearance?: 'classic' | 'spotlight';
 };
 
-export function ChallengeTimer({ expiresAt, onExpire, variant = 'compact' }: Props) {
+export function ChallengeTimer({
+  expiresAt,
+  onExpire,
+  variant = 'compact',
+  ringAppearance = 'classic',
+}: Props) {
   const { colors } = useTheme();
   const remaining = useServerCountdown(expiresAt, { enabled: Boolean(expiresAt), onExpire });
   const urgent = remaining <= 60;
@@ -19,7 +25,9 @@ export function ChallengeTimer({ expiresAt, onExpire, variant = 'compact' }: Pro
 
   if (!expiresAt) return null;
   if (variant === 'ring') {
-    return <CountdownRing totalSeconds={600} remainingSeconds={remaining} />;
+    return (
+      <CountdownRing totalSeconds={600} remainingSeconds={remaining} appearance={ringAppearance} />
+    );
   }
 
   return (

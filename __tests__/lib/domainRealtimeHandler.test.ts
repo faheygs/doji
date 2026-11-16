@@ -32,9 +32,12 @@ test.each(['social.block.created', 'social.friendship.removed', 'moderation.stat
   '%s removes a previously celebrated member before the authorized refresh', type => {
     client.setQueryData(['firstDoji', 'event', 'everyone', 'member'], { profile: { id: 'other' } });
     client.setQueryData(['firstDoji', 'event', 'friends', 'member'], { profile: { id: 'other' } });
+    client.setQueryData(['dojiContributor', 'event', 'member'], { id: 'other' });
     emit(type);
     expect(client.getQueryData(['firstDoji', 'event', 'everyone', 'member'])).toBeNull();
     expect(client.getQueryData(['firstDoji', 'event', 'friends', 'member'])).toBeNull();
+    expect(client.getQueryData(['dojiContributor', 'event', 'member'])).toBeNull();
+    expect(invalidateRoots).toHaveBeenCalledWith('dojiContributor');
   },
 );
 
@@ -89,7 +92,8 @@ test.each([
   ['feed.comment.created', ['feed', 'comments', 'commentWindow', 'post']],
 ] as [string, string[]][])('%s reconciles only its authorized query families', (type, roots) => {
   emit(type);
-  expect(invalidateRoots.mock.calls).toEqual([roots]);
+  const contributorEvents = ['doji.activated', 'social.friendship.accepted', 'social.block.created', 'moderation.status.changed'];
+  expect(invalidateRoots.mock.calls).toEqual(contributorEvents.includes(type) ? [['dojiContributor'], roots] : [roots]);
   expect(mockFetchProfile.mock.calls).toEqual(
     /^(shop.ownership|account.profile)/.test(type) ? [['member']] : [],
   );

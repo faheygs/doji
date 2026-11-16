@@ -4,6 +4,12 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 **source lockfile**, not every installed store binary. See
 [Current state and gaps](CURRENT_STATE_AND_GAPS.md) for deployment qualifications.
 
+`DojiContributorHero` and `CountdownRing` own the participation spotlight design.
+`useDojiContributor` / `lib/dojiContributor.ts` use the additive authorized
+`member_doji_contributor_v1` read and indexed editorial link, with no member access
+to editorial tables. The offline database fixture verifies privacy, all Doji types
+and rollback; hosted qualification remains a separate release gate.
+
 Prepared social phone alerts use `supabase/overlays/social_phone_alerts_v1*`, the
 existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
 `useSocialPhoneAlertCapabilities` gates the additional settings; existing Activity

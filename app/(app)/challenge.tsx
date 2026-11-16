@@ -1,26 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  FadeInDown,
-  useSharedValue,
-  withSpring,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import {
-  Spacing,
-  Radius,
-  CategoryLetters,
-  getCategoryColors,
-  webScrollParentStyle,
-} from '../../constants/theme';
+import { Spacing, Radius, webScrollParentStyle } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TAB_SCREEN_SAFE_AREA_EDGES } from '../../lib/safeAreaLayout';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
-import { CategoryBadge } from '../../components/ui/CategoryBadge';
 import { IconClose, IconCheck } from '../../components/icons/Icons';
 import { useUserEvent } from '../../hooks/useUserEvent';
 import { isExpired, secondsUntilFiresAt } from '../../utils/time';
@@ -33,26 +21,27 @@ import { LiveSparksPill } from '../../components/economy/SparksPill';
 import { BuyInSheet } from '../../components/economy/BuyInSheet';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
 import { challengeEntryHref } from '../../lib/routes';
+import { useDojiContributor } from '../../hooks/useDojiContributor';
+import { DojiContributorHero } from '../../components/challenge/DojiContributorHero';
 
 export default function ChallengeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const catColors = useMemo(() => getCategoryColors(colors), [colors]);
 
   const { data: userEvent, isLoading, isError, refetch } = useUserEvent();
   const sparks = useSparksBalance();
   const { eligible, buyIn, isPending: buyInPending } = useBuyInToday(userEvent);
   const [buyInVisible, setBuyInVisible] = useState(false);
   const [buyInError, setBuyInError] = useState('');
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
 
   const challenge = userEvent?.challenge;
   const challengeType = challenge?.type ?? 'photo';
-  const category = challenge?.category ?? 'wild';
-  const letter = CategoryLetters[category] ?? '?';
-  const color = catColors[category] ?? colors.text;
 
   const firesAt = userEvent?.daily_event?.fires_at;
   const notYetLive = firesAt ? secondsUntilFiresAt(firesAt) > 0 : false;
+  const contributor = useDojiContributor(userEvent?.daily_event_id, !notYetLive && !isError);
 
   const isMissed = userEvent?.status === 'missed';
   const isBuyInOpen = userEvent?.status === 'buy_in_open';
@@ -60,18 +49,12 @@ export default function ChallengeScreen() {
   const isExpiredPending =
     userEvent?.status === 'pending' && userEvent && isExpired(userEvent.expires_at);
 
-  const heroScale = useSharedValue(0.92);
-  const heroStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heroScale.value }],
-  }));
-
   useEffect(() => {
     if (isLoading) return;
-    heroScale.value = withSpring(1, { damping: 14, stiffness: 160 });
     if (!isCompleted && !isMissed && !isExpiredPending && !notYetLive) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-  }, [heroScale, isLoading, isCompleted, isMissed, isExpiredPending, notYetLive]);
+  }, [isLoading, isCompleted, isMissed, isExpiredPending, notYetLive]);
 
   const handleStartChallenge = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -115,40 +98,16 @@ export default function ChallengeScreen() {
         closeButton: { padding: Spacing.sm },
         content: {
           paddingHorizontal: Spacing.lg,
-          paddingTop: Spacing.md,
-          paddingBottom: Spacing.xxl,
-          alignItems: 'center',
-          gap: Spacing.lg,
-        },
-        categoryRow: {
-          flexDirection: 'row',
+          paddingTop: Spacing.sm,
+          paddingBottom: Spacing.md,
           alignItems: 'center',
           gap: Spacing.md,
-          alignSelf: 'flex-start',
         },
-        heroRing: {
-          width: 112,
-          height: 112,
-          borderRadius: Radius.full,
-          borderWidth: 2,
-          alignItems: 'center',
+        contributorContent: {
+          flexGrow: 1,
           justifyContent: 'center',
-          marginVertical: Spacing.sm,
-          backgroundColor: colors.chipBackground,
-        },
-        heroLetter: { letterSpacing: -2 },
-        challengeText: {
-          alignItems: 'center',
-          gap: Spacing.sm,
-          width: '100%',
-        },
-        title: { textAlign: 'center', letterSpacing: -0.8 },
-        description: { textAlign: 'center', lineHeight: 22 },
-        xpChip: {
-          paddingHorizontal: Spacing.md,
-          paddingVertical: 8,
-          borderRadius: Radius.full,
-          backgroundColor: colors.primaryPale,
+          paddingTop: Spacing.md,
+          paddingBottom: Spacing.md,
         },
         stateBlock: {
           alignItems: 'center',
@@ -180,7 +139,10 @@ export default function ChallengeScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.centered}>
           <Text variant="body" color={colors.textSecondary}>
             Loading…
@@ -192,14 +154,19 @@ export default function ChallengeScreen() {
 
   if (isError) {
     return (
-      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>Something went wrong</Text>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>
+            Something went wrong
+          </Text>
           <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
             {"Couldn't load today's challenge."}
           </Text>
@@ -218,14 +185,19 @@ export default function ChallengeScreen() {
 
   if (!userEvent) {
     return (
-      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>No challenge yet</Text>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>
+            No challenge yet
+          </Text>
           <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
             {"Today's Doji hasn't dropped yet.\nCheck back soon."}
           </Text>
@@ -236,14 +208,19 @@ export default function ChallengeScreen() {
 
   if (notYetLive) {
     return (
-      <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
+      <SafeAreaView
+        edges={TAB_SCREEN_SAFE_AREA_EDGES}
+        style={[styles.container, webScrollParentStyle]}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
             <IconClose size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>Not yet</Text>
+          <Text variant="headingLarge" style={{ marginBottom: Spacing.sm }}>
+            Not yet
+          </Text>
           <Text variant="body" color={colors.textSecondary} style={styles.stateCopy}>
             This challenge hasn't dropped yet.{'\n'}Check back when the timer hits zero.
           </Text>
@@ -253,7 +230,10 @@ export default function ChallengeScreen() {
   }
 
   return (
-    <SafeAreaView edges={TAB_SCREEN_SAFE_AREA_EDGES} style={[styles.container, webScrollParentStyle]}>
+    <SafeAreaView
+      edges={TAB_SCREEN_SAFE_AREA_EDGES}
+      style={[styles.container, webScrollParentStyle]}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose} hitSlop={16} style={styles.closeButton}>
           <IconClose size={22} color={colors.textSecondary} />
@@ -262,47 +242,33 @@ export default function ChallengeScreen() {
 
       <ScrollView
         style={webScrollParentStyle}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, styles.contributorContent]}
         showsVerticalScrollIndicator={false}
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+        onContentSizeChange={(_width, height) => setContentHeight(height)}
+        scrollEnabled={contentHeight > viewportHeight + 1}
+        bounces={false}
+        alwaysBounceVertical={false}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeInDown.springify()} style={styles.categoryRow}>
-          <CategoryBadge category={category} />
-        </Animated.View>
-
-        <Animated.View style={[styles.heroRing, heroStyle, { borderColor: color }]}>
-          <Text variant="displayLarge" style={[styles.heroLetter, { color }]}>
-            {letter}
-          </Text>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.challengeText}>
-          <Text variant="displayMedium" style={styles.title}>
-            {challenge?.title ?? 'Challenge'}
-          </Text>
-          {challenge?.description ? (
-            <Text variant="body" color={colors.textSecondary} style={styles.description}>
-              {challenge.description}
-            </Text>
+        <DojiContributorHero
+          contributor={contributor.data ?? null}
+          challengeType={challengeType}
+          pollKind={challenge?.poll_kind}
+          xpReward={challenge?.xp_reward}
+          title={challenge?.title ?? 'Challenge'}
+          description={challenge?.description}
+        >
+          {userEvent.status === 'pending' && !isExpiredPending ? (
+            <ChallengeTimer
+              expiresAt={userEvent.expires_at}
+              onExpire={() => void refetch()}
+              variant="ring"
+              ringAppearance="spotlight"
+            />
           ) : null}
-        </Animated.View>
-
-        {userEvent.status === 'pending' && !isExpiredPending ? (
-          <ChallengeTimer
-            expiresAt={userEvent.expires_at}
-            onExpire={() => void refetch()}
-            variant="ring"
-          />
-        ) : null}
-
-        <Animated.View entering={FadeInDown.delay(220).springify()}>
-          <View style={styles.xpChip}>
-            <Text variant="label" color={colors.primary}>
-              +{challenge?.xp_reward ?? 50} XP
-            </Text>
-          </View>
-        </Animated.View>
+        </DojiContributorHero>
 
         {(isMissed || isExpiredPending) && !isBuyInOpen ? (
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.stateBlock}>

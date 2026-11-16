@@ -30,6 +30,7 @@ jest.mock('../../hooks/useUserEvent', () => ({
   useCreatePost: () => mockPost,
 }));
 jest.mock('../../hooks/usePollVote', () => ({ usePollVote: () => mockVote }));
+jest.mock('../../hooks/useDojiContributor', () => ({ useDojiContributor: () => ({ data: null }) }));
 jest.mock('../../hooks/useBuyIn', () => ({ useBuyInToday: () => mockBuy }));
 jest.mock('../../hooks/useSparks', () => ({ useSparksBalance: () => mockBalance }));
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter, useFocusEffect: jest.fn() }));
@@ -376,6 +377,7 @@ describe('challenge entry', () => {
     mockRead.data!.challenge = undefined;
     const ui = render(shell(<ChallengeScreen />));
     expect(ui.getByText('Challenge')).toBeTruthy();
-    expect(ui.getByText('+50 XP')).toBeTruthy();
+    expect(ui.queryByText('+50 XP')).toBeNull();
+    expect(ui.queryByText('50 XP')).toBeNull();
   });
 });

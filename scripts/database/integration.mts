@@ -91,6 +91,8 @@ export async function integration(room: TestRoom) {
   pass(memberCommentPages(room));
   const { memberFirstDoji } = await import('./member-first-doji.mts');
   pass(memberFirstDoji(room));
+  const { memberDojiContributor } = await import('./member-doji-contributor.mts');
+  pass(memberDojiContributor(room));
   const { firstDojiBadges } = await import('./first-doji-badges.mts');
   pass(await firstDojiBadges(room));
   const { sparksEconomy } = await import('./sparks-economy.mts');
