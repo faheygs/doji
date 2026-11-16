@@ -5,6 +5,66 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 16 production mobile release queue
+
+The owner requested that the Android keyboard correction join the other pending
+mobile changes. The reviewed runtime candidate is
+`1453f432a65cf35474558559810cf5d0dbddb5fa`; this is a release checklist, not a
+production deployment, build dispatch, spending or store-submission approval.
+
+| Candidate item | Recorded Staging qualification | Remaining boundary |
+| --- | --- | --- |
+| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification and owner-confirmed iPhone single/follow-up/burst alerts | Android FCM delivery, remaining opt-out/deep-link checks and production SQL/relay compatibility/rollback |
+| Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping | Android ordinary-comment grouping acceptance and final production-configured binary checks |
+| Android multiline comment composer | PR #105/main gates and Android Staging 13 emulator acceptance below | Final production Android artifact/device check; physical Samsung keyboard remains unverified |
+
+The contributor/Doji-intro design remains uncommitted owner Dev work. Preserve it;
+it is not included or qualified by this candidate. Adding it requires a separate
+reviewed diff, tests and combined Staging acceptance. Unrelated portal, Worker,
+email, reporting, auth, timing and economy work is not authorized by this queue.
+The production baseline remains the recorded 1.0.14 / iOS 108 / Android 34 release;
+this checklist is not a fresh live probe of those services.
+
+Before release, close or explicitly resolve the acceptance gaps above, freeze the
+reviewed source and require passing exact-head/main checks. Separately qualify the
+production notification SQL/relay against the live predecessor and retaining
+rollback in a quiet window; do not copy Staging-only registration/provider bindings
+or replay completed Staging installations. Verify current flags, signing, store
+counters and budget before obtaining approval for production-configured iPhone and
+Android builds. Verify those exact artifacts in restricted distribution before
+the separately approved store release. No mandatory-update change is included.
+
+### Android Staging 13 keyboard receipt
+
+PR #105 exact head `2f4d0cd64619192142674dff239d57647853a077` passed all four quality
+jobs and security in `43802681155`, then merged as the candidate above. Main quality
+`43804441614` passed all four jobs; admin-staging `43805890849` skipped package/deploy.
+Only the Android sheet's keyboard-avoidance ownership changed; iOS retains its
+existing layout. Forty-four targeted tests and root static/hygiene gates passed.
+
+The owner approved one Android medium build with a maximum $1 additional cost
+after included credit was exhausted. Build `801e8579-9870-4c23-8a69-c857ce347e08`
+completed as 1.0.14 / 13, internal APK, at the exact candidate source. Its signature,
+Staging identity/Firebase resources, non-debuggable manifest and source-map upload
+were verified. APK SHA-256 is
+`2774f0e000883c69dde030c9b580ad363d21f4e2968eb5d629afbb0e783c8110`.
+No iPhone or production build was launched.
+
+Installation over the existing API 36 emulator app retained its account. The
+separately approved nine-Spark test grant and normal buy-in enabled one approved
+synthetic response; its own post appeared and the feed unlocked. With a docked
+Gboard keyboard, single-line entry, explicit newline, multiline growth, internal
+scrolling at the height cap and a 501-character draft kept the last line/caret and
+Post button visible. Background/return retained the draft; keyboard dismissal and
+reopening passed. The draft was cleared without sending a comment. Temporary
+keyboard preferences were restored. This is functional emulator acceptance, not
+physical Samsung or frame-time qualification.
+
+Private artifact and acceptance receipts remain under
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications/android-keyboard-build13`.
+The inspected disposable release helper was removed; signing/rollback evidence and
+owner Dev changes were preserved. Production was unchanged.
+
 ## November 15 Staging comment-alert acceptance
 
 PR #102 merged as `f8189185d85f7738e6c1fc7dd7099c2fe5cb44b0`; main quality run

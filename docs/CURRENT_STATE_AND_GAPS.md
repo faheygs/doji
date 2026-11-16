@@ -1,10 +1,22 @@
 # Current state and handoff gaps
 
-Updated November 15, 2026. This separates source, recorded deployments and owner
+Updated November 16, 2026 (UTC). This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+The next production mobile candidate is queued, not released, at reviewed runtime
+source `1453f432`. It combines the new comment/late-friend alert settings and
+trailing delivery policy, exact seen/dismissal handling, in-app comment grouping,
+and the Android multiline-comment keyboard fix. iPhone Staging 12 has owner
+acceptance; Android Staging 13 passed emulator keyboard checks with a 501-character
+unsent draft. The contributor/Doji-intro design remains separate local Dev work,
+not part of these qualified binaries. Android FCM delivery and notification
+opt-out/deep-link qualification, exact production backend compatibility/rollback,
+fresh build budget/approval and final production artifact/store checks remain
+gates. Queueing starts none of those operations. See the
+[release checklist and keyboard receipt](releases/README.md#november-16-production-mobile-release-queue).
 
 The trailing comment-alert correction is deployed in Staging at reviewed source
 `f8189185`, with relay version 35 and exact SQL/artifact/retaining-rollback checks.
