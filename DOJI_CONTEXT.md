@@ -264,6 +264,10 @@ OS pushes are allowlisted: Doji live, friend requests, direct mentions/replies a
 review/account actions. Ambient social activity remains in-app. Foreground OS
 banners are suppressed. Native APNs/FCM is primary; Expo is migration fallback.
 Provider acceptance is not notification-display proof.
+An OS alert tap closes the native Activity Center before opening its destination,
+including a link back to the same feed. iOS waits for native dismissal; Android
+waits for the hidden commit. Failed dismissal leaves the response unconsumed;
+account/access changes cancel navigation, and seen receipts follow navigation.
 
 Prepared, delivery not enabled: `social_phone_alerts_v1` adds separate controls for
 comments on one's own posts and friend participation after the server's shared

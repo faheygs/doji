@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Modal, type ViewToken } from 'react-native';
+import { View, FlatList, TouchableOpacity, Modal, Platform, type ViewToken } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -32,6 +32,7 @@ import { navigateToFeedPost, ROUTES, safeReplace } from '../../lib/routes';
 import { normalizeUsernameInput } from '../../hooks/useUsernameAvailability';
 import { prepareProfileHref } from '../../lib/profileNavigation';
 import { useDismissOnRouteBlur } from '../../hooks/useDismissOnRouteBlur';
+import { useNotificationPresentation } from '../../hooks/useNotificationPresentation';
 import { useNavigationOrigin } from '../../contexts/NavigationOriginContext';
 import { hrefWithReturnTo } from '../../lib/navigationReturn';
 import { CommentLikeGroupNotificationCard } from './CommentLikeGroupNotificationCard';
@@ -80,8 +81,11 @@ export function NotificationSheet({
   const onItemsVisibleRef = useRef(onItemsVisible);
   onItemsVisibleRef.current = onItemsVisible;
   const visibleKeysRef = useRef(new Set<string>());
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<NotificationCenterItem>[] }) => {
+      if (!visibleRef.current) return;
       const shown = viewableItems.filter((token) => token.isViewable && token.item).map((token) => token.item);
       visibleKeysRef.current = new Set(shown.map(item => item.key));
       onItemsVisibleRef.current?.(shown);
@@ -96,6 +100,7 @@ export function NotificationSheet({
   const attentionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   useDismissOnRouteBlur(visible, onClose);
+  const finishNotificationDismissal = useNotificationPresentation(visible, onClose);
   const dismissThen = useCallback(
     (action: () => void) => {
       pendingActionRef.current = action;
@@ -108,14 +113,15 @@ export function NotificationSheet({
     swipeableRefs.current.forEach((ref) => ref?.close());
     swipeableRefs.current.clear();
     setActionError(false);
+    finishNotificationDismissal();
     const action = pendingActionRef.current;
     pendingActionRef.current = null;
     if (action) requestAnimationFrame(action);
-  }, []);
+  }, [finishNotificationDismissal]);
 
   const wasVisibleRef = useRef(visible);
   React.useEffect(() => {
-    if (wasVisibleRef.current && !visible) finishDismiss();
+    if (wasVisibleRef.current && !visible && Platform.OS !== 'ios') finishDismiss();
     wasVisibleRef.current = visible;
   }, [finishDismiss, visible]);
   const openFeedPost = useCallback(
@@ -491,7 +497,8 @@ export function NotificationSheet({
       styles.suggestionRejectedLeading,
     ],
   );
-  if (!visible) return null;
+  // iOS owns native dismissal acknowledgement even after visible becomes false.
+  if (!visible && Platform.OS !== 'ios') return null;
 
   return (
     <Modal
@@ -501,6 +508,7 @@ export function NotificationSheet({
       animationType="none"
       presentationStyle="fullScreen"
       onRequestClose={onClose}
+      onDismiss={Platform.OS === 'ios' ? finishDismiss : undefined}
     >
       <GestureHandlerRootView style={styles.flex} unstable_forceActive>
         <View style={[styles.flex, { paddingTop: modalTopInset, paddingBottom: modalBottomInset }]}>

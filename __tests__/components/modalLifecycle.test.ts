@@ -11,10 +11,13 @@ const sharedSheetConsumers = [
 ];
 
 describe('native modal lifecycle', () => {
-  it.each(controlledModals)('%s unmounts immediately so dismissal cannot block touches', (file) => {
+  it.each(controlledModals)('%s removes Android immediately and retains only the iOS dismissal handshake', (file) => {
     const source = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-    expect(source).toMatch(/if \(!visible\) return null/);
+    expect(source).toContain("if (!visible && Platform.OS !== 'ios') return null");
     expect(source).toMatch(/<Modal[\s\S]{0,300}?visible=\{visible\}/);
+    expect(source).toContain("onDismiss={Platform.OS === 'ios' ? finishDismiss : undefined}");
+    expect(source).toContain('animationType="none"');
+    expect(source).toContain('useNotificationPresentation(visible, onClose)');
   });
 
   it.each(sharedSheetConsumers)('%s delegates dismissal to the shared sheet host', (file) => {

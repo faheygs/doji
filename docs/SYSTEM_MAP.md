@@ -31,6 +31,9 @@ offline social-phone database harness; hosted/native qualification remains gated
 provider/device allowlist; `build-staging-edge.mts` installs it without changing
 the shared handler. `lib/notificationSetupFeedback.ts` separates binary availability
 from OS permission denial in Notification Settings.
+`useNotificationPresentation` owns the mounted native-inbox dismissal barrier;
+`useNativeNotifications` waits for it before authenticated response navigation.
+Android uses the hidden commit and iOS the native dismissal acknowledgement.
 
 The current mobile distribution is 1.0.14 / iOS 108 (public App Store) and Android
 34 (closed Alpha), built from `b2c57a4`. Production `mobile_release_policy` and

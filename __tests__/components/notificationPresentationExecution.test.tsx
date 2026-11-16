@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler/jestSetup';
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { FlatList, Modal, Text as NativeText } from 'react-native';
+import { FlatList, Modal, Platform, Text as NativeText } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { NotificationSheet } from '../../components/notifications/NotificationSheet';
 import { NotificationActorRow } from '../../components/notifications/NotificationActorRow';
@@ -12,6 +12,7 @@ import { ROUTES } from '../../lib/routes';
 import { groupNotificationItems } from '../../lib/notificationGrouping';
 
 let mockColors = lightColors;
+const originalOS = Platform.OS;
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
 const mockRespond = { mutateAsync: jest.fn().mockResolvedValue(undefined), isPending: false };
 const mockCommand = jest.fn();
@@ -126,13 +127,31 @@ const request: NotificationCenterItem = {
   friendship: { id: 'friendship', requester: actor } as FriendshipWithRequester,
 };
 beforeEach(() => {
+  Platform.OS = 'android';
   jest.clearAllMocks();
   jest.useFakeTimers();
   mockColors = lightColors;
   mockRespond.isPending = false;
   mockCommand.mockResolvedValue({ data: null, error: null });
 });
-afterEach(() => jest.useRealTimers());
+afterEach(() => { jest.useRealTimers(); Platform.OS = originalOS; });
+
+it('iOS waits for native inbox dismissal before opening the selected destination', () => {
+  Platform.OS = 'ios';
+  const seen = jest.fn();
+  const props = { visible: true, onClose: jest.fn(), items: [items[0]], isLoading: false, onItemsVisible: seen };
+  const ui = render(<NotificationSheet {...props} />);
+  const viewable = ui.UNSAFE_getByType(FlatList).props.onViewableItemsChanged;
+  act(() => ui.UNSAFE_getByType(NotificationActorRow).props.onPress());
+  ui.rerender(<NotificationSheet {...props} visible={false} />);
+  act(() => jest.advanceTimersByTime(100));
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  act(() => ui.UNSAFE_getByType(Modal).props.onDismiss());
+  act(() => jest.advanceTimersByTime(20));
+  expect(mockRouter.push).toHaveBeenCalledTimes(1);
+  act(() => viewable({ viewableItems: [{ item: items[0], isViewable: true }] }));
+  expect(seen).not.toHaveBeenCalled();
+});
 
 describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
   it.each([false, true])('renders one grouped comment card with existing navigation and dismissal (shared=%s)', shared => {

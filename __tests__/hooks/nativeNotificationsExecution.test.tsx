@@ -3,6 +3,7 @@ import { AppState, InteractionManager, Platform, type AppStateStatus } from 'rea
 import * as Notifications from 'expo-notifications';
 import type { NotificationResponse } from 'expo-notifications';
 import { useNativeNotifications } from '../../hooks/useNativeNotifications';
+import { useNotificationPresentation } from '../../hooks/useNotificationPresentation';
 
 const mockSync = jest.fn();
 const mockUnregister = jest.fn();
@@ -403,6 +404,73 @@ test('navigation failure preserves the durable response rather than acknowledgin
   expect(Notifications.clearLastNotificationResponseAsync).not.toHaveBeenCalled();
   expect(afterNavigation).toHaveLength(0);
   expect(mockCommand).not.toHaveBeenCalled();
+});
+
+test.each(['android', 'ios'] as const)('%s same-feed OS tap closes the inbox before navigation or acknowledgement', async os => {
+  Platform.OS = os;
+  const close = jest.fn();
+  const inbox = renderHook(({ visible }: { visible: boolean }) => useNotificationPresentation(visible, close), { initialProps: { visible: true } });
+  renderHook(() => useNativeNotifications(true));
+  await settle();
+  act(() => onResponse(response({ type: 'FRIEND_POST', eventId: 'late-friend' })));
+  await navigate();
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  expect(Notifications.clearLastNotificationResponseAsync).not.toHaveBeenCalled();
+  expect(afterNavigation).toHaveLength(0);
+  inbox.rerender({ visible: false });
+  await settle();
+  if (os === 'ios') {
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    act(() => inbox.result.current());
+  }
+  await settle();
+  expect(mockRouter.push).toHaveBeenCalledWith('/(app)');
+  expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalledTimes(1);
+});
+
+test.each(['account', 'unmount', 'access'])('pending modal dismissal cannot navigate after %s changes', async reason => {
+  const inbox = renderHook(({ visible }: { visible: boolean }) => useNotificationPresentation(visible, jest.fn()), { initialProps: { visible: true } });
+  const native = renderHook(({ ready }: { ready: boolean }) => useNativeNotifications(ready), { initialProps: { ready: true } });
+  await settle();
+  act(() => onResponse(response({ type: 'CHALLENGE' })));
+  await navigate();
+  if (reason === 'account') mockUser = undefined;
+  else if (reason === 'unmount') native.unmount();
+  else native.rerender({ ready: false });
+  inbox.rerender({ visible: false });
+  await settle();
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  expect(Notifications.clearLastNotificationResponseAsync).not.toHaveBeenCalled();
+  expect(mockCommand).not.toHaveBeenCalled();
+});
+
+test('a newer response supersedes the route waiting on inbox dismissal', async () => {
+  const inbox = renderHook(({ visible }: { visible: boolean }) => useNotificationPresentation(visible, jest.fn()), { initialProps: { visible: true } });
+  renderHook(() => useNativeNotifications(true));
+  await settle();
+  act(() => onResponse(response({ type: 'CHALLENGE', eventId: 'old' })));
+  await navigate();
+  act(() => onResponse(response({ type: 'BADGE', eventId: 'new' })));
+  await navigate();
+  inbox.rerender({ visible: false });
+  await settle();
+  expect(mockRouter.push).toHaveBeenCalledTimes(1);
+  expect(mockRouter.push).toHaveBeenCalledWith('/(app)/profile');
+});
+
+test('missing native dismissal preserves the response and reports only a safe failure', async () => {
+  Platform.OS = 'ios';
+  renderHook(() => useNotificationPresentation(true, jest.fn()));
+  renderHook(() => useNativeNotifications(true));
+  await settle();
+  act(() => onResponse(response({ type: 'CHALLENGE' })));
+  await navigate();
+  await act(async () => jest.advanceTimersByTime(5000));
+  expect(mockRouter.push).not.toHaveBeenCalled();
+  expect(Notifications.clearLastNotificationResponseAsync).not.toHaveBeenCalled();
+  expect(mockCommand).not.toHaveBeenCalled();
+  expect(mockRecord).toHaveBeenCalledWith('push', 'navigation-dismiss-deferred', expect.any(Error));
 });
 test('unmount cancels a queued navigation task without acknowledging the push', async () => {
   const { unmount } = renderHook(() => useNativeNotifications(true));

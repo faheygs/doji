@@ -23,14 +23,17 @@ read/index is installed and qualified in Staging: all five Doji kinds, privacy,
 audience rules, exact grants and retaining rollback passed; no synthetic fixture
 data remained. Unrelated contracts and test profiles are unchanged. Combined
 Staging app acceptance and production installation/builds remain separate gates. The owner
-approved at most $3 additional EAS usage for one production iPhone/Android pair;
-new Staging cloud builds or retries are not included. That budget remains unspent.
+approved at most $3 additional EAS usage for one production iPhone/Android pair.
+The owner separately approved up to $1 for one Android Staging verification build
+after the navigation correction passes CI; neither budget has been spent.
 
 Android Staging 13 passed emulator single/burst comment-alert display, exact-post
 deep links, seen-source exclusion, in-app three-person grouping and backend opt-out
 qualification. Its temporary device allowlist and preference change were restored
-exactly; five synthetic comments remain as evidence. Late-friend Android delivery
-and the combined contributor integration remain unqualified. The test exposed a
+exactly; five synthetic comments remain as evidence. A subsequent emulator-only
+late-friend alert was accepted and displayed, but its OS tap left the existing
+inbox over the feed. The native dismissal correction and combined contributor
+integration still require a new Android Staging binary. The test also exposed a
 legacy zero comment count on post detail while the feed and engagement snapshot
 both returned five. The client-only correction passed exact-head checks and merged
 in PR #108 as `98c1b6b`, using that existing authorized snapshot without another
@@ -43,7 +46,7 @@ keyboard changes at `1453f432`. The combined mobile source is not yet frozen:
 the integrated contributor design still needs combined Staging acceptance,
 despite its passing main CI and hosted read qualification. iPhone Staging 12 has owner
 acceptance for notification grouping; Android Staging 13 passed emulator keyboard
-checks, not the new design. Android late-friend delivery and exact
+checks, not the new design. Corrected Android late-friend navigation and exact
 production backend/artifact qualification remain gates. Preserved Worker/email,
 portal and monitoring follow-ups are tracked separately with their own readiness
 and deployment boundaries; queued does not mean tested, enabled or deployed.

@@ -13,6 +13,7 @@ import { executeCommand } from '../lib/commandGateway';
 import { retryPushRegistration } from '../lib/retryPushRegistration';
 import { createPushRegistrationScope } from '../lib/pushRegistrationScope';
 import { awaitRegistration, isPushRegistrationInterrupted } from '../lib/pushRegistrationCancellation';
+import { dismissNotificationPresentations } from './useNotificationPresentation';
 
 async function markNotificationResponseSeen(data: unknown, expectedUserId: string, isCurrent: () => boolean): Promise<void> {
   const receipt = attentionReceiptFromPushData(data);
@@ -184,9 +185,19 @@ export function useNativeNotifications(canUseApp: boolean): void {
 
     // Protected app routes and the navigation container were committed in the
     // same render. Yield one task before consuming the durable response.
-    const timer = setTimeout(() => {
+    let cancelled = false;
+    const isCurrent = () => !cancelled && mountedRef.current &&
+      useAuthStore.getState().session?.user?.id === userId;
+    const navigate = async () => {
       const href = notificationHrefFromData(pendingResponse.data);
-      if (!href || !safePush(router, href)) return;
+      if (!href || !isCurrent()) return;
+      try {
+        await dismissNotificationPresentations();
+      } catch {
+        if (isCurrent()) recordOperationalFailure('push', 'navigation-dismiss-deferred', new Error('Notification presentation did not close'));
+        return;
+      }
+      if (!isCurrent() || !safePush(router, href)) return;
       handledResponseKeysRef.current.add(pendingResponse.key);
       setPendingResponse((current) => current?.key === pendingResponse.key ? null : current);
       markAfterNavigationSettles(pendingResponse.data, userId, () => mountedRef.current &&
@@ -194,8 +205,9 @@ export function useNativeNotifications(canUseApp: boolean): void {
       void notificationsModuleRef.current?.clearLastNotificationResponseAsync().catch(() => {
         recordOperationalFailure('push', 'response-clear-deferred', new Error('Native response cleanup unavailable'));
       });
-    }, 0);
+    };
+    const timer = setTimeout(() => { void navigate(); }, 0);
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [canUseApp, pendingResponse, rootNavigationState?.key, router, userId]);
 }
