@@ -5,6 +5,91 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 16 production mobile release queue
+
+The owner requested that all net-new work be queued for production, including the
+Doji participation-screen design. The reviewed mobile subset is
+`1453f432a65cf35474558559810cf5d0dbddb5fa`; the final combined candidate is not yet
+frozen. This queue includes preparation and qualification work, not just changes
+already tested in a binary. It is not a production deployment, build dispatch,
+spending or store-submission approval.
+
+| Candidate item | Recorded Staging qualification | Remaining boundary |
+| --- | --- | --- |
+| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification and owner-confirmed iPhone single/follow-up/burst alerts | Android FCM delivery, remaining opt-out/deep-link checks and production SQL/relay compatibility/rollback |
+| Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping | Android ordinary-comment grouping acceptance and final production-configured binary checks |
+| Android multiline comment composer | PR #105/main gates and Android Staging 13 emulator acceptance below | Final production Android artifact/device check; physical Samsung keyboard remains unverified |
+| Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted the local Dev presentation; not in Staging 12/13 | Integrate the preserved diff onto reviewed main, replace the exact-event Dev fixture with authorized attribution, test all Doji types and qualify both platforms in combined Staging builds |
+| Expo 57 compatible dependency patches | PR #93 source gates; included in subsequent Staging binaries | Carry the reviewed lockfile into the combined candidate and verify production-configured artifacts |
+
+The design is included in the queue, not silently excluded because it is local.
+Its source remains in the owner checkout's challenge screens/components and
+regressions. `DevDojiContributorCredit.tsx` currently uses an exact-event,
+Staging-development fixture; it is not a production attribution contract. Preserve
+the original files while preparing the reviewed integration. The four local
+comments-keyboard files already match PR #105 and must not be reapplied as new work.
+
+### Separately qualified production workstreams
+
+These unreleased items also belong in the queue, but must not be bundled into a
+mobile or portal deployment across their separate ownership boundaries.
+
+| Workstream | Evidence/source | Next qualification gate |
+| --- | --- | --- |
+| Worker and admin-email notification acknowledgement hardening | Preserved `owner-preservation-before-release-closeout-20261114` stash: health monitor, operational-health, Sentry and send-admin-email plus regressions; not merged or deployed | Extract only unique changes onto reviewed main; test bounded acknowledgements, concurrency and uncertain-send fences; review member impact, then qualify exact Staging runtime/rollback before any production authorization |
+| Admin historical-health presentation | PR #45 merged as `f73aa14`; source changes presentation, not health thresholds or delivery | Reconcile the retained hosted Staging receipt and exact immutable package, then qualify a separately approved admin-production promotion |
+| Monitoring history, independent checks and mobile workflow reporting | Existing Staging receipts and default-off source preparation described in current guidance | Reconcile source/live flags and complete missing workflow/device qualification; production-independent-monitor bindings, capture and ingestion remain gated, not implicitly enabled by this queue |
+| Shared/employee email presentation preparation | Recorded separately from deployed business email in the current service inventory | Establish the exact remaining source delta and Staging evidence before any shared/member template or provider change |
+
+Reconcile each source delta against its deployed baseline before scheduling it;
+older stash contents and receipt-only PR #100 are evidence, not instructions to
+reapply superseded mobile code or replay deployments. Previously released search,
+feed, comments, badges and Sparks changes are not new releases merely because an
+old branch contains them. Outstanding coverage/performance gaps stay explicit;
+queue membership is not a claim that they have been implemented or qualified.
+The production baseline remains the recorded 1.0.14 / iOS 108 / Android 34 release;
+this checklist is not a fresh live probe of those services.
+
+Before release, close or explicitly resolve the acceptance gaps above, freeze the
+reviewed source and require passing exact-head/main checks. Separately qualify the
+production notification SQL/relay against the live predecessor and retaining
+rollback in a quiet window; do not copy Staging-only registration/provider bindings
+or replay completed Staging installations. Verify current flags, signing, store
+counters and budget before obtaining approval for production-configured iPhone and
+Android builds. Verify those exact artifacts in restricted distribution before
+the separately approved store release. No mandatory-update change is included.
+
+### Android Staging 13 keyboard receipt
+
+PR #105 exact head `2f4d0cd64619192142674dff239d57647853a077` passed all four quality
+jobs and security in `43802681155`, then merged as the candidate above. Main quality
+`43804441614` passed all four jobs; admin-staging `43805890849` skipped package/deploy.
+Only the Android sheet's keyboard-avoidance ownership changed; iOS retains its
+existing layout. Forty-four targeted tests and root static/hygiene gates passed.
+
+The owner approved one Android medium build with a maximum $1 additional cost
+after included credit was exhausted. Build `801e8579-9870-4c23-8a69-c857ce347e08`
+completed as 1.0.14 / 13, internal APK, at the exact candidate source. Its signature,
+Staging identity/Firebase resources, non-debuggable manifest and source-map upload
+were verified. APK SHA-256 is
+`2774f0e000883c69dde030c9b580ad363d21f4e2968eb5d629afbb0e783c8110`.
+No iPhone or production build was launched.
+
+Installation over the existing API 36 emulator app retained its account. The
+separately approved nine-Spark test grant and normal buy-in enabled one approved
+synthetic response; its own post appeared and the feed unlocked. With a docked
+Gboard keyboard, single-line entry, explicit newline, multiline growth, internal
+scrolling at the height cap and a 501-character draft kept the last line/caret and
+Post button visible. Background/return retained the draft; keyboard dismissal and
+reopening passed. The draft was cleared without sending a comment. Temporary
+keyboard preferences were restored. This is functional emulator acceptance, not
+physical Samsung or frame-time qualification.
+
+Private artifact and acceptance receipts remain under
+`%LOCALAPPDATA%/Doji/staging-backend/2026-11-14-social-notifications/android-keyboard-build13`.
+The inspected disposable release helper was removed; signing/rollback evidence and
+owner Dev changes were preserved. Production was unchanged.
+
 ## November 15 Staging comment-alert acceptance
 
 PR #102 merged as `f8189185d85f7738e6c1fc7dd7099c2fe5cb44b0`; main quality run

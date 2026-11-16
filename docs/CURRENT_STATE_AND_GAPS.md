@@ -1,10 +1,23 @@
 # Current state and handoff gaps
 
-Updated November 15, 2026. This separates source, recorded deployments and owner
+Updated November 16, 2026 (UTC). This separates source, recorded deployments and owner
 device reports; it is not a fresh probe of every production service. Owner: Gavin
 Fahey. Repository access does not authorize cloud changes, spending or member actions.
 
 ## Current surfaces
+
+All net-new work is queued for production preparation, including the Doji
+participation-screen redesign, not just the reviewed notification and Android
+keyboard changes at `1453f432`. The combined mobile source is not yet frozen:
+the owner-approved Dev design still needs authorized contributor attribution,
+reviewed integration and combined Staging acceptance. iPhone Staging 12 has owner
+acceptance for notification grouping; Android Staging 13 passed emulator keyboard
+checks, not the new design. Android delivery, opt-out/deep-link checks and exact
+production backend/artifact qualification remain gates. Preserved Worker/email,
+portal and monitoring follow-ups are tracked separately with their own readiness
+and deployment boundaries; queued does not mean tested, enabled or deployed.
+Queueing starts no build, spending, delivery or deployment. See the
+[release checklist and keyboard receipt](releases/README.md#november-16-production-mobile-release-queue).
 
 The trailing comment-alert correction is deployed in Staging at reviewed source
 `f8189185`, with relay version 35 and exact SQL/artifact/retaining-rollback checks.
@@ -92,7 +105,9 @@ Rewards are prospective; auth, timing, push, Worker and monitoring are excluded.
 The released native version is 1.0.14 / iOS 108 / Android 34. Store availability
 above was verified separately from build completion.
 
-The primary development folder is aligned to reviewed main. Its previous mixed
+Reviewed main is the release source authority. The primary development checkout
+currently preserves uncommitted contributor-design work on an older branch; do
+not overwrite it or treat it as the combined release candidate. Its earlier mixed
 48-file working state is retained in a named local Git stash, not merged over newer
 source. Four older staging receipt PRs are consolidated in the release index;
 their original diffs remain evidence. PR #45's admin-only presentation update
