@@ -10,6 +10,7 @@ export function usePostCommentsSheetStyles() {
     () =>
       StyleSheet.create({
         modalRoot: { flex: 1 },
+        resizableSheet: { flexShrink: 1, minHeight: 0 },
         backdrop: {
           position: 'absolute',
           top: 0,

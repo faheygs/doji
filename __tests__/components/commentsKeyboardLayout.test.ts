@@ -12,7 +12,8 @@ describe('comments keyboard layout', () => {
       'utf8',
     );
 
-    expect(sheet).toContain('<AppKeyboardViewport');
+    expect(sheet).toContain('<SheetViewport');
+    expect(sheet).toContain('<ThreadViewport');
     expect(sheet).toContain('<AppKeyboardToolbar owner="overlay" />');
     expect(sheet).not.toContain('insidePageSheet');
     expect(thread).not.toContain('keyboardInset');
