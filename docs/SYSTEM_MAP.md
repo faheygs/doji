@@ -8,7 +8,8 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 `useDojiContributor` / `lib/dojiContributor.ts` use the additive authorized
 `member_doji_contributor_v1` read and indexed editorial link, with no member access
 to editorial tables. The offline database fixture verifies privacy, all Doji types
-and rollback; hosted qualification remains a separate release gate.
+and rollback; the additive read/index also passed hosted Staging qualification.
+Combined mobile acceptance and production promotion remain separate release gates.
 
 Prepared social phone alerts use `supabase/overlays/social_phone_alerts_v1*`, the
 existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
