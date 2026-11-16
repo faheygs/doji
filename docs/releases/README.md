@@ -7,6 +7,21 @@ Private artifacts remain ignored; source history is recoverable through Git.
 
 ## November 16 production mobile release queue
 
+### Production version allocation
+
+Version 1.0.15 allocates iOS 109 and Android 35 after fresh App Store Connect and
+Google Play reads confirmed the latest uploaded predecessors, 108 and 34.
+The owner approved one production build per platform with at most $3 additional
+EAS cost, existing Android closed Alpha distribution and Apple review. No new
+tester, mandatory-update change or automatic retry is included. Included EAS
+credit was exhausted at the preflight read; allocation is not spending or dispatch.
+The owner reaffirmed prior iPhone contributor-design acceptance. Android Dev at
+`98c1b6b` retained its Staging session; the grouped comment opened the exact post,
+and post detail and its sheet both displayed five comments. Combined hosted
+attribution and Android late-friend delivery remain separate checks. Production
+backend qualification and passing exact-head/main CI precede paid build dispatch;
+exact artifacts must pass before store submission. Production remains 1.0.14.
+
 The owner requested that all net-new work be queued for production, including the
 Doji participation-screen design. The reviewed mobile subset is
 `1453f432a65cf35474558559810cf5d0dbddb5fa`; the final combined candidate is not yet

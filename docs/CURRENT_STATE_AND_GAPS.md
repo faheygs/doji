@@ -6,6 +6,16 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+Production version allocation is prepared as 1.0.15 / iOS 109 / Android 35.
+Fresh store reads found iOS 108 and Android 34 as the latest uploaded versions;
+the owner reaffirmed the existing iPhone design acceptance and approved the
+production pair within a $3 additional-build limit. Android Dev on reviewed
+`98c1b6b` retained its session, opened the grouped comment's exact post and showed
+five comments in both detail and the sheet. This allocation starts no build or
+submission: exact-head/main CI, remaining delivery acceptance, production backend
+qualification and exact-artifact checks still gate distribution. The released
+version and mandatory-update policy remain 1.0.14 / iOS 108 / Android 34.
+
 The contributor release integration merged in PR #107 as `7f11c06`: the approved
 Dev spotlight/timer design uses an additive, viewer-authorized author read
 instead of its exact-event fixture. Exact-head and main CI passed. Its narrow
