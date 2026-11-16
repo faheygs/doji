@@ -17,8 +17,10 @@ const mockRead = jest.fn();
 const mockRpc = jest.fn();
 const mockFrom = jest.fn();
 const mockCommand = jest.fn();
-const mockAttach = jest.fn();
 let mockUser: string | undefined = 'member';
+let mockAccountCurrent = true;
+const engagement = { post_id: 'post', comment_count: 5, reaction_count: 1,
+  reaction_breakdown: { fire: 1 }, my_reactions: ['fire'] };
 jest.mock('../../lib/supabase', () => ({
   supabase: {
     rpc: (...args: unknown[]) => mockRpc(...args),
@@ -28,10 +30,8 @@ jest.mock('../../lib/supabase', () => ({
 jest.mock('../../lib/commandGateway', () => ({
   executeCommand: (...args: unknown[]) => mockCommand(...args),
 }));
-jest.mock('../../lib/postReactions', () => ({
-  attachReactionFields: (...args: unknown[]) => mockAttach(...args),
-}));
 jest.mock('../../stores/useAuthStore', () => ({
+  captureProfileAccount: () => ({ userId: mockUser, isCurrent: () => mockAccountCurrent }),
   useAuthStore: (select: (state: unknown) => unknown) =>
     select({ session: mockUser ? { user: { id: mockUser } } : null }),
 }));
@@ -55,10 +55,10 @@ beforeEach(() => {
   notifyManager.setScheduler((cb) => cb());
   jest.clearAllMocks();
   mockUser = 'member';
+  mockAccountCurrent = true;
   delete process.env.EXPO_PUBLIC_SCALE_READ_URL;
   mockRead.mockReset().mockResolvedValue({ data: null, error: null });
   mockCommand.mockReset().mockResolvedValue({ data: null, error: null });
-  mockAttach.mockReset().mockImplementation(async (rows) => rows);
   chains = [];
   const next = () => {
     const chain = builder();
@@ -128,13 +128,17 @@ test.each([
 test.each([null, { id: 'post', photo_url: 'private-object-reference' }])(
   'post detail retains the authorized object reference (%j)',
   async (data) => {
-    mockRead.mockResolvedValue({ data, error: null });
+    mockRead.mockResolvedValueOnce({ data, error: null })
+      .mockResolvedValue({ data: engagement, error: null });
     const { result } = renderHook(() => usePost('post'), { wrapper: Wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(data);
+    const { post_id: _id, ...fields } = engagement;
+    expect(result.current.data).toEqual(data ? { ...data, ...fields } : null);
     expect(mockRpc).toHaveBeenCalledWith('get_post_detail', { p_post_id: 'post' });
-    expect(mockAttach).toHaveBeenCalledTimes(data ? 1 : 0);
-    if (data) expect(mockAttach).toHaveBeenCalledWith([data], 'member', expect.any(AbortSignal));
+    expect(mockRpc).toHaveBeenCalledTimes(data ? 2 : 1);
+    if (data) expect(mockRpc).toHaveBeenLastCalledWith('get_post_engagement_snapshot_v2', {
+      p_post_id: 'post', p_audience: 'everyone',
+    });
   },
 );
 test('missing post id remains empty even on manual refresh', async () => {
@@ -145,6 +149,73 @@ test('missing post id remains empty even on manual refresh', async () => {
   expect(mockRpc).not.toHaveBeenCalled();
 });
 
+test('signed-out detail cannot launch either read', async () => {
+  mockUser = undefined;
+  const { result } = renderHook(() => usePost('post'), { wrapper: Wrapper });
+  expect(result.current.fetchStatus).toBe('idle');
+  await act(async () => { expect((await result.current.refetch()).error?.message).toBe('Not authenticated'); });
+  expect(mockRpc).not.toHaveBeenCalled();
+});
+
+test.each(['detail', 'engagement'])('account lifetime change during %s discards the result', async phase => {
+  mockRead.mockImplementationOnce(async () => {
+    if (phase === 'detail') mockAccountCurrent = false;
+    return { data: { id: 'post' }, error: null };
+  }).mockImplementationOnce(async () => {
+    mockAccountCurrent = false;
+    return { data: engagement, error: null };
+  });
+  const { result } = renderHook(() => usePost('post'), { wrapper: Wrapper });
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.error?.message).toBe('Account changed');
+  expect(result.current.data).toBeUndefined();
+  expect(mockRpc).toHaveBeenCalledTimes(phase === 'detail' ? 1 : 2);
+});
+
+test('a wrong-post detail cannot seed engagement or the cache', async () => {
+  mockRead.mockResolvedValue({ data: { id: 'other' }, error: null });
+  const { result } = renderHook(() => usePost('post'), { wrapper: Wrapper });
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.error?.message).toBe('Invalid post detail');
+  expect(mockRpc).toHaveBeenCalledTimes(1);
+});
+
+test('engagement disappearance discards an otherwise authorized detail', async () => {
+  mockRead.mockResolvedValueOnce({ data: { id: 'post' }, error: null })
+    .mockResolvedValue({ data: null, error: null });
+  const { result } = renderHook(() => usePost('post'), { wrapper: Wrapper });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(result.current.data).toBeNull();
+});
+
+test('failed engagement refresh retains the last count with an error, not legacy zero', async () => {
+  client.setQueryData(['post', 'post', 'member'], { id: 'post', comment_count: 5 });
+  mockRead.mockResolvedValueOnce({ data: { id: 'post', comment_count: 0 }, error: null })
+    .mockResolvedValue({ data: null, error: { message: 'unavailable' }, status: 503 });
+  const { result } = renderHook(() => {
+    const query = usePost('post');
+    return { data: query.data, isError: query.isError, refetch: query.refetch };
+  }, { wrapper: Wrapper });
+  await act(async () => { expect((await result.current.refetch()).error).toMatchObject({ status: 503 }); });
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.data?.comment_count).toBe(5);
+});
+
+test('cancelling during the second read prevents a late aggregate from entering cache', async () => {
+  let finish!: (result: unknown) => void;
+  mockRead.mockResolvedValueOnce({ data: { id: 'post' }, error: null })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  renderHook(() => usePost('post'), { wrapper: Wrapper });
+  await waitFor(() => expect(mockRead).toHaveBeenCalledTimes(2));
+  const aggregateSignal = chains[1].abortSignal.mock.calls[0][0] as AbortSignal;
+  await act(async () => {
+    await client.cancelQueries({ queryKey: ['post', 'post', 'member'] });
+    finish({ data: engagement, error: null });
+  });
+  expect(aggregateSignal.aborted).toBe(true);
+  expect(client.getQueryData(['post', 'post', 'member'])).toBeUndefined();
+});
+
 test.each([false, true])('detail refresh fences a local reaction but respects denied=%s', async (denied) => {
   const cached = {id:'post',reaction_count:2,my_reactions:['fire'],comment_count:1};
   client.setQueryData(['post','post','member'],cached);
@@ -152,7 +223,8 @@ test.each([false, true])('detail refresh fences a local reaction but respects de
     status:'pending',submittedAt:Date.now(),variables:{postId:'post'},context:{},data:undefined,
     error:null,failureCount:0,failureReason:null,isPaused:false,
   });
-  mockRead.mockResolvedValue({data:denied ? null : {...cached,reaction_count:1,my_reactions:[],comment_count:7},error:null});
+  mockRead.mockResolvedValueOnce({data:denied ? null : cached,error:null})
+    .mockResolvedValue({data:{...engagement,comment_count:7},error:null});
   const {result} = renderHook(() => {
     const query = usePost('post');
     return {data:query.data,refetch:query.refetch};

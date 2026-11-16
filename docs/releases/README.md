@@ -16,10 +16,10 @@ spending or store-submission approval.
 
 | Candidate item | Recorded Staging qualification | Remaining boundary |
 | --- | --- | --- |
-| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification and owner-confirmed iPhone single/follow-up/burst alerts | Android FCM delivery, remaining opt-out/deep-link checks and production SQL/relay compatibility/rollback |
-| Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping | Android ordinary-comment grouping acceptance and final production-configured binary checks |
+| Comments on own posts and friends participating late; default-on settings preserving opt-outs | Isolated SQL/relay qualification; iPhone single/follow-up/burst alerts; Android comment delivery, opt-out and deep links below | Android late-friend delivery and production SQL/relay compatibility/rollback |
+| Exact seen/dismissal source handling and grouped ordinary-comment rows | Synthetic concurrency regressions; owner accepted iPhone Staging 12 grouping; Android three-person grouping below | Final production-configured binary checks |
 | Android multiline comment composer | PR #105/main gates and Android Staging 13 emulator acceptance below | Final production Android artifact/device check; physical Samsung keyboard remains unverified |
-| Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted the local Dev presentation; not in Staging 12/13 | Integrate the preserved diff onto reviewed main, replace the exact-event Dev fixture with authorized attribution, test all Doji types and qualify both platforms in combined Staging builds |
+| Doji participation-screen redesign: contributor avatar/name, centered question, circular timer, XP badge and matching unattributed design | Owner accepted local Dev presentation; PR #107 integrates authorized attribution and all-type synthetic tests on main `7f11c06`; not in Staging 12/13 | Main CI, hosted additive-read qualification and combined iOS/Android Staging acceptance |
 | Expo 57 compatible dependency patches | PR #93 source gates; included in subsequent Staging binaries | Carry the reviewed lockfile into the combined candidate and verify production-configured artifacts |
 
 The design is included in the queue, not silently excluded because it is local.
@@ -28,6 +28,21 @@ regressions. `DevDojiContributorCredit.tsx` currently uses an exact-event,
 Staging-development fixture; it is not a production attribution contract. Preserve
 the original files while preparing the reviewed integration. The four local
 comments-keyboard files already match PR #105 and must not be reapplied as new work.
+
+### Android Staging 13 comment delivery
+
+November 16 Android comment-delivery qualification used the existing Staging 13
+binary and synthetic `androidtest1` account. Two alerts were accepted by FCM in one
+attempt each and displayed on the API 36 emulator: one comment, then three new
+actors grouped as name and two others. Both taps opened the exact post/comments;
+the earlier seen comment was excluded from the burst. The in-app inbox showed one
+three-person row. One opted-out synthetic comment produced no push item. The exact
+prior preferences and provider/device configuration were restored; five test
+comments and private receipts remain under the Staging release evidence's
+`android-delivery-20261116` directory. The inspected disposable helper was removed.
+No production change, iPhone send or paid build occurred. This is not physical
+Android performance or late-friend delivery acceptance. A separate detail-counter
+defect (legacy zero versus authoritative five) remains a next-build correction gate.
 
 ### Separately qualified production workstreams
 
