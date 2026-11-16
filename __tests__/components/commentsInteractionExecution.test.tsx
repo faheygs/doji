@@ -9,6 +9,7 @@ import { PostCommentsThread } from '../../components/feed/PostCommentsThread';
 import { PostCommentsSheet } from '../../components/feed/PostCommentsSheet';
 import { CommentLikesSheet } from '../../components/feed/CommentLikesSheet';
 import { KeyboardToolbarProvider } from '../../contexts/KeyboardToolbarContext';
+import { AppKeyboardViewport } from '../../components/ui/AppKeyboardViewport';
 import type { CommentWithMeta } from '../../hooks/useComments';
 import type { CommentLikeRow } from '../../hooks/useCommentLikes';
 
@@ -539,6 +540,37 @@ describe('real comment composer and thread', () => {
 });
 
 describe('native comment sheet', () => {
+  it.each(['ios', 'android'] as const)(
+    'uses one keyboard viewport with the correct %s sheet boundary', (platform) => {
+      jest.replaceProperty(Platform, 'OS', platform);
+      rows(comment());
+      const ui = render(shell(
+        <PostCommentsSheet visible postId="post" postOwnerId="self" onClose={jest.fn()} />,
+      ));
+      const viewports = ui.UNSAFE_getAllByType(AppKeyboardViewport);
+      expect(viewports).toHaveLength(1);
+      const viewport = viewports[0];
+      expect(viewport.findAllByProps({ accessibilityLabel: 'Close comments' }).length > 0)
+        .toBe(platform === 'android');
+      expect(viewport.findAllByProps({ accessibilityLabel: 'Turn off comments on this post' }).length > 0)
+        .toBe(platform === 'android');
+      expect(viewport.findAllByType(PostCommentsThread)).toHaveLength(1);
+      if (platform === 'android') {
+        expect(StyleSheet.flatten(viewport.props.style)).toMatchObject({
+          flex: 1, justifyContent: 'flex-end', paddingTop: 0,
+        });
+        expect(StyleSheet.flatten(React.Children.only(viewport.props.children).props.style))
+          .toMatchObject({ flexShrink: 1, minHeight: 0 });
+      }
+      const input = ui.getByPlaceholderText('Add a comment…');
+      const draft = 'First line\nSecond line\nThird line';
+      fireEvent.changeText(input, draft);
+      expect(input.props.value).toBe(draft);
+      expect(input.props.multiline).toBe(true);
+      expect(StyleSheet.flatten(input.props.style)).toMatchObject({ minHeight: 44, maxHeight: 120 });
+      expect(mockAdd.mutateAsync).not.toHaveBeenCalled();
+    },
+  );
   it.each(['ios', 'android'] as const)('dismisses the keyboard before the %s sheet', (platform) => {
     jest.replaceProperty(Platform, 'OS', platform);
     const callbacks: Record<string, () => void> = {};

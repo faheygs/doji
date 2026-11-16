@@ -293,6 +293,11 @@ export function PostCommentsSheet({
 
   if (!visible && !(Platform.OS === 'ios' && pendingReport.current)) return null;
 
+  // Android IMEs can occupy most of the window. Resize the whole sheet, not
+  // only the body beneath a fixed header, so the composer cannot overflow it.
+  const SheetViewport = Platform.OS === 'android' ? AppKeyboardViewport : View;
+  const ThreadViewport = Platform.OS === 'android' ? View : AppKeyboardViewport;
+
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClosePress}
       onDismiss={Platform.OS === 'ios' ? finishReportDismiss : undefined}>
@@ -306,11 +311,16 @@ export function PostCommentsSheet({
           />
         </Animated.View>
 
-        <View style={[styles.modalRoot, { justifyContent: 'flex-end' }]} pointerEvents="box-none">
+        <SheetViewport
+          style={[styles.modalRoot, { justifyContent: 'flex-end' },
+            Platform.OS === 'android' && { paddingTop: insets.top }]}
+          pointerEvents="box-none"
+        >
           <Animated.View
             style={[
               styles.sheet,
               sheetStyle,
+              Platform.OS === 'android' && styles.resizableSheet,
               {
                 paddingBottom: keyboardOpen ? 0 : insets.bottom + Spacing.sm,
                 /** Cap to live window so keyboard resize cannot push sheet off-screen. */
@@ -356,7 +366,7 @@ export function PostCommentsSheet({
                 />
               </View>
             ) : null}
-            <AppKeyboardViewport style={styles.body}>
+            <ThreadViewport style={styles.body}>
               <PostCommentsThread
                 postId={postId}
                 postOwnerId={postOwnerId}
@@ -366,9 +376,9 @@ export function PostCommentsSheet({
                 embedInSheet
                 onReport={reportAfterClose}
               />
-            </AppKeyboardViewport>
+            </ThreadViewport>
           </Animated.View>
-        </View>
+        </SheetViewport>
         <AppKeyboardToolbar owner="overlay" />
       </GestureHandlerRootView>
     </Modal>
