@@ -22,8 +22,29 @@ produced one accepted delivery each at 01:37:57, 01:41:45 and 01:44:51. The owne
 confirmed the single, follow-up and three-person burst phone alerts. Later batches
 contained only new source IDs, not previously acknowledged comments. No additional
 test send is authorized by this receipt. The owner's burst screenshot exposed
-three separate in-app comment rows; grouped client presentation remains pending
-an updated native artifact and acceptance. Production was not changed.
+three separate in-app comment rows; the build 12 correction below resolves that
+display gap. Production was not changed.
+
+PR #103 exact head `37b6fe0fc24175d5014ccadca119bef90ae22e7c` passed all four jobs
+and security, then merged as `fee12f93a28caf142b1813afef832b56bd2a6c2d`.
+Main quality `43791222441` passed all four jobs; admin-staging `43792550625`
+skipped package/deploy. The approved Staging build 12 pair used $3 of included
+credit, leaving $0 without overage: iPhone `556d6753-c9dd-4358-9985-f9c2e71b7f47`
+and Android `52c45a47-2e4c-41fa-95fa-27ccfca05f77`. Source, app identities,
+Android signing and Staging Firebase resources, owner-only iPhone provisioning,
+and both source-map upload reports were verified. Windows did not perform full
+macOS code-signature verification or device-error symbolication.
+
+The owner installed over iPhone Staging and confirmed the existing three comments
+now form one grouped row. Android was updated in place and retained its account;
+feed, notification list, existing friend groups and return navigation worked.
+That Android account had no ordinary-comment group, so this is not separate
+Android comment-group or FCM delivery acceptance. No additional test notifications,
+backend deployments or production changes occurred. Private build artifacts,
+hashes and acceptance receipts are retained under the same private parent in
+`in-app-comments-build12`. A stale cached build-number read interrupted preparation;
+fresh readback confirmed 12 before finishing archive checks, without replaying
+the setting update or launching duplicate builds.
 
 ## November 14 disabled Staging social notifications
 

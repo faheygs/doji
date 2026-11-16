@@ -10,16 +10,19 @@ The trailing comment-alert correction is deployed in Staging at reviewed source
 `f8189185`, with relay version 35 and exact SQL/artifact/retaining-rollback checks.
 The owner confirmed single, follow-up and three-person burst phone alerts on iPhone
 Staging build 11. Earlier acknowledged comments were excluded from later batches.
-The burst exposed one remaining client gap: three individual in-app comment rows
-instead of one grouped row. Production and Android delivery remain unqualified
+The burst exposed separate in-app comment rows; Staging build 12 corrects that
+grouping, with owner iPhone acceptance. Production and Android delivery remain unqualified
 for these new alert categories. See the [Staging receipt](releases/README.md#november-15-staging-comment-alert-acceptance).
 
-The in-app correction is source-only: ordinary comments group by post and distinct
+Staging build 12 at reviewed source `fee12f93` groups ordinary comments by post and distinct
 current username, preserving mentions/direct replies. Seen and dismissal actions
 retain exact displayed source IDs/timestamps and use existing atomic commands;
-concurrent comments survive. No SQL, relay or provider change is needed. Exact-head
-checks, an updated Staging native artifact and owner display acceptance remain
-required; installed build 11 does not contain this client correction.
+concurrent comments survive. PR #103 and main passed all four quality jobs;
+admin-staging skipped package/deploy. Both native artifacts and source-map uploads
+were verified. The owner confirmed the existing three comments appear as one row
+on iPhone; Android retained its account and passed feed/notification-screen smoke
+checks, but that account had no ordinary-comment group to inspect. No backend
+redeployment, new test sends or production changes occurred.
 
 The narrow `push_registration_staging_channel_v1` correction is installed in
 Staging, with retaining rollback and offline channel/platform/authorization coverage.
