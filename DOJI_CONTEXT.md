@@ -118,6 +118,15 @@ General polls may have one reserved Other write-in; WYR has exactly two choices
 and no Other. Editorial approval preserves original submissions while normalizing
 the future poll. Community idea acceptance does not schedule a Doji.
 
+The participation intro uses the same spotlight card and circular server-time
+countdown for every Doji type. Optional contributor credit comes only from an
+unambiguous approved editorial link, never matching question text or a Dev fixture.
+It projects safe public profile fields and respects audience, blocks and bans;
+missing or unavailable attribution cannot block participation or invent an author.
+The XP badge displays known server metadata, not a client-awarded reward. Content
+is centered without scrolling when it fits; large text/small screens can overflow
+accessibly. The additive read must qualify in Staging before production release.
+
 ### Feed, social and media
 
 - The optional first-to-Doji card celebrates the earliest eligible confirmed

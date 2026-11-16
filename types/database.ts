@@ -863,6 +863,16 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: void;
       };
+      get_doji_contributor_v1: {
+        Args: { p_daily_event_id: string };
+        Returns: {
+          daily_event_id: string;
+          profile: {
+            id: string; username: string; display_name: string | null;
+            avatar_url: string | null; equipped_border_key: string | null;
+          };
+        } | null;
+      };
       get_current_doji_state: {
         Args: Record<string, never>;
         Returns: {

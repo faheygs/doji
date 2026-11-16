@@ -4,6 +4,12 @@ These SQL sources and retaining inverses are used by the local database harness
 and controlled release packaging. They are not documentation drafts and are
 **not an ordered migration directory**.
 
+`member_doji_contributor_v1.indexes.sql` installs the bounded editorial lookup
+index concurrently; `member_doji_contributor_v1.sql` adds an authenticated,
+privacy-filtered attribution read. Its rollback removes only the added read/index,
+retaining editorial and member data. No existing member command or portal role
+contract changes. Local synthetic qualification precedes separate hosted release.
+
 Some are individually deployed; others remain gated. Presence here does not prove
 deployment. Read current release state and the relevant release record before
 changing or executing an overlay. Never bulk-apply this directory or move files

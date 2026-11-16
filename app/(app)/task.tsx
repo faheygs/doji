@@ -16,6 +16,7 @@ import { required, validationMessage } from '../../lib/formValidation';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { ConnectedDojiContributorCredit } from '../../components/challenge/DojiContributorCredit';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 
 export default function TaskScreen() {
@@ -155,6 +156,7 @@ export default function TaskScreen() {
               </Text>
             ) : null}
 
+            <ConnectedDojiContributorCredit eventId={userEvent?.daily_event_id} />
             <View style={styles.inputWrap}>
               <Input
                 placeholder="Type your answer..."

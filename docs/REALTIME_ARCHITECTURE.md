@@ -182,6 +182,13 @@ These lifecycle changes remain next-build source; check recorded release state.
 
 ### Read ownership
 
+- `dojiContributor` is an optional event/viewer-scoped, memory-only authorized read.
+  It resolves an exact approved editorial link after activation, not a title match.
+  Existing Doji/profile/privacy hints and foreground/reconnect reconcile it; block,
+  friendship and moderation changes clear old credit before rereading. Account
+  lifetime fences reject late results. No polling, member write or new channel is
+  introduced; attribution failure never delays participation.
+
 - `firstDoji` is keyed by event, viewer and audience, with account-lifetime fencing,
   no persistence and no polling. Existing completion/post/vote/profile hints and
   foreground/reconnect reconcile it. Block/friendship/moderation changes discard

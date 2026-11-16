@@ -22,6 +22,13 @@ export function handleDomainRealtimeEvent({
   if (event.type.startsWith('social.block.') || event.type.startsWith('social.friendship.') ||
     event.type.startsWith('moderation.status.')) {
     clearFirstDoji(queryClient);
+    void queryClient.cancelQueries({ queryKey: ['dojiContributor'] }, { revert: false });
+    queryClient.setQueriesData({ queryKey: ['dojiContributor'] }, null);
+  }
+  if (event.type.startsWith('doji.') || event.type.startsWith('social.block.') ||
+    event.type.startsWith('social.friendship.') || event.type.startsWith('moderation.status.') ||
+    event.type === 'profile.updated' || event.type.startsWith('profile.presentation.')) {
+    invalidateRoots('dojiContributor');
   }
   if (event.type.startsWith('doji.')) {
     invalidateRoots('upcomingDoji', 'userEvent', 'feed', 'post', 'profilePost', 'notificationCenter', 'firstDoji');

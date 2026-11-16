@@ -20,6 +20,7 @@ import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navi
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { required, validationMessage } from '../../lib/formValidation';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { ConnectedDojiContributorCredit } from '../../components/challenge/DojiContributorCredit';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 import { cameraScreenStyles as styles } from '../../components/challenge/cameraScreenStyles';
 import { preparePostImage } from '../../utils/upload';
@@ -329,6 +330,7 @@ export default function CameraScreen() {
                 : 'Take a photo or pick one from your library.'}
             {webHint ? `\n${webHint}` : ''}
           </Text>
+          <ConnectedDojiContributorCredit eventId={userEvent.daily_event_id} />
           <View style={styles.chooseButtons}>
             {Platform.OS !== 'web' ? (
               <Button

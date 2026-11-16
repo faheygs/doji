@@ -6,6 +6,14 @@ Fahey. Repository access does not authorize cloud changes, spending or member ac
 
 ## Current surfaces
 
+The contributor release integration is being prepared on reviewed main: the approved
+Dev spotlight/timer design now uses an additive, viewer-authorized author read
+instead of its exact-event fixture. SQL/index/retaining rollback, all-type privacy
+fixtures and native regression tests are source preparation only. No hosted
+installation, combined Staging acceptance or production build is implied. The owner
+approved at most $3 additional EAS usage for one production iPhone/Android pair;
+new Staging cloud builds or retries are not included. That budget remains unspent.
+
 All net-new work is queued for production preparation, including the Doji
 participation-screen redesign, not just the reviewed notification and Android
 keyboard changes at `1453f432`. The combined mobile source is not yet frozen:

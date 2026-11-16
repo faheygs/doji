@@ -15,6 +15,7 @@ import { backOrHome, navigateToFeedAfterChallengeComplete } from '../../lib/navi
 import { formatRuleHint, parseAnswerRule, validateAnswerRule } from '../../lib/answerRules';
 import { dojiSubmissionErrorCopy } from '../../lib/dojiSubmissionError';
 import { ChallengeTimer } from '../../components/challenge/ChallengeTimer';
+import { ConnectedDojiContributorCredit } from '../../components/challenge/DojiContributorCredit';
 import { InlineFeedback } from '../../components/ui/InlineFeedback';
 import { useFormatScreenStyles } from '../../components/challenge/useFormatScreenStyles';
 export default function FormatScreen() {
@@ -159,6 +160,7 @@ export default function FormatScreen() {
               </Text>
             ) : null}
 
+            <ConnectedDojiContributorCredit eventId={userEvent?.daily_event_id} />
             <View style={styles.ruleBanner}>
               <Text
                 variant="micro"

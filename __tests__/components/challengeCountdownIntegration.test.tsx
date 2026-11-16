@@ -85,24 +85,28 @@ describe.each([lightColors, darkColors])('authoritative countdowns', (colors) =>
     },
   );
 
-  it('ticks the normal 600-second window and expires only once', () => {
-    syncServerClock('2026-11-06T16:51:02.580081+00:00');
-    const onExpire = jest.fn();
-    const ui = render(
-      <ChallengeTimer
-        expiresAt="2026-11-06T10:01:02.580081-07:00"
-        variant="ring"
-        onExpire={onExpire}
-      />,
-    );
-    expect(ui.getByLabelText('10:00 remaining')).toBeTruthy();
-    act(() => jest.advanceTimersByTime(1000));
-    expect(ui.getByLabelText('9:59 remaining')).toBeTruthy();
-    act(() => jest.advanceTimersByTime(540_000));
-    expect(ui.getByLabelText('0:59 remaining')).toBeTruthy();
-    expect(ui.getByRole('timer').props.accessibilityLiveRegion).toBe('polite');
-    act(() => jest.advanceTimersByTime(60_000));
-    expect(ui.getByLabelText('0:00 remaining')).toBeTruthy();
-    expect(onExpire).toHaveBeenCalledTimes(1);
-  });
+  it.each(['classic', 'spotlight'] as const)(
+    'ticks the %s ring and expires only once',
+    (ringAppearance) => {
+      syncServerClock('2026-11-06T16:51:02.580081+00:00');
+      const onExpire = jest.fn();
+      const ui = render(
+        <ChallengeTimer
+          expiresAt="2026-11-06T10:01:02.580081-07:00"
+          variant="ring"
+          ringAppearance={ringAppearance}
+          onExpire={onExpire}
+        />,
+      );
+      expect(ui.getByLabelText('10:00 remaining')).toBeTruthy();
+      act(() => jest.advanceTimersByTime(1000));
+      expect(ui.getByLabelText('9:59 remaining')).toBeTruthy();
+      act(() => jest.advanceTimersByTime(540_000));
+      expect(ui.getByLabelText('0:59 remaining')).toBeTruthy();
+      expect(ui.getByRole('timer').props.accessibilityLiveRegion).toBe('polite');
+      act(() => jest.advanceTimersByTime(60_000));
+      expect(ui.getByLabelText('0:00 remaining')).toBeTruthy();
+      expect(onExpire).toHaveBeenCalledTimes(1);
+    },
+  );
 });
