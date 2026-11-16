@@ -399,6 +399,11 @@ See current state for hosted qualification.
 - Create Android category channels before permission/token requests. Registration's
   notification-contract version preserves old-client channel compatibility.
 - Master push opt-out and per-category preferences are enforced at delivery.
+- Native response navigation awaits `useNotificationPresentation`'s inbox dismissal
+  barrier even for same-feed links: Android hidden commit, iOS native `onDismiss`.
+  The five-second bound reports failure, never forced readiness. Superseded responses
+  and changed auth/access cancel navigation; failure does not clear or acknowledge
+  the durable response. Navigation settlement still gates attention receipts.
 - Claim immutable event/recipient/installation identity before provider I/O.
   Ambiguous handoff is terminal, never permission to resend.
 - Doji pushes expire after two minutes or close, whichever comes first; other pushes

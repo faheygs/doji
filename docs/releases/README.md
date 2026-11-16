@@ -45,6 +45,24 @@ Staging-development fixture; it is not a production attribution contract. Preser
 the original files while preparing the reviewed integration. The four local
 comments-keyboard files already match PR #105 and must not be reapplied as new work.
 
+### Android late-friend navigation correction
+
+On November 16 at 18:40 UTC, one normal synthetic Staging late participation
+produced one FCM-accepted/displayed emulator alert. No iPhone or production device
+was allowlisted. The OS tap foregrounded the app but left its existing native
+inbox over the feed; the in-app row then opened the correct synthetic post. Exact
+provider/configuration digests were restored. Evidence is retained under the
+November 14 Staging release root's `android-late-delivery-20261116`; completed
+mutation commands must not be replayed. The temporary helper was removed.
+
+The correction closes the inbox before native-response navigation, including
+same-feed links, using platform dismissal lifecycle rather than a delay. It keeps
+unacknowledged responses on failure and fences account/access changes. The owner
+approved up to $1 for one Android Staging build after exact-head checks, separate
+from the $3 production pair; neither build budget has been used. Production
+preflight also found unrelated email/business code in main's relay closure;
+that unfiltered closure is not qualified for this mobile release.
+
 ### Android Staging 13 comment delivery
 
 November 16 Android comment-delivery qualification used the existing Staging 13
