@@ -79,13 +79,20 @@ export function NotificationSheet({
   const pendingActionRef = useRef<(() => void) | null>(null);
   const onItemsVisibleRef = useRef(onItemsVisible);
   onItemsVisibleRef.current = onItemsVisible;
+  const visibleKeysRef = useRef(new Set<string>());
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken<NotificationCenterItem>[] }) => {
-      onItemsVisibleRef.current?.(
-        viewableItems.filter((token) => token.isViewable && token.item).map((token) => token.item),
-      );
+      const shown = viewableItems.filter((token) => token.isViewable && token.item).map((token) => token.item);
+      visibleKeysRef.current = new Set(shown.map(item => item.key));
+      onItemsVisibleRef.current?.(shown);
     },
   ).current;
+  React.useEffect(() => {
+    if (!visible) { visibleKeysRef.current.clear(); return; }
+    // A visible group's sources can change without FlatList changing its keys.
+    const shown = items.filter(item => visibleKeysRef.current.has(item.key));
+    if (shown.length) onItemsVisibleRef.current?.(shown);
+  }, [items, visible]);
   const attentionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
   useDismissOnRouteBlur(visible, onClose);
@@ -235,6 +242,7 @@ export function NotificationSheet({
           );
           break;
         }
+        case 'comments_group':
         case 'comment_likes_group': {
           card = (
             <CommentLikeGroupNotificationCard

@@ -88,6 +88,11 @@ export function commentLikeActorsLine(actors: NotificationActor[], count: number
   };
 }
 
+export function commentActorsLine(actors: NotificationActor[], count: number, isSharedPost = false): NotificationCopy {
+  return { title: commentLikeActorsLine(actors, count).title,
+    body: commentActivityCopy(actors[0], isSharedPost).body };
+}
+
 export function friendActivityActorsLine(
   actors: NotificationActor[],
   count: number,

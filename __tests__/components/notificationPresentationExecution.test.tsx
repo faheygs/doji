@@ -9,6 +9,7 @@ import { lightColors, darkColors } from '../../constants/theme';
 import type { NotificationCenterItem } from '../../lib/notificationCenterTypes';
 import type { FriendshipWithRequester, Profile, UserEvent } from '../../types/database';
 import { ROUTES } from '../../lib/routes';
+import { groupNotificationItems } from '../../lib/notificationGrouping';
 
 let mockColors = lightColors;
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
@@ -63,6 +64,11 @@ const items: NotificationCenterItem[] = [
     post_id: 'post',
     comment_id: 'comment',
   })),
+  {
+    ...base,
+    kind: 'comments_group', actors: [actor], count: 1, post_id: 'post', comment_id: 'comment',
+    sources: [{ key: 'comment:comment', comment_id: 'comment', sortAt: base.sortAt }],
+  },
   {
     ...base,
     kind: 'comment_likes_group',
@@ -129,6 +135,23 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
+  it.each([false, true])('renders one grouped comment card with existing navigation and dismissal (shared=%s)', shared => {
+    const grouped = groupNotificationItems(['one', 'two', 'three'].map((name, index) => ({
+      key: `comment:${index}`, kind: 'comment', post_id: 'p', comment_id: String(index),
+      actor: { ...actor, username: name, display_name: name }, sortAt: base.sortAt, is_shared_post: shared,
+    })));
+    const dismiss = jest.fn();
+    const visible = jest.fn();
+    const ui = render(<NotificationSheet visible onClose={jest.fn()} items={grouped} isLoading={false}
+      onDismissItem={dismiss} onItemsVisible={visible} />);
+    expect(ui.UNSAFE_getAllByType(NotificationActorRow)).toHaveLength(1);
+    expect(ui.getByText('three and 2 others')).toBeTruthy();
+    expect(ui.getByText(shared ? "Commented on today's Doji" : 'Commented on your post')).toBeTruthy();
+    act(() => ui.UNSAFE_getByType(FlatList).props.onViewableItemsChanged({ viewableItems: [{ item: grouped[0], isViewable: true }] }));
+    expect(visible).toHaveBeenCalledWith(grouped);
+    fireEvent.press(ui.getByText('Dismiss'));
+    expect(dismiss).toHaveBeenCalledWith('comments_post:p');
+  });
   beforeEach(() => {
     mockColors = mode === 'dark' ? darkColors : lightColors;
   });
@@ -191,19 +214,36 @@ describe.each(['light', 'dark'])('%s notification delivery UI', (mode) => {
 it('reports only viewable items using the current visibility callback', () => {
   const seen = jest.fn(),
     next = jest.fn();
-  const props = { visible: true, onClose: jest.fn(), items, isLoading: false };
+  const uniqueItems = items.map((item, index) => ({ ...item, key: `${item.kind}:${index}` }));
+  const props = { visible: true, onClose: jest.fn(), items: uniqueItems, isLoading: false };
   const ui = render(<NotificationSheet {...props} onItemsVisible={seen} />);
   fireEvent(ui.UNSAFE_getByType(FlatList), 'viewableItemsChanged', {
     viewableItems: [
-      { isViewable: true, item: items[0] },
-      { isViewable: false, item: items[1] },
+      { isViewable: true, item: uniqueItems[0] },
+      { isViewable: false, item: uniqueItems[1] },
       { isViewable: true, item: null },
     ],
   });
-  expect(seen).toHaveBeenCalledWith([items[0]]);
+  expect(seen).toHaveBeenCalledWith([uniqueItems[0]]);
   ui.rerender(<NotificationSheet {...props} onItemsVisible={next} />);
   fireEvent(ui.UNSAFE_getByType(FlatList), 'viewableItemsChanged', { viewableItems: [] });
   expect(next).toHaveBeenCalledWith([]);
+});
+it('acknowledges updated sources of an already visible group but not offscreen or closed rows', () => {
+  const seen = jest.fn();
+  const group = items.find(item => item.kind === 'comments_group')!;
+  const props = { visible: true, onClose: jest.fn(), items: [group], isLoading: false, onItemsVisible: seen };
+  const ui = render(<NotificationSheet {...props} />);
+  fireEvent(ui.UNSAFE_getByType(FlatList), 'viewableItemsChanged', { viewableItems: [{ isViewable: true, item: group }] });
+  const fresh = { ...group, sortAt: '2026-11-16T02:00:00Z' };
+  const offscreen = { ...group, key: 'comments_post:offscreen' };
+  seen.mockClear();
+  ui.rerender(<NotificationSheet {...props} items={[fresh, offscreen]} />);
+  expect(seen).toHaveBeenCalledWith([fresh]);
+  seen.mockClear();
+  ui.rerender(<NotificationSheet {...props} visible={false} items={[fresh, offscreen]} />);
+  ui.rerender(<NotificationSheet {...props} items={[fresh, offscreen]} />);
+  expect(seen).not.toHaveBeenCalled();
 });
 it('distinguishes loading, empty, failed read and cached-refresh feedback', () => {
   const close = jest.fn(),

@@ -61,6 +61,20 @@ select pg_temp.check_history((select (value->>'count')::int=1 and jsonb_array_le
 select pg_temp.check_history((select count(*)=1 from jsonb_array_elements(pg_temp.history_snapshot()) where value->>'kind'='comment_like'),'comment-like source filtering precedes client grouping');
 select pg_temp.check_history((select count(*)=7 from jsonb_array_elements(pg_temp.history_snapshot()) where value->>'kind'='comment' and value->>'sortAt' is not null),'unrelated comments preserved');
 
+-- The native comment group dismisses its exact source map in one existing RPC.
+savepoint comment_group;
+set local role authenticated;
+select public.sync_notification_center_state(null,null,jsonb_build_object(
+ 'comment:'||pg_temp.history_id(402),now()-interval '2 minutes',
+ 'comment:'||pg_temp.history_id(403),now()-interval '2 minutes'));
+reset role;
+select pg_temp.check_history((select count(*)=5 from jsonb_array_elements(pg_temp.history_snapshot()) where value->>'kind'='comment'),'group source map removes only displayed comments');
+select pg_temp.check_history((select count(*)=1 from jsonb_array_elements(pg_temp.history_snapshot()) where value->>'key'='comment:'||pg_temp.history_id(404)),'unacknowledged tied-timestamp comment survives');
+select pg_temp.check_history((select count(*)=5 from jsonb_array_elements(public.get_notification_center_bootstrap(null,null,'{}',200)->'items') where value->>'kind'='comment'),'group dismissals survive reinstall');
+select pg_temp.check_history((select count(*)=0 from public.notification_dismissals where user_id<>pg_temp.history_id(1)),'group dismissal remains account scoped');
+select pg_temp.check_history(social_notification_private.history_cutoff(pg_temp.history_id(1),'comment:'||pg_temp.history_id(402))=now()-interval '2 minutes','pending phone eligibility uses the same grouped source receipt');
+rollback to savepoint comment_group;
+
 -- An older/out-of-order dismissal cannot roll the durable cutoff backward.
 set local role authenticated;
 select public.dismiss_notification('friend_activity:'||pg_temp.history_id(21),now(),now()-interval '3 minutes');

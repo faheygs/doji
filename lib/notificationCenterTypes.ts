@@ -2,6 +2,8 @@ import type { Friendship, FriendshipWithRequester, Profile, UserEvent } from '..
 
 type Actor = Pick<Profile, 'username' | 'display_name' | 'avatar_url' | 'equipped_border_key'>;
 
+export type CommentNotificationSource = { key: string; comment_id: string; sortAt: string };
+
 export type NotificationCenterItem =
   | { key: string; kind: 'friend_request'; friendship: FriendshipWithRequester; sortAt: string }
   | {
@@ -37,6 +39,17 @@ export type NotificationCenterItem =
       comment_id: string;
       is_shared_post?: boolean;
       actor: Actor | null;
+      sortAt: string;
+    }
+  | {
+      key: string;
+      kind: 'comments_group';
+      post_id: string;
+      comment_id: string;
+      is_shared_post?: boolean;
+      actors: Actor[];
+      count: number;
+      sources: CommentNotificationSource[];
       sortAt: string;
     }
   | {

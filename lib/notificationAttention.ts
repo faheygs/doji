@@ -48,6 +48,14 @@ export function attentionReceiptsForItems(
 ): ObservedReceipt[] {
   const unique = new Map<string, ObservedReceipt>();
   for (const item of items) {
+    if (item.kind === 'comments_group') {
+      for (const source of item.sources) {
+        unique.set(`comment:${source.comment_id}`, {
+          scope_kind: 'comment', scope_id: source.comment_id, seen_at: seenAt,
+        });
+      }
+      continue;
+    }
     const scope = attentionScopeForItem(item);
     if (!scope?.scope_id) continue;
     const key = `${scope.scope_kind}:${scope.scope_id}`;

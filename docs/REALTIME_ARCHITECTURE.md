@@ -394,6 +394,11 @@ See current state for hosted qualification.
   expire after five minutes. Retries cannot refresh those original deadlines.
 - Attention receipts suppress already-seen subjects without erasing Activity Center
   history. Doji visibility is compared with activation, not the pre-live countdown.
+- Client-side post-comment grouping retains every displayed source key/ID/time.
+  Seen receipts cover those IDs; one existing `sync_notification_center_state`
+  command dismisses the source map atomically. Source filtering precedes distinct
+  actor counting, so refresh/reinstall cannot regroup dismissed comments and new
+  sources survive. This changes no phone batching, provider or realtime contract.
 - Clear/dismiss actions use durable phase-aware receipts, serialize within the
   mounted account and ignore late results after account change.
   Prepared `notification_group_dismissals_v1` filters source rows before grouping

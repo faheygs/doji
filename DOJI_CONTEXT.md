@@ -244,6 +244,13 @@ device/action time, so concurrent newer activity survives. Merely viewing marks
 read/attention without deleting history. Pending friend requests survive Clear;
 explicit dismissal still applies. SQL must qualify before the updated native client.
 
+Ordinary post comments share one Activity Center row per post, with distinct
+current usernames counted once. Mentions and direct replies remain separate.
+Grouping uses only the bounded authorized snapshot, not a lifetime comment total.
+Seeing a group acknowledges its exact comment IDs; dismissing it atomically stores
+those source keys/timestamps using the existing history command. New comments,
+including tied-timestamp arrivals, are not acknowledged by an older displayed group.
+
 OS pushes are allowlisted: Doji live, friend requests, direct mentions/replies and
 review/account actions. Ambient social activity remains in-app. Foreground OS
 banners are suppressed. Native APNs/FCM is primary; Expo is migration fallback.

@@ -7,6 +7,15 @@ import {
 import type { NotificationCenterItem } from '../../lib/notificationCenterTypes';
 
 describe('notification attention receipts', () => {
+  it('marks every displayed grouped comment seen, not only its leading actor or latest comment', () => {
+    const group: NotificationCenterItem = { key: 'comments_post:p', kind: 'comments_group', post_id: 'p',
+      comment_id: 'c3', actors: [], count: 2, sortAt: '2026-11-16T01:00:00Z',
+      sources: ['c1', 'c2', 'c3'].map(id => ({ key: `comment:${id}`, comment_id: id, sortAt: '2026-11-16T01:00:00Z' })) };
+    expect(attentionReceiptsForItems([group, group], '2026-11-16T01:01:00Z')).toEqual(
+      ['c1', 'c2', 'c3'].map(id => ({ scope_kind: 'comment', scope_id: id, seen_at: '2026-11-16T01:01:00Z' })),
+    );
+    expect(attentionScopeForItem(group)).toBeNull(); // No guessed single subject for a multi-source row.
+  });
   it('acknowledges the displayed daily snapshot instead of newer unseen activity', () => {
     const through = '2026-11-15T12:00:00Z';
     const now = '2026-11-15T12:02:00Z';
