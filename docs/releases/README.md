@@ -59,10 +59,22 @@ files passed before launch. The pair is capped at the owner's additional $3 budg
 with no automatic retry. iOS 109 passed native identity, App Store provisioning,
 production APNs entitlement and source-map checks. IPA SHA-256 is
 `34c4e945aa74a578d3af443810ff355c8aa41ebd9a1a75e85f4dab4b7d16a55d`;
-EAS submission `a37ce784-baf6-4caa-9352-c2d95489f150` is uploading to the existing
-Apple app and Doji Testers audience. Android artifact checks, closed Alpha distribution
-and Apple review are pending; this receipt does not claim store availability or change
-the minimum-version policy. Mobile evidence is private under
+EAS submission `a37ce784-baf6-4caa-9352-c2d95489f150` finished for the existing
+Apple app and Doji Testers audience. After owner confirmation, App Review submission
+`3df9e8e7-0729-44a5-92e6-51989c3f14c5` showed Waiting for Review at 03:58 UTC;
+build 109, existing reviewer access and manual release were preserved.
+Android 35 passed bundletool validation, existing upload-certificate/signature
+matching, non-debuggable production identity and source-map checks at 04:02 UTC.
+Its AAB SHA-256 is
+`564951c9290f9a5886a6ef6524f8dcd0133ccf2a1ee93edeaaac3001a2783a89`.
+After owner confirmation, Google Play closed Alpha release 25 showed Changes in
+review at 04:09 UTC, targeting 100% of the existing audience. Automated quick checks
+were still running; Google stated review would follow successful checks. Validation
+had no blocking errors and one missing R8/ProGuard mapping warning; native debug
+symbols were present, with no supported-device loss. No new tester, public Play
+production release or mandatory-update change occurred. Store approval, availability
+and installed production-device acceptance remain pending. Mobile evidence is
+private under
 `%LOCALAPPDATA%/Doji/mobile-production/2026-11-17-notifications`.
 
 ## November 16 production mobile release queue

@@ -21,14 +21,18 @@ found zero lock waits, overdue work or nearby Dojis. Worker, auth, timing, rewar
 monitoring and provider credentials were not changed. Retaining rollback is private;
 see the [production backend receipt](releases/README.md#november-17-production-notification-backend).
 
-The approved production 1.0.15 pair uses that exact source: iOS 109 passed native
-artifact/signing/source-map verification and its Apple upload is in progress;
-Android 35 is building. Production bindings/signing, both explicit configuration checks,
-the 425-file upload archive and main CI `43959663009` passed before dispatch.
+The approved production 1.0.15 pair uses that exact source: iOS 109 and Android 35
+passed native artifact/signing/source-map verification. Apple shows Waiting for
+Review with manual release retained. Google shows Changes in review for closed
+Alpha release 25 at 100% rollout, with automated quick checks still running at
+submission. Neither status establishes approval or availability. Production
+bindings/signing, both explicit configuration checks, the 425-file upload archive
+and main CI `43959663009` passed before dispatch.
 The owner authorized at most $3 additional EAS usage for this pair; no automatic
-retry or new audience is authorized. Android artifact checks, closed Alpha submission
-and Apple review remain pending. Existing distribution and minimum-version policy
-remain 1.0.14 / iOS 108 / Android 34. The dated preparation notes below are historical
+retry or new audience is authorized. Both store submissions are complete; approval
+and installed production-device acceptance remain pending. Existing availability
+and minimum-version policy remain 1.0.14 / iOS 108 / Android 34.
+The dated preparation notes below are historical
 and do not supersede this deployed-backend/native-release-in-progress status.
 
 Combined source acceptance includes the contributor spotlight/round-timer design,
