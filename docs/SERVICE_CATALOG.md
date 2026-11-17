@@ -189,17 +189,23 @@ current consoles before deciding availability, review state or enforcement.
 
 ## Responsibility boundaries and usage status
 
-The gated social phone-alert expansion reuses the existing Supabase outbox, Ably
+The social phone-alert expansion reuses the existing Supabase outbox, Ably
 and APNs/FCM relay; it adds no subscription or timer. Its separately approved
 Staging qualification has dedicated provider credentials, described below.
-`social_phone_alerts_v1`, its additive defaults overlay and gated relay are installed
-in Staging; production is unchanged. Settings availability is independent of delivery,
-and saved opt-outs remain authoritative. Capacity, compatibility, permissions and
-retaining rollback passed for the initial disabled release. The subsequent approved
-test permits only the owner's registered Staging iPhone; first late-friend delivery
-passed. FCM has no allowed device. Trailing-batch SQL/relay/native changes remain
-source-only and require renewed qualification. See the
-[initial qualification record](releases/README.md#november-14-disabled-staging-social-notifications).
+`social_phone_alerts_v1`, additive defaults, both trailing-batch layers and snapshot
+dismissals are qualified and enabled in production as of November 17 03:34 UTC.
+Settings availability is independent of delivery, and saved opt-outs remain
+authoritative without profile rewrites. The production relay v77 package preserves
+existing email/business behavior; all existing APNs/FCM keys and configuration
+digests are unchanged. The exact 13-file runtime, 17 other functions, capacity,
+permissions, concurrency and retaining rollback passed verification. Staging iPhone
+and emulator comment/late-friend delivery are recorded separately; physical Android
+performance is not established by emulator acceptance. See the
+[production receipt](releases/README.md#november-17-production-notification-backend).
+Rollback disables the private social delivery gate, reverses comment/history/late
+layers in their retained order, then restores the prior relay; preserve pending
+sources, acknowledgement history and provider claims. No new resource, subscription,
+provider credential or scheduled job was added.
 Existing server-only secret storage and production/staging account isolation remain
 unchanged; backend source completion does not authorize phone sends.
 

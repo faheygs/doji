@@ -5,6 +5,66 @@ They are not current setup instructions or authorization to rerun old operations
 Use [current state](../CURRENT_STATE_AND_GAPS.md) and the [handbook](../README.md) first.
 Private artifacts remain ignored; source history is recoverable through Git.
 
+## November 17 production notification backend
+
+Reviewed main `7c7b9e0c6590836a981a0a0c097ccf850b48733d` passed all four jobs in
+`43959663009`; docs-only admin-staging `43962776977` skipped package/deploy.
+The owner reaffirmed iPhone design acceptance. The combined Android contributor
+screen was accepted on the Staging emulator; no physical Android performance claim
+is made. The isolated notification relay additionally passed 144 offline tests,
+strict typing and controlled hosted Staging qualification, followed by byte-exact
+restoration of the prior Staging runtime/configuration. Its two empty synthetic
+batches exercised natural durable deferral/wake/completion without provider sends.
+
+Fresh production preflight and two owned network-disabled database runs qualified
+the seven exact production predecessor definitions, canonical SQL package, both
+notification categories, concurrency, old-client arities, source acknowledgements,
+all-kind contributor privacy and retaining rollback. Production had no nearby Doji,
+due outbox work or lock waits. The next scheduled Doji was November 17 18:45 UTC.
+The retained relay rollback matched all 12 prior runtime files byte-for-byte.
+
+The installation kept social delivery disabled while applying the foundation,
+defaults and matching notification-only relay, followed by trailing/history layers
+and the concurrent contributor index/read. Production relay v77 matched all 13
+candidate runtime files. It excludes four unrelated business-handler additions and
+retains the deployed email helper, rather than deploying main's full closure.
+All 17 other function inventories/code hashes and all 53 configuration digests
+matched. A verification assertion initially included metadata timestamps: seven
+platform-managed timestamps refreshed, but name/digest reconciliation proved no
+configuration value changed. Read-only verification completed without repeating the
+deployment; an unauthenticated relay request was rejected with 401.
+
+Delivery enabled prospectively at `2026-11-17T03:34:16Z`. Readback at 03:36 UTC
+verified 407 unrelated public contracts, all existing grants/policies/triggers/indexes
+and unchanged profile/preference fingerprints. Only the two reviewed capture triggers
+and one valid public contributor index were added. Database size was about 99.4 MB;
+lock waits, overdue work and nearby events were zero. No profile rewrite, backfill,
+production test notification, Worker deployment, new job, key rotation, auth/timing/
+reward/monitoring change or additional resource occurred. Existing natural activity
+uses the approved categories while honoring member opt-outs.
+
+Exact baselines, package hashes, download readbacks, disabled/activation receipts
+and retaining inverses are private under
+`%LOCALAPPDATA%/Doji/production-backend/2026-11-16-social-notifications/production-preflight-20261117`.
+Rollback disables social delivery and restores comment, dismissal, late-friend and
+foundation layers in that order, retaining receipts/state and new-client preference
+compatibility, then restores the prior isolated relay. The contributor read/index
+has its separate retaining inverse. Do not replay installation or activation.
+
+The approved production builds were dispatched once from the same main source:
+Android `1653921b-f344-429d-a015-fa0297166188` (35) and iOS
+`2f1147b3-d5ec-427c-9e94-d71ffd4b7a1e` (109), both version 1.0.15. Both platform
+configurations, production bindings, existing signing metadata and all 425 archive
+files passed before launch. The pair is capped at the owner's additional $3 budget,
+with no automatic retry. iOS 109 passed native identity, App Store provisioning,
+production APNs entitlement and source-map checks. IPA SHA-256 is
+`34c4e945aa74a578d3af443810ff355c8aa41ebd9a1a75e85f4dab4b7d16a55d`;
+EAS submission `a37ce784-baf6-4caa-9352-c2d95489f150` is uploading to the existing
+Apple app and Doji Testers audience. Android artifact checks, closed Alpha distribution
+and Apple review are pending; this receipt does not claim store availability or change
+the minimum-version policy. Mobile evidence is private under
+`%LOCALAPPDATA%/Doji/mobile-production/2026-11-17-notifications`.
+
 ## November 16 production mobile release queue
 
 ### Production version allocation

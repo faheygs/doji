@@ -9,13 +9,16 @@ This maps Doji's surfaces to code and services. Versions describe the audited
 `member_doji_contributor_v1` read and indexed editorial link, with no member access
 to editorial tables. The offline database fixture verifies privacy, all Doji types
 and rollback; the additive read/index also passed hosted Staging qualification.
-Combined mobile acceptance and production promotion remain separate release gates.
+The read/index is now qualified in production; native artifact/store distribution
+remains a separate boundary. See current state for the exact release receipt.
 
-Prepared social phone alerts use `supabase/overlays/social_phone_alerts_v1*`, the
+Social phone alerts use `supabase/overlays/social_phone_alerts_v1*`, the
 existing `relay-domain-events` runtime and `_shared/social-phone-alerts.ts`.
 `useSocialPhoneAlertCapabilities` gates the additional settings; existing Activity
 Center reads and foreground/reconnect reconciliation remain authoritative. This
-source ownership does not imply hosted activation.
+source ownership does not imply hosted activation. The November 17 production
+receipt records the enabled, notification-only relay package; unrelated email and
+business changes in main's full closure are excluded from that deployment.
 `late_friend_trailing_alerts_v1*` prepares the additive late-friend queue correction
 and retaining inverse. The existing relay handles deferred leases; native/Activity
 Center attention helpers supply bounded snapshot watermarks. No new job is added.
@@ -26,7 +29,8 @@ social-phone harness covers both categories, including concurrent follow-ups.
 snapshot dismissal commands; `notificationGrouping`, `notificationVisibility`,
 `notificationHistoryQueue` and `useNotificationCenter` own optimistic visibility,
 account-fenced receipts and authorized reconciliation. Both overlays share the
-offline social-phone database harness; hosted/native qualification remains gated.
+offline social-phone database harness; hosted production qualification and native
+distribution are recorded separately in current state.
 `_shared/staging-push-egress.ts` owns the separately gated Staging-only relay
 provider/device allowlist; `build-staging-edge.mts` installs it without changing
 the shared handler. `lib/notificationSetupFeedback.ts` separates binary availability
